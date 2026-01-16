@@ -1789,8 +1789,7 @@ function markStepPending(el, icon) {
     if(icon) { icon.className = "fa-regular fa-circle"; icon.style.color = "#aaa"; }
 }
 
-// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОЛНОСТЬЮ) ---
-// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ (Авто-проверка + Возврат в меню) ---
+// --- ФИНАЛЬНАЯ ВЕРСИЯ: ПРОВЕРКА -> КНОПКА ЗАБРАТЬ -> ЗАКРЫТИЕ ПРИ ТВИЧЕ ---
 function openWelcomePopup(userData) {
     const popup = document.getElementById('welcome-popup');
     const successModal = document.getElementById('subscription-success-modal');
@@ -1810,6 +1809,12 @@ function openWelcomePopup(userData) {
     let iconTwitch = document.getElementById('icon-twitch'); 
     
     const actionBtn = document.getElementById('action-btn');
+
+    // Сброс состояния кнопки при открытии
+    actionBtn.disabled = false;
+    actionBtn.textContent = "Проверить";
+    actionBtn.style.background = ""; // Сброс цвета к дефолтному (синему/черному)
+    actionBtn.onclick = runCheck; // Изначально клик запускает ПРОВЕРКУ
 
     // --- 1. ОТРИСОВКА TWITCH ---
     if (!userData.twitch_id) {
@@ -1849,7 +1854,7 @@ function openWelcomePopup(userData) {
             iconTwitch = document.getElementById('icon-twitch'); // Обновляем ссылку
 
             if (btnConnect) {
-                // ЛОГИКА АВТОРИЗАЦИИ TWITCH
+                // ЛОГИКА АВТОРИЗАЦИИ TWITCH + ЗАКРЫТИЕ СТАРОГО ОКНА
                 btnConnect.onclick = async (e) => {
                     e.preventDefault(); 
                     e.stopPropagation();
@@ -1870,18 +1875,21 @@ function openWelcomePopup(userData) {
                         const data = await response.json();
 
                         if (data.url) {
-                            // !!! ВАЖНО: Этот флаг скажет menu.js открыть окно при возврате
+                            // !!! ВАЖНО: Флаг для открытия окна при следующем запуске
                             localStorage.setItem('openRefPopupOnLoad', 'true');
                             
-                            // Открываем ссылку
+                            // 1. Открываем ссылку во внешнем браузере
                             Telegram.WebApp.openLink(data.url);
+                            
+                            // 2. 🔥 ЗАКРЫВАЕМ СТАРОЕ ПРИЛОЖЕНИЕ 🔥
+                            // Чтобы при возвращении юзер открыл его заново и данные обновились
+                            Telegram.WebApp.close();
                         } else {
                             alert("Сервер не вернул ссылку");
                         }
                     } catch (err) {
                         console.error(err);
                         Telegram.WebApp.showAlert("Ошибка: " + err.message);
-                    } finally {
                         btnConnect.style.opacity = '1';
                         btnConnect.innerHTML = originalText;
                     }
@@ -1899,14 +1907,16 @@ function openWelcomePopup(userData) {
 
     } else {
         // Если уже привязан - ставим галочку визуально
-        const checkIcon = stepTwitch.querySelector('#icon-twitch');
-        if(!checkIcon && iconTwitch) {
-             // Если HTML не меняли, ищем старую иконку
-        } else if (checkIcon) {
-             // Если мы внутри перерисованного блока (редкий кейс, обычно ветка выше)
-        }
+        // (Этот код сработает, когда юзер вернется после привязки)
+        setTimeout(() => {
+             const checkIcon = stepTwitch.querySelector('#icon-twitch');
+             if(checkIcon) {
+                 markStepDone(stepTwitch, checkIcon);
+             } else if (iconTwitch) {
+                 markStepDone(stepTwitch, iconTwitch);
+             }
+        }, 50);
         
-        // На всякий случай обновляем стили при открытии (ниже)
         stepTwitch.onclick = () => {
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         };
@@ -1924,43 +1934,29 @@ function openWelcomePopup(userData) {
     // Показываем окно
     popup.classList.add('visible');
 
-    // --- 3. ФУНКЦИЯ ПРОВЕРКИ (attemptActivation) ---
-    const attemptActivation = async () => {
-        // Блокируем кнопку и показываем процесс
-        if(actionBtn.disabled) return; // Защита от двойного вызова
-        
+    // --- 3. ФУНКЦИЯ: ЗАБРАТЬ НАГРАДУ (Вторая фаза) ---
+    async function claimReward() {
         actionBtn.disabled = true;
-        actionBtn.textContent = "Проверка...";
-        actionBtn.style.background = "#3a3a3c"; // Нейтральный цвет при загрузке
-
-        // Визуально ставим "загрузку" на иконках, если они еще не зеленые
-        if (!userData.twitch_id && iconTwitch) iconTwitch.className = "fa-solid fa-spinner fa-spin";
-        if (iconTg.className !== "fa-solid fa-circle-check") iconTg.className = "fa-solid fa-spinner fa-spin";
-
+        actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
+        
         try {
-            // Запрос проверки
+            // Реальный запрос на выдачу награды
             const response = await fetch('/api/v1/user/referral/activate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
-
             const res = await response.json();
 
             if (response.ok) {
-                // === УСПЕХ ===
-                markStepDone(stepTwitch, document.getElementById('icon-twitch'));
-                markStepDone(stepTg, iconTg);
-                
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                actionBtn.textContent = "Успешно!";
-                actionBtn.style.background = "#34c759";
+                actionBtn.textContent = "Готово!";
                 
-                // Убираем кнопку "Забрать бонус" на главной
+                // Чистим флаги
                 document.getElementById('open-bonus-btn')?.classList.add('hidden');
                 localStorage.removeItem('openRefPopupOnLoad');
 
-                // Закрываем окно через 0.8 сек и показываем награду
+                // Переход к успеху
                 setTimeout(() => {
                     popup.classList.remove('visible');
                     if (successModal) {
@@ -1968,57 +1964,89 @@ function openWelcomePopup(userData) {
                         successModal.classList.add('visible');
                     }
                     refreshDataSilently(); 
-                }, 800);
-
+                }, 500);
             } else {
-                // === ОШИБКА (Что-то не выполнено) ===
+                Telegram.WebApp.showAlert(res.detail || "Ошибка при получении");
+                actionBtn.disabled = false;
+                actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
+            }
+        } catch(e) {
+            console.error(e);
+            Telegram.WebApp.showAlert("Ошибка сети");
+            actionBtn.disabled = false;
+            actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
+        }
+    }
+
+    // --- 4. ФУНКЦИЯ: ПРОВЕРКА (Первая фаза) ---
+    async function runCheck() {
+        actionBtn.disabled = true;
+        actionBtn.textContent = "Проверка...";
+        actionBtn.style.background = "#3a3a3c"; 
+
+        // Крутилки на иконках
+        if (!userData.twitch_id && iconTwitch) iconTwitch.className = "fa-solid fa-spinner fa-spin";
+        if (iconTg.className !== "fa-solid fa-circle-check") iconTg.className = "fa-solid fa-spinner fa-spin";
+
+        try {
+            // 1. Проверяем подписку ТГ (через отдельный легкий запрос или через activate c обработкой ошибки)
+            // Чтобы не усложнять бэкенд, используем тот же activate, 
+            // НО если он вернет ошибку "Уже активировано" или успех, мы обработаем это.
+            // Однако activate сразу дает деньги. 
+            // ЛУЧШИЙ ВАРИАНТ ТУТ: Проверить ТГ отдельно (endpoint check_subscription) и Twitch по userData.
+            
+            let tgOk = false;
+            try {
+                const tgRes = await makeApiRequest('/api/v1/check_subscription', { initData: Telegram.WebApp.initData }, 'POST', true);
+                if (tgRes && tgRes.subscribed) tgOk = true;
+            } catch(e) { console.warn("TG check fail", e); }
+
+            // 2. Проверяем Twitch (он уже в userData при загрузке)
+            const twitchOk = !!userData.twitch_id;
+
+            // Обновляем иконки
+            if (tgOk) markStepDone(stepTg, iconTg);
+            else markStepError(stepTg, iconTg);
+
+            const currentTwitchIcon = document.getElementById('icon-twitch'); // Ищем актуальную иконку
+            if (twitchOk) markStepDone(stepTwitch, currentTwitchIcon);
+            else markStepError(stepTwitch, currentTwitchIcon);
+
+            // РЕШЕНИЕ:
+            if (tgOk && twitchOk) {
+                // ВСЕ УСЛОВИЯ ВЫПОЛНЕНЫ!
+                // Меняем кнопку на "ЗАБРАТЬ"
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                actionBtn.disabled = false;
+                actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁";
+                actionBtn.style.background = "#FFD700"; // Золотой
+                actionBtn.style.color = "#000";
+                actionBtn.style.fontWeight = "800";
+                
+                // Переназначаем клик на получение
+                actionBtn.onclick = claimReward; 
+            } else {
+                // Чего-то не хватает
+                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
                 actionBtn.disabled = false;
                 actionBtn.textContent = "Проверить снова";
-                // actionBtn.style.background = ""; // Вернуть дефолтный цвет (если нужно)
                 
-                Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                
-                const msg = (res.detail || "").toLowerCase();
-                const currentTwitchIcon = document.getElementById('icon-twitch');
-
-                // --- Умная расстановка галочек ---
-                
-                // 1. Ошибка про "канал/подписку"? Значит ТГ не готов.
-                if (msg.includes("канал") || msg.includes("подпишитесь")) {
-                    markStepError(stepTg, iconTg); // Крестик на ТГ
-                    // Twitch не трогаем или возвращаем как было
-                    if (currentTwitchIcon) markStepPending(stepTwitch, currentTwitchIcon); 
-                } 
-                // 2. Ошибка про "Twitch"? Значит ТГ уже ОК!
-                else if (msg.includes("twitch") || msg.includes("привяжите")) {
-                    markStepDone(stepTg, iconTg); // ✅ Зеленая на ТГ
-                    markStepError(stepTwitch, currentTwitchIcon); // Крестик на Twitch
-                }
-                // 3. Другое
-                else {
-                    markStepPending(stepTg, iconTg);
-                    if (currentTwitchIcon) markStepPending(stepTwitch, currentTwitchIcon);
-                    Telegram.WebApp.showAlert(res.detail || "Выполните все условия!");
-                }
+                if (!tgOk) Telegram.WebApp.showAlert("Вы не подписались на Telegram канал!");
+                else if (!twitchOk) Telegram.WebApp.showAlert("Вы не привязали Twitch!");
             }
+
         } catch (e) {
             console.error(e);
             actionBtn.disabled = false;
-            actionBtn.textContent = "Ошибка сети";
-            // Возвращаем иконки в исходное
-            markStepPending(stepTg, iconTg);
-            if (document.getElementById('icon-twitch')) markStepPending(stepTwitch, document.getElementById('icon-twitch'));
+            actionBtn.textContent = "Ошибка проверки";
         }
-    };
+    }
 
-    // Привязываем клик
-    actionBtn.onclick = attemptActivation;
-
-    // --- 4. 🔥 ЗАПУСКАЕМ АВТО-ПРОВЕРКУ СРАЗУ 🔥 ---
-    // Небольшая задержка (300мс), чтобы анимация открытия окна успела начаться красиво
+    // --- 5. АВТО-СТАРТ ПРОВЕРКИ ---
+    // Сразу запускаем проверку при открытии окна
     setTimeout(() => {
-        attemptActivation();
-    }, 300);
+        runCheck();
+    }, 400);
 }
         
 function setupEventListeners() {
