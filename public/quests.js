@@ -1899,9 +1899,8 @@ document.addEventListener('visibilitychange', async () => {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             
-            // === ФИКС: Сразу блокируем повторные нажатия на уровне данных ===
             if(userData.challenge) {
-                userData.challenge.claimed_at = new Date().toISOString(); // Ставим "забрано" локально
+                userData.challenge.claimed_at = new Date().toISOString(); 
             }
             
             try {
@@ -1909,7 +1908,6 @@ document.addEventListener('visibilitychange', async () => {
                 const result = await makeApiRequest(`/api/v1/challenges/${challengeId}/claim`, {}, 'POST');
                 
                 if (result.success) {
-                    // Визуально превращаем кнопку в "Выполнено" прямо сейчас
                     target.innerHTML = '<i class="fa-solid fa-check"></i> <span>Выполнено</span>';
                     target.style.background = '#2c2c2e';
                     target.style.color = '#666';
@@ -1921,14 +1919,12 @@ document.addEventListener('visibilitychange', async () => {
                         await main();
                     }
                 } else {
-                    // Если ошибка — возвращаем кнопку к жизни
                     Telegram.WebApp.showAlert(result.message || "Не удалось забрать награду");
                     target.disabled = false;
-                    target.style.background = ''; // Сброс цвета
+                    target.style.background = ''; 
                     target.style.color = '';
                     target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
                     
-                    // Если ошибка, снимаем локальную блокировку
                     if(userData.challenge) delete userData.challenge.claimed_at;
                 }
             } catch (e) {
@@ -1968,8 +1964,8 @@ document.addEventListener('visibilitychange', async () => {
             dom.promptInput.value = '';
             dom.promptOverlay.classList.remove('hidden');
             dom.promptInput.focus();
-
-        // 5. 🔥 КНОПКИ ЗАВЕРШЕНИЯ (Истекшее время) 🔥
+        
+        // 🔥🔥🔥 ВОТ ЗДЕСЬ НЕ ХВАТАЛО ЗАКРЫВАЮЩЕЙ СКОБКИ "}" 🔥🔥🔥
         } else if (target.id === 'check-challenge-progress-btn' || target.id === 'complete-expired-quest-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -1978,14 +1974,14 @@ document.addEventListener('visibilitychange', async () => {
             const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
             localStorage.setItem('temp_return_tab', currentTab);
 
-            // 2. Чистим кэш, чтобы данные обновились точно
+            // 2. Чистим кэш
             localStorage.removeItem('quests_cache_v1');
 
             try {
                 if (target.id === 'check-challenge-progress-btn') await makeApiRequest("/api/v1/user/challenge/close_expired");
                 else await makeApiRequest('/api/v1/quests/close_expired');
                 
-                // 3. Перезагружаем страницу (main() подхватит temp_return_tab и вернет вас на ту же вкладку)
+                // 3. Перезагружаем страницу
                 window.location.reload();
             } catch (e) {
                 console.error(e);
@@ -1994,30 +1990,22 @@ document.addEventListener('visibilitychange', async () => {
 
         // 6. Кнопка "Отменить квест"
         } else if (target.id === 'cancel-quest-btn') {
-            // Останавливаем стандартное поведение
             event.preventDefault();
             
             Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания можно лишь раз в сутки.", async (ok) => {
                 if (ok) {
                     try {
-                        // Визуально блокируем кнопку
                         const btn = document.getElementById('cancel-quest-btn');
                         if(btn) { btn.disabled = true; btn.innerText = '...'; }
 
                         await makeApiRequest('/api/v1/quests/cancel');
                         Telegram.WebApp.showAlert('Задание отменено.');
 
-                        // 🔥 1. Определяем, на какой вкладке мы сейчас находимся
                         const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
-                        
-                        // 🔥 2. Запоминаем её как "временную" для возврата
                         localStorage.setItem('temp_return_tab', currentTab);
-
-                        // 🔥 3. Чистим кэш и перезагружаем
                         localStorage.removeItem('quests_cache_v1');
                         window.location.reload();
                     } catch (e) {
-                        // При ошибке тоже перезагружаем, чтобы сбросить состояние
                         window.location.reload();
                     }
                 }
