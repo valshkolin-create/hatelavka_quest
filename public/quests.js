@@ -1769,6 +1769,7 @@ function initPullToRefresh() {
 
 // --- СОБЫТИЯ ---
 function setupEventListeners() {
+    // 1. Вибрация в футере
     const footer = document.querySelector('.app-footer');
     if (footer) {
         footer.addEventListener('click', (e) => {
@@ -1777,69 +1778,56 @@ function setupEventListeners() {
             }
         });
     }
-    // === АВТО-ПРОВЕРКА ПРИ ВОЗВРАЩЕНИИ В ПРИЛОЖЕНИЕ ===
-document.addEventListener('visibilitychange', async () => {
-    // Если пользователь вернулся в приложение И у него открыт попап проверки профиля
-    if (document.visibilityState === 'visible' && activeProfileCheck) {
-        console.log("🔄 Пользователь вернулся, проверяем:", activeProfileCheck);
-        
-        const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
-        if (!userId) return;
 
-        // Ключ задания в зависимости от типа попапа
-        const taskKey = activeProfileCheck === 'surname' ? 'tg_surname' : 'tg_bio';
+    // 2. Авто-проверка профиля при возврате
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible' && activeProfileCheck) {
+            console.log("🔄 Пользователь вернулся, проверяем:", activeProfileCheck);
+            const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
+            if (!userId) return;
 
-        // Небольшая задержка, чтобы Telegram успел синхронизировать данные
-        await new Promise(r => setTimeout(r, 1500));
+            const taskKey = activeProfileCheck === 'surname' ? 'tg_surname' : 'tg_bio';
+            await new Promise(r => setTimeout(r, 1500));
 
-        try {
-            // Делаем "тихий" запрос проверки (без лоадера на весь экран)
-            const data = await makeApiRequest('/api/v1/telegram/claim_daily', { 
-                user_id: userId, 
-                task_key: taskKey 
-            }, 'POST', true);
-            
-            if (data && data.success) {
-                // УСПЕХ!
+            try {
+                const data = await makeApiRequest('/api/v1/telegram/claim_daily', { 
+                    user_id: userId, 
+                    task_key: taskKey 
+                }, 'POST', true);
                 
-                // 1. Закрываем попап
-                const popup = document.getElementById('profilePopup');
-                if (popup) popup.remove();
-                activeProfileCheck = null; // Сбрасываем слежение
+                if (data && data.success) {
+                    const popup = document.getElementById('profilePopup');
+                    if (popup) popup.remove();
+                    activeProfileCheck = null;
 
-                // 2. Показываем радость
-                Telegram.WebApp.showAlert("✅ Отлично! Профиль обновлен, награда получена.");
-                if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    Telegram.WebApp.showAlert("✅ Отлично! Профиль обновлен, награда получена.");
+                    if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
 
-                // 3. Обновляем данные в кэше интерфейса
-                if (telegramTasksCache) {
-                    const task = telegramTasksCache.find(t => t.task_key === taskKey);
-                    if (task) {
-                        task.is_completed = true;
-                        if (data.day) task.current_day = data.day;
+                    if (telegramTasksCache) {
+                        const task = telegramTasksCache.find(t => t.task_key === taskKey);
+                        if (task) {
+                            task.is_completed = true;
+                            if (data.day) task.current_day = data.day;
+                        }
                     }
-                }
 
-                // 4. Перерисовуем сетку заданий
-                const container = dom.modalContainer;
-                if (container && telegramTasksCache) {
-                    renderTelegramGrid(telegramTasksCache, container);
+                    const container = dom.modalContainer;
+                    if (container && telegramTasksCache) {
+                        renderTelegramGrid(telegramTasksCache, container);
+                    }
+                    
+                    const stats = document.getElementById('ticketStats');
+                    if(stats && data.reward) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+                } else {
+                    console.log("Проверка не прошла, ждем следующей попытки...");
                 }
-                
-                // 5. Начисляем билеты в шапке
-                const stats = document.getElementById('ticketStats');
-                if(stats && data.reward) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
-
-            } else {
-                // Если всё еще не выполнено — ничего не делаем, попап остается висеть
-                console.log("Проверка не прошла, ждем следующей попытки...");
+            } catch (e) {
+                console.error("Ошибка авто-проверки:", e);
             }
-        } catch (e) {
-            console.error("Ошибка авто-проверки:", e);
         }
-    }
-});
+    });
 
+    // 3. Аккордеон
     document.addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('quest-category-header')) {
             e.preventDefault();
@@ -1851,6 +1839,7 @@ document.addEventListener('visibilitychange', async () => {
         }
     });
 
+    // 4. Модальные окна (Prompts, Rewards, Info, Schedule)
     if(dom.promptCancel) dom.promptCancel.addEventListener('click', () => dom.promptOverlay.classList.add('hidden'));
     
     if(dom.promptConfirm) dom.promptConfirm.addEventListener('click', async () => {
@@ -1874,10 +1863,9 @@ document.addEventListener('visibilitychange', async () => {
         });
     }
 
+    // 5. Кнопка выбора квестов
     if (dom.questChooseBtn) {
         dom.questChooseBtn.addEventListener("click", () => {
-            // Больше не нужно разделять логику через if/else
-            // Мы просто вызываем универсальную функцию открытия
             if (dom.questChooseContainer.classList.contains('hidden')) {
                 openQuestSelectionModal();
             } else {
@@ -1886,15 +1874,16 @@ document.addEventListener('visibilitychange', async () => {
         });
     }
     
+    // 6. ГЛАВНЫЙ ОБРАБОТЧИК КНОПОК (ИСПРАВЛЕННЫЙ)
     document.body.addEventListener('click', async (event) => {
         const target = event.target.closest('button');
         if (!target) return;
 
-        // 1. Кнопка "Получить челлендж" (Рулетка)
+        // -- Рулетка --
         if (target.id === 'get-challenge-btn') {
             await startChallengeRoulette();
 
-        // 2. Кнопка "Забрать награду" (Челлендж)
+        // -- Забрать награду (Челлендж) --
         } else if (target.id === 'claim-challenge-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -1924,7 +1913,6 @@ document.addEventListener('visibilitychange', async () => {
                     target.style.background = ''; 
                     target.style.color = '';
                     target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
-                    
                     if(userData.challenge) delete userData.challenge.claimed_at;
                 }
             } catch (e) {
@@ -1933,7 +1921,7 @@ document.addEventListener('visibilitychange', async () => {
                 if(userData.challenge) delete userData.challenge.claimed_at;
             }
 
-        // 3. Кнопка "Забрать" (Обычный квест или Еженедельное)
+        // -- Забрать награду (Квест) --
         } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
             const questId = target.dataset.questId;
             target.disabled = true;
@@ -1957,20 +1945,20 @@ document.addEventListener('visibilitychange', async () => {
                 target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать</span>';
             }
 
-        // 4. Кнопка "Выполнить" (Ручное задание)
+        // -- Выполнить (Ручной квест) --
         } else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
             currentQuestId = target.dataset.id;
             dom.promptTitle.textContent = target.dataset.title;
             dom.promptInput.value = '';
             dom.promptOverlay.classList.remove('hidden');
             dom.promptInput.focus();
-        
-        // 🔥🔥🔥 ВОТ ЗДЕСЬ НЕ ХВАТАЛО ЗАКРЫВАЮЩЕЙ СКОБКИ "}" 🔥🔥🔥
+
+        // -- Завершить истекшие (Челлендж или Квест) --
         } else if (target.id === 'check-challenge-progress-btn' || target.id === 'complete-expired-quest-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             
-            // 1. 🔥 ЗАПОМИНАЕМ ТЕКУЩУЮ ВКЛАДКУ 🔥
+            // 1. ЗАПОМИНАЕМ ТЕКУЩУЮ ВКЛАДКУ
             const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
             localStorage.setItem('temp_return_tab', currentTab);
 
@@ -1988,10 +1976,9 @@ document.addEventListener('visibilitychange', async () => {
                 window.location.reload();
             }
 
-        // 6. Кнопка "Отменить квест"
+        // -- Отмена квеста --
         } else if (target.id === 'cancel-quest-btn') {
             event.preventDefault();
-            
             Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания можно лишь раз в сутки.", async (ok) => {
                 if (ok) {
                     try {
@@ -2011,7 +1998,8 @@ document.addEventListener('visibilitychange', async () => {
                 }
             });
         }
-    });
+    }); // Закрываем addEventListener
+} // Закрываем setupEventListeners
     
 // ==========================================
 // 8. ЗАПУСК
