@@ -1890,9 +1890,12 @@ document.addEventListener('visibilitychange', async () => {
         const target = event.target.closest('button');
         if (!target) return;
 
+        // 1. Кнопка "Получить челлендж" (Рулетка)
         if (target.id === 'get-challenge-btn') {
             await startChallengeRoulette();
-       } else if (target.id === 'claim-challenge-btn') {
+
+        // 2. Кнопка "Забрать награду" (Челлендж)
+        } else if (target.id === 'claim-challenge-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             
@@ -1933,6 +1936,8 @@ document.addEventListener('visibilitychange', async () => {
                 target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать награду</span>';
                 if(userData.challenge) delete userData.challenge.claimed_at;
             }
+
+        // 3. Кнопка "Забрать" (Обычный квест или Еженедельное)
         } else if (target.classList.contains('claim-reward-button') && target.dataset.questId) {
             const questId = target.dataset.questId;
             target.disabled = true;
@@ -1955,56 +1960,71 @@ document.addEventListener('visibilitychange', async () => {
                 target.disabled = false;
                 target.innerHTML = '<i class="fa-solid fa-gift"></i> <span>Забрать</span>';
             }
+
+        // 4. Кнопка "Выполнить" (Ручное задание)
         } else if (target.classList.contains('perform-quest-button') && target.dataset.id) {
             currentQuestId = target.dataset.id;
             dom.promptTitle.textContent = target.dataset.title;
             dom.promptInput.value = '';
             dom.promptOverlay.classList.remove('hidden');
             dom.promptInput.focus();
+
+        // 5. 🔥 КНОПКИ ЗАВЕРШЕНИЯ (Истекшее время) 🔥
         } else if (target.id === 'check-challenge-progress-btn' || target.id === 'complete-expired-quest-btn') {
             target.disabled = true;
             target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            
+            // 1. 🔥 ЗАПОМИНАЕМ ТЕКУЩУЮ ВКЛАДКУ 🔥
+            const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
+            localStorage.setItem('temp_return_tab', currentTab);
+
+            // 2. Чистим кэш, чтобы данные обновились точно
+            localStorage.removeItem('quests_cache_v1');
+
             try {
                 if (target.id === 'check-challenge-progress-btn') await makeApiRequest("/api/v1/user/challenge/close_expired");
                 else await makeApiRequest('/api/v1/quests/close_expired');
-                await main();
-            } catch (e) {
-                await main();
-            }
-        } else if (target.id === 'cancel-quest-btn') {
-    // Останавливаем стандартное поведение
-    event.preventDefault();
-    
-    Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания можно лишь раз в сутки.", async (ok) => {
-        if (ok) {
-            try {
-                // Визуально блокируем кнопку
-                const btn = document.getElementById('cancel-quest-btn');
-                if(btn) { btn.disabled = true; btn.innerText = '...'; }
-
-                await makeApiRequest('/api/v1/quests/cancel');
-                Telegram.WebApp.showAlert('Задание отменено.');
-
-                // 🔥 1. Определяем, на какой вкладке мы сейчас находимся
-                const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
                 
-                // 🔥 2. Запоминаем её как "временную" для возврата
-                localStorage.setItem('temp_return_tab', currentTab);
-
-                // 🔥 3. Чистим кэш и перезагружаем
-                localStorage.removeItem('quests_cache_v1');
+                // 3. Перезагружаем страницу (main() подхватит temp_return_tab и вернет вас на ту же вкладку)
                 window.location.reload();
             } catch (e) {
-                // При ошибке тоже перезагружаем, чтобы сбросить состояние
+                console.error(e);
                 window.location.reload();
-           }
+            }
+
+        // 6. Кнопка "Отменить квест"
+        } else if (target.id === 'cancel-quest-btn') {
+            // Останавливаем стандартное поведение
+            event.preventDefault();
+            
+            Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания можно лишь раз в сутки.", async (ok) => {
+                if (ok) {
+                    try {
+                        // Визуально блокируем кнопку
+                        const btn = document.getElementById('cancel-quest-btn');
+                        if(btn) { btn.disabled = true; btn.innerText = '...'; }
+
+                        await makeApiRequest('/api/v1/quests/cancel');
+                        Telegram.WebApp.showAlert('Задание отменено.');
+
+                        // 🔥 1. Определяем, на какой вкладке мы сейчас находимся
+                        const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
+                        
+                        // 🔥 2. Запоминаем её как "временную" для возврата
+                        localStorage.setItem('temp_return_tab', currentTab);
+
+                        // 🔥 3. Чистим кэш и перезагружаем
+                        localStorage.removeItem('quests_cache_v1');
+                        window.location.reload();
+                    } catch (e) {
+                        // При ошибке тоже перезагружаем, чтобы сбросить состояние
+                        window.location.reload();
+                    }
+                }
+            });
         }
     });
-}
-// 🔥 ДОБАВЛЯЕМ ЗАКРЫВАЮЩИЕ СКОБКИ НИЖЕ:
-}); 
-}
-
+    
 // ==========================================
 // 8. ЗАПУСК
 // ==========================================
