@@ -1487,7 +1487,19 @@ async function main() {
                 initUnifiedSwitcher();
                 
                 // Важно: если пользователь был в сети, ставим твитч, иначе телеграм
-                let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
+                // === ЛОГИКА ВОЗВРАТА ПОСЛЕ ОТМЕНЫ ===
+            const tempTab = localStorage.getItem('temp_return_tab');
+            let defaultView;
+
+            if (tempTab) {
+                // Если есть метка — используем её
+                defaultView = tempTab;
+                // 🔥 И сразу удаляем, чтобы при следующем обычном заходе работала общая логика
+                localStorage.removeItem('temp_return_tab');
+            } else {
+                // Если метки нет — работаем как обычно (по статусу стрима)
+                defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
+            }
                 const switchEl = document.getElementById(`view-${defaultView}`);
                 if (switchEl) {
                     switchEl.checked = true;
@@ -1950,15 +1962,32 @@ document.addEventListener('visibilitychange', async () => {
                 await main();
             }
         } else if (target.id === 'cancel-quest-btn') {
-            Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания можно лишь раз в сутки.", async (ok) => {
-                if (ok) {
-                    try {
-                        await makeApiRequest('/api/v1/quests/cancel');
-                        Telegram.WebApp.showAlert('Задание отменено.');
-                        await main();
-                    } catch (e) {}
-                }
-            });
+    // Останавливаем стандартное поведение
+    event.preventDefault();
+    
+    Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания можно лишь раз в сутки.", async (ok) => {
+        if (ok) {
+            try {
+                // Визуально блокируем кнопку
+                const btn = document.getElementById('cancel-quest-btn');
+                if(btn) { btn.disabled = true; btn.innerText = '...'; }
+
+                await makeApiRequest('/api/v1/quests/cancel');
+                Telegram.WebApp.showAlert('Задание отменено.');
+
+                // 🔥 1. Определяем, на какой вкладке мы сейчас находимся
+                const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
+                
+                // 🔥 2. Запоминаем её как "временную" для возврата
+                localStorage.setItem('temp_return_tab', currentTab);
+
+                // 🔥 3. Чистим кэш и перезагружаем
+                localStorage.removeItem('quests_cache_v1');
+                window.location.reload();
+            } catch (e) {
+                // При ошибке тоже перезагружаем, чтобы сбросить состояние
+                window.location.reload();
+            }
         }
     });
 }
