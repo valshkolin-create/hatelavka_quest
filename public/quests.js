@@ -1428,6 +1428,10 @@ function initUnifiedSwitcher() {
         radio.addEventListener('change', (e) => {
             if (e.target.checked) {
                 const view = e.target.value;
+                
+                // 🔥 МЫ БОЛЬШЕ НИЧЕГО НЕ СОХРАНЯЕМ ПРИ КЛИКЕ
+                // (Сохранение происходит только при нажатии кнопки "Отменить" в другой функции)
+
                 if (!dom.sectionAuto || !dom.sectionManual) return;
 
                 if (view === 'manual') {
@@ -1446,6 +1450,9 @@ function initUnifiedSwitcher() {
 }
 
 async function main() {
+    // 🔥 ЭКСТРЕННАЯ ОЧИСТКА: Удаляем "вечную" память, чтобы починить баг
+    localStorage.removeItem('last_active_tab'); 
+
     // 1. Проверка окружения Telegram
     if (window.Telegram && !Telegram.WebApp.initData) {
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
@@ -1492,15 +1499,18 @@ async function main() {
             let defaultView;
 
             if (tempTab) {
-                // Если есть метка — используем её
+                // Если мы вернулись после отмены — ставим ту вкладку, где были
                 defaultView = tempTab;
-                // 🔥 И сразу удаляем, чтобы при следующем обычном заходе работала общая логика
+                // И сразу забываем, чтобы дальше работало как обычно
                 localStorage.removeItem('temp_return_tab');
             } else {
-                // Если метки нет — работаем как обычно (по статусу стрима)
+                // ❌ УБРАЛИ last_active_tab
+                // Если это обычный вход — решаем по статусу стрима
                 defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
             }
-                const switchEl = document.getElementById(`view-${defaultView}`);
+            // =====================================
+
+            const switchEl = document.getElementById(`view-${defaultView}`);
                 if (switchEl) {
                     switchEl.checked = true;
                     setPlatformTheme(defaultView);
