@@ -2191,9 +2191,25 @@ function setupEventListeners() {
     // Кнопка "В главное меню"
     const successCloseBtn = document.getElementById('success-close-btn');
     if (successCloseBtn) {
-        successCloseBtn.addEventListener('click', () => {
-            document.getElementById('loader-overlay').classList.remove('hidden');
-            window.location.reload();
+        successCloseBtn.addEventListener('click', async () => {
+            // 1. Скрываем модальное окно успеха
+            const successModal = document.getElementById('subscription-success-modal');
+            if (successModal) {
+                successModal.classList.remove('visible');
+                successModal.classList.add('hidden');
+            }
+
+            // 2. Скрываем кнопку бонуса на всякий случай (т.к. мы его только что забрали)
+            const bonusBtn = document.getElementById('open-bonus-btn');
+            if (bonusBtn) {
+                bonusBtn.classList.add('hidden');
+            }
+
+            // 3. Переключаемся на дашборд
+            switchView('view-dashboard');
+
+            // 4. Обновляем данные (баланс, квесты) БЕЗ перезагрузки страницы
+            await main();
         });
     }
 
