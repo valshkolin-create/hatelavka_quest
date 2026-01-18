@@ -329,14 +329,15 @@ async function loadTelegramTasks() {
                 `;
                 const btnDataAttr = `data-reward="${task.reward_amount}"`;
 
-                // --- 🔥 ЛОГИКА 7 ДНЯ (ЗОЛОТАЯ КНОПКА) ---
+                // --- 🔥 ЛОГИКА 7 ДНЯ (ЗОЛОТАЯ КНОПКА) 🔥 ---
                 const isFinalDay = task.is_daily && task.current_day === task.total_days;
                 let btnStyle = '';
-                let btnText = 'ЗАБРАТЬ';
+                let btnContent = `ЗАБРАТЬ ${rewardHtml}`;
                 
                 if (isFinalDay) {
                     btnStyle = 'background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #000; border: none; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); font-weight: 800;';
-                    btnText = '🎁 ЗАБРАТЬ ПРИЗ';
+                    // Меняем текст на "ЗАБРАТЬ ПРИЗ" и убираем стандартный бейдж с +билетами
+                    btnContent = `<i class="fa-solid fa-gift" style="margin-right:5px;"></i> ЗАБРАТЬ ПРИЗ`; 
                 }
                 // ----------------------------------------
 
@@ -349,8 +350,8 @@ async function loadTelegramTasks() {
 
                     rightColHtml = `
                         ${actionLinkHtml}
-                        <button class="tg-premium-btn" id="btn-${task.task_key}" ${btnDataAttr} onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
-                            ЗАБРАТЬ ${rewardHtml}
+                        <button class="tg-premium-btn" id="btn-${task.task_key}" ${btnDataAttr} style="${btnStyle}" onclick="handleDailyClaim('${task.task_key}', ${userId}, '${task.action_url || ''}')">
+                            ${btnContent}
                         </button>
                     `;
                     
@@ -465,13 +466,10 @@ async function loadTelegramTasks() {
 // Замени старую функцию handleDailyClaim на эту:
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
-    
-    // Получаем сумму награды из атрибута
     const rewardAmount = btn ? btn.getAttribute('data-reward') : '';
-    
-    // Сохраняем исходный стиль, чтобы вернуть его при ошибке
+    // Сохраняем оригинальный стиль, чтобы вернуть его, если будет ошибка
     const originalStyle = btn ? btn.getAttribute('style') : '';
-
+    
     const restoreBtnHtml = `
         ЗАБРАТЬ 
         <div class="btn-reward-badge">
@@ -493,12 +491,12 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         
         if (data && data.success) {
             
-            // === 🔥 ПРОВЕРКА: ЕСЛИ ЭТО 7 ДЕНЬ (ВЫДАН СЕКРЕТНЫЙ КОД) 🔥 ===
+            // === 🔥 ПРОВЕРКА 7 ДНЯ (ЕСЛИ ПРИШЕЛ СЕКРЕТНЫЙ КОД) 🔥 ===
             if (data.secret_code) {
-                // 1. Вибрация успеха (сильная)
+                // Вибрация успеха
                 if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 
-                // 2. Открываем НАШЕ кастомное окно
+                // Показываем наше красивое окно
                 const popup = document.getElementById('secret-reward-popup');
                 const goProfileBtn = document.getElementById('go-to-profile-btn');
                 const closeBtn = document.getElementById('close-secret-popup-btn');
@@ -506,41 +504,48 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 if (popup) {
                     popup.classList.add('visible');
                     
-                    // Обработчик кнопки "В профиль"
+                    // Кнопка "В профиль"
                     goProfileBtn.onclick = () => {
                         window.location.href = 'profile.html';
                     };
                     
-                    // Обработчик закрытия (просто перезагрузим страницу, чтобы обновить кнопки)
+                    // Кнопка "Позже" (перезагружаем страницу, чтобы обновить счетчики)
                     closeBtn.onclick = () => {
                         popup.classList.remove('visible');
                         window.location.reload();
                     };
                 } else {
-                    // Страховка, если HTML не вставили
-                    Telegram.WebApp.showAlert("Код получен! Ищи его в профиле.");
+                    // На всякий случай, если HTML не вставили
+                    Telegram.WebApp.showAlert("Код получен! Он в профиле.");
                     window.location.reload();
                 }
                 
-                return; // Прерываем выполнение, чтобы не было стандартных алертов
+                return; // Выходим, чтобы не показывать стандартные алерты
             }
-            // =============================================================
+            // ========================================================
 
-            // === ПРОВЕРКА НА СГОРАНИЕ СЕРИИ (Твой старый код) ===
-            if (data.streak_reset && !data.secret_code) { // Добавил !data.secret_code, т.к. 7 день тоже сбрасвает стрик, но это победа
+            // Проверка на сгорание серии
+            if (data.streak_reset) {
                 const stats = document.getElementById('ticketStats');
                 if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+
                 if (telegramTasksCache) {
-                    /* обновляем кэш как раньше */
                     const task = telegramTasksCache.find(t => t.task_key === taskKey);
-                    if (task) { task.current_day = data.day; task.is_completed = data.is_completed; task.last_claimed_at = new Date().toISOString(); }
+                    if (task) {
+                        task.current_day = data.day;
+                        task.total_days = data.total_days;
+                        task.is_completed = data.is_completed;
+                        task.last_claimed_at = new Date().toISOString();
+                    }
                 }
+                const container = dom.modalContainer;
+                if (container && telegramTasksCache) renderTelegramGrid(telegramTasksCache, container);
+
                 injectBurnedPopup(data.reward);
                 return; 
             }
-            // =================================================
 
-            // УСПЕХ (Обычный день 1-6)
+            // Обычный успех
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
 
@@ -562,26 +567,34 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
             
-            setTimeout(() => { window.location.reload(); }, 1500);
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
 
         } else if (data) {
-            // ОШИБКА
+            // Ошибка
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
-            if (taskKey === 'tg_vote') injectBoostPopup(actionUrl);
+            if (taskKey === 'tg_vote') {
+                injectBoostPopup(actionUrl);
+            }
             else if (data.error && (data.error.includes("Условие не выполнено") || data.error.includes("Тег"))) {
                 if (taskKey === 'tg_surname') injectProfilePopup('surname');
                 else if (taskKey === 'tg_bio') injectProfilePopup('bio');
                 else Telegram.WebApp.showAlert(data.error);
             }
-            else Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
+            else if (data.error && data.error.includes("не подписаны")) {
+                 Telegram.WebApp.showAlert("Вы не подписаны на канал!");
+            }
+            else {
+                Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
+            }
             
-            // Восстановление кнопки
             if(btn) {
                 btn.disabled = false;
                 btn.innerHTML = restoreBtnHtml; 
-                // Восстанавливаем стиль (если была золотой - станет обратно золотой)
-                if(originalStyle) btn.setAttribute('style', originalStyle);
+                // Возвращаем золотой стиль, если он был
+                if (originalStyle) btn.setAttribute('style', originalStyle);
             }
         }
     } catch (e) {
@@ -589,7 +602,7 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         if(btn) {
             btn.disabled = false;
             btn.innerHTML = restoreBtnHtml || "Ошибка"; 
-            if(originalStyle) btn.setAttribute('style', originalStyle);
+            if (originalStyle) btn.setAttribute('style', originalStyle);
         }
     }
 }
