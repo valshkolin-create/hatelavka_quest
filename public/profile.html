@@ -1094,6 +1094,83 @@
             listContainer.appendChild(div);
         });
     }
+
+    // --- ОТРИСОВКА СЕКРЕТНЫХ КОДОВ ---
+    function renderSecretCodes(codes) {
+        const container = document.getElementById('secret-list-container');
+        const infoBadge = document.getElementById('secret-btn-info');
+        container.innerHTML = '';
+        
+        if (!codes || codes.length === 0) {
+            if(infoBadge) infoBadge.textContent = 'Пусто';
+            container.innerHTML = `
+                <div class="empty-state" style="text-align:center; padding-top: 50px;">
+                    <i class="fa-solid fa-mask" style="font-size: 32px; margin-bottom: 15px; opacity: 0.5; color: var(--text-color-muted);"></i>
+                    <p style="font-size: 14px; margin-bottom: 5px;">Секретные промокоды отсутствуют</p>
+                    <div style="font-size: 11px; color: #555;">Выполняй задания 7 дней подряд!</div>
+                </div>`;
+            return;
+        }
+
+        if(infoBadge) infoBadge.textContent = `${codes.length} шт.`;
+
+        codes.forEach(codeObj => {
+            const codeVal = codeObj.code;
+            // Форматируем дату
+            const dateVal = codeObj.assigned_at 
+                ? new Date(codeObj.assigned_at).toLocaleString('ru-RU', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : 'Недавно';
+
+            const el = document.createElement('div');
+            el.className = 'reward-card';
+            
+            // 🔥 ЗОЛОТОЙ СТИЛЬ INLINE 🔥
+            el.style.background = 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)';
+            el.style.border = 'none';
+            el.style.boxShadow = '0 4px 15px rgba(255, 215, 0, 0.2)';
+
+            el.innerHTML = `
+                <div class="reward-card-info" style="display:block;">
+                    <div class="reward-card-details">
+                        <p class="reward-card-description" style="color: #000; font-weight: 800; display:flex; justify-content:space-between;">
+                            СЕКРЕТНЫЙ КОД <i class="fa-solid fa-crown"></i>
+                        </p>
+                        
+                        <div class="reward-card-code-wrapper" style="background: rgba(0,0,0,0.1); border: 1px dashed rgba(0,0,0,0.3);">
+                            <input type="text" 
+                                   class="reward-card-code-input" 
+                                   value="${codeVal}" 
+                                   readonly 
+                                   style="color: #000;"
+                                   onclick="this.select();" 
+                            >
+                            <button class="reward-card-copy-btn" style="background: #000; color: #FFD700;" onclick="copyPromocode('${codeVal}', 'secret_${codeVal}')">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <div id="copied-status-secret_${codeVal}"></div>
+                        
+                        <button onclick="window.location.href='/public/cs_roulette.html'" style="
+                            display: flex; align-items: center; justify-content: center; gap: 8px;
+                            width: 100%; margin-top: 12px;
+                            background: rgba(0,0,0,0.85); color: #fff;
+                            border: 1px solid rgba(255,255,255,0.1);
+                            padding: 10px; border-radius: 8px;
+                            font-weight: 700; font-size: 12px; text-transform: uppercase;
+                            cursor: pointer;
+                        ">
+                            <i class="fa-solid fa-gamepad" style="color:#FFD700;"></i>
+                            ПЕРЕЙТИ В СЕКРЕТНОЕ МЕНЮ
+                        </button>
+                        
+                        <p class="reward-card-meta" style="color: rgba(0,0,0,0.6);">Получено: ${dateVal}</p>
+                    </div>
+                </div>
+            `;
+            container.appendChild(el);
+        });
+    }
     
     // Функция удаления (тоже глобальная)
     function deleteReward(idOrCode, type, btnElement) {
@@ -1172,7 +1249,12 @@
         if (!isSilent) showLoader();
         try {
             const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
+            
+            // 1. Обычные награды
             const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
+            
+            // 2. 🔥 ЗАГРУЖАЕМ СЕКРЕТНЫЕ КОДЫ 🔥
+            const secretCodes = await makeApiRequest("/api/v1/user/secret_codes", {}, 'POST', isSilent);
 
             if (!isSilent) {
                 makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
@@ -1187,6 +1269,7 @@
             // Рендер
             renderSettingsList(fullUserData); 
             renderRewards(rewards);
+            renderSecretCodes(secretCodes); // <--- ВЫЗЫВАЕМ НОВЫЙ РЕНДЕР
 
         } catch (e) {
             console.error(e);
@@ -1194,7 +1277,6 @@
             if (!isSilent) hideLoader();
         }
     }
-
     // Функция отрисовки настроек (сокращена для краткости, берется из старого кода)
     function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
@@ -1412,6 +1494,29 @@
                     if(countEl) countEl.textContent = 'Награды (0)';
                     
                     c(); // Закрываем окно подтверждения
+                } catch (e) {
+                    console.error(e);
+                    tg.showAlert("Ошибка удаления");
+                    c();
+                }
+            });
+        };
+    }
+
+    // 🔥 ВСТАВИТЬ СЮДА: Логика кнопки "Удалить историю" для СЕКРЕТНЫХ кодов 🔥
+    const clearAllSecretBtn = document.getElementById('btn-clear-all-secret');
+    if (clearAllSecretBtn) {
+        clearAllSecretBtn.onclick = () => {
+            showCustomConfirmHTML("Удалить ВСЕ секретные коды?", async (c) => {
+                try {
+                    // 1. Отправляем запрос на удаление
+                    await makeApiRequest('/api/v1/user/secret_codes/delete-all');
+                    
+                    // 2. Очищаем список визуально
+                    renderSecretCodes([]); 
+                    
+                    // 3. Закрываем окно подтверждения
+                    c();
                 } catch (e) {
                     console.error(e);
                     tg.showAlert("Ошибка удаления");
