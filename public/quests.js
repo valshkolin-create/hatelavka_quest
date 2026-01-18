@@ -397,9 +397,10 @@ async function loadTelegramTasks() {
                 ${bottomHtml}
             `;
 
-            // !!! ИСПРАВЛЕНИЕ: Не запускаем таймер здесь, а добавляем в очередь !!!
-            // (Потому что кнопки еще нет в DOM, и getElementById вернет null)
-            if ((task.is_daily || task.task_key === 'tg_surname' || task.task_key === 'tg_bio') && task.last_claimed_at && !task.is_completed) {
+            // !!! ИСПРАВЛЕНИЕ: БЛОКИРУЕМ ТАЙМЕР, ЕСЛИ ЭТО 7 ДЕНЬ !!!
+            const isFinalDay = task.is_daily && task.current_day === task.total_days;
+
+            if ((task.is_daily || task.task_key === 'tg_surname' || task.task_key === 'tg_bio') && task.last_claimed_at && !task.is_completed && !isFinalDay) {
                 const last = new Date(task.last_claimed_at).getTime();
                 const now = new Date().getTime();
                 const diff = now - last;
