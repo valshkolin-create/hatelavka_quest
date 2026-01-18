@@ -599,11 +599,8 @@
                 <div class="modal-title"><i class="fa-solid fa-gift"></i> Твои промокоды</div>
                 <button class="modal-close" id="close-modal-promocodes"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
             <div class="modal-body">
-                <div id="promocodes-list-container" style="width: 100%;">
-                    </div>
-
+                <div id="promocodes-list-container" style="width: 100%;"></div>
                 <div style="margin-top: 20px; text-align: center; padding-bottom: 20px;">
                     <button id="btn-clear-all-rewards" style="background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer;">
                         <i class="fa-solid fa-trash"></i> Удалить историю
@@ -613,41 +610,27 @@
         </div>
     </div>
 
-    <div id="secret-list-container" style="width: 100%;">
-         </div>
-
-    <div style="margin-top: 20px; text-align: center; padding-bottom: 20px;">
-        <button id="btn-clear-all-secret" style="background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer;">
-            <i class="fa-solid fa-trash"></i> Удалить историю
-        </button>
-    </div>
-
     <div class="custom-modal" id="modal-secret">
         <div class="modal-card">
             <div class="modal-header">
-                <div class="modal-title"><i class="fa-solid fa-user-secret"></i> SECRET MENU PROMOCODE</div>
+                <div class="modal-title"><i class="fa-solid fa-user-secret"></i> SECRET MENU</div>
                 <button class="modal-close" id="close-modal-secret"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <div class="modal-body" id="secret-list-container">
-                <div class="empty-state" style="text-align:center; padding-top: 50px;">
-                    <i class="fa-solid fa-mask" style="font-size: 32px; margin-bottom: 15px; opacity: 0.5; color: var(--text-color-muted);"></i>
-                    <p style="font-size: 14px; margin-bottom: 5px;">Секретные промокоды отсутствуют</p>
-                    <div style="font-size: 11px; color: #555;">Скоро..</div>
+            <div class="modal-body">
+                <div id="secret-list-container" style="width: 100%;">
+                    <div class="empty-state" style="text-align:center; padding-top: 50px;">
+                        <i class="fa-solid fa-mask" style="font-size: 32px; margin-bottom: 15px; opacity: 0.5; color: var(--text-color-muted);"></i>
+                        <p style="font-size: 14px; margin-bottom: 5px;">Секретные промокоды отсутствуют</p>
+                        <div style="font-size: 11px; color: #555;">Скоро..</div>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <div id="notify-popup-overlay" class="custom-popup-overlay">
-        <div class="custom-popup">
-            <h3><i class="fa-solid fa-bell"></i> Уведомления</h3>
-            <div id="notify-content-area">
-                <div class="spinner" style="margin: 20px auto;"></div>
-            </div>
-            
-            <div class="popup-actions">
-                <button id="notify-close-btn" class="popup-btn secondary">Закрыть</button>
+                <div style="margin-top: 20px; text-align: center; padding-bottom: 20px;">
+                    <button id="btn-clear-all-secret" style="background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer;">
+                        <i class="fa-solid fa-trash"></i> Удалить историю
+                    </button>
+                </div>
             </div>
         </div>
     </div>
