@@ -329,6 +329,17 @@ async function loadTelegramTasks() {
                 `;
                 const btnDataAttr = `data-reward="${task.reward_amount}"`;
 
+                // --- 🔥 ЛОГИКА 7 ДНЯ (ЗОЛОТАЯ КНОПКА) ---
+                const isFinalDay = task.is_daily && task.current_day === task.total_days;
+                let btnStyle = '';
+                let btnText = 'ЗАБРАТЬ';
+                
+                if (isFinalDay) {
+                    btnStyle = 'background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #000; border: none; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); font-weight: 800;';
+                    btnText = '🎁 ЗАБРАТЬ ПРИЗ';
+                }
+                // ----------------------------------------
+
                 if (task.is_daily || task.task_key === 'tg_sub' || task.task_key === 'tg_vote' || task.task_key === 'tg_surname' || task.task_key === 'tg_bio') {
                     let actionLinkHtml = '';
                     if ((task.task_key === 'tg_sub' || task.task_key === 'tg_vote') && task.action_url) {
@@ -455,10 +466,12 @@ async function loadTelegramTasks() {
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
     
-    // Получаем сумму награды из атрибута, который мы добавили при рендере
+    // Получаем сумму награды из атрибута
     const rewardAmount = btn ? btn.getAttribute('data-reward') : '';
     
-    // Шаблон HTML для восстановления кнопки (Забрать + Бэйдж)
+    // Сохраняем исходный стиль, чтобы вернуть его при ошибке
+    const originalStyle = btn ? btn.getAttribute('style') : '';
+
     const restoreBtnHtml = `
         ЗАБРАТЬ 
         <div class="btn-reward-badge">
@@ -480,34 +493,54 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         
         if (data && data.success) {
             
-            // === 🔥 НОВОЕ: ПРОВЕРКА НА СГОРАНИЕ СЕРИИ 🔥 ===
-            if (data.streak_reset) {
-                // 1. Сначала обновляем интерфейс на фоне (тикеты и прогресс), чтобы за окном было красиво
+            // === 🔥 ПРОВЕРКА: ЕСЛИ ЭТО 7 ДЕНЬ (ВЫДАН СЕКРЕТНЫЙ КОД) 🔥 ===
+            if (data.secret_code) {
+                // 1. Вибрация успеха (сильная)
+                if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                
+                // 2. Открываем НАШЕ кастомное окно
+                const popup = document.getElementById('secret-reward-popup');
+                const goProfileBtn = document.getElementById('go-to-profile-btn');
+                const closeBtn = document.getElementById('close-secret-popup-btn');
+                
+                if (popup) {
+                    popup.classList.add('visible');
+                    
+                    // Обработчик кнопки "В профиль"
+                    goProfileBtn.onclick = () => {
+                        window.location.href = 'profile.html';
+                    };
+                    
+                    // Обработчик закрытия (просто перезагрузим страницу, чтобы обновить кнопки)
+                    closeBtn.onclick = () => {
+                        popup.classList.remove('visible');
+                        window.location.reload();
+                    };
+                } else {
+                    // Страховка, если HTML не вставили
+                    Telegram.WebApp.showAlert("Код получен! Ищи его в профиле.");
+                    window.location.reload();
+                }
+                
+                return; // Прерываем выполнение, чтобы не было стандартных алертов
+            }
+            // =============================================================
+
+            // === ПРОВЕРКА НА СГОРАНИЕ СЕРИИ (Твой старый код) ===
+            if (data.streak_reset && !data.secret_code) { // Добавил !data.secret_code, т.к. 7 день тоже сбрасвает стрик, но это победа
                 const stats = document.getElementById('ticketStats');
                 if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
-
                 if (telegramTasksCache) {
+                    /* обновляем кэш как раньше */
                     const task = telegramTasksCache.find(t => t.task_key === taskKey);
-                    if (task) {
-                        task.current_day = data.day;
-                        task.total_days = data.total_days;
-                        task.is_completed = data.is_completed;
-                        task.last_claimed_at = new Date().toISOString();
-                    }
+                    if (task) { task.current_day = data.day; task.is_completed = data.is_completed; task.last_claimed_at = new Date().toISOString(); }
                 }
-                const container = dom.modalContainer;
-                if (container && telegramTasksCache) renderTelegramGrid(telegramTasksCache, container);
-
-                // 2. Вызываем окно "СЕРИЯ СГОРЕЛА" (оно перезагрузит страницу при закрытии)
-                // Убедись, что функция injectBurnedPopup добавлена в файл!
                 injectBurnedPopup(data.reward);
-                
-                // 3. Прерываем функцию (return), чтобы НЕ сработал стандартный алерт и таймер ниже
                 return; 
             }
             // =================================================
 
-            // УСПЕХ (Обычный сценарий, если серия сохранена)
+            // УСПЕХ (Обычный день 1-6)
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
 
@@ -529,49 +562,38 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             const stats = document.getElementById('ticketStats');
             if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
             
-            // === ХИРУРГИЧЕСКАЯ ВСТАВКА: АВТО-ПЕРЕЗАГРУЗКА ===
-            // Ждем немного, чтобы юзер увидел уведомление, и обновляем страницу
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
-            // ===============================================
+            setTimeout(() => { window.location.reload(); }, 1500);
 
         } else if (data) {
-            // ОШИБКА (или проверка не прошла)
+            // ОШИБКА
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
-            if (taskKey === 'tg_vote') {
-                injectBoostPopup(actionUrl);
-            }
+            if (taskKey === 'tg_vote') injectBoostPopup(actionUrl);
             else if (data.error && (data.error.includes("Условие не выполнено") || data.error.includes("Тег"))) {
                 if (taskKey === 'tg_surname') injectProfilePopup('surname');
                 else if (taskKey === 'tg_bio') injectProfilePopup('bio');
                 else Telegram.WebApp.showAlert(data.error);
             }
-            else if (data.error && data.error.includes("не подписаны")) {
-                 Telegram.WebApp.showAlert("Вы не подписаны на канал!");
-            }
-            else {
-                Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
-            }
+            else Telegram.WebApp.showAlert(data.error || "Произошла ошибка");
             
-            // === ВОССТАНОВЛЕНИЕ КНОПКИ ===
+            // Восстановление кнопки
             if(btn) {
                 btn.disabled = false;
-                // ВОТ ЗДЕСЬ БЫЛ БАГ. Мы возвращали просто текст.
-                // Теперь мы возвращаем полный HTML с бэйджем.
                 btn.innerHTML = restoreBtnHtml; 
+                // Восстанавливаем стиль (если была золотой - станет обратно золотой)
+                if(originalStyle) btn.setAttribute('style', originalStyle);
             }
         }
     } catch (e) {
         console.error(e);
         if(btn) {
             btn.disabled = false;
-            // Даже при критической ошибке пытаемся вернуть красоту
             btn.innerHTML = restoreBtnHtml || "Ошибка"; 
+            if(originalStyle) btn.setAttribute('style', originalStyle);
         }
     }
 }
+
 // Глобальная функция для ОБЫЧНЫХ квестов
 function handleTgTaskClick(key, url) {
     if (key === 'tg_vote') {
