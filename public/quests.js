@@ -900,6 +900,23 @@ function renderChallenge(challengeData, isGuest) {
     }
 }
 
+Конечно! Давай добавим эту функциональность.
+
+Мы сделаем следующее:
+
+Обновим renderActiveAutomaticQuest: Если бесплатная отмена недоступна (таймер), мы добавим под ней кнопку "Отменить за X билетов".
+
+Обновим setupEventListeners: Добавим логику нажатия на новую кнопку.
+
+Красивое окно: Если билетов не хватает, покажем твое универсальное модальное окно (openUniversalModal) с грустным сообщением.
+
+Вот готовый код. Замени две функции: renderActiveAutomaticQuest и setupEventListeners.
+
+1. Обновленная функция рендера (renderActiveAutomaticQuest)
+Замени эту функцию целиком. Я добавил логику отображения второй кнопки, если первая заблокирована.
+
+JavaScript
+
 function renderActiveAutomaticQuest(quest, userData) {
     dom.activeAutomaticQuestContainer.innerHTML = '';
     if (!quest || !userData || !userData.active_quest_id) return;
@@ -914,6 +931,7 @@ function renderActiveAutomaticQuest(quest, userData) {
     const isCompleted = progress >= target;
     const isTwitchQuest = activeQuest.quest_type && activeQuest.quest_type.includes('twitch');
     const twitchNotice = isTwitchQuest ? createTwitchNoticeHtml() : '';
+    
     let buttonHtml = '';
     
     if (isCompleted) {
@@ -922,6 +940,8 @@ function renderActiveAutomaticQuest(quest, userData) {
         const lastCancel = userData.last_quest_cancel_at;
         let cancelBtnDisabled = false;
         let cooldownEndTime = null;
+        
+        // Проверка кулдауна бесплатной отмены (24 часа)
         if (lastCancel) {
             const lastCancelDate = new Date(lastCancel);
             const now = new Date();
@@ -931,29 +951,57 @@ function renderActiveAutomaticQuest(quest, userData) {
                 cooldownEndTime = new Date(lastCancelDate.getTime() + 24 * 60 * 60 * 1000);
             }
         }
-        buttonHtml = `<button id="cancel-quest-btn" class="cancel-quest-button" ${cancelBtnDisabled ? 'disabled' : ''}>Отменить</button>`;
+
+        // Основная кнопка (Бесплатная)
+        const freeCancelBtn = `<button id="cancel-quest-btn" class="cancel-quest-button" ${cancelBtnDisabled ? 'disabled' : ''}>Отменить бесплатно</button>`;
+        
+        // Кнопка платной отмены (Появляется ТОЛЬКО если бесплатная недоступна)
+        let paidCancelBtn = '';
+        if (cancelBtnDisabled) {
+            // 🔥 ЦЕНА ОТМЕНЫ (5, 10, 15...)
+            // В идеале сервер должен присылать userData.next_cancel_cost. 
+            // Пока поставим заглушку 5, если данных нет.
+            const cost = userData.next_cancel_cost || 5; 
+            
+            paidCancelBtn = `
+                <button id="paid-cancel-quest-btn" data-cost="${cost}" class="cancel-quest-button" style="margin-top: 10px; background: rgba(255, 165, 0, 0.15); border: 1px solid rgba(255, 165, 0, 0.4); color: #ffae00;">
+                    <i class="fa-solid fa-ticket"></i> Отменить за ${cost} билетов
+                </button>
+            `;
+        }
+
+        // Собираем кнопки в контейнер
+        buttonHtml = `
+            <div style="display: flex; flex-direction: column; width: 100%;">
+                ${freeCancelBtn}
+                ${paidCancelBtn}
+            </div>
+        `;
+
+        // Запуск таймера для бесплатной кнопки
         if (cancelBtnDisabled) {
             setTimeout(() => {
                 const btn = document.getElementById('cancel-quest-btn');
+                const paidBtn = document.getElementById('paid-cancel-quest-btn'); // Ссылка на платную кнопку
                 if (btn) {
                      startCountdown(btn, cooldownEndTime, 'quest_cancel', () => {
                         btn.disabled = false;
-                        btn.textContent = 'Отменить';
+                        btn.textContent = 'Отменить бесплатно';
+                        // Если бесплатная стала доступна, платную можно скрыть
+                        if(paidBtn) paidBtn.style.display = 'none'; 
                     });
                 }
             }, 0);
         }
     }
+
     const currentProgress = Math.min(progress, target);
     let progressTextContent = `${currentProgress} / ${target}`;
     const questType = activeQuest.quest_type || '';
-    if (questType.includes('twitch_uptime')) {
-        progressTextContent = `${currentProgress} / ${target} мин.`;
-    } else if (questType.includes('twitch_messages')) {
-        progressTextContent = `💬 ${currentProgress} / ${target}`;
-    } else if (questType.includes('telegram_messages')) {
-        progressTextContent = `✉️ ${currentProgress} / ${target}`;
-    }
+    
+    if (questType.includes('twitch_uptime')) progressTextContent = `${currentProgress} / ${target} мин.`;
+    else if (questType.includes('twitch_messages')) progressTextContent = `💬 ${currentProgress} / ${target}`;
+    else if (questType.includes('telegram_messages')) progressTextContent = `✉️ ${currentProgress} / ${target}`;
     
     const questEndDate = userData.active_quest_end_date;
     const timerHtml = questEndDate ? `<div id="quest-timer-${activeQuest.id}" class="challenge-timer">...</div>` : '';
@@ -1997,9 +2045,61 @@ function setupEventListeners() {
                     }
                 }
             });
+// 7. 🔥 ОТМЕНА КВЕСТА ЗА БИЛЕТЫ (НОВОЕ) 🔥
+        } else if (target.id === 'paid-cancel-quest-btn') {
+            event.preventDefault();
+            
+            const cost = parseInt(target.dataset.cost || 5);
+            const currentTickets = parseInt(userData.tickets || 0);
+
+            // А. Если билетов не хватает — показываем красивое окно
+            if (currentTickets < cost) {
+                if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                
+                openUniversalModal('Не хватает билетов', `
+                    <div style="text-align:center; padding: 20px; display: flex; flex-direction: column; align-items: center;">
+                        <div style="font-size: 50px; margin-bottom: 15px; animation: shake 0.5s;">🎫💔</div>
+                        <p style="font-size: 16px; color: #fff; margin-bottom: 8px;">
+                            У тебя <b>${currentTickets}</b> билетов, а нужно <b>${cost}</b>.
+                        </p>
+                        <p style="font-size: 13px; color: #888; line-height: 1.4;">
+                            Выполняй задания, приглашай друзей или копи в гринде, чтобы заработать больше!
+                        </p>
+                        <button onclick="closeUniversalModal()" style="margin-top: 20px; width: 100%; padding: 12px; border-radius: 12px; background: #2c2c2e; color: #fff; border: none; font-weight: 600;">Понятно</button>
+                    </div>
+                    <style>
+                        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } }
+                    </style>
+                `);
+                return;
+            }
+
+            // Б. Если билетов хватает — подтверждаем и списываем
+            Telegram.WebApp.showConfirm(`Списать ${cost} билетов за отмену задания?`, async (ok) => {
+                if (ok) {
+                    target.disabled = true;
+                    target.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                    
+                    try {
+                        // Эндпоинт для платной отмены (нужно будет добавить на бэке)
+                        await makeApiRequest('/api/v1/quests/cancel_paid'); 
+                        
+                        Telegram.WebApp.showAlert(`Задание отменено! Списано ${cost} билетов.`);
+                        
+                        const currentTab = document.querySelector('input[name="view"]:checked')?.value || 'twitch';
+                        localStorage.setItem('temp_return_tab', currentTab);
+                        localStorage.removeItem('quests_cache_v1');
+                        window.location.reload();
+                    } catch (e) {
+                        target.disabled = false;
+                        target.innerHTML = `<i class="fa-solid fa-ticket"></i> Отменить за ${cost} билетов`;
+                        Telegram.WebApp.showAlert(e.message || "Ошибка при отмене");
+                    }
+                }
+            });
         }
-    }); // Закрываем addEventListener
-} // Закрываем setupEventListeners
+    }); // Конец обработчика кнопок
+}
     
 // ==========================================
 // 8. ЗАПУСК
