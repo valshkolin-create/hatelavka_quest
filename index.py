@@ -12730,11 +12730,18 @@ async def claim_daily_task(
         if progress["completed"]:
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
-        if task.get("is_daily") and progress.get("last_claimed_at"):
+        # --- ИСПРАВЛЕНИЕ: БЛОКИРОВКУ ПО ВРЕМЕНИ ДЕЛАЕМ ТОЛЬКО ЕСЛИ ЭТО НЕ 7 ДЕНЬ (ФИНАЛ) ---
+        # Если current_day == 7, значит пользователь прошел круг и должен забрать награду без таймера
+        # (Иначе он никогда не сможет забрать её, т.к. 20 часов еще не прошло с 6 дня)
+        current_day_check = progress.get("current_day", 0)
+        is_final_reward_claim = (current_day_check == 7)
+
+        if task.get("is_daily") and progress.get("last_claimed_at") and not is_final_reward_claim:
             last_claim = parser.isoparse(progress["last_claimed_at"])
             # Кулдаун 20 часов
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
+        # -----------------------------------------------------------------------------------
 
         # === 5. ЛОГИКА ПРОВЕРКИ (ИМЕННО ТУТ ОТКРЫВАЮТСЯ ОКНА) ===
         check_passed = False
@@ -12801,20 +12808,26 @@ async def claim_daily_task(
         next_day = 1
         streak_reset = False 
 
-        if last_claimed_str:
-            last_claim_dt = parser.isoparse(last_claimed_str)
-            now_dt = datetime.now(timezone.utc)
-            delta = now_dt - last_claim_dt
-            
-            # Если прошло >= 2 дней -> сброс
-            if delta.days >= 2:
-                next_day = 1
-                streak_reset = True # <--- Сигнализируем, что серия сгорела
+        # Расчет следующего дня
+        # Если это финальный клейм (7 день), мы не проверяем стрик, мы просто выдаем награду и сбрасываем
+        if not is_final_reward_claim:
+            if last_claimed_str:
+                last_claim_dt = parser.isoparse(last_claimed_str)
+                now_dt = datetime.now(timezone.utc)
+                delta = now_dt - last_claim_dt
+                
+                # Если прошло >= 2 дней -> сброс
+                if delta.days >= 2:
+                    next_day = 1
+                    streak_reset = True # <--- Сигнализируем, что серия сгорела
+                else:
+                    next_day = current_day_val + 1
             else:
-                next_day = current_day_val + 1
+                # Первый раз
+                next_day = 1
         else:
-            # Первый раз
-            next_day = 1
+            # Если это был 7 день (финал), следующий день будет 1
+             next_day = 1
 
         is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
 
@@ -12822,8 +12835,8 @@ async def claim_daily_task(
         reward = task.get("reward_amount", 0)
         secret_code = None # Переменная для кода
 
-        # 🔥 ПРОВЕРКА 7 ДНЯ: ВЫДАЕМ КОД И СБРАСЫВАЕМ СЕРИЮ 🔥
-        if next_day == 7:
+        # 🔥 ИСПРАВЛЕННАЯ ПРОВЕРКА: ВЫДАЕМ КОД ЕСЛИ ЭТО БЫЛ 7-Й ДЕНЬ 🔥
+        if current_day_val == 7:  # <-- БЫЛО if next_day == 7
             # А. Ищем свободный код
             code_resp = await supabase.get(
                 "/cs_codes", 
@@ -12855,6 +12868,11 @@ async def claim_daily_task(
                 next_day = 1
                 is_done = False
                 reward = 100 # Утешительный приз
+        
+        # Если это переход с 6 на 7 день (обычный)
+        elif next_day == 7:
+             # Мы ничего не меняем, просто даем награду за 6 день и ставим next_day = 7
+             pass
 
         # 1. Получаем АКТУАЛЬНЫЙ баланс
         user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
