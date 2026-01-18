@@ -4644,6 +4644,74 @@ async def get_manual_quests(
         logging.error(f"Ошибка при получении ручных квестов для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить задания.")
 
+@app.post("/api/v1/quests/cancel_paid")
+async def cancel_quest_paid(
+    request_data: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Отменяет текущий активный квест за билеты.
+    Списывает 5 билетов (фиксировано, пока нет счетчика в базе).
+    """
+    # 1. Валидация
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    
+    # 2. Получаем текущие данные пользователя
+    user_resp = await supabase.get(
+        "/users", 
+        params={"telegram_id": f"eq.{telegram_id}", "select": "tickets, active_quest_id"}
+    )
+    
+    if user_resp.status_code != 200:
+        raise HTTPException(status_code=500, detail="Ошибка получения данных пользователя")
+        
+    user_data = user_resp.json()
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+    user = user_data[0]
+    current_tickets = user.get("tickets", 0)
+    active_quest_id = user.get("active_quest_id")
+    
+    # 3. Проверки
+    if not active_quest_id:
+        raise HTTPException(status_code=400, detail="Нет активного квеста для отмены.")
+        
+    # --- 💰 ЦЕНА ОТМЕНЫ ---
+    # Сейчас фиксированная: 5 билетов.
+    # Если добавишь колонку daily_cancel_count, тут можно сделать формулу.
+    COST = 5 
+    
+    if current_tickets < COST:
+        raise HTTPException(status_code=400, detail=f"Недостаточно билетов. Требуется: {COST}, у вас: {current_tickets}.")
+        
+    # 4. Списание и Сброс
+    # Мы НЕ трогаем last_quest_cancel_at, чтобы не сбрасывать таймер бесплатной отмены
+    update_resp = await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{telegram_id}"},
+        json={
+            "tickets": current_tickets - COST,  # Списываем билеты
+            "active_quest_id": None,            # Убираем квест
+            "active_quest_end_date": None,      # Убираем таймер квеста
+            "quest_start_value": 0              # Сбрасываем прогресс
+        }
+    )
+    
+    if update_resp.status_code not in [200, 204]:
+        logging.error(f"Error canceling paid quest: {update_resp.text}")
+        raise HTTPException(status_code=500, detail="Не удалось обновить базу данных.")
+        
+    return {
+        "success": True, 
+        "message": f"Квест отменен. Списано {COST} билетов.",
+        "new_balance": current_tickets - COST
+    }
+
 @app.post("/api/v1/quests/close_expired")
 async def close_expired_quest(
     request_data: QuestCloseRequest,
