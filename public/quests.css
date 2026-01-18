@@ -1372,3 +1372,64 @@ body[data-theme="manual"] {
     opacity: 0;
 }
 /* Анимация конфетти будет добавляться через JS, но база здесь */
+/* === ФИКС ДЛЯ СЕКРЕТНОГО ОКНА (7 ДЕНЬ) === */
+
+/* Сам фон-затемнение (изначально скрыт) */
+.custom-popup-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden; /* Скрыто по умолчанию */
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Когда JS добавляет этот класс — показываем окно */
+.custom-popup-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Стили самой карточки внутри */
+.custom-popup-overlay .custom-popup {
+    background: #1c1c1e;
+    padding: 25px;
+    border-radius: 16px;
+    text-align: center;
+    width: 85%;
+    max-width: 320px;
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Анимация увеличения карточки при появлении */
+.custom-popup-overlay.visible .custom-popup {
+    transform: scale(1);
+}
+
+/* Стили кнопок внутри этого попапа */
+.custom-popup-overlay .popup-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.custom-popup-overlay .popup-btn.primary {
+    background: #FFD700;
+    color: #000;
+}
+
+.custom-popup-overlay .popup-btn.secondary {
+    background: transparent;
+    color: #8e8e93;
+}
