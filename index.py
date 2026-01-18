@@ -12726,27 +12726,29 @@ async def claim_daily_task(
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
             await supabase.post("/user_telegram_progress", json=progress)
 
-        # === 4. БАЗОВЫЕ ПРОВЕРКИ (ВРЕМЯ / СТАТУС) ===
+        # === 4. БАЗОВЫЕ ПРОВЕРКИ ===
         if progress["completed"]:
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
-        # --- ИСПРАВЛЕНИЕ: БЛОКИРОВКУ ПО ВРЕМЕНИ ДЕЛАЕМ ТОЛЬКО ЕСЛИ ЭТО НЕ 7 ДЕНЬ (ФИНАЛ) ---
-        # Если current_day == 7, значит пользователь прошел круг и должен забрать награду без таймера
-        # (Иначе он никогда не сможет забрать её, т.к. 20 часов еще не прошло с 6 дня)
-        current_day_check = progress.get("current_day", 0)
-        is_final_reward_claim = (current_day_check == 7)
+        # Получаем текущий день из базы (0, 1... 6, 7)
+        current_day_val = progress.get("current_day", 0)
+        
+        # Флаг: является ли это нажатием на Золотую кнопку (7 день)
+        is_golden_claim = (current_day_val == 7)
 
-        if task.get("is_daily") and progress.get("last_claimed_at") and not is_final_reward_claim:
+        # Проверка кулдауна (20 часов)
+        # Если это 7-й день, мы тоже проверяем кулдаун (чтобы он не нажал 7-й день сразу после 6-го в ту же секунду)
+        # Но логика на фронте может скрывать таймер. На бэке защита нужна.
+        if task.get("is_daily") and progress.get("last_claimed_at"):
             last_claim = parser.isoparse(progress["last_claimed_at"])
-            # Кулдаун 20 часов
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
-                return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
-        # -----------------------------------------------------------------------------------
+                 # Исключение: если каким-то чудом он на 7 дне, но таймер не прошел - не даем.
+                 # Но обычно на 6-м дне ставится таймер.
+                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
 
-        # === 5. ЛОГИКА ПРОВЕРКИ (ИМЕННО ТУТ ОТКРЫВАЮТСЯ ОКНА) ===
+        # === 5. ЛОГИКА ПРОВЕРКИ ПОДПИСОК И Т.Д. ===
         check_passed = False
         
-        # А. Проверка подписки
         if task_key == "tg_sub":
             channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
             try:
@@ -12758,7 +12760,6 @@ async def claim_daily_task(
             except Exception:
                 return JSONResponse({"success": False, "error": "Не удалось проверить подписку."})
 
-        # Б. Проверка бустов
         elif task_key == "tg_vote":
             channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
             try:
@@ -12770,7 +12771,6 @@ async def claim_daily_task(
             except Exception:
                  return JSONResponse({"success": False, "error": "Бот не может проверить голос."})
 
-        # В. Текстовые проверки (Фамилия / Био) -> ТУТ КРАСИВЫЕ ОКНА
         else:
             try:
                 user_chat = await bot.get_chat(user_id)
@@ -12778,66 +12778,53 @@ async def claim_daily_task(
                 check_type = task.get("check_type")
 
                 if check_type == "surname":
-                    # Ищем во всем имени (Name + Lastname), чтобы работало надежнее
                     full_name = (user_chat.full_name or "").lower()
                     if phrase and phrase in full_name:
                         check_passed = True
-                        
                 elif check_type == "bio":
                     bio = (user_chat.bio or "").lower()
                     if phrase and phrase in bio:
                         check_passed = True
                 else:
-                    check_passed = True # Обычный клик
-                    
+                    check_passed = True 
             except Exception as e:
-                # Если настройки приватности скрывают данные
                 return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Проверьте настройки приватности."})
 
         if not check_passed:
             target = "фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
-            # ВАЖНО: Фраза "Условие не выполнено" триггерит твой JS на открытие красивого попапа
             return JSONResponse({
                 "success": False, 
                 "error": f"Условие не выполнено! Проверьте наличие '{task.get('check_phrase')}' в {target}."
             })
 
-        # === 7. ОБНОВЛЕНИЕ ПРОГРЕССА И БАРОВ (С ФЛАГОМ СБРОСА) ===
+        # === 6. ГЛАВНАЯ ЛОГИКА ДНЕЙ ===
+        
         last_claimed_str = progress.get("last_claimed_at")
-        current_day_val = progress.get("current_day", 0)
         next_day = 1
         streak_reset = False 
-
-        # Расчет следующего дня
-        # Если это финальный клейм (7 день), мы не проверяем стрик, мы просто выдаем награду и сбрасываем
-        if not is_final_reward_claim:
-            if last_claimed_str:
-                last_claim_dt = parser.isoparse(last_claimed_str)
-                now_dt = datetime.now(timezone.utc)
-                delta = now_dt - last_claim_dt
-                
-                # Если прошло >= 2 дней -> сброс
-                if delta.days >= 2:
-                    next_day = 1
-                    streak_reset = True # <--- Сигнализируем, что серия сгорела
-                else:
-                    next_day = current_day_val + 1
-            else:
-                # Первый раз
-                next_day = 1
-        else:
-            # Если это был 7 день (финал), следующий день будет 1
-             next_day = 1
-
-        is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
-
-        # === 6. НАЧИСЛЕНИЕ НАГРАДЫ + СЕКРЕТНЫЙ КОД (7 ДЕНЬ) ===
         reward = task.get("reward_amount", 0)
-        secret_code = None # Переменная для кода
+        secret_code = None
 
-        # 🔥 ИСПРАВЛЕННАЯ ПРОВЕРКА: ВЫДАЕМ КОД ЕСЛИ ЭТО БЫЛ 7-Й ДЕНЬ 🔥
-        if current_day_val == 7:  # <-- БЫЛО if next_day == 7
-            # А. Ищем свободный код
+        # Проверяем, не сгорела ли серия по времени (если прошло > 48 часов с прошлого раза)
+        if last_claimed_str:
+            last_claim_dt = parser.isoparse(last_claimed_str)
+            now_dt = datetime.now(timezone.utc)
+            delta = now_dt - last_claim_dt
+            
+            if delta.days >= 2:
+                # Серия сгорела!
+                # Сбрасываем на 1-й день, выдаем награду за 1-й день
+                next_day = 2 # Станет 2, т.к. мы сейчас забираем за 1-й
+                streak_reset = True 
+                current_day_val = 1 # Считаем что он сейчас на 1 дне
+                is_golden_claim = False # Сгорело, значит точно не золотая
+            else:
+                # Серия в порядке
+                pass # current_day_val остается как был
+
+        # 🔥 СЦЕНАРИЙ 1: ЭТО НАЖАТИЕ НА ЗОЛОТУЮ КНОПКУ (7-й ДЕНЬ) 🔥
+        if is_golden_claim and not streak_reset:
+            # 1. Ищем свободный код
             code_resp = await supabase.get(
                 "/cs_codes", 
                 params={"is_copied": "eq.false", "limit": 1}
@@ -12848,7 +12835,7 @@ async def claim_daily_task(
                 code_obj = codes[0]
                 secret_code = code_obj["code"]
                 
-                # Б. Помечаем код как использованный (is_copied = true) и привязываем к юзеру
+                # Привязываем код
                 await supabase.patch(
                     "/cs_codes", 
                     params={"code": f"eq.{secret_code}"}, 
@@ -12858,38 +12845,46 @@ async def claim_daily_task(
                         "assigned_at": datetime.now(timezone.utc).isoformat()
                     }
                 )
-                
-                # Г. Сбрасываем серию на начало, так как цикл завершен
-                next_day = 1 
-                is_done = False # Чтобы можно было начать заново
-                reward = 0 # Билеты не даем, приз - код
-            else:
-                # Если кодов нет - просто сбрасываем день
-                next_day = 1
-                is_done = False
-                reward = 100 # Утешительный приз
-        
-        # Если это переход с 6 на 7 день (обычный)
-        elif next_day == 7:
-             # Мы ничего не меняем, просто даем награду за 6 день и ставим next_day = 7
-             pass
+            
+            # В награду за 7-й день даем 0 билетов (приз - код) или утешительные 100 если кодов нет
+            reward = 0 if secret_code else 100
+            
+            # ЦИКЛ ЗАВЕРШЕН -> Сбрасываем на 1 день
+            # В базе будет current_day = 1, юзер увидит 1-й день
+            next_day = 1 
 
-        # 1. Получаем АКТУАЛЬНЫЙ баланс
+        # 🔥 СЦЕНАРИЙ 2: ОБЫЧНЫЙ ДЕНЬ (1-6) 🔥
+        else:
+            if streak_reset:
+                # Если сбросилось, мы уже обработали выше (начинаем с 1)
+                next_day = 2 # Забрал 1-й, следующий будет 2-й
+            else:
+                # Обычный инкремент. Если был 6 -> станет 7.
+                next_day = current_day_val + 1
+            
+            # Обычная награда в билетах
+            # (reward уже взяли из task)
+
+        # Вычисляем статус is_completed
+        # Задание считается выполненным только если next_day > total_days,
+        # но так как мы сбрасываем 7->1, оно никогда не будет completed окончательно (вечный цикл)
+        is_done = False 
+        
+        # 7. Обновляем баланс юзера
         user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
         user_db_data = user_resp.json()[0]
         current_tickets = user_db_data.get("tickets", 0)
-
         new_balance = current_tickets + reward
 
-        # 2. Обновляем баланс в базе
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{user_id}"},
             json={"tickets": new_balance}
         )
 
+        # 8. Обновляем прогресс задания
         update_data = {
-            "current_day": next_day,
+            "current_day": next_day if next_day <= 7 else 1, # Страховка
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
             "completed": is_done
         }
@@ -12903,12 +12898,12 @@ async def claim_daily_task(
         return JSONResponse({
             "success": True, 
             "reward": reward,
-            "day": next_day, 
-            "total_days": task.get("total_days", 1),
+            "day": update_data["current_day"], 
+            "total_days": task.get("total_days", 7),
             "is_completed": is_done, 
             "tickets": new_balance, 
             "streak_reset": streak_reset, 
-            "secret_code": secret_code, # <--- ОТПРАВЛЯЕМ КОД НА ФРОНТ
+            "secret_code": secret_code, 
             "message": f"Секретный код получен!" if secret_code else f"Задание выполнено! +{reward} билетов"
         })
 
