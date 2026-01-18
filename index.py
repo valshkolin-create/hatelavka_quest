@@ -1382,7 +1382,7 @@ async def bootstrap_app(
     # --------------------------------------
     
     try:
-        # 1. Запускаем все запросы ПАРАЛЛЕЛЬНО (Добавили Task I)
+        # 1. Запускаем все запросы ПАРАЛЛЕЛЬНО (Добавили Task I и J)
         results = await asyncio.gather(
             # A. Настройки админа
             get_admin_settings_async_global(),
@@ -1422,12 +1422,23 @@ async def bootstrap_app(
                     "limit": 1
                 }
             ),
+
+            # J. 🔥 НОВОЕ: Ищем последний выданный секретный код
+            supabase.get(
+                "/cs_codes", 
+                params={
+                    "assigned_to": f"eq.{telegram_id}", 
+                    "order": "assigned_at.desc", 
+                    "limit": 1,
+                    "select": "code"
+                }
+            ),
             
             return_exceptions=True
         )
         
-        # Распаковка результатов (добавили trade_res в конец)
-        (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res, stream_res, trade_res) = results
+        # Распаковка результатов (добавили code_res в конец)
+        (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res, stream_res, trade_res, code_res) = results
 
         # --- 1. Обработка Настроек ---
         if isinstance(settings_res, Exception):
@@ -1474,7 +1485,7 @@ async def bootstrap_app(
         else:
             user_data = rpc_data.get('profile', {}) or {}
             
-            # --- 🔥 НАЧАЛО ИСПРАВЛЕНИЯ: ЛОГИКА КУЛДАУНА 🔥 ---
+            # --- 🔥 ЛОГИКА КУЛДАУНА ЧЕЛЛЕНДЖА 🔥 ---
             raw_challenge = rpc_data.get('challenge')
             
             if raw_challenge:
@@ -1486,7 +1497,7 @@ async def bootstrap_app(
                     user_data['challenge'] = None
                 
                 elif status == 'claimed' and claimed_at_str:
-                    # Если ЗАБРАН — проверяем, прошло ли время (18 часов)
+                    # Если ЗАБРАН — проверяем, прошло ли время (12 часов)
                     try:
                         claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
                         # Время, когда можно брать следующий
@@ -1508,7 +1519,7 @@ async def bootstrap_app(
                     user_data['challenge'] = raw_challenge
             else:
                 user_data['challenge'] = None
-            # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            # --- КОНЕЦ ЛОГИКИ КУЛДАУНА ---
 
             user_data['event_participations'] = rpc_data.get('event_participations', {})
 
@@ -1562,6 +1573,17 @@ async def bootstrap_app(
         # Кладем статус в user_data, чтобы фронт его увидел сразу
         user_data['active_trade_status'] = active_trade_status
 
+        # 🔥 ВСТАВЛЯЕМ СЕКРЕТНЫЙ КОД В ПРОФИЛЬ (Task J) 🔥
+        # Если код найден в cs_codes (assigned_to = telegram_id), кладем его в поле active_secret_code
+        if not isinstance(code_res, Exception) and code_res.status_code == 200:
+            c_data = code_res.json()
+            if c_data:
+                user_data['active_secret_code'] = c_data[0]['code']
+            else:
+                user_data['active_secret_code'] = None
+        else:
+            user_data['active_secret_code'] = None
+
         # --- 3. Обработка Квестов (Task C) ---
         quests_list = []
         if isinstance(quests_res, Exception) or quests_res.status_code != 200:
@@ -1600,7 +1622,7 @@ async def bootstrap_app(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
-        
+    
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 
 @app.post("/api/v1/admin/events/cauldron/reward_status")
@@ -12658,11 +12680,9 @@ async def claim_daily_task(
 
         if task.get("is_daily") and progress.get("last_claimed_at"):
             last_claim = parser.isoparse(progress["last_claimed_at"])
+            # Кулдаун 20 часов
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
-
-        if task.get("is_daily") and progress["current_day"] >= task["total_days"]:
-             return JSONResponse({"success": False, "error": "Цикл заданий завершен!"})
 
         # === 5. ЛОГИКА ПРОВЕРКИ (ИМЕННО ТУТ ОТКРЫВАЮТСЯ ОКНА) ===
         check_passed = False
@@ -12755,7 +12775,7 @@ async def claim_daily_task(
             # А. Ищем свободный код
             code_resp = await supabase.get(
                 "/cs_codes", 
-                params={"is_active": "eq.true", "is_copied": "eq.false", "limit": 1}
+                params={"is_copied": "eq.false", "limit": 1}
             )
             codes = code_resp.json()
             
@@ -12763,40 +12783,31 @@ async def claim_daily_task(
                 code_obj = codes[0]
                 secret_code = code_obj["code"]
                 
-                # Б. Помечаем код как использованный (is_copied = true)
-                await supabase.patch("/cs_codes", params={"code": f"eq.{secret_code}"}, json={"is_copied": True})
-                
-                # В. Сохраняем код юзеру. Т.к. колонки secret_codes нет, 
-                # мы добавим его в существующий массив `telegram_tasks_data` или создадим поле.
-                # Для простоты и надежности, пока просто вернем его на фронт.
-                # Если нужно сохранять в историю, лучше создать таблицу user_secret_codes.
+                # Б. Помечаем код как использованный (is_copied = true) и привязываем к юзеру
+                await supabase.patch(
+                    "/cs_codes", 
+                    params={"code": f"eq.{secret_code}"}, 
+                    json={
+                        "is_copied": True,
+                        "assigned_to": user_id,
+                        "assigned_at": datetime.now(timezone.utc).isoformat()
+                    }
+                )
                 
                 # Г. Сбрасываем серию на начало, так как цикл завершен
                 next_day = 1 
                 is_done = False # Чтобы можно было начать заново
+                reward = 0 # Билеты не даем, приз - код
             else:
                 # Если кодов нет - просто сбрасываем день
                 next_day = 1
                 is_done = False
+                reward = 100 # Утешительный приз
 
         # 1. Получаем АКТУАЛЬНЫЙ баланс
-        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets, telegram_tasks_data"})
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
         user_db_data = user_resp.json()[0]
         current_tickets = user_db_data.get("tickets", 0)
-        
-        # Если код есть, сохраняем его в профиль (в поле telegram_tasks_data или новое)
-        # Храним коды в user.telegram_tasks_data -> secret_codes: []
-        if secret_code:
-            tasks_json = user_db_data.get("telegram_tasks_data") or {}
-            existing_codes = tasks_json.get("secret_codes", [])
-            existing_codes.append(secret_code)
-            tasks_json["secret_codes"] = existing_codes
-            
-            await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{user_id}"},
-                json={"telegram_tasks_data": tasks_json}
-            )
 
         new_balance = current_tickets + reward
 
@@ -12828,7 +12839,7 @@ async def claim_daily_task(
             "tickets": new_balance, 
             "streak_reset": streak_reset, 
             "secret_code": secret_code, # <--- ОТПРАВЛЯЕМ КОД НА ФРОНТ
-            "message": f"Задание выполнено! +{reward} билетов"
+            "message": f"Секретный код получен!" if secret_code else f"Задание выполнено! +{reward} билетов"
         })
 
     except Exception as e:
