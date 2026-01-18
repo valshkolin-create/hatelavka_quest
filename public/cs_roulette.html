@@ -33,22 +33,28 @@
             background: none;
             border: none;
             color: var(--action-color);
-            font-size: 14px; /* Чуть увеличил (было 12), чтобы на темном фоне было виднее */
             cursor: pointer;
             padding: 5px 0;
-            font-weight: 600;
             text-decoration: none;
             
-            /* Важное отличие от профиля: позиционируем поверх игры */
+            /* === ПАРАМЕТРЫ ШРИФТА ИЗ PROFILE.HTML === */
+            /* Сбрасываем Montserrat на системный шрифт (как в профиле) */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 12px;      /* Вернул 12px */
+            font-weight: 500;     /* Вернул среднюю жирность */
+            letter-spacing: normal; /* Убрал растянутость букв */
+
+            /* === ПОЗИЦИЯ ПОВЕРХ ФОНА === */
             position: absolute;
-            top: 15px; /* Отступ сверху (безопасная зона) */
+            top: 15px;
             left: 15px;
-            z-index: 1500; /* Выше фона, но ниже модалок */
-            text-shadow: 0 1px 3px rgba(0,0,0,0.8); /* Тень, чтобы читалось на картинке */
+            z-index: 1500;
+            /* Тень оставляем, иначе на черном фоне игры кнопку не будет видно */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8); 
         }
         
         .back-button:active {
-            opacity: 0.7;
+            opacity: 0.7; /* Эффект нажатия */
         }
 
         body {
@@ -482,7 +488,7 @@
 <body>
     
    <a href="#" id="header-back-btn" class="back-button">
-        <i class="fa-solid fa-chevron-left"></i> Назад
+        <i class="fa-solid fa-chevron-left"></i> Главная
     </a>
     <div id="loading-screen">ЗАГРУЗКА...</div>
     <div id="bg-layer" class="bg-agent"></div>
@@ -1530,12 +1536,8 @@ async function copyAndMarkCode(codeText, btnElement) {
 }
     // --- НАВИГАЦИЯ НАЗАД (КАК В ПРОФИЛЕ) ---
     function goBack() {
-        if (window.history.length > 1 && document.referrer) {
-            window.history.back();
-        } else {
-            // Если истории нет, кидаем в меню или профиль
-            window.location.href = 'profile.html'; 
-        }
+        // Просто переходим на главную страницу (в меню)
+        window.location.href = '/menu'; 
     }
 
     // Обработчик для нашей HTML кнопки
