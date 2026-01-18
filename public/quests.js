@@ -899,24 +899,6 @@ function renderChallenge(challengeData, isGuest) {
         startCountdown(document.getElementById('challenge-timer'), challenge.expires_at, 'challenge');
     }
 }
-
-Конечно! Давай добавим эту функциональность.
-
-Мы сделаем следующее:
-
-Обновим renderActiveAutomaticQuest: Если бесплатная отмена недоступна (таймер), мы добавим под ней кнопку "Отменить за X билетов".
-
-Обновим setupEventListeners: Добавим логику нажатия на новую кнопку.
-
-Красивое окно: Если билетов не хватает, покажем твое универсальное модальное окно (openUniversalModal) с грустным сообщением.
-
-Вот готовый код. Замени две функции: renderActiveAutomaticQuest и setupEventListeners.
-
-1. Обновленная функция рендера (renderActiveAutomaticQuest)
-Замени эту функцию целиком. Я добавил логику отображения второй кнопки, если первая заблокирована.
-
-JavaScript
-
 function renderActiveAutomaticQuest(quest, userData) {
     dom.activeAutomaticQuestContainer.innerHTML = '';
     if (!quest || !userData || !userData.active_quest_id) return;
