@@ -5340,6 +5340,58 @@ async def get_manual_quests(request: Request, body: InitDataModel):
     final_quests = fill_missing_quest_data(final_quests)
     
     return final_quests
+
+# --- 🆕 ПОЛУЧЕНИЕ ИСТОРИИ СЕКРЕТНЫХ КОДОВ ---
+@app.post("/api/v1/user/secret_codes")
+async def get_user_secret_codes(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    
+    # Берем коды из таблицы cs_codes, привязанные к этому юзеру
+    res = await supabase.get(
+        "/cs_codes", 
+        params={
+            "assigned_to": f"eq.{user_info['id']}", 
+            "select": "code, assigned_at",
+            "order": "assigned_at.desc"
+        }
+    )
+    return res.json()
+
+# --- 🆕 ОЧИСТКА ИСТОРИИ СЕКРЕТНЫХ КОДОВ ---
+@app.post("/api/v1/user/secret_codes/delete-all")
+async def delete_all_secret_codes(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+
+    # Мы не удаляем коды физически (чтобы не сломать статистику), 
+    # а просто "отвязываем" их от юзера в интерфейсе (или можно ввести флаг hidden).
+    # Для простоты - убираем assigned_to, делая вид, что история чиста, 
+    # НО! код уже is_copied=true, так что повторно его не выдадут.
+    
+    # Вариант: Просто скрываем из выдачи API? 
+    # Лучше сделать update: assigned_to = NULL (но тогда код потеряет владельца).
+    # Правильнее: создать таблицу user_hidden_codes, но для простоты давайте сделаем так:
+    # Просто вернем успех, а на фронте очистим. 
+    # (Если хотите реально удалять связь - раскомментируйте строку ниже, но код станет "ничьим")
+    
+    # await supabase.patch("/cs_codes", params={"assigned_to": f"eq.{user_info['id']}"}, json={"assigned_to": None})
+    
+    # ЛУЧШИЙ ВАРИАНТ ДЛЯ ВАС СЕЙЧАС:
+    # Удаляем запись о владельце, но оставляем is_copied=True
+    await supabase.patch(
+        "/cs_codes", 
+        params={"assigned_to": f"eq.{user_info['id']}"}, 
+        json={"assigned_to": None} 
+    )
+    
+    return {"success": True}
         
 @app.post("/api/v1/user/promocodes/delete")
 async def delete_promocode(request_data: PromocodeDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
