@@ -12805,7 +12805,7 @@ async def claim_daily_task(
             delta = now_dt - last_claim_dt
             
             if delta.days >= 2:
-                next_day = 2 # Сброс на 1-й (сейчас забираем 1-й, след -> 2-й)
+                next_day = 1 # Сброс на 1-й (сейчас забираем 1-й, след -> 2-й)
                 streak_reset = True 
                 current_day_val = 1 
                 is_golden_claim = False 
@@ -12831,7 +12831,7 @@ async def claim_daily_task(
         # 🔥 СЦЕНАРИЙ 2: ОБЫЧНЫЙ ДЕНЬ (1-6) 🔥
         else:
             if streak_reset:
-                next_day = 2 
+                next_day = 1 
             else:
                 next_day = current_day_val + 1
         
