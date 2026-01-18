@@ -1490,7 +1490,7 @@ async def bootstrap_app(
                     try:
                         claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
                         # Время, когда можно брать следующий
-                        cooldown_end = claimed_at + timedelta(hours=18)
+                        cooldown_end = claimed_at + timedelta(hours=12)
                         now = datetime.now(timezone.utc)
 
                         if now < cooldown_end:
