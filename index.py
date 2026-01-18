@@ -1473,7 +1473,43 @@ async def bootstrap_app(
             }
         else:
             user_data = rpc_data.get('profile', {}) or {}
-            user_data['challenge'] = rpc_data.get('challenge')
+            
+            # --- 🔥 НАЧАЛО ИСПРАВЛЕНИЯ: ЛОГИКА КУЛДАУНА 🔥 ---
+            raw_challenge = rpc_data.get('challenge')
+            
+            if raw_challenge:
+                status = raw_challenge.get('status')
+                claimed_at_str = raw_challenge.get('claimed_at')
+
+                if status == 'expired':
+                    # Если истек — сбрасываем, чтобы дать взять новый
+                    user_data['challenge'] = None
+                
+                elif status == 'claimed' and claimed_at_str:
+                    # Если ЗАБРАН — проверяем, прошло ли время (18 часов)
+                    try:
+                        claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
+                        # Время, когда можно брать следующий
+                        cooldown_end = claimed_at + timedelta(hours=18)
+                        now = datetime.now(timezone.utc)
+
+                        if now < cooldown_end:
+                            # Кулдаун еще идет -> Отправляем данные + время окончания
+                            user_data['challenge'] = raw_challenge
+                            user_data['challenge']['cooldown_until'] = cooldown_end.isoformat()
+                        else:
+                            # Кулдаун прошел -> Сбрасываем, можно брать новый
+                            user_data['challenge'] = None
+                    except Exception as e:
+                        logging.error(f"Date parse error: {e}")
+                        user_data['challenge'] = None
+                else:
+                    # Если pending (активный) — оставляем как есть
+                    user_data['challenge'] = raw_challenge
+            else:
+                user_data['challenge'] = None
+            # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
             user_data['event_participations'] = rpc_data.get('event_participations', {})
 
         # --- Дополнительные поля ---
@@ -7939,13 +7975,17 @@ async def activate_referral_bonus(
     
 # --- Пользовательские эндпоинты ---
 @app.post("/api/v1/user/challenge/available")
-async def get_available_challenges(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_available_challenges(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info: raise HTTPException(status_code=401, detail="Доступ запрещен")
+    if not user_info or "id" not in user_info: 
+        raise HTTPException(status_code=401, detail="Доступ запрещен")
+    
     telegram_id = user_info["id"]
 
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-    # Проверяем активные челленджи, но также учитываем, не истек ли их срок
+    # 1. Проверяем активные (pending) челленджи
     pending_resp = await supabase.get(
         "/user_challenges", 
         params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "id,expires_at"}
@@ -7970,23 +8010,57 @@ async def get_available_challenges(request_data: InitDataRequest, supabase: http
                         json={"status": "expired"}
                     )
             except ValueError:
-                # На случай, если дата в базе имеет неверный формат
                 logging.warning(f"Неверный формат даты истечения срока для челленджа {current_challenge['id']}")
 
         # Выдаем ошибку, только если челлендж действительно активен (не истек)
         if not is_expired:
             raise HTTPException(status_code=409, detail="У вас уже есть активный челлендж.")
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
+    # 2. 🔥 ПРОВЕРКА КУЛДАУНА (1 челлендж за стрим / 18 часов) 🔥
+    # Ищем последний выполненный (claimed) челлендж
+    last_claimed_resp = await supabase.get(
+        "/user_challenges",
+        params={
+            "user_id": f"eq.{telegram_id}",
+            "status": "eq.claimed",
+            "order": "claimed_at.desc", # Сортируем: новые сверху
+            "limit": 1
+        }
+    )
+    last_claimed_data = last_claimed_resp.json()
+
+    if last_claimed_data:
+        last_challenge = last_claimed_data[0]
+        claimed_at_str = last_challenge.get("claimed_at")
+        
+        if claimed_at_str:
+            try:
+                claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
+                # Устанавливаем кулдаун 18 часов (стандартное время между стримами)
+                cooldown_period = timedelta(hours=12)
+                time_passed = datetime.now(timezone.utc) - claimed_at
+
+                if time_passed < cooldown_period:
+                    hours_left = int((cooldown_period - time_passed).total_seconds() / 3600)
+                    # Блокируем выдачу списка, чтобы кнопка не сработала
+                    raise HTTPException(
+                        status_code=409, 
+                        detail=f"Вы уже выполнили челлендж сегодня. Следующий будет доступен через ~{hours_left} ч."
+                    )
+            except ValueError:
+                logging.warning("Ошибка проверки даты claimed_at, пропускаем кулдаун.")
+
+    # 3. Получаем список доступных челленджей
     # Проверяем, привязан ли Twitch у пользователя
     user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_id"})
     user_has_twitch = user_resp.json() and user_resp.json()[0].get("twitch_id") is not None
 
-    completed_resp = await supabase.get("/user_challenges", params={"user_id": f"eq.{telegram_id}", "status": "in.(claimed,expired)", "select": "challenge_id"})
-    completed_ids = {c['challenge_id'] for c in completed_resp.json()}
-    
-    available_resp = await supabase.get("/challenges", params={"is_active": "eq.true", "select": "id,description,reward_amount,condition_type"})
-    all_available = [c for c in available_resp.json() if c['id'] not in completed_ids]
+    # Мы УБРАЛИ фильтрацию по completed_ids, чтобы челленджи могли повторяться на следующий день
+    available_resp = await supabase.get(
+        "/challenges", 
+        params={"is_active": "eq.true", "select": "id,description,reward_amount,condition_type"}
+    )
+    all_available = available_resp.json()
 
     # Фильтруем квесты, если нет Twitch
     if not user_has_twitch:
