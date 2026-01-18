@@ -12723,31 +12723,11 @@ async def claim_daily_task(
                 "error": f"Условие не выполнено! Проверьте наличие '{task.get('check_phrase')}' в {target}."
             })
 
-
-        # === 6. НАЧИСЛЕНИЕ НАГРАДЫ (ТВОЙ КОД) ===
-        reward = task.get("reward_amount", 0)
-
-        # 1. Получаем АКТУАЛЬНЫЙ баланс
-        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
-        current_tickets = 0
-        if user_resp.json():
-            current_tickets = user_resp.json()[0].get("tickets", 0)
-        
-        new_balance = current_tickets + reward
-
-        # 2. Обновляем баланс в базе
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{user_id}"},
-            json={"tickets": new_balance}
-        )
-
         # === 7. ОБНОВЛЕНИЕ ПРОГРЕССА И БАРОВ (С ФЛАГОМ СБРОСА) ===
-        
         last_claimed_str = progress.get("last_claimed_at")
         current_day_val = progress.get("current_day", 0)
         next_day = 1
-        streak_reset = False # <--- Новая переменная
+        streak_reset = False 
 
         if last_claimed_str:
             last_claim_dt = parser.isoparse(last_claimed_str)
@@ -12765,7 +12745,68 @@ async def claim_daily_task(
             next_day = 1
 
         is_done = True if not task.get("is_daily") else (next_day >= task["total_days"])
+
+        # === 6. НАЧИСЛЕНИЕ НАГРАДЫ + СЕКРЕТНЫЙ КОД (7 ДЕНЬ) ===
+        reward = task.get("reward_amount", 0)
+        secret_code = None # Переменная для кода
+
+        # 🔥 ПРОВЕРКА 7 ДНЯ: ВЫДАЕМ КОД И СБРАСЫВАЕМ СЕРИЮ 🔥
+        if next_day == 7:
+            # А. Ищем свободный код
+            code_resp = await supabase.get(
+                "/cs_codes", 
+                params={"is_active": "eq.true", "is_copied": "eq.false", "limit": 1}
+            )
+            codes = code_resp.json()
+            
+            if codes:
+                code_obj = codes[0]
+                secret_code = code_obj["code"]
+                
+                # Б. Помечаем код как использованный (is_copied = true)
+                await supabase.patch("/cs_codes", params={"code": f"eq.{secret_code}"}, json={"is_copied": True})
+                
+                # В. Сохраняем код юзеру. Т.к. колонки secret_codes нет, 
+                # мы добавим его в существующий массив `telegram_tasks_data` или создадим поле.
+                # Для простоты и надежности, пока просто вернем его на фронт.
+                # Если нужно сохранять в историю, лучше создать таблицу user_secret_codes.
+                
+                # Г. Сбрасываем серию на начало, так как цикл завершен
+                next_day = 1 
+                is_done = False # Чтобы можно было начать заново
+            else:
+                # Если кодов нет - просто сбрасываем день
+                next_day = 1
+                is_done = False
+
+        # 1. Получаем АКТУАЛЬНЫЙ баланс
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets, telegram_tasks_data"})
+        user_db_data = user_resp.json()[0]
+        current_tickets = user_db_data.get("tickets", 0)
         
+        # Если код есть, сохраняем его в профиль (в поле telegram_tasks_data или новое)
+        # Храним коды в user.telegram_tasks_data -> secret_codes: []
+        if secret_code:
+            tasks_json = user_db_data.get("telegram_tasks_data") or {}
+            existing_codes = tasks_json.get("secret_codes", [])
+            existing_codes.append(secret_code)
+            tasks_json["secret_codes"] = existing_codes
+            
+            await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{user_id}"},
+                json={"telegram_tasks_data": tasks_json}
+            )
+
+        new_balance = current_tickets + reward
+
+        # 2. Обновляем баланс в базе
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id}"},
+            json={"tickets": new_balance}
+        )
+
         update_data = {
             "current_day": next_day,
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
@@ -12785,7 +12826,8 @@ async def claim_daily_task(
             "total_days": task.get("total_days", 1),
             "is_completed": is_done, 
             "tickets": new_balance, 
-            "streak_reset": streak_reset, # <--- Отправляем на фронт
+            "streak_reset": streak_reset, 
+            "secret_code": secret_code, # <--- ОТПРАВЛЯЕМ КОД НА ФРОНТ
             "message": f"Задание выполнено! +{reward} билетов"
         })
 
