@@ -12726,29 +12726,25 @@ async def claim_daily_task(
             progress = {"user_id": user_id, "task_key": task_key, "current_day": 0, "completed": False}
             await supabase.post("/user_telegram_progress", json=progress)
 
-        # === 4. БАЗОВЫЕ ПРОВЕРКИ ===
+        # === 4. БАЗОВЫЕ ПРОВЕРКИ (ВРЕМЯ / СТАТУС) ===
         if progress["completed"]:
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
-        # Получаем текущий день из базы (0, 1... 6, 7)
-        current_day_val = progress.get("current_day", 0)
-        
-        # Флаг: является ли это нажатием на Золотую кнопку (7 день)
-        is_golden_claim = (current_day_val == 7)
+        # --- 🔥 ЛОГИКА 7 ДНЯ: СНИМАЕМ БЛОКИРОВКУ ТАЙМЕРА НА ФИНАЛЕ 🔥 ---
+        current_day_check = progress.get("current_day", 0)
+        is_golden_claim = (current_day_check == 7)
 
-        # Проверка кулдауна (20 часов)
-        # Если это 7-й день, мы тоже проверяем кулдаун (чтобы он не нажал 7-й день сразу после 6-го в ту же секунду)
-        # Но логика на фронте может скрывать таймер. На бэке защита нужна.
-        if task.get("is_daily") and progress.get("last_claimed_at"):
+        if task.get("is_daily") and progress.get("last_claimed_at") and not is_golden_claim:
             last_claim = parser.isoparse(progress["last_claimed_at"])
+            # Кулдаун 20 часов
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
-                 # Исключение: если каким-то чудом он на 7 дне, но таймер не прошел - не даем.
-                 # Но обычно на 6-м дне ставится таймер.
-                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
+                return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
+        # ----------------------------------------------------------------
 
-        # === 5. ЛОГИКА ПРОВЕРКИ ПОДПИСОК И Т.Д. ===
+        # === 5. ЛОГИКА ПРОВЕРКИ (ИМЕННО ТУТ ОТКРЫВАЮТСЯ ОКНА) ===
         check_passed = False
         
+        # А. Проверка подписки
         if task_key == "tg_sub":
             channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
             try:
@@ -12760,6 +12756,7 @@ async def claim_daily_task(
             except Exception:
                 return JSONResponse({"success": False, "error": "Не удалось проверить подписку."})
 
+        # Б. Проверка бустов
         elif task_key == "tg_vote":
             channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
             try:
@@ -12771,6 +12768,7 @@ async def claim_daily_task(
             except Exception:
                  return JSONResponse({"success": False, "error": "Бот не может проверить голос."})
 
+        # В. Текстовые проверки (Фамилия / Био) -> ТУТ КРАСИВЫЕ ОКНА
         else:
             try:
                 user_chat = await bot.get_chat(user_id)
@@ -12778,20 +12776,25 @@ async def claim_daily_task(
                 check_type = task.get("check_type")
 
                 if check_type == "surname":
+                    # Ищем во всем имени (Name + Lastname), чтобы работало надежнее
                     full_name = (user_chat.full_name or "").lower()
                     if phrase and phrase in full_name:
                         check_passed = True
+                        
                 elif check_type == "bio":
                     bio = (user_chat.bio or "").lower()
                     if phrase and phrase in bio:
                         check_passed = True
                 else:
-                    check_passed = True 
+                    check_passed = True # Обычный клик
+                    
             except Exception as e:
+                # Если настройки приватности скрывают данные
                 return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Проверьте настройки приватности."})
 
         if not check_passed:
             target = "фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
+            # ВАЖНО: Фраза "Условие не выполнено" триггерит твой JS на открытие красивого попапа
             return JSONResponse({
                 "success": False, 
                 "error": f"Условие не выполнено! Проверьте наличие '{task.get('check_phrase')}' в {target}."
@@ -12806,7 +12809,8 @@ async def claim_daily_task(
         secret_code = None
 
         # Проверяем, не сгорела ли серия по времени (если прошло > 48 часов с прошлого раза)
-        if last_claimed_str:
+        # Если это Золотой клейм (7 день), то мы не сбрасываем стрик по времени, т.к. таймер отключен
+        if last_claimed_str and not is_golden_claim:
             last_claim_dt = parser.isoparse(last_claimed_str)
             now_dt = datetime.now(timezone.utc)
             delta = now_dt - last_claim_dt
@@ -12817,7 +12821,8 @@ async def claim_daily_task(
                 next_day = 2 # Станет 2, т.к. мы сейчас забираем за 1-й
                 streak_reset = True 
                 current_day_val = 1 # Считаем что он сейчас на 1 дне
-                is_golden_claim = False # Сгорело, значит точно не золотая
+                # Если серия сгорела, то это уже точно не золотой клейм
+                is_golden_claim = False 
             else:
                 # Серия в порядке
                 pass # current_day_val остается как был
@@ -12903,7 +12908,7 @@ async def claim_daily_task(
             "is_completed": is_done, 
             "tickets": new_balance, 
             "streak_reset": streak_reset, 
-            "secret_code": secret_code, 
+            "secret_code": secret_code, # <--- ОТПРАВЛЯЕМ КОД НА ФРОНТ
             "message": f"Секретный код получен!" if secret_code else f"Задание выполнено! +{reward} билетов"
         })
 
