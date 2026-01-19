@@ -792,7 +792,7 @@ class CSConfigUpdate(BaseModel):
     name_points: float
 
 class PromocodeCopyRequest(BaseModel):
-    promocode_id: int
+    promocode_id: str | int  # <--- Разрешаем и строки, и числа
     initData: str
 
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
