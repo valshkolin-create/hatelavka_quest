@@ -464,6 +464,29 @@ async function loadTelegramTasks() {
     }
 }
 
+// === ОБНОВЛЕНИЕ КЭША ЧТОБЫ НЕ СКАКАЛ БАЛАНС ===
+function updateCacheAfterClaim() {
+    try {
+        // Берем текущий слепок из памяти
+        const cachedRaw = localStorage.getItem('quests_cache_v1');
+        if (cachedRaw && userData) {
+            const cache = JSON.parse(cachedRaw);
+            // Обновляем в нем данные пользователя (билеты и т.д.)
+            // Важно: мы сохраняем весь объект userData, так как мы его уже обновили в handleDailyClaim
+            cache.user = userData; 
+            
+            // Если нужно, обновляем и квесты (чтобы галочки не пропадали при релоаде до сети)
+            if (typeof allQuests !== 'undefined') {
+                cache.quests = allQuests;
+            }
+            
+            // Записываем обратно
+            localStorage.setItem('quests_cache_v1', JSON.stringify(cache));
+        }
+    } catch (e) {
+        console.error("Ошибка сохранения кэша:", e);
+    }
+}
 // Замени старую функцию handleDailyClaim на эту:
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
@@ -515,6 +538,9 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
                 // 🔥 Обновляем глобальные данные
                 if(userData) userData.tickets = (userData.tickets || 0) + data.reward;
+                
+                // 🔥 ФИКС БАЛАНСА: Сохраняем в память телефона сразу
+                if (typeof updateCacheAfterClaim === 'function') updateCacheAfterClaim();
 
                 if (telegramTasksCache) {
                     const task = telegramTasksCache.find(t => t.task_key === taskKey);
@@ -545,6 +571,10 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             if (userData) {
                 userData.tickets = (userData.tickets || 0) + earned;
             }
+
+            // 🔥 ФИКС БАЛАНСА: Сохраняем новое состояние в LocalStorage
+            // Теперь при перезагрузке скрипт сразу увидит новые билеты
+            if (typeof updateCacheAfterClaim === 'function') updateCacheAfterClaim();
 
             // 3. Обновляем кэш задач
             if (telegramTasksCache) {
