@@ -468,7 +468,6 @@ async function loadTelegramTasks() {
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
     const rewardAmount = btn ? btn.getAttribute('data-reward') : '';
-    // Сохраняем оригинальный стиль
     const originalStyle = btn ? btn.getAttribute('style') : '';
     
     const restoreBtnHtml = `
@@ -492,7 +491,7 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         
         if (data && data.success) {
             
-            // Секретный код (оставляем как было)
+            // Секретный код
             if (data.secret_code) {
                 if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 const popup = document.getElementById('secret-reward-popup');
@@ -510,10 +509,12 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 return;
             }
 
-            // Сгорание серии (оставляем как было)
+            // Сгорание серии
             if (data.streak_reset) {
                 const stats = document.getElementById('ticketStats');
                 if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+                // 🔥 Обновляем глобальные данные
+                if(userData) userData.tickets = (userData.tickets || 0) + data.reward;
 
                 if (telegramTasksCache) {
                     const task = telegramTasksCache.find(t => t.task_key === taskKey);
@@ -531,13 +532,21 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 return; 
             }
 
-            // === 🔥 ОБЫЧНЫЙ УСПЕХ (ИЗМЕНЕНИЯ ЗДЕСЬ) 🔥 ===
+            // === 🔥 ОБЫЧНЫЙ УСПЕХ 🔥 ===
             
-            // 1. Обновляем цифры на фоне
-            const stats = document.getElementById('ticketStats');
-            if(stats) stats.innerText = parseInt(stats.innerText || '0') + (data.reward || 0);
+            const earned = data.reward || 0;
 
-            // 2. Обновляем кэш
+            // 1. Обновляем DOM (визуал)
+            const stats = document.getElementById('ticketStats');
+            if(stats) stats.innerText = parseInt(stats.innerText || '0') + earned;
+
+            // 2. 🔥 ВАЖНО: Обновляем глобальную переменную userData
+            // Это предотвратит "откат" цифр при следующем фоновом обновлении
+            if (userData) {
+                userData.tickets = (userData.tickets || 0) + earned;
+            }
+
+            // 3. Обновляем кэш задач
             if (telegramTasksCache) {
                 const task = telegramTasksCache.find(t => t.task_key === taskKey);
                 if (task) {
@@ -548,18 +557,17 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 }
             }
 
-            // 3. Обновляем сетку заданий
+            // 4. Перерисовываем сетку (чтобы кнопка стала серой/зеленой сразу)
             const container = dom.modalContainer;
             if (container && telegramTasksCache) {
                 renderTelegramGrid(telegramTasksCache, container);
             }
             
-            // 4. ВЫЗЫВАЕМ НАШЕ КРАСИВОЕ ОКНО
-            // (Кнопка "Закрыть" внутри него перезагрузит страницу)
-            injectRewardPopup(data.reward || 0, data.message || "Задание выполнено!");
+            // 5. Показываем окно (теперь оно НЕ перезагружает страницу)
+            injectRewardPopup(earned, data.message || "Задание выполнено!");
 
         } else if (data) {
-            // === БЛОК ОШИБОК (НЕ ТРОГАЕМ) ===
+            // Ошибки
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
             if (taskKey === 'tg_vote') {
@@ -737,8 +745,8 @@ function injectProfilePopup(type) {
 }
 
 // === КРАСИВОЕ ОКНО НАГРАДЫ ===
+// === КРАСИВОЕ ОКНО НАГРАДЫ (БЕЗ ПЕРЕЗАГРУЗКИ) ===
 function injectRewardPopup(amount, text = "Задание выполнено!") {
-    // Удаляем старые окна, если они есть
     const existing = document.getElementById('rewardPopup');
     if (existing) existing.remove();
 
@@ -771,18 +779,16 @@ function injectRewardPopup(amount, text = "Задание выполнено!") 
 
     document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    // Вибрация успеха (если поддерживается)
     if(window.Telegram && Telegram.WebApp.HapticFeedback) {
         Telegram.WebApp.HapticFeedback.notificationOccurred('success');
     }
 
-    // Обработчик кнопки "Закрыть" (перезагружает страницу для обновления данных)
+    // 🔥 ИЗМЕНЕНИЕ: Просто удаляем окно, НЕ ПЕРЕЗАГРУЖАЯ страницу
     document.getElementById('closeRewardBtn').addEventListener('click', () => {
         const popup = document.getElementById('rewardPopup');
         popup.style.opacity = '0';
         setTimeout(() => {
             popup.remove();
-            window.location.reload(); 
         }, 200);
     });
 }
