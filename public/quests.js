@@ -468,7 +468,7 @@ async function loadTelegramTasks() {
 async function handleDailyClaim(taskKey, userId, actionUrl) {
     const btn = document.getElementById(`btn-${taskKey}`);
     const rewardAmount = btn ? btn.getAttribute('data-reward') : '';
-    // Сохраняем оригинальный стиль, чтобы вернуть его, если будет ошибка
+    // Сохраняем оригинальный стиль
     const originalStyle = btn ? btn.getAttribute('style') : '';
     
     const restoreBtnHtml = `
@@ -492,40 +492,25 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
         
         if (data && data.success) {
             
-            // === 🔥 ПРОВЕРКА 7 ДНЯ (ЕСЛИ ПРИШЕЛ СЕКРЕТНЫЙ КОД) 🔥 ===
+            // Секретный код (оставляем как было)
             if (data.secret_code) {
-                // Вибрация успеха
                 if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                
-                // Показываем наше красивое окно
                 const popup = document.getElementById('secret-reward-popup');
                 const goProfileBtn = document.getElementById('go-to-profile-btn');
                 const closeBtn = document.getElementById('close-secret-popup-btn');
                 
                 if (popup) {
                     popup.classList.add('visible');
-                    
-                    // Кнопка "В профиль"
-                    goProfileBtn.onclick = () => {
-                        window.location.href = 'profile.html';
-                    };
-                    
-                    // Кнопка "Позже" (перезагружаем страницу, чтобы обновить счетчики)
-                    closeBtn.onclick = () => {
-                        popup.classList.remove('visible');
-                        window.location.reload();
-                    };
+                    goProfileBtn.onclick = () => { window.location.href = 'profile.html'; };
+                    closeBtn.onclick = () => { popup.classList.remove('visible'); window.location.reload(); };
                 } else {
-                    // На всякий случай, если HTML не вставили
                     Telegram.WebApp.showAlert("Код получен! Он в профиле.");
                     window.location.reload();
                 }
-                
-                return; // Выходим, чтобы не показывать стандартные алерты
+                return;
             }
-            // ========================================================
 
-            // Проверка на сгорание серии
+            // Сгорание серии (оставляем как было)
             if (data.streak_reset) {
                 const stats = document.getElementById('ticketStats');
                 if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
@@ -546,10 +531,13 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 return; 
             }
 
-            // Обычный успех
-            if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            Telegram.WebApp.showAlert(data.message || "Задание выполнено!");
+            // === 🔥 ОБЫЧНЫЙ УСПЕХ (ИЗМЕНЕНИЯ ЗДЕСЬ) 🔥 ===
+            
+            // 1. Обновляем цифры на фоне
+            const stats = document.getElementById('ticketStats');
+            if(stats) stats.innerText = parseInt(stats.innerText || '0') + (data.reward || 0);
 
+            // 2. Обновляем кэш
             if (telegramTasksCache) {
                 const task = telegramTasksCache.find(t => t.task_key === taskKey);
                 if (task) {
@@ -560,20 +548,18 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 }
             }
 
+            // 3. Обновляем сетку заданий
             const container = dom.modalContainer;
             if (container && telegramTasksCache) {
                 renderTelegramGrid(telegramTasksCache, container);
             }
             
-            const stats = document.getElementById('ticketStats');
-            if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
-            
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+            // 4. ВЫЗЫВАЕМ НАШЕ КРАСИВОЕ ОКНО
+            // (Кнопка "Закрыть" внутри него перезагрузит страницу)
+            injectRewardPopup(data.reward || 0, data.message || "Задание выполнено!");
 
         } else if (data) {
-            // Ошибка
+            // === БЛОК ОШИБОК (НЕ ТРОГАЕМ) ===
             if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             
             if (taskKey === 'tg_vote') {
@@ -594,7 +580,6 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             if(btn) {
                 btn.disabled = false;
                 btn.innerHTML = restoreBtnHtml; 
-                // Возвращаем золотой стиль, если он был
                 if (originalStyle) btn.setAttribute('style', originalStyle);
             }
         }
@@ -748,6 +733,57 @@ function injectProfilePopup(type) {
         document.getElementById('profilePopup').remove();
         // === 2. СБРАСЫВАЕМ ТИП ПРОВЕРКИ ===
         activeProfileCheck = null; 
+    });
+}
+
+// === КРАСИВОЕ ОКНО НАГРАДЫ ===
+function injectRewardPopup(amount, text = "Задание выполнено!") {
+    // Удаляем старые окна, если они есть
+    const existing = document.getElementById('rewardPopup');
+    if (existing) existing.remove();
+
+    const popupHtml = `
+    <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(8px); animation: fadeIn 0.3s;">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 30px 20px; border-radius: 24px; text-align: center; width: 85%; max-width: 320px; border: 1px solid rgba(255, 215, 0, 0.2); box-shadow: 0 0 50px rgba(255, 215, 0, 0.15); transform: scale(0.9); animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;">
+        
+        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6)); animation: float 3s ease-in-out infinite;">
+            🎟
+        </div>
+        
+        <h3 style="margin: 0 0 5px; font-size: 20px; font-weight: 700; color: #fff;">${text}</h3>
+        <p style="margin: 0 0 20px; color: #8e8e93; font-size: 13px;">Награда зачислена на баланс</p>
+        
+        <div style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 16px; padding: 15px; margin-bottom: 25px;">
+            <span style="font-size: 32px; font-weight: 900; color: #FFD700; text-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);">+${amount}</span>
+        </div>
+        
+        <button id="closeRewardBtn" style="width: 100%; background: #2c2c2e; color: #fff; border: 1px solid #444; padding: 14px; border-radius: 16px; font-weight: 600; font-size: 15px; cursor: pointer; transition: background 0.2s;">
+            Закрыть
+        </button>
+      </div>
+    </div>
+    <style>
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+    </style>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
+
+    // Вибрация успеха (если поддерживается)
+    if(window.Telegram && Telegram.WebApp.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+
+    // Обработчик кнопки "Закрыть" (перезагружает страницу для обновления данных)
+    document.getElementById('closeRewardBtn').addEventListener('click', () => {
+        const popup = document.getElementById('rewardPopup');
+        popup.style.opacity = '0';
+        setTimeout(() => {
+            popup.remove();
+            window.location.reload(); 
+        }, 200);
     });
 }
 
@@ -1866,9 +1902,10 @@ function setupEventListeners() {
                     if (popup) popup.remove();
                     activeProfileCheck = null;
 
-                    Telegram.WebApp.showAlert("✅ Отлично! Профиль обновлен, награда получена.");
-                    if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    // 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: Вызываем наше красивое окно вместо showAlert
+                    injectRewardPopup(data.reward || 0, "Профиль подтвержден!");
 
+                    // Обновляем галочку в списке (фоном)
                     if (telegramTasksCache) {
                         const task = telegramTasksCache.find(t => t.task_key === taskKey);
                         if (task) {
@@ -1877,11 +1914,13 @@ function setupEventListeners() {
                         }
                     }
 
+                    // Обновляем сетку (фоном)
                     const container = dom.modalContainer;
                     if (container && telegramTasksCache) {
                         renderTelegramGrid(telegramTasksCache, container);
                     }
                     
+                    // Обновляем счетчик билетов (фоном)
                     const stats = document.getElementById('ticketStats');
                     if(stats && data.reward) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
                 } else {
