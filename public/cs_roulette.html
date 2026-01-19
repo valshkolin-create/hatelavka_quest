@@ -1382,7 +1382,8 @@ function copyHashVal() {
             let html = '';
             list.forEach(w => {
                 const tl = w.user?.trade_link;
-                const linkBtn = tl ? `<button class="copy-link-btn" onclick="copyLink('${tl}')\"><i class=\"fa-solid fa-link\"></i></button>` : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
+                // Меняем copyLink на handleTradeClick
+                const linkBtn = tl ? `<button class="copy-link-btn" onclick="handleTradeClick('${tl}')"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>` : '<span style="color:#444; font-size:10px; margin-left:5px;">(Нет ссылки)</span>';
                 html += `<div class="admin-row"><div style="font-size:12px;"><b style="color:#fff">${w.user?.full_name || 'User'}</b> ${linkBtn}<br><span style="color:gold">${w.item?.name || 'Item'}</span></div><div style="font-size:10px; color:#666;">Код: ${w.code_used}</div></div>`;
             });
             document.getElementById('winners-list').innerHTML = html;
@@ -1495,6 +1496,38 @@ async function loadCodesListAPI() {
     }
 }
 
+// --- НОВАЯ ФУНКЦИЯ: КОПИРУЕТ И ПЕРЕХОДИТ ---
+    async function handleTradeClick(url) {
+        if (!url || url.length < 5) {
+            return notify("Нет Trade URL", 'error');
+        }
+
+        // 1. Копируем в буфер
+        try {
+            await navigator.clipboard.writeText(url);
+            notify("Скопировано! Открываю Steam...", 'success');
+        } catch (err) {
+            // Фолбек, если navigator не сработал
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            notify("Скопировано! Открываю Steam...", 'success');
+        }
+
+        // 2. Открываем ссылку через 300мс (чтобы уведомление успело мелькнуть)
+        setTimeout(() => {
+            if (tg && tg.openLink) {
+                // Используем метод Telegram WebApp, чтобы корректно открыло внешний браузер
+                tg.openLink(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        }, 300);
+    }
+
 // Копирование и пометка "Синим"
 async function copyAndMarkCode(codeText, btnElement) {
     // 1. Формируем красивый шаблон
@@ -1556,6 +1589,7 @@ async function copyAndMarkCode(codeText, btnElement) {
         tg.BackButton.show();
         tg.BackButton.onClick(goBack);
     }
+        
 </script>
 </body>
 </html>
