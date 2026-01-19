@@ -5350,12 +5350,12 @@ async def get_user_secret_codes(
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(status_code=401)
     
-    # Берем коды из таблицы cs_codes, привязанные к этому юзеру
+    # ИСПРАВЛЕНИЕ: Добавили 'copied_at' в выборку
     res = await supabase.get(
         "/cs_codes", 
         params={
             "assigned_to": f"eq.{user_info['id']}", 
-            "select": "code, assigned_at",
+            "select": "code, assigned_at, copied_at", # <-- Добавлено сюда
             "order": "assigned_at.desc"
         }
     )
@@ -5392,6 +5392,36 @@ async def delete_all_secret_codes(
     )
     
     return {"success": True}
+
+# --- 🆕 УДАЛЕНИЕ ОДНОГО СЕКРЕТНОГО КОДА ---
+@app.post("/api/v1/user/secret_codes/delete")
+async def delete_secret_code(
+    request_data: PromocodeDeleteRequest, # Используем ту же модель, так как там есть initData и code
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Удаляет (скрывает) один секретный код из списка пользователя.
+    Принцип тот же: отвязываем пользователя (assigned_to = None), 
+    но код остается в базе как 'использованный'.
+    """
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Доступ запрещен")
+    
+    telegram_id = user_info["id"]
+    code_to_delete = request_data.code
+
+    # Выполняем "отвязку" кода от пользователя
+    await supabase.patch(
+        "/cs_codes", 
+        params={
+            "code": f"eq.{code_to_delete}", 
+            "assigned_to": f"eq.{telegram_id}"
+        }, 
+        json={"assigned_to": None} 
+    )
+    
+    return {"message": "Секретный код удален."}
         
 @app.post("/api/v1/user/promocodes/delete")
 async def delete_promocode(request_data: PromocodeDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -7948,19 +7978,40 @@ async def mark_promocode_copied(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     user_id = user_info["id"]
+    
+    # Приводим к строке, чтобы проверить префикс
+    item_id = str(request_data.promocode_id)
+    current_time = datetime.now(timezone.utc).isoformat()
 
-    # ИСПРАВЛЕНИЕ: Используем .patch() вместо .table().update()
-    # PostgREST синтаксис для фильтрации передается в params
-    await supabase.patch(
-        "/promocodes",
-        params={
-            "id": f"eq.{request_data.promocode_id}",
-            "telegram_id": f"eq.{user_id}"
-        },
-        json={
-            "copied_at": datetime.now(timezone.utc).isoformat()
-        }
-    )
+    # --- ЛОГИКА ДЛЯ СЕКРЕТНЫХ КОДОВ ---
+    if item_id.startswith("secret_"):
+        real_code = item_id.replace("secret_", "")
+        
+        # Обновляем таблицу cs_codes для секретных кодов
+        await supabase.patch(
+            "/cs_codes",
+            params={
+                "code": f"eq.{real_code}",
+                "assigned_to": f"eq.{user_id}"
+            },
+            json={
+                "copied_at": current_time,
+                "is_copied": True  # Обновляем оба поля для надежности
+            }
+        )
+
+    # --- ЛОГИКА ДЛЯ ОБЫЧНЫХ ПРОМОКОДОВ (ТВОЙ СТАРЫЙ КОД) ---
+    else:
+        await supabase.patch(
+            "/promocodes", # Твоя таблица для обычных кодов
+            params={
+                "id": f"eq.{request_data.promocode_id}",
+                "telegram_id": f"eq.{user_id}"
+            },
+            json={
+                "copied_at": current_time
+            }
+        )
 
     return {"status": "ok"}
 
