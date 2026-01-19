@@ -1498,36 +1498,24 @@ async function loadCodesListAPI() {
 
 // --- НОВАЯ ФУНКЦИЯ: КОПИРУЕТ И ПЕРЕХОДИТ ---
     async function handleTradeClick(url) {
-        if (!url || url.length < 5) {
-            return notify("Нет Trade URL", 'error');
-        }
+    if (!url) return notify("Нет ссылки");
 
-        // 1. Копируем в буфер
-        try {
-            await navigator.clipboard.writeText(url);
-            notify("Скопировано! Открываю Steam...", 'success');
-        } catch (err) {
-            // Фолбек, если navigator не сработал
-            const ta = document.createElement('textarea');
-            ta.value = url;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-            notify("Скопировано! Открываю Steam...", 'success');
-        }
+    // 1. Копируем в буфер (фоном, чтобы было под рукой)
+    try { navigator.clipboard.writeText(url); } catch (e) {}
 
-        // 2. Открываем ссылку через 300мс (чтобы уведомление успело мелькнуть)
-        setTimeout(() => {
-            if (tg && tg.openLink) {
-                // Используем метод Telegram WebApp, чтобы корректно открыло внешний браузер
-                tg.openLink(url);
-            } else {
-                window.open(url, '_blank');
-            }
-        }, 300);
+    // 2. Вибрация для тактильного отклика
+    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+    // 3. МГНОВЕННО открываем ссылку во внешнем браузере
+    // tg.openLink - это единственный способ открыть Steam в Chrome/Safari, 
+    // где ты уже залогинен, а не во внутреннем браузере Telegram.
+    if (tg && tg.openLink) {
+        tg.openLink(url);
+    } else {
+        window.open(url, '_blank');
     }
-
+}
+        
 // Копирование и пометка "Синим"
 async function copyAndMarkCode(codeText, btnElement) {
     // 1. Формируем красивый шаблон
