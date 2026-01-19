@@ -744,30 +744,65 @@ function injectProfilePopup(type) {
     });
 }
 
-// === КРАСИВОЕ ОКНО НАГРАДЫ ===
 // === КРАСИВОЕ ОКНО НАГРАДЫ (БЕЗ ПЕРЕЗАГРУЗКИ) ===
 function injectRewardPopup(amount, text = "Задание выполнено!") {
     const existing = document.getElementById('rewardPopup');
     if (existing) existing.remove();
 
+    // Цвета
+    const accentBlue = '#0088cc'; // Telegram Blue
+    const accentGold = '#FFD700'; // Gold for tickets
+
     const popupHtml = `
     <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(8px); animation: fadeIn 0.3s;">
-      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 30px 20px; border-radius: 24px; text-align: center; width: 85%; max-width: 320px; border: 1px solid rgba(255, 215, 0, 0.2); box-shadow: 0 0 50px rgba(255, 215, 0, 0.15); transform: scale(0.9); animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;">
+      
+      <div class="popup-content" style="
+          background: #1c1c1e; 
+          color: #fff; 
+          padding: 30px 20px; 
+          border-radius: 24px; 
+          text-align: center; 
+          width: 85%; 
+          max-width: 320px; 
+          border: 1px solid rgba(0, 136, 204, 0.3); 
+          box-shadow: 0 0 50px rgba(0, 136, 204, 0.2); 
+          transform: scale(0.9); 
+          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      ">
         
-        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6)); animation: float 3s ease-in-out infinite;">
+        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.4)); animation: float 3s ease-in-out infinite;">
             🎟
         </div>
         
         <h3 style="margin: 0 0 5px; font-size: 20px; font-weight: 700; color: #fff;">${text}</h3>
         <p style="margin: 0 0 20px; color: #8e8e93; font-size: 13px;">Награда зачислена на баланс</p>
         
-        <div style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1)); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 16px; padding: 15px; margin-bottom: 25px;">
-            <span style="font-size: 32px; font-weight: 900; color: #FFD700; text-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);">+${amount}</span>
+        <div style="
+            background: rgba(0, 136, 204, 0.1); 
+            border: 1px solid rgba(0, 136, 204, 0.3); 
+            border-radius: 16px; 
+            padding: 15px; 
+            margin-bottom: 25px;
+        ">
+            <span style="font-size: 32px; font-weight: 900; color: ${accentGold}; text-shadow: 0 2px 15px rgba(255, 215, 0, 0.3);">+${amount}</span>
         </div>
         
-        <button id="closeRewardBtn" style="width: 100%; background: #2c2c2e; color: #fff; border: 1px solid #444; padding: 14px; border-radius: 16px; font-weight: 600; font-size: 15px; cursor: pointer; transition: background 0.2s;">
-            Закрыть
+        <button id="closeRewardBtn" style="
+            width: 100%; 
+            background: linear-gradient(135deg, #0088cc, #005f8f); 
+            color: #fff; 
+            border: none; 
+            padding: 14px; 
+            border-radius: 16px; 
+            font-weight: 700; 
+            font-size: 15px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+            transition: transform 0.1s;
+        ">
+            ЗАКРЫТЬ
         </button>
+
       </div>
     </div>
     <style>
@@ -783,63 +818,13 @@ function injectRewardPopup(amount, text = "Задание выполнено!") 
         Telegram.WebApp.HapticFeedback.notificationOccurred('success');
     }
 
-    // 🔥 ИЗМЕНЕНИЕ: Просто удаляем окно, НЕ ПЕРЕЗАГРУЖАЯ страницу
     document.getElementById('closeRewardBtn').addEventListener('click', () => {
         const popup = document.getElementById('rewardPopup');
         popup.style.opacity = '0';
         setTimeout(() => {
             popup.remove();
+            // Без перезагрузки страницы, данные уже обновлены JS-ом
         }, 200);
-    });
-}
-
-// === НОВАЯ ФУНКЦИЯ: ОКНО СГОРАНИЯ СЕРИИ ===
-function injectBurnedPopup(rewardAmount) {
-    const existing = document.getElementById('burnedPopup');
-    if (existing) existing.remove();
-
-    const popupHtml = `
-    <div id="burnedPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
-      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 30px 20px; border-radius: 24px; text-align: center; width: 85%; max-width: 320px; border: 2px solid #ff3b30; box-shadow: 0 0 40px rgba(255, 59, 48, 0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-        
-        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(255, 69, 58, 0.5));">🔥💔</div>
-        
-        <h3 style="margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; color: #ff3b30; letter-spacing: 1px;">СЕРИЯ ПРЕРВАНА</h3>
-        
-        <p style="font-size: 15px; color: #e0e0e0; line-height: 1.5; margin: 15px 0 20px 0;">
-            Ты пропустил день, и твой стрик сгорел.<br>
-            <span style="color: #8e8e93; font-size: 13px;">Начинаем заново с 1-го дня.</span>
-        </p>
-        
-        <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 16px; padding: 12px; margin-bottom: 25px; display: inline-block; min-width: 140px;">
-            <div style="font-size: 12px; color: #FFD700; opacity: 0.8; text-transform: uppercase; margin-bottom: 2px;">Твоя награда</div>
-            <span style="font-size: 26px; font-weight: 900; color: #FFD700;">+${rewardAmount} 🎟</span>
-        </div>
-        
-        <button id="closeBurnedBtn" style="width: 100%; background: #ff3b30; background: linear-gradient(135deg, #ff3b30, #ff2d55); color: white; border: none; padding: 16px; border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.4); transition: transform 0.1s;">
-            НАЧАТЬ ЗАНОВО
-        </button>
-      </div>
-    </div>
-    <style>
-      @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    </style>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', popupHtml);
-
-    // Звук ошибки (вибрация)
-    if(window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-    }
-
-    document.getElementById('closeBurnedBtn').addEventListener('click', () => {
-        const popup = document.getElementById('burnedPopup');
-        popup.style.opacity = '0';
-        setTimeout(() => popup.remove(), 200);
-        
-        // Перезагружаем страницу, чтобы обновить интерфейс
-        window.location.reload();
     });
 }
 // ==========================================
