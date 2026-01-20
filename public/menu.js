@@ -68,7 +68,7 @@ const dom = {
 
     let lastShopStatus = null; // <--- ДОБАВИТЬ ЭТУ ПЕРЕМЕННУЮ ДЛЯ ЗАПОМИНАНИЯ
     let originalShopHTML = null;
-    let bonusGiftEnabled = true; // Глобальный флаг для подарка
+    let bonusGiftEnabled = false; // По умолчанию ВЫКЛЮЧЕНО, ждем команду от сервера
 
 // --- ФУНКЦИИ БЛОКИРОВКИ СКРОЛЛА ---
     function lockAppScroll() {
@@ -2938,10 +2938,35 @@ async function renderFullInterface(bootstrapData) {
 
     // Слайдеры
     if (menuContent) {
-        // Баннер целей
-        if (menuContent.bonus_gift_enabled !== undefined) {
-            bonusGiftEnabled = menuContent.bonus_gift_enabled;
-        }    
+    // --- УПРАВЛЕНИЕ ПОДАРКОМ ЧЕРЕЗ НАСТРОЙКИ ---
+    if (menuContent.bonus_gift_enabled !== undefined) {
+        bonusGiftEnabled = menuContent.bonus_gift_enabled;
+        
+        // Получаем элементы подарка
+        const giftContainer = document.getElementById('gift-container');
+        const giftFloatingBtn = document.getElementById('daily-gift-btn');
+
+        if (!bonusGiftEnabled) {
+            // Если в настройках FALSE — ЖЕСТКО скрываем всё
+            if (giftContainer) {
+                giftContainer.classList.add('hidden');
+                giftContainer.style.display = 'none'; 
+            }
+            if (giftFloatingBtn) {
+                giftFloatingBtn.style.display = 'none';
+            }
+        } else {
+            // Если в настройках TRUE — разрешаем показ
+            // (Но не убираем hidden принудительно, так как подарок может быть уже собран)
+            if (giftContainer && !giftContainer.classList.contains('hidden')) {
+                giftContainer.style.display = ''; 
+            }
+            if (giftFloatingBtn) {
+                // Если подарок доступен, кнопка должна быть видна
+                giftFloatingBtn.style.display = ''; 
+            }
+        }
+    }  
         if (menuContent.weekly_goals_banner_url) {
             const wImg = document.getElementById('weekly-goals-banner-img');
             if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
@@ -3153,11 +3178,16 @@ function updateShopTile(status) {
 }
         // --- 🎄 GIFT LOGIC 🎄 ---
     async function checkGift() {
-        // 👇 ДОБАВЛЯЕМ ПРОВЕРКУ: Если выключено админом — сразу выходим
-        if (!bonusGiftEnabled) {
-            if(dom.giftContainer) dom.giftContainer.classList.add('hidden');
-            return; 
+    // 1. ПРОВЕРКА НАСТРОЕК: Если выключено глобально — выходим сразу
+    if (!bonusGiftEnabled) {
+        if(dom.giftContainer) {
+            dom.giftContainer.classList.add('hidden');
+            dom.giftContainer.style.display = 'none';
         }
+        const btn = document.getElementById('daily-gift-btn');
+        if(btn) btn.style.display = 'none';
+        return; 
+    }
         // 👆 КОНЕЦ ДОБАВЛЕНИЯ
 
         try {
