@@ -1119,6 +1119,7 @@ function renderGiftResult(result) {
         }
     ];
     let currentTutorialStep = 0;
+    let tutorialCountdownInterval = null
 
     function positionTutorialModal(element, forceTop = false) {
         const rect = element.getBoundingClientRect();
