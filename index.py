@@ -2066,20 +2066,28 @@ async def silent_update_twitch_user(telegram_id: int):
                 }
             )
             
-            # 🔥 ВАЖНЫЙ ЛОГ ОШИБКИ
             # 🔥 ВАЖНО: Замени блок обработки ошибки (примерно строка 1175) на этот:
             if token_resp.status_code != 200:
                 logging.error(f"❌ [Twitch Error] Не удалось обновить токен для {telegram_id}: {token_resp.text}")
                 
-                # 👇 ЭТОГО КУСКА У ТЕБЯ НЕТ, ПОЭТОМУ ПЛАШКА НЕ РАБОТАЕТ
+                # Если токен протух (400)
                 if token_resp.status_code == 400:
-                    logging.warning(f"⚠️ Токен протух. Ставим статус error для {telegram_id}")
+                    logging.warning(f"⚠️ Токен протух. Пытаемся поставить статус error для {telegram_id}...")
+                    
                     try:
-                        await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
-                            "twitch_status": "error"  # <--- Вот это включает красную плашку
+                        # Делаем запрос к БД и сохраняем ответ в db_resp
+                        db_resp = await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+                            "twitch_status": "error"
                         })
+                        
+                        # 👇 ПРОВЕРЯЕМ, ЗАПИСАЛОСЬ ЛИ В БАЗУ?
+                        if db_resp.status_code in [200, 204]:
+                            logging.info(f"✅ УСПЕХ! Статус 'error' записан в базу для {telegram_id}")
+                        else:
+                            logging.error(f"💀 ОШИБКА БАЗЫ! Не удалось записать статус: {db_resp.status_code} {db_resp.text}")
+                            
                     except Exception as e:
-                        logging.error(f"Не удалось записать статус error в БД: {e}")
+                        logging.error(f"💀 КРИТИЧЕСКАЯ ОШИБКА при записи в БД: {e}")
                 return
 
             new_tokens = token_resp.json()
