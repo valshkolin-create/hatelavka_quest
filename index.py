@@ -1399,8 +1399,8 @@ async def bootstrap_app(
             # E. Статус Котла
             supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": "1"}),
 
-            # F. Реферальные данные
-            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "referrer_id, referral_activated_at, bott_internal_id, bott_ref_id"}),
+            # F. Реферальные данные + СТАТУС TWITCH
+            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "referrer_id, referral_activated_at, bott_internal_id, bott_ref_id, twitch_status"}),
             
             # G. Подсчет рефералов
             supabase.get(
@@ -2030,6 +2030,12 @@ async def silent_update_twitch_user(telegram_id: int):
             return # Не привязан Twitch
 
         user = user_data[0]
+
+        # 🔥 ОПТИМИЗАЦИЯ: Если статус УЖЕ error, выходим сразу (экономим ресурсы).
+        # Пользователь должен нажать кнопку "Привязать" вручную.
+        if user.get("twitch_status") == "error":
+            return
+
         last_sync_str = user.get("last_twitch_sync")
 
         # --- 🔥 ЛОГИКА ПРОВЕРКИ + ЛОГИ ---
