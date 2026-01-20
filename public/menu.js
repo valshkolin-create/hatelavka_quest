@@ -99,22 +99,27 @@ function updateLoading(percent) {
 }
 
 function switchView(targetViewId) {
-        dom.viewDashboard.classList.add('hidden');
-        dom.viewQuests.classList.add('hidden');
-        
-        // Было: document.getElementById(targetViewId)?.classList...
-        // Стало:
-        var targetEl = document.getElementById(targetViewId);
-        if (targetEl) targetEl.classList.remove('hidden');
-        
-        dom.footerItems.forEach(item => item.classList.remove('active'));
-        
-        var navId = 'nav-' + targetViewId.split('-')[1];
-        // Было: document.getElementById(navId)?.classList...
-        // Стало:
-        var navEl = document.getElementById(navId);
+    // Скрываем все основные вкладки
+    dom.viewDashboard.classList.add('hidden');
+    dom.viewQuests.classList.add('hidden');
+    const shopView = document.getElementById('view-shop');
+    if(shopView) shopView.classList.add('hidden');
+    
+    // Показываем целевую
+    const targetEl = document.getElementById(targetViewId);
+    if (targetEl) targetEl.classList.remove('hidden');
+    
+    // Переключаем иконку в футере
+    dom.footerItems.forEach(item => item.classList.remove('active'));
+    
+    // Вычисляем ID кнопки (view-quests -> nav-quests)
+    const parts = targetViewId.split('-');
+    if (parts.length > 1) {
+        const navId = 'nav-' + parts[1];
+        const navEl = document.getElementById(navId);
         if (navEl) navEl.classList.add('active');
     }
+}
 
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
     if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
@@ -1084,208 +1089,202 @@ function renderGiftResult(result) {
 // 3. ТУТОРИАЛ (1 в 1 как в рабочем меню)
 // -------------------------------------------------------------
     const tutorialSteps = [
-        {
-            element: '.user-profile',
-            title: 'Ваш Профиль и Билеты',
-            text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch и посмотреть промокоды. <br><br>Справа - <b>Ваши билеты</b> для участия в розыгрышах.',
-            view: 'view-dashboard'
-        },
-        {
-            element: '#main-slider-container',
-            title: 'Актуальные События',
-            text: 'В этом слайдере находятся различные мероприятия. Они постоянно актуальные и всегда обновляются!',
-            view: 'view-dashboard'
-        },
-        {
-            element: '#challenge-container',
-            title: 'Ежедневный Челлендж',
-            text: 'Челленджи переехали во вкладку <b>Задания</b>! <br>Заходите сюда каждый день, выполняйте задания и получайте награды.',
-            view: 'view-quests',
-            forceTop: true // 🔥 Показываем подсказку СВЕРХУ, чтобы не уезжала вниз
-        },
-        {
-            element: '#nav-leaderboard', 
-            title: 'Лидерборд',
-            text: 'Здесь можно посмотреть список лучших игроков и ваше место в рейтинге. Соревнуйтесь по количеству билетов и активности!',
-            view: 'view-dashboard', // Переключаем на главную, чтобы было видно футер
-            forceTop: true // Для футера подсказка всегда должна быть сверху
-        },
-        {
-            element: '#nav-shop', 
-            title: 'Магазин Скинов',
-            text: 'А здесь находится <b>Магазин</b> (Shop). <br>Обменивайте заработанные монеты и звезды на уникальные скины CS2 и полезные предметы!',
-            view: 'view-dashboard',
-            forceTop: true
-        }
-    ];
-    let currentTutorialStep = 0;
-    let tutorialCountdownInterval = null
-
-    function positionTutorialModal(element, forceTop = false) {
-        const rect = element.getBoundingClientRect();
-        const modal = dom.tutorialModal;
-        const margin = 15; // Отступ от элемента
-        
-        // Сброс стилей
-        modal.style.display = 'block';
-        modal.style.top = '';
-        modal.style.bottom = '';
-        modal.style.transform = '';
-        modal.style.left = '5%';
-        modal.style.width = '90%';
-
-        const modalHeight = modal.offsetHeight;
-        const spaceAbove = rect.top;
-        const spaceBelow = window.innerHeight - rect.bottom;
-
-        // 1. Если включено forceTop (для футера/челленджей) -> ставим СВЕРХУ
-        if (forceTop && spaceAbove >= (modalHeight + margin)) {
-            modal.style.top = `${rect.top - modalHeight - margin}px`;
-            return;
-        }
-
-        // 2. Стандартная логика: если есть место снизу -> ставим СНИЗУ
-        if (!forceTop && spaceBelow >= (modalHeight + margin)) {
-            modal.style.top = `${rect.bottom + margin}px`;
-            return;
-        }
-
-        // 3. Иначе пытаемся поставить сверху
-        if (spaceAbove >= (modalHeight + margin)) {
-            modal.style.top = `${rect.top - modalHeight - margin}px`;
-            return;
-        }
-
-        // 4. Если места совсем нет -> прибиваем к верху экрана
-        modal.style.top = '20px';
+    {
+        element: '.user-profile',
+        title: 'Ваш Профиль и Билеты',
+        text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch. <br><br>Справа - <b>Ваши билеты</b> для участия в розыгрышах.',
+        view: 'view-dashboard'
+    },
+    {
+        element: '#main-slider-container',
+        title: 'Актуальные События',
+        text: 'В этом слайдере находятся различные мероприятия. Они постоянно актуальные и всегда обновляются!',
+        view: 'view-dashboard'
+    },
+    {
+        element: '#challenge-container', 
+        title: 'Ежедневный Челлендж', // <-- Этот шаг перекинет на вкладку Квестов
+        text: 'Челленджи переехали во вкладку <b>Задания</b>! <br>Заходите сюда каждый день, выполняйте задания и получайте награды.',
+        view: 'view-quests', // 🔥 ВАЖНО: Указана целевая вкладка
+        forceTop: true 
+    },
+    {
+        element: '#nav-leaderboard', 
+        title: 'Лидерборд',
+        text: 'Здесь можно посмотреть список лучших игроков. Соревнуйтесь по количеству билетов!',
+        view: 'view-dashboard', // Возвращаем на главную, чтобы показать футер
+        forceTop: true 
+    },
+    {
+        element: '#nav-shop', 
+        title: 'Магазин Скинов',
+        text: 'А здесь находится <b>Магазин</b>. <br>Обменивайте заработанные звезды на уникальные скины CS2!',
+        view: 'view-dashboard',
+        forceTop: true
     }
+];
 
-    function showTutorialStep(stepIndex) {
-        if (tutorialCountdownInterval) {
-            clearInterval(tutorialCountdownInterval);
-            tutorialCountdownInterval = null;
-        }
-        const footer = document.querySelector('.app-footer');
-        // Убираем подсветку футера, если она была
-        footer.classList.remove('tutorial-footer-active');
-        document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
-        
-        if (stepIndex >= tutorialSteps.length) {
-            endTutorial(true);
-            return;
-        }
-        
-        let step = { ...tutorialSteps[stepIndex] };
+let currentTutorialStep = 0;
+let tutorialCountdownInterval = null; 
 
-        // Если нужно сменить вкладку (например, на Quests для челленджа)
-        if (step.view && document.getElementById(step.view).classList.contains('hidden')) {
+function positionTutorialModal(element, forceTop = false) {
+    const rect = element.getBoundingClientRect();
+    const modal = dom.tutorialModal;
+    const margin = 15; 
+    
+    modal.style.display = 'block';
+    modal.style.top = '';
+    modal.style.bottom = '';
+    modal.style.transform = '';
+    modal.style.left = '5%';
+    modal.style.width = '90%';
+
+    const modalHeight = modal.offsetHeight;
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+
+    if (forceTop && spaceAbove >= (modalHeight + margin)) {
+        modal.style.top = `${rect.top - modalHeight - margin}px`;
+        return;
+    }
+    if (!forceTop && spaceBelow >= (modalHeight + margin)) {
+        modal.style.top = `${rect.bottom + margin}px`;
+        return;
+    }
+    if (spaceAbove >= (modalHeight + margin)) {
+        modal.style.top = `${rect.top - modalHeight - margin}px`;
+        return;
+    }
+    modal.style.top = '20px';
+}
+
+function showTutorialStep(stepIndex) {
+    if (tutorialCountdownInterval) {
+        clearInterval(tutorialCountdownInterval);
+        tutorialCountdownInterval = null;
+    }
+    const footer = document.querySelector('.app-footer');
+    if (footer) footer.classList.remove('tutorial-footer-active');
+    document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+    
+    if (stepIndex >= tutorialSteps.length) {
+        endTutorial(true);
+        return;
+    }
+    
+    let step = { ...tutorialSteps[stepIndex] };
+
+    // 🔥 АВТО-ПЕРЕКЛЮЧЕНИЕ ВКЛАДКИ 🔥
+    if (step.view) {
+        const currentView = document.querySelector('.view:not(.hidden)');
+        // Переключаем только если мы не на той вкладке
+        if (!currentView || currentView.id !== step.view) {
             switchView(step.view);
         }
+    }
+    
+    setTimeout(() => {
+        const element = document.querySelector(step.element);
         
-        // Небольшая задержка, чтобы интерфейс успел перерисоваться
-        setTimeout(() => {
-            const element = document.querySelector(step.element);
-            
-            if (element) {
-                // Если элемент внутри футера — подсвечиваем весь футер
-                if (element.closest('.app-footer')) {
-                    footer.classList.add('tutorial-footer-active');
-                }
-                
-                element.classList.add('tutorial-highlight');
-                dom.tutorialTitle.textContent = step.title;
-                dom.tutorialText.innerHTML = step.text;
-                dom.tutorialStepCounter.textContent = `Шаг ${stepIndex + 1} из ${tutorialSteps.length}`;
-                
-                // Прокручиваем к элементу
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // 🔥 Вызываем позиционирование с учетом флага forceTop
-                setTimeout(() => positionTutorialModal(element, step.forceTop), 350);
-
-                // Логика кнопки "Далее" с таймером
-                const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
-                dom.tutorialNextBtn.textContent = originalButtonText;
-                const nextBtn = dom.tutorialNextBtn;
-                nextBtn.disabled = true;
-                let countdown = 3; 
-                nextBtn.textContent = `${originalButtonText} (${countdown})`;
-                
-                tutorialCountdownInterval = setInterval(() => {
-                    countdown--;
-                    if (countdown > 0) {
-                        nextBtn.textContent = `${originalButtonText} (${countdown})`;
-                    } else {
-                        clearInterval(tutorialCountdownInterval);
-                        tutorialCountdownInterval = null;
-                        nextBtn.disabled = false;
-                        nextBtn.textContent = originalButtonText;
-                    }
-                }, 1000);
-            } else {
-                console.warn(`Tutorial element not found: ${step.element}. Skipping.`);
-                currentTutorialStep++;
-                showTutorialStep(currentTutorialStep);
+        if (element) {
+            if (element.closest('.app-footer') && footer) {
+                footer.classList.add('tutorial-footer-active');
             }
-        }, 150); 
-    }
-
-    function startTutorial() {
-        currentTutorialStep = 0;
-        // 🔥 ФИКС: Добавляем класс, чтобы отключить transform у main-content и починить z-index
-        document.body.classList.add('tutorial-active');
-        dom.tutorialOverlay.classList.remove('hidden');
-        showTutorialStep(currentTutorialStep);
-    }
-
-    function endTutorial(completed = false) {
-        if (tutorialCountdownInterval) {
-            clearInterval(tutorialCountdownInterval);
-            tutorialCountdownInterval = null;
-        }
-        document.querySelector('.app-footer').classList.remove('tutorial-footer-active');
-        document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
-        
-        // 🔥 ФИКС: Убираем класс, возвращаем всё как было
-        document.body.classList.remove('tutorial-active');
-
-        if (completed) {
-            dom.tutorialTitle.textContent = 'Готово!';
-            dom.tutorialText.innerHTML = 'Теперь вы знаете всё необходимое. <br><br><b>Важно:</b> все задания и розыгрыши в этом боте абсолютно бесплатны. Удачи!';
-            dom.tutorialStepCounter.textContent = '';
             
-            // --- 👇 ЦЕНТРИРОВАНИЕ ФИНАЛЬНОГО ОКНА 👇 ---
-            dom.tutorialModal.style.top = '50%';
-            dom.tutorialModal.style.left = '5%';
-            dom.tutorialModal.style.width = '90%';
-            // Добавляем translateX(-15px) для сдвига влево
-            dom.tutorialModal.style.transform = 'translate(calc(-50px + 5%), -50%)'; 
-            // -------------------------------------------
-
-            dom.tutorialSkipBtn.classList.add('hidden');
-            dom.tutorialNextBtn.textContent = 'Отлично!';
-            dom.tutorialNextBtn.disabled = false;
+            element.classList.add('tutorial-highlight');
+            dom.tutorialTitle.textContent = step.title;
+            dom.tutorialText.innerHTML = step.text;
+            dom.tutorialStepCounter.textContent = `Шаг ${stepIndex + 1} из ${tutorialSteps.length}`;
             
-            dom.tutorialNextBtn.onclick = () => {
-                dom.tutorialOverlay.classList.add('hidden');
-                dom.tutorialModal.style.top = ''; 
-                dom.tutorialModal.style.transform = '';
-                dom.tutorialNextBtn.onclick = tutorialNextHandler;
-                dom.tutorialSkipBtn.classList.remove('hidden');
-            };
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => positionTutorialModal(element, step.forceTop), 350);
+
+            // Таймер кнопки
+            const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
+            dom.tutorialNextBtn.textContent = originalButtonText;
+            const nextBtn = dom.tutorialNextBtn;
+            nextBtn.disabled = true;
+            let countdown = 2; // (Поставил 2 сек, чтобы быстрее было)
+            nextBtn.textContent = `${originalButtonText} (${countdown})`;
+            
+            tutorialCountdownInterval = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    nextBtn.textContent = `${originalButtonText} (${countdown})`;
+                } else {
+                    clearInterval(tutorialCountdownInterval);
+                    tutorialCountdownInterval = null;
+                    nextBtn.disabled = false;
+                    nextBtn.textContent = originalButtonText;
+                }
+            }, 1000);
         } else {
-             dom.tutorialOverlay.classList.add('hidden');
-             dom.tutorialModal.style.top = ''; 
-             dom.tutorialModal.style.transform = '';
+            console.warn(`Tutorial element not found: ${step.element}. Skipping.`);
+            currentTutorialStep++;
+            showTutorialStep(currentTutorialStep);
         }
-        localStorage.setItem('tutorialCompleted', 'true');
-    }
-    function tutorialNextHandler() {
-        currentTutorialStep++;
-        showTutorialStep(currentTutorialStep);
-    };
+    }, 150); 
+}
 
-// --- ФУНКЦИЯ РЕНДЕРА ИНТЕРФЕЙСА (ДЛЯ MAIN) ---
+function startTutorial() {
+    currentTutorialStep = 0;
+    // Блокируем CSS эффекты для корректного отображения (см. menu.css)
+    document.body.classList.add('tutorial-active');
+    dom.tutorialOverlay.classList.remove('hidden');
+    showTutorialStep(currentTutorialStep);
+}
+
+function endTutorial(completed = false) {
+    if (tutorialCountdownInterval) {
+        clearInterval(tutorialCountdownInterval);
+        tutorialCountdownInterval = null;
+    }
+    const footer = document.querySelector('.app-footer');
+    if (footer) footer.classList.remove('tutorial-footer-active');
+    document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+    
+    // Снимаем блокировку CSS
+    document.body.classList.remove('tutorial-active');
+
+    if (completed) {
+        // Возвращаемся на ГЛАВНУЮ после завершения
+        switchView('view-dashboard');
+
+        dom.tutorialTitle.textContent = 'Готово!';
+        dom.tutorialText.innerHTML = 'Теперь вы знаете всё необходимое. <br><br><b>Важно:</b> все задания и розыгрыши в этом боте абсолютно бесплатны. Удачи!';
+        dom.tutorialStepCounter.textContent = '';
+        
+        dom.tutorialModal.style.top = '50%';
+        dom.tutorialModal.style.left = '5%';
+        dom.tutorialModal.style.width = '90%';
+        // Центровка с учетом твоего сдвига влево
+        dom.tutorialModal.style.transform = 'translate(calc(-15px - 50%), -50%)'; 
+
+        dom.tutorialSkipBtn.classList.add('hidden');
+        dom.tutorialNextBtn.textContent = 'Отлично!';
+        dom.tutorialNextBtn.disabled = false;
+        
+        dom.tutorialNextBtn.onclick = () => {
+            dom.tutorialOverlay.classList.add('hidden');
+            dom.tutorialModal.style.top = ''; 
+            dom.tutorialModal.style.transform = '';
+            dom.tutorialNextBtn.onclick = tutorialNextHandler;
+            dom.tutorialSkipBtn.classList.remove('hidden');
+        };
+    } else {
+         dom.tutorialOverlay.classList.add('hidden');
+         dom.tutorialModal.style.top = ''; 
+         dom.tutorialModal.style.transform = '';
+    }
+    localStorage.setItem('tutorialCompleted', 'true');
+}
+
+function tutorialNextHandler() {
+    currentTutorialStep++;
+    showTutorialStep(currentTutorialStep);
+};
+
+
 // --- ФУНКЦИЯ РЕНДЕРА ИНТЕРФЕЙСА (ДЛЯ MAIN) ---
 async function renderFullInterface(data) {
     userData = data.user || {};
