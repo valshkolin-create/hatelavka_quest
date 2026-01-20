@@ -2222,13 +2222,40 @@ function setupEventListeners() {
         });
     }
     // Клик на Испытания
-    const questShortcut = document.getElementById('shortcut-quests');
-    if (questShortcut) {
-        questShortcut.addEventListener('click', () => {
-            // Передаем команду "roulette"
-            window.location.href = '/quests?open=roulette';
-        });
-    }
+// Клик на Испытания (shortcut-quests)
+const questShortcut = document.getElementById('shortcut-quests');
+if (questShortcut) {
+    questShortcut.addEventListener('click', (e) => {
+        e.preventDefault(); // Остановить перезагрузку/переход по ссылке
+
+        // 1. Открываем вкладку заданий
+        switchView('view-quests');
+
+        // 2. Проверяем, есть ли уже взятое задание
+        if (userData && userData.active_quest_id) {
+            // --- СЦЕНАРИЙ А: ЕСТЬ АКТИВНОЕ ---
+            const activeContainer = document.getElementById('active-automatic-quest-container');
+            if (activeContainer) {
+                // Плавный скролл к активному заданию
+                setTimeout(() => {
+                    activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            }
+        } else {
+            // --- СЦЕНАРИЙ Б: НЕТ АКТИВНОГО ---
+            // Мы просто показываем верх страницы. 
+            // Кнопка "Начать испытание" уже будет правильного цвета (Твич/ТГ),
+            // так как это определяется в renderFullInterface.
+            
+            // Дополнительно: тихо обновляем список ручных квестов, чтобы он был актуальным
+            openQuestsTab(true); 
+            
+            // Если хочешь, чтобы сразу открывались 3 карточки на выбор, 
+            // раскомментируй строку ниже:
+            startQuestRoulette(); 
+        }
+    });
+}
 
     // --- ИСПРАВЛЕНИЕ: ЕЖЕНЕДЕЛЬНЫЕ ЦЕЛИ (Делегирование) ---
     // Используем document.addEventListener, так как кнопка появляется позже
