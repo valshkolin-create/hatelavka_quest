@@ -2069,6 +2069,12 @@ async def silent_update_twitch_user(telegram_id: int):
             # 🔥 ВАЖНЫЙ ЛОГ ОШИБКИ
             if token_resp.status_code != 200:
                 logging.error(f"❌ [Twitch Error] Не удалось обновить токен для {telegram_id}: {token_resp.text}")
+                
+                # 👇 ИЗМЕНЕНИЕ: Если токен протух, ставим статус 'error', но НЕ удаляем логин
+                if token_resp.status_code == 400:
+                    await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+                        "twitch_status": "error"  # Маркер для фронтенда
+                    })
                 return
 
             new_tokens = token_resp.json()
