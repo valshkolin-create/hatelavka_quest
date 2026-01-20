@@ -1781,6 +1781,11 @@ function setupEventListeners() {
             }
         };
     }
+    if (shortcutShop) {
+        shortcutShop.onclick = () => {
+            window.location.href = '/shop';
+        };
+    }
 
     // Еженедельные цели
     document.addEventListener('click', (e) => {
