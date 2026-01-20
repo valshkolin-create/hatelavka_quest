@@ -593,8 +593,9 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
                 renderTelegramGrid(telegramTasksCache, container);
             }
             
-            // 5. Показываем окно (теперь оно НЕ перезагружает страницу)
-            injectRewardPopup(earned, data.message || "Задание выполнено!");
+            // 5. Показываем окно (теперь оно ПЕРЕЗАГРУЖАЕТ страницу при закрытии)
+            // 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: добавлен true третьим параметром
+            injectRewardPopup(earned, data.message || "Задание выполнено!", true);
 
         } else if (data) {
             // Ошибки
@@ -775,87 +776,90 @@ function injectProfilePopup(type) {
 }
 
 // === КРАСИВОЕ ОКНО НАГРАДЫ (БЕЗ ПЕРЕЗАГРУЗКИ) ===
-function injectRewardPopup(amount, text = "Задание выполнено!") {
-    const existing = document.getElementById('rewardPopup');
-    if (existing) existing.remove();
+function injectRewardPopup(amount, text = "Задание выполнено!", reloadOnClose = false) {
+    const existing = document.getElementById('rewardPopup');
+    if (existing) existing.remove();
 
-    // Цвета
-    const accentBlue = '#0088cc'; // Telegram Blue
-    const accentGold = '#FFD700'; // Gold for tickets
+    // Цвета
+    const accentBlue = '#0088cc'; // Telegram Blue
+    const accentGold = '#FFD700'; // Gold for tickets
 
-    const popupHtml = `
-    <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(8px); animation: fadeIn 0.3s;">
-      
-      <div class="popup-content" style="
-          background: #1c1c1e; 
-          color: #fff; 
-          padding: 30px 20px; 
-          border-radius: 24px; 
-          text-align: center; 
-          width: 85%; 
-          max-width: 320px; 
-          border: 1px solid rgba(0, 136, 204, 0.3); 
-          box-shadow: 0 0 50px rgba(0, 136, 204, 0.2); 
-          transform: scale(0.9); 
-          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-      ">
-        
-        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.4)); animation: float 3s ease-in-out infinite;">
-            🎟
-        </div>
-        
-        <h3 style="margin: 0 0 5px; font-size: 20px; font-weight: 700; color: #fff;">${text}</h3>
-        <p style="margin: 0 0 20px; color: #8e8e93; font-size: 13px;">Награда зачислена на баланс</p>
-        
-        <div style="
-            background: rgba(0, 136, 204, 0.1); 
-            border: 1px solid rgba(0, 136, 204, 0.3); 
-            border-radius: 16px; 
-            padding: 15px; 
-            margin-bottom: 25px;
-        ">
-            <span style="font-size: 32px; font-weight: 900; color: ${accentGold}; text-shadow: 0 2px 15px rgba(255, 215, 0, 0.3);">+${amount}</span>
-        </div>
-        
-        <button id="closeRewardBtn" style="
-            width: 100%; 
-            background: linear-gradient(135deg, #0088cc, #005f8f); 
-            color: #fff; 
-            border: none; 
-            padding: 14px; 
-            border-radius: 16px; 
-            font-weight: 700; 
-            font-size: 15px; 
-            cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
-            transition: transform 0.1s;
-        ">
-            ЗАКРЫТЬ
-        </button>
+    const popupHtml = `
+    <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(8px); animation: fadeIn 0.3s;">
+      
+      <div class="popup-content" style="
+          background: #1c1c1e; 
+          color: #fff; 
+          padding: 30px 20px; 
+          border-radius: 24px; 
+          text-align: center; 
+          width: 85%; 
+          max-width: 320px; 
+          border: 1px solid rgba(0, 136, 204, 0.3); 
+          box-shadow: 0 0 50px rgba(0, 136, 204, 0.2); 
+          transform: scale(0.9); 
+          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      ">
+        
+        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.4)); animation: float 3s ease-in-out infinite;">
+            🎟
+        </div>
+        
+        <h3 style="margin: 0 0 5px; font-size: 20px; font-weight: 700; color: #fff;">${text}</h3>
+        <p style="margin: 0 0 20px; color: #8e8e93; font-size: 13px;">Награда зачислена на баланс</p>
+        
+        <div style="
+            background: rgba(0, 136, 204, 0.1); 
+            border: 1px solid rgba(0, 136, 204, 0.3); 
+            border-radius: 16px; 
+            padding: 15px; 
+            margin-bottom: 25px;
+        ">
+            <span style="font-size: 32px; font-weight: 900; color: ${accentGold}; text-shadow: 0 2px 15px rgba(255, 215, 0, 0.3);">+${amount}</span>
+        </div>
+        
+        <button id="closeRewardBtn" style="
+            width: 100%; 
+            background: linear-gradient(135deg, #0088cc, #005f8f); 
+            color: #fff; 
+            border: none; 
+            padding: 14px; 
+            border-radius: 16px; 
+            font-weight: 700; 
+            font-size: 15px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+            transition: transform 0.1s;
+        ">
+            ЗАКРЫТЬ
+        </button>
 
-      </div>
-    </div>
-    <style>
-      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
-    </style>
-    `;
+      </div>
+    </div>
+    <style>
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+    </style>
+    `;
 
-    document.body.insertAdjacentHTML('beforeend', popupHtml);
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    if(window.Telegram && Telegram.WebApp.HapticFeedback) {
-        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-    }
+    if(window.Telegram && Telegram.WebApp.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
 
-    document.getElementById('closeRewardBtn').addEventListener('click', () => {
-        const popup = document.getElementById('rewardPopup');
-        popup.style.opacity = '0';
-        setTimeout(() => {
-            popup.remove();
-            // Без перезагрузки страницы, данные уже обновлены JS-ом
-        }, 200);
-    });
+    document.getElementById('closeRewardBtn').addEventListener('click', () => {
+        const popup = document.getElementById('rewardPopup');
+        popup.style.opacity = '0';
+        setTimeout(() => {
+            popup.remove();
+            if (reloadOnClose) {
+                window.location.reload();
+            }
+            // Без перезагрузки страницы, данные уже обновлены JS-ом
+        }, 200);
+    });
 }
 // ==========================================
 // 5. РЕНДЕРИНГ
@@ -1904,6 +1908,19 @@ function setupEventListeners() {
     }
 
     // 2. Авто-проверка профиля при возврате
+    // --- СОБЫТИЯ ---
+function setupEventListeners() {
+    // 1. Вибрация в футере
+    const footer = document.querySelector('.app-footer');
+    if (footer) {
+        footer.addEventListener('click', (e) => {
+            if (e.target.closest('.footer-item')) {
+                try { Telegram.WebApp.HapticFeedback.impactOccurred('medium'); } catch (err) {}
+            }
+        });
+    }
+
+    // 2. Авто-проверка профиля при возврате
     document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState === 'visible' && activeProfileCheck) {
             console.log("🔄 Пользователь вернулся, проверяем:", activeProfileCheck);
@@ -1924,8 +1941,8 @@ function setupEventListeners() {
                     if (popup) popup.remove();
                     activeProfileCheck = null;
 
-                    // 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: Вызываем наше красивое окно вместо showAlert
-                    injectRewardPopup(data.reward || 0, "Профиль подтвержден!");
+                    // 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: Добавили true, чтобы страница перезагрузилась при закрытии
+                    injectRewardPopup(data.reward || 0, "Профиль подтвержден!", true);
 
                     // Обновляем галочку в списке (фоном)
                     if (telegramTasksCache) {
