@@ -1747,74 +1747,71 @@ async function main() {
         // =========================================================================
         // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
         // =========================================================================
-        const urlParams = new URLSearchParams(window.location.search);
-    const openCommand = urlParams.get('open');
+        // =========================================================================
+    // 👇👇👇 ЛОГИКА ПЕРЕКЛЮЧЕНИЯ И ОТКРЫТИЯ (SMART ROUTING) 👇👇👇
+    // =========================================================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const openCommand = urlParams.get('open'); // Параметр ?open=...
+    const viewCommand = urlParams.get('view'); // Параметр ?view=... (из menu.js)
 
-    // 1. Получаем настройки, которые пришли из index.py (bootstrap)
-    const menuConfig = (typeof bootstrapData !== 'undefined' && bootstrapData.menu) ? bootstrapData.menu : {};
-    
-    // Функция для определения актуальной платформы (Дублирует логику расписания)
-    function getActivePlatform() {
-        // 1. Если стрим идет -> Всегда Twitch
-        if (userData.is_stream_online) return 'twitch';
-
-        // 2. Если Админ включил "Принудительное расписание" в index.py
-        if (menuConfig.quest_schedule_override_enabled) {
-            return menuConfig.quest_schedule_active_type || 'twitch';
-        }
-
-        // 3. Иначе стандартное расписание по дням
-        const day = new Date().getDay(); // 0=Вс, 1=Пн
-        if (day === 0 || day === 1) {
-            return 'telegram';
-        }
-        return 'twitch';
-    }
-
-   // --- СЦЕНАРИЙ 1: Нажали "ИСПЫТАНИЕ" (?open=roulette) ---
-    if (openCommand === 'roulette') {
-        const targetPlatform = getActivePlatform();
-        console.log(`🚀 Кнопка Испытание: Определена платформа -> ${targetPlatform}`);
-
-        // 1. Переключаем вкладку на нужную (Делаем это ВСЕГДА, чтобы юзер увидел экран заданий)
-        const switchEl = document.getElementById(`view-${targetPlatform}`);
+    // Функция для безопасного переключения вкладки
+    const safeSwitchTab = (platform) => {
+        const switchEl = document.getElementById(`view-${platform}`);
         if (switchEl) {
-            switchEl.click(); 
-            if (typeof setPlatformTheme === 'function') setPlatformTheme(targetPlatform);
+            switchEl.checked = true;
+            // setPlatformTheme определена выше в твоем коде
+            if (typeof setPlatformTheme === 'function') setPlatformTheme(platform);
         }
+    };
 
-        // 2. Ждем и открываем окно (ТОЛЬКО ЕСЛИ НЕТ АКТИВНОГО КВЕСТА)
-        // 🔥 Если квест уже взят, мы просто остаемся на вкладке с прогрессом
-        if (!userData.active_quest_id) {
-            setTimeout(() => {
-                const startBtn = document.getElementById('quest-choose-btn');
-                // Проверяем, что кнопка существует и не скрыта
-                if (startBtn && !startBtn.classList.contains('hidden')) {
-                    startBtn.click(); 
-                } else {
-                    // Страховка: если кнопки нет в DOM, вызываем функцию открытия напрямую
-                    if (typeof openQuestSelectionModal === 'function') {
-                        openQuestSelectionModal();
-                    }
-                }
-            }, 500);
+    // 1. Сначала проверяем, есть ли активный квест (ПРАВИЛО 3)
+    if (userData.active_quest_id) {
+        // Если квест уже взят, мы ИГНОРИРУЕМ команду открытия меню выбора (openCommand)
+        // и просто переключаем на нужную вкладку.
+        
+        const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+        
+        // Определяем, где этот квест выполняется (Twitch или Telegram)
+        if (activeQuest && activeQuest.quest_type && activeQuest.quest_type.includes('twitch')) {
+            safeSwitchTab('twitch');
         } else {
-            console.log("✅ Активный квест уже есть. Меню выбора не открываем, показываем прогресс.");
+            safeSwitchTab('telegram');
         }
-
-        // 🔥 ФИКС 2: Удаляем параметр из URL, чтобы при обновлении окно не открылось снова
+        
+        console.log("✅ Квест активен. Просто открываем вкладку прогресса.");
+        
+        // Очищаем URL, чтобы при обновлении не срабатывали триггеры
         const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
-    }
-    
-    // --- СЦЕНАРИЙ 2: Нажали "ЧЕЛЛЕНДЖ" (?open=twitch_only) ---
-    else if (openCommand === 'twitch_only') {
-        console.log("🚀 Кнопка Челлендж: Принудительно Twitch вкладка...");
+    } 
+    // 2. Если активного квеста НЕТ, обрабатываем команды открытия (ПРАВИЛА 1 и 2)
+    else {
+        // Если пришли с параметром ?view=... (из menu.js для уже взятых квестов, но тут страховка)
+        if (viewCommand) {
+             safeSwitchTab(viewCommand);
+        }
         
-        const twitchSwitch = document.getElementById('view-twitch');
-        if (twitchSwitch) {
-            twitchSwitch.click(); 
-            if (typeof setPlatformTheme === 'function') setPlatformTheme('twitch');
+        // Если пришли с командой открыть меню (?open=roulette или ?open=twitch_only)
+        else if (openCommand === 'roulette' || openCommand === 'twitch_only') {
+            
+            const isOnline = userData.is_stream_online === true;
+            
+            // ПРАВИЛО 2: Стрим ЕСТЬ -> Twitch
+            if (isOnline) {
+                safeSwitchTab('twitch');
+                console.log("🌊 Стрим онлайн -> Открываем Twitch выбор");
+                setTimeout(() => openQuestSelectionModal(), 400);
+            } 
+            // ПРАВИЛО 1: Стрима НЕТ -> Telegram
+            else {
+                safeSwitchTab('telegram');
+                console.log("zzz Стрим оффлайн -> Открываем TG выбор");
+                setTimeout(() => openQuestSelectionModal(), 400);
+            }
+
+            // Очищаем URL
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
         }
     }
     // =========================================================================
