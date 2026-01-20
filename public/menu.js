@@ -1232,6 +1232,8 @@ function renderGiftResult(result) {
 
     function startTutorial() {
         currentTutorialStep = 0;
+        // 🔥 ФИКС: Добавляем класс, чтобы отключить transform у main-content и починить z-index
+        document.body.classList.add('tutorial-active');
         dom.tutorialOverlay.classList.remove('hidden');
         showTutorialStep(currentTutorialStep);
     }
@@ -1244,6 +1246,9 @@ function renderGiftResult(result) {
         document.querySelector('.app-footer').classList.remove('tutorial-footer-active');
         document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
         
+        // 🔥 ФИКС: Убираем класс, возвращаем всё как было
+        document.body.classList.remove('tutorial-active');
+
         if (completed) {
             dom.tutorialTitle.textContent = 'Готово!';
             dom.tutorialText.innerHTML = 'Теперь вы знаете всё необходимое. <br><br><b>Важно:</b> все задания и розыгрыши в этом боте абсолютно бесплатны. Удачи!';
@@ -1253,7 +1258,8 @@ function renderGiftResult(result) {
             dom.tutorialModal.style.top = '50%';
             dom.tutorialModal.style.left = '5%';
             dom.tutorialModal.style.width = '90%';
-            dom.tutorialModal.style.transform = 'translateY(-50%)';
+            // Добавляем translateX(-15px) для сдвига влево
+            dom.tutorialModal.style.transform = 'translate(calc(-50px + 5%), -50%)'; 
             // -------------------------------------------
 
             dom.tutorialSkipBtn.classList.add('hidden');
@@ -1262,17 +1268,13 @@ function renderGiftResult(result) {
             
             dom.tutorialNextBtn.onclick = () => {
                 dom.tutorialOverlay.classList.add('hidden');
-                
-                // Сбрасываем стили, чтобы при следующем запуске не сломалось
                 dom.tutorialModal.style.top = ''; 
                 dom.tutorialModal.style.transform = '';
-                
                 dom.tutorialNextBtn.onclick = tutorialNextHandler;
                 dom.tutorialSkipBtn.classList.remove('hidden');
             };
         } else {
              dom.tutorialOverlay.classList.add('hidden');
-             // Сброс стилей при пропуске
              dom.tutorialModal.style.top = ''; 
              dom.tutorialModal.style.transform = '';
         }
