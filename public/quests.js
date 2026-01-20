@@ -776,6 +776,7 @@ function injectProfilePopup(type) {
 }
 
 // === КРАСИВОЕ ОКНО НАГРАДЫ (С ПЕРЕЗАГРУЗКОЙ) ===
+// === КРАСИВОЕ ОКНО НАГРАДЫ (С ПЕРЕЗАГРУЗКОЙ) ===
 function injectRewardPopup(amount, text = "Задание выполнено!", reloadOnClose = false) {
     const existing = document.getElementById('rewardPopup');
     if (existing) existing.remove();
@@ -862,24 +863,6 @@ function injectRewardPopup(amount, text = "Задание выполнено!", 
             }
         }, 200);
     });
-}
-    document.body.insertAdjacentHTML('beforeend', popupHtml);
-
-    if(window.Telegram && Telegram.WebApp.HapticFeedback) {
-        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-    }
-
-    document.getElementById('closeRewardBtn').addEventListener('click', () => {
-        const popup = document.getElementById('rewardPopup');
-        popup.style.opacity = '0';
-        setTimeout(() => {
-            popup.remove();
-            if (reloadOnClose) {
-                window.location.reload();
-            }
-            // Без перезагрузки страницы, данные уже обновлены JS-ом
-        }, 200);
-    });
 }
 // ==========================================
 // 5. РЕНДЕРИНГ
