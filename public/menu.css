@@ -2053,3 +2053,50 @@ hr {
     .metro-tile-large { padding: 12px !important; }
     .metro-tile-small { padding: 8px 10px !important; }
 }
+
+/* --- ИСПРАВЛЕНИЯ (ДОБАВИТЬ В КОНЕЦ MENU.CSS) --- */
+
+/* 1. Сдвиг всех модальных окон немного влево */
+.prompt-modal, 
+.custom-popup, 
+.gift-modal-content,
+.tutorial-modal {
+    /* Сдвигаем влево на 15px от центра. 
+       Если нужно сильнее, поменяйте -15px на -30px */
+    transform: translateX(-15px) !important; 
+}
+
+/* Фикс для финального окна туториала (оно центрируется иначе в JS) */
+/* Мы добавляем calc к тому, что задает JS */
+#tutorial-modal[style*="translateY"] {
+    transform: translate(calc(-50% - 15px), -50%) !important;
+}
+
+
+/* 2. Исправление блюра для выделенного элемента (Туториал) */
+/* Проблема была в том, что элемент находился ПОД слоем размытия */
+
+/* Устанавливаем слой оверлея */
+.tutorial-overlay {
+    z-index: 10000 !important; /* Фиксируем уровень слоя */
+    backdrop-filter: blur(5px); /* Размытие фона */
+    background: rgba(0, 0, 0, 0.4); /* Затемнение */
+}
+
+/* "Поднимаем" выделенный элемент НАД оверлеем */
+.tutorial-highlight {
+    position: relative !important; 
+    z-index: 10001 !important; /* Должно быть больше, чем у overlay */
+    
+    /* Добавляем фон, чтобы элемент не был прозрачным на фоне блюра */
+    background-color: var(--surface-color, #1c1c1e) !important; 
+    box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.5); /* Желтая подсветка */
+    border-radius: 8px; /* Скругление краев */
+    pointer-events: auto !important; /* Чтобы клики проходили */
+}
+
+/* Если выделяется элемент в футере - поднимаем весь футер */
+.tutorial-footer-active {
+    z-index: 10001 !important;
+    position: relative !important;
+}
