@@ -1215,10 +1215,13 @@ function renderGiftResult(result) {
     };
 
 // --- ФУНКЦИЯ РЕНДЕРА ИНТЕРФЕЙСА (ДЛЯ MAIN) ---
+// --- ФУНКЦИЯ РЕНДЕРА ИНТЕРФЕЙСА (ДЛЯ MAIN) ---
 async function renderFullInterface(data) {
     userData = data.user || {};
     allQuests = data.quests || [];
     const menuContent = data.menu;
+    const weeklyGoalsData = data.weekly_goals;
+    const cauldronData = data.cauldron;
 
     // Баланс
     if (document.getElementById('ticketStats')) document.getElementById('ticketStats').textContent = userData.tickets || 0;
@@ -1232,9 +1235,13 @@ async function renderFullInterface(data) {
 
     // Цели
     renderWeeklyGoals(data.weekly_goals);
+    if (dom.weeklyGoalsAccordion && localStorage.getItem('weeklyAccordionOpen') === 'true') {
+        dom.weeklyGoalsAccordion.open = true;
+    }
 
     // Слайдер (Настройка)
     if (menuContent) {
+         // 1. Управление Подарком
          if (menuContent.bonus_gift_enabled !== undefined) {
              const giftBtn = document.getElementById('daily-gift-btn');
              if (!menuContent.bonus_gift_enabled) {
@@ -1245,6 +1252,21 @@ async function renderFullInterface(data) {
                  if (giftBtn) giftBtn.style.display = '';
                  bonusGiftEnabled = true;
              }
+         }
+
+         // 2. Баннер Еженедельных целей (БЫЛО ПРОПУЩЕНО)
+         if (menuContent.weekly_goals_banner_url) {
+            const wImg = document.getElementById('weekly-goals-banner-img');
+            if (wImg) wImg.src = menuContent.weekly_goals_banner_url;
+         }
+
+         // 3. Сортировка слайдов из Админки (БЫЛО ПРОПУЩЕНО)
+         const sliderWrapper = document.querySelector('.slider-wrapper');
+         if (sliderWrapper && menuContent.slider_order) {
+            menuContent.slider_order.forEach(slideId => {
+                const slide = document.querySelector(`.slide[data-event="${slideId}"]`);
+                if (slide) sliderWrapper.appendChild(slide);
+            });
          }
          
          const setupSlide = (id, enabled, url, link) => {
@@ -1261,23 +1283,69 @@ async function renderFullInterface(data) {
                 }
             }
         };
+
         setupSlide('skin_race', menuContent.skin_race_enabled, menuContent.menu_banner_url);
-        setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url, '/auction');
+        
+        // Логика картинки аукциона (проверка slide_data)
+        var auctionImg = menuContent.auction_banner_url;
+        if (!auctionImg && menuContent.auction_slide_data && menuContent.auction_slide_data.image_url) {
+            auctionImg = menuContent.auction_slide_data.image_url;
+        }
+        setupSlide('auction', menuContent.auction_enabled, auctionImg, '/auction');
         setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
         
-        setupSlider();
+        // 4. Темы кнопки квестов (Twitch/Telegram) (БЫЛО ПРОПУЩЕНО)
+        let activeQuestType = 'twitch';
+        const day = new Date().getDay();
+        if (menuContent.quest_schedule_override_enabled) {
+            activeQuestType = menuContent.quest_schedule_active_type || 'twitch';
+        } else if (day === 0 || day === 1) {
+            activeQuestType = 'telegram';
+        }
+
+        const questButton = dom.questChooseBtn || document.getElementById("quest-choose-btn");
+        if (questButton) {
+            if (activeQuestType === 'telegram') {
+                questButton.classList.remove('twitch-theme');
+                questButton.classList.add('telegram-theme');
+                questButton.innerHTML = '<i class="fa-brands fa-telegram"></i> TELEGRAM ИСПЫТАНИЯ';
+            } else {
+                questButton.classList.remove('telegram-theme');
+                questButton.classList.add('twitch-theme');
+                questButton.innerHTML = '<i class="fa-brands fa-twitch"></i> TWITCH ИСПЫТАНИЯ';
+            }
+        }
     }
+
+    // Котел (БЫЛО ПРОПУЩЕНО)
+    const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
+    if (eventSlide) {
+        const show = (cauldronData && cauldronData.is_visible_to_users) || (userData && userData.is_admin);
+        eventSlide.style.display = show ? '' : 'none';
+        if (show) {
+            eventSlide.href = cauldronData.event_page_url || '/halloween';
+            const img = eventSlide.querySelector('img');
+            if (img && cauldronData.banner_image_url && img.src !== cauldronData.banner_image_url) {
+                img.src = cauldronData.banner_image_url;
+            }
+        }
+    }
+
+    // Запуск слайдера (несколько раз для надежности, как в рабочем меню)
+    setupSlider();
+    setTimeout(() => setupSlider(), 100);
+    setTimeout(() => setupSlider(), 500);
 
     // Ярлыки
     updateShortcutStatuses(userData, allQuests);
     
     // Магазин
     if (userData.active_trade_status) updateShopTile(userData.active_trade_status);
+    else updateShopTile('none');
 
     // Подарок
     setTimeout(() => { if (typeof checkGift === 'function') checkGift(); }, 1000);
 }
-
 // -------------------------------------------------------------
 // 4. ЗАГРУЗКА MAIN (1 в 1 как в рабочем меню с полоской)
 // -------------------------------------------------------------
