@@ -1,7 +1,20 @@
 // ================================================================
 // FINAL MENU.JS (OPTIMIZED STRUCTURE + RESTORED LOGIC)
 // ================================================================
-
+// --- ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА JS (СТРОКА 1) ---
+try {
+    // Сообщаем телеграму, что приложение готово
+    window.Telegram.WebApp.ready();
+    // Принудительно разворачиваем на весь экран МГНОВЕННО
+    window.Telegram.WebApp.expand();
+    
+    // Хак: повторяем expand через небольшие промежутки, 
+    // так как на некоторых Android он может не сработать с первого раза
+    setTimeout(() => window.Telegram.WebApp.expand(), 100);
+    setTimeout(() => window.Telegram.WebApp.expand(), 500);
+} catch (e) {
+    console.log('Telegram WebApp is not available');
+}
 const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
     loadingText: document.getElementById('loading-text'),
