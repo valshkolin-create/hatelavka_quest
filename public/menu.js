@@ -590,8 +590,15 @@ function updateShortcutStatuses(userData, allQuests) {
         questStatus.style.marginBottom = '5px';
 
         const activeId = userData.active_quest_id;
+        const isOnline = userData.is_stream_online === true;
+
         if (!activeId) {
-            questStatus.textContent = "Нажмите для выбора";
+            // Если квест не выбран, пишем куда именно нажимать в зависимости от стрима
+            if (isOnline) {
+                questStatus.innerHTML = '<i class="fa-brands fa-twitch"></i> Выбрать Twitch';
+            } else {
+                questStatus.innerHTML = '<i class="fa-brands fa-telegram"></i> Выбрать TG';
+            }
             questStatus.style.fontSize = "11px";
             questFill.style.width = '0%';
             questStatus.classList.remove('metro-status-done');
@@ -621,7 +628,6 @@ function updateShortcutStatuses(userData, allQuests) {
             }
         }
     }
-}
 
 // --- ФОНОВОЕ ОБНОВЛЕНИЕ (HEARTBEAT) ---
 async function refreshDataSilently() {
@@ -1736,13 +1742,30 @@ function setupEventListeners() {
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.onclick = () => {
-             if (userData.active_quest_id) window.location.href = '/quests';
-             else window.location.href = '/quests?open=roulette';
+            const activeId = userData.active_quest_id;
+            const isOnline = userData.is_stream_online === true;
+
+            // 1. Если квест уже взят
+            if (activeId) {
+                const quest = allQuests.find(q => q.id === activeId);
+                // Если в типе квеста есть twitch — отправляем на twitch, иначе на общую (тг)
+                if (quest && quest.quest_type && quest.quest_type.includes('twitch')) {
+                    window.location.href = '/quests?view=twitch'; 
+                } else {
+                    window.location.href = '/quests?view=telegram';
+                }
+                return;
+            }
+
+            // 2. Если квест НЕ взят — выбираем что открыть по статусу стрима
+            if (isOnline) {
+                // Стрим есть -> открываем выбор Twitch испытаний
+                window.location.href = '/quests?open=twitch_only';
+            } else {
+                // Стрима нет -> открываем выбор Telegram испытаний
+                window.location.href = '/quests?open=roulette'; // Предполагаю, что roulette — это выбор ТГ квестов
+            }
         };
-    }
-    const shopShortcut = document.getElementById('shortcut-shop');
-    if (shopShortcut) {
-        shopShortcut.onclick = () => { window.location.href = '/shop'; };
     }
 
     // Еженедельные цели
