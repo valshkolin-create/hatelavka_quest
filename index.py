@@ -5762,22 +5762,29 @@ async def get_current_user_data(
 HEARTBEAT_DB_CACHE = {}
 DB_WRITE_INTERVAL = 45 
 
-# 👇 НОВАЯ ФУНКЦИЯ-ОБЕРТКА ДЛЯ БЕЗОПАСНОЙ ЗАПИСИ
+# 👇 ИСПРАВЛЕННАЯ ФУНКЦИЯ (Использует get_background_client)
 async def safe_update_last_active(telegram_id: int):
     """Пытается обновить last_active, но не роняет сервер при ошибке."""
     try:
-        # Создаем НОВЫЙ клиент для фона, чтобы не зависеть от request context
-        async with httpx.AsyncClient(base_url=SUPABASE_URL, headers=SUPABASE_HEADERS, timeout=5.0) as client:
-            await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+        # Используем твой стандартный клиент (он уже знает URL и ключи)
+        client = await get_background_client()
+        
+        # Делаем запрос, но добавляем жесткий таймаут 5 секунд
+        await client.patch(
+            "/users", 
+            params={"telegram_id": f"eq.{telegram_id}"}, 
+            json={
                 "last_active": datetime.now(timezone.utc).isoformat(),
                 "is_online": True
-            })
+            },
+            timeout=5.0 # 🔥 Если база тупит больше 5 сек — бросаем ошибку
+        )
     except (httpx.ReadTimeout, httpx.ConnectTimeout):
         # База тормозит? Ну и ладно, в следующий раз запишем.
         pass 
     except Exception as e:
+        # Логируем, если это что-то другое (не таймаут)
         logging.error(f"Background heartbeat write failed: {e}")
-
 
 @app.post("/api/v1/user/heartbeat")
 async def user_heartbeat(
