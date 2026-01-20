@@ -1,6 +1,5 @@
 // ================================================================
-// OPTIMIZED MENU.JS (CLEAN VERSION)
-// Handles: Dashboard, Shop Status, Gifts, Referrals, Weekly Goals
+// FINAL MENU.JS (OPTIMIZED STRUCTURE + RESTORED LOGIC)
 // ================================================================
 
 const dom = {
@@ -159,36 +158,58 @@ async function checkMaintenance() {
     } catch (e) { console.error("Ошибка настроек:", e); }
 }
 
-// --- ЛОГИКА СЛАЙДЕРА (Полная, как просили) ---
+// -------------------------------------------------------------
+// 1. СЛАЙДЕР (1 в 1 как в рабочем меню)
+// -------------------------------------------------------------
 function setupSlider() {
     const container = document.getElementById('main-slider-container');
     if (!container) return;
 
+    // Находим видимые слайды
     const allSlides = container.querySelectorAll('.slide');
-    const visibleSlides = Array.from(allSlides).filter(slide => slide.style.display !== 'none');
+    const visibleSlides = Array.from(allSlides).filter(slide => {
+        return slide.style.display !== 'none';
+    });
+
+    // 1. ГЕНЕРИРУЕМ "ПОДПИСЬ" ТЕКУЩЕГО СОСТОЯНИЯ
     const currentSignature = visibleSlides.map(s => s.dataset.event || s.href || s.src).join('|');
 
-    if (currentSignature === lastSliderSignature && sliderAbortController) return;
+    // 2. ПРОВЕРКА: Если слайды те же самые, что и в прошлый раз — ВЫХОДИМ
+    if (currentSignature === lastSliderSignature && sliderAbortController) {
+        return;
+    }
+
     lastSliderSignature = currentSignature;
 
+    // 3. ОЧИСТКА
     if (slideInterval) clearInterval(slideInterval);
     if (sliderAbortController) sliderAbortController.abort();
     
     sliderAbortController = new AbortController();
     const signal = sliderAbortController.signal;
+
     const wrapper = container.querySelector('.slider-wrapper');
     const dotsContainer = container.querySelector('.slider-dots');
     
+    // --- Очистка кнопок ---
     let prevBtnOld = document.getElementById('slide-prev-btn');
     let nextBtnOld = document.getElementById('slide-next-btn');
+    
+    // Клонируем, чтобы убрать старые слушатели
     let prevBtn = prevBtnOld.cloneNode(true);
     let nextBtn = nextBtnOld.cloneNode(true);
+    
     prevBtnOld.parentNode.replaceChild(prevBtn, prevBtnOld);
     nextBtnOld.parentNode.replaceChild(nextBtn, nextBtnOld);
 
-    if (visibleSlides.length === 0) return;
-    else container.style.display = ''; 
+    // Если слайдов 0
+    if (visibleSlides.length === 0) {
+        return;
+    } else {
+         container.style.display = ''; 
+    }
 
+    // Если слайд 1
     if (visibleSlides.length <= 1) {
         container.style.display = '';
         prevBtn.style.display = 'none';
@@ -199,15 +220,20 @@ function setupSlider() {
         return;
     }
     
+    // Если слайдов > 1
     prevBtn.style.display = 'flex';
     nextBtn.style.display = 'flex';
     if (dotsContainer) dotsContainer.style.display = 'flex';
     
+    // Генерация точек
     dotsContainer.innerHTML = '';
     visibleSlides.forEach((_, i) => {
         const dot = document.createElement('button');
         dot.classList.add('dot');
-        dot.onclick = () => { showSlide(i); resetSlideInterval(); };
+        dot.onclick = () => {
+            showSlide(i);
+            resetSlideInterval();
+        };
         dotsContainer.appendChild(dot);
     });
     const dots = dotsContainer.querySelectorAll('.dot');
@@ -215,6 +241,7 @@ function setupSlider() {
     function showSlide(index) {
         if (index >= visibleSlides.length) index = 0;
         if (index < 0) index = visibleSlides.length - 1;
+
         if (!wrapper || !dots[index]) return;
         
         wrapper.style.transform = `translateX(-${index * 100}%)`;
@@ -223,45 +250,98 @@ function setupSlider() {
         currentSlideIndex = index;
     }
 
-    function nextSlide() { showSlide(currentSlideIndex + 1); }
-    function prevSlide() { showSlide(currentSlideIndex - 1); }
-    function resetSlideInterval() { clearInterval(slideInterval); slideInterval = setInterval(nextSlide, slideDuration); }
+    function nextSlide() {
+        showSlide(currentSlideIndex + 1);
+    }
 
-    prevBtn.addEventListener('click', () => { prevSlide(); resetSlideInterval(); }, { signal: signal });
-    nextBtn.addEventListener('click', () => { nextSlide(); resetSlideInterval(); }, { signal: signal });
+    function prevSlide() {
+        showSlide(currentSlideIndex - 1);
+    }
+
+    function resetSlideInterval() {
+        clearInterval(slideInterval);
+        slideInterval = setInterval(nextSlide, slideDuration);
+    }
+
+    // Вешаем события на кнопки
+    prevBtn.addEventListener('click', () => {
+        prevSlide();
+        resetSlideInterval();
+    }, { signal: signal });
+
+    nextBtn.addEventListener('click', () => {
+        nextSlide();
+        resetSlideInterval();
+    }, { signal: signal });
     
-    let touchStartX = 0; let touchStartY = 0; let touchEndX = 0; let isSwiping = false;
+    // === ЛОГИКА СВАЙПА ===
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let isSwiping = false;
 
     container.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; touchEndX = touchStartX; isSwiping = false;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchEndX = touchStartX;
+        isSwiping = false;
     }, { passive: true, signal: signal });
 
     container.addEventListener('touchmove', (e) => {
         if (touchStartX === 0 && touchStartY === 0) return;
-        const diffX = touchStartX - e.touches[0].clientX;
-        const diffY = touchStartY - e.touches[0].clientY;
+
+        const touchCurrentX = e.touches[0].clientX;
+        const touchCurrentY = e.touches[0].clientY;
+        
+        const diffX = touchStartX - touchCurrentX;
+        const diffY = touchStartY - touchCurrentY;
+
         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
             isSwiping = true;
-            if (e.cancelable) { e.preventDefault(); e.stopPropagation(); }
+            if (e.cancelable) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         }
-        touchEndX = e.touches[0].clientX;
+        touchEndX = touchCurrentX;
     }, { passive: false, signal: signal });
 
     container.addEventListener('touchend', (e) => {
         if (isSwiping) {
             e.stopPropagation();
-            if (Math.abs(touchStartX - touchEndX) > 50) {
-                if (touchStartX - touchEndX > 0) nextSlide(); else prevSlide();
+            const diff = touchStartX - touchEndX;
+            const swipeThreshold = 50;
+
+            if (Math.abs(diff) > swipeThreshold) {
+                if (diff > 0) nextSlide();
+                else prevSlide();
                 resetSlideInterval();
             }
         }
-        touchStartX = 0; touchStartY = 0; isSwiping = false;
+        touchStartX = 0;
+        touchStartY = 0;
+        isSwiping = false;
     }, { passive: true, signal: signal });
     
-    if (currentSlideIndex >= visibleSlides.length) currentSlideIndex = 0;
+    // Блокировка клика ТОЛЬКО если был свайп
+    allSlides.forEach(slide => {
+        slide.onclick = (e) => {
+            if (isSwiping) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        };
+    });
+
+    if (currentSlideIndex >= visibleSlides.length) {
+        currentSlideIndex = 0;
+    }
+
     showSlide(currentSlideIndex);
     resetSlideInterval();
 }
+
 
 // --- ЕЖЕНЕДЕЛЬНЫЕ ЦЕЛИ (РЕНДЕР СВОДКИ) ---
 function renderWeeklyGoals(data) {
@@ -347,48 +427,97 @@ function renderWeeklyGoals(data) {
     listContainer.innerHTML = `<div class="weekly-goals-container">${goalsHtml}${superPrizeHtml}</div>`;
 }
 
-// --- 🔥 ВАЖНО: ОПТИМИЗИРОВАННОЕ ОБНОВЛЕНИЕ ЯРЛЫКОВ ---
-// Эта функция обновляет только текст на кнопках меню, не трогая остальной DOM
+// -------------------------------------------------------------
+// 2. ОБНОВЛЕНИЕ ЯРЛЫКОВ (Возвращаем логику Оффлайн-стрима 1 в 1)
+// -------------------------------------------------------------
 function updateShortcutStatuses(userData, allQuests) {
     const makeTileCentered = (el) => {
         if (!el) return;
-        el.style.display = 'flex'; el.style.flexDirection = 'column';
-        el.style.alignItems = 'center'; el.style.justifyContent = 'center'; el.style.textAlign = 'center';      
+        el.style.display = 'flex';
+        el.style.flexDirection = 'column';
+        el.style.alignItems = 'center';     
+        el.style.justifyContent = 'center'; 
+        el.style.textAlign = 'center';      
     };
 
-    // 1. Челлендж (Ярлык)
+    // 1. Обновляем Челлендж (shortcut-challenge)
     const chalStatus = document.getElementById('metro-challenge-status');
     const chalFill = document.getElementById('metro-challenge-fill');
     const shortcutChal = document.getElementById('shortcut-challenge');
     
     if (chalStatus && chalFill && shortcutChal) {
         makeTileCentered(shortcutChal); 
+
+        // Удаляем старые элементы, чтобы не дублировались
         const oldWrapper = document.getElementById('offline-wrapper');
         if (oldWrapper) oldWrapper.remove();
         
-        chalStatus.style.display = ''; chalStatus.style.marginBottom = '5px'; 
+        // Сброс видимости для онлайн-режима
+        chalStatus.style.display = '';
+        chalStatus.style.marginBottom = '5px'; 
         if (chalFill.parentElement) chalFill.parentElement.style.display = ''; 
 
-        if (userData.is_stream_online === false) {
-            // ОФФЛАЙН РЕЖИМ
+        const isOnline = userData.is_stream_online === true;
+
+        if (!isOnline) {
+            // --- СТРИМ ОФФЛАЙН ---
+            // Скрываем стандартные элементы
             chalStatus.style.display = 'none';
             if (chalFill.parentElement) chalFill.parentElement.style.display = 'none';
 
+            // Создаем контейнер-обертку, чтобы всё было идеально по центру
             const wrapper = document.createElement('div');
             wrapper.id = 'offline-wrapper';
-            wrapper.style.cssText = 'display:flex; flex-direction:column; align-items:center; gap:8px;';
-            wrapper.innerHTML = `
-                <div style="color:#ff453a; font-size:12px; fontWeight:600;">Стрим оффлайн</div>
-                <div id="mini-schedule-btn" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff; padding:5px 10px; border-radius:8px; font-size:10px;">
-                    <i class="fa-regular fa-calendar-days"></i> Расписание
-                </div>`;
-            shortcutChal.appendChild(wrapper);
-            document.getElementById('mini-schedule-btn').onclick = (e) => {
-                e.stopPropagation();
-                document.getElementById('schedule-modal-overlay').classList.remove('hidden');
+            Object.assign(wrapper.style, {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+            });
+
+            // Текст "Стрим оффлайн"
+            const offlineText = document.createElement('div');
+            offlineText.textContent = 'Стрим оффлайн';
+            Object.assign(offlineText.style, {
+                color: '#ff453a',
+                fontSize: '12px',
+                fontWeight: '600',
+                lineHeight: '1.2'
+            });
+
+            // Маленькая кнопка "Расписание"
+            const btn = document.createElement('div');
+            btn.innerHTML = '<i class="fa-regular fa-calendar-days"></i> Расписание';
+            
+            Object.assign(btn.style, {
+                background: 'rgba(255, 255, 255, 0.15)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                color: '#fff',
+                padding: '5px 10px',
+                borderRadius: '8px',
+                fontSize: '10px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+            });
+
+            btn.onclick = (e) => {
+                e.stopPropagation(); 
+                const modal = document.getElementById('schedule-modal-overlay');
+                if (modal) modal.classList.remove('hidden');
             };
+
+            // Собираем всё вместе
+            wrapper.appendChild(offlineText);
+            wrapper.appendChild(btn);
+            shortcutChal.appendChild(wrapper);
+
         } else {
-            // ОНЛАЙН РЕЖИМ
+            // --- СТРИМ ОНЛАЙН ---
             if (userData.challenge) {
                 const ch = userData.challenge;
                 const prog = ch.progress_value || 0;
@@ -418,7 +547,7 @@ function updateShortcutStatuses(userData, allQuests) {
         }
     }
 
-    // 2. Испытание (Ярлык)
+    // 2. Обновляем Испытание (shortcut-quests)
     const shortcutQuest = document.getElementById('shortcut-quests');
     const questStatus = document.getElementById('metro-quest-status');
     const questFill = document.getElementById('metro-quest-fill');
@@ -873,56 +1002,214 @@ function renderGiftResult(result) {
     }
 }
 
-// --- ГЛАВНАЯ ФУНКЦИЯ (MAIN) ---
-async function main() {
-    try {
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-        
-        // Хак для перенаправления с профиля
-        if (window.location.pathname.includes('/profile')) {
-            window.history.replaceState({}, document.title, "/");
+// -------------------------------------------------------------
+// 3. ТУТОРИАЛ (1 в 1 как в рабочем меню)
+// -------------------------------------------------------------
+    const tutorialSteps = [
+        {
+            element: '.user-profile',
+            title: 'Ваш Профиль и Билеты',
+            text: 'Слева находится <b>Ваш профиль</b>. Там можно привязать Twitch и посмотреть промокоды. <br><br>Справа - <b>Ваши билеты</b> для участия в розыгрышах.',
+            view: 'view-dashboard'
+        },
+        {
+            element: '#main-slider-container',
+            title: 'Актуальные События',
+            text: 'В этом слайдере находятся различные мероприятия. Они постоянно актуальные и всегда обновляются!',
+            view: 'view-dashboard'
+        },
+        {
+            element: '#challenge-container',
+            title: 'Ежедневный Челлендж',
+            text: 'Челленджи переехали во вкладку <b>Задания</b>! <br>Заходите сюда каждый день, выполняйте задания и получайте награды.',
+            view: 'view-quests',
+            forceTop: true // 🔥 Показываем подсказку СВЕРХУ, чтобы не уезжала вниз
+        },
+        {
+            element: '#nav-leaderboard', 
+            title: 'Лидерборд',
+            text: 'Здесь можно посмотреть список лучших игроков и ваше место в рейтинге. Соревнуйтесь по количеству билетов и активности!',
+            view: 'view-dashboard', // Переключаем на главную, чтобы было видно футер
+            forceTop: true // Для футера подсказка всегда должна быть сверху
+        },
+        {
+            element: '#nav-shop', 
+            title: 'Магазин Скинов',
+            text: 'А здесь находится <b>Магазин</b> (Shop). <br>Обменивайте заработанные монеты и звезды на уникальные скины CS2 и полезные предметы!',
+            view: 'view-dashboard',
+            forceTop: true
         }
+    ];
+    let currentTutorialStep = 0;
+    let tutorialCountdownInterval = null;
 
-        if (!Telegram.WebApp.initData) {
-            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    function positionTutorialModal(element, forceTop = false) {
+        const rect = element.getBoundingClientRect();
+        const modal = dom.tutorialModal;
+        const margin = 15; // Отступ от элемента
+        
+        // Сброс стилей
+        modal.style.display = 'block';
+        modal.style.top = '';
+        modal.style.bottom = '';
+        modal.style.transform = '';
+        modal.style.left = '5%';
+        modal.style.width = '90%';
+
+        const modalHeight = modal.offsetHeight;
+        const spaceAbove = rect.top;
+        const spaceBelow = window.innerHeight - rect.bottom;
+
+        // 1. Если включено forceTop (для футера/челленджей) -> ставим СВЕРХУ
+        if (forceTop && spaceAbove >= (modalHeight + margin)) {
+            modal.style.top = `${rect.top - modalHeight - margin}px`;
             return;
         }
 
-        // --- Загрузка ---
-        let bootstrapData = null;
-        const cachedJson = localStorage.getItem('app_bootstrap_cache');
-        
-        // 1. Сначала пробуем кэш для скорости
-        if (cachedJson) {
-            bootstrapData = JSON.parse(cachedJson);
-            renderFullInterface(bootstrapData);
-            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+        // 2. Стандартная логика: если есть место снизу -> ставим СНИЗУ
+        if (!forceTop && spaceBelow >= (modalHeight + margin)) {
+            modal.style.top = `${rect.bottom + margin}px`;
+            return;
         }
 
-        // 2. Параллельно грузим сеть
-        const newData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
-        if (newData) {
-            localStorage.setItem('app_bootstrap_cache', JSON.stringify(newData));
-            // Рендерим свежее
-            renderFullInterface(newData);
+        // 3. Иначе пытаемся поставить сверху
+        if (spaceAbove >= (modalHeight + margin)) {
+            modal.style.top = `${rect.top - modalHeight - margin}px`;
+            return;
         }
 
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-        dom.mainContent.classList.add('visible');
-
-        // Запуск Heartbeat
-        clearInterval(heartbeatInterval);
-        heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 30000);
-
-    } catch (e) {
-        console.error("Main error:", e);
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-        Telegram.WebApp.showAlert("Ошибка запуска. Обновите страницу.");
+        // 4. Если места совсем нет -> прибиваем к верху экрана
+        modal.style.top = '20px';
     }
-}
 
-// --- ФУНКЦИЯ РЕНДЕРА ИНТЕРФЕЙСА ---
+    function showTutorialStep(stepIndex) {
+        if (tutorialCountdownInterval) {
+            clearInterval(tutorialCountdownInterval);
+            tutorialCountdownInterval = null;
+        }
+        const footer = document.querySelector('.app-footer');
+        // Убираем подсветку футера, если она была
+        footer.classList.remove('tutorial-footer-active');
+        document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+        
+        if (stepIndex >= tutorialSteps.length) {
+            endTutorial(true);
+            return;
+        }
+        
+        let step = { ...tutorialSteps[stepIndex] };
+
+        // Если нужно сменить вкладку (например, на Quests для челленджа)
+        if (step.view && document.getElementById(step.view).classList.contains('hidden')) {
+            // switchView логика встроенная
+            dom.viewDashboard.classList.add('hidden');
+            dom.viewQuests.classList.add('hidden');
+            var targetEl = document.getElementById(step.view);
+            if (targetEl) targetEl.classList.remove('hidden');
+            dom.footerItems.forEach(item => item.classList.remove('active'));
+            var navId = 'nav-' + step.view.split('-')[1];
+            var navEl = document.getElementById(navId);
+            if (navEl) navEl.classList.add('active');
+        }
+        
+        // Небольшая задержка, чтобы интерфейс успел перерисоваться
+        setTimeout(() => {
+            const element = document.querySelector(step.element);
+            
+            if (element) {
+                // Если элемент внутри футера — подсвечиваем весь футер
+                if (element.closest('.app-footer')) {
+                    footer.classList.add('tutorial-footer-active');
+                }
+                
+                element.classList.add('tutorial-highlight');
+                dom.tutorialTitle.textContent = step.title;
+                dom.tutorialText.innerHTML = step.text;
+                dom.tutorialStepCounter.textContent = `Шаг ${stepIndex + 1} из ${tutorialSteps.length}`;
+                
+                // Прокручиваем к элементу
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // 🔥 Вызываем позиционирование с учетом флага forceTop
+                setTimeout(() => positionTutorialModal(element, step.forceTop), 350);
+
+                // Логика кнопки "Далее" с таймером
+                const originalButtonText = (stepIndex === tutorialSteps.length - 1) ? 'Завершить' : 'Далее';
+                dom.tutorialNextBtn.textContent = originalButtonText;
+                const nextBtn = dom.tutorialNextBtn;
+                nextBtn.disabled = true;
+                let countdown = 3; 
+                nextBtn.textContent = `${originalButtonText} (${countdown})`;
+                
+                tutorialCountdownInterval = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        nextBtn.textContent = `${originalButtonText} (${countdown})`;
+                    } else {
+                        clearInterval(tutorialCountdownInterval);
+                        tutorialCountdownInterval = null;
+                        nextBtn.disabled = false;
+                        nextBtn.textContent = originalButtonText;
+                    }
+                }, 1000);
+            } else {
+                console.warn(`Tutorial element not found: ${step.element}. Skipping.`);
+                currentTutorialStep++;
+                showTutorialStep(currentTutorialStep);
+            }
+        }, 150); 
+    }
+
+    function startTutorial() {
+        currentTutorialStep = 0;
+        dom.tutorialOverlay.classList.remove('hidden');
+        showTutorialStep(currentTutorialStep);
+    }
+
+    function endTutorial(completed = false) {
+        if (tutorialCountdownInterval) {
+            clearInterval(tutorialCountdownInterval);
+            tutorialCountdownInterval = null;
+        }
+        document.querySelector('.app-footer').classList.remove('tutorial-footer-active');
+        document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+        
+        if (completed) {
+            dom.tutorialTitle.textContent = 'Готово!';
+            dom.tutorialText.innerHTML = 'Теперь вы знаете всё необходимое. <br><br><b>Важно:</b> все задания и розыгрыши в этом боте абсолютно бесплатны. Удачи!';
+            dom.tutorialStepCounter.textContent = '';
+            
+            // --- 👇 ЦЕНТРИРОВАНИЕ ФИНАЛЬНОГО ОКНА 👇 ---
+            dom.tutorialModal.style.top = '50%';
+            dom.tutorialModal.style.left = '5%';
+            dom.tutorialModal.style.width = '90%';
+            dom.tutorialModal.style.transform = 'translateY(-50%)';
+            // -------------------------------------------
+
+            dom.tutorialSkipBtn.classList.add('hidden');
+            dom.tutorialNextBtn.textContent = 'Отлично!';
+            dom.tutorialNextBtn.disabled = false;
+            
+            dom.tutorialNextBtn.onclick = () => {
+                dom.tutorialOverlay.classList.add('hidden');
+                dom.tutorialModal.style.top = ''; 
+                dom.tutorialModal.style.transform = '';
+                dom.tutorialNextBtn.onclick = tutorialNextHandler;
+                dom.tutorialSkipBtn.classList.remove('hidden');
+            };
+        } else {
+             dom.tutorialOverlay.classList.add('hidden');
+             dom.tutorialModal.style.top = ''; 
+             dom.tutorialModal.style.transform = '';
+        }
+        localStorage.setItem('tutorialCompleted', 'true');
+    }
+    function tutorialNextHandler() {
+        currentTutorialStep++;
+        showTutorialStep(currentTutorialStep);
+    };
+
+// --- ФУНКЦИЯ РЕНДЕРА ИНТЕРФЕЙСА (ДЛЯ MAIN) ---
 async function renderFullInterface(data) {
     userData = data.user || {};
     allQuests = data.quests || [];
@@ -976,7 +1263,7 @@ async function renderFullInterface(data) {
         setupSlider();
     }
 
-    // 🔥 ОБНОВЛЕНИЕ ЯРЛЫКОВ (Вместо рендера карточек)
+    // Ярлыки
     updateShortcutStatuses(userData, allQuests);
     
     // Магазин
@@ -986,13 +1273,319 @@ async function renderFullInterface(data) {
     setTimeout(() => { if (typeof checkGift === 'function') checkGift(); }, 1000);
 }
 
+// -------------------------------------------------------------
+// 4. ЗАГРУЗКА MAIN (1 в 1 как в рабочем меню с полоской)
+// -------------------------------------------------------------
+function extractImageUrls(data) {
+    const urls = [];
+    if (!data) return urls;
+    if (data.menu) {
+        if (data.menu.menu_banner_url) urls.push(data.menu.menu_banner_url);
+        if (data.menu.checkpoint_banner_url) urls.push(data.menu.checkpoint_banner_url);
+        if (data.menu.auction_banner_url) urls.push(data.menu.auction_banner_url);
+        if (data.menu.weekly_goals_banner_url) urls.push(data.menu.weekly_goals_banner_url);
+        if (data.menu.auction_slide_data && data.menu.auction_slide_data.image_url) {
+            urls.push(data.menu.auction_slide_data.image_url);
+        }
+    }
+    if (data.cauldron && data.cauldron.banner_image_url) urls.push(data.cauldron.banner_image_url);
+    if (data.quests) {
+        data.quests.forEach(q => { if (q.icon_url) urls.push(q.icon_url); });
+    }
+    return urls;
+}
+
+function preloadImages(urls, onProgress) {
+    if (!urls || urls.length === 0) {
+        if (onProgress) onProgress(100);
+        return Promise.resolve();
+    }
+    let loadedCount = 0;
+    const total = urls.length;
+    const imagePromises = urls.map(url => {
+        return new Promise((resolve) => {
+            if (!url) {
+                loadedCount++;
+                if (onProgress) onProgress(Math.floor((loadedCount / total) * 100));
+                return resolve();
+            }
+            const img = new Image();
+            img.src = url;
+            img.onload = () => {
+                loadedCount++;
+                if (onProgress) onProgress(Math.floor((loadedCount / total) * 100));
+                resolve();
+            };
+            img.onerror = () => {
+                loadedCount++; 
+                if (onProgress) onProgress(Math.floor((loadedCount / total) * 100));
+                resolve();
+            };
+        });
+    });
+    const timeoutPromise = new Promise((resolve) => { setTimeout(() => { resolve(); }, 3500); });
+    return Promise.race([Promise.all(imagePromises), timeoutPromise]);
+}
+
+async function updateBootstrapSilently() {
+    try {
+        const data = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true);
+        if (data) {
+            const imgs = extractImageUrls(data);
+            await preloadImages(imgs); 
+            await renderFullInterface(data);
+            localStorage.setItem('app_bootstrap_cache', JSON.stringify(data));
+        }
+    } catch (e) { console.error("Ошибка тихого обновления:", e); }
+}
+
+async function main() {
+    // Хак для перенаправления с профиля
+    if (window.location.pathname.includes('/profile') || window.location.href.includes('profile')) {
+        window.history.replaceState({}, document.title, "/");
+        dom.viewDashboard.classList.remove('hidden');
+        dom.viewQuests.classList.add('hidden');
+    }
+
+    try {
+        if (window.Telegram && !Telegram.WebApp.initData) {
+            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+            return; 
+        }
+
+        const isAppVisible = dom.mainContent && dom.mainContent.classList.contains('visible');
+
+        // --- СЦЕНАРИЙ 1: ПЕРВАЯ ЗАГРУЗКА ---
+        if (!isAppVisible) {
+            if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
+            updateLoading(1);
+
+            let bootstrapData = null;
+            let usedCache = false;
+
+            // А. Кэш
+            try {
+                const cachedJson = localStorage.getItem('app_bootstrap_cache');
+                if (cachedJson) {
+                    bootstrapData = JSON.parse(cachedJson);
+                    usedCache = true;
+                }
+            } catch (e) { console.warn(e); }
+
+            // Б. Сеть (если нет кэша)
+            if (!bootstrapData) {
+                let fakeP = 1;
+                const timer = setInterval(() => { if(fakeP < 30) updateLoading(++fakeP); }, 50);
+                
+                try {
+                    bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
+                } finally {
+                    clearInterval(timer);
+                }
+            }
+
+            if (!bootstrapData) throw new Error("Нет данных (bootstrap)");
+
+            // В. Картинки
+            const startP = usedCache ? 5 : 35;
+            updateLoading(startP);
+            
+            const imageUrls = extractImageUrls(bootstrapData);
+            if (imageUrls.length > 0) {
+                await preloadImages(imageUrls, (p) => {
+                    const range = 100 - startP;
+                    const val = startP + Math.floor((p * range) / 100);
+                    updateLoading(val);
+                });
+            } else {
+                updateLoading(95);
+            }
+
+            // Г. Рендер
+            await renderFullInterface(bootstrapData);
+            
+            // Д. Финиш
+            updateLoading(100);
+            setTimeout(() => {
+                if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+                if (dom.mainContent) dom.mainContent.classList.add('visible');
+                if (usedCache) {
+                    updateBootstrapSilently().catch(console.error); 
+                }
+            }, 300);
+            
+        } 
+        // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ ---
+        else {
+            await updateBootstrapSilently();
+        }
+
+    } catch (e) {
+        console.error("Error inside main:", e);
+        if (dom.loaderOverlay) {
+            dom.loadingText.textContent = "Ошибка запуска";
+            dom.loadingText.style.color = "#ff453a";
+            setTimeout(() => {
+                 dom.loaderOverlay.classList.add('hidden');
+                 dom.mainContent.classList.add('visible');
+            }, 2000);
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// 5. PULL TO REFRESH (1 в 1 старая логика)
+// -------------------------------------------------------------
+function initPullToRefresh() {
+    const content = document.getElementById('main-content');
+    const ptrContainer = document.getElementById('pull-to-refresh'); 
+    const icon = ptrContainer ? ptrContainer.querySelector('i') : null; 
+    
+    if (!content || !ptrContainer || !icon) return;
+
+    let startY = 0;
+    let pulledDistance = 0;
+    let isPulling = false;
+    const triggerThreshold = 80;
+
+    content.addEventListener('touchstart', (e) => {
+        if (content.scrollTop <= 0) {
+            startY = e.touches[0].clientY;
+            isPulling = true;
+            content.style.transition = 'none'; 
+            ptrContainer.style.transition = 'none'; 
+            icon.style.transition = 'none';
+        } else {
+            isPulling = false;
+        }
+    }, { passive: true });
+
+    content.addEventListener('touchmove', (e) => {
+        if (!isPulling) return;
+        const diff = e.touches[0].clientY - startY;
+        if (diff > 0 && content.scrollTop <= 0) {
+            if (e.cancelable) e.preventDefault();
+            pulledDistance = Math.pow(diff, 0.85); 
+            if (pulledDistance > 180) pulledDistance = 180;
+            content.style.transform = `translateY(${pulledDistance}px)`;
+            ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
+            icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
+            
+            if (pulledDistance > triggerThreshold) {
+                icon.style.color = "#34c759";
+            } else {
+                icon.style.color = "#FFD700";
+            }
+        }
+    }, { passive: false });
+
+    content.addEventListener('touchend', () => {
+        if (!isPulling) return;
+        isPulling = false;
+        content.style.transition = 'transform 0.3s ease-out';
+        ptrContainer.style.transition = 'transform 0.3s ease-out';
+
+        if (pulledDistance > triggerThreshold) {
+            console.log("🔄 Обновление...");
+            content.style.transform = `translateY(80px)`;
+            ptrContainer.style.transform = `translateY(80px)`; 
+            icon.classList.add('fa-spin'); 
+            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+
+        } else {
+            content.style.transform = 'translateY(0px)';
+            ptrContainer.style.transform = 'translateY(0px)'; 
+            icon.style.transform = 'rotate(0deg)';
+        }
+        pulledDistance = 0;
+    });
+}
+
 // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 function setupEventListeners() {
-    // Вибрация
     const footer = document.querySelector('.app-footer');
     if (footer) footer.addEventListener('click', (e) => { if (e.target.closest('.footer-item')) try { Telegram.WebApp.HapticFeedback.impactOccurred('medium'); } catch(e){} });
 
-    // КЛИК НА ЯРЛЫКИ -> ПЕРЕХОД НА СТРАНИЦУ КВЕСТОВ
+    // -------------------------------------------------------------
+    // ГЕОМЕТРИЯ: РАВНЫЕ БЛОКИ (Возвращаем старый код)
+    // -------------------------------------------------------------
+    const challengeBtn = document.getElementById('shortcut-challenge');
+    const questsBtn = document.getElementById('shortcut-quests');
+    const shortcutShop = document.getElementById('shortcut-shop');
+
+    if (challengeBtn && questsBtn && shortcutShop) {
+        if (!originalShopHTML) {
+            originalShopHTML = shortcutShop.innerHTML;
+        }
+        const container = challengeBtn.parentElement;
+        if (container) {
+            Object.assign(container.style, {
+                display: 'grid',
+                gridTemplateColumns: '0.85fr 1.15fr', 
+                gridTemplateRows: '1fr 1fr',  
+                gap: '10px',
+                padding: '0 12px',
+                width: '100%',
+                boxSizing: 'border-box',
+                alignItems: 'stretch'
+            });
+
+            // 1. МАГАЗИН (СЛЕВА)
+            Object.assign(shortcutShop.style, {
+                gridColumn: '1',
+                gridRow: '1 / span 2',
+                width: '100%',
+                height: '100%',
+                margin: '0',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                boxSizing: 'border-box'
+            });
+
+            // 2. ЧЕЛЛЕНДЖ (СПРАВА, ВЕРХ)
+            Object.assign(challengeBtn.style, {
+                gridColumn: '2',
+                gridRow: '1',
+                width: '100%',
+                height: '100%',
+                margin: '0',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
+                minHeight: '80px'
+            });
+
+            // 3. ИСПЫТАНИЯ (СПРАВА, НИЗ)
+            Object.assign(questsBtn.style, {
+                gridColumn: '2',
+                gridRow: '2',
+                width: '100%',
+                height: '100%',
+                margin: '0',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
+                minHeight: '80px'
+            });
+        }
+    }
+    // -------------------------------------------------------------
+
+    // Клик на Ярлыки
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
         chalShortcut.onclick = () => { window.location.href = '/quests?open=twitch_only'; };
@@ -1000,9 +1593,7 @@ function setupEventListeners() {
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
         questShortcut.onclick = () => {
-             // Если квест активен -> просто идем в квесты
              if (userData.active_quest_id) window.location.href = '/quests';
-             // Если нет -> открываем рулетку
              else window.location.href = '/quests?open=roulette';
         };
     }
@@ -1011,7 +1602,7 @@ function setupEventListeners() {
         shopShortcut.onclick = () => { window.location.href = '/shop'; };
     }
 
-    // Еженедельные цели (модалка)
+    // Еженедельные цели
     document.addEventListener('click', (e) => {
         if (e.target.closest('#weekly-goals-trigger')) dom.weeklyModalOverlay.classList.remove('hidden');
     });
@@ -1054,7 +1645,23 @@ function setupEventListeners() {
     
     // Туториал
     if(dom.startTutorialBtn) dom.startTutorialBtn.onclick = startTutorial; 
-    
+    if(dom.tutorialNextBtn) dom.tutorialNextBtn.onclick = tutorialNextHandler;
+    if(dom.tutorialSkipBtn) dom.tutorialSkipBtn.onclick = () => endTutorial(false);
+
+    // Логика расписания (ЗАКРЫТИЕ)
+    const scheduleModal = document.getElementById('schedule-modal-overlay');
+    const scheduleCloseBtn = document.getElementById('schedule-modal-close-btn');
+    if (scheduleCloseBtn && scheduleModal) {
+        scheduleCloseBtn.addEventListener('click', () => {
+            scheduleModal.classList.add('hidden');
+        });
+        scheduleModal.addEventListener('click', (e) => {
+            if (e.target === scheduleModal) {
+                scheduleModal.classList.add('hidden');
+            }
+        });
+    }
+
     // Подарок
     if (dom.giftIconBtn) dom.giftIconBtn.addEventListener('click', () => {
          dom.giftModalOverlay.classList.remove('hidden');
@@ -1090,82 +1697,24 @@ function setupEventListeners() {
     if (giftXBtn) giftXBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
 }
 
-// --- PULL TO REFRESH ---
-function initPullToRefresh() {
-    const content = document.getElementById('main-content');
-    const ptrContainer = document.getElementById('pull-to-refresh'); 
-    const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
-    if (!content || !ptrContainer || !icon) return;
-    let startY = 0; let pulledDistance = 0; let isPulling = false;
-
-    content.addEventListener('touchstart', (e) => {
-        if (content.scrollTop <= 0) { startY = e.touches[0].clientY; isPulling = true; content.style.transition = 'none'; ptrContainer.style.transition = 'none'; }
-    }, { passive: true });
-
-    content.addEventListener('touchmove', (e) => {
-        if (!isPulling) return;
-        const diff = e.touches[0].clientY - startY;
-        if (diff > 0 && content.scrollTop <= 0) {
-            if (e.cancelable) e.preventDefault();
-            pulledDistance = Math.min(Math.pow(diff, 0.85), 180);
-            content.style.transform = `translateY(${pulledDistance}px)`;
-            ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
-            icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
-            icon.style.color = pulledDistance > 80 ? "#34c759" : "#FFD700";
-        }
-    }, { passive: false });
-
-    content.addEventListener('touchend', () => {
-        if (!isPulling) return;
-        isPulling = false;
-        content.style.transition = 'transform 0.3s ease-out';
-        ptrContainer.style.transition = 'transform 0.3s ease-out';
-        if (pulledDistance > 80) {
-            content.style.transform = `translateY(80px)`; ptrContainer.style.transform = `translateY(80px)`;
-            icon.classList.add('fa-spin');
-            setTimeout(() => window.location.reload(), 500);
-        } else {
-            content.style.transform = ''; ptrContainer.style.transform = '';
-        }
-        pulledDistance = 0;
-    });
-}
-
-// --- ФУНКЦИИ ТУТОРИАЛА (СОКРАЩЕННО, НО ПОЛНОСТЬЮ РАБОЧИЕ) ---
-let currentTutorialStep = 0;
-const tutorialSteps = [
-    { element: '.user-profile', title: 'Профиль', text: 'Слева ваш профиль, справа билеты.', view: 'view-dashboard' },
-    { element: '#main-slider-container', title: 'События', text: 'Здесь актуальные ивенты.', view: 'view-dashboard' },
-    { element: '#shortcut-quests', title: 'Задания', text: 'Здесь находятся челленджи.', view: 'view-dashboard', forceTop: true },
-    { element: '#nav-leaderboard', title: 'Лидеры', text: 'Рейтинг игроков.', view: 'view-dashboard', forceTop: true }
-];
-function startTutorial() { currentTutorialStep = 0; dom.tutorialOverlay.classList.remove('hidden'); showTutorialStep(0); }
-function showTutorialStep(index) {
-    if (index >= tutorialSteps.length) { endTutorial(true); return; }
-    const step = tutorialSteps[index];
-    const el = document.querySelector(step.element);
-    if(el) {
-        dom.tutorialTitle.textContent = step.title;
-        dom.tutorialText.textContent = step.text;
-        dom.tutorialStepCounter.textContent = `${index+1}/${tutorialSteps.length}`;
-        el.scrollIntoView({behavior:'smooth', block:'center'});
-        const rect = el.getBoundingClientRect();
-        dom.tutorialModal.style.top = step.forceTop ? `${rect.top - 150}px` : `${rect.bottom + 20}px`;
-    }
-}
-function endTutorial() { dom.tutorialOverlay.classList.add('hidden'); localStorage.setItem('tutorialCompleted', 'true'); }
-if(dom.tutorialNextBtn) dom.tutorialNextBtn.onclick = () => showTutorialStep(++currentTutorialStep);
-if(dom.tutorialSkipBtn) dom.tutorialSkipBtn.onclick = () => endTutorial();
-
-
 // ЗАПУСК
 try {
     checkMaintenance();
     setupEventListeners();
     initPullToRefresh();
     main();
+
+    // СТАРТ УМНОГО HEARTBEAT (30 сек)
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => { 
+        if (!document.hidden) refreshDataSilently(); 
+    }, 30000);
+
     // Обработка сворачивания
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) refreshDataSilently();
     });
-} catch (e) { console.error("Critical:", e); }
+} catch (e) { 
+    console.error("Critical:", e); 
+    if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+}
