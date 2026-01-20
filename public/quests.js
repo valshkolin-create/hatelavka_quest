@@ -646,6 +646,34 @@ function handleTgTaskClick(key, url) {
 // 4. ПОПАПЫ И UI (Глобальные)
 // ==========================================
 
+// 1. Функция для сброса серии (которой не хватало, из-за чего была ошибка)
+function injectBurnedPopup(reward) {
+    const existing = document.getElementById('burnedPopup');
+    if (existing) existing.remove();
+
+    const popupHtml = `
+    <div id="burnedPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+      <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid rgba(255,59,48,0.3);">
+        <div style="font-size: 40px; margin-bottom: 10px;">🔥</div>
+        <h3 style="margin-top: 0; color: #ff3b30; font-size: 20px; margin-bottom: 10px;">Серия прервана!</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: #ddd; margin-bottom: 20px;">
+            Вы пропустили день, и прогресс сбросился.<br>
+            Награда за 1 день: <b>+${reward}</b> <i class="fa-solid fa-ticket" style="color: #FFD700;"></i>
+        </p>
+        <button id="closeBurnedPopup" style="width: 100%; background: #2c2c2e; color: #fff; border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer;">Понятно</button>
+      </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
+    if(window.Telegram && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+    
+    document.getElementById('closeBurnedPopup').addEventListener('click', () => {
+        document.getElementById('burnedPopup').remove();
+        // Перезагружаем страницу, чтобы обновить дни
+        window.location.reload();
+    });
+}
+
 function injectBoostPopup(customUrl) {
     const urlToUse = customUrl || 'https://t.me/boost/hatelove_ttv';
     const existing = document.getElementById('boostPopup');
@@ -775,7 +803,6 @@ function injectProfilePopup(type) {
     });
 }
 
-// === КРАСИВОЕ ОКНО НАГРАДЫ (С ПЕРЕЗАГРУЗКОЙ) ===
 // === КРАСИВОЕ ОКНО НАГРАДЫ (С ПЕРЕЗАГРУЗКОЙ) ===
 function injectRewardPopup(amount, text = "Задание выполнено!", reloadOnClose = false) {
     const existing = document.getElementById('rewardPopup');
