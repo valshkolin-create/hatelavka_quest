@@ -1307,35 +1307,39 @@ async function startChallengeRoulette() {
 }
 
 async function openQuestSelectionModal() {
-    // 1. Определяем платформу (Twitch или Telegram)
+    // 1. Определяем платформу (Twitch или Telegram) на основе текущей вкладки
     const currentTheme = document.body.getAttribute('data-theme');
     const isTelegram = currentTheme === 'telegram';
-    
-    // 2. Настраиваем заголовки и цвета
+    const filterPrefix = isTelegram ? 'automatic_telegram' : 'automatic_twitch';
+
+    // 2. 🔥 Сначала фильтруем квесты (ДО открытия окна)
+    const quests = allQuests
+        .filter(q => q.quest_type && q.quest_type.startsWith(filterPrefix) && !q.is_completed)
+        // Сортировка: от большей награды к меньшей
+        .sort((a, b) => (b.reward_amount || 0) - (a.reward_amount || 0));
+
+    // 3. 🔥 ПРОВЕРКА: Если квестов нет — просто выходим
+    if (!quests || quests.length === 0) {
+        console.log(`📭 Нет доступных квестов (${filterPrefix}). Меню не открываем.`);
+        // Мы уже переключили вкладку в функции main, поэтому пользователь 
+        // просто увидит страницу без всплывающего окна.
+        return; 
+    }
+
+    // 4. Если квесты ЕСТЬ — настраиваем цвета и заголовки
     const modalTitle = isTelegram ? 'Telegram Испытания' : 'Twitch Испытания';
     const accentColor = isTelegram ? '#0088cc' : '#9146ff';
     const bgIconColor = isTelegram ? 'rgba(0, 136, 204, 0.2)' : 'rgba(145, 70, 255, 0.2)';
     const iconClass = isTelegram ? 'fa-brands fa-telegram' : 'fa-brands fa-twitch';
-    const filterPrefix = isTelegram ? 'automatic_telegram' : 'automatic_twitch';
 
+    // 5. Открываем окно только теперь
     openUniversalModal(modalTitle);
     
     const container = dom.modalContainer;
     container.classList.add('grid-mode'); 
     container.innerHTML = ''; 
     
-    // 3. Фильтруем квесты по префиксу и СОРТИРУЕМ ПО НАГРАДЕ (Больше -> Меньше)
-    const quests = allQuests
-        .filter(q => q.quest_type && q.quest_type.startsWith(filterPrefix) && !q.is_completed)
-        // 🔥 СОРТИРОВКА: b - a (от большего к меньшему)
-        .sort((a, b) => (b.reward_amount || 0) - (a.reward_amount || 0));
-
-    if (!quests || quests.length === 0) {
-        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; color:#aaa;">Нет доступных испытаний</div>';
-        return;
-    }
-
-    // 4. Рендерим карточки
+    // 6. Рендерим карточки
     quests.forEach((quest, index) => {
         const el = document.createElement('div');
         el.className = `tg-grid-card anim-card anim-delay-${index % 8}`;
@@ -1365,7 +1369,7 @@ async function openQuestSelectionModal() {
                 await makeApiRequest("/api/v1/quests/start", { quest_id: quest.id });
                 closeUniversalModal();
                 
-                // 🔥 ФИКС 1: Чистим кэш и перезагружаем страницу, чтобы сразу показать активный квест
+                // Чистим кэш и перезагружаем страницу, чтобы сразу показать активный квест
                 localStorage.removeItem('quests_cache_v1');
                 window.location.reload(); 
             } catch(e) {
