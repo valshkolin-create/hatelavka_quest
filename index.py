@@ -2008,14 +2008,12 @@ async def auto_sync_vips_logic(supabase: httpx.AsyncClient):
 async def silent_update_twitch_user(telegram_id: int):
     """
     Фоновая задача: Обновляет никнейм и статус подписки.
-    Логика:
-    1. Если зашел первый раз (или давно не было проверки) -> Проверяем СРАЗУ.
-    2. Если недавно проверяли (< 5 мин) -> Пропускаем (экономим запросы).
+    ОПТИМИЗАЦИЯ: Убраны лишние логи для ускорения (IO blocking).
     """
-    CACHE_TTL_SECONDS = 3600 # 5 минут
+    CACHE_TTL_SECONDS = 3600 # 1 час (как договаривались)
 
     try:
-        # 1. Получаем данные пользователя
+        # 1. Получаем данные (быстрый select)
         client = await get_background_client()
         user_resp = await client.get(
             "/users", 
@@ -2031,29 +2029,23 @@ async def silent_update_twitch_user(telegram_id: int):
 
         user = user_data[0]
 
-        # 🔥 ОПТИМИЗАЦИЯ: Если статус УЖЕ error, выходим сразу (экономим ресурсы).
-        # Пользователь должен нажать кнопку "Привязать" вручную.
+        # Если статус Error - молча выходим
         if user.get("twitch_status") == "error":
             return
 
+        # Проверка кэша БЕЗ ЛОГОВ (чтобы не спамить в консоль)
         last_sync_str = user.get("last_twitch_sync")
-
-        # --- 🔥 ЛОГИКА ПРОВЕРКИ + ЛОГИ ---
         if last_sync_str:
             try:
                 last_sync_dt = datetime.fromisoformat(last_sync_str.replace('Z', '+00:00'))
                 elapsed = (datetime.now(timezone.utc) - last_sync_dt).total_seconds()
                 
+                # 👇 УБРАЛИ ЛОГ "Пропуск...". Просто молча выходим, если кэш свежий.
                 if elapsed < CACHE_TTL_SECONDS:
-                    # Лог, чтобы ты видел, что все работает, но запрос пропущен
-                    logging.info(f"⏳ [Twitch] Пропуск для {telegram_id}: кэш свежий ({int(elapsed)} сек).")
                     return 
-                else:
-                    logging.info(f"🔄 [Twitch] Кэш истек для {telegram_id}. Обновляем...")
             except ValueError:
-                logging.warning(f"⚠️ [Twitch] Ошибка даты для {telegram_id}, обновляем принудительно.")
-        else:
-            logging.info(f"🆕 [Twitch] Первичная проверка для {telegram_id}. Обновляем мгновенно!")
+                pass # Если дата кривая, обновляем молча
+        
         # --------------------------------
 
         refresh_token = user["twitch_refresh_token"]
@@ -2072,28 +2064,28 @@ async def silent_update_twitch_user(telegram_id: int):
                 }
             )
             
-            # 🔥 ВАЖНО: Замени блок обработки ошибки (примерно строка 1175) на этот:
-            if token_resp.status_code != 200:
-                logging.error(f"❌ [Twitch Error] Не удалось обновить токен для {telegram_id}: {token_resp.text}")
+            # 🔥 ОБРАБОТКА ОШИБКИ 400 (ТОКЕН УМЕР)
+            # Тут лог ОСТАВЛЯЕМ, потому что это важная ошибка, которую надо видеть.
+            if token_resp.status_code == 400:
+                logging.warning(f"⚠️ Токен протух (400). Ставим статус 'error' для {telegram_id}...")
                 
-                # Если токен протух (400)
-                if token_resp.status_code == 400:
-                    logging.warning(f"⚠️ Токен протух. Пытаемся поставить статус error для {telegram_id}...")
+                try:
+                    # Делаем запрос к БД и сохраняем ответ в db_resp
+                    db_resp = await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+                        "twitch_status": "error"
+                    })
                     
-                    try:
-                        # Делаем запрос к БД и сохраняем ответ в db_resp
-                        db_resp = await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
-                            "twitch_status": "error"
-                        })
+                    # Проверяем ответ базы (для отладки критических сбоев)
+                    if db_resp.status_code not in [200, 204]:
+                        logging.error(f"💀 ОШИБКА БАЗЫ! Не удалось записать статус: {db_resp.status_code} {db_resp.text}")
                         
-                        # 👇 ПРОВЕРЯЕМ, ЗАПИСАЛОСЬ ЛИ В БАЗУ?
-                        if db_resp.status_code in [200, 204]:
-                            logging.info(f"✅ УСПЕХ! Статус 'error' записан в базу для {telegram_id}")
-                        else:
-                            logging.error(f"💀 ОШИБКА БАЗЫ! Не удалось записать статус: {db_resp.status_code} {db_resp.text}")
-                            
-                    except Exception as e:
-                        logging.error(f"💀 КРИТИЧЕСКАЯ ОШИБКА при записи в БД: {e}")
+                except Exception as e:
+                    logging.error(f"💀 КРИТИЧЕСКАЯ ОШИБКА при записи в БД: {e}")
+                return
+
+            if token_resp.status_code != 200:
+                # Ошибки сервера Twitch логируем, но это не критично
+                logging.error(f"❌ [Twitch Error] Ошибка обновления токена: {token_resp.text}")
                 return
 
             new_tokens = token_resp.json()
@@ -2139,10 +2131,12 @@ async def silent_update_twitch_user(telegram_id: int):
 
             await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
             
-            # Лог успешного обновления
+            # Лог успешного обновления (можно оставить, он редкий - раз в час)
+            # Если хочешь совсем тишину, закомментируй следующую строку:
             logging.info(f"✅ [Twitch] Успех для {telegram_id}: Ник={twitch_login_actual}, Статус={new_status}")
 
     except Exception as e:
+        # Логируем только реальные крэши функции
         logging.error(f"❌ [Twitch Critical] Ошибка функции: {e}")
         
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
@@ -5766,7 +5760,24 @@ async def get_current_user_data(
 
 # --- ГЛОБАЛЬНЫЙ КЭШ ---
 HEARTBEAT_DB_CACHE = {}
-DB_WRITE_INTERVAL = 45  # Пишем "last_active" в базу раз в 45 секунд
+DB_WRITE_INTERVAL = 45 
+
+# 👇 НОВАЯ ФУНКЦИЯ-ОБЕРТКА ДЛЯ БЕЗОПАСНОЙ ЗАПИСИ
+async def safe_update_last_active(telegram_id: int):
+    """Пытается обновить last_active, но не роняет сервер при ошибке."""
+    try:
+        # Создаем НОВЫЙ клиент для фона, чтобы не зависеть от request context
+        async with httpx.AsyncClient(base_url=SUPABASE_URL, headers=SUPABASE_HEADERS, timeout=5.0) as client:
+            await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+                "last_active": datetime.now(timezone.utc).isoformat(),
+                "is_online": True
+            })
+    except (httpx.ReadTimeout, httpx.ConnectTimeout):
+        # База тормозит? Ну и ладно, в следующий раз запишем.
+        pass 
+    except Exception as e:
+        logging.error(f"Background heartbeat write failed: {e}")
+
 
 @app.post("/api/v1/user/heartbeat")
 async def user_heartbeat(
@@ -5774,7 +5785,6 @@ async def user_heartbeat(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Валидация
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         return {"is_active": False}
@@ -5783,31 +5793,20 @@ async def user_heartbeat(
     now = time.time()
     
     try:
-        # --- ШАГ 1: ВСЕГДА ЧИТАЕМ ДАННЫЕ (RPC) ---
-        # Это нужно, чтобы полоски квестов, монеты и челленджи обновлялись в реальном времени.
-        # SELECT запросы в Postgres очень легкие, не бойся их вызывать часто.
+        # 1. ЧТЕНИЕ (Всегда быстро)
         rpc_resp = await supabase.post("/rpc/get_user_heartbeat_data", json={"p_telegram_id": telegram_id})
         rpc_resp.raise_for_status()
         data = rpc_resp.json()
 
-        # --- ШАГ 2: РЕДКО ПИШЕМ "ОНЛАЙН" (UPDATE) ---
-        # А вот запись в базу - это тяжело. Её мы делаем по таймеру.
+        # 2. ЗАПИСЬ (С защитой от ошибок)
         last_write_time = HEARTBEAT_DB_CACHE.get(telegram_id, 0)
         
         if now - last_write_time > DB_WRITE_INTERVAL:
-            # Время пришло! Обновляем last_active
-            # Используем create_task, чтобы не задерживать ответ пользователю
-            asyncio.create_task(
-                supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
-                    "last_active": datetime.now(timezone.utc).isoformat(),
-                    "is_online": True
-                })
-            )
-            # Обновляем кэш
+            # 🔥 ИСПОЛЬЗУЕМ ОБЕРТКУ В ФОНЕ
+            asyncio.create_task(safe_update_last_active(telegram_id))
+            
             HEARTBEAT_DB_CACHE[telegram_id] = now
-            # print(f"📝 Updated last_active for {telegram_id}")
 
-        # Возвращаем данные из RPC (монеты, квесты и т.д.)
         return data
         
     except Exception as e:
