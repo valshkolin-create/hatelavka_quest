@@ -2067,14 +2067,19 @@ async def silent_update_twitch_user(telegram_id: int):
             )
             
             # 🔥 ВАЖНЫЙ ЛОГ ОШИБКИ
+            # 🔥 ВАЖНО: Замени блок обработки ошибки (примерно строка 1175) на этот:
             if token_resp.status_code != 200:
                 logging.error(f"❌ [Twitch Error] Не удалось обновить токен для {telegram_id}: {token_resp.text}")
                 
-                # 👇 ИЗМЕНЕНИЕ: Если токен протух, ставим статус 'error', но НЕ удаляем логин
+                # 👇 ЭТОГО КУСКА У ТЕБЯ НЕТ, ПОЭТОМУ ПЛАШКА НЕ РАБОТАЕТ
                 if token_resp.status_code == 400:
-                    await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
-                        "twitch_status": "error"  # Маркер для фронтенда
-                    })
+                    logging.warning(f"⚠️ Токен протух. Ставим статус error для {telegram_id}")
+                    try:
+                        await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+                            "twitch_status": "error"  # <--- Вот это включает красную плашку
+                        })
+                    except Exception as e:
+                        logging.error(f"Не удалось записать статус error в БД: {e}")
                 return
 
             new_tokens = token_resp.json()
