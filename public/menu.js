@@ -162,185 +162,195 @@ async function checkMaintenance() {
 // 1. СЛАЙДЕР (1 в 1 как в рабочем меню)
 // -------------------------------------------------------------
 function setupSlider() {
-    const container = document.getElementById('main-slider-container');
-    if (!container) return;
+        const container = document.getElementById('main-slider-container');
+        if (!container) return;
 
-    // Находим видимые слайды
-    const allSlides = container.querySelectorAll('.slide');
-    const visibleSlides = Array.from(allSlides).filter(slide => {
-        return slide.style.display !== 'none';
-    });
+        // Находим видимые слайды
+        const allSlides = container.querySelectorAll('.slide');
+        const visibleSlides = Array.from(allSlides).filter(slide => {
+            return slide.style.display !== 'none';
+        });
 
-    // 1. ГЕНЕРИРУЕМ "ПОДПИСЬ" ТЕКУЩЕГО СОСТОЯНИЯ
-    const currentSignature = visibleSlides.map(s => s.dataset.event || s.href || s.src).join('|');
+        // 1. ГЕНЕРИРУЕМ "ПОДПИСЬ" ТЕКУЩЕГО СОСТОЯНИЯ
+        // (Собираем ID или ссылки слайдов в одну строку)
+        const currentSignature = visibleSlides.map(s => s.dataset.event || s.href || s.src).join('|');
 
-    // 2. ПРОВЕРКА: Если слайды те же самые, что и в прошлый раз — ВЫХОДИМ
-    if (currentSignature === lastSliderSignature && sliderAbortController) {
-        return;
-    }
-
-    lastSliderSignature = currentSignature;
-
-    // 3. ОЧИСТКА
-    if (slideInterval) clearInterval(slideInterval);
-    if (sliderAbortController) sliderAbortController.abort();
-    
-    sliderAbortController = new AbortController();
-    const signal = sliderAbortController.signal;
-
-    const wrapper = container.querySelector('.slider-wrapper');
-    const dotsContainer = container.querySelector('.slider-dots');
-    
-    // --- Очистка кнопок ---
-    let prevBtnOld = document.getElementById('slide-prev-btn');
-    let nextBtnOld = document.getElementById('slide-next-btn');
-    
-    // Клонируем, чтобы убрать старые слушатели
-    let prevBtn = prevBtnOld.cloneNode(true);
-    let nextBtn = nextBtnOld.cloneNode(true);
-    
-    prevBtnOld.parentNode.replaceChild(prevBtn, prevBtnOld);
-    nextBtnOld.parentNode.replaceChild(nextBtn, nextBtnOld);
-
-    // Если слайдов 0
-    if (visibleSlides.length === 0) {
-        return;
-    } else {
-         container.style.display = ''; 
-    }
-
-    // Если слайд 1
-    if (visibleSlides.length <= 1) {
-        container.style.display = '';
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'none';
-        if (dotsContainer) dotsContainer.style.display = 'none';
-        const firstVisibleIndex = Array.from(allSlides).indexOf(visibleSlides[0]);
-        if (wrapper) wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
-        return;
-    }
-    
-    // Если слайдов > 1
-    prevBtn.style.display = 'flex';
-    nextBtn.style.display = 'flex';
-    if (dotsContainer) dotsContainer.style.display = 'flex';
-    
-    // Генерация точек
-    dotsContainer.innerHTML = '';
-    visibleSlides.forEach((_, i) => {
-        const dot = document.createElement('button');
-        dot.classList.add('dot');
-        dot.onclick = () => {
-            showSlide(i);
-            resetSlideInterval();
-        };
-        dotsContainer.appendChild(dot);
-    });
-    const dots = dotsContainer.querySelectorAll('.dot');
-
-    function showSlide(index) {
-        if (index >= visibleSlides.length) index = 0;
-        if (index < 0) index = visibleSlides.length - 1;
-
-        if (!wrapper || !dots[index]) return;
-        
-        wrapper.style.transform = `translateX(-${index * 100}%)`;
-        dots.forEach(dot => dot.classList.remove('active'));
-        dots[index].classList.add('active');
-        currentSlideIndex = index;
-    }
-
-    function nextSlide() {
-        showSlide(currentSlideIndex + 1);
-    }
-
-    function prevSlide() {
-        showSlide(currentSlideIndex - 1);
-    }
-
-    function resetSlideInterval() {
-        clearInterval(slideInterval);
-        slideInterval = setInterval(nextSlide, slideDuration);
-    }
-
-    // Вешаем события на кнопки
-    prevBtn.addEventListener('click', () => {
-        prevSlide();
-        resetSlideInterval();
-    }, { signal: signal });
-
-    nextBtn.addEventListener('click', () => {
-        nextSlide();
-        resetSlideInterval();
-    }, { signal: signal });
-    
-    // === ЛОГИКА СВАЙПА ===
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchEndX = 0;
-    let isSwiping = false;
-
-    container.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        touchEndX = touchStartX;
-        isSwiping = false;
-    }, { passive: true, signal: signal });
-
-    container.addEventListener('touchmove', (e) => {
-        if (touchStartX === 0 && touchStartY === 0) return;
-
-        const touchCurrentX = e.touches[0].clientX;
-        const touchCurrentY = e.touches[0].clientY;
-        
-        const diffX = touchStartX - touchCurrentX;
-        const diffY = touchStartY - touchCurrentY;
-
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
-            isSwiping = true;
-            if (e.cancelable) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
+        // 2. ПРОВЕРКА: Если слайды те же самые, что и в прошлый раз — ВЫХОДИМ
+        // Это предотвращает сброс кликов и лаги при загрузке картинок
+        if (currentSignature === lastSliderSignature && sliderAbortController) {
+            // Слайдер уже настроен и актуален, ничего не делаем
+            return;
         }
-        touchEndX = touchCurrentX;
-    }, { passive: false, signal: signal });
 
-    container.addEventListener('touchend', (e) => {
-        if (isSwiping) {
-            e.stopPropagation();
-            const diff = touchStartX - touchEndX;
-            const swipeThreshold = 50;
+        // Если что-то изменилось, запоминаем новую подпись и настраиваем заново
+        lastSliderSignature = currentSignature;
 
-            if (Math.abs(diff) > swipeThreshold) {
-                if (diff > 0) nextSlide();
-                else prevSlide();
+        // 3. ОЧИСТКА (Только если реально меняем конфигурацию)
+        if (slideInterval) clearInterval(slideInterval);
+        if (sliderAbortController) sliderAbortController.abort();
+        
+        sliderAbortController = new AbortController();
+        const signal = sliderAbortController.signal;
+
+        const wrapper = container.querySelector('.slider-wrapper');
+        const dotsContainer = container.querySelector('.slider-dots');
+        
+        // --- Очистка кнопок ---
+        let prevBtnOld = document.getElementById('slide-prev-btn');
+        let nextBtnOld = document.getElementById('slide-next-btn');
+        
+        // Клонируем, чтобы убрать старые (возможно дублирующиеся) слушатели
+        let prevBtn = prevBtnOld.cloneNode(true);
+        let nextBtn = nextBtnOld.cloneNode(true);
+        
+        prevBtnOld.parentNode.replaceChild(prevBtn, prevBtnOld);
+        nextBtnOld.parentNode.replaceChild(nextBtn, nextBtnOld);
+        // ------------------------------------------------------------
+
+        // Если слайдов 0
+        if (visibleSlides.length === 0) {
+            return;
+        } else {
+             container.style.display = ''; 
+        }
+
+        // Если слайд 1
+        if (visibleSlides.length <= 1) {
+            container.style.display = '';
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            if (dotsContainer) dotsContainer.style.display = 'none';
+            const firstVisibleIndex = Array.from(allSlides).indexOf(visibleSlides[0]);
+            if (wrapper) wrapper.style.transform = `translateX(-${firstVisibleIndex * 100}%)`;
+            return;
+        }
+        
+        // Если слайдов > 1
+        prevBtn.style.display = 'flex';
+        nextBtn.style.display = 'flex';
+        if (dotsContainer) dotsContainer.style.display = 'flex';
+        
+        // Генерация точек
+        dotsContainer.innerHTML = '';
+        visibleSlides.forEach((_, i) => {
+            const dot = document.createElement('button');
+            dot.classList.add('dot');
+            // Для точек используем signal не обязательно, но для чистоты можно
+            dot.onclick = () => {
+                showSlide(i);
                 resetSlideInterval();
-            }
+            };
+            dotsContainer.appendChild(dot);
+        });
+        const dots = dotsContainer.querySelectorAll('.dot');
+
+        function showSlide(index) {
+            if (index >= visibleSlides.length) index = 0;
+            if (index < 0) index = visibleSlides.length - 1;
+
+            if (!wrapper || !dots[index]) return;
+            
+            wrapper.style.transform = `translateX(-${index * 100}%)`;
+            dots.forEach(dot => dot.classList.remove('active'));
+            dots[index].classList.add('active');
+            currentSlideIndex = index;
         }
-        touchStartX = 0;
-        touchStartY = 0;
-        isSwiping = false;
-    }, { passive: true, signal: signal });
-    
-    // Блокировка клика ТОЛЬКО если был свайп
-    allSlides.forEach(slide => {
-        slide.onclick = (e) => {
-            if (isSwiping) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
+
+        function nextSlide() {
+            showSlide(currentSlideIndex + 1);
+        }
+
+        function prevSlide() {
+            showSlide(currentSlideIndex - 1);
+        }
+
+        function resetSlideInterval() {
+            clearInterval(slideInterval);
+            slideInterval = setInterval(nextSlide, slideDuration);
+        }
+
+        // Вешаем события на кнопки
+        prevBtn.addEventListener('click', () => {
+            prevSlide();
+            resetSlideInterval();
+        }, { signal: signal }); // Привязываем к контроллеру
+
+        nextBtn.addEventListener('click', () => {
+            nextSlide();
+            resetSlideInterval();
+        }, { signal: signal });
+        
+        // === ЛОГИКА СВАЙПА ===
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let isSwiping = false;
+
+        container.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            touchEndX = touchStartX;
+            isSwiping = false;
+        }, { passive: true, signal: signal });
+
+        container.addEventListener('touchmove', (e) => {
+            if (touchStartX === 0 && touchStartY === 0) return;
+
+            const touchCurrentX = e.touches[0].clientX;
+            const touchCurrentY = e.touches[0].clientY;
+            
+            const diffX = touchStartX - touchCurrentX;
+            const diffY = touchStartY - touchCurrentY;
+
+            // Если движение горизонтальное
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+                isSwiping = true;
+                // Блокируем скролл страницы
+                if (e.cancelable) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
             }
-        };
-    });
+            touchEndX = touchCurrentX;
+        }, { passive: false, signal: signal });
 
-    if (currentSlideIndex >= visibleSlides.length) {
-        currentSlideIndex = 0;
+        container.addEventListener('touchend', (e) => {
+            if (isSwiping) {
+                e.stopPropagation();
+                const diff = touchStartX - touchEndX;
+                const swipeThreshold = 50;
+
+                if (Math.abs(diff) > swipeThreshold) {
+                    if (diff > 0) nextSlide();
+                    else prevSlide();
+                    resetSlideInterval();
+                }
+            }
+            // Сброс
+            touchStartX = 0;
+            touchStartY = 0;
+            isSwiping = false;
+        }, { passive: true, signal: signal });
+        
+        // Блокировка клика ТОЛЬКО если был свайп
+        allSlides.forEach(slide => {
+            slide.onclick = (e) => {
+                if (isSwiping) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            };
+        });
+
+        // Проверяем индекс и запускаем
+        if (currentSlideIndex >= visibleSlides.length) {
+            currentSlideIndex = 0;
+        }
+
+        showSlide(currentSlideIndex);
+        resetSlideInterval();
     }
-
-    showSlide(currentSlideIndex);
-    resetSlideInterval();
-}
 
 
 // --- ЕЖЕНЕДЕЛЬНЫЕ ЦЕЛИ (РЕНДЕР СВОДКИ) ---
@@ -1041,7 +1051,6 @@ function renderGiftResult(result) {
         }
     ];
     let currentTutorialStep = 0;
-    let tutorialCountdownInterval = null;
 
     function positionTutorialModal(element, forceTop = false) {
         const rect = element.getBoundingClientRect();
@@ -1101,15 +1110,7 @@ function renderGiftResult(result) {
 
         // Если нужно сменить вкладку (например, на Quests для челленджа)
         if (step.view && document.getElementById(step.view).classList.contains('hidden')) {
-            // switchView логика встроенная
-            dom.viewDashboard.classList.add('hidden');
-            dom.viewQuests.classList.add('hidden');
-            var targetEl = document.getElementById(step.view);
-            if (targetEl) targetEl.classList.remove('hidden');
-            dom.footerItems.forEach(item => item.classList.remove('active'));
-            var navId = 'nav-' + step.view.split('-')[1];
-            var navEl = document.getElementById(navId);
-            if (navEl) navEl.classList.add('active');
+            switchView(step.view);
         }
         
         // Небольшая задержка, чтобы интерфейс успел перерисоваться
@@ -1192,13 +1193,17 @@ function renderGiftResult(result) {
             
             dom.tutorialNextBtn.onclick = () => {
                 dom.tutorialOverlay.classList.add('hidden');
+                
+                // Сбрасываем стили, чтобы при следующем запуске не сломалось
                 dom.tutorialModal.style.top = ''; 
                 dom.tutorialModal.style.transform = '';
+                
                 dom.tutorialNextBtn.onclick = tutorialNextHandler;
                 dom.tutorialSkipBtn.classList.remove('hidden');
             };
         } else {
              dom.tutorialOverlay.classList.add('hidden');
+             // Сброс стилей при пропуске
              dom.tutorialModal.style.top = ''; 
              dom.tutorialModal.style.transform = '';
         }
