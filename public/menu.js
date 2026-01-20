@@ -98,6 +98,24 @@ function updateLoading(percent) {
     if (dom.loadingBarFill) dom.loadingBarFill.style.width = Math.floor(percent) + '%';
 }
 
+function switchView(targetViewId) {
+        dom.viewDashboard.classList.add('hidden');
+        dom.viewQuests.classList.add('hidden');
+        
+        // Было: document.getElementById(targetViewId)?.classList...
+        // Стало:
+        var targetEl = document.getElementById(targetViewId);
+        if (targetEl) targetEl.classList.remove('hidden');
+        
+        dom.footerItems.forEach(item => item.classList.remove('active'));
+        
+        var navId = 'nav-' + targetViewId.split('-')[1];
+        // Было: document.getElementById(navId)?.classList...
+        // Стало:
+        var navEl = document.getElementById(navId);
+        if (navEl) navEl.classList.add('active');
+    }
+
 async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
     if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
     try {
@@ -659,20 +677,70 @@ function updateShopTile(status) {
     const shopTile = document.getElementById('shortcut-shop');
     if (!shopTile) return;
 
+    // Логируем
+    console.log('[ShopTile] Получен статус:', status);
+
     const safeStatus = status || 'none';
+    shopTile.dataset.status = safeStatus;
+
+    // --- НАСТРОЙКИ (ЦВЕТА КАК В SHOP.HTML) ---
     const stages = {
-        'creating': { label: 'ЗАЯВКА СОЗДАНА', sub: 'Ожидание...', icon: '<i class="fa-regular fa-clock"></i>', bg: 'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)', border: 'rgba(255, 255, 255, 0.2)' },
-        'sending': { label: 'ПРОВЕРКА АДМИНОМ', sub: 'Ждите монеты...', icon: '<i class="fa-solid fa-hourglass-half fa-spin"></i>', bg: 'linear-gradient(135deg, #2AABEE, #229ED9)', border: 'rgba(255, 255, 255, 0.3)' },
-        'confirming': { label: 'ТРЕБУЕТ ДЕЙСТВИЯ', sub: 'Передайте скин!', icon: '<i class="fa-solid fa-fire fa-beat"></i>', bg: 'linear-gradient(135deg, #ff3b30, #ff9500)', border: '#fff' },
-        'failed': { label: 'ОТМЕНЕНО', sub: 'Повторите', icon: '<i class="fa-solid fa-circle-xmark"></i>', bg: 'linear-gradient(135deg, #ff3b30 0%, #ff453a 100%)', border: 'rgba(255, 59, 48, 0.3)' }
+        // 1. ОЖИДАНИЕ (Pending) -> Как кнопка Trade-In (Фиолетовый)
+        'creating': {
+            label: 'ЗАЯВКА СОЗДАНА',
+            sub: 'Ожидание принятия...',
+            icon: '<i class="fa-regular fa-clock"></i>',
+            // Градиент кнопки Trade-In из shop.html
+            bg: 'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)', 
+            border: 'rgba(255, 255, 255, 0.2)'
+        },
+        
+        // 2. ПРОВЕРКА (Review) -> Голубой (как бейдж "Проверка")
+        'sending': {
+            label: 'ПРОВЕРКА АДМИНОМ',
+            sub: 'Ожидайте монеты...',
+            icon: '<i class="fa-solid fa-hourglass-half fa-spin"></i>',
+            // Голубой (Telegram style)
+            bg: 'linear-gradient(135deg, #2AABEE, #229ED9)', 
+            border: 'rgba(255, 255, 255, 0.3)'
+        },
+
+        // 3. ДЕЙСТВУЙ (Active) -> Красно-Оранжевый (Pulse)
+        'confirming': {
+            label: 'ТРЕБУЕТ ДЕЙСТВИЯ',
+            sub: 'Передайте скин!',
+            icon: '<i class="fa-solid fa-fire fa-beat"></i>',
+            // Яркий красно-оранжевый градиент (как пульсирующая кнопка)
+            bg: 'linear-gradient(135deg, #ff3b30, #ff9500)', 
+            border: '#fff' // Белая рамка для акцента
+        },
+
+        // 4. ОШИБКА
+        'failed': {
+            label: 'ОТМЕНЕНО',
+            sub: 'Попробуйте снова',
+            icon: '<i class="fa-solid fa-circle-xmark"></i>',
+            bg: 'linear-gradient(135deg, #ff3b30 0%, #ff453a 100%)', // Просто красный
+            border: 'rgba(255, 59, 48, 0.3)'
+        }
     };
 
     const stage = stages[safeStatus];
+
+    // Если статус "none" — стандартный вид "Магазин"
     if (!stage) {
-        // Стандартный вид
-        shopTile.style.background = ''; shopTile.style.borderColor = ''; shopTile.style.animation = '';
-        if (originalShopHTML) shopTile.innerHTML = originalShopHTML;
-        else shopTile.innerHTML = `<div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div><div class="metro-content"><div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div><span class="metro-label">Магазин</span><span class="metro-sublabel">Скины и предметы</span></div>`;
+        shopTile.style.background = '';
+        shopTile.style.borderColor = '';
+        shopTile.innerHTML = `
+            <div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+            <div class="metro-content">
+                <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
+                <span class="metro-label">Магазин</span>
+                <span class="metro-sublabel">Скины и предметы</span>
+            </div>
+        `;
+        // Убираем пульсацию, если она была
+        shopTile.style.animation = '';
         return;
     }
 
@@ -1717,9 +1785,9 @@ function setupEventListeners() {
     if(dom.ticketsClaimCloseBtn) dom.ticketsClaimCloseBtn.onclick = () => { dom.ticketsClaimedOverlay.classList.add('hidden'); };
     
     // Туториал
-    if(dom.startTutorialBtn) dom.startTutorialBtn.onclick = startTutorial; 
-    if(dom.tutorialNextBtn) dom.tutorialNextBtn.onclick = tutorialNextHandler;
-    if(dom.tutorialSkipBtn) dom.tutorialSkipBtn.onclick = () => endTutorial(false);
+        dom.startTutorialBtn.addEventListener('click', startTutorial);
+        dom.tutorialNextBtn.onclick = tutorialNextHandler;
+        dom.tutorialSkipBtn.addEventListener('click', () => endTutorial(false));
 
     // Логика расписания (ЗАКРЫТИЕ)
     const scheduleModal = document.getElementById('schedule-modal-overlay');
