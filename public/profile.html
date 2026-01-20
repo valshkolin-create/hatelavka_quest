@@ -557,6 +557,38 @@
             text-decoration: none; margin-top: 8px; 
         }
         .reward-how-to-use-btn:active { transform: scale(0.96); }
+        /* --- СТИЛЬ ДЛЯ ПЛАШКИ С ОШИБКОЙ --- */
+.twitch-error-banner {
+    background: rgba(255, 59, 48, 0.15); /* Красный полупрозрачный */
+    border: 1px solid var(--danger-color);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    animation: pulse-red 2s infinite; /* Пульсация */
+}
+.twitch-error-banner i {
+    font-size: 24px;
+    color: var(--danger-color);
+    flex-shrink: 0;
+}
+.twitch-error-text {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+.twitch-error-text b {
+    color: #ffcccb;
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(255, 59, 48, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+}
     </style>
 </head>
 <body>
@@ -1305,6 +1337,27 @@
     // Функция отрисовки настроек (сокращена для краткости, берется из старого кода)
     function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
+        
+        // --- 🔥 НОВОЕ: ПЛАШКА ОШИБКИ В САМОМ ВЕРХУ ---
+        if (userData.twitch_status === 'error') {
+            const errorBanner = document.createElement('div');
+            errorBanner.className = 'twitch-error-banner';
+            errorBanner.innerHTML = `
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div class="twitch-error-text">
+                    <b>Синхронизация нарушена!</b><br>
+                    Отвяжите и привяжите профиль заново для обновления токена.
+                </div>
+            `;
+            // Добавляем клик по баннеру, чтобы скроллило к кнопке Twitch (для удобства)
+            errorBanner.onclick = () => {
+                const twitchBtn = document.getElementById('unlink-twitch-btn');
+                if(twitchBtn) twitchBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            };
+            
+            dom.settingsList.appendChild(errorBanner);
+        }
+        // ---------------------------------------------
         const isBotActive = userData.is_bot_active === true;
         const badgeHTML = isBotActive ? `<span style="background:rgba(52,199,89,0.2);color:var(--primary-color);font-size:10px;padding:2px 6px;border-radius:6px;">ВКЛ</span>` : `<span style="background:rgba(255,59,48,0.2);color:var(--danger-color);font-size:10px;padding:2px 6px;border-radius:6px;">ОТКЛ</span>`;
 
