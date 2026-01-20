@@ -1894,19 +1894,6 @@ function initPullToRefresh() {
         pulledDistance = 0;
     });
 }
-
-// --- СОБЫТИЯ ---
-function setupEventListeners() {
-    // 1. Вибрация в футере
-    const footer = document.querySelector('.app-footer');
-    if (footer) {
-        footer.addEventListener('click', (e) => {
-            if (e.target.closest('.footer-item')) {
-                try { Telegram.WebApp.HapticFeedback.impactOccurred('medium'); } catch (err) {}
-            }
-        });
-    }
-
     // 2. Авто-проверка профиля при возврате
     // --- СОБЫТИЯ ---
 function setupEventListeners() {
