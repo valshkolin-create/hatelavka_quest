@@ -628,6 +628,7 @@ function updateShortcutStatuses(userData, allQuests) {
             }
         }
     }
+}
 
 // --- ФОНОВОЕ ОБНОВЛЕНИЕ (HEARTBEAT) ---
 async function refreshDataSilently() {
