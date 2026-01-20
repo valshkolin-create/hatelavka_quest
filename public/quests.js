@@ -535,12 +535,12 @@ async function handleDailyClaim(taskKey, userId, actionUrl) {
             // Сгорание серии
             if (data.streak_reset) {
                 const stats = document.getElementById('ticketStats');
-                if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+                // if(stats) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
                 // 🔥 Обновляем глобальные данные
-                if(userData) userData.tickets = (userData.tickets || 0) + data.reward;
+                // if(userData) userData.tickets = (userData.tickets || 0) + data.reward;
                 
                 // 🔥 ФИКС БАЛАНСА: Сохраняем в память телефона сразу
-                if (typeof updateCacheAfterClaim === 'function') updateCacheAfterClaim();
+                // if (typeof updateCacheAfterClaim === 'function') updateCacheAfterClaim();
 
                 if (telegramTasksCache) {
                     const task = telegramTasksCache.find(t => t.task_key === taskKey);
@@ -646,7 +646,6 @@ function handleTgTaskClick(key, url) {
 // 4. ПОПАПЫ И UI (Глобальные)
 // ==========================================
 
-// 1. Функция для сброса серии (которой не хватало, из-за чего была ошибка)
 function injectBurnedPopup(reward) {
     const existing = document.getElementById('burnedPopup');
     if (existing) existing.remove();
@@ -656,9 +655,10 @@ function injectBurnedPopup(reward) {
       <div class="popup-content" style="background: #1c1c1e; color: #fff; padding: 25px; border-radius: 16px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid rgba(255,59,48,0.3);">
         <div style="font-size: 40px; margin-bottom: 10px;">🔥</div>
         <h3 style="margin-top: 0; color: #ff3b30; font-size: 20px; margin-bottom: 10px;">Серия прервана!</h3>
+        
         <p style="font-size: 14px; line-height: 1.5; color: #ddd; margin-bottom: 20px;">
-            Вы пропустили день, и прогресс сбросился.<br>
-            Награда за 1 день: <b>+${reward}</b> <i class="fa-solid fa-ticket" style="color: #FFD700;"></i>
+            Вы пропустили день.<br>
+            Ваш прогресс сброшен до <b>Дня 1</b>. Не пропускайте дни, чтобы забрать главную награду!
         </p>
         <button id="closeBurnedPopup" style="width: 100%; background: #2c2c2e; color: #fff; border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer;">Понятно</button>
       </div>
