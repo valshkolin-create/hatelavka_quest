@@ -5763,33 +5763,55 @@ async def get_current_user_data(
         # Логируем ошибку, но стараемся не пугать пользователя
         logging.error(f"Ошибка в /user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки профиля")
-        
+
+# --- ГЛОБАЛЬНЫЙ КЭШ ---
+HEARTBEAT_DB_CACHE = {}
+DB_WRITE_INTERVAL = 45  # Пишем "last_active" в базу раз в 45 секунд
+
 @app.post("/api/v1/user/heartbeat")
 async def user_heartbeat(
-    request: Request,  # <--- Добавьте request: Request сюда, если его нет
+    request: Request, 
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # --- ЛОГИРОВАНИЕ ЗАПРОСА ---
-    user_agent = request.headers.get("user-agent", "unknown")
-    print(f"💓 HEARTBEAT from: {user_agent} at {datetime.now()}")
-    # ---------------------------
+    # 1. Валидация
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         return {"is_active": False}
     
     telegram_id = user_info["id"]
-
+    now = time.time()
+    
     try:
-        # Вызываем RPC функцию, которая вернет всё одним запросом
+        # --- ШАГ 1: ВСЕГДА ЧИТАЕМ ДАННЫЕ (RPC) ---
+        # Это нужно, чтобы полоски квестов, монеты и челленджи обновлялись в реальном времени.
+        # SELECT запросы в Postgres очень легкие, не бойся их вызывать часто.
         rpc_resp = await supabase.post("/rpc/get_user_heartbeat_data", json={"p_telegram_id": telegram_id})
-        rpc_resp.raise_for_status() # Если RPC вернет ошибку (например, юзер не найден), упадет в except
+        rpc_resp.raise_for_status()
+        data = rpc_resp.json()
+
+        # --- ШАГ 2: РЕДКО ПИШЕМ "ОНЛАЙН" (UPDATE) ---
+        # А вот запись в базу - это тяжело. Её мы делаем по таймеру.
+        last_write_time = HEARTBEAT_DB_CACHE.get(telegram_id, 0)
         
-        return rpc_resp.json()
+        if now - last_write_time > DB_WRITE_INTERVAL:
+            # Время пришло! Обновляем last_active
+            # Используем create_task, чтобы не задерживать ответ пользователю
+            asyncio.create_task(
+                supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+                    "last_active": datetime.now(timezone.utc).isoformat(),
+                    "is_online": True
+                })
+            )
+            # Обновляем кэш
+            HEARTBEAT_DB_CACHE[telegram_id] = now
+            # print(f"📝 Updated last_active for {telegram_id}")
+
+        # Возвращаем данные из RPC (монеты, квесты и т.д.)
+        return data
         
     except Exception as e:
         logging.error(f"Heartbeat error: {e}")
-        # Если ошибка, возвращаем безопасный ответ, чтобы фронтенд не упал
         return {"is_active": False}
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
