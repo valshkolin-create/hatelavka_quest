@@ -775,74 +775,94 @@ function injectProfilePopup(type) {
     });
 }
 
-// === КРАСИВОЕ ОКНО НАГРАДЫ (БЕЗ ПЕРЕЗАГРУЗКИ) ===
+// === КРАСИВОЕ ОКНО НАГРАДЫ (С ПЕРЕЗАГРУЗКОЙ) ===
 function injectRewardPopup(amount, text = "Задание выполнено!", reloadOnClose = false) {
-    const existing = document.getElementById('rewardPopup');
-    if (existing) existing.remove();
+    const existing = document.getElementById('rewardPopup');
+    if (existing) existing.remove();
 
-    // Цвета
-    const accentBlue = '#0088cc'; // Telegram Blue
-    const accentGold = '#FFD700'; // Gold for tickets
+    const popupHtml = `
+    <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(10px); animation: fadeIn 0.3s;">
+      
+      <div class="popup-content" style="
+          background: #1c1c1e; 
+          color: #fff; 
+          padding: 32px 24px; 
+          border-radius: 24px; 
+          text-align: center; 
+          width: 85%; 
+          max-width: 320px; 
+          border: 1px solid rgba(255, 255, 255, 0.08); 
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); 
+          transform: scale(0.9); 
+          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      ">
+        
+        <div style="font-size: 54px; margin-bottom: 16px; color: #FFD700; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.3)); animation: float 3s ease-in-out infinite;">
+            <i class="fa-solid fa-ticket"></i>
+        </div>
+        
+        <h3 style="margin: 0 0 8px; font-size: 22px; font-weight: 800; color: #fff; letter-spacing: 0.5px;">${text}</h3>
+        <p style="margin: 0 0 24px; color: #8e8e93; font-size: 14px; font-weight: 500;">Награда зачислена на баланс</p>
+        
+        <div style="
+            background: rgba(255, 215, 0, 0.1); 
+            border: 1px solid rgba(255, 215, 0, 0.2); 
+            border-radius: 16px; 
+            padding: 12px; 
+            margin-bottom: 28px;
+            display: inline-block;
+            min-width: 120px;
+        ">
+            <span style="font-size: 36px; font-weight: 900; color: #FFD700; text-shadow: 0 2px 10px rgba(255, 215, 0, 0.2);">+${amount}</span>
+        </div>
+        
+        <button id="closeRewardBtn" style="
+            width: 100%; 
+            background: linear-gradient(135deg, #0088cc 0%, #005f8f 100%); 
+            color: #fff; 
+            border: none; 
+            padding: 16px; 
+            border-radius: 16px; 
+            font-weight: 700; 
+            font-size: 16px; 
+            cursor: pointer; 
+            box-shadow: 0 8px 20px rgba(0, 136, 204, 0.3); 
+            transition: transform 0.1s, box-shadow 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        ">
+            ЗАКРЫТЬ
+        </button>
 
-    const popupHtml = `
-    <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(8px); animation: fadeIn 0.3s;">
-      
-      <div class="popup-content" style="
-          background: #1c1c1e; 
-          color: #fff; 
-          padding: 30px 20px; 
-          border-radius: 24px; 
-          text-align: center; 
-          width: 85%; 
-          max-width: 320px; 
-          border: 1px solid rgba(0, 136, 204, 0.3); 
-          box-shadow: 0 0 50px rgba(0, 136, 204, 0.2); 
-          transform: scale(0.9); 
-          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-      ">
-        
-        <div style="font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.4)); animation: float 3s ease-in-out infinite;">
-            🎟
-        </div>
-        
-        <h3 style="margin: 0 0 5px; font-size: 20px; font-weight: 700; color: #fff;">${text}</h3>
-        <p style="margin: 0 0 20px; color: #8e8e93; font-size: 13px;">Награда зачислена на баланс</p>
-        
-        <div style="
-            background: rgba(0, 136, 204, 0.1); 
-            border: 1px solid rgba(0, 136, 204, 0.3); 
-            border-radius: 16px; 
-            padding: 15px; 
-            margin-bottom: 25px;
-        ">
-            <span style="font-size: 32px; font-weight: 900; color: ${accentGold}; text-shadow: 0 2px 15px rgba(255, 215, 0, 0.3);">+${amount}</span>
-        </div>
-        
-        <button id="closeRewardBtn" style="
-            width: 100%; 
-            background: linear-gradient(135deg, #0088cc, #005f8f); 
-            color: #fff; 
-            border: none; 
-            padding: 14px; 
-            border-radius: 16px; 
-            font-weight: 700; 
-            font-size: 15px; 
-            cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
-            transition: transform 0.1s;
-        ">
-            ЗАКРЫТЬ
-        </button>
+      </div>
+    </div>
+    <style>
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes float { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-8px) rotate(5deg); } 100% { transform: translateY(0px) rotate(0deg); } }
+      #closeRewardBtn:active { transform: scale(0.96); box-shadow: 0 4px 10px rgba(0, 136, 204, 0.2); }
+    </style>
+    `;
 
-      </div>
-    </div>
-    <style>
-      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
-    </style>
-    `;
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
 
+    if(window.Telegram && Telegram.WebApp.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+
+    document.getElementById('closeRewardBtn').addEventListener('click', () => {
+        const popup = document.getElementById('rewardPopup');
+        popup.style.opacity = '0';
+        setTimeout(() => {
+            popup.remove();
+            if (reloadOnClose) {
+                window.location.reload();
+            } else if (typeof main === 'function') {
+                main(); // Попытка обновить без перезагрузки, если reloadOnClose = false
+            }
+        }, 200);
+    });
+}
     document.body.insertAdjacentHTML('beforeend', popupHtml);
 
     if(window.Telegram && Telegram.WebApp.HapticFeedback) {
@@ -2128,7 +2148,7 @@ function setupEventListeners() {
                     }
                 }
             });
-// 7. 🔥 ОТМЕНА КВЕСТА ЗА БИЛЕТЫ (НОВОЕ) 🔥
+        // 7. 🔥 ОТМЕНА КВЕСТА ЗА БИЛЕТЫ (НОВОЕ) 🔥
         } else if (target.id === 'paid-cancel-quest-btn') {
             event.preventDefault();
             
@@ -2139,16 +2159,22 @@ function setupEventListeners() {
             if (currentTickets < cost) {
                 if(Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
                 
+                // 🔥 Исправленное красивое окно с иконкой
                 openUniversalModal('Не хватает билетов', `
                     <div style="text-align:center; padding: 20px; display: flex; flex-direction: column; align-items: center;">
-                        <div style="font-size: 50px; margin-bottom: 15px; animation: shake 0.5s;">🎫💔</div>
-                        <p style="font-size: 16px; color: #fff; margin-bottom: 8px;">
-                            У тебя <b>${currentTickets}</b> билетов, а нужно <b>${cost}</b>.
+                        <div style="font-size: 50px; margin-bottom: 15px; animation: shake 0.5s; color: #ff4757; filter: drop-shadow(0 0 10px rgba(255, 71, 87, 0.3));">
+                            <i class="fa-solid fa-ticket"></i>
+                        </div>
+                        <p style="font-size: 16px; color: #fff; margin-bottom: 8px; font-weight: 600;">
+                            Баланс: <span style="color:#FFD700">${currentTickets}</span> <i class="fa-solid fa-ticket" style="font-size:12px"></i> / Нужно: <span style="color:#ff4757">${cost}</span>
                         </p>
-                        <p style="font-size: 13px; color: #888; line-height: 1.4;">
-                            Выполняй задания, приглашай друзей или копи в гринде, чтобы заработать больше!
+                        <p style="font-size: 13px; color: #8e8e93; line-height: 1.5; margin-bottom: 20px;">
+                            Выполняй задания или приглашай друзей, чтобы заработать больше!
                         </p>
-                        <button onclick="closeUniversalModal()" style="margin-top: 20px; width: 100%; padding: 12px; border-radius: 12px; background: #2c2c2e; color: #fff; border: none; font-weight: 600;">Понятно</button>
+                        <button onclick="closeUniversalModal()" style="
+                            width: 100%; padding: 14px; border-radius: 14px; 
+                            background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255,255,255,0.1); font-weight: 600; font-size: 15px; cursor: pointer;
+                        ">Понятно</button>
                     </div>
                     <style>
                         @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } }
