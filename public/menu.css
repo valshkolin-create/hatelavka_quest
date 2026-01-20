@@ -2099,7 +2099,7 @@ body.tutorial-active #main-content {
     background-color: #1c1c1e !important; 
     /* Или используйте переменную: background-color: var(--surface-color) !important; */
     
-    box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.6); /* Золотая рамка */
+    box-shadow: none !important;
     border-radius: 12px;
     pointer-events: auto !important;
 }
