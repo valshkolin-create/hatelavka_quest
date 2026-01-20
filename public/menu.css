@@ -2057,46 +2057,56 @@ hr {
 /* --- ИСПРАВЛЕНИЯ (ДОБАВИТЬ В КОНЕЦ MENU.CSS) --- */
 
 /* 1. Сдвиг всех модальных окон немного влево */
-.prompt-modal, 
-.custom-popup, 
-.gift-modal-content,
+/* --- ФИКСЫ ТУТОРИАЛА (ВСТАВИТЬ В КОНЕЦ ФАЙЛА) --- */
+
+/* 1. Сдвиг диалогового окна левее */
 .tutorial-modal {
-    /* Сдвигаем влево на 15px от центра. 
-       Если нужно сильнее, поменяйте -15px на -30px */
-    transform: translateX(-15px) !important; 
+    /* Сдвигаем влево на 20px */
+    transform: translateX(-20px) !important; 
 }
 
-/* Фикс для финального окна туториала (оно центрируется иначе в JS) */
-/* Мы добавляем calc к тому, что задает JS */
-#tutorial-modal[style*="translateY"] {
-    transform: translate(calc(-50% - 15px), -50%) !important;
+/* Спец. правило для финального окна (которое по центру), чтобы не сломать его */
+#tutorial-modal[style*="top: 50%"] {
+    /* Сохраняем центровку по Y и сдвигаем по X */
+    transform: translate(-20px, -50%) !important;
 }
 
+/* 2. Лечим проблему "Выделенная зона в блюре" */
 
-/* 2. Исправление блюра для выделенного элемента (Туториал) */
-/* Проблема была в том, что элемент находился ПОД слоем размытия */
+/* Когда туториал активен, отключаем изоляцию слоев у контента */
+body.tutorial-active .main-content,
+body.tutorial-active #main-content {
+    transform: none !important;
+    filter: none !important;
+    perspective: none !important;
+    z-index: auto !important;
+    will-change: auto !important;
+}
 
-/* Устанавливаем слой оверлея */
+/* Оверлей (фон с блюром) */
 .tutorial-overlay {
-    z-index: 10000 !important; /* Фиксируем уровень слоя */
-    backdrop-filter: blur(5px); /* Размытие фона */
-    background: rgba(0, 0, 0, 0.4); /* Затемнение */
+    z-index: 10000 !important; /* Высокий слой */
+    backdrop-filter: blur(5px);
+    background: rgba(0, 0, 0, 0.4);
 }
 
-/* "Поднимаем" выделенный элемент НАД оверлеем */
+/* Выделенный элемент (должен быть четким) */
 .tutorial-highlight {
-    position: relative !important; 
-    z-index: 10001 !important; /* Должно быть больше, чем у overlay */
+    position: relative !important;
+    z-index: 10001 !important; /* Выше оверлея! */
     
-    /* Добавляем фон, чтобы элемент не был прозрачным на фоне блюра */
-    background-color: var(--surface-color, #1c1c1e) !important; 
-    box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.5); /* Желтая подсветка */
-    border-radius: 8px; /* Скругление краев */
-    pointer-events: auto !important; /* Чтобы клики проходили */
+    /* Обязательно даем фон, иначе он прозрачный и смешивается с блюром */
+    background-color: #1c1c1e !important; 
+    /* Или используйте переменную: background-color: var(--surface-color) !important; */
+    
+    box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.6); /* Золотая рамка */
+    border-radius: 12px;
+    pointer-events: auto !important;
 }
 
-/* Если выделяется элемент в футере - поднимаем весь футер */
+/* Если выделили элемент в футере - поднимаем весь футер */
 .tutorial-footer-active {
-    z-index: 10001 !important;
     position: relative !important;
+    z-index: 10001 !important;
+    background-color: #1c1c1e !important; /* Фон футера */
 }
