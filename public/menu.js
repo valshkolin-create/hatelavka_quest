@@ -1751,7 +1751,7 @@ function setupEventListeners() {
     // Клик на Ярлыки
     const chalShortcut = document.getElementById('shortcut-challenge');
     if (chalShortcut) {
-        chalShortcut.onclick = () => { window.location.href = '/quests?open=twitch_only'; };
+        chalShortcut.onclick = () => { window.location.href = '/quests?view=twitch'; };
     }
     const questShortcut = document.getElementById('shortcut-quests');
     if (questShortcut) {
