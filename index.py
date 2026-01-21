@@ -13374,18 +13374,16 @@ async def join_raffle(
     req: RaffleJoinRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Валидация и получение данных юзера
+    # 1. Валидация
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data: 
         raise HTTPException(status_code=401, detail="Ошибка авторизации")
     
     user_id = user_data['id']
     username = user_data.get('username')
-    first_name = user_data.get('first_name', '')
-    last_name = user_data.get('last_name', '')
-    full_name = f"{first_name} {last_name}".strip()
+    full_name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
 
-    # 2. Проверяем сам розыгрыш
+    # 2. Проверяем розыгрыш
     raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
     if not raffle_resp.json(): 
         raise HTTPException(status_code=404, detail="Розыгрыш не найден")
@@ -13394,52 +13392,46 @@ async def join_raffle(
     if raffle['status'] != 'active': 
         raise HTTPException(status_code=400, detail="Розыгрыш завершен")
 
-    # 3. Проверка условий (Подписка / Реферал)
-    settings = raffle.get('settings', {})
-    
-    if settings.get('requires_telegram_sub'):
-        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-        if channel_id:
-            try:
-                member = await bot.get_chat_member(chat_id=int(channel_id), user_id=user_id)
-                if member.status in ['left', 'kicked']: 
-                    raise HTTPException(status_code=400, detail="Нужна подписка на канал!")
-            except HTTPException: raise
-            except: pass 
-
-    if settings.get('requires_referral_status'):
-        # Тут проверяем реферала, но сначала надо убедиться, что юзер есть в базе
-        # (Проверку делаем ниже или игнорируем, если юзера нет - значит нет и реферала)
-        pass
-
-    # 4. 🔥 ВАЖНО: СОХРАНЯЕМ/ОБНОВЛЯЕМ ЮЗЕРА В ТАБЛИЦЕ USERS
-    # Используем Upsert (Вставка или Обновление), чтобы юзер точно существовал
+    # 3. 🔥 СОХРАНЯЕМ ЮЗЕРА В БД (ОБЯЗАТЕЛЬНО)
+    # Если юзера нет в таблице users, мы не можем добавить его в participants из-за Foreign Key
     user_payload = {
         "telegram_id": user_id,
         "username": username,
-        "full_name": full_name,
-        # "coins": 0 - можно добавить дефолтные поля, если нужно
+        "full_name": full_name
     }
     
-    # Заголовок Prefer: resolution=merge-duplicates заставляет Supabase делать Upsert
-    await supabase.post(
+    print(f"DEBUG: Пытаюсь сохранить юзера {user_id}...") # Лог
+    
+    user_res = await supabase.post(
         "/users", 
         json=user_payload, 
         headers={"Prefer": "resolution=merge-duplicates"}
     )
+    
+    # Если Supabase вернул ошибку при сохранении юзера — выводим её
+    if user_res.is_error:
+        print(f"❌ ОШИБКА USERS: {user_res.text}")
+        raise HTTPException(status_code=500, detail=f"Ошибка БД Users: {user_res.text}")
 
-    # 5. Записываем в участники
-    try:
-        # В твоей таблице поле называется 'source', а не 'platform'
-        await supabase.post("/raffle_participants", json={
-            "raffle_id": req.raffle_id,
-            "user_id": user_id,
-            "source": "telegram" 
-        })
-    except Exception as e:
-        # Скорее всего ошибка уникальности (уже участвует)
-        print(f"Join error: {e}")
-        return {"message": "Вы уже участвуете!"}
+    # 4. ЗАПИСЫВАЕМ В УЧАСТНИКИ
+    print(f"DEBUG: Добавляю в участники розыгрыша {req.raffle_id}...") # Лог
+    
+    part_res = await supabase.post("/raffle_participants", json={
+        "raffle_id": req.raffle_id,
+        "user_id": user_id,
+        "source": "telegram" 
+    })
+
+    if part_res.is_error:
+        error_text = part_res.text
+        print(f"❌ ОШИБКА PARTICIPANTS: {error_text}")
+        
+        # Проверяем, дубликат ли это (код 23505 в Postgres)
+        if "duplicate key" in error_text or "violates unique constraint" in error_text:
+            return {"message": "Вы уже участвуете! 😉"}
+        
+        # Если это другая ошибка — показываем её
+        raise HTTPException(status_code=500, detail=f"Ошибка записи: {error_text}")
         
     return {"message": "Участие принято! 🍀"}
 
