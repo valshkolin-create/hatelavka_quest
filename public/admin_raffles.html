@@ -6,33 +6,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css"> <style>
-        /* Доп. стили специфичные для розыгрышей */
-        .raffle-card {
-            background: rgba(255, 255, 255, 0.05);
+    <link rel="stylesheet" href="admin.css">
+    <style>
+        /* --- СТИЛИ ДЛЯ КОНСТРУКТОРА (ПРЕВЬЮ) --- */
+        .preview-container {
+            background: #0e1621; /* Цвет фона ТГ (темная тема) */
             border-radius: 12px;
+            padding: 10px;
+            margin-top: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .tg-message-bubble {
+            background: #182533; /* Цвет бабла */
+            padding: 10px;
+            border-radius: 10px 10px 10px 0;
+            max-width: 90%;
+            position: relative;
+        }
+        .tg-photo {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background-color: #2b2b2b;
+            display: none; /* Скрыто по умолчанию */
+        }
+        .tg-photo.visible { display: block; }
+        
+        .tg-text {
+            color: white;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+        .tg-button {
+            margin-top: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #64b5ef;
+            text-align: center;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: default;
+        }
+
+        /* --- СТИЛИ ДЛЯ СПИСКА (КАК В КОТЛЕ) --- */
+        .raffle-card-premium {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
             padding: 15px;
             margin-bottom: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
-        .raffle-status {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
+        .raffle-card-premium::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: var(--primary-color);
+            opacity: 0.7;
         }
-        .status-active { background: rgba(40, 167, 69, 0.2); color: #28a745; }
-        .status-completed { background: rgba(255, 255, 255, 0.1); color: #aaa; }
-        
-        .raffle-type-badge {
+        .raffle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        .raffle-image-thumb {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: #222;
+        }
+        .raffle-title-row {
+            flex-grow: 1;
+            margin-left: 12px;
+        }
+        .raffle-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 4px 0;
+        }
+        .raffle-badges {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .badge {
             font-size: 10px;
-            color: var(--primary-color);
-            border: 1px solid var(--primary-color);
-            padding: 2px 6px;
+            padding: 3px 6px;
             border-radius: 4px;
-            margin-left: 5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .badge-sub { background: rgba(0, 136, 204, 0.2); color: #33aaff; border: 1px solid rgba(0, 136, 204, 0.3); }
+        .badge-ref { background: rgba(255, 153, 0, 0.2); color: #ffaa00; border: 1px solid rgba(255, 153, 0, 0.3); }
+        .badge-twitch { background: rgba(145, 70, 255, 0.2); color: #bf94ff; border: 1px solid rgba(145, 70, 255, 0.3); }
+        
+        .raffle-footer {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            gap: 10px;
         }
     </style>
 </head>
@@ -45,13 +130,13 @@
     <main id="app-container" class="main-content">
         <div class="view">
             <div class="page-header">
-                <a href="/admin" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
+                <button onclick="goBack()" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Розыгрыши</h1>
                 <div style="width: 60px;"></div>
             </div>
 
             <div class="tabs-container">
-                <button class="tab-button active" onclick="switchTab('create')">Создать</button>
+                <button class="tab-button active" onclick="switchTab('create')">Конструктор</button>
                 <button class="tab-button" onclick="switchTab('list')">Активные</button>
             </div>
 
@@ -59,67 +144,86 @@
                 <div class="quest-card">
                     <form id="create-raffle-form" class="admin-form">
                         
-                        <label>Название розыгрыша</label>
-                        <input type="text" name="title" placeholder="Например: AWP | Asiimov за подписку" required>
-
-                        <label>Тип механики</label>
+                        <h3 style="margin: 0 0 10px; color: var(--primary-color);"><i class="fa-solid fa-sliders"></i> Настройки</h3>
+                        
+                        <label>Тип розыгрыша</label>
                         <select name="type" id="raffle-type-select" onchange="toggleSettingsFields()">
                             <option value="inline_random">🎲 Кнопка (Рандом)</option>
-                            <option value="most_active">🔥 Самый активный (Топ статы)</option>
-                            <option value="comments">💬 Комментарии (Рандом)</option>
+                            <option value="most_active">🔥 Самый активный (Топ)</option>
+                            <option value="comments">💬 Комментарии</option>
                         </select>
-
-                        <h3 style="margin-top: 20px; font-size: 16px;">Приз</h3>
-                        <label>Название предмета</label>
-                        <input type="text" name="prize_name" required placeholder="AK-47 | Redline">
                         
-                        <label>Картинка (URL)</label>
-                        <input type="text" name="prize_image" placeholder="https://...">
-
-                        <h3 style="margin-top: 20px; font-size: 16px;">Условия участия</h3>
-                        
-                        <div class="setting-item" style="padding: 10px 0; border: none;">
-                            <span class="setting-label">Нужна подписка на ТГ канал?</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="requires_telegram_sub" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div class="setting-item" style="padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; flex: 1; align-items: center; justify-content: space-between;">
+                                <span class="setting-label" style="font-size: 12px;">Подписка TG</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" name="requires_telegram_sub" checked onchange="updatePreview()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item" style="padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; flex: 1; align-items: center; justify-content: space-between;">
+                                <span class="setting-label" style="font-size: 12px;">Рефералы</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" name="requires_referral_status" onchange="updatePreview()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
 
-                        <div class="setting-item" style="padding: 10px 0; border: none;">
-                            <span class="setting-label">Только для рефералов?</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="requires_referral_status">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        
-                        <div id="field-twitch-boost" class="hidden">
-                            <label>Множитель шанса для сабов Twitch (x)</label>
-                            <input type="number" name="twitch_sub_boost" value="1.0" step="0.1">
+                        <div id="field-twitch-boost" class="hidden" style="margin-top: 10px;">
+                            <label>Множитель для Twitch Sub (x)</label>
+                            <input type="number" name="twitch_sub_boost" value="1.0" step="0.1" placeholder="1.5">
                         </div>
 
-                        <div id="field-post-link" class="hidden">
-                             <label>Ссылка на пост (для парсинга комментов)</label>
-                             <input type="text" name="channel_post_link" placeholder="https://t.me/c/...">
-                        </div>
-
-                        <label style="margin-top: 15px;">Дата окончания (опционально)</label>
+                        <label style="margin-top: 15px;">Дата окончания</label>
                         <input type="datetime-local" name="end_time">
 
+                        <div style="margin: 20px 0 10px; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                        <h3 style="margin: 0 0 10px; color: #ffd700;"><i class="fa-solid fa-pen-nib"></i> Оформление поста</h3>
+
+                        <label>Заголовок (Внутреннее название)</label>
+                        <input type="text" name="title" id="input-title" placeholder="AWP Asiimov Фаст" required oninput="updatePreview()">
+
+                        <label>Приз (Название скина)</label>
+                        <input type="text" name="prize_name" id="input-prize" required placeholder="AWP | Asiimov" oninput="updatePreview()">
+                        
+                        <label>Картинка (URL)</label>
+                        <input type="text" name="prize_image" id="input-image" placeholder="https://..." oninput="updatePreview()">
+
+                        <label>Текст поста</label>
+                        <textarea name="description" id="input-desc" rows="4" placeholder="Условия простые: нажать кнопку..." oninput="updatePreview()"></textarea>
+
+                        <div class="preview-container">
+                            <p style="margin: 0 0 5px; font-size: 10px; color: #777; text-transform: uppercase;">Предпросмотр Telegram</p>
+                            <div class="tg-message-bubble">
+                                <img src="" id="preview-img" class="tg-photo">
+                                <div class="tg-text" id="preview-text">
+                                    <b>Розыгрыш!</b>
+                                    <br>Приз: ...
+                                </div>
+                                <div class="tg-button">
+                                    Участвовать 🎲
+                                </div>
+                            </div>
+                        </div>
+
                         <button type="submit" class="admin-action-btn approve" style="margin-top: 20px; width: 100%;">
-                            🚀 Создать и опубликовать
+                            🚀 Создать
                         </button>
                     </form>
                 </div>
             </div>
 
             <div id="tab-list" class="tab-content hidden">
-                <button onclick="loadRaffles()" class="admin-menu-button" style="margin-bottom: 15px;">
-                    <i class="fa-solid fa-rotate-right"></i> Обновить список
-                </button>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; font-size: 16px;">Запущенные события</h3>
+                    <button onclick="loadRaffles()" class="admin-menu-button" style="width: auto; padding: 6px 12px;">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+                
                 <div id="raffles-list-container">
-                    <p style="text-align: center; color: #777;">Загрузка...</p>
+                    <p style="text-align: center; color: #777; margin-top: 30px;">Загрузка...</p>
                 </div>
             </div>
 
