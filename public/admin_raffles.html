@@ -6,118 +6,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css"> <style>
+    <link rel="stylesheet" href="admin.css"> 
+    <style>
         /* --- СТИЛИ ДЛЯ КОНСТРУКТОРА (ПРЕВЬЮ) --- */
         .preview-container {
-            background: #0e1621; /* Цвет фона ТГ (темная тема) */
+            background: #0e1621; /* Цвет фона ТГ */
             border-radius: 12px;
             padding: 10px;
             margin-top: 15px;
             border: 1px solid rgba(255,255,255,0.1);
         }
         .tg-message-bubble {
-            background: #182533; /* Цвет бабла */
+            background: #182533;
             padding: 10px;
             border-radius: 10px 10px 10px 0;
             max-width: 90%;
             position: relative;
         }
         .tg-photo {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            background-color: #2b2b2b;
-            display: none; /* Скрыто по умолчанию */
+            width: 100%; height: 150px; object-fit: cover;
+            border-radius: 6px; margin-bottom: 8px;
+            background-color: #2b2b2b; display: none;
         }
         .tg-photo.visible { display: block; }
-        
-        .tg-text {
-            color: white;
-            font-size: 14px;
-            line-height: 1.4;
-            white-space: pre-wrap;
-        }
+        .tg-text { color: white; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
         .tg-button {
-            margin-top: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #64b5ef;
-            text-align: center;
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: default;
+            margin-top: 10px; background: rgba(255, 255, 255, 0.1);
+            color: #64b5ef; text-align: center; padding: 8px;
+            border-radius: 6px; font-size: 13px; font-weight: 500; cursor: default;
         }
 
-        /* --- СТИЛИ ДЛЯ СПИСКА (КАК В КОТЛЕ) --- */
+        /* --- СТИЛИ ДЛЯ СПИСКА --- */
         .raffle-card-premium {
             background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 15px;
-            position: relative;
-            overflow: hidden;
+            border-radius: 16px; padding: 15px; margin-bottom: 15px;
+            position: relative; overflow: hidden;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         .raffle-card-premium::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; height: 3px;
-            background: var(--primary-color, #ffd700);
-            opacity: 0.7;
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: #ffd700; opacity: 0.7;
         }
-        .raffle-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-        }
-        .raffle-image-thumb {
-            width: 50px;
-            height: 50px;
-            border-radius: 10px;
-            object-fit: cover;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: #222;
-        }
-        .raffle-title-row {
-            flex-grow: 1;
-            margin-left: 12px;
-        }
-        .raffle-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #fff;
-            margin: 0 0 4px 0;
-        }
-        .raffle-badges {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-        .badge {
-            font-size: 10px;
-            padding: 3px 6px;
-            border-radius: 4px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+        .raffle-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+        .raffle-image-thumb { width: 50px; height: 50px; border-radius: 10px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); background: #222; }
+        .raffle-title-row { flex-grow: 1; margin-left: 12px; }
+        .raffle-title { font-size: 16px; font-weight: 700; color: #fff; margin: 0 0 4px 0; }
+        .raffle-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+        
+        .badge { font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
         .badge-sub { background: rgba(0, 136, 204, 0.2); color: #33aaff; border: 1px solid rgba(0, 136, 204, 0.3); }
         .badge-ref { background: rgba(255, 153, 0, 0.2); color: #ffaa00; border: 1px solid rgba(255, 153, 0, 0.3); }
         .badge-twitch { background: rgba(145, 70, 255, 0.2); color: #bf94ff; border: 1px solid rgba(145, 70, 255, 0.3); }
         
-        .raffle-footer {
-            margin-top: 12px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-            display: flex;
-            gap: 10px;
-        }
+        .raffle-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; gap: 10px; }
+        
+        .timer-info { font-size: 11px; color: #ff2d55; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
     </style>
 </head>
 <body>
@@ -131,7 +75,9 @@
             <div class="page-header">
                 <button onclick="goBack()" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</button>
                 <h1 class="page-header-title">Розыгрыши</h1>
-                <div style="width: 60px;"></div>
+                <a href="/raffles" class="admin-menu-button" style="width: auto; padding: 8px 12px; margin-left: auto; text-decoration: none;">
+                    <i class="fa-solid fa-eye"></i>
+                </a>
             </div>
 
             <div class="tabs-container">
@@ -143,7 +89,7 @@
                 <div class="quest-card">
                     <form id="create-raffle-form" class="admin-form">
                         
-                        <h3 style="margin: 0 0 10px; color: var(--primary-color, #ffd700);"><i class="fa-solid fa-sliders"></i> Настройки</h3>
+                        <h3 style="margin: 0 0 10px; color: #ffd700;"><i class="fa-solid fa-sliders"></i> Настройки</h3>
                         
                         <label>Тип розыгрыша</label>
                         <select name="type" id="raffle-type-select" onchange="toggleSettingsFields()">
@@ -174,40 +120,38 @@
                             <input type="number" name="twitch_sub_boost" value="1.0" step="0.1" placeholder="1.5">
                         </div>
 
-                        <label style="margin-top: 15px;">Дата окончания</label>
+                        <label style="margin-top: 15px; color: #ff2d55;">⏰ Авто-завершение (Таймер)</label>
                         <input type="datetime-local" name="end_time" onchange="updatePreview()">
+                        <div style="font-size: 10px; color: #777; margin-top: 4px;">Если указать, бот сам закроет розыгрыш в это время.</div>
 
                         <div style="margin: 20px 0 10px; height: 1px; background: rgba(255,255,255,0.1);"></div>
-                        <h3 style="margin: 0 0 10px; color: #ffd700;"><i class="fa-solid fa-pen-nib"></i> Оформление поста</h3>
+                        <h3 style="margin: 0 0 10px; color: #ffd700;"><i class="fa-solid fa-pen-nib"></i> Оформление</h3>
 
-                        <label>Заголовок (Внутреннее название)</label>
+                        <label>Заголовок (Внутреннее)</label>
                         <input type="text" name="title" id="input-title" placeholder="AWP Asiimov Фаст" required oninput="updatePreview()">
 
-                        <label>Приз (Название скина)</label>
+                        <label>Приз</label>
                         <input type="text" name="prize_name" id="input-prize" required placeholder="AWP | Asiimov" oninput="updatePreview()">
                         
                         <label>Картинка (URL)</label>
                         <input type="text" name="prize_image" id="input-image" placeholder="https://..." oninput="updatePreview()">
 
                         <label>Текст поста</label>
-                        <textarea name="description" id="input-desc" rows="4" placeholder="Условия простые: нажать кнопку..." oninput="updatePreview()"></textarea>
+                        <textarea name="description" id="input-desc" rows="4" placeholder="Условия простые..." oninput="updatePreview()"></textarea>
 
                         <div class="preview-container">
-                            <p style="margin: 0 0 5px; font-size: 10px; color: #777; text-transform: uppercase;">Предпросмотр Telegram</p>
+                            <p style="margin: 0 0 5px; font-size: 10px; color: #777; text-transform: uppercase;">Предпросмотр</p>
                             <div class="tg-message-bubble">
                                 <img src="" id="preview-img" class="tg-photo">
                                 <div class="tg-text" id="preview-text">
-                                    <b>Розыгрыш!</b>
-                                    <br>Приз: ...
+                                    <b>Розыгрыш!</b><br>Приз: ...
                                 </div>
-                                <div class="tg-button">
-                                    Участвовать 🎲
-                                </div>
+                                <div class="tg-button">Участвовать 🎲</div>
                             </div>
                         </div>
 
                         <button type="submit" class="admin-action-btn approve" style="margin-top: 20px; width: 100%;">
-                            🚀 Создать
+                            🚀 Создать и Запустить
                         </button>
                     </form>
                 </div>
@@ -215,7 +159,7 @@
 
             <div id="tab-list" class="tab-content hidden">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; font-size: 16px;">Запущенные события</h3>
+                    <h3 style="margin: 0; font-size: 16px;">События</h3>
                     <button onclick="loadRaffles()" class="admin-menu-button" style="width: auto; padding: 6px 12px;">
                         <i class="fa-solid fa-rotate-right"></i>
                     </button>
@@ -233,7 +177,6 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // === 1. Умная навигация ===
         function goBack() {
             if (window.history.length > 1) {
                 window.history.back();
@@ -245,10 +188,7 @@
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
-            
             document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-            
-            // Логика кнопок табов
             const btns = document.querySelectorAll('.tab-button');
             if(tabName === 'create') btns[0].classList.add('active');
             if(tabName === 'list') {
@@ -257,64 +197,44 @@
             }
         }
 
-        // === 2. Конструктор и Превью ===
         function toggleSettingsFields() {
             const type = document.getElementById('raffle-type-select').value;
             const twitchBoostField = document.getElementById('field-twitch-boost');
-            
-            // Пока скрываем/показываем только буст твича
             if (twitchBoostField) {
-                if (type !== 'inline_random') {
-                    twitchBoostField.classList.remove('hidden');
-                } else {
-                    twitchBoostField.classList.add('hidden');
-                }
+                if (type !== 'inline_random') twitchBoostField.classList.remove('hidden');
+                else twitchBoostField.classList.add('hidden');
             }
             updatePreview();
         }
 
         function updatePreview() {
-            const title = document.getElementById('input-title').value || 'Заголовок розыгрыша';
-            const prize = document.getElementById('input-prize').value || 'Название приза';
+            const title = document.getElementById('input-title').value || 'Заголовок';
+            const prize = document.getElementById('input-prize').value || 'Приз';
             const desc = document.getElementById('input-desc').value || '';
             const imgUrl = document.getElementById('input-image').value;
             
-            // Обновляем картинку
             const imgEl = document.getElementById('preview-img');
-            if (imgUrl) {
-                imgEl.src = imgUrl;
-                imgEl.classList.add('visible');
-            } else {
-                imgEl.classList.remove('visible');
-            }
+            if (imgUrl) { imgEl.src = imgUrl; imgEl.classList.add('visible'); } 
+            else { imgEl.classList.remove('visible'); }
 
-            // Собираем текст превью
-            let textHTML = `<b>${title}</b>\n\n`;
-            textHTML += `🎁 Приз: <b>${prize}</b>\n\n`;
-            
-            if (desc) {
-                textHTML += `${desc}\n\n`;
-            }
+            let textHTML = `<b>${title}</b>\n\n🎁 Приз: <b>${prize}</b>\n\n`;
+            if (desc) textHTML += `${desc}\n\n`;
 
             const endTimeVal = document.querySelector('input[name="end_time"]').value;
             textHTML += `⏳ Итоги: ${endTimeVal ? new Date(endTimeVal).toLocaleString() : 'Скоро'}`;
 
-            // Заменяем переносы строк на <br>
             const previewTextEl = document.getElementById('preview-text');
             if(previewTextEl) previewTextEl.innerHTML = textHTML.replace(/\n/g, '<br>');
         }
 
-        // === 3. Обработка формы создания ===
         const createForm = document.getElementById('create-raffle-form');
         if (createForm) {
             createForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = e.target.querySelector('button[type="submit"]');
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
+                btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
 
                 const formData = new FormData(e.target);
-                
                 const settings = {
                     prize_name: formData.get('prize_name'),
                     prize_image: formData.get('prize_image'),
@@ -324,18 +244,24 @@
                     twitch_sub_boost: parseFloat(formData.get('twitch_sub_boost') || 1.0)
                 };
 
+                // Корректная обработка времени для сервера (ISO)
+                let endTimeIso = null;
+                const endTimeVal = formData.get('end_time');
+                if (endTimeVal) {
+                    endTimeIso = new Date(endTimeVal).toISOString();
+                }
+
                 const payload = {
                     initData: tg.initData,
                     title: formData.get('title'),
                     type: formData.get('type'),
-                    end_time: formData.get('end_time') || null,
+                    end_time: endTimeIso, // Отправляем ISO строку
                     settings: settings
                 };
 
                 try {
                     const response = await fetch('/api/v1/admin/raffles/create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
 
@@ -351,21 +277,18 @@
                 } catch (error) {
                     tg.showAlert("Ошибка сети");
                 } finally {
-                    btn.disabled = false;
-                    btn.textContent = "🚀 Создать";
+                    btn.disabled = false; btn.textContent = "🚀 Создать и Запустить";
                 }
             });
         }
 
-        // === 4. Список активных (Стиль как в Котле) ===
         async function loadRaffles() {
             const container = document.getElementById('raffles-list-container');
             container.innerHTML = '<div class="spinner"></div>';
             
             try {
                 const response = await fetch('/api/v1/admin/raffles/list', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData })
                 });
                 
@@ -381,11 +304,7 @@
             container.innerHTML = '';
 
             if (!raffles || raffles.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align:center; padding: 40px 20px; opacity: 0.5;">
-                        <i class="fa-solid fa-ghost" style="font-size: 40px; margin-bottom: 10px;"></i>
-                        <p>Пока нет активных розыгрышей</p>
-                    </div>`;
+                container.innerHTML = `<div style="text-align:center; padding: 40px 20px; opacity: 0.5;"><i class="fa-solid fa-ghost" style="font-size: 40px; margin-bottom: 10px;"></i><p>Нет активных розыгрышей</p></div>`;
                 return;
             }
 
@@ -393,21 +312,24 @@
                 const s = raffle.settings || {};
                 const isCompleted = raffle.status === 'completed';
                 
-                // Бейджи
                 let badgesHtml = '';
                 if (s.requires_telegram_sub) badgesHtml += `<div class="badge badge-sub"><i class="fa-brands fa-telegram"></i> SUB</div>`;
                 if (s.requires_referral_status) badgesHtml += `<div class="badge badge-ref"><i class="fa-solid fa-users"></i> REF</div>`;
                 if (s.twitch_sub_boost > 1) badgesHtml += `<div class="badge badge-twitch"><i class="fa-brands fa-twitch"></i> x${s.twitch_sub_boost}</div>`;
 
-                // Картинка
                 const imgDisplay = s.prize_image 
                     ? `<img src="${s.prize_image}" class="raffle-image-thumb">`
                     : `<div class="raffle-image-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
 
-                // Статус
                 const statusText = isCompleted 
                     ? `<span style="color:#aaa; font-size:12px;"><i class="fa-solid fa-check"></i> Завершен</span>`
                     : `<span style="color:#28a745; font-size:12px; font-weight:bold; display:flex; align-items:center; gap:4px;"><span style="display:block;width:6px;height:6px;background:#28a745;border-radius:50%;"></span> Активен</span>`;
+
+                // Отображение таймера (если есть)
+                let timerHtml = '';
+                if (!isCompleted && raffle.end_time) {
+                    timerHtml = `<div class="timer-info"><i class="fa-regular fa-clock"></i> Авто-финал: ${new Date(raffle.end_time).toLocaleString()}</div>`;
+                }
 
                 let cardHtml = `
                     <div class="raffle-card-premium">
@@ -419,34 +341,31 @@
                                     <div class="raffle-badges">${badgesHtml}</div>
                                     ${statusText}
                                 </div>
+                                ${timerHtml}
                             </div>
                         </div>
-                        
-                        <div style="font-size:13px; color:rgba(255,255,255,0.7); margin-bottom:5px;">
-                            Приз: <span style="color:#fff;">${s.prize_name}</span>
-                        </div>
+                        <div style="font-size:13px; color:rgba(255,255,255,0.7); margin-bottom:5px;">Приз: <span style="color:#fff;">${s.prize_name}</span></div>
                 `;
 
                 if (isCompleted && raffle.winner) {
                     cardHtml += `
                         <div class="raffle-footer">
                             <div style="flex:1;">
-                                <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:1px;">Победитель</div>
+                                <div style="font-size:10px; color:#aaa; text-transform:uppercase;">Победитель</div>
                                 <div style="font-weight:bold; color:#ffd700;">${raffle.winner.full_name}</div>
                                 <div style="font-size:11px; opacity:0.6;">@${raffle.winner.username || '---'}</div>
                             </div>
-                            <div style="text-align:right;">
-                                <a href="https://t.me/${raffle.winner.username}" target="_blank" class="admin-menu-button" style="width:auto; padding:6px 10px;">
-                                    <i class="fa-solid fa-message"></i> ЛС
-                                </a>
-                            </div>
+                            <a href="https://t.me/${raffle.winner.username}" target="_blank" class="admin-menu-button" style="width:auto; padding:6px 10px;">
+                                <i class="fa-solid fa-message"></i> ЛС
+                            </a>
                         </div>
                     `;
                 } else if (!isCompleted) {
+                    // КНОПКИ УПРАВЛЕНИЯ
                     cardHtml += `
                         <div class="raffle-footer">
                             <button onclick="drawRaffle(${raffle.id})" class="admin-action-btn approve" style="flex:1; font-size:13px; padding:10px;">
-                                <i class="fa-solid fa-trophy"></i> Подвести итоги
+                                <i class="fa-solid fa-flag-checkered"></i> Завершить сейчас
                             </button>
                         </div>
                     `;
@@ -457,18 +376,13 @@
             });
         }
 
-        // 5. Подведение итогов
         async function drawRaffle(raffleId) {
-            if (!confirm("Завершить розыгрыш и выбрать победителя?")) return;
+            if (!confirm("Завершить розыгрыш досрочно и выбрать победителя?")) return;
 
             try {
                 const response = await fetch('/api/v1/admin/raffles/draw', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        initData: tg.initData,
-                        raffle_id: raffleId
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, raffle_id: raffleId })
                 });
 
                 const result = await response.json();
@@ -476,14 +390,13 @@
                     tg.showPopup({ title: 'Готово', message: result.message });
                     loadRaffles();
                 } else {
-                    tg.showAlert("Ошибка: " + result.detail);
+                    tg.showAlert("Ошибка: " + result.message);
                 }
             } catch (e) {
                 tg.showAlert("Ошибка соединения");
             }
         }
 
-        // Инициализация при загрузке
         updatePreview();
     </script>
 </body>
