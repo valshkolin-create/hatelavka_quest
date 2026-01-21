@@ -13435,17 +13435,22 @@ async def join_raffle(
             except: pass 
 
     # 4. ЗАПИСЫВАЕМ В УЧАСТНИКИ
+    # Определяем источник: если есть требование сообщений - это Twitch
+    source_type = "telegram"
+    if min_msgs > 0:
+        source_type = "twitch"
+
     try:
         await supabase.post("/raffle_participants", json={
             "raffle_id": req.raffle_id,
             "user_id": user_id,
-            "source": "telegram" 
+            "source": source_type 
         })
     except:
         return {"message": "Вы уже участвуете! 😉"}
         
     return {"message": "Участие принято! 🍀"}
-
+    
 # 5. (Юзер) Список
 @app.post("/api/v1/raffles/active")
 async def get_user_raffles(
