@@ -13374,64 +13374,75 @@ async def join_raffle(
     req: RaffleJoinRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Валидация
+    # 1. Получаем ID из Telegram
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data: 
         raise HTTPException(status_code=401, detail="Ошибка авторизации")
     
     user_id = user_data['id']
-    username = user_data.get('username')
-    full_name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
-
-    # 2. Проверяем розыгрыш
+    
+    # 2. Проверяем сам розыгрыш
     raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
     if not raffle_resp.json(): 
         raise HTTPException(status_code=404, detail="Розыгрыш не найден")
-    
     raffle = raffle_resp.json()[0]
-    if raffle['status'] != 'active': 
-        raise HTTPException(status_code=400, detail="Розыгрыш завершен")
+    settings = raffle.get('settings', {})
 
-    # 3. 🔥 СОХРАНЯЕМ ЮЗЕРА В БД (ОБЯЗАТЕЛЬНО)
-    # Если юзера нет в таблице users, мы не можем добавить его в participants из-за Foreign Key
-    user_payload = {
-        "telegram_id": user_id,
-        "username": username,
-        "full_name": full_name
-    }
+    if raffle['status'] != 'active': 
+        raise HTTPException(status_code=400, detail="Розыгрыш уже завершен")
+
+    # 3. ЧИТАЕМ ДАННЫЕ ЮЗЕРА ИЗ БД (БЕЗ ЗАПИСИ)
+    # Нам нужны: трейд-ссылка, логин твича, сообщения
+    user_db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
     
-    print(f"DEBUG: Пытаюсь сохранить юзера {user_id}...") # Лог
+    # Если юзера нет в базе (он не нажимал /start)
+    if not user_db_resp.json():
+        raise HTTPException(status_code=400, detail="⚠️ Сначала запустите бота /start")
     
-    user_res = await supabase.post(
-        "/users", 
-        json=user_payload, 
-        headers={"Prefer": "resolution=merge-duplicates"}
-    )
+    user_row = user_db_resp.json()[0]
+
+    # --- ПРОВЕРКА 1: TRADE LINK ---
+    # Если трейд-ссылка пустая или null -> не пускаем
+    if not user_row.get('trade_link'):
+        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле бота!")
+
+    # --- ПРОВЕРКА 2: TWITCH АКТИВНОСТЬ (Если требуется) ---
+    # Допустим, мы хотим проверять, что юзер активен (написал > 0 сообщений сегодня)
+    # Ты просил проверку по daily_message_count
     
-    # Если Supabase вернул ошибку при сохранении юзера — выводим её
-    if user_res.is_error:
-        print(f"❌ ОШИБКА USERS: {user_res.text}")
-        raise HTTPException(status_code=500, detail=f"Ошибка БД Users: {user_res.text}")
+    # Можно добавить настройку в розыгрыш 'min_daily_messages'. 
+    # Если ее нет, ставим 0 (без проверки).
+    min_msgs = settings.get('min_daily_messages', 0) 
+
+    if min_msgs > 0:
+        # Проверяем, привязан ли твич
+        if not user_row.get('twitch_login'):
+             raise HTTPException(status_code=400, detail="⚠️ Привяжите Twitch аккаунт в профиле!")
+        
+        # Проверяем количество сообщений
+        daily_count = user_row.get('daily_message_count', 0)
+        if daily_count < min_msgs:
+             raise HTTPException(status_code=400, detail=f"⚠️ Нужно написать {min_msgs} сообщений на стриме сегодня! (У вас: {daily_count})")
+
+    # --- ПРОВЕРКА 3: ПОДПИСКА TG ---
+    if settings.get('requires_telegram_sub'):
+        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+        if channel_id:
+            try:
+                member = await bot.get_chat_member(chat_id=int(channel_id), user_id=user_id)
+                if member.status in ['left', 'kicked']: 
+                    raise HTTPException(status_code=400, detail="⚠️ Нужна подписка на канал!")
+            except: pass 
 
     # 4. ЗАПИСЫВАЕМ В УЧАСТНИКИ
-    print(f"DEBUG: Добавляю в участники розыгрыша {req.raffle_id}...") # Лог
-    
-    part_res = await supabase.post("/raffle_participants", json={
-        "raffle_id": req.raffle_id,
-        "user_id": user_id,
-        "source": "telegram" 
-    })
-
-    if part_res.is_error:
-        error_text = part_res.text
-        print(f"❌ ОШИБКА PARTICIPANTS: {error_text}")
-        
-        # Проверяем, дубликат ли это (код 23505 в Postgres)
-        if "duplicate key" in error_text or "violates unique constraint" in error_text:
-            return {"message": "Вы уже участвуете! 😉"}
-        
-        # Если это другая ошибка — показываем её
-        raise HTTPException(status_code=500, detail=f"Ошибка записи: {error_text}")
+    try:
+        await supabase.post("/raffle_participants", json={
+            "raffle_id": req.raffle_id,
+            "user_id": user_id,
+            "source": "telegram" 
+        })
+    except:
+        return {"message": "Вы уже участвуете! 😉"}
         
     return {"message": "Участие принято! 🍀"}
 
