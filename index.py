@@ -13204,7 +13204,7 @@ async def create_raffle(
     if not user_info or user_info['id'] not in ADMIN_IDS: 
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    # 1. Создаем запись
+    # 1. Создаем запись в БД
     payload = {
         "title": req.title,
         "type": req.type,
@@ -13213,14 +13213,51 @@ async def create_raffle(
         "settings": req.settings.dict()
     }
     await supabase.post("/raffles", json=payload)
+    
+    # Получаем ID созданного розыгрыша
+    last_raffle = await supabase.get("/raffles", params={"order": "id.desc", "limit": 1})
+    new_id = last_raffle.json()[0]['id']
 
-    # 2. Ставим таймер QStash (если есть дата)
+    # 2. ОТПРАВЛЯЕМ ПОСТ В КАНАЛ
+    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+    if channel_id:
+        try:
+            # Формируем текст
+            txt = f"<b>{req.title}</b>\n\n"
+            if req.settings.description:
+                txt += f"{req.settings.description}\n\n"
+            txt += f"🎁 Приз: <b>{req.settings.prize_name}</b>\n"
+            
+            if req.end_time:
+                try:
+                    dt = datetime.fromisoformat(req.end_time.replace('Z', '+00:00'))
+                    txt += f"⏳ Итоги: {dt.strftime('%d.%m.%Y %H:%M UTC')}"
+                except: pass
+
+            # Формируем кнопку (Ссылка на Mini App)
+            me = await bot.get_me()
+            # Если у тебя короткое имя приложения не 'app', замени 'app' на свое
+            # Ссылка будет вида: t.me/botname/app?startapp=raffle_123
+            app_short_name = os.getenv("TG_APP_SHORTNAME", "app") 
+            url_btn = f"https://t.me/{me.username}/{app_short_name}?startapp=raffle_{new_id}"
+            
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)
+            ]])
+
+            # Отправляем
+            if req.settings.prize_image:
+                await bot.send_photo(chat_id=channel_id, photo=req.settings.prize_image, caption=txt, reply_markup=kb, parse_mode="HTML")
+            else:
+                await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+                
+        except Exception as e:
+            print(f"⚠️ Ошибка отправки поста в канал: {e}")
+            # Не прерываем выполнение, если пост не ушел (например, бот не админ)
+
+    # 3. Ставим таймер QStash
     if req.end_time:
         try:
-            # Получаем ID только что созданного розыгрыша
-            last_raffle = await supabase.get("/raffles", params={"order": "id.desc", "limit": 1})
-            new_id = last_raffle.json()[0]['id']
-
             qstash_token = os.getenv("QSTASH_TOKEN")
             app_url = os.getenv("APP_URL")
 
@@ -13242,7 +13279,7 @@ async def create_raffle(
         except Exception as e:
             print(f"⚠️ Ошибка QStash: {e}")
 
-    return {"message": "Розыгрыш создан! Кнопка появится в панели."}
+    return {"message": "Розыгрыш создан! Пост отправлен."}
 
 # 2. (Админ) Список
 @app.post("/api/v1/admin/raffles/list")
@@ -13273,32 +13310,44 @@ async def draw_raffle(
     if not user_info or user_info['id'] not in ADMIN_IDS: 
         raise HTTPException(status_code=403)
 
-    # Логика завершения (дублируем логику вебхука для ручного вызова)
+    # 1. Получаем данные
     raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
-    if not raffle_resp.json(): return {"message": "Not found"}
+    if not raffle_resp.json(): return {"message": "Розыгрыш не найден"}
     raffle = raffle_resp.json()[0]
 
-    if raffle['status'] == 'completed': return {"message": "Уже завершен"}
+    if raffle['status'] == 'completed':
+        return {"message": "Этот розыгрыш уже завершен!"}
 
     winner_id = None
-    if raffle['type'] == 'inline_random':
-        parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{req.raffle_id}"})
-        parts = parts_resp.json()
-        if parts:
-            winner = random.choice(parts)
-            winner_id = winner['user_id']
 
-    elif raffle['type'] == 'most_active':
-        top_users = await supabase.get("/users", params={"order": "monthly_message_count.desc", "limit": 1})
-        if top_users.json():
-            winner_id = top_users.json()[0]['telegram_id']
+    # 2. Пытаемся выбрать победителя (ТОЛЬКО ЕСЛИ ЕСТЬ КАНДИДАТЫ)
+    try:
+        if raffle['type'] == 'inline_random':
+            parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{req.raffle_id}"})
+            parts = parts_resp.json()
+            if parts:
+                winner = random.choice(parts)
+                winner_id = winner['user_id']
 
+        elif raffle['type'] == 'most_active':
+            # Если база пустая или никто не писал, winner_id останется None
+            top_users = await supabase.get("/users", params={"order": "monthly_message_count.desc", "limit": 1})
+            if top_users.json():
+                winner_id = top_users.json()[0]['telegram_id']
+    except Exception as e:
+        print(f"Ошибка при выборе победителя: {e}")
+        # Не падаем, идем дальше, чтобы просто закрыть розыгрыш
+
+    # 3. Финализация
     if winner_id:
+        # ЕСТЬ победитель
         await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
         await supabase.patch("/raffle_participants", params={"raffle_id": f"eq.{req.raffle_id}", "user_id": f"eq.{winner_id}"}, json={"is_winner": True})
-        return {"message": f"Победитель: {winner_id}"}
-    
-    return {"message": "Не удалось определить победителя"}
+        return {"message": f"✅ Успешно! Победитель ID: {winner_id}"}
+    else:
+        # НЕТ участников (или ошибка) -> Принудительное закрытие
+        await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"status": "completed"})
+        return {"message": "⚠️ Розыгрыш закрыт принудительно (нет участников)."}
 
 # 4. (Юзер) Участие
 @app.post("/api/v1/raffles/join")
