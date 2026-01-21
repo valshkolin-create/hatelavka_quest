@@ -612,6 +612,8 @@ class AdminShopCacheClearRequest(BaseModel):
 
 # --- SLAY Models ---
 
+# ==========================================
+
 # --- SLAY Models Update ---
 class SlayContentUpdate(BaseModel):
     initData: str
@@ -641,6 +643,8 @@ class SlayNominationCreate(BaseModel):
     title: str
     description: Optional[str] = ""
     image_url: Optional[str] = None
+
+# ==========================================
 
 class GrindSettings(BaseModel):
     twitch_status_boost_coins: float = 0.5
@@ -698,8 +702,10 @@ class P2PActionRequest(BaseModel):
     initData: str
     trade_id: int
     trade_link: Optional[str] = None # Только для админа (approve)
-
+    
+# ==========================================
 # --- P2P SETTINGS MODELS ---
+# ==========================================
 class P2PCaseAddRequest(BaseModel):
     initData: str
     case_name: str
@@ -715,8 +721,9 @@ class P2PCaseEditRequest(BaseModel):
 class P2PCaseDeleteRequest(BaseModel):
     initData: str
     case_id: int
-
+# ==========================================
 # --- Модели для P2P ---
+# ==========================================
 class P2PApproveRequest(BaseModel):
     initData: str
     trade_id: int
@@ -729,8 +736,9 @@ class P2PActionRequest(BaseModel):
 class SettingsUpdateModel(BaseModel):
     initData: str
     settings: Dict[str, Any]
-
-# --- МОДЕЛИ ДЛЯ ПОДАРКОВ (Вставить к другим моделям) ---
+# ==========================================
+# --- МОДЕЛИ ДЛЯ ПОДАРКОВ ---
+# ==========================================
 class GiftCheckRequest(BaseModel):
     initData: str
 
@@ -747,7 +755,9 @@ class GiftSkinDeleteRequest(BaseModel):
     initData: str
     skin_id: int
 
+# ==========================================
 # --- Модель для Телеграм заданий ---
+# ==========================================
 class TelegramTaskModel(BaseModel):
     task_key: str
     title: str
@@ -755,6 +765,39 @@ class TelegramTaskModel(BaseModel):
     reward_amount: int
     action_url: Optional[str] = None
     is_active: bool
+    
+# ==========================================
+# --- МОДЕЛИ ДЛЯ РОЗЫГРЫШЕЙ ---
+# ==========================================
+class RaffleSettings(BaseModel):
+    prize_name: str
+    prize_image: Optional[str] = None
+    description: Optional[str] = ""
+    requires_telegram_sub: bool = True # Проверка подписки на канал
+    requires_referral_status: bool = False # Только для тех, кто перешел по рефке
+    twitch_sub_boost: float = 1.0 # Множитель шанса для сабов Твича (1.0 = нет буста)
+    
+    # Для розыгрыша по комментам
+    channel_post_link: Optional[str] = None 
+
+class RaffleCreateRequest(BaseModel):
+    initData: str
+    title: str
+    type: str # 'inline_random', 'most_active', 'comments'
+    end_time: Optional[str] = None # ISO формат даты
+    settings: RaffleSettings
+
+class RaffleJoinRequest(BaseModel):
+    initData: str
+    raffle_id: int
+
+class RaffleDrawRequest(BaseModel):
+    initData: str
+    raffle_id: int
+
+class RaffleDeleteRequest(BaseModel):
+    initData: str
+    raffle_id: int
 
 # ==========================================
 # 🔫 CS:GO STYLE ROULETTE SYSTEM (NEW)
@@ -1622,6 +1665,173 @@ async def bootstrap_app(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
+
+# ==========================================
+# 🎁 RAFFLE SYSTEM (РОЗЫГРЫШИ)
+# ==========================================
+
+# 1. (Админ) Создать розыгрыш
+@app.post("/api/v1/admin/raffles/create")
+async def create_raffle(
+    req: RaffleCreateRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    payload = {
+        "title": req.title,
+        "type": req.type,
+        "status": "active",
+        "end_time": req.end_time,
+        "settings": req.settings.dict()
+    }
+    
+    await supabase.post("/raffles", json=payload)
+    return {"message": "Розыгрыш создан! Кнопка появится в панели."}
+
+# 2. (Админ) Список всех розыгрышей
+@app.post("/api/v1/admin/raffles/list")
+async def get_admin_raffles(
+    req: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403)
+
+    # Получаем розыгрыши + информацию о победителе, если есть
+    resp = await supabase.get(
+        "/raffles", 
+        params={
+            "select": "*, winner:users(full_name, username, trade_link)", 
+            "order": "created_at.desc"
+        }
+    )
+    return resp.json()
+
+# 3. (Админ) Провести розыгрыш (Рандом / Подсчет итогов)
+@app.post("/api/v1/admin/raffles/draw")
+async def draw_raffle(
+    req: RaffleDrawRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403)
+
+    # 1. Получаем данные розыгрыша
+    raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
+    raffle = raffle_resp.json()[0]
+    
+    if raffle['status'] == 'completed':
+        return {"message": "Розыгрыш уже завершен!"}
+
+    winner_id = None
+    
+    # --- ЛОГИКА: РАНДОМ (Кнопка) ---
+    if raffle['type'] == 'inline_random':
+        # Берем участников
+        parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{req.raffle_id}"})
+        participants = parts_resp.json()
+        
+        if not participants:
+            raise HTTPException(status_code=400, detail="Нет участников!")
+
+        # Тут можно добавить логику весов (sub_boost)
+        # Для простоты пока чистый рандом:
+        winner = random.choice(participants)
+        winner_id = winner['user_id']
+
+    # --- ЛОГИКА: САМЫЙ АКТИВНЫЙ (Twitch/TG) ---
+    elif raffle['type'] == 'most_active':
+        # Здесь мы должны посмотреть в таблицу users и найти топов
+        # Например, по daily_message_count или coins
+        # В реальности лучше делать снепшот, но для примера берем текущие статы:
+        
+        # Сортируем пользователей по количеству сообщений
+        top_users_resp = await supabase.get(
+            "/users", 
+            params={"order": "monthly_message_count.desc", "limit": 1, "select": "telegram_id"}
+        )
+        top_users = top_users_resp.json()
+        if top_users:
+            winner_id = top_users[0]['telegram_id']
+        else:
+            raise HTTPException(status_code=400, detail="Не удалось найти активных пользователей")
+
+    # 2. Записываем победителя
+    if winner_id:
+        # Обновляем статус розыгрыша
+        await supabase.patch(
+            "/raffles", 
+            params={"id": f"eq.{req.raffle_id}"}, 
+            json={"status": "completed", "winner_id": winner_id}
+        )
+        
+        # Отмечаем победителя в таблице участников (для истории)
+        await supabase.patch(
+            "/raffle_participants",
+            params={"raffle_id": f"eq.{req.raffle_id}", "user_id": f"eq.{winner_id}"},
+            json={"is_winner": True}
+        )
+        
+        return {"message": f"Победитель определен: ID {winner_id}"}
+    
+    return {"message": "Не удалось определить победителя."}
+
+# 4. (Юзер) Участие через Инлайн Кнопку
+@app.post("/api/v1/raffles/join")
+async def join_raffle(
+    req: RaffleJoinRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    user_id = user_info['id']
+
+    # 1. Проверяем розыгрыш
+    raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
+    if not raffle_resp.json():
+        raise HTTPException(status_code=404, detail="Розыгрыш не найден")
+    
+    raffle = raffle_resp.json()[0]
+    settings = raffle.get('settings', {})
+
+    if raffle['status'] != 'active':
+        raise HTTPException(status_code=400, detail="Розыгрыш завершен")
+
+    # 2. Проверки условий (Анти-бот / Подписка / Реферал)
+    
+    # A. Проверка подписки на канал (если включено)
+    if settings.get('requires_telegram_sub'):
+        channel_id = os.getenv("TG_QUEST_CHANNEL_ID") or os.getenv("ALLOWED_CHAT_ID")
+        if channel_id:
+            try:
+                member = await bot.get_chat_member(chat_id=int(channel_id), user_id=user_id)
+                if member.status in ['left', 'kicked']:
+                    raise HTTPException(status_code=400, detail="Нужна подписка на канал!")
+            except Exception:
+                pass # Если бот не админ, пропускаем (или кидаем ошибку, как решишь)
+
+    # B. Проверка на реферала (если включено)
+    if settings.get('requires_referral_status'):
+        user_db = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id"})
+        if not user_db.json() or not user_db.json()[0].get('referrer_id'):
+             raise HTTPException(status_code=400, detail="Участие только для рефералов!")
+
+    # 3. Записываем участие (try/except на случай если уже участвует)
+    try:
+        await supabase.post("/raffle_participants", json={
+            "raffle_id": req.raffle_id,
+            "user_id": user_id,
+            "platform": "telegram"
+        })
+    except Exception:
+        return {"message": "Вы уже участвуете!"}
+
+    return {"message": "Заявка принята! Удачи 🍀"}
     
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 
