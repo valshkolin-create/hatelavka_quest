@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Розыгрыши</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+    <style>
+        :root {
+            --bg-color: #111;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --primary: #ffd700;
+            --text-main: #fff;
+            --text-sec: #aaa;
+            --green: #28a745;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 15px 15px 100px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 25px;
+        }
+        .page-title { font-size: 24px; font-weight: 800; margin: 0; }
+        .back-btn { color: #007aff; text-decoration: none; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 5px; }
+
+        .raffle-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        .raffle-card.completed { opacity: 0.7; border-color: transparent; }
+        
+        .card-top { display: flex; gap: 12px; }
+        .prize-img {
+            width: 70px; height: 70px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: #222;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card-info { flex: 1; }
+        
+        .r-title { font-size: 16px; font-weight: 700; margin: 0 0 4px; line-height: 1.3; }
+        .r-prize { font-size: 13px; color: var(--primary); font-weight: 600; margin-bottom: 6px; }
+        
+        .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .tag { font-size: 10px; padding: 3px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); color: var(--text-sec); }
+        
+        .timer { font-size: 11px; color: var(--text-sec); display: flex; align-items: center; gap: 4px; }
+        
+        .action-area { margin-top: 15px; }
+        .join-btn {
+            width: 100%;
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px; font-weight: 700;
+            cursor: pointer;
+        }
+        .join-btn:disabled { background: rgba(255,255,255,0.1); color: #555; cursor: default; }
+        
+        .winner-block {
+            background: rgba(40, 167, 69, 0.15);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .winner-label { font-size: 10px; color: #28a745; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+        .winner-name { font-size: 14px; font-weight: 700; color: #fff; margin-top: 2px; }
+
+        .loading-spinner {
+            width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 50px auto;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <a href="javascript:history.back()" class="back-btn"><i class="fa-solid fa-chevron-left"></i> Назад</a>
+        <h1 class="page-title">Розыгрыши</h1>
+        <div style="width: 50px;"></div>
+    </div>
+
+    <div id="raffles-container">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        async function loadRaffles() {
+            const container = document.getElementById('raffles-container');
+            
+            try {
+                const response = await fetch('/api/v1/raffles/active', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+
+                if(!response.ok) throw new Error("Ошибка загрузки");
+                
+                const raffles = await response.json();
+                renderRaffles(raffles);
+            } catch (e) {
+                container.innerHTML = `<p style="text-align:center; color:#555;">Не удалось загрузить розыгрыши</p>`;
+            }
+        }
+
+        function renderRaffles(list) {
+            const container = document.getElementById('raffles-container');
+            container.innerHTML = '';
+
+            if (list.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:40px; color:#555;">Пока нет активных розыгрышей 👻</div>`;
+                return;
+            }
+
+            list.forEach(r => {
+                const s = r.settings || {};
+                const isCompleted = r.status === 'completed';
+                const isJoined = r.is_joined;
+
+                // Картинка
+                const img = s.prize_image || 'https://via.placeholder.com/70x70/333/fff?text=Gift';
+
+                // Таймер / Статус
+                let statusHtml = '';
+                if (isCompleted) {
+                    statusHtml = `<span style="color:#aaa;">Завершен</span>`;
+                } else if (r.end_time) {
+                    const date = new Date(r.end_time).toLocaleDateString();
+                    statusHtml = `Итоги: ${date}`;
+                } else {
+                    statusHtml = `Бессрочный`;
+                }
+
+                // Кнопка
+                let btnHtml = '';
+                if (isCompleted) {
+                    if (r.winner) {
+                        btnHtml = `
+                            <div class="winner-block">
+                                <div class="winner-label">🏆 Победитель</div>
+                                <div class="winner-name">${r.winner.full_name}</div>
+                            </div>
+                        `;
+                    } else {
+                        btnHtml = `<button class="join-btn" disabled>Розыгрыш завершен</button>`;
+                    }
+                } else if (isJoined) {
+                    btnHtml = `<button class="join-btn" disabled style="background:#28a745; color:#fff;"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
+                } else {
+                    btnHtml = `<button class="join-btn" onclick="join(${r.id})">Участвовать</button>`;
+                }
+
+                // Описание (теги)
+                let tags = '';
+                if(s.requires_telegram_sub) tags += `<span class="tag">Подписка</span>`;
+                if(r.type === 'most_active') tags += `<span class="tag">Топ актив</span>`;
+
+                const html = `
+                    <div class="raffle-card ${isCompleted ? 'completed' : ''}">
+                        <div class="card-top">
+                            <img src="${img}" class="prize-img">
+                            <div class="card-info">
+                                <h3 class="r-title">${r.title}</h3>
+                                <div class="r-prize">${s.prize_name}</div>
+                                <div class="tags">${tags}</div>
+                                <div class="timer"><i class="fa-regular fa-clock"></i> ${statusHtml}</div>
+                            </div>
+                        </div>
+                        <div class="action-area">
+                            ${btnHtml}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        async function join(id) {
+            tg.HapticFeedback.impactOccurred('medium');
+            try {
+                const res = await fetch('/api/v1/raffles/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData, raffle_id: id })
+                });
+                
+                if (res.ok) {
+                    tg.showPopup({title: 'Готово!', message: 'Вы успешно записались в участники.'});
+                    loadRaffles(); // Обновить кнопку
+                } else {
+                    const err = await res.json();
+                    tg.showAlert("Ошибка: " + err.detail);
+                }
+            } catch(e) {
+                tg.showAlert("Ошибка сети");
+            }
+        }
+
+        loadRaffles();
+    </script>
+</body>
+</html>
