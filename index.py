@@ -13306,6 +13306,28 @@ async def get_admin_raffles(
     )
     return resp.json()
 
+# 2.5 (Админ) Получить список участников
+@app.post("/api/v1/admin/raffles/participants")
+async def get_raffle_participants(
+    req: RaffleDrawRequest, # Используем модель с raffle_id
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403)
+
+    # Получаем участников + данные юзеров (имя, юзернейм)
+    # Supabase Join: user:users(...) означает "подтяни данные из таблицы users по foreign key"
+    resp = await supabase.get(
+        "/raffle_participants",
+        params={
+            "raffle_id": f"eq.{req.raffle_id}",
+            "select": "created_at, user:users(telegram_id, full_name, username)",
+            "order": "created_at.desc"
+        }
+    )
+    return resp.json()
+
 # 3. (Админ) Ручное завершение
 @app.post("/api/v1/admin/raffles/draw")
 async def draw_raffle(
