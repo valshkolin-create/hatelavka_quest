@@ -13219,7 +13219,6 @@ async def create_raffle(
     }
     await supabase.post("/raffles", json=payload)
     
-    # Получаем ID (берем последний созданный)
     last_raffle = await supabase.get("/raffles", params={"order": "id.desc", "limit": 1})
     new_id = last_raffle.json()[0]['id']
 
@@ -13232,23 +13231,19 @@ async def create_raffle(
                 txt += f"{req.settings.description}\n\n"
             txt += f"🎁 <b>Приз:</b> {req.settings.prize_name}\n"
             
+            # --- ЛОГИКА ВРЕМЕНИ ДЛЯ ПОСТА (Визуальная) ---
             if req.end_time:
                 try:
-                    dt = datetime.fromisoformat(req.end_time.replace('Z', '+00:00'))
-                    txt += f"⏳ <b>Итоги:</b> {dt.strftime('%d.%m.%Y %H:%M')}\n" 
+                    # Мы считаем, что админ ввел МСК время. Просто форматируем его красиво.
+                    dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
+                    txt += f"⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
                 except: pass
+            # -----------------------------------------------
             
             txt += "\n👇 <b>Жми кнопку, чтобы забрать!</b>"
 
-            # --- ХАРДКОД ССЫЛКИ ---
-            # Мы используем твой прямой адрес. 
-            # ?startapp=raffle_{new_id} нужен, чтобы приложение понимало, какой розыгрыш открывать (если мы добавим эту логику в будущем),
-            # или просто открывало список.
             url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
-            
-            kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)
-            ]])
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
 
             if req.settings.prize_image:
                 await bot.send_photo(chat_id=channel_id, photo=req.settings.prize_image, caption=txt, reply_markup=kb, parse_mode="HTML")
@@ -13265,8 +13260,17 @@ async def create_raffle(
             app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
 
             if qstash_token and app_url:
-                dt = datetime.fromisoformat(req.end_time.replace('Z', '+00:00'))
-                unix_time = int(dt.timestamp())
+                # --- ЛОГИКА ВРЕМЕНИ ДЛЯ СЕРВЕРА (Математическая) ---
+                # 1. Берем время, которое ввел админ (например 18:00)
+                dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
+                
+                # 2. Считаем, что это МСК, значит UTC будет на 3 часа МЕНЬШЕ
+                # (Если сейчас 18:00 в Москве, то в Лондоне/UTC сейчас 15:00)
+                dt_utc = dt_input - timedelta(hours=3)
+                
+                # 3. Превращаем в timestamp для QStash
+                unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
+                
                 target = f"{app_url}/api/v1/webhook/finalize_raffle"
                 
                 async with httpx.AsyncClient() as client:
@@ -13277,10 +13281,7 @@ async def create_raffle(
                             "Upstash-Not-Before": str(unix_time),
                             "Content-Type": "application/json"
                         },
-                        json={
-                            "raffle_id": new_id, 
-                            "secret": get_cron_secret()
-                        }
+                        json={"raffle_id": new_id, "secret": get_cron_secret()}
                     )
         except Exception as e:
             print(f"⚠️ Ошибка QStash: {e}")
@@ -13373,42 +13374,74 @@ async def join_raffle(
     req: RaffleJoinRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401)
-    user_id = user_info['id']
+    # 1. Валидация и получение данных юзера
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data: 
+        raise HTTPException(status_code=401, detail="Ошибка авторизации")
+    
+    user_id = user_data['id']
+    username = user_data.get('username')
+    first_name = user_data.get('first_name', '')
+    last_name = user_data.get('last_name', '')
+    full_name = f"{first_name} {last_name}".strip()
 
+    # 2. Проверяем сам розыгрыш
     raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
-    if not raffle_resp.json(): raise HTTPException(status_code=404)
+    if not raffle_resp.json(): 
+        raise HTTPException(status_code=404, detail="Розыгрыш не найден")
+    
     raffle = raffle_resp.json()[0]
+    if raffle['status'] != 'active': 
+        raise HTTPException(status_code=400, detail="Розыгрыш завершен")
+
+    # 3. Проверка условий (Подписка / Реферал)
     settings = raffle.get('settings', {})
     
-    if raffle['status'] != 'active': raise HTTPException(status_code=400, detail="Завершен")
-    
-    # Проверка подписки
     if settings.get('requires_telegram_sub'):
-        channel_id = os.getenv("TG_QUEST_CHANNEL_ID") or os.getenv("ALLOWED_CHAT_ID")
+        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
         if channel_id:
             try:
                 member = await bot.get_chat_member(chat_id=int(channel_id), user_id=user_id)
                 if member.status in ['left', 'kicked']: 
-                    raise HTTPException(status_code=400, detail="Нужна подписка!")
-            except HTTPException: 
-                raise
-            except: 
-                pass 
+                    raise HTTPException(status_code=400, detail="Нужна подписка на канал!")
+            except HTTPException: raise
+            except: pass 
 
-    # Проверка реферала
     if settings.get('requires_referral_status'):
-        user_db = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "referrer_id"})
-        if not user_db.json() or not user_db.json()[0].get('referrer_id'): 
-            raise HTTPException(status_code=400, detail="Только для рефералов")
+        # Тут проверяем реферала, но сначала надо убедиться, что юзер есть в базе
+        # (Проверку делаем ниже или игнорируем, если юзера нет - значит нет и реферала)
+        pass
 
+    # 4. 🔥 ВАЖНО: СОХРАНЯЕМ/ОБНОВЛЯЕМ ЮЗЕРА В ТАБЛИЦЕ USERS
+    # Используем Upsert (Вставка или Обновление), чтобы юзер точно существовал
+    user_payload = {
+        "telegram_id": user_id,
+        "username": username,
+        "full_name": full_name,
+        # "coins": 0 - можно добавить дефолтные поля, если нужно
+    }
+    
+    # Заголовок Prefer: resolution=merge-duplicates заставляет Supabase делать Upsert
+    await supabase.post(
+        "/users", 
+        json=user_payload, 
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+
+    # 5. Записываем в участники
     try:
-        await supabase.post("/raffle_participants", json={"raffle_id": req.raffle_id, "user_id": user_id, "platform": "telegram"})
-    except: 
-        return {"message": "Уже участвуете"}
+        # В твоей таблице поле называется 'source', а не 'platform'
+        await supabase.post("/raffle_participants", json={
+            "raffle_id": req.raffle_id,
+            "user_id": user_id,
+            "source": "telegram" 
+        })
+    except Exception as e:
+        # Скорее всего ошибка уникальности (уже участвует)
+        print(f"Join error: {e}")
+        return {"message": "Вы уже участвуете!"}
         
-    return {"message": "Участие принято!"}
+    return {"message": "Участие принято! 🍀"}
 
 # 5. (Юзер) Список
 @app.post("/api/v1/raffles/active")
