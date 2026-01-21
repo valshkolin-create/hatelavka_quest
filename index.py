@@ -13240,10 +13240,11 @@ async def create_raffle(
             
             txt += "\n👇 <b>Жми кнопку, чтобы забрать!</b>"
 
-            me = await bot.get_me()
-            # Твое короткое имя 'menu'
-            app_short_name = os.getenv("TG_APP_SHORTNAME", "menu") 
-            url_btn = f"https://t.me/{me.username}/{app_short_name}?startapp=raffle_{new_id}"
+            # --- ХАРДКОД ССЫЛКИ ---
+            # Мы используем твой прямой адрес. 
+            # ?startapp=raffle_{new_id} нужен, чтобы приложение понимало, какой розыгрыш открывать (если мы добавим эту логику в будущем),
+            # или просто открывало список.
+            url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
             
             kb = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)
@@ -13261,13 +13262,11 @@ async def create_raffle(
     if req.end_time:
         try:
             qstash_token = os.getenv("QSTASH_TOKEN")
-            # Используем твою переменную WEB_APP_URL
             app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
 
             if qstash_token and app_url:
                 dt = datetime.fromisoformat(req.end_time.replace('Z', '+00:00'))
                 unix_time = int(dt.timestamp())
-                # Формируем адрес вебхука
                 target = f"{app_url}/api/v1/webhook/finalize_raffle"
                 
                 async with httpx.AsyncClient() as client:
@@ -13280,16 +13279,14 @@ async def create_raffle(
                         },
                         json={
                             "raffle_id": new_id, 
-                            "secret": get_cron_secret() # Твой секрет CRON-SECRET
+                            "secret": get_cron_secret()
                         }
                     )
-            else:
-                print("⚠️ Не найден WEB_APP_URL или QSTASH_TOKEN")
         except Exception as e:
             print(f"⚠️ Ошибка QStash: {e}")
 
     return {"message": "Розыгрыш создан! Пост отправлен."}
-
+    
 # 2. (Админ) Список
 @app.post("/api/v1/admin/raffles/list")
 async def get_admin_raffles(
