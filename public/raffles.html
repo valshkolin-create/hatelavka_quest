@@ -109,15 +109,18 @@
         }
         .btn-close:active { transform: scale(0.95); background: #333; }
 
-        /* --- Modal (Анимация) --- */
+        /* --- Modals --- */
         .modal-overlay { 
             position: fixed; inset: 0; 
-            background: rgba(0,0,0,0.8); 
-            backdrop-filter: blur(15px); 
+            background: rgba(0,0,0,0.85); 
+            backdrop-filter: blur(20px); 
             z-index: 999; 
             display: none; 
             align-items: center; justify-content: center; 
+            flex-direction: column;
         }
+        
+        /* Result Modal */
         .modal-box { 
             background: #1c1c1e; 
             width: 80%; 
@@ -129,21 +132,18 @@
             box-shadow: 0 20px 50px rgba(0,0,0,0.6);
         }
         
-        .lottie-anim { width: 120px; height: 120px; margin: 0 auto 10px; }
+        .lottie-anim { width: 140px; height: 140px; margin: 0 auto 5px; }
         
         .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
         .m-desc { font-size: 15px; color: var(--sec); margin-bottom: 25px; line-height: 1.4; }
         .m-btn { 
-            background: var(--primary); 
-            color: #000; 
-            border: none; 
-            width: 100%; 
-            padding: 14px; 
-            border-radius: 14px; 
-            font-weight: 700; 
-            font-size: 16px; 
-            cursor: pointer; 
+            background: var(--primary); color: #000; border: none; width: 100%; 
+            padding: 14px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer; 
         }
+
+        /* Verification Loader */
+        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 20px; }
+        .verify-sub { font-size: 13px; color: var(--sec); margin-top: 5px; }
 
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes zoom { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -166,31 +166,72 @@
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
             <div id="anim-container" class="lottie-anim"></div>
-            
             <div class="m-head" id="m-head"></div>
             <div class="m-desc" id="m-desc"></div>
-            <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">OK</button>
+            <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
+    </div>
+
+    <div id="verify-modal" class="modal-overlay" style="z-index: 1000;">
+        <lottie-player 
+            src="https://lottie.host/1831885f-3316-430b-a010-8534b8686161/x5D7qK3yDq.json" 
+            background="transparent" 
+            speed="1" 
+            style="width: 150px; height: 150px;" 
+            loop autoplay>
+        </lottie-player>
+        <div class="verify-text">Проверка условий...</div>
+        <div class="verify-sub">Сверяем подписки и активность</div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         
-        // --- СИСТЕМНАЯ КНОПКА ЗАКРЫТИЯ ---
-        // Для пользователя стрелочка или крестик закрывают приложение
-        tg.BackButton.hide(); // Убираем стрелку (если была)
-        // В Main Button можно добавить закрытие, но у нас кастомная кнопка "Закрыть"
+        // Системная кнопка закрытия
+        tg.BackButton.hide();
 
         async function load() {
             try {
+                // Параллельно загружаем список
                 const res = await fetch('/api/v1/raffles/active', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({initData:tg.initData})
                 });
                 const data = await res.json();
                 render(data);
+
+                // 🔥 ПОСЛЕ ЗАГРУЗКИ ПРОВЕРЯЕМ DEEP LINK
+                checkDeepLink();
+
             } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center; color:#555;">Ошибка соединения</p>'; }
+        }
+
+        // --- ЛОГИКА DEEP LINK ---
+        async function checkDeepLink() {
+            // initDataUnsafe.start_param содержит то, что было после ?startapp=
+            const startParam = tg.initDataUnsafe.start_param; 
+            
+            // Если есть параметр и он начинается с 'raffle_'
+            if (startParam && startParam.startsWith('raffle_')) {
+                const raffleId = startParam.split('_')[1];
+                
+                if(raffleId) {
+                    // 1. Показываем экран проверки
+                    const vModal = document.getElementById('verify-modal');
+                    vModal.style.display = 'flex';
+                    tg.HapticFeedback.impactOccurred('light');
+
+                    // 2. Ждем 1.5 секунды для "эффекта" проверки (чтобы юзер успел прочитать)
+                    await new Promise(r => setTimeout(r, 1500));
+
+                    // 3. Пробуем участвовать
+                    await join(raffleId, true); // true = скрытый режим (без кнопки)
+
+                    // 4. Скрываем экран проверки
+                    vModal.style.display = 'none';
+                }
+            }
         }
 
         function render(data) {
@@ -201,13 +242,11 @@
             data.forEach(r => {
                 const s = r.settings || {};
                 const done = r.status === 'completed';
-                // Фикс картинки: если нет, ставим плейсхолдер
-                const img = s.prize_image || 'https://via.placeholder.com/80/2c2c2e/777?text=Prize';
+                // Используем надежный плейсхолдер
+                const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
                 
-                // Теги условий
                 let tags = '';
                 if(s.requires_telegram_sub) tags += `<span class="tag"><i class="fa-brands fa-telegram"></i> Подписка</span>`;
-                // ПОКАЗЫВАЕМ УСЛОВИЕ ПРО СООБЩЕНИЯ
                 if(s.min_daily_messages > 0) tags += `<span class="tag"><i class="fa-solid fa-comments"></i> >${s.min_daily_messages} сообщ.</span>`;
                 if(r.end_time && !done) tags += `<span class="tag"><i class="fa-regular fa-clock"></i> ${new Date(r.end_time).toLocaleDateString()}</span>`;
 
@@ -223,7 +262,7 @@
                 list.innerHTML += `
                 <div class="card ${done ? 'done' : ''}">
                     <div class="c-body">
-                        <img src="${img}" class="prize-img" onerror="this.src='https://via.placeholder.com/80/2c2c2e/777?text=Error'">
+                        <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/100x100/2c2c2e/FFF?text=Error'">
                         <div class="c-info">
                             <div class="r-title">${r.title}</div>
                             <div class="r-prize">${s.prize_name}</div>
@@ -236,11 +275,20 @@
             });
         }
 
-        async function join(id) {
-            tg.HapticFeedback.impactOccurred('medium');
-            const btn = event.target;
-            const old = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        // isAuto = true, если вызвано через Deep Link (не трогаем кнопку)
+        async function join(id, isAuto = false) {
+            let btn = null;
+            let oldHtml = '';
+
+            // Если кликнул пользователь, анимируем кнопку
+            if(!isAuto && event) {
+                tg.HapticFeedback.impactOccurred('medium');
+                btn = event.target;
+                // Защита от клика по иконке внутри кнопки
+                if(btn.tagName !== 'BUTTON') btn = btn.closest('button');
+                oldHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            }
             
             try {
                 const res = await fetch('/api/v1/raffles/join', {
@@ -251,14 +299,15 @@
                 
                 if(res.ok) {
                     showAnimModal('success', 'Успех!', ans.message);
-                    load();
+                    // Обновляем список, чтобы кнопка стала зеленой
+                    load(); 
                 } else {
                     showAnimModal('error', 'Упс...', ans.detail);
-                    btn.innerHTML = old;
+                    if(btn) btn.innerHTML = oldHtml;
                 }
             } catch(e) {
                 showAnimModal('error', 'Ошибка', 'Проверьте соединение');
-                btn.innerHTML = old;
+                if(btn) btn.innerHTML = oldHtml;
             }
         }
 
@@ -266,22 +315,16 @@
             const m = document.getElementById('modal');
             const anim = document.getElementById('anim-container');
             
-            // --- АНИМАЦИИ (Lottie URLs) ---
-            // Ссылки на публичные JSON файлы Lottie. Без желтого свечения, чистая анимация.
-            
             let src = '';
             
             if(type === 'success') {
-                // Утка с конфетти (или галочка)
-                src = 'https://assets2.lottiefiles.com/packages/lf20_u4yrau.json'; 
-                // Альтернатива (Галочка): https://assets1.lottiefiles.com/packages/lf20_s2lryxtd.json
+                // 3D Радостный смайлик (Happy Emoji)
+                src = 'https://lottie.host/8806253c-7057-410a-8d13-68d197609a56/C4n5r6h8lH.json'; 
             } else {
-                // Грустная утка (или крестик)
-                src = 'https://assets5.lottiefiles.com/packages/lf20_qpwbv5gm.json'; 
-                // Альтернатива (Крестик): https://assets3.lottiefiles.com/packages/lf20_tl52xzvn.json
+                // Грустный смайлик (Sad Emoji)
+                src = 'https://lottie.host/0200543e-a10d-4547-8276-231365313a30/6yGk9g38lI.json';
             }
 
-            // Вставляем плеер
             anim.innerHTML = `
                 <lottie-player 
                     src="${src}" 
@@ -294,7 +337,6 @@
             document.getElementById('m-head').innerText = title;
             document.getElementById('m-desc').innerText = msg;
             
-            // Вибрация успеха/ошибки
             if(type==='success') tg.HapticFeedback.notificationOccurred('success');
             else tg.HapticFeedback.notificationOccurred('error');
 
