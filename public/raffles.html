@@ -109,21 +109,21 @@
         }
         .btn-close:active { transform: scale(0.95); background: #333; }
 
-        /* --- Modals --- */
+        /* --- Modals (Общие стили) --- */
         .modal-overlay { 
             position: fixed; inset: 0; 
             background: rgba(0,0,0,0.85); 
-            backdrop-filter: blur(20px); 
+            backdrop-filter: blur(15px); 
             z-index: 999; 
             display: none; 
             align-items: center; justify-content: center; 
             flex-direction: column;
         }
         
-        /* Result Modal */
+        /* Окно результата */
         .modal-box { 
             background: #1c1c1e; 
-            width: 80%; 
+            width: 85%; 
             border-radius: 24px; 
             padding: 30px 20px; 
             text-align: center; 
@@ -136,12 +136,21 @@
         
         .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
         .m-desc { font-size: 15px; color: var(--sec); margin-bottom: 25px; line-height: 1.4; }
+        
         .m-btn { 
-            background: var(--primary); color: #000; border: none; width: 100%; 
-            padding: 14px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer; 
+            background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; 
+            padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; 
+            margin-bottom: 10px; /* Отступ если кнопок две */
+        }
+        
+        /* Кнопка "Настроить профиль" */
+        .m-btn-primary {
+            background: var(--primary);
+            color: #000;
+            font-weight: 700;
         }
 
-        /* Verification Loader */
+        /* Экран проверки (Loader) */
         .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 20px; }
         .verify-sub { font-size: 13px; color: var(--sec); margin-top: 5px; }
 
@@ -166,15 +175,19 @@
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
             <div id="anim-container" class="lottie-anim"></div>
+            
             <div class="m-head" id="m-head"></div>
             <div class="m-desc" id="m-desc"></div>
+            
+            <button id="btn-profile" class="m-btn m-btn-primary" style="display:none;" onclick="location.href='/profile'">⚙️ Настроить профиль</button>
+            
             <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
     </div>
 
     <div id="verify-modal" class="modal-overlay" style="z-index: 1000;">
         <lottie-player 
-            src="https://lottie.host/1831885f-3316-430b-a010-8534b8686161/x5D7qK3yDq.json" 
+            src="https://assets9.lottiefiles.com/packages/lf20_b88nh30c.json" 
             background="transparent" 
             speed="1" 
             style="width: 150px; height: 150px;" 
@@ -188,12 +201,12 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
         
-        // Системная кнопка закрытия
+        // Прячем системную стрелку, у нас своя кнопка Закрыть
         tg.BackButton.hide();
 
         async function load() {
             try {
-                // Параллельно загружаем список
+                // 1. Загружаем список розыгрышей
                 const res = await fetch('/api/v1/raffles/active', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({initData:tg.initData})
@@ -201,7 +214,7 @@
                 const data = await res.json();
                 render(data);
 
-                // 🔥 ПОСЛЕ ЗАГРУЗКИ ПРОВЕРЯЕМ DEEP LINK
+                // 2. 🔥 ПРОВЕРЯЕМ ССЫЛКУ (Deep Link)
                 checkDeepLink();
 
             } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center; color:#555;">Ошибка соединения</p>'; }
@@ -222,11 +235,11 @@
                     vModal.style.display = 'flex';
                     tg.HapticFeedback.impactOccurred('light');
 
-                    // 2. Ждем 1.5 секунды для "эффекта" проверки (чтобы юзер успел прочитать)
+                    // 2. Ждем 1.5 секунды для "эффекта" проверки
                     await new Promise(r => setTimeout(r, 1500));
 
-                    // 3. Пробуем участвовать
-                    await join(raffleId, true); // true = скрытый режим (без кнопки)
+                    // 3. Пробуем участвовать (флаг true = авто-режим)
+                    await join(raffleId, true);
 
                     // 4. Скрываем экран проверки
                     vModal.style.display = 'none';
@@ -242,7 +255,7 @@
             data.forEach(r => {
                 const s = r.settings || {};
                 const done = r.status === 'completed';
-                // Используем надежный плейсхолдер
+                // Заглушка, если картинки нет (placehold.co работает надежно)
                 const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
                 
                 let tags = '';
@@ -275,16 +288,14 @@
             });
         }
 
-        // isAuto = true, если вызвано через Deep Link (не трогаем кнопку)
         async function join(id, isAuto = false) {
             let btn = null;
             let oldHtml = '';
 
-            // Если кликнул пользователь, анимируем кнопку
+            // Если кликнул пользователь (не авто), анимируем кнопку
             if(!isAuto && event) {
                 tg.HapticFeedback.impactOccurred('medium');
                 btn = event.target;
-                // Защита от клика по иконке внутри кнопки
                 if(btn.tagName !== 'BUTTON') btn = btn.closest('button');
                 oldHtml = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -299,7 +310,6 @@
                 
                 if(res.ok) {
                     showAnimModal('success', 'Успех!', ans.message);
-                    // Обновляем список, чтобы кнопка стала зеленой
                     load(); 
                 } else {
                     showAnimModal('error', 'Упс...', ans.detail);
@@ -314,15 +324,26 @@
         function showAnimModal(type, title, msg) {
             const m = document.getElementById('modal');
             const anim = document.getElementById('anim-container');
+            const btnProfile = document.getElementById('btn-profile');
             
+            // --- СТАБИЛЬНЫЕ ССЫЛКИ НА АНИМАЦИИ ---
             let src = '';
             
             if(type === 'success') {
-                // 3D Радостный смайлик (Happy Emoji)
-                src = 'https://lottie.host/8806253c-7057-410a-8d13-68d197609a56/C4n5r6h8lH.json'; 
+                // Праздничная анимация (Успех)
+                src = 'https://assets2.lottiefiles.com/packages/lf20_u4yrau.json'; 
+                btnProfile.style.display = 'none'; // Прячем кнопку настроек
             } else {
-                // Грустный смайлик (Sad Emoji)
-                src = 'https://lottie.host/0200543e-a10d-4547-8276-231365313a30/6yGk9g38lI.json';
+                // Грустный смайлик/Коробка (Ошибка)
+                src = 'https://assets5.lottiefiles.com/packages/lf20_qpwbv5gm.json';
+                
+                // 🔥 ЛОГИКА: Если ошибка про Трейд, Твич или Старт - показываем кнопку профиля
+                const m = msg.toLowerCase();
+                if (m.includes('trade') || m.includes('twitch') || m.includes('start') || m.includes('профиль')) {
+                    btnProfile.style.display = 'block';
+                } else {
+                    btnProfile.style.display = 'none';
+                }
             }
 
             anim.innerHTML = `
