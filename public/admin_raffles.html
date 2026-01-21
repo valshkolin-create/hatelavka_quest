@@ -6,8 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css">
-    <style>
+    <link rel="stylesheet" href="admin.css"> <style>
         /* --- СТИЛИ ДЛЯ КОНСТРУКТОРА (ПРЕВЬЮ) --- */
         .preview-container {
             background: #0e1621; /* Цвет фона ТГ (темная тема) */
@@ -67,7 +66,7 @@
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0; height: 3px;
-            background: var(--primary-color);
+            background: var(--primary-color, #ffd700);
             opacity: 0.7;
         }
         .raffle-header {
@@ -144,7 +143,7 @@
                 <div class="quest-card">
                     <form id="create-raffle-form" class="admin-form">
                         
-                        <h3 style="margin: 0 0 10px; color: var(--primary-color);"><i class="fa-solid fa-sliders"></i> Настройки</h3>
+                        <h3 style="margin: 0 0 10px; color: var(--primary-color, #ffd700);"><i class="fa-solid fa-sliders"></i> Настройки</h3>
                         
                         <label>Тип розыгрыша</label>
                         <select name="type" id="raffle-type-select" onchange="toggleSettingsFields()">
@@ -176,7 +175,7 @@
                         </div>
 
                         <label style="margin-top: 15px;">Дата окончания</label>
-                        <input type="datetime-local" name="end_time">
+                        <input type="datetime-local" name="end_time" onchange="updatePreview()">
 
                         <div style="margin: 20px 0 10px; height: 1px; background: rgba(255,255,255,0.1);"></div>
                         <h3 style="margin: 0 0 10px; color: #ffd700;"><i class="fa-solid fa-pen-nib"></i> Оформление поста</h3>
@@ -230,6 +229,262 @@
         </div>
     </main>
 
-    <script src="admin_raffles.js"></script>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // === 1. Умная навигация ===
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = '/admin';
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            
+            // Логика кнопок табов
+            const btns = document.querySelectorAll('.tab-button');
+            if(tabName === 'create') btns[0].classList.add('active');
+            if(tabName === 'list') {
+                btns[1].classList.add('active');
+                loadRaffles();
+            }
+        }
+
+        // === 2. Конструктор и Превью ===
+        function toggleSettingsFields() {
+            const type = document.getElementById('raffle-type-select').value;
+            const twitchBoostField = document.getElementById('field-twitch-boost');
+            
+            // Пока скрываем/показываем только буст твича
+            if (twitchBoostField) {
+                if (type !== 'inline_random') {
+                    twitchBoostField.classList.remove('hidden');
+                } else {
+                    twitchBoostField.classList.add('hidden');
+                }
+            }
+            updatePreview();
+        }
+
+        function updatePreview() {
+            const title = document.getElementById('input-title').value || 'Заголовок розыгрыша';
+            const prize = document.getElementById('input-prize').value || 'Название приза';
+            const desc = document.getElementById('input-desc').value || '';
+            const imgUrl = document.getElementById('input-image').value;
+            
+            // Обновляем картинку
+            const imgEl = document.getElementById('preview-img');
+            if (imgUrl) {
+                imgEl.src = imgUrl;
+                imgEl.classList.add('visible');
+            } else {
+                imgEl.classList.remove('visible');
+            }
+
+            // Собираем текст превью
+            let textHTML = `<b>${title}</b>\n\n`;
+            textHTML += `🎁 Приз: <b>${prize}</b>\n\n`;
+            
+            if (desc) {
+                textHTML += `${desc}\n\n`;
+            }
+
+            const endTimeVal = document.querySelector('input[name="end_time"]').value;
+            textHTML += `⏳ Итоги: ${endTimeVal ? new Date(endTimeVal).toLocaleString() : 'Скоро'}`;
+
+            // Заменяем переносы строк на <br>
+            const previewTextEl = document.getElementById('preview-text');
+            if(previewTextEl) previewTextEl.innerHTML = textHTML.replace(/\n/g, '<br>');
+        }
+
+        // === 3. Обработка формы создания ===
+        const createForm = document.getElementById('create-raffle-form');
+        if (createForm) {
+            createForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button[type="submit"]');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
+
+                const formData = new FormData(e.target);
+                
+                const settings = {
+                    prize_name: formData.get('prize_name'),
+                    prize_image: formData.get('prize_image'),
+                    description: formData.get('description'), 
+                    requires_telegram_sub: formData.get('requires_telegram_sub') === 'on',
+                    requires_referral_status: formData.get('requires_referral_status') === 'on',
+                    twitch_sub_boost: parseFloat(formData.get('twitch_sub_boost') || 1.0)
+                };
+
+                const payload = {
+                    initData: tg.initData,
+                    title: formData.get('title'),
+                    type: formData.get('type'),
+                    end_time: formData.get('end_time') || null,
+                    settings: settings
+                };
+
+                try {
+                    const response = await fetch('/api/v1/admin/raffles/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        tg.showPopup({ title: 'Успех', message: 'Розыгрыш создан!' });
+                        e.target.reset();
+                        updatePreview(); 
+                        switchTab('list');
+                    } else {
+                        const err = await response.json();
+                        tg.showAlert("Ошибка: " + (err.detail || "Неизвестная ошибка"));
+                    }
+                } catch (error) {
+                    tg.showAlert("Ошибка сети");
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "🚀 Создать";
+                }
+            });
+        }
+
+        // === 4. Список активных (Стиль как в Котле) ===
+        async function loadRaffles() {
+            const container = document.getElementById('raffles-list-container');
+            container.innerHTML = '<div class="spinner"></div>';
+            
+            try {
+                const response = await fetch('/api/v1/admin/raffles/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                
+                const raffles = await response.json();
+                renderRafflesPremium(raffles);
+            } catch (e) {
+                container.innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки</p>';
+            }
+        }
+
+        function renderRafflesPremium(raffles) {
+            const container = document.getElementById('raffles-list-container');
+            container.innerHTML = '';
+
+            if (!raffles || raffles.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding: 40px 20px; opacity: 0.5;">
+                        <i class="fa-solid fa-ghost" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <p>Пока нет активных розыгрышей</p>
+                    </div>`;
+                return;
+            }
+
+            raffles.forEach(raffle => {
+                const s = raffle.settings || {};
+                const isCompleted = raffle.status === 'completed';
+                
+                // Бейджи
+                let badgesHtml = '';
+                if (s.requires_telegram_sub) badgesHtml += `<div class="badge badge-sub"><i class="fa-brands fa-telegram"></i> SUB</div>`;
+                if (s.requires_referral_status) badgesHtml += `<div class="badge badge-ref"><i class="fa-solid fa-users"></i> REF</div>`;
+                if (s.twitch_sub_boost > 1) badgesHtml += `<div class="badge badge-twitch"><i class="fa-brands fa-twitch"></i> x${s.twitch_sub_boost}</div>`;
+
+                // Картинка
+                const imgDisplay = s.prize_image 
+                    ? `<img src="${s.prize_image}" class="raffle-image-thumb">`
+                    : `<div class="raffle-image-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
+
+                // Статус
+                const statusText = isCompleted 
+                    ? `<span style="color:#aaa; font-size:12px;"><i class="fa-solid fa-check"></i> Завершен</span>`
+                    : `<span style="color:#28a745; font-size:12px; font-weight:bold; display:flex; align-items:center; gap:4px;"><span style="display:block;width:6px;height:6px;background:#28a745;border-radius:50%;"></span> Активен</span>`;
+
+                let cardHtml = `
+                    <div class="raffle-card-premium">
+                        <div class="raffle-header">
+                            ${imgDisplay}
+                            <div class="raffle-title-row">
+                                <h3 class="raffle-title">${raffle.title}</h3>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div class="raffle-badges">${badgesHtml}</div>
+                                    ${statusText}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="font-size:13px; color:rgba(255,255,255,0.7); margin-bottom:5px;">
+                            Приз: <span style="color:#fff;">${s.prize_name}</span>
+                        </div>
+                `;
+
+                if (isCompleted && raffle.winner) {
+                    cardHtml += `
+                        <div class="raffle-footer">
+                            <div style="flex:1;">
+                                <div style="font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:1px;">Победитель</div>
+                                <div style="font-weight:bold; color:#ffd700;">${raffle.winner.full_name}</div>
+                                <div style="font-size:11px; opacity:0.6;">@${raffle.winner.username || '---'}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <a href="https://t.me/${raffle.winner.username}" target="_blank" class="admin-menu-button" style="width:auto; padding:6px 10px;">
+                                    <i class="fa-solid fa-message"></i> ЛС
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else if (!isCompleted) {
+                    cardHtml += `
+                        <div class="raffle-footer">
+                            <button onclick="drawRaffle(${raffle.id})" class="admin-action-btn approve" style="flex:1; font-size:13px; padding:10px;">
+                                <i class="fa-solid fa-trophy"></i> Подвести итоги
+                            </button>
+                        </div>
+                    `;
+                }
+
+                cardHtml += `</div>`;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        // 5. Подведение итогов
+        async function drawRaffle(raffleId) {
+            if (!confirm("Завершить розыгрыш и выбрать победителя?")) return;
+
+            try {
+                const response = await fetch('/api/v1/admin/raffles/draw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        initData: tg.initData,
+                        raffle_id: raffleId
+                    })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    tg.showPopup({ title: 'Готово', message: result.message });
+                    loadRaffles();
+                } else {
+                    tg.showAlert("Ошибка: " + result.detail);
+                }
+            } catch (e) {
+                tg.showAlert("Ошибка соединения");
+            }
+        }
+
+        // Инициализация при загрузке
+        updatePreview();
+    </script>
 </body>
 </html>
