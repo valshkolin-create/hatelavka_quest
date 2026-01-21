@@ -32,6 +32,7 @@
     { "src": "/cs", "dest": "/public/cs_roulette.html" },
     { "src": "/", "dest": "/public/index.html" },
     { "src": "/api/(.*)", "dest": "/index.py" },
+    { "src": "/admin_raffles.html", "dest": "/public/admin_raffles.html" },
     { "src": "/(.*)", "dest": "/public/$1" }
   ],
   "crons": [
