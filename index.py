@@ -13222,22 +13222,29 @@ async def create_raffle(
     channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if channel_id:
         try:
-            # Формируем текст
-            txt = f"<b>{req.title}</b>\n\n"
+            # --- КРАСИВОЕ ОФОРМЛЕНИЕ ---
+            # Добавляем пустые строки и эмодзи для объема
+            txt = f"🔥 <b>РОЗЫГРЫШ: {req.title.upper()}</b>\n\n"
+            
             if req.settings.description:
                 txt += f"{req.settings.description}\n\n"
-            txt += f"🎁 Приз: <b>{req.settings.prize_name}</b>\n"
             
+            txt += f"🎁 <b>Приз:</b> {req.settings.prize_name}\n"
+            
+            # Дата без секунд и UTC
             if req.end_time:
                 try:
                     dt = datetime.fromisoformat(req.end_time.replace('Z', '+00:00'))
-                    txt += f"⏳ Итоги: {dt.strftime('%d.%m.%Y %H:%M UTC')}"
+                    # Формат: 25.10.2024 18:00
+                    txt += f"⏳ <b>Итоги:</b> {dt.strftime('%d.%m.%Y %H:%M')}\n" 
                 except: pass
+            
+            txt += "\n👇 <b>Жми кнопку, чтобы забрать!</b>"
 
-            # Формируем кнопку (Ссылка на Mini App)
+            # --- ГЕНЕРАЦИЯ ССЫЛКИ ---
             me = await bot.get_me()
-            # Если у тебя короткое имя приложения не 'app', замени 'app' на свое
-            # Ссылка будет вида: t.me/botname/app?startapp=raffle_123
+            # ВАЖНО: Если кнопка не работает, проверь переменную TG_APP_SHORTNAME в Vercel
+            # Она должна совпадать с тем, что ты задал в BotFather -> Bot Settings -> Menu Button
             app_short_name = os.getenv("TG_APP_SHORTNAME", "app") 
             url_btn = f"https://t.me/{me.username}/{app_short_name}?startapp=raffle_{new_id}"
             
@@ -13252,8 +13259,7 @@ async def create_raffle(
                 await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
                 
         except Exception as e:
-            print(f"⚠️ Ошибка отправки поста в канал: {e}")
-            # Не прерываем выполнение, если пост не ушел (например, бот не админ)
+            print(f"⚠️ Ошибка отправки поста: {e}")
 
     # 3. Ставим таймер QStash
     if req.end_time:
