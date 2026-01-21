@@ -5,7 +5,6 @@
     <title>Raffles</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         :root {
@@ -18,12 +17,9 @@
             --danger: #ff453a;
         }
         body { 
-            background: var(--bg); 
-            color: var(--text); 
+            background: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; 
-            padding: 16px; 
-            padding-bottom: 90px; 
+            margin: 0; padding: 16px; padding-bottom: 90px; 
             -webkit-tap-highlight-color: transparent; 
         }
         
@@ -31,40 +27,29 @@
 
         /* --- Cards --- */
         .card { 
-            background: var(--card); 
-            border-radius: 20px; 
-            padding: 16px; 
-            margin-bottom: 16px; 
-            position: relative; 
-            animation: slideUp 0.4s ease; 
+            background: var(--card); border-radius: 20px; padding: 16px; margin-bottom: 16px; 
+            position: relative; animation: slideUp 0.4s ease; 
             border: 1px solid rgba(255,255,255,0.08); 
         }
         .card.done { opacity: 0.6; filter: grayscale(1); border-color: transparent; }
         
         .c-body { display: flex; gap: 14px; }
         .prize-img { 
-            width: 80px; height: 80px; 
-            background: #2c2c2e; 
-            border-radius: 16px; 
-            object-fit: cover; 
-            flex-shrink: 0; 
-            border: 1px solid rgba(255,255,255,0.05);
+            width: 80px; height: 80px; background: #2c2c2e; border-radius: 16px; 
+            object-fit: cover; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.05);
         }
-        
         .c-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
         .r-title { font-weight: 700; font-size: 17px; line-height: 1.2; margin-bottom: 5px; }
         .r-prize { font-size: 14px; color: var(--primary); font-weight: 600; margin-bottom: 8px; }
         
-        .tags { display: flex; gap: 6px; flex-wrap: wrap; }
-        .tag { 
-            font-size: 11px; 
-            background: rgba(255,255,255,0.1); 
-            padding: 4px 10px; 
-            border-radius: 6px; 
-            color: #ccc; 
-            display: flex; align-items: center; gap: 5px; 
-            font-weight: 500; 
+        /* Полные условия (тэги) */
+        .conditions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .cond-row { 
+            font-size: 12px; background: rgba(255,255,255,0.06); padding: 8px 12px; 
+            border-radius: 10px; color: #ddd; display: flex; align-items: center; gap: 8px; font-weight: 500; 
+            line-height: 1.3; border: 1px solid rgba(255,255,255,0.02);
         }
+        .cond-row i { color: var(--primary); width: 16px; text-align: center; font-size: 13px; }
 
         /* --- Buttons --- */
         .btn { 
@@ -80,12 +65,9 @@
 
         /* --- Winner --- */
         .winner { 
-            margin-top: 12px; 
-            background: rgba(255, 215, 0, 0.08); 
-            border: 1px solid rgba(255, 215, 0, 0.15);
-            border-radius: 12px; 
-            padding: 12px; 
-            text-align: center; 
+            margin-top: 12px; background: rgba(255, 215, 0, 0.08); 
+            border: 1px solid rgba(255, 215, 0, 0.15); border-radius: 12px; 
+            padding: 12px; text-align: center; 
         }
         .w-lbl { font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
         .w-name { font-weight: 700; font-size: 15px; margin-top: 4px; color: #fff; }
@@ -96,43 +78,23 @@
             display: flex; justify-content: center; z-index: 10; pointer-events: none; 
         }
         .btn-close { 
-            pointer-events: auto; 
-            background: #1c1c1e; 
-            border: 1px solid rgba(255,255,255,0.2); 
-            color: #fff; 
-            padding: 12px 40px; 
-            border-radius: 30px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            font-size: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            pointer-events: auto; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); 
+            color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; 
+            cursor: pointer; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         .btn-close:active { transform: scale(0.95); background: #333; }
 
-        /* --- Modals (Общие стили) --- */
+        /* --- Modals --- */
         .modal-overlay { 
-            position: fixed; inset: 0; 
-            background: rgba(0,0,0,0.85); 
-            backdrop-filter: blur(15px); 
-            z-index: 999; 
-            display: none; 
-            align-items: center; justify-content: center; 
-            flex-direction: column;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
+            backdrop-filter: blur(20px); z-index: 999; display: none; 
+            align-items: center; justify-content: center; flex-direction: column;
         }
-        
-        /* Окно результата */
         .modal-box { 
-            background: #1c1c1e; 
-            width: 85%; 
-            border-radius: 24px; 
-            padding: 30px 20px; 
-            text-align: center; 
-            animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            border: 1px solid rgba(255,255,255,0.1); 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; 
+            text-align: center; animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.6);
         }
-        
-        .lottie-anim { width: 140px; height: 140px; margin: 0 auto 5px; }
         
         .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
         .m-desc { font-size: 15px; color: var(--sec); margin-bottom: 25px; line-height: 1.4; }
@@ -140,22 +102,37 @@
         .m-btn { 
             background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; 
             padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; 
-            margin-bottom: 10px; /* Отступ если кнопок две */
+            margin-bottom: 10px;
         }
-        
-        /* Кнопка "Настроить профиль" */
-        .m-btn-primary {
-            background: var(--primary);
-            color: #000;
-            font-weight: 700;
-        }
+        .m-btn-primary { background: var(--primary); color: #000; font-weight: 700; }
 
-        /* Экран проверки (Loader) */
-        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 20px; }
+        /* --- SVG Animations (No External Files) --- */
+        .icon-container { width: 80px; height: 80px; margin: 0 auto 15px; position: relative; }
+        
+        /* Success Checkmark */
+        .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--green); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .checkmark { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--green); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
+        .checkmark-check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
+        
+        /* Error Cross */
+        .cross-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--danger); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .cross { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--danger); animation: fill-red .4s ease-in-out .4s forwards, shake .3s ease-in-out .9s both; }
+        .cross-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
+
+        /* Verify Loader */
+        .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 10px; }
         .verify-sub { font-size: 13px; color: var(--sec); margin-top: 5px; }
 
+        @keyframes stroke { 100% { stroke-dashoffset: 0; } }
+        @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
+        @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 50px var(--green); } }
+        @keyframes fill-red { 100% { box-shadow: inset 0px 0px 0px 50px var(--danger); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 10%, 30%, 50%, 70%, 90% {transform: translateX(-5px);} 20%, 40%, 60%, 80% {transform: translateX(5px);} }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes zoom { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
         .hidden { display: none; }
     </style>
 </head>
@@ -174,74 +151,61 @@
 
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
-            <div id="anim-container" class="lottie-anim"></div>
+            <div id="modal-icon" class="icon-container"></div>
             
             <div class="m-head" id="m-head"></div>
             <div class="m-desc" id="m-desc"></div>
             
             <button id="btn-profile" class="m-btn m-btn-primary" style="display:none;" onclick="location.href='/profile'">⚙️ Настроить профиль</button>
-            
             <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
     </div>
 
     <div id="verify-modal" class="modal-overlay" style="z-index: 1000;">
-        <lottie-player 
-            src="https://assets9.lottiefiles.com/packages/lf20_b88nh30c.json" 
-            background="transparent" 
-            speed="1" 
-            style="width: 150px; height: 150px;" 
-            loop autoplay>
-        </lottie-player>
-        <div class="verify-text">Проверка условий...</div>
-        <div class="verify-sub">Сверяем подписки и активность</div>
+        <div class="verify-loader"></div>
+        <div class="verify-text">Проверяем условия...</div>
+        <div class="verify-sub">Секундочку, сверяем данные</div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        
-        // Прячем системную стрелку, у нас своя кнопка Закрыть
         tg.BackButton.hide();
 
         async function load() {
             try {
-                // 1. Загружаем список розыгрышей
                 const res = await fetch('/api/v1/raffles/active', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({initData:tg.initData})
                 });
                 const data = await res.json();
                 render(data);
-
-                // 2. 🔥 ПРОВЕРЯЕМ ССЫЛКУ (Deep Link)
-                checkDeepLink();
-
+                checkDeepLink(); 
             } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center; color:#555;">Ошибка соединения</p>'; }
         }
 
-        // --- ЛОГИКА DEEP LINK ---
+        // --- ЛОГИКА DEEP LINK (ОДНОРАЗОВАЯ) ---
         async function checkDeepLink() {
-            // initDataUnsafe.start_param содержит то, что было после ?startapp=
             const startParam = tg.initDataUnsafe.start_param; 
             
-            // Если есть параметр и он начинается с 'raffle_'
             if (startParam && startParam.startsWith('raffle_')) {
                 const raffleId = startParam.split('_')[1];
                 
+                // Проверяем sessionStorage (чтобы не проверять бесконечно при F5)
+                if (sessionStorage.getItem('checked_raffle_' + raffleId)) return;
+
                 if(raffleId) {
-                    // 1. Показываем экран проверки
                     const vModal = document.getElementById('verify-modal');
                     vModal.style.display = 'flex';
                     tg.HapticFeedback.impactOccurred('light');
 
-                    // 2. Ждем 1.5 секунды для "эффекта" проверки
+                    // Пауза для красоты
                     await new Promise(r => setTimeout(r, 1500));
+                    
+                    // Запоминаем, что проверили
+                    sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
 
-                    // 3. Пробуем участвовать (флаг true = авто-режим)
                     await join(raffleId, true);
-
-                    // 4. Скрываем экран проверки
                     vModal.style.display = 'none';
                 }
             }
@@ -258,10 +222,20 @@
                 // Заглушка, если картинки нет (placehold.co работает надежно)
                 const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
                 
-                let tags = '';
-                if(s.requires_telegram_sub) tags += `<span class="tag"><i class="fa-brands fa-telegram"></i> Подписка</span>`;
-                if(s.min_daily_messages > 0) tags += `<span class="tag"><i class="fa-solid fa-comments"></i> >${s.min_daily_messages} сообщ.</span>`;
-                if(r.end_time && !done) tags += `<span class="tag"><i class="fa-regular fa-clock"></i> ${new Date(r.end_time).toLocaleDateString()}</span>`;
+                // --- ГЕНЕРАЦИЯ ПОЛНЫХ УСЛОВИЙ ---
+                let conditions = '';
+                
+                if(s.requires_telegram_sub) {
+                    conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на Telegram канал</div>`;
+                }
+                
+                if(s.min_daily_messages > 0) {
+                    conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Напиши ${s.min_daily_messages} сообщений на Twitch</div>`;
+                }
+                
+                if(r.end_time && !done) {
+                    conditions += `<div class="cond-row"><i class="fa-regular fa-clock"></i> Итоги: ${new Date(r.end_time).toLocaleDateString()} ${new Date(r.end_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>`;
+                }
 
                 let btn = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать 🎲</button>`;
                 if(r.is_joined) btn = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
@@ -279,9 +253,11 @@
                         <div class="c-info">
                             <div class="r-title">${r.title}</div>
                             <div class="r-prize">${s.prize_name}</div>
-                            <div class="tags">${tags}</div>
                         </div>
                     </div>
+                    
+                    <div class="conditions">${conditions}</div>
+                    
                     ${!done ? btn : ''}
                     ${winner}
                 </div>`;
@@ -292,7 +268,7 @@
             let btn = null;
             let oldHtml = '';
 
-            // Если кликнул пользователь (не авто), анимируем кнопку
+            // Если кликнул пользователь
             if(!isAuto && event) {
                 tg.HapticFeedback.impactOccurred('medium');
                 btn = event.target;
@@ -309,58 +285,50 @@
                 const ans = await res.json();
                 
                 if(res.ok) {
-                    showAnimModal('success', 'Успех!', ans.message);
+                    showModal('success', 'Успех!', ans.message);
                     load(); 
                 } else {
-                    showAnimModal('error', 'Упс...', ans.detail);
+                    showModal('error', 'Упс...', ans.detail);
                     if(btn) btn.innerHTML = oldHtml;
                 }
             } catch(e) {
-                showAnimModal('error', 'Ошибка', 'Проверьте соединение');
+                showModal('error', 'Ошибка', 'Проверьте соединение');
                 if(btn) btn.innerHTML = oldHtml;
             }
         }
 
-        function showAnimModal(type, title, msg) {
+        function showModal(type, title, msg) {
             const m = document.getElementById('modal');
-            const anim = document.getElementById('anim-container');
+            const iconBox = document.getElementById('modal-icon');
             const btnProfile = document.getElementById('btn-profile');
             
-            // --- СТАБИЛЬНЫЕ ССЫЛКИ НА АНИМАЦИИ ---
-            let src = '';
-            
+            // ВСТАВЛЯЕМ SVG АНИМАЦИЮ (КОД)
             if(type === 'success') {
-                // Праздничная анимация (Успех)
-                src = 'https://assets2.lottiefiles.com/packages/lf20_u4yrau.json'; 
-                btnProfile.style.display = 'none'; // Прячем кнопку настроек
+                iconBox.innerHTML = `
+                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                    <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                </svg>`;
+                btnProfile.style.display = 'none';
+                tg.HapticFeedback.notificationOccurred('success');
             } else {
-                // Грустный смайлик/Коробка (Ошибка)
-                src = 'https://assets5.lottiefiles.com/packages/lf20_qpwbv5gm.json';
+                iconBox.innerHTML = `
+                <svg class="cross" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/>
+                    <path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/>
+                </svg>`;
                 
-                // 🔥 ЛОГИКА: Если ошибка про Трейд, Твич или Старт - показываем кнопку профиля
                 const m = msg.toLowerCase();
                 if (m.includes('trade') || m.includes('twitch') || m.includes('start') || m.includes('профиль')) {
                     btnProfile.style.display = 'block';
                 } else {
                     btnProfile.style.display = 'none';
                 }
+                tg.HapticFeedback.notificationOccurred('error');
             }
 
-            anim.innerHTML = `
-                <lottie-player 
-                    src="${src}" 
-                    background="transparent" 
-                    speed="1" 
-                    style="width: 100%; height: 100%;" 
-                    autoplay>
-                </lottie-player>`;
-            
             document.getElementById('m-head').innerText = title;
             document.getElementById('m-desc').innerText = msg;
-            
-            if(type==='success') tg.HapticFeedback.notificationOccurred('success');
-            else tg.HapticFeedback.notificationOccurred('error');
-
             m.style.display = 'flex';
         }
 
