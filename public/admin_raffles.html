@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление Розыгрышами</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css"> <style>
+        /* Доп. стили специфичные для розыгрышей */
+        .raffle-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .raffle-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-active { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        .status-completed { background: rgba(255, 255, 255, 0.1); color: #aaa; }
+        
+        .raffle-type-badge {
+            font-size: 10px;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader-overlay" class="loader-overlay hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <main id="app-container" class="main-content">
+        <div class="view">
+            <div class="page-header">
+                <a href="/admin" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
+                <h1 class="page-header-title">Розыгрыши</h1>
+                <div style="width: 60px;"></div>
+            </div>
+
+            <div class="tabs-container">
+                <button class="tab-button active" onclick="switchTab('create')">Создать</button>
+                <button class="tab-button" onclick="switchTab('list')">Активные</button>
+            </div>
+
+            <div id="tab-create" class="tab-content active">
+                <div class="quest-card">
+                    <form id="create-raffle-form" class="admin-form">
+                        
+                        <label>Название розыгрыша</label>
+                        <input type="text" name="title" placeholder="Например: AWP | Asiimov за подписку" required>
+
+                        <label>Тип механики</label>
+                        <select name="type" id="raffle-type-select" onchange="toggleSettingsFields()">
+                            <option value="inline_random">🎲 Кнопка (Рандом)</option>
+                            <option value="most_active">🔥 Самый активный (Топ статы)</option>
+                            <option value="comments">💬 Комментарии (Рандом)</option>
+                        </select>
+
+                        <h3 style="margin-top: 20px; font-size: 16px;">Приз</h3>
+                        <label>Название предмета</label>
+                        <input type="text" name="prize_name" required placeholder="AK-47 | Redline">
+                        
+                        <label>Картинка (URL)</label>
+                        <input type="text" name="prize_image" placeholder="https://...">
+
+                        <h3 style="margin-top: 20px; font-size: 16px;">Условия участия</h3>
+                        
+                        <div class="setting-item" style="padding: 10px 0; border: none;">
+                            <span class="setting-label">Нужна подписка на ТГ канал?</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="requires_telegram_sub" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item" style="padding: 10px 0; border: none;">
+                            <span class="setting-label">Только для рефералов?</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="requires_referral_status">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div id="field-twitch-boost" class="hidden">
+                            <label>Множитель шанса для сабов Twitch (x)</label>
+                            <input type="number" name="twitch_sub_boost" value="1.0" step="0.1">
+                        </div>
+
+                        <div id="field-post-link" class="hidden">
+                             <label>Ссылка на пост (для парсинга комментов)</label>
+                             <input type="text" name="channel_post_link" placeholder="https://t.me/c/...">
+                        </div>
+
+                        <label style="margin-top: 15px;">Дата окончания (опционально)</label>
+                        <input type="datetime-local" name="end_time">
+
+                        <button type="submit" class="admin-action-btn approve" style="margin-top: 20px; width: 100%;">
+                            🚀 Создать и опубликовать
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="tab-list" class="tab-content hidden">
+                <button onclick="loadRaffles()" class="admin-menu-button" style="margin-bottom: 15px;">
+                    <i class="fa-solid fa-rotate-right"></i> Обновить список
+                </button>
+                <div id="raffles-list-container">
+                    <p style="text-align: center; color: #777;">Загрузка...</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="admin_raffles.js"></script>
+</body>
+</html>
