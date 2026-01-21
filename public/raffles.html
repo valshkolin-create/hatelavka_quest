@@ -2,224 +2,224 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Розыгрыши</title>
+    <title>Active Raffles</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         :root {
-            --bg-color: #111;
-            --card-bg: rgba(255, 255, 255, 0.05);
+            --bg: #0f0f0f;
             --primary: #ffd700;
-            --text-main: #fff;
-            --text-sec: #aaa;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
             --green: #28a745;
+            --text: #fff;
+            --text-sec: #aaa;
         }
         body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0; padding: 15px 15px 100px;
+            background-color: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px 20px 100px;
             -webkit-tap-highlight-color: transparent;
         }
-        
-        .page-header {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 25px;
-        }
-        .page-title { font-size: 24px; font-weight: 800; margin: 0; }
-        .back-btn { color: #007aff; text-decoration: none; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 5px; }
 
-        .raffle-card {
-            background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 15px;
-            position: relative;
-            overflow: hidden;
+        /* Header */
+        .header { display: flex; align-items: center; margin-bottom: 25px; }
+        .title { font-size: 24px; font-weight: 800; background: linear-gradient(45deg, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 auto; }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 20px; padding: 16px; margin-bottom: 20px;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            animation: fadeInUp 0.5s ease forwards; opacity: 0; transform: translateY(20px);
         }
-        .raffle-card.completed { opacity: 0.7; border-color: transparent; }
+        .card:nth-child(2) { animation-delay: 0.1s; }
+        .card:nth-child(3) { animation-delay: 0.2s; }
+        .card.done { opacity: 0.7; filter: grayscale(0.8); border-color: transparent; }
+
+        .card-content { display: flex; gap: 15px; margin-bottom: 15px; }
+        .prize-img { width: 75px; height: 75px; border-radius: 14px; background: #222; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         
-        .card-top { display: flex; gap: 12px; }
-        .prize-img {
-            width: 70px; height: 70px;
-            border-radius: 12px;
-            object-fit: cover;
-            background: #222;
-            border: 1px solid rgba(255,255,255,0.1);
+        .info { flex: 1; }
+        .r-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; line-height: 1.2; }
+        .r-prize { font-size: 13px; color: var(--primary); font-weight: 600; margin-bottom: 8px; }
+        
+        .tags { display: flex; gap: 5px; flex-wrap: wrap; }
+        .tag { font-size: 10px; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.08); color: var(--text-sec); display: flex; align-items: center; gap: 4px; }
+        
+        /* Buttons */
+        .btn-action {
+            width: 100%; border: none; padding: 14px; border-radius: 14px;
+            font-size: 14px; font-weight: 700; cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        .card-info { flex: 1; }
+        .btn-action:active { transform: scale(0.98); }
         
-        .r-title { font-size: 16px; font-weight: 700; margin: 0 0 4px; line-height: 1.3; }
-        .r-prize { font-size: 13px; color: var(--primary); font-weight: 600; margin-bottom: 6px; }
-        
-        .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-        .tag { font-size: 10px; padding: 3px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); color: var(--text-sec); }
-        
-        .timer { font-size: 11px; color: var(--text-sec); display: flex; align-items: center; gap: 4px; }
-        
-        .action-area { margin-top: 15px; }
-        .join-btn {
-            width: 100%;
-            background: var(--primary);
-            color: #000;
-            border: none;
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 14px; font-weight: 700;
-            cursor: pointer;
-        }
-        .join-btn:disabled { background: rgba(255,255,255,0.1); color: #555; cursor: default; }
-        
+        .btn-join { background: var(--primary); color: #000; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2); }
+        .btn-joined { background: rgba(40, 167, 69, 0.2); color: var(--green); border: 1px solid rgba(40, 167, 69, 0.4); cursor: default; }
+        .btn-done { background: rgba(255,255,255,0.05); color: #666; cursor: default; }
+
+        /* Winner */
         .winner-block {
-            background: rgba(40, 167, 69, 0.15);
-            border: 1px solid rgba(40, 167, 69, 0.3);
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            text-align: center;
+            margin-top: 10px; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px; padding: 10px; text-align: center;
         }
-        .winner-label { font-size: 10px; color: #28a745; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
-        .winner-name { font-size: 14px; font-weight: 700; color: #fff; margin-top: 2px; }
+        .w-label { font-size: 10px; color: var(--primary); text-transform: uppercase; font-weight: 800; letter-spacing: 1px; }
+        .w-name { font-size: 14px; font-weight: 700; color: #fff; margin-top: 3px; }
 
-        .loading-spinner {
-            width: 30px; height: 30px; border: 3px solid rgba(255,255,255,0.1);
-            border-top-color: var(--primary); border-radius: 50%;
-            animation: spin 1s linear infinite; margin: 50px auto;
+        /* Close Button */
+        .close-area { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 10; }
+        .btn-close {
+            pointer-events: auto; background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 12px 30px;
+            border-radius: 30px; font-size: 14px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3); transition: 0.2s;
         }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .btn-close:active { transform: scale(0.95); background: #333; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-box { background: #1c1c1e; width: 80%; border-radius: 20px; padding: 25px; text-align: center; border: 1px solid var(--card-border); animation: popIn 0.3s; }
+        .m-icon { font-size: 40px; margin-bottom: 15px; display: block; }
+        .m-title { font-size: 18px; font-weight: 700; margin-bottom: 5px; }
+        .m-text { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; }
+        .m-btn { background: var(--card-border); color: #fff; border: none; padding: 10px 20px; border-radius: 10px; width: 100%; font-weight: 600; }
+
+        @keyframes fadeInUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="page-header">
-        <a href="javascript:history.back()" class="back-btn"><i class="fa-solid fa-chevron-left"></i> Назад</a>
-        <h1 class="page-title">Розыгрыши</h1>
-        <div style="width: 50px;"></div>
+    <div class="header">
+        <h1 class="title">Розыгрыши</h1>
     </div>
 
-    <div id="raffles-container">
-        <div class="loading-spinner"></div>
+    <div id="list">
+        <div style="text-align:center; padding:50px; color:#555;">
+            <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+        </div>
+    </div>
+
+    <div class="close-area">
+        <button onclick="tg.close()" class="btn-close">Закрыть</button>
+    </div>
+
+    <div id="modal" class="modal-overlay">
+        <div class="modal-box">
+            <span class="m-icon" id="m-icon">✅</span>
+            <div class="m-title" id="m-title">Title</div>
+            <div class="m-text" id="m-msg">Message</div>
+            <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">OK</button>
+        </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        async function loadRaffles() {
-            const container = document.getElementById('raffles-container');
-            
+        async function load() {
             try {
-                const response = await fetch('/api/v1/raffles/active', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ initData: tg.initData })
+                const res = await fetch('/api/v1/raffles/active', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({initData:tg.initData})
                 });
-
-                if(!response.ok) throw new Error("Ошибка загрузки");
-                
-                const raffles = await response.json();
-                renderRaffles(raffles);
-            } catch (e) {
-                container.innerHTML = `<p style="text-align:center; color:#555;">Не удалось загрузить розыгрыши</p>`;
-            }
+                const data = await res.json();
+                render(data);
+            } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center; color:#555;">Ошибка соединения</p>'; }
         }
 
-        function renderRaffles(list) {
-            const container = document.getElementById('raffles-container');
-            container.innerHTML = '';
+        function render(data) {
+            const list = document.getElementById('list');
+            list.innerHTML = '';
+            if(!data.length) { list.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px;"><i class="fa-solid fa-ghost fa-2x"></i><br><br>Пусто</div>'; return; }
 
-            if (list.length === 0) {
-                container.innerHTML = `<div style="text-align:center; padding:40px; color:#555;">Пока нет активных розыгрышей 👻</div>`;
-                return;
-            }
-
-            list.forEach(r => {
+            data.forEach(r => {
                 const s = r.settings || {};
-                const isCompleted = r.status === 'completed';
-                const isJoined = r.is_joined;
+                const done = r.status === 'completed';
+                const img = s.prize_image || 'https://via.placeholder.com/75/222/fff?text=Gift';
+                
+                // Tags
+                let tagsHtml = '';
+                if(s.requires_telegram_sub) tagsHtml += `<span class="tag"><i class="fa-brands fa-telegram"></i> Sub</span>`;
+                if(s.min_daily_messages > 0) tagsHtml += `<span class="tag"><i class="fa-brands fa-twitch"></i> Chat</span>`;
+                if(r.end_time && !done) tagsHtml += `<span class="tag"><i class="fa-regular fa-clock"></i> ${new Date(r.end_time).toLocaleDateString()}</span>`;
 
-                // Картинка
-                const img = s.prize_image || 'https://via.placeholder.com/70x70/333/fff?text=Gift';
+                // Button Logic
+                let btn = `<button class="btn-action btn-join" onclick="join(${r.id})">Участвовать 🎲</button>`;
+                if(r.is_joined) btn = `<button class="btn-action btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
+                if(done) btn = `<button class="btn-action btn-done">Завершен</button>`;
 
-                // Таймер / Статус
-                let statusHtml = '';
-                if (isCompleted) {
-                    statusHtml = `<span style="color:#aaa;">Завершен</span>`;
-                } else if (r.end_time) {
-                    const date = new Date(r.end_time).toLocaleDateString();
-                    statusHtml = `Итоги: ${date}`;
-                } else {
-                    statusHtml = `Бессрочный`;
+                // Winner Logic
+                let winnerHtml = '';
+                if(done && r.winner) {
+                    winnerHtml = `
+                    <div class="winner-block">
+                        <div class="w-label">Победитель</div>
+                        <div class="w-name">${r.winner.full_name}</div>
+                    </div>`;
                 }
 
-                // Кнопка
-                let btnHtml = '';
-                if (isCompleted) {
-                    if (r.winner) {
-                        btnHtml = `
-                            <div class="winner-block">
-                                <div class="winner-label">🏆 Победитель</div>
-                                <div class="winner-name">${r.winner.full_name}</div>
-                            </div>
-                        `;
-                    } else {
-                        btnHtml = `<button class="join-btn" disabled>Розыгрыш завершен</button>`;
-                    }
-                } else if (isJoined) {
-                    btnHtml = `<button class="join-btn" disabled style="background:#28a745; color:#fff;"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
-                } else {
-                    btnHtml = `<button class="join-btn" onclick="join(${r.id})">Участвовать</button>`;
-                }
-
-                // Описание (теги)
-                let tags = '';
-                if(s.requires_telegram_sub) tags += `<span class="tag">Подписка</span>`;
-                if(r.type === 'most_active') tags += `<span class="tag">Топ актив</span>`;
-
-                const html = `
-                    <div class="raffle-card ${isCompleted ? 'completed' : ''}">
-                        <div class="card-top">
-                            <img src="${img}" class="prize-img">
-                            <div class="card-info">
-                                <h3 class="r-title">${r.title}</h3>
-                                <div class="r-prize">${s.prize_name}</div>
-                                <div class="tags">${tags}</div>
-                                <div class="timer"><i class="fa-regular fa-clock"></i> ${statusHtml}</div>
-                            </div>
-                        </div>
-                        <div class="action-area">
-                            ${btnHtml}
+                list.innerHTML += `
+                <div class="card ${done ? 'done' : ''}">
+                    <div class="card-content">
+                        <img src="${img}" class="prize-img">
+                        <div class="info">
+                            <div class="r-title">${r.title}</div>
+                            <div class="r-prize">${s.prize_name}</div>
+                            <div class="tags">${tagsHtml}</div>
                         </div>
                     </div>
-                `;
-                container.innerHTML += html;
+                    ${!done ? btn : ''}
+                    ${winnerHtml}
+                </div>`;
             });
         }
 
         async function join(id) {
             tg.HapticFeedback.impactOccurred('medium');
+            
+            // Animation for button click
+            const btn = event.target;
+            const oldText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+            
             try {
                 const res = await fetch('/api/v1/raffles/join', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ initData: tg.initData, raffle_id: id })
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({initData:tg.initData, raffle_id:id})
                 });
+                const ans = await res.json();
                 
-                if (res.ok) {
-                    tg.showPopup({title: 'Готово!', message: 'Вы успешно записались в участники.'});
-                    loadRaffles(); // Обновить кнопку
+                if(res.ok) {
+                    showModal('success', 'Успех!', ans.message);
+                    load();
                 } else {
-                    const err = await res.json();
-                    tg.showAlert("Ошибка: " + err.detail);
+                    showModal('error', 'Упс!', ans.detail);
+                    btn.innerHTML = oldText;
                 }
             } catch(e) {
-                tg.showAlert("Ошибка сети");
+                showModal('error', 'Ошибка', 'Проверьте интернет');
+                btn.innerHTML = oldText;
             }
         }
 
-        loadRaffles();
+        function showModal(type, title, msg) {
+            const m = document.getElementById('modal');
+            const icon = document.getElementById('m-icon');
+            
+            document.getElementById('m-title').innerText = title;
+            document.getElementById('m-msg').innerText = msg;
+            
+            if(type === 'success') { icon.innerText = '🎉'; icon.style.textShadow = '0 0 20px gold'; }
+            else { icon.innerText = '⚠️'; icon.style.textShadow = '0 0 20px red'; }
+            
+            m.style.display = 'flex';
+        }
+
+        load();
     </script>
 </body>
 </html>
