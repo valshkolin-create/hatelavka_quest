@@ -270,9 +270,15 @@
 
             // Если кликнул пользователь
             if(!isAuto && event) {
+                // --- ВИБРАЦИЯ ПРИ НАЖАТИИ ---
                 tg.HapticFeedback.impactOccurred('medium');
+
                 btn = event.target;
                 if(btn.tagName !== 'BUTTON') btn = btn.closest('button');
+                
+                // Проверяем, не нажал ли он на кнопку повторно или на неактивную
+                if(btn.classList.contains('btn-joined') || btn.classList.contains('btn-done')) return;
+
                 oldHtml = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             }
@@ -285,13 +291,22 @@
                 const ans = await res.json();
                 
                 if(res.ok) {
+                    // --- ВИБРАЦИЯ УСПЕХА ---
+                    tg.HapticFeedback.notificationOccurred('success');
+                    
                     showModal('success', 'Успех!', ans.message);
                     load(); 
                 } else {
+                    // --- ВИБРАЦИЯ ОШИБКИ ---
+                    tg.HapticFeedback.notificationOccurred('error');
+
                     showModal('error', 'Упс...', ans.detail);
                     if(btn) btn.innerHTML = oldHtml;
                 }
             } catch(e) {
+                // --- ВИБРАЦИЯ ОШИБКИ ---
+                tg.HapticFeedback.notificationOccurred('error');
+                
                 showModal('error', 'Ошибка', 'Проверьте соединение');
                 if(btn) btn.innerHTML = oldHtml;
             }
