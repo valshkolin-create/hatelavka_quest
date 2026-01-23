@@ -13595,66 +13595,91 @@ async def finalize_raffle_webhook(
 # --- 🛠️ ДИАГНОСТИКА: ВРЕМЯ + QSTASH ---
 @app.get("/api/v1/debug/test_system")
 async def debug_test_system(
-    input_time: str = None, # Формат: 2024-05-20T18:00:00
+    input_time: str = None, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     now_utc = datetime.now(timezone.utc)
     now_msk = now_utc + timedelta(hours=3)
     
-    report = {
-        "current_server_time_utc": now_utc.isoformat(),
-        "current_calculated_msk": now_msk.isoformat(),
-        "timezone_check": "Vercel standard is UTC",
+    # 1. ПРОВЕРКА ПЕРЕМЕННЫХ (Environment Scan)
+    qs_token = os.getenv("QSTASH_TOKEN", "")
+    app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL") or "MISSING"
+    cron_sec = os.getenv("CRON_SECRET") or os.getenv("CRON-SECRET") or "MISSING"
+
+    env_report = {
+        "QSTASH_TOKEN": {
+            "status": "OK" if len(qs_token) > 20 else "TOO_SHORT_OR_MISSING",
+            "length": len(qs_token),
+            "starts_with": qs_token[:7] + "..." if qs_token else "N/A",
+            "ends_with": "..." + qs_token[-4:] if qs_token else "N/A",
+            "has_quotes": qs_token.startswith('"') or qs_token.endswith('"')
+        },
+        "APP_URL": app_url,
+        "CRON_SECRET_SET": cron_sec != "MISSING"
     }
 
-    # Если передали время для проверки (как с фронта)
+    report = {
+        "step_1_env_check": env_report,
+        "step_2_time_check": {
+            "server_utc": now_utc.isoformat(),
+            "server_msk": now_msk.isoformat(),
+            "timezone": "UTC (Vercel Default)"
+        }
+    }
+
+    # 2. АНАЛИЗ ВРЕМЕНИ (Если передано)
     if input_time:
         try:
-            # Имитируем логику из create_raffle
-            dt_parsed = datetime.fromisoformat(input_time.replace('Z', ''))
-            # Считаем таймштамп, считая что это UTC
-            unix_to_qstash = int(dt_parsed.replace(tzinfo=timezone.utc).timestamp())
+            # Парсим ввод (например 18:00)
+            dt_input = datetime.fromisoformat(input_time.replace('Z', ''))
+            # Наш фикс: считаем что ввод был в МСК, переводим в UTC для QStash
+            dt_utc_corrected = dt_input - timedelta(hours=3)
             
-            report["time_analysis"] = {
-                "input_received": input_time,
-                "parsed_as_utc": dt_parsed.isoformat(),
-                "will_trigger_at_unix": unix_to_qstash,
-                "diff_from_now_seconds": unix_to_qstash - int(now_utc.timestamp())
+            unix_input = int(dt_input.replace(tzinfo=timezone.utc).timestamp())
+            unix_corrected = int(dt_utc_corrected.replace(tzinfo=timezone.utc).timestamp())
+            
+            report["step_3_time_logic"] = {
+                "raw_input": input_time,
+                "parsed_no_fix_unix": unix_input,
+                "corrected_utc_unix": unix_corrected,
+                "diff_seconds": unix_corrected - int(now_utc.timestamp()),
+                "verdict": "Success" if unix_corrected > int(now_utc.timestamp()) else "Time is in the past!"
             }
         except Exception as e:
-            report["time_analysis_error"] = str(e)
+            report["step_3_error"] = f"Parsing error: {str(e)}"
 
-    # ТЕСТ QSTASH: Отправляем запрос, который должен сработать через 60 секунд
-    qstash_token = os.getenv("QSTASH_TOKEN")
-    app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
-    
-    if qstash_token and app_url:
+    # 3. ПОПЫТКА СВЯЗИ С QSTASH (Live Test)
+    if len(qs_token) > 10 and app_url != "MISSING":
         target = f"{app_url}/api/v1/webhook/finalize_raffle"
-        # Таймер на +1 минуту от текущего момента для теста
-        test_unix = int(now_utc.timestamp()) + 60 
+        # Тестовый запуск через 40 секунд
+        test_unix = int(now_utc.timestamp()) + 40 
         
         try:
             async with httpx.AsyncClient() as client:
+                # Мы логируем даже заголовки (без полного токена)
+                auth_header = f"Bearer {qs_token.strip()}"
+                
                 qs_resp = await client.post(
                     f"https://qstash.upstash.io/v2/publish/{target}",
                     headers={
-                        "Authorization": f"Bearer {qstash_token}",
+                        "Authorization": auth_header,
                         "Upstash-Not-Before": str(test_unix),
                         "Content-Type": "application/json"
                     },
-                    json={
-                        "raffle_id": 0, # Тестовый ID
-                        "secret": get_cron_secret(),
-                        "is_test": True 
-                    }
+                    json={"raffle_id": 0, "secret": cron_sec, "is_test": True}
                 )
-            report["qstash_test"] = {
-                "status_code": qs_resp.status_code,
-                "target_url": target,
-                "message": "Check logs in 1 minute to see if webhook was hit"
-            }
+                
+                report["step_4_qstash_response"] = {
+                    "status_code": qs_resp.status_code,
+                    "reason": qs_resp.reason_phrase,
+                    "body": qs_resp.text, # Тут QStash пишет почему 401
+                    "request_url": target,
+                    "sent_auth_header_length": len(auth_header)
+                }
         except Exception as e:
-            report["qstash_test_error"] = str(e)
+            report["step_4_error"] = f"Request failed: {str(e)}"
+    else:
+        report["step_4_qstash_response"] = "Skipped: Missing Token or URL"
 
     return report
 
