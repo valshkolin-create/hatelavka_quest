@@ -773,9 +773,11 @@ class RaffleSettings(BaseModel):
     prize_name: str
     prize_image: Optional[str] = None
     description: Optional[str] = ""
-    requires_telegram_sub: bool = True # Проверка подписки на канал
-    requires_referral_status: bool = False # Только для тех, кто перешел по рефке
-    twitch_sub_boost: float = 1.0 # Множитель шанса для сабов Твича (1.0 = нет буста)
+    skin_quality: Optional[str] = ""        # 🔥 ДОБАВИЛИ ЭТО
+    min_daily_messages: int = 0             # 🔥 ДОБАВИЛИ ЭТО
+    requires_telegram_sub: bool = True
+    requires_referral_status: bool = False
+    twitch_sub_boost: float = 1.0
     
     # Для розыгрыша по комментам
     channel_post_link: Optional[str] = None 
@@ -13210,6 +13212,7 @@ async def create_raffle(
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     # 1. Создаем запись в БД
+    # В поле title теперь записываем имя приза для удобства в списке админки
     payload = {
         "title": req.title,
         "type": req.type,
@@ -13229,17 +13232,17 @@ async def create_raffle(
             # Превращаем настройки в словарь для безопасного чтения
             s = req.settings.dict()
             
-            # 🔥 ИСПРАВЛЕНИЕ: Берем название и качество безопасно
+            # 🔥 ПОЛУЧАЕМ ДАННЫЕ ИЗ НАСТРОЕК
             prize_name = s.get('prize_name', 'Приз')
             quality = s.get('skin_quality', '')
             description = s.get('description', '')
             min_msgs = s.get('min_daily_messages', 0)
             requires_sub = s.get('requires_telegram_sub', False)
 
-            # Формируем полное название приза с качеством
+            # Формируем полное название приза с качеством (например: AK-47 (FT))
             prize_full = f"{prize_name} ({quality})" if quality else prize_name
 
-            # 🔥 ШАБЛОН: РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ
+            # 🔥 ТВOЙ ФИКСИРОВАННЫЙ ШАБЛОН
             txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n"
             
             if description:
