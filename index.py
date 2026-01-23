@@ -13492,56 +13492,77 @@ class FinalizeRequest(BaseModel):
     raffle_id: int
     secret: str
 
+# 6. ВЕБХУК ДЛЯ АВТОМАТИЧЕСКОГО ЗАВЕРШЕНИЯ (QStash)
+class FinalizeRequest(BaseModel):
+    raffle_id: int
+    secret: str
+
 @app.post("/api/v1/webhook/finalize_raffle")
 async def finalize_raffle_webhook(
     req: FinalizeRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Проверка секрета
+    # 1. Проверка секретного ключа (защита от левых вызовов)
     if req.secret != get_cron_secret():
         raise HTTPException(status_code=403, detail="Bad secret")
 
     raffle_id = req.raffle_id
+    
+    # 2. Получаем данные розыгрыша
     raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{raffle_id}"})
-    if not raffle_resp.json(): return {"status": "not found"}
-    raffle = raffle_resp.json()[0]
+    raffle_data = raffle_resp.json()
+    
+    if not raffle_data: 
+        return {"status": "not found"}
+    
+    raffle = raffle_data[0]
 
-    if raffle['status'] != 'active': return {"status": "already_completed"}
+    # Если уже завершен — ничего не делаем
+    if raffle['status'] != 'active': 
+        return {"status": "already_completed"}
 
     winner_id = None
-    winner_data = None # Переменная для хранения инфо о юзере
+    winner_data = None 
 
+    # 3. ЛОГИКА ОПРЕДЕЛЕНИЯ ПОБЕДИТЕЛЯ
     try:
         if raffle['type'] == 'inline_random':
-            parts = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
-            if parts.json(): 
-                winner_entry = random.choice(parts.json())
+            # Ищем всех участников этого розыгрыша
+            parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
+            participants = parts_resp.json()
+            
+            if participants: 
+                winner_entry = random.choice(participants)
                 winner_id = winner_entry['user_id']
                 
         elif raffle['type'] == 'most_active':
-            top = await supabase.get("/users", params={"order": "monthly_message_count.desc", "limit": 1})
-            if top.json(): 
-                winner_id = top.json()[0]['telegram_id']
+            # Ищем самого активного юзера в таблице пользователей
+            top_resp = await supabase.get("/users", params={"order": "monthly_message_count.desc", "limit": 1})
+            top_users = top_resp.json()
+            if top_users: 
+                winner_id = top_users[0]['telegram_id']
         
-        # Если победитель найден, получаем его данные (имя/username) для поста
+        # Если победитель определен, подтягиваем его данные для красивого поста
         if winner_id:
             user_res = await supabase.get("/users", params={"telegram_id": f"eq.{winner_id}"})
             if user_res.json():
                 winner_data = user_res.json()[0]
 
     except Exception as e:
-        print(f"Error picking winner: {e}")
+        print(f"🔴 Ошибка при выборе победителя: {e}")
 
-    # Обновляем БД и отправляем пост
+    # 4. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА В КАНАЛ
+    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+    
     if winner_id:
+        # Помечаем в базе: розыгрыш закрыт, победитель записан
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
         await supabase.patch("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}", "user_id": f"eq.{winner_id}"}, json={"is_winner": True})
         
-        # --- ОТПРАВКА СООБЩЕНИЯ В КАНАЛ ---
-        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+        # Формируем текст сообщения
         if channel_id and winner_data:
             try:
-                prize_name = raffle.get('settings', {}).get('prize_name', 'Приз')
+                prize_name = raffle.get('settings', {}).get('prize_name', 'Крутой приз')
                 winner_name = winner_data.get('full_name', 'Счастливчик')
                 winner_username = f"(@{winner_data.get('username')})" if winner_data.get('username') else ""
                 
@@ -13552,27 +13573,90 @@ async def finalize_raffle_webhook(
                     f"Поздравляем! Администратор свяжется с вами для выдачи приза."
                 )
                 
-                # Если есть картинка - шлем фото, если нет - текст
                 prize_img = raffle.get('settings', {}).get('prize_image')
+                
+                # Отправляем фото, если оно было в настройках, иначе текст
                 if prize_img:
                     await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, parse_mode="HTML")
                 else:
                     await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML")
             except Exception as e:
-                print(f"Failed to send finish message: {e}")
-
+                print(f"⚠️ Ошибка отправки сообщения в ТГ: {e}")
     else:
-        # Если участников не было
+        # Если участников не оказалось
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed"})
-        
-        # Можно оповестить, что участников не было
-        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
         if channel_id:
-             try:
+            try:
                 await bot.send_message(chat_id=channel_id, text=f"⚠️ Розыгрыш «{raffle['title']}» завершен. Участников не было 😔")
-             except: pass
+            except: pass
 
     return {"status": "done", "winner": winner_id}
+
+# --- 🛠️ ДИАГНОСТИКА: ВРЕМЯ + QSTASH ---
+@app.get("/api/v1/debug/test_system")
+async def debug_test_system(
+    input_time: str = None, # Формат: 2024-05-20T18:00:00
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    now_utc = datetime.now(timezone.utc)
+    now_msk = now_utc + timedelta(hours=3)
+    
+    report = {
+        "current_server_time_utc": now_utc.isoformat(),
+        "current_calculated_msk": now_msk.isoformat(),
+        "timezone_check": "Vercel standard is UTC",
+    }
+
+    # Если передали время для проверки (как с фронта)
+    if input_time:
+        try:
+            # Имитируем логику из create_raffle
+            dt_parsed = datetime.fromisoformat(input_time.replace('Z', ''))
+            # Считаем таймштамп, считая что это UTC
+            unix_to_qstash = int(dt_parsed.replace(tzinfo=timezone.utc).timestamp())
+            
+            report["time_analysis"] = {
+                "input_received": input_time,
+                "parsed_as_utc": dt_parsed.isoformat(),
+                "will_trigger_at_unix": unix_to_qstash,
+                "diff_from_now_seconds": unix_to_qstash - int(now_utc.timestamp())
+            }
+        except Exception as e:
+            report["time_analysis_error"] = str(e)
+
+    # ТЕСТ QSTASH: Отправляем запрос, который должен сработать через 60 секунд
+    qstash_token = os.getenv("QSTASH_TOKEN")
+    app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
+    
+    if qstash_token and app_url:
+        target = f"{app_url}/api/v1/webhook/finalize_raffle"
+        # Таймер на +1 минуту от текущего момента для теста
+        test_unix = int(now_utc.timestamp()) + 60 
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                qs_resp = await client.post(
+                    f"https://qstash.upstash.io/v2/publish/{target}",
+                    headers={
+                        "Authorization": f"Bearer {qstash_token}",
+                        "Upstash-Not-Before": str(test_unix),
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "raffle_id": 0, # Тестовый ID
+                        "secret": get_cron_secret(),
+                        "is_test": True 
+                    }
+                )
+            report["qstash_test"] = {
+                "status_code": qs_resp.status_code,
+                "target_url": target,
+                "message": "Check logs in 1 minute to see if webhook was hit"
+            }
+        except Exception as e:
+            report["qstash_test_error"] = str(e)
+
+    return report
 
 # ==========================================
 # ⚡ ТЕЛЕГРАМ ЗАДАНИЯ И РЕАКЦИИ
