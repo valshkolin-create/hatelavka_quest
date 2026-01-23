@@ -13234,13 +13234,11 @@ async def create_raffle(
             # --- ЛОГИКА ВРЕМЕНИ ДЛЯ ПОСТА (ВИЗУАЛЬНАЯ КОРРЕКЦИЯ) ---
             if req.end_time:
                 try:
-                    # 1. Берем UTC время, которое пришло с фронта (например 18:00)
+                    # Считаем, что с фронта время пришло в МСК (визуально для пользователя)
                     dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
                     
-                    # 2. Добавляем 3 часа, чтобы в тексте было МСК (станет 21:00)
-                    dt_msk = dt_input + timedelta(hours=3)
-                    
-                    txt += f"⏳ <b>Итоги:</b> {dt_msk.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
+                    # В тексте поста выводим время как есть, так как это и есть нужное нам МСК
+                    txt += f"⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
                 except Exception as e:
                     print(f"Time error: {e}")
             # -------------------------------------------------------
@@ -13265,11 +13263,12 @@ async def create_raffle(
             app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
 
             if qstash_token and app_url:
-                # QStash работает по UTC.
-                # Если с фронта пришло 18:00Z (что есть 21:00 МСК), то QStash должен получить именно 18:00 UTC.
-                # Ничего отнимать не надо, если время уже в UTC.
                 dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                unix_time = int(dt_input.replace(tzinfo=timezone.utc).timestamp())
+                
+                # 🔥 ФИКС: Переводим МСК в UTC для QStash (вычитаем 3 часа)
+                # Чтобы розыгрыш завершился в 18:00 по МСК, QStash должен сработать в 15:00 UTC.
+                dt_utc = dt_input - timedelta(hours=3)
+                unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
                 
                 target = f"{app_url}/api/v1/webhook/finalize_raffle"
                 
