@@ -277,39 +277,39 @@
         }
 
         // --- Логика: Обновление превью (Telegram Style) ---
+        // --- Логика: Обновление превью (Telegram Style) ---
         function updatePreview() {
             // 1. Собираем данные из полей ввода
-            const title = document.getElementById('inp-title').value || 'НАЗВАНИЕ ИВЕНТА';
             const prize = document.getElementById('inp-prize').value || 'Приз';
-            const quality = document.getElementById('inp-quality').value; // Поле качества скина
+            const quality = document.getElementById('inp-quality').value; // Поле качества
             const desc = document.getElementById('inp-desc').value || '';
             const imgUrl = document.getElementById('inp-img').value;
             
-            // Склеиваем Название + Качество (например: AK-47 | Поверхностная закалка (FT))
+            // Склеиваем Название + Качество (например: AK-47 (FT))
             const prizeFull = quality ? `${prize} (${quality})` : prize;
 
-            // 2. Формируем текст поста (структура как в Telegram)
-            let html = `🎁 <b>НОВЫЙ РОЗЫГРЫШ!</b>\n\n`;
-            html += `🔥 <b>${title.toUpperCase()}</b>\n`;
+            // 2. Формируем текст поста (твой новый шаблон)
+            let html = `🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n`;
             
+            // Описание (только если оно заполнено)
             if (desc) {
-                html += `<i>${desc}</i>\n`;
+                html += `<i>${desc}</i>\n\n`;
             }
             
-            html += `\n🏆 <b>Приз:</b> ${prizeFull}\n`;
+            html += `🏆 <b>Приз:</b> ${prizeFull}\n`;
             
             // Блок условий
             html += `\n📌 <b>Условия:</b>\n`;
             html += `└ Подписка на этот канал\n`;
             
-            // Проверка минимальных сообщений для отображения в превью
+            // Проверка минимальных сообщений Twitch
             const minMsgsInput = document.querySelector('input[name="min_msgs"]');
             const minMsgs = minMsgsInput ? parseInt(minMsgsInput.value || 0) : 0;
             if (minMsgs > 0) {
                 html += `└ Активность на стриме (${minMsgs} сообщ.)\n`;
             }
             
-            // Логика отображения времени (МСК)
+            // Отображение времени (МСК)
             const dateVal = document.querySelector('input[name="end_time"]').value;
             if (dateVal) {
                 const d = new Date(dateVal);
@@ -318,7 +318,7 @@
                 html += `\n⏳ <b>Итоги:</b> ${dateStr} ${timeStr} (МСК)\n`;
             }
 
-            // Новый призыв к действию
+            // Финальный призыв к действию
             html += `\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>`;
 
             // 3. Обновление картинки в превью
@@ -340,23 +340,20 @@
             const btn = e.target.querySelector('button[type="submit"]');
             const originalText = btn.innerHTML;
             
-            // Блокируем кнопку и показываем лоадер
             btn.disabled = true; 
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
 
             const fd = new FormData(e.target);
-            
-            // Передаем время "как есть" для корректной обработки часовых поясов на бэкенде
             const endTimeRaw = fd.get('end_time'); 
 
             const payload = {
                 initData: tg.initData,
-                title: fd.get('title'),
+                title: fd.get('prize'), // Используем имя приза как заголовок для базы
                 type: fd.get('type'),
                 end_time: endTimeRaw, 
                 settings: {
                     prize_name: fd.get('prize'),
-                    skin_quality: fd.get('quality'), // Передаем выбранное качество (FN, MW, и т.д.)
+                    skin_quality: fd.get('quality'), 
                     prize_image: fd.get('image'),
                     description: fd.get('desc'),
                     min_daily_messages: parseInt(fd.get('min_msgs') || 0),
@@ -378,7 +375,7 @@
                     showCustomAlert('Успех!', 'Розыгрыш создан и запущен в канале.');
                     e.target.reset(); 
                     updatePreview(); 
-                    switchTab('list'); // Возвращаемся к списку
+                    switchTab('list'); 
                 } else {
                     const err = await res.json();
                     tg.HapticFeedback.notificationOccurred('error');
@@ -388,7 +385,6 @@
                 tg.HapticFeedback.notificationOccurred('error');
                 showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
             } finally {
-                // Возвращаем кнопку в исходное состояние
                 btn.disabled = false; 
                 btn.innerHTML = originalText;
             }
