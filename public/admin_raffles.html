@@ -287,47 +287,62 @@
 
         // --- Logic: Create ---
         document.getElementById('create-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = e.target.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    
+    // Блокируем кнопку и показываем лоадер
+    btn.disabled = true; 
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
 
-            const fd = new FormData(e.target);
-            let endIso = null;
-            if(fd.get('end_time')) endIso = new Date(fd.get('end_time')).toISOString();
+    const fd = new FormData(e.target);
+    
+    // 🔥 КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: 
+    // Мы берем значение напрямую из инпута (формат: 2026-01-23T18:00).
+    // НЕ используем .toISOString(), так как он принудительно переводит в UTC.
+    const endTimeRaw = fd.get('end_time'); 
 
-            const payload = {
-                initData: tg.initData,
-                title: fd.get('title'),
-                type: fd.get('type'),
-                end_time: endIso,
-                settings: {
-                    prize_name: fd.get('prize'),
-                    prize_image: fd.get('image'),
-                    description: fd.get('desc'),
-                    min_daily_messages: parseInt(fd.get('min_msgs') || 0),
-                    requires_telegram_sub: fd.get('sub_req') === 'on',
-                    requires_referral_status: fd.get('ref_req') === 'on',
-                    twitch_sub_boost: parseFloat(fd.get('twitch_boost') || 1.0)
-                }
-            };
+    const payload = {
+        initData: tg.initData,
+        title: fd.get('title'),
+        type: fd.get('type'),
+        end_time: endTimeRaw, // Отправляем как "2026-01-23T18:00"
+        settings: {
+            prize_name: fd.get('prize'),
+            prize_image: fd.get('image'),
+            description: fd.get('desc'),
+            min_daily_messages: parseInt(fd.get('min_msgs') || 0),
+            requires_telegram_sub: fd.get('sub_req') === 'on',
+            requires_referral_status: fd.get('ref_req') === 'on',
+            twitch_sub_boost: parseFloat(fd.get('twitch_boost') || 1.0)
+        }
+    };
 
-            try {
-                const res = await fetch('/api/v1/admin/raffles/create', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                if(res.ok) {
-                    showCustomAlert('Успех!', 'Розыгрыш создан и запущен.');
-                    e.target.reset(); updatePreview(); switchTab('list');
-                } else {
-                    const err = await res.json();
-                    showCustomAlert('Ошибка', err.detail || 'Не удалось создать');
-                }
-            } catch(e) { showCustomAlert('Ошибка сети', 'Проверьте интернет'); }
-            
-            btn.disabled = false; btn.innerHTML = originalText;
+    try {
+        const res = await fetch('/api/v1/admin/raffles/create', {
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
         });
+
+        if (res.ok) {
+            showCustomAlert('Успех!', 'Розыгрыш создан и запущен в канале.');
+            e.target.reset(); 
+            updatePreview(); 
+            switchTab('list'); // Переключаемся на список активных
+        } else {
+            const err = await res.json();
+            showCustomAlert('Ошибка', err.detail || 'Не удалось создать розыгрыш');
+        }
+    } catch (error) {
+        console.error('Create error:', error);
+        showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+    } finally {
+        // Возвращаем кнопку в исходное состояние
+        btn.disabled = false; 
+        btn.innerHTML = originalText;
+    }
+});
 
         // --- Logic: List ---
         async function loadRaffles() {
@@ -359,7 +374,7 @@
                         <div class="card-meta">
                             <div class="card-title">${r.title}</div>
                             <span class="status-badge ${isDone ? 'st-done' : 'st-active'}">${isDone ? 'Завершен' : 'Активен'}</span>
-                            ${!isDone && r.end_time ? `<span style="font-size:10px; color:var(--danger); margin-left:5px;">⏳ ${new Date(r.end_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>` : ''}
+                            ${!isDone && r.end_time ? `<span style="font-size:10px; color:var(--danger); margin-left:5px;">⏳ ${new Date(r.end_time).toLocaleString([], {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</span>` : ''}
                         </div>
                     </div>
                     <div style="font-size:12px; color:var(--text-sec); margin-bottom:10px;">Приз: <span style="color:#fff;">${s.prize_name}</span></div>
