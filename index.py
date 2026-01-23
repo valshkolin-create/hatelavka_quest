@@ -13223,27 +13223,37 @@ async def create_raffle(
     new_id = last_raffle.json()[0]['id']
 
     # 2. ОТПРАВЛЯЕМ ПОСТ В КАНАЛ
+    # 2. ОТПРАВЛЯЕМ ПОСТ В КАНАЛ
     channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if channel_id:
         try:
-            txt = f"🔥 <b>РОЗЫГРЫШ: {req.title.upper()}</b>\n\n"
+            # Берем качество скина из настроек (если есть)
+            quality = req.settings.dict().get('skin_quality', '')
+            prize_full = f"{req.settings.prize_name} ({quality})" if quality else req.settings.prize_name
+
+            # 📝 ФОРМИРУЕМ КРАСИВЫЙ ТЕСТ
+            txt = f"🎁 <b>НОВЫЙ РОЗЫГРЫШ!</b>\n\n"
+            txt += f"🔥 <b>{req.title.upper()}</b>\n"
             if req.settings.description:
-                txt += f"{req.settings.description}\n\n"
-            txt += f"🎁 <b>Приз:</b> {req.settings.prize_name}\n"
+                txt += f"<i>{req.settings.description}</i>\n"
             
-            # --- ЛОГИКА ВРЕМЕНИ ДЛЯ ПОСТА (ВИЗУАЛЬНАЯ КОРРЕКЦИЯ) ---
+            txt += f"\n🏆 <b>Приз:</b> {prize_full}\n"
+            
+            # --- УСЛОВИЯ ---
+            txt += "\n📌 <b>Условия:</b>\n"
+            if req.settings.requires_telegram_sub:
+                txt += "└ Подписка на этот канал\n"
+            if req.settings.min_daily_messages > 0:
+                txt += f"└ Активность на стриме ({req.settings.min_daily_messages} сообщ.)\n"
+            
+            # --- ЛОГИКА ВРЕМЕНИ ---
             if req.end_time:
                 try:
-                    # Считаем, что с фронта время пришло в МСК (визуально для пользователя)
                     dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                    
-                    # В тексте поста выводим время как есть, так как это и есть нужное нам МСК
-                    txt += f"⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
-                except Exception as e:
-                    print(f"Time error: {e}")
-            # -------------------------------------------------------
+                    txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
+                except: pass
             
-            txt += "\n👇 <b>Жми кнопку, чтобы забрать!</b>"
+            txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>" # Изменили фразу
 
             url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
