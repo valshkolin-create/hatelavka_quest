@@ -13210,8 +13210,7 @@ async def create_raffle(
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     # 1. Создаем запись в БД
-    # Так как мы удалили поле title в админке, в качестве заголовка в БД 
-    # будет улетать название приза (req.title теперь содержит имя приза из JS)
+    # В поле title теперь записываем имя приза для удобства в списке админки
     payload = {
         "title": req.title,
         "type": req.type,
@@ -13228,28 +13227,32 @@ async def create_raffle(
     channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if channel_id:
         try:
-            settings_dict = req.settings.dict()
-            # Берем качество скина из настроек
-            quality = settings_dict.get('skin_quality', '')
-            prize_full = f"{req.settings.prize_name} ({quality})" if quality else req.settings.prize_name
+            # Превращаем настройки в словарь, чтобы безопасно читать поля через .get()
+            s = req.settings.dict()
+            
+            prize_name = s.get('prize_name', 'Приз')
+            quality = s.get('skin_quality', '')
+            description = s.get('description', '')
+            min_msgs = s.get('min_daily_messages', 0)
+            requires_sub = s.get('requires_telegram_sub', False)
 
-            # 🔥 ТВOЙ НОВЫЙ ШАБЛОН (БЕЗ ПОВТОРОВ)
+            prize_full = f"{prize_name} ({quality})" if quality else prize_name
+
+            # 🔥 ШАБЛОН: РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ
             txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n"
             
-            # Описание (если заполнено)
-            if req.settings.description:
-                txt += f"<i>{req.settings.description}</i>\n\n"
+            if description:
+                txt += f"<i>{description}</i>\n\n"
             
             txt += f"🏆 <b>Приз:</b> {prize_full}\n"
             
-            # --- УСЛОВИЯ ---
             txt += "\n📌 <b>Условия:</b>\n"
-            txt += "└ Подписка на этот канал\n" # Базовое условие
+            txt += "└ Подписка на этот канал\n" 
             
-            if req.settings.min_daily_messages > 0:
-                txt += f"└ Активность на стриме ({req.settings.min_daily_messages} сообщ.)\n"
+            if min_msgs and int(min_msgs) > 0:
+                txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
             
-            # --- ЛОГИКА ВРЕМЕНИ ---
+            # ВЫВОД ВРЕМЕНИ В ПОСТЕ
             if req.end_time:
                 try:
                     dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
@@ -13261,8 +13264,11 @@ async def create_raffle(
             url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
 
-            if req.settings.prize_image:
-                await bot.send_photo(chat_id=channel_id, photo=req.settings.prize_image, caption=txt, reply_markup=kb, parse_mode="HTML")
+            # Картинка приза
+            prize_img = s.get('prize_image')
+            
+            if prize_img:
+                await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
             else:
                 await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
                 
@@ -13277,23 +13283,27 @@ async def create_raffle(
 
             if qstash_token and app_url:
                 dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                
-                # 🔥 ФИКС: Переводим МСК в UTC для QStash (вычитаем 3 часа)
+                # Корректируем время (МСК -> UTC)
                 dt_utc = dt_input - timedelta(hours=3)
                 unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
                 
-                target = f"{app_url}/api/v1/webhook/finalize_raffle"
-                
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"https://qstash.upstash.io/v2/publish/{target}",
-                        headers={
-                            "Authorization": f"Bearer {qstash_token}",
-                            "Upstash-Not-Before": str(unix_time),
-                            "Content-Type": "application/json"
-                        },
-                        json={"raffle_id": new_id, "secret": get_cron_secret()}
-                    )
+                # Проверяем, что время не в прошлом, прежде чем слать запрос
+                if unix_time > int(datetime.now(timezone.utc).timestamp()):
+                    target = f"{app_url}/api/v1/webhook/finalize_raffle"
+                    async with httpx.AsyncClient() as client:
+                        qs_res = await client.post(
+                            f"https://qstash.upstash.io/v2/publish/{target}",
+                            headers={
+                                "Authorization": f"Bearer {qstash_token}",
+                                "Upstash-Not-Before": str(unix_time),
+                                "Content-Type": "application/json"
+                            },
+                            json={"raffle_id": new_id, "secret": get_cron_secret()}
+                        )
+                        print(f"✅ QStash ответил: {qs_res.status_code}")
+                else:
+                    print("⚠️ Таймер не запущен: указанное время уже прошло.")
+                    
         except Exception as e:
             print(f"⚠️ Ошибка QStash: {e}")
 
