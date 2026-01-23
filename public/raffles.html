@@ -212,58 +212,84 @@
         }
 
         function render(data) {
-            const list = document.getElementById('list');
-            list.innerHTML = '';
-            if(!data.length) { list.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px; font-weight:500;">Активных розыгрышей нет 👻</div>'; return; }
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+    
+    if (!data.length) { 
+        list.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px; font-weight:500;">Активных розыгрышей нет 👻</div>'; 
+        return; 
+    }
 
-            data.forEach(r => {
-                const s = r.settings || {};
-                const done = r.status === 'completed';
-                // Заглушка, если картинки нет (placehold.co работает надежно)
-                const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
+    data.forEach(r => {
+        const s = r.settings || {};
+        const done = r.status === 'completed';
+        
+        // Заглушка, если картинки нет
+        const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
+        
+        // --- ГЕНЕРАЦИЯ ПОЛНЫХ УСЛОВИЙ ---
+        let conditions = '';
+        
+        if (s.requires_telegram_sub) {
+            conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на Telegram канал</div>`;
+        }
+        
+        if (s.min_daily_messages > 0) {
+            conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Напиши ${s.min_daily_messages} сообщ. на Twitch</div>`;
+        }
+        
+        if (r.end_time && !done) {
+            try {
+                // Создаем объект даты. Если строка без 'Z', браузер поймет её как местное время (МСК)
+                const dateObj = new Date(r.end_time);
+                const dateStr = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                const timeStr = dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
                 
-                // --- ГЕНЕРАЦИЯ ПОЛНЫХ УСЛОВИЙ ---
-                let conditions = '';
-                
-                if(s.requires_telegram_sub) {
-                    conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на Telegram канал</div>`;
-                }
-                
-                if(s.min_daily_messages > 0) {
-                    conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Напиши ${s.min_daily_messages} сообщений на Twitch</div>`;
-                }
-                
-                if(r.end_time && !done) {
-                    conditions += `<div class="cond-row"><i class="fa-regular fa-clock"></i> Итоги: ${new Date(r.end_time).toLocaleDateString()} ${new Date(r.end_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>`;
-                }
-
-                let btn = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать 🎲</button>`;
-                if(r.is_joined) btn = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
-                if(done) btn = `<button class="btn btn-done">Завершен</button>`;
-
-                let winner = '';
-                if(done && r.winner) {
-                    winner = `<div class="winner"><div class="w-lbl">Победитель</div><div class="w-name">${r.winner.full_name}</div></div>`;
-                }
-
-                list.innerHTML += `
-                <div class="card ${done ? 'done' : ''}">
-                    <div class="c-body">
-                        <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/100x100/2c2c2e/FFF?text=Error'">
-                        <div class="c-info">
-                            <div class="r-title">${r.title}</div>
-                            <div class="r-prize">${s.prize_name}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="conditions">${conditions}</div>
-                    
-                    ${!done ? btn : ''}
-                    ${winner}
-                </div>`;
-            });
+                conditions += `<div class="cond-row"><i class="fa-regular fa-clock"></i> Итоги: ${dateStr} в ${timeStr} (МСК)</div>`;
+            } catch (e) {
+                console.error("Ошибка даты:", e);
+            }
         }
 
+        // --- ЛОГИКА КНОПОК ---
+        let btn = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать 🎲</button>`;
+        
+        if (r.is_joined) {
+            btn = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
+        }
+        
+        if (done) {
+            btn = `<button class="btn btn-done">Завершен</button>`;
+        }
+
+        // --- БЛОК ПОБЕДИТЕЛЯ ---
+        let winner = '';
+        if (done && r.winner) {
+            winner = `
+            <div class="winner">
+                <div class="w-lbl">Победитель</div>
+                <div class="w-name">🏆 ${r.winner.full_name}</div>
+            </div>`;
+        }
+
+        // --- СБОРКА КАРТОЧКИ ---
+        list.innerHTML += `
+        <div class="card ${done ? 'done' : ''}">
+            <div class="c-body">
+                <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/100x100/2c2c2e/FFF?text=Error'">
+                <div class="c-info">
+                    <div class="r-title">${r.title}</div>
+                    <div class="r-prize">${s.prize_name}</div>
+                </div>
+            </div>
+            
+            <div class="conditions">${conditions}</div>
+            
+            ${!done ? btn : ''}
+            ${winner}
+        </div>`;
+    });
+}
         async function join(id, isAuto = false) {
             let btn = null;
             let oldHtml = '';
