@@ -13210,6 +13210,8 @@ async def create_raffle(
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     # 1. Создаем запись в БД
+    # Так как мы удалили поле title в админке, в качестве заголовка в БД 
+    # будет улетать название приза (req.title теперь содержит имя приза из JS)
     payload = {
         "title": req.title,
         "type": req.type,
@@ -13223,26 +13225,27 @@ async def create_raffle(
     new_id = last_raffle.json()[0]['id']
 
     # 2. ОТПРАВЛЯЕМ ПОСТ В КАНАЛ
-    # 2. ОТПРАВЛЯЕМ ПОСТ В КАНАЛ
     channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if channel_id:
         try:
-            # Берем качество скина из настроек (если есть)
-            quality = req.settings.dict().get('skin_quality', '')
+            settings_dict = req.settings.dict()
+            # Берем качество скина из настроек
+            quality = settings_dict.get('skin_quality', '')
             prize_full = f"{req.settings.prize_name} ({quality})" if quality else req.settings.prize_name
 
-            # 📝 ФОРМИРУЕМ КРАСИВЫЙ ТЕСТ
-            txt = f"🎁 <b>НОВЫЙ РОЗЫГРЫШ!</b>\n\n"
-            txt += f"🔥 <b>{req.title.upper()}</b>\n"
-            if req.settings.description:
-                txt += f"<i>{req.settings.description}</i>\n"
+            # 🔥 ТВOЙ НОВЫЙ ШАБЛОН (БЕЗ ПОВТОРОВ)
+            txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n"
             
-            txt += f"\n🏆 <b>Приз:</b> {prize_full}\n"
+            # Описание (если заполнено)
+            if req.settings.description:
+                txt += f"<i>{req.settings.description}</i>\n\n"
+            
+            txt += f"🏆 <b>Приз:</b> {prize_full}\n"
             
             # --- УСЛОВИЯ ---
             txt += "\n📌 <b>Условия:</b>\n"
-            if req.settings.requires_telegram_sub:
-                txt += "└ Подписка на этот канал\n"
+            txt += "└ Подписка на этот канал\n" # Базовое условие
+            
             if req.settings.min_daily_messages > 0:
                 txt += f"└ Активность на стриме ({req.settings.min_daily_messages} сообщ.)\n"
             
@@ -13253,7 +13256,7 @@ async def create_raffle(
                     txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
                 except: pass
             
-            txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>" # Изменили фразу
+            txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
 
             url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
@@ -13276,7 +13279,6 @@ async def create_raffle(
                 dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
                 
                 # 🔥 ФИКС: Переводим МСК в UTC для QStash (вычитаем 3 часа)
-                # Чтобы розыгрыш завершился в 18:00 по МСК, QStash должен сработать в 15:00 UTC.
                 dt_utc = dt_input - timedelta(hours=3)
                 unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
                 
