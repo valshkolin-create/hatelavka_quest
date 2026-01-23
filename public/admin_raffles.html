@@ -172,9 +172,6 @@
             
             <h3 style="margin: 0 0 10px; color: var(--primary);"><i class="fa-solid fa-pen-fancy"></i> Контент</h3>
 
-            <label>Внутренний заголовок</label>
-            <input type="text" name="title" id="inp-title" placeholder="Например: AWP Asiimov" required oninput="updatePreview()">
-
             <label>Название приза</label>
             <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov (FT)" required oninput="updatePreview()">
 
@@ -276,7 +273,7 @@
             else tb.classList.add('hidden');
         }
 
-        // --- Логика: Обновление превью (Telegram Style) ---
+
         // --- Логика: Обновление превью (Telegram Style) ---
         function updatePreview() {
             // 1. Собираем данные из полей ввода
