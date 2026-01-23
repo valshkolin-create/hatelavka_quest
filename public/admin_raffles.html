@@ -178,6 +178,16 @@
             <label>Название приза</label>
             <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov (FT)" required oninput="updatePreview()">
 
+            <label>Качество (Wear)</label>
+            <select name="quality" id="inp-quality" onchange="updatePreview()">
+            <option value="">Без качества</option>
+            <option value="FN">Factory New (Прямо с завода)</option>
+            <option value="MW">Minimal Wear (Немного поношенное)</option>
+            <option value="FT">Field-Tested (После полевых испытаний)</option>
+            <option value="WW">Well-Worn (Поношенное)</option>
+            <option value="BS">Battle-Scarred (Закаленное в боях)</option>
+            </select>
+
             <label>Картинка (URL)</label>
             <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
 
@@ -291,24 +301,20 @@
     const btn = e.target.querySelector('button[type="submit"]');
     const originalText = btn.innerHTML;
     
-    // Блокируем кнопку и показываем лоадер
     btn.disabled = true; 
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
 
     const fd = new FormData(e.target);
-    
-    // 🔥 КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: 
-    // Мы берем значение напрямую из инпута (формат: 2026-01-23T18:00).
-    // НЕ используем .toISOString(), так как он принудительно переводит в UTC.
     const endTimeRaw = fd.get('end_time'); 
 
     const payload = {
         initData: tg.initData,
         title: fd.get('title'),
         type: fd.get('type'),
-        end_time: endTimeRaw, // Отправляем как "2026-01-23T18:00"
+        end_time: endTimeRaw, 
         settings: {
             prize_name: fd.get('prize'),
+            skin_quality: fd.get('quality'), // Передаем качество скина
             prize_image: fd.get('image'),
             description: fd.get('desc'),
             min_daily_messages: parseInt(fd.get('min_msgs') || 0),
@@ -326,19 +332,20 @@
         });
 
         if (res.ok) {
+            tg.HapticFeedback.notificationOccurred('success');
             showCustomAlert('Успех!', 'Розыгрыш создан и запущен в канале.');
             e.target.reset(); 
             updatePreview(); 
-            switchTab('list'); // Переключаемся на список активных
+            switchTab('list'); 
         } else {
             const err = await res.json();
+            tg.HapticFeedback.notificationOccurred('error');
             showCustomAlert('Ошибка', err.detail || 'Не удалось создать розыгрыш');
         }
     } catch (error) {
-        console.error('Create error:', error);
+        tg.HapticFeedback.notificationOccurred('error');
         showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
     } finally {
-        // Возвращаем кнопку в исходное состояние
         btn.disabled = false; 
         btn.innerHTML = originalText;
     }
