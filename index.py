@@ -12972,7 +12972,7 @@ async def claim_daily_task(
                 secret_code = code_obj["code"]
                 await supabase.patch("/cs_codes", params={"code": f"eq.{secret_code}"}, json={"is_copied": True, "assigned_to": user_id, "assigned_at": datetime.now(timezone.utc).isoformat()})
             
-            reward = 0 if secret_code else 100
+            reward = 0 if secret_code else 10
             
             # СБРАСЫВАЕМ НА 1 ДЕНЬ (КРУГ ЗАМКНУЛСЯ)
             next_day = 1 
