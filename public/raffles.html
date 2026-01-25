@@ -23,7 +23,14 @@
             -webkit-tap-highlight-color: transparent; 
         }
         
-        h1 { font-size: 28px; font-weight: 800; margin: 10px 0 20px; letter-spacing: -0.5px; }
+        /* --- Header Row --- */
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
+        h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+        .history-btn { 
+            background: var(--card); width: 44px; height: 44px; border-radius: 12px; 
+            display: flex; align-items: center; justify-content: center; color: var(--primary); 
+            font-size: 18px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+        }
 
         /* --- Cards --- */
         .card { 
@@ -31,7 +38,7 @@
             position: relative; animation: slideUp 0.4s ease; 
             border: 1px solid rgba(255,255,255,0.08); 
         }
-        .card.done { opacity: 0.6; filter: grayscale(1); border-color: transparent; }
+        .card.done { opacity: 0.8; border-color: transparent; filter: none; } /* Оставил видимым как просил */
         
         .c-body { display: flex; gap: 14px; }
         .prize-img { 
@@ -42,7 +49,6 @@
         .r-title { font-weight: 700; font-size: 17px; line-height: 1.2; margin-bottom: 5px; }
         .r-prize { font-size: 14px; color: var(--primary); font-weight: 600; margin-bottom: 8px; }
         
-        /* Полные условия (тэги) */
         .conditions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         .cond-row { 
             font-size: 12px; background: rgba(255,255,255,0.06); padding: 8px 12px; 
@@ -58,7 +64,6 @@
             transition: 0.1s; display: flex; justify-content: center; align-items: center; gap: 8px; 
         }
         .btn:active { transform: scale(0.98); opacity: 0.9; }
-        
         .btn-join { background: var(--primary); color: #000; }
         .btn-joined { background: rgba(50, 215, 75, 0.15); color: var(--green); cursor: default; }
         .btn-done { background: rgba(255,255,255,0.1); color: var(--sec); cursor: default; }
@@ -72,7 +77,17 @@
         .w-lbl { font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
         .w-name { font-weight: 700; font-size: 15px; margin-top: 4px; color: #fff; }
 
-        /* --- Close Button --- */
+        /* --- History Container Overlay --- */
+        .history-overlay {
+            position: fixed; inset: 0; background: var(--bg); z-index: 100;
+            padding: 16px; overflow-y: auto; display: none;
+            animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .history-overlay.active { display: block; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .close-x { font-size: 26px; color: var(--sec); cursor: pointer; padding: 5px; }
+
+        /* --- Close Button Bottom --- */
         .close-container { 
             position: fixed; bottom: 30px; left: 0; right: 0; 
             display: flex; justify-content: center; z-index: 10; pointer-events: none; 
@@ -82,9 +97,8 @@
             color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; 
             cursor: pointer; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .btn-close:active { transform: scale(0.95); background: #333; }
 
-        /* --- Modals --- */
+        /* --- Modals & Anims --- */
         .modal-overlay { 
             position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
             backdrop-filter: blur(20px); z-index: 999; display: none; 
@@ -95,34 +109,24 @@
             text-align: center; animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
             border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.6);
         }
-        
         .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
         .m-desc { font-size: 15px; color: var(--sec); margin-bottom: 25px; line-height: 1.4; }
-        
         .m-btn { 
             background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; 
-            padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; 
-            margin-bottom: 10px;
+            padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; margin-bottom: 10px;
         }
         .m-btn-primary { background: var(--primary); color: #000; font-weight: 700; }
 
-        /* --- SVG Animations (No External Files) --- */
         .icon-container { width: 80px; height: 80px; margin: 0 auto 15px; position: relative; }
-        
-        /* Success Checkmark */
         .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--green); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
         .checkmark { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--green); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
         .checkmark-check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
-        
-        /* Error Cross */
         .cross-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--danger); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
         .cross { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--danger); animation: fill-red .4s ease-in-out .4s forwards, shake .3s ease-in-out .9s both; }
         .cross-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
 
-        /* Verify Loader */
         .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 10px; }
-        .verify-sub { font-size: 13px; color: var(--sec); margin-top: 5px; }
+        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 10px; text-align: center; }
 
         @keyframes stroke { 100% { stroke-dashoffset: 0; } }
         @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
@@ -131,6 +135,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes shake { 0%, 100% {transform: translateX(0);} 10%, 30%, 50%, 70%, 90% {transform: translateX(-5px);} 20%, 40%, 60%, 80% {transform: translateX(5px);} }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
         @keyframes zoom { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
         .hidden { display: none; }
@@ -138,11 +143,25 @@
 </head>
 <body>
 
-    <h1>Розыгрыши</h1>
+    <div class="header-row">
+        <h1>Розыгрыши</h1>
+        <div class="history-btn" onclick="openHistory()">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+        </div>
+    </div>
+
     <div id="list">
         <div style="text-align:center; margin-top:50px; color:var(--sec);">
             <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         </div>
+    </div>
+
+    <div id="history-overlay" class="history-overlay">
+        <div class="history-header">
+            <h1>Завершенные</h1>
+            <i class="fa-solid fa-xmark close-x" onclick="closeHistory()"></i>
+        </div>
+        <div id="history-list"></div>
     </div>
 
     <div class="close-container">
@@ -152,10 +171,8 @@
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
             <div id="modal-icon" class="icon-container"></div>
-            
             <div class="m-head" id="m-head"></div>
             <div class="m-desc" id="m-desc"></div>
-            
             <button id="btn-profile" class="m-btn m-btn-primary" style="display:none;" onclick="location.href='/profile'">⚙️ Настроить профиль</button>
             <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
@@ -163,14 +180,22 @@
 
     <div id="verify-modal" class="modal-overlay" style="z-index: 1000;">
         <div class="verify-loader"></div>
-        <div class="verify-text">Проверяем условия...</div>
-        <div class="verify-sub">Секундочку, сверяем данные</div>
+        <div class="verify-text">Проверяем условия...<br><span style="font-size:13px; color:var(--sec); font-weight:400;">Секундочку, сверяем данные</span></div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.BackButton.hide();
+
+        // Функции управления историей
+        function openHistory() {
+            document.getElementById('history-overlay').classList.add('active');
+            tg.HapticFeedback.impactOccurred('light');
+        }
+        function closeHistory() {
+            document.getElementById('history-overlay').classList.remove('active');
+        }
 
         async function load() {
             try {
@@ -184,27 +209,17 @@
             } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center; color:#555;">Ошибка соединения</p>'; }
         }
 
-        // --- ЛОГИКА DEEP LINK (ОДНОРАЗОВАЯ) ---
         async function checkDeepLink() {
             const startParam = tg.initDataUnsafe.start_param; 
-            
             if (startParam && startParam.startsWith('raffle_')) {
                 const raffleId = startParam.split('_')[1];
-                
-                // Проверяем sessionStorage (чтобы не проверять бесконечно при F5)
                 if (sessionStorage.getItem('checked_raffle_' + raffleId)) return;
-
                 if(raffleId) {
                     const vModal = document.getElementById('verify-modal');
                     vModal.style.display = 'flex';
                     tg.HapticFeedback.impactOccurred('light');
-
-                    // Пауза для красоты
                     await new Promise(r => setTimeout(r, 1500));
-                    
-                    // Запоминаем, что проверили
                     sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
-
                     await join(raffleId, true);
                     vModal.style.display = 'none';
                 }
@@ -212,99 +227,78 @@
         }
 
         function render(data) {
-    const list = document.getElementById('list');
-    list.innerHTML = '';
-    
-    if (!data.length) { 
-        list.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px; font-weight:500;">Активных розыгрышей нет 👻</div>'; 
-        return; 
-    }
+            const list = document.getElementById('list');
+            const historyList = document.getElementById('history-list');
+            list.innerHTML = '';
+            historyList.innerHTML = '';
+            
+            if (!data.length) { 
+                list.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px; font-weight:500;">Активных розыгрышей нет 👻</div>'; 
+                return; 
+            }
 
-    data.forEach(r => {
-        const s = r.settings || {};
-        const done = r.status === 'completed';
-        
-        // Заглушка, если картинки нет
-        const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
-        
-        // --- ГЕНЕРАЦИЯ ПОЛНЫХ УСЛОВИЙ ---
-        let conditions = '';
-        
-        if (s.requires_telegram_sub) {
-            conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на Telegram канал</div>`;
-        }
-        
-        if (s.min_daily_messages > 0) {
-            conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Напиши ${s.min_daily_messages} сообщ. на Twitch</div>`;
-        }
-        
-        if (r.end_time && !done) {
-            try {
-                // Создаем объект даты. Если строка без 'Z', браузер поймет её как местное время (МСК)
-                const dateObj = new Date(r.end_time);
-                const dateStr = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-                const timeStr = dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            data.forEach(r => {
+                const s = r.settings || {};
+                const done = r.status === 'completed';
+                const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
                 
-                conditions += `<div class="cond-row"><i class="fa-regular fa-clock"></i> Итоги: ${dateStr} в ${timeStr} (МСК)</div>`;
-            } catch (e) {
-                console.error("Ошибка даты:", e);
+                let conditions = '';
+                if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на канал</div>`;
+                if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> ${s.min_daily_messages} сообщ. на Twitch</div>`;
+                
+                if (r.end_time && !done) {
+                    try {
+                        const dateObj = new Date(r.end_time);
+                        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                        const timeStr = dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                        conditions += `<div class="cond-row"><i class="fa-regular fa-clock"></i> Итоги: ${dateStr} в ${timeStr}</div>`;
+                    } catch (e) {}
+                }
+
+                let btn = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать 🎲</button>`;
+                if (r.is_joined) btn = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
+                
+                let winnerBlock = '';
+                if (done && r.winner) {
+                    winnerBlock = `
+                    <div class="winner">
+                        <div class="w-lbl">Победитель</div>
+                        <div class="w-name">🏆 ${r.winner.full_name}</div>
+                    </div>`;
+                }
+
+                const cardHtml = `
+                <div class="card ${done ? 'done' : ''}">
+                    <div class="c-body">
+                        <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/100x100/2c2c2e/FFF?text=Error'">
+                        <div class="c-info">
+                            <div class="r-title">${r.title}</div>
+                            <div class="r-prize">${s.prize_name}</div>
+                        </div>
+                    </div>
+                    <div class="conditions">${conditions}</div>
+                    ${!done ? btn : ''}
+                    ${winnerBlock}
+                </div>`;
+
+                // РАСПРЕДЕЛЕНИЕ ПО КОНТЕЙНЕРАМ
+                if (done) historyList.innerHTML += cardHtml;
+                else list.innerHTML += cardHtml;
+            });
+
+            if (historyList.innerHTML === '') {
+                historyList.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px;">История пуста</div>';
             }
         }
 
-        // --- ЛОГИКА КНОПОК ---
-        let btn = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать 🎲</button>`;
-        
-        if (r.is_joined) {
-            btn = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
-        }
-        
-        if (done) {
-            btn = `<button class="btn btn-done">Завершен</button>`;
-        }
-
-        // --- БЛОК ПОБЕДИТЕЛЯ ---
-        let winner = '';
-        if (done && r.winner) {
-            winner = `
-            <div class="winner">
-                <div class="w-lbl">Победитель</div>
-                <div class="w-name">🏆 ${r.winner.full_name}</div>
-            </div>`;
-        }
-
-        // --- СБОРКА КАРТОЧКИ ---
-        list.innerHTML += `
-        <div class="card ${done ? 'done' : ''}">
-            <div class="c-body">
-                <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/100x100/2c2c2e/FFF?text=Error'">
-                <div class="c-info">
-                    <div class="r-title">${r.title}</div>
-                    <div class="r-prize">${s.prize_name}</div>
-                </div>
-            </div>
-            
-            <div class="conditions">${conditions}</div>
-            
-            ${!done ? btn : ''}
-            ${winner}
-        </div>`;
-    });
-}
         async function join(id, isAuto = false) {
             let btn = null;
             let oldHtml = '';
-
-            // Если кликнул пользователь
             if(!isAuto && event) {
-                // --- ВИБРАЦИЯ ПРИ НАЖАТИИ ---
                 tg.HapticFeedback.impactOccurred('medium');
-
                 btn = event.target;
                 if(btn.tagName !== 'BUTTON') btn = btn.closest('button');
-                
-                // Проверяем, не нажал ли он на кнопку повторно или на неактивную
-                if(btn.classList.contains('btn-joined') || btn.classList.contains('btn-done')) return;
-
+                if(btn.classList.contains('btn-joined')) return;
                 oldHtml = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             }
@@ -315,24 +309,17 @@
                     body: JSON.stringify({initData:tg.initData, raffle_id:id})
                 });
                 const ans = await res.json();
-                
                 if(res.ok) {
-                    // --- ВИБРАЦИЯ УСПЕХА ---
                     tg.HapticFeedback.notificationOccurred('success');
-                    
                     showModal('success', 'Успех!', ans.message);
                     load(); 
                 } else {
-                    // --- ВИБРАЦИЯ ОШИБКИ ---
                     tg.HapticFeedback.notificationOccurred('error');
-
                     showModal('error', 'Упс...', ans.detail);
                     if(btn) btn.innerHTML = oldHtml;
                 }
             } catch(e) {
-                // --- ВИБРАЦИЯ ОШИБКИ ---
                 tg.HapticFeedback.notificationOccurred('error');
-                
                 showModal('error', 'Ошибка', 'Проверьте соединение');
                 if(btn) btn.innerHTML = oldHtml;
             }
@@ -343,29 +330,13 @@
             const iconBox = document.getElementById('modal-icon');
             const btnProfile = document.getElementById('btn-profile');
             
-            // ВСТАВЛЯЕМ SVG АНИМАЦИЮ (КОД)
             if(type === 'success') {
-                iconBox.innerHTML = `
-                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-                    <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
-                    <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-                </svg>`;
+                iconBox.innerHTML = `<svg class="checkmark" viewBox="0 0 52 52"><circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`;
                 btnProfile.style.display = 'none';
-                tg.HapticFeedback.notificationOccurred('success');
             } else {
-                iconBox.innerHTML = `
-                <svg class="cross" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-                    <circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/>
-                    <path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/>
-                </svg>`;
-                
-                const m = msg.toLowerCase();
-                if (m.includes('trade') || m.includes('twitch') || m.includes('start') || m.includes('профиль')) {
-                    btnProfile.style.display = 'block';
-                } else {
-                    btnProfile.style.display = 'none';
-                }
-                tg.HapticFeedback.notificationOccurred('error');
+                iconBox.innerHTML = `<svg class="cross" viewBox="0 0 52 52"><circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/><path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/></svg>`;
+                const mLow = msg.toLowerCase();
+                btnProfile.style.display = (mLow.includes('trade') || mLow.includes('twitch') || mLow.includes('профиль')) ? 'block' : 'none';
             }
 
             document.getElementById('m-head').innerText = title;
