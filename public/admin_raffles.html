@@ -25,6 +25,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0; padding: 20px;
             -webkit-tap-highlight-color: transparent;
+            padding-bottom: 50px;
         }
 
         /* --- Header --- */
@@ -36,18 +37,23 @@
         .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
 
         /* --- Tabs --- */
-        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; }
-        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; }
-        .tab.active { background: rgba(255,255,255,0.1); color: var(--text); shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; }
+        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; white-space: nowrap; }
+        .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
         /* --- Forms --- */
-        .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 15px 0 5px; font-weight: 500; }
+        .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
         .admin-form input, .admin-form select, .admin-form textarea {
             width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
             color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
         }
         .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
         
+        /* New Section Styling */
+        .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+        .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
         /* Toggles */
         .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid var(--card-border); }
         .toggle-switch { position: relative; width: 40px; height: 22px; }
@@ -67,7 +73,7 @@
         .main-btn:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); }
 
         /* --- Preview --- */
-        .preview-box { background: #182533; border-radius: 12px; padding: 12px; margin-top: 20px; border-left: 3px solid var(--primary); }
+        .preview-box { background: #182533; border-radius: 12px; padding: 12px; margin-top: 20px; border-left: 3px solid var(--primary); transition: 0.3s; }
         .prev-img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: none; }
         .prev-img.show { display: block; }
         .prev-text { font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
@@ -80,18 +86,23 @@
             animation: slideUp 0.4s ease;
         }
         .raffle-card.completed { opacity: 0.7; border-color: transparent; }
+        .raffle-card.silent { border-left: 3px solid #aaa; }
+        
         .card-header { display: flex; gap: 12px; margin-bottom: 12px; }
         .card-thumb { width: 50px; height: 50px; border-radius: 10px; background: #222; object-fit: cover; }
         .card-meta { flex: 1; }
         .card-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+        
         .status-badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
         .st-active { background: rgba(40, 167, 69, 0.2); color: var(--accent); }
         .st-done { background: rgba(255, 255, 255, 0.1); color: var(--text-sec); }
+        .st-silent { background: rgba(255, 255, 255, 0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
         
-        .card-actions { display: flex; gap: 8px; margin-top: 10px; }
-        .action-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .card-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .action-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 100px; }
         .btn-parts { background: rgba(255,255,255,0.1); color: var(--text); }
         .btn-finish { background: rgba(255, 77, 77, 0.2); color: var(--danger); }
+        .btn-copy { background: rgba(255, 215, 0, 0.15); color: var(--primary); }
 
         /* --- Winner Box --- */
         .winner-section { border-top: 1px dashed rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px; }
@@ -133,68 +144,89 @@
     <div class="tabs">
         <button class="tab active" onclick="switchTab('create')">Конструктор</button>
         <button class="tab" onclick="switchTab('list')">Активные</button>
+        <button class="tab" onclick="switchTab('scheduled')">Отложенные</button>
     </div>
 
     <div id="tab-create" class="tab-content">
         <form id="create-form" class="admin-form">
-            <h3 style="margin: 0 0 10px; color: var(--primary);"><i class="fa-solid fa-wand-magic-sparkles"></i> Настройки</h3>
             
-            <label>Тип механики</label>
-            <select name="type" id="type-select" onchange="toggleFields()">
-                <option value="inline_random">🎲 Случайная кнопка</option>
-                <option value="most_active">🔥 Топ по активности</option>
-            </select>
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-gear"></i> Механика</h3>
+                <label>Тип победителя</label>
+                <select name="type" id="type-select">
+                    <option value="inline_random">🎲 Случайная кнопка</option>
+                    <option value="most_active">🔥 Топ по активности (Twitch)</option>
+                </select>
 
-            <div class="toggle-row">
-                <span style="font-size: 13px;">Подписка на канал</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" name="sub_req" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="toggle-row">
-                <span style="font-size: 13px;">Только рефералы</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" name="ref_req">
-                    <span class="slider"></span>
-                </label>
+                <label>⏰ Авто-завершение (МСК)</label>
+                <input type="datetime-local" name="end_time" required onchange="updatePreview()">
+                
+                <div class="toggle-row">
+                    <span style="font-size: 13px;">🤫 Тихий запуск (Без поста)</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" name="is_silent" id="inp-silent" onchange="updatePreview()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
 
-            <div id="field-twitch" class="hidden">
-                <label>Множитель Twitch (x)</label>
-                <input type="number" name="twitch_boost" placeholder="1.5" step="0.1">
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-list-check"></i> Условия входа</h3>
+                
+                <div class="toggle-row" style="margin-top:0; margin-bottom:15px;">
+                    <span style="font-size: 13px;">📢 Подписка на канал</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" name="sub_req" checked onchange="updatePreview()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="cond-grid">
+                    <div>
+                        <label>🎫 Цена (Билеты)</label>
+                        <input type="number" name="ticket_cost" placeholder="0" oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label>👥 Друзей (Реф)</label>
+                        <input type="number" name="min_referrals" placeholder="0" oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label>💰 Баланс (Монеты)</label>
+                        <input type="number" name="min_coins" placeholder="0" oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label>💬 Twitch (Сообщ.)</label>
+                        <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()">
+                    </div>
+                </div>
+
+                <label>🏷 Обязательный тег в нике</label>
+                <input type="text" name="name_tag" placeholder="Например: HATE" oninput="updatePreview()">
+            </div>
+            
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-pen-fancy"></i> Оформление</h3>
+                <label>Название приза</label>
+                <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()">
+
+                <label>Качество (Wear)</label>
+                <select name="quality" id="inp-quality" onchange="updatePreview()">
+                <option value="">Без качества</option>
+                <option value="FN">Factory New (Прямо с завода)</option>
+                <option value="MW">Minimal Wear (Немного поношенное)</option>
+                <option value="FT">Field-Tested (После полевых испытаний)</option>
+                <option value="WW">Well-Worn (Поношенное)</option>
+                <option value="BS">Battle-Scarred (Закаленное в боях)</option>
+                </select>
+
+                <label>Картинка (URL)</label>
+                <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
+
+                <label>Текст поста</label>
+                <textarea name="desc" id="inp-desc" rows="3" placeholder="Доп. условия или описание..." oninput="updatePreview()"></textarea>
             </div>
 
-            <label style="color: var(--danger);">⏰ Авто-завершение (МСК)</label>
-            <input type="datetime-local" name="end_time" onchange="updatePreview()">
-
-            <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 20px 0;"></div>
-            
-            <h3 style="margin: 0 0 10px; color: var(--primary);"><i class="fa-solid fa-pen-fancy"></i> Контент</h3>
-
-            <label>Название приза</label>
-            <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov (FT)" required oninput="updatePreview()">
-
-            <label>Качество (Wear)</label>
-            <select name="quality" id="inp-quality" onchange="updatePreview()">
-            <option value="">Без качества</option>
-            <option value="FN">Factory New (Прямо с завода)</option>
-            <option value="MW">Minimal Wear (Немного поношенное)</option>
-            <option value="FT">Field-Tested (После полевых испытаний)</option>
-            <option value="WW">Well-Worn (Поношенное)</option>
-            <option value="BS">Battle-Scarred (Закаленное в боях)</option>
-            </select>
-
-            <label>Картинка (URL)</label>
-            <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
-
-            <label>Текст поста</label>
-            <textarea name="desc" id="inp-desc" rows="3" placeholder="Доп. условия или описание..." oninput="updatePreview()"></textarea>
-            
-            <label>Мин. сообщений Twitch (за сегодня)</label>
-            <input type="number" name="min_msgs" placeholder="0 - не проверять">
-
-            <div class="preview-box">
+            <div class="preview-box" id="preview-box">
                 <div style="font-size: 10px; text-transform: uppercase; color: #777; margin-bottom: 5px;">Telegram Preview</div>
                 <img src="" id="prev-img" class="prev-img">
                 <div class="prev-text" id="prev-txt"></div>
@@ -209,6 +241,14 @@
 
     <div id="tab-list" class="tab-content hidden">
         <div id="list-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-scheduled" class="tab-content hidden">
+        <div id="scheduled-container">
             <div style="text-align:center; padding: 40px; color: var(--text-sec);">
                 <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
             </div>
@@ -239,19 +279,14 @@
         tg.expand();
 
         // --- Navigation ---
-        // Системная кнопка "Назад"
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
-            // Если открыто модальное окно участников или алерт - закрываем их
             if (document.getElementById('modal-parts').classList.contains('modal-active')) {
-                closeModal('modal-parts');
-                return;
+                closeModal('modal-parts'); return;
             }
             if (document.getElementById('modal-alert').classList.contains('modal-active')) {
-                closeModal('modal-alert');
-                return;
+                closeModal('modal-alert'); return;
             }
-            // Иначе возвращаемся в меню
             window.location.href = '/admin';
         });
 
@@ -261,52 +296,61 @@
             document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
             document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
             document.getElementById('tab-' + t).classList.remove('hidden');
-            if(t === 'create') document.querySelectorAll('.tab')[0].classList.add('active');
-            else { document.querySelectorAll('.tab')[1].classList.add('active'); loadRaffles(); }
+            
+            // Управление активным классом на кнопках
+            const tabs = document.querySelectorAll('.tab');
+            if(t === 'create') tabs[0].classList.add('active');
+            else if(t === 'list') { tabs[1].classList.add('active'); loadRaffles(); }
+            else if(t === 'scheduled') { tabs[2].classList.add('active'); loadRaffles(); }
         }
 
-        // --- Logic: Preview & Form ---
-        function toggleFields() {
-            const type = document.getElementById('type-select').value;
-            const tb = document.getElementById('field-twitch');
-            if(type === 'most_active') tb.classList.remove('hidden');
-            else tb.classList.add('hidden');
-        }
-
-
-        // --- Логика: Обновление превью (Telegram Style) ---
+        // --- Logic: Preview & Update ---
         function updatePreview() {
-            // 1. Собираем данные из полей ввода
+            // Проверка тихого режима
+            const isSilent = document.getElementById('inp-silent').checked;
+            const prevBox = document.getElementById('preview-box');
+            
+            if(isSilent) {
+                prevBox.style.opacity = '0.5';
+                prevBox.style.filter = 'grayscale(1)';
+                document.getElementById('prev-txt').innerHTML = '<i>🤫 Тихий запуск: Пост не будет отправлен в канал. Розыгрыш появится только в приложении (Вкладка "Отложенные").</i>';
+                document.getElementById('prev-img').style.display = 'none';
+                return;
+            } else {
+                prevBox.style.opacity = '1';
+                prevBox.style.filter = 'none';
+            }
+
+            // Сбор данных
             const prize = document.getElementById('inp-prize').value || 'Приз';
-            const quality = document.getElementById('inp-quality').value; // Поле качества
+            const quality = document.getElementById('inp-quality').value;
             const desc = document.getElementById('inp-desc').value || '';
             const imgUrl = document.getElementById('inp-img').value;
             
-            // Склеиваем Название + Качество (например: AK-47 (FT))
+            // Условия
+            const tickets = document.querySelector('input[name="ticket_cost"]').value;
+            const refs = document.querySelector('input[name="min_referrals"]').value;
+            const coins = document.querySelector('input[name="min_coins"]').value;
+            const tag = document.querySelector('input[name="name_tag"]').value;
+            const msgs = document.querySelector('input[name="min_msgs"]').value;
+            const sub = document.querySelector('input[name="sub_req"]').checked;
+            
+            // Генерация текста
             const prizeFull = quality ? `${prize} (${quality})` : prize;
-
-            // 2. Формируем текст поста (твой новый шаблон)
             let html = `🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n`;
             
-            // Описание (только если оно заполнено)
-            if (desc) {
-                html += `<i>${desc}</i>\n\n`;
-            }
-            
+            if (desc) html += `<i>${desc}</i>\n\n`;
             html += `🏆 <b>Приз:</b> ${prizeFull}\n`;
-            
-            // Блок условий
             html += `\n📌 <b>Условия:</b>\n`;
-            html += `└ Подписка на этот канал\n`;
             
-            // Проверка минимальных сообщений Twitch
-            const minMsgsInput = document.querySelector('input[name="min_msgs"]');
-            const minMsgs = minMsgsInput ? parseInt(minMsgsInput.value || 0) : 0;
-            if (minMsgs > 0) {
-                html += `└ Активность на стриме (${minMsgs} сообщ.)\n`;
-            }
-            
-            // Отображение времени (МСК)
+            if(sub) html += `└ Подписка на этот канал\n`;
+            if(tickets > 0) html += `└ Вход: ${tickets} билетов 🎫\n`;
+            if(refs > 0) html += `└ Пригласить друзей: ${refs} 👥\n`;
+            if(coins > 0) html += `└ Баланс в боте: ${coins} монет 💰\n`;
+            if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
+            if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ.)\n`;
+
+            // Время
             const dateVal = document.querySelector('input[name="end_time"]').value;
             if (dateVal) {
                 const d = new Date(dateVal);
@@ -315,10 +359,9 @@
                 html += `\n⏳ <b>Итоги:</b> ${dateStr} ${timeStr} (МСК)\n`;
             }
 
-            // Финальный призыв к действию
             html += `\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>`;
 
-            // 3. Обновление картинки в превью
+            // Картинка
             const imgEl = document.getElementById('prev-img');
             if (imgUrl) { 
                 imgEl.src = imgUrl; 
@@ -327,11 +370,10 @@
                 imgEl.classList.remove('show'); 
             }
 
-            // Выводим результат в блок превью
             document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
         }
 
-        // --- Логика: Создание розыгрыша ---
+        // --- Logic: Create Raffle ---
         document.getElementById('create-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button[type="submit"]');
@@ -341,38 +383,44 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создаем...';
 
             const fd = new FormData(e.target);
-            const endTimeRaw = fd.get('end_time'); 
-
+            
+            // Собираем расширенные настройки
             const payload = {
                 initData: tg.initData,
-                title: fd.get('prize'), // Используем имя приза как заголовок для базы
+                title: fd.get('prize'),
                 type: fd.get('type'),
-                end_time: endTimeRaw, 
+                end_time: fd.get('end_time'),
                 settings: {
                     prize_name: fd.get('prize'),
-                    skin_quality: fd.get('quality'), 
+                    skin_quality: fd.get('quality'),
                     prize_image: fd.get('image'),
                     description: fd.get('desc'),
-                    min_daily_messages: parseInt(fd.get('min_msgs') || 0),
+                    
+                    // Условия
+                    is_silent: fd.get('is_silent') === 'on',
                     requires_telegram_sub: fd.get('sub_req') === 'on',
-                    requires_referral_status: fd.get('ref_req') === 'on',
-                    twitch_sub_boost: parseFloat(fd.get('twitch_boost') || 1.0)
+                    ticket_cost: parseInt(fd.get('ticket_cost') || 0),
+                    min_referrals: parseInt(fd.get('min_referrals') || 0),
+                    min_coins: parseFloat(fd.get('min_coins') || 0),
+                    required_name_tag: fd.get('name_tag'),
+                    min_daily_messages: parseInt(fd.get('min_msgs') || 0)
                 }
             };
 
             try {
                 const res = await fetch('/api/v1/admin/raffles/create', {
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    showCustomAlert('Успех!', 'Розыгрыш создан и запущен в канале.');
+                    const isSilent = payload.settings.is_silent;
+                    showCustomAlert('Успех!', isSilent ? 'Розыгрыш создан в "Отложенных".' : 'Розыгрыш создан и опубликован!');
                     e.target.reset(); 
                     updatePreview(); 
-                    switchTab('list'); 
+                    // Переключаем на нужную вкладку
+                    switchTab(isSilent ? 'scheduled' : 'list'); 
                 } else {
                     const err = await res.json();
                     tg.HapticFeedback.notificationOccurred('error');
@@ -387,9 +435,9 @@
             }
         });
 
-        // --- Logic: List ---
+        // --- Logic: List & Clone ---
         async function loadRaffles() {
-            const c = document.getElementById('list-container');
+            // Грузим данные, потом распределяем по вкладкам
             try {
                 const res = await fetch('/api/v1/admin/raffles/list', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -397,26 +445,52 @@
                 });
                 const data = await res.json();
                 renderList(data);
-            } catch(e) { c.innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка загрузки</p>'; }
+            } catch(e) { 
+                console.error(e);
+                document.getElementById('list-container').innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>';
+                document.getElementById('scheduled-container').innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>';
+            }
         }
 
         function renderList(list) {
-            const c = document.getElementById('list-container');
-            c.innerHTML = '';
-            if(!list.length) { c.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Пусто</div>'; return; }
+            const cActive = document.getElementById('list-container');
+            const cSched = document.getElementById('scheduled-container');
+            
+            cActive.innerHTML = '';
+            cSched.innerHTML = '';
+            
+            let activeCount = 0;
+            let schedCount = 0;
 
             list.forEach(r => {
                 const s = r.settings || {};
                 const isDone = r.status === 'completed';
-                const img = s.prize_image ? `<img src="${s.prize_image}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
+                const isSilent = s.is_silent === true;
                 
+                // Фильтрация:
+                // Если Silent и Не Завершен -> В Отложенные
+                // Иначе (Публичный или Завершенный) -> В Активные/История
+                const targetContainer = (isSilent && !isDone) ? cSched : cActive;
+                
+                if(targetContainer === cSched) schedCount++;
+                else activeCount++;
+
+                const img = s.prize_image ? `<img src="${s.prize_image}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
+                const safeJson = encodeURIComponent(JSON.stringify(r));
+
+                // Бейдж статуса
+                let statusBadge = '';
+                if(isDone) statusBadge = `<span class="status-badge st-done">Завершен</span>`;
+                else if(isSilent) statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-eye-slash"></i> Скрытый</span>`;
+                else statusBadge = `<span class="status-badge st-active">Активен</span>`;
+
                 let html = `
-                <div class="raffle-card ${isDone ? 'completed' : ''}">
+                <div class="raffle-card ${isDone ? 'completed' : ''} ${isSilent ? 'silent' : ''}">
                     <div class="card-header">
                         ${img}
                         <div class="card-meta">
                             <div class="card-title">${r.title}</div>
-                            <span class="status-badge ${isDone ? 'st-done' : 'st-active'}">${isDone ? 'Завершен' : 'Активен'}</span>
+                            ${statusBadge}
                             ${!isDone && r.end_time ? `<span style="font-size:10px; color:var(--danger); margin-left:5px;">⏳ ${new Date(r.end_time).toLocaleString([], {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</span>` : ''}
                         </div>
                     </div>
@@ -435,11 +509,19 @@
                              </div>` : 
                             `<div style="font-size:11px; color:#555;">Трейд-ссылка не указана</div>`
                         }
+                    </div>
+                    <div class="card-actions">
+                        <button onclick="cloneRaffle('${safeJson}')" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>
+                        <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
                     </div>`;
                 } else if(!isDone) {
                     html += `
                     <div class="card-actions">
                         <button onclick="finishRaffle(${r.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
+                        ${isSilent 
+                            ? `<button onclick="cloneRaffle('${safeJson}', false)" class="action-btn btn-copy" style="background:rgba(50,215,75,0.2); color:#32d74b;"><i class="fa-solid fa-paper-plane"></i> Клон (Пост)</button>` 
+                            : `<button onclick="cloneRaffle('${safeJson}')" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
+                        }
                         <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
                     </div>`;
                 } else {
@@ -447,9 +529,50 @@
                 }
                 
                 html += `</div>`;
-                c.innerHTML += html;
+                targetContainer.innerHTML += html;
             });
+            
+            if(!activeCount) cActive.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
+            if(!schedCount) cSched.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
         }
+
+        // --- Logic: Clone (Copy) ---
+        // forcePublic = true -> снимает галочку "Тихий запуск"
+        window.cloneRaffle = function(jsonStr, forcePublic = null) {
+            const r = JSON.parse(decodeURIComponent(jsonStr));
+            const s = r.settings || {};
+
+            switchTab('create');
+            
+            // Заполнение полей
+            document.getElementById('type-select').value = r.type;
+            document.getElementById('inp-prize').value = s.prize_name || '';
+            document.getElementById('inp-quality').value = s.skin_quality || '';
+            document.getElementById('inp-img').value = s.prize_image || '';
+            document.getElementById('inp-desc').value = s.description || '';
+            
+            document.querySelector('input[name="ticket_cost"]').value = s.ticket_cost || '';
+            document.querySelector('input[name="min_referrals"]').value = s.min_referrals || '';
+            document.querySelector('input[name="min_coins"]').value = s.min_coins || '';
+            document.querySelector('input[name="name_tag"]').value = s.required_name_tag || '';
+            document.querySelector('input[name="min_msgs"]').value = s.min_daily_messages || '';
+            
+            document.querySelector('input[name="sub_req"]').checked = s.requires_telegram_sub;
+            
+            // Логика чекбокса "Тихий запуск"
+            if (forcePublic === false) {
+                // Если нажали "Клон (Пост)", мы снимаем галочку, чтобы сразу опубликовать
+                document.querySelector('input[name="is_silent"]').checked = false;
+                showCustomAlert('Публикация', 'Данные скопированы. Проверьте время и жмите "Запустить", чтобы опубликовать в канал.');
+            } else {
+                // Обычное копирование -> ставим Silent для безопасности
+                document.querySelector('input[name="is_silent"]').checked = true;
+                showCustomAlert('Копирование', 'Данные скопированы в черновик (Тихий режим).');
+            }
+
+            tg.HapticFeedback.impactOccurred('medium');
+            updatePreview();
+        };
 
         // --- Actions ---
         function finishRaffle(id) {
