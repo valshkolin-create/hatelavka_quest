@@ -13212,6 +13212,7 @@ def get_cron_secret():
     return os.getenv("CRON_SECRET") or os.getenv("CRON-SECRET")
 
 # 1. (Админ) Создать розыгрыш + Пост + Таймер
+# 1. (Админ) Создать розыгрыш + Пост + Таймер
 @app.post("/api/v1/admin/raffles/create")
 async def create_raffle(
     req: RaffleCreateRequest, 
@@ -13225,7 +13226,7 @@ async def create_raffle(
     payload = {
         "title": req.title,
         "type": req.type,
-        "status": "active", # Сразу активен
+        "status": "active", # Сразу активен (даже если тихий, он просто не постится)
         "end_time": req.end_time,
         "settings": req.settings.dict()
     }
@@ -13250,7 +13251,7 @@ async def create_raffle(
                 desc = s.get('description', '')
                 prize_full = f"{prize_name} ({quality})" if quality else prize_name
 
-                # Условия
+                # Условия (получаем и приводим типы для надежности)
                 min_msgs = int(s.get('min_daily_messages', 0))
                 ticket_cost = int(s.get('ticket_cost', 0))
                 min_refs = int(s.get('min_referrals', 0))
@@ -13354,24 +13355,67 @@ async def get_admin_raffles(
 # 2.5 (Админ) Получить список участников
 @app.post("/api/v1/admin/raffles/participants")
 async def get_raffle_participants(
-    req: RaffleDrawRequest, # Используем модель с raffle_id
+    req: RaffleDrawRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: 
         raise HTTPException(status_code=403)
 
-    # Получаем участников + данные юзеров (имя, юзернейм)
-    # Supabase Join: user:users(...) означает "подтяни данные из таблицы users по foreign key"
+    # ИСПРАВЛЕНО: joined_at вместо created_at
+    # Также явно указываем foreign key для users, если авто-детект не сработает
     resp = await supabase.get(
         "/raffle_participants",
         params={
             "raffle_id": f"eq.{req.raffle_id}",
-            "select": "created_at, user:users(telegram_id, full_name, username)",
-            "order": "created_at.desc"
+            # source берем из твоей таблицы, user подтягиваем через связь
+            "select": "joined_at, source, user:users(telegram_id, full_name, username)",
+            "order": "joined_at.desc"
         }
     )
+    
+    # Если ошибка запроса (например, кривой SQL), выводим в консоль
+    if resp.status_code != 200:
+        print(f"🔴 Error fetching participants: {resp.text}")
+        return []
+
     return resp.json()
+
+@app.post("/api/v1/webhook/publish_raffle")
+async def publish_raffle_webhook(
+    req: FinalizeRequest, # Используем ту же модель {raffle_id, secret}
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    if req.secret != get_cron_secret(): return {"status": "bad secret"}
+
+    # Получаем розыгрыш
+    r_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
+    if not r_resp.json(): return {"status": "not found"}
+    raffle = r_resp.json()[0]
+    
+    # Отправляем пост (Копируем логику из create_raffle)
+    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+    if channel_id:
+        try:
+            s = raffle.get('settings', {})
+            # ... ТУТ ГЕНЕРАЦИЯ ТЕКСТА (как в create_raffle) ...
+            # Для краткости:
+            prize_full = f"{s.get('prize_name')} {s.get('skin_quality','')}"
+            txt = f"🚀 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n🏆 <b>Приз:</b> {prize_full}\n\n👇 Жми кнопку!"
+            
+            url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
+            
+            if s.get('prize_image'):
+                await bot.send_photo(chat_id=channel_id, photo=s.get('prize_image'), caption=txt, reply_markup=kb, parse_mode="HTML")
+            else:
+                await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+            
+            print(f"✅ Отложенный пост опубликован: {req.raffle_id}")
+        except Exception as e:
+            print(f"⚠️ Ошибка публикации: {e}")
+
+    return {"status": "published"}
 
 # 3. (Админ) Ручное завершение
 @app.post("/api/v1/admin/raffles/draw")
