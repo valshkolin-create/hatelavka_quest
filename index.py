@@ -13251,7 +13251,7 @@ async def create_raffle(
             txt += f"🏆 <b>Приз:</b> {prize_full}\n"
             
             txt += "\n📌 <b>Условия:</b>\n"
-            txt += "└ Подписка на этот канал\n" 
+            txt += '└ Подписка на наш канал <a href="https://t.me/hatelovettv">HATElove_ttv</a>\n'
             
             if min_msgs and int(min_msgs) > 0:
                 txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
