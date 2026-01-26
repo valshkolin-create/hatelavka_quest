@@ -770,14 +770,24 @@ class TelegramTaskModel(BaseModel):
 # --- МОДЕЛИ ДЛЯ РОЗЫГРЫШЕЙ ---
 # ==========================================
 class RaffleSettings(BaseModel):
+    # Основное оформление
     prize_name: str
     prize_image: Optional[str] = None
-    description: Optional[str] = ""
-    skin_quality: Optional[str] = ""        # 🔥 ДОБАВИЛИ ЭТО
-    min_daily_messages: int = 0             # 🔥 ДОБАВИЛИ ЭТО
-    requires_telegram_sub: bool = True
-    requires_referral_status: bool = False
-    twitch_sub_boost: float = 1.0
+    skin_quality: Optional[str] = None
+    description: Optional[str] = None
+    
+    # Старые проверки
+    min_daily_messages: int = 0         # Twitch сообщения
+    requires_telegram_sub: bool = False # Подписка на канал
+    
+    # 🔥 НОВЫЕ ПРОВЕРКИ (Под твою БД)
+    ticket_cost: int = 0                # Цена в билетах (списываем с tickets)
+    min_referrals: int = 0              # Проверка по referrals_count
+    min_coins: float = 0.0              # Проверка баланса coins (строка "41.60" -> float)
+    required_name_tag: Optional[str] = None # Поиск текста в имени
+    
+    # Режим запуска
+    is_silent: bool = False             # Если True - пост не отправляется
     
     # Для розыгрыша по комментам
     channel_post_link: Optional[str] = None 
@@ -13212,106 +13222,115 @@ async def create_raffle(
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     # 1. Создаем запись в БД
-    # В поле title теперь записываем имя приза для удобства в списке админки
     payload = {
         "title": req.title,
         "type": req.type,
-        "status": "active",
+        "status": "active", # Сразу активен
         "end_time": req.end_time,
         "settings": req.settings.dict()
     }
     await supabase.post("/raffles", json=payload)
     
+    # Получаем ID созданного розыгрыша
     last_raffle = await supabase.get("/raffles", params={"order": "id.desc", "limit": 1})
     new_id = last_raffle.json()[0]['id']
 
-    # 2. ОТПРАВЛЯЕМ ПОСТ В КАНАЛ
-    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-    if channel_id:
-        try:
-            # Превращаем настройки в словарь для безопасного чтения
-            s = req.settings.dict()
-            
-            # 🔥 ПОЛУЧАЕМ ДАННЫЕ ИЗ НАСТРОЕК
-            prize_name = s.get('prize_name', 'Приз')
-            quality = s.get('skin_quality', '')
-            description = s.get('description', '')
-            min_msgs = s.get('min_daily_messages', 0)
-            requires_sub = s.get('requires_telegram_sub', False)
-
-            # Формируем полное название приза с качеством (например: AK-47 (FT))
-            prize_full = f"{prize_name} ({quality})" if quality else prize_name
-
-            # 🔥 ТВOЙ ФИКСИРОВАННЫЙ ШАБЛОН
-            txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n"
-            
-            if description:
-                txt += f"<i>{description}</i>\n\n"
-            
-            txt += f"🏆 <b>Приз:</b> {prize_full}\n"
-            
-            txt += "\n📌 <b>Условия:</b>\n"
-            txt += '└ Подписка на наш канал <a href="https://t.me/hatelovettv">HATElove_ttv</a>\n'
-            
-            if min_msgs and int(min_msgs) > 0:
-                txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
-            
-            # ВЫВОД ВРЕМЕНИ В ПОСТЕ
-            if req.end_time:
-                try:
-                    dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                    txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
-                except: pass
-            
-            txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
-
-            url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
-
-            # Картинка приза
-            prize_img = s.get('prize_image')
-            
-            if prize_img:
-                await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
-            else:
-                await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+    # 2. ОТПРАВЛЯЕМ ПОСТ (ТОЛЬКО ЕСЛИ НЕ SILENT)
+    is_silent = req.settings.is_silent
+    
+    if not is_silent:
+        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+        if channel_id:
+            try:
+                s = req.settings.dict()
                 
-        except Exception as e:
-            print(f"⚠️ Ошибка отправки поста: {e}")
+                # Данные для поста
+                prize_name = s.get('prize_name', 'Приз')
+                quality = s.get('skin_quality', '')
+                desc = s.get('description', '')
+                prize_full = f"{prize_name} ({quality})" if quality else prize_name
 
-    # 3. ЗАПУСКАЕМ ТАЙМЕР (QStash)
+                # Условия
+                min_msgs = int(s.get('min_daily_messages', 0))
+                ticket_cost = int(s.get('ticket_cost', 0))
+                min_refs = int(s.get('min_referrals', 0))
+                min_coins = float(s.get('min_coins', 0.0))
+                name_tag = s.get('required_name_tag')
+                sub_req = s.get('requires_telegram_sub', False)
+
+                # --- ГЕНЕРАЦИЯ ТЕКСТА ---
+                txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n"
+                
+                if desc: txt += f"<i>{desc}</i>\n\n"
+                txt += f"🏆 <b>Приз:</b> {prize_full}\n"
+                txt += "\n📌 <b>Условия:</b>\n"
+                
+                if sub_req:
+                    txt += '└ Подписка на <a href="https://t.me/hatelovettv">HATElove_ttv</a>\n'
+                
+                if ticket_cost > 0:
+                    txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
+                    
+                if min_refs > 0:
+                    txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
+
+                if min_coins > 0:
+                    txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
+                    
+                if name_tag:
+                    txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
+                    
+                if min_msgs > 0:
+                    txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
+
+                # Время итогов
+                if req.end_time:
+                    try:
+                        dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
+                        txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
+                    except: pass
+                
+                txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
+
+                # Кнопка
+                url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
+                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
+
+                # Отправка
+                prize_img = s.get('prize_image')
+                if prize_img:
+                    await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
+                else:
+                    await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+                    
+            except Exception as e:
+                print(f"⚠️ Ошибка отправки поста: {e}")
+    else:
+        print(f"🤫 Тихий запуск (Silent Mode) для Raffle ID {new_id}")
+
+    # 3. ТАЙМЕР QSTASH (Без изменений)
     if req.end_time:
         try:
             qstash_token = os.getenv("QSTASH_TOKEN")
             app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
-
+            
             if qstash_token and app_url:
                 dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                # Корректируем время (МСК -> UTC)
                 dt_utc = dt_input - timedelta(hours=3)
                 unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
                 
-                # Проверяем, что время не в прошлом, прежде чем слать запрос
                 if unix_time > int(datetime.now(timezone.utc).timestamp()):
                     target = f"{app_url}/api/v1/webhook/finalize_raffle"
                     async with httpx.AsyncClient() as client:
-                        qs_res = await client.post(
+                        await client.post(
                             f"https://qstash.upstash.io/v2/publish/{target}",
-                            headers={
-                                "Authorization": f"Bearer {qstash_token}",
-                                "Upstash-Not-Before": str(unix_time),
-                                "Content-Type": "application/json"
-                            },
+                            headers={"Authorization": f"Bearer {qstash_token}", "Upstash-Not-Before": str(unix_time), "Content-Type": "application/json"},
                             json={"raffle_id": new_id, "secret": get_cron_secret()}
                         )
-                        print(f"✅ QStash ответил: {qs_res.status_code}")
-                else:
-                    print("⚠️ Таймер не запущен: указанное время уже прошло.")
-                    
         except Exception as e:
             print(f"⚠️ Ошибка QStash: {e}")
 
-    return {"message": "Розыгрыш создан! Пост отправлен."}
+    return {"message": "Розыгрыш создан!"}
     
 # 2. (Админ) Список
 @app.post("/api/v1/admin/raffles/list")
@@ -13399,14 +13418,14 @@ async def join_raffle(
     req: RaffleJoinRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Получаем ID из Telegram
+    # 1. Авторизация (InitData)
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data: 
         raise HTTPException(status_code=401, detail="Ошибка авторизации")
     
     user_id = user_data['id']
     
-    # 2. Проверяем сам розыгрыш
+    # 2. Получаем розыгрыш
     raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
     if not raffle_resp.json(): 
         raise HTTPException(status_code=404, detail="Розыгрыш не найден")
@@ -13414,68 +13433,101 @@ async def join_raffle(
     settings = raffle.get('settings', {})
 
     if raffle['status'] != 'active': 
-        raise HTTPException(status_code=400, detail="Розыгрыш уже завершен")
+        raise HTTPException(status_code=400, detail="Розыгрыш завершен")
 
     # Проверка на повторное участие
     check_exist = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{req.raffle_id}", "user_id": f"eq.{user_id}"})
     if check_exist.json():
         raise HTTPException(status_code=400, detail="Вы уже участвуете! 😉")
 
-    # 3. ЧИТАЕМ ДАННЫЕ ЮЗЕРА ИЗ БД
+    # 3. Читаем юзера из БД (Твоя таблица users)
     user_db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
     if not user_db_resp.json():
         raise HTTPException(status_code=400, detail="⚠️ Сначала запустите бота /start")
     
     user_row = user_db_resp.json()[0]
 
-    # --- ПРОВЕРКА 1: TRADE LINK ---
+    # ===============================
+    # 🛡️ ПРОВЕРКИ УСЛОВИЙ
+    # ===============================
+
+    # A. Trade Link (Базовая проверка)
     if not user_row.get('trade_link'):
-        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле бота!")
+        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # --- ПРОВЕРКА 2: TWITCH АКТИВНОСТЬ (ИСПРАВЛЕНО) ---
-    # Принудительно превращаем в int, чтобы избежать ошибок сравнения
+    # B. 🎫 БИЛЕТЫ (ticket_cost)
+    ticket_cost = int(settings.get('ticket_cost', 0))
+    user_tickets = int(user_row.get('tickets') or 0) # Поле "tickets" из твоего JSON
+    
+    if ticket_cost > 0:
+        if user_tickets < ticket_cost:
+            raise HTTPException(status_code=400, detail=f"⚠️ Не хватает билетов! Нужно: {ticket_cost}, у вас: {user_tickets}")
+
+    # C. 👥 РЕФЕРАЛЫ (referrals_count)
+    min_refs = int(settings.get('min_referrals', 0))
+    user_refs = int(user_row.get('referrals_count') or 0) # Поле "referrals_count" из JSON
+    
+    if min_refs > 0:
+        if user_refs < min_refs:
+            raise HTTPException(status_code=400, detail=f"⚠️ Нужно пригласить друзей: {min_refs} (у вас: {user_refs})")
+
+    # D. 💰 МОНЕТЫ (coins) - "Активные пользователи лавки"
+    min_coins = float(settings.get('min_coins', 0.0))
+    # В JSON "coins" это строка "41.60", поэтому float()
+    user_coins = float(user_row.get('coins') or 0.0)
+    
+    if min_coins > 0:
+        if user_coins < min_coins:
+            raise HTTPException(status_code=400, detail=f"⚠️ На балансе должно быть минимум {min_coins} монет!")
+
+    # E. 🏷 ТЕГ В НИКЕ (HATElavka)
+    # Используем данные из initData (они свежее чем в БД)
+    name_tag = settings.get('required_name_tag')
+    if name_tag:
+        first = user_data.get('first_name', '') or ''
+        last = user_data.get('last_name', '') or ''
+        full_name_tg = f"{first} {last}".strip()
+        
+        if name_tag.lower() not in full_name_tg.lower():
+             raise HTTPException(status_code=400, detail=f"⚠️ Добавьте «{name_tag}» в имя или фамилию Telegram!")
+
+    # F. 🟣 TWITCH
     min_msgs = int(settings.get('min_daily_messages', 0) or 0) 
-
     if min_msgs > 0:
         if not user_row.get('twitch_login'):
-             raise HTTPException(status_code=400, detail="⚠️ Привяжите Twitch аккаунт в профиле!")
+             raise HTTPException(status_code=400, detail="⚠️ Привяжите Twitch аккаунт!")
         
-        # Безопасно получаем количество сообщений
         daily_count = int(user_row.get('daily_message_count') or 0)
-        
         if daily_count < min_msgs:
-             raise HTTPException(status_code=400, detail=f"⚠️ Активность Twitch: {daily_count}/{min_msgs} сообщ.")
+             raise HTTPException(status_code=400, detail=f"⚠️ Twitch активность: {daily_count}/{min_msgs} сообщ.")
 
-    # --- ПРОВЕРКА 3: ПОДПИСКА TG (ИСПРАВЛЕНО) ---
+    # G. 📢 ПОДПИСКА НА КАНАЛ
     if settings.get('requires_telegram_sub'):
         channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
         if channel_id:
             try:
-                # Пытаемся получить статус
                 member = await bot.get_chat_member(chat_id=int(channel_id), user_id=user_id)
-                
-                # Проверяем статус. Если 'left' или 'kicked' - выкидываем ошибку
-                # ВАЖНО: allowed_statuses - это те, кого мы пускаем
-                allowed_statuses = ['creator', 'administrator', 'member', 'restricted']
-                
-                if member.status not in allowed_statuses:
-                    # Эта ошибка вылетит в except, если он общий.
-                    # Поэтому мы рейзим её, но ловим только ошибки API ниже
-                    raise HTTPException(status_code=400, detail="⚠️ Нужна подписка на канал!")
-                    
+                allowed = ['creator', 'administrator', 'member', 'restricted']
+                if member.status not in allowed:
+                    raise HTTPException(status_code=400, detail="⚠️ Подпишитесь на канал HATElove_ttv!")
             except HTTPException as http_err:
-                # Если это наша ошибка (которую мы создали выше) - пробрасываем её дальше
                 raise http_err
-            except Exception as e:
-                # Ловим технические ошибки (например, бот не админ или чат не найден)
-                print(f"⚠️ Ошибка проверки подписки: {e}")
-                # Если бот сломался и не может проверить - лучше запретить участие или разрешить?
-                # Обычно лучше запретить и написать лог
+            except Exception:
+                # Если бот не админ, лучше пропустить или выдать ошибку. Выдаем ошибку для надежности.
                 raise HTTPException(status_code=400, detail="⚠️ Не могу проверить подписку (Бот не админ?)")
 
-    # 4. ЗАПИСЫВАЕМ В УЧАСТНИКИ
-    source_type = "twitch" if min_msgs > 0 else "telegram"
+    # ===============================
+    # ✅ УСПЕХ: СПИСАНИЕ И ЗАПИСЬ
+    # ===============================
 
+    # 1. Если вход платный - СПИСЫВАЕМ БИЛЕТЫ
+    if ticket_cost > 0:
+        new_balance = user_tickets - ticket_cost
+        # Обновляем поле "tickets" в таблице "users"
+        await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
+
+    # 2. Добавляем в участники
+    source_type = "twitch" if min_msgs > 0 else "telegram"
     try:
         await supabase.post("/raffle_participants", json={
             "raffle_id": req.raffle_id,
@@ -13483,7 +13535,8 @@ async def join_raffle(
             "source": source_type 
         })
     except:
-        raise HTTPException(status_code=400, detail="Вы уже участвуете! 😉")
+        # Если вдруг параллельный запрос проскочил
+        raise HTTPException(status_code=400, detail="Вы уже участвуете!")
         
     return {"message": "Участие принято! 🍀"}
     
