@@ -4888,37 +4888,30 @@ async def get_public_quests(request_data: InitDataRequest):
         
 
 @app.get("/api/v1/auth/twitch_oauth")
-async def twitch_oauth_start(
-    request: Request,
-    initData: str = Query(...)
-):
-    logging.info(f"🟣 [Twitch OAuth] Старт авторизации")
-
+async def twitch_oauth_start(request: Request, initData: str = Query(...)):
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
 
     try:
-        # Кодируем данные для передачи через state
+        # Кодируем initData в безопасный base64 для передачи через Twitch
         state = base64.urlsafe_b64encode(initData.encode()).decode()
+        
+        # Набор прав: добавили user:read:follows для корректной проверки
+        scopes = "user:read:email user:read:subscriptions user:read:follows channel:read:vips"
+        
+        params = {
+            "response_type": "code",
+            "client_id": TWITCH_CLIENT_ID,
+            "redirect_uri": TWITCH_REDIRECT_URI,
+            "scope": scopes,
+            "state": state 
+        }
+        
+        auth_url = f"https://id.twitch.tv/oauth2/authorize?{urlencode(params)}"
+        return JSONResponse(content={"url": auth_url})
     except Exception as e:
-        logging.error(f"State encoding error: {e}")
-        raise HTTPException(status_code=500, detail="Encoding error")
-
-    # ВАЖНО: Добавили user:read:follows для проверки фоллоу
-    scopes_list = "user:read:email user:read:subscriptions user:read:follows channel:read:vips"
-    
-    params = {
-        "response_type": "code",
-        "client_id": TWITCH_CLIENT_ID,
-        "redirect_uri": TWITCH_REDIRECT_URI,
-        "scope": scopes_list,
-        "state": state 
-    }
-    
-    query_string = urlencode(params)
-    twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
-    
-    return JSONResponse(content={"url": twitch_auth_url})
+        logging.error(f"❌ [Twitch OAuth Start] Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during URL generation")
 
 
 @app.get("/api/v1/auth/twitch_callback")
@@ -4929,98 +4922,84 @@ async def twitch_oauth_callback(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
+        # 1. Декодируем и валидируем юзера
         init_data = base64.urlsafe_b64decode(state).decode()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid state format")
-
-    user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
-    if not user_info:
-        raise HTTPException(status_code=403, detail="Invalid initData signature")
-    
-    telegram_id = user_info["id"]
-    # Твой ID канала
-    BROADCASTER_ID = "883996654"
-
-    async with httpx.AsyncClient() as client:
-        # Обмен кода на токен
-        token_response = await client.post(
-            "https://id.twitch.tv/oauth2/token",
-            data={
-                "client_id": TWITCH_CLIENT_ID, 
-                "client_secret": TWITCH_CLIENT_SECRET,
-                "code": code, 
-                "grant_type": "authorization_code", 
-                "redirect_uri": TWITCH_REDIRECT_URI,
-            }
-        )
-        token_data = token_response.json()
-        if "access_token" not in token_data:
-            logging.error(f"Twitch Token Error: {token_data}")
-            raise HTTPException(status_code=500, detail="Failed to get access token")
-            
-        access_token = token_data["access_token"]
-        refresh_token = token_data.get("refresh_token")
-        headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
+        user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
+        if not user_info:
+            raise HTTPException(status_code=403, detail="Invalid signature")
         
-        # Получаем данные пользователя Twitch
-        user_response = await client.get("https://api.twitch.tv/helix/users", headers=headers)
-        user_json = user_response.json()
-        if not user_json.get("data"):
-            raise HTTPException(status_code=500, detail="No user data from Twitch")
+        telegram_id = int(user_info["id"]) # Принудительно в INT
+        broadcaster_id = "883996654"
 
-        twitch_user = user_json["data"][0]
-        twitch_id = twitch_user["id"]
-        twitch_login = twitch_user["login"]
+        async with httpx.AsyncClient() as client:
+            # 2. Обмен кода на токен
+            t_resp = await client.post("https://id.twitch.tv/oauth2/token", data={
+                "client_id": TWITCH_CLIENT_ID, "client_secret": TWITCH_CLIENT_SECRET,
+                "code": code, "grant_type": "authorization_code", "redirect_uri": TWITCH_REDIRECT_URI
+            })
+            t_data = t_resp.json()
+            if "access_token" not in t_data:
+                logging.error(f"❌ [Twitch API] Token Error: {t_data}")
+                raise HTTPException(status_code=500, detail="Twitch token exchange failed")
 
-        # ПРОВЕРКА СТАТУСА
-        new_status = "none"
+            access_token = t_data["access_token"]
+            headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
 
-        # 1. Проверка на фолловера
-        try:
-            f_url = f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={BROADCASTER_ID}"
-            f_resp = await client.get(f_url, headers=headers)
+            # 3. Получаем данные профиля Twitch
+            u_resp = await client.get("https://api.twitch.tv/helix/users", headers=headers)
+            u_json = u_resp.json()
+            if not u_json.get("data"):
+                raise HTTPException(status_code=500, detail="No Twitch user data")
+
+            tw_user = u_json["data"][0]
+            twitch_id, twitch_login = tw_user["id"], tw_user["login"]
+
+            # 4. Проверка статусов (Follower / Subscriber)
+            new_status = "none"
+            # Проверка фоллоу
+            f_resp = await client.get(f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={broadcaster_id}", headers=headers)
             if f_resp.status_code == 200 and f_resp.json().get("data"):
                 new_status = "follower"
-        except Exception as e:
-            logging.error(f"Follow check error: {e}")
-
-        # 2. Проверка на саба (платного) — приоритет выше
-        try:
-            sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
-            sub_resp = await client.get(sub_url, headers=headers)
-            if sub_resp.status_code == 200:
+            
+            # Проверка сабки (приоритет выше)
+            s_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}", headers=headers)
+            if s_resp.status_code == 200:
                 new_status = "subscriber"
-        except Exception as e:
-            logging.error(f"Sub check error: {e}")
 
-        # 3. Сохраняем VIP, если он уже был в базе
-        try:
-            current_user = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
-            if current_user.json() and current_user.json()[0].get("twitch_status") == "vip":
+            # 5. Сохраняем VIP, если он уже был в базе
+            db_user = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
+            if db_user.json() and db_user.json()[0].get("twitch_status") == "vip":
                 new_status = "vip"
-        except: pass
 
-        # Обновляем БД Supabase
-        update_payload = {
-            "twitch_id": twitch_id, 
-            "twitch_login": twitch_login,
-            "twitch_access_token": access_token,
-            "twitch_refresh_token": refresh_token,
-            "twitch_status": new_status,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
+            # 6. 🔥 ОБНОВЛЕНИЕ БАЗЫ С ПРОВЕРКОЙ
+            update_payload = {
+                "twitch_id": twitch_id, "twitch_login": twitch_login,
+                "twitch_access_token": access_token, "twitch_refresh_token": t_data.get("refresh_token"),
+                "twitch_status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()
+            }
 
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{telegram_id}"},
-            json=update_payload
-        )
+            patch_resp = await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{telegram_id}"},
+                json=update_payload,
+                headers={"Prefer": "return=representation"} # Просим базу вернуть измененную строку
+            )
+            
+            # Если база не обновила ни одной строки (пользователь не найден)
+            if patch_resp.status_code not in [200, 201, 204] or not patch_resp.json():
+                logging.error(f"💀 [DB Error] Failed to update user {telegram_id}. Status: {patch_resp.status_code}, Body: {patch_resp.text}")
+                raise HTTPException(status_code=500, detail="Database update failed. User not found?")
 
-    # Редирект в приложение
-    bot_username = os.getenv("BOT_USERNAME", "HATElavka_bot")
-    app_short_name = os.getenv("APP_SHORT_NAME", "profile")
-    return RedirectResponse(url=f"https://t.me/{bot_username}/{app_short_name}?startapp=auth_success")
+        logging.info(f"✅ [Twitch Link Success] User {telegram_id} linked as {twitch_login} (Status: {new_status})")
+        
+        bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
+        app_name = os.getenv("APP_SHORT_NAME", "profile")
+        return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=auth_success", status_code=303)
 
+    except Exception as e:
+        logging.error(f"🔥 [Twitch Callback Critical] Error: {e}", exc_info=True)
+        return RedirectResponse(url=f"https://t.me/HATElavka_bot/profile?startapp=auth_error")
+    
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
 class InitDataRequest(BaseModel): initData: str
 class GrantCheckpointAccessRequest(BaseModel):
