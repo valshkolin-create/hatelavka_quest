@@ -1421,15 +1421,16 @@
 
                                     const data = await response.json();
 
-                                    // Открываем ссылку
-                                    if (data.url) {
-                                        // 1. Открываем ссылку во внешнем браузере
-                                        tg.openLink(data.url);
+                                    // Открываем браузер
+                                    tg.openLink(data.url);
 
-                                        // 2. ЗАКРЫВАЕМ текущее приложение, чтобы не висело фоном
+                                    // Даем паузу 500мс, чтобы браузер успел перехватить ссылку, 
+                                    // и только потом закрываем Mini App
+                                    setTimeout(() => {
                                         tg.close();
-                                    } else {
-                                        tg.showAlert("Сервер не вернул ссылку");
+                                    }, 500);
+                                } else {
+                                    tg.showAlert("Сервер не вернул ссылку");
                                     }
                                 } catch (err) {
                                     console.error(err);
