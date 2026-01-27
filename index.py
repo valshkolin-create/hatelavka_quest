@@ -4930,14 +4930,13 @@ async def twitch_oauth_callback(
     state: str = Query(...),
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Декодируем initData обратно из state
+    # 1. Декодируем initData для идентификации пользователя Telegram
     try:
         init_data = base64.urlsafe_b64decode(state).decode()
     except Exception:
+        logging.error("Ошибка декодирования state")
         raise HTTPException(status_code=400, detail="Invalid state format")
 
-    # 2. Проверяем валидность данных (безопасность)
-    # Используем вашу функцию проверки
     user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=403, detail="Invalid initData signature")
@@ -4945,7 +4944,7 @@ async def twitch_oauth_callback(
     telegram_id = user_info["id"]
 
     async with httpx.AsyncClient() as client:
-        # 3. Обмениваем код на токен
+        # 2. Обмен кода на Access Token
         token_response = await client.post(
             "https://id.twitch.tv/oauth2/token",
             data={
@@ -4964,62 +4963,85 @@ async def twitch_oauth_callback(
             
         access_token = token_data["access_token"]
         refresh_token = token_data.get("refresh_token")
-        headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
+        headers = {
+            "Authorization": f"Bearer {access_token}", 
+            "Client-Id": TWITCH_CLIENT_ID
+        }
         
-        # 4. Получаем профиль Twitch
+        # 3. Получаем данные профиля (Twitch ID и Логин)
         user_response = await client.get("https://api.twitch.tv/helix/users", headers=headers)
-        user_data = user_response.json()
+        user_json = user_response.json()
         
-        if not user_data.get("data"):
+        if not user_json.get("data"):
             raise HTTPException(status_code=500, detail="No user data from Twitch")
 
-        twitch_user = user_data["data"][0]
+        twitch_user = user_json["data"][0]
         twitch_id = twitch_user["id"]
         twitch_login = twitch_user["login"]
 
-        # 5. Готовим обновление БД
+        # 4. Определение статуса (Follower / Subscriber / VIP)
+        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
+        new_status = "none"
+
+        if broadcaster_id:
+            # Проверка фолловинга
+            try:
+                # ВАЖНО: Требует scope user:read:follows
+                f_url = f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={broadcaster_id}"
+                f_resp = await client.get(f_url, headers=headers)
+                if f_resp.status_code == 200 and f_resp.json().get("data"):
+                    new_status = "follower"
+            except Exception as e:
+                logging.error(f"Ошибка проверки фоллоу: {e}")
+
+            # Проверка подписки (приоритет выше фоллоу)
+            try:
+                # ВАЖНО: Требует scope user:read:subscriptions
+                sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
+                sub_resp = await client.get(sub_url, headers=headers)
+                
+                if sub_resp.status_code == 200:
+                    # Если API вернуло 200, пользователь точно подписан
+                    new_status = "subscriber"
+                elif sub_resp.status_code == 404:
+                    # Пользователь не подписан, оставляем предыдущий статус (none или follower)
+                    pass
+                else:
+                    logging.warning(f"Twitch Sub API вернул код {sub_resp.status_code}: {sub_resp.text}")
+            except Exception as e:
+                logging.error(f"Ошибка проверки подписки: {e}")
+
+        # 5. Сохранение VIP-статуса (чтобы авторизация его не затерла)
+        try:
+            current_db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
+            db_data = current_db_resp.json()
+            if db_data and db_data[0].get("twitch_status") == "vip":
+                new_status = "vip"
+        except Exception as e:
+            logging.error(f"Ошибка при проверке VIP в БД: {e}")
+
+        # 6. Обновление базы данных Supabase
         update_payload = {
             "twitch_id": twitch_id, 
             "twitch_login": twitch_login,
             "twitch_access_token": access_token,
-            "twitch_refresh_token": refresh_token
+            "twitch_refresh_token": refresh_token,
+            "twitch_status": new_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
 
-        # Логика подписки (сохранена как у вас)
-        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
-        new_status = "none"
-        if broadcaster_id:
-            try:
-                sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
-                sub_resp = await client.get(sub_url, headers=headers)
-                if sub_resp.status_code == 200:
-                    new_status = "subscriber"
-            except: pass
-
-        # Защита VIP
-        try:
-            current_user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
-            if current_user_resp.json():
-                current_status_db = current_user_resp.json()[0].get("twitch_status")
-                if current_status_db == "vip":
-                    new_status = "vip"
-            update_payload["twitch_status"] = new_status
-        except: pass
-
-        # Обновляем БД
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json=update_payload
         )
 
-    # 6. Возвращаем пользователя в Telegram
+    # 7. Финальный редирект обратно в Telegram Mini App
     bot_username = os.getenv("BOT_USERNAME", "HATElavka_bot")
     app_short_name = os.getenv("APP_SHORT_NAME", "profile")
+    tg_url = f"https://t.me/{bot_username}/{app_short_name}?startapp=auth_success"
     
-    # Это перенаправит внешний браузер открыть Telegram
-    tg_redirect_url = f"https://t.me/{bot_username}/{app_short_name}?startapp=auth_success"
-    return RedirectResponse(url=tg_redirect_url)
+    return RedirectResponse(url=tg_url)
 
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
 class InitDataRequest(BaseModel): initData: str
