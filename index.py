@@ -4893,9 +4893,12 @@ async def twitch_oauth_start(request: Request, initData: str = Query(...)):
         raise HTTPException(status_code=400, detail="initData is required")
 
     try:
+        # Кодируем initData для передачи в state
         state = base64.urlsafe_b64encode(initData.encode()).decode()
         
-        # ДОБАВЛЕНО: moderation:read — без него статус модератора не подтянется
+        # Набор прав. 
+        # moderation:read — критически важен для стримера
+        # user:read:follows и user:read:subscriptions — для обычных юзеров
         scopes_list = "user:read:email user:read:subscriptions user:read:follows moderation:read channel:read:vips"
         
         params = {
@@ -4909,9 +4912,8 @@ async def twitch_oauth_start(request: Request, initData: str = Query(...)):
         query_string = urlencode(params)
         return JSONResponse(content={"url": f"https://id.twitch.tv/oauth2/authorize?{query_string}"})
     except Exception as e:
-        logging.error(f"❌ [Twitch OAuth Start] Error: {e}")
-        raise HTTPException(status_code=500, detail="Error generating auth URL")
-
+        logging.error(f"❌ [Twitch OAuth Start] Ошибка: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка генерации ссылки")
 
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
