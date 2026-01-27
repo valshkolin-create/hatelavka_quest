@@ -1398,48 +1398,50 @@
                 const connBtn = twitchCard.querySelector('#connect-twitch-btn');
                 
                 if (connBtn) {
-                            // !!! ВАЖНО: async добавлен здесь !!!
-                            connBtn.onclick = async (e) => {
-                                e.stopPropagation();
-                                connBtn.style.opacity = '0.5';
+                        connBtn.onclick = async (e) => {
+                            // Останавливаем всплытие события
+                            e.stopPropagation();
+                            connBtn.style.opacity = '0.5';
 
-                                try {
-                                    if (!tg.initData) {
-                                        tg.showAlert("Запустите через Telegram!");
-                                        return;
-                                    }
+                            try {
+                                if (!tg.initData) {
+                                    tg.showAlert("Запустите через Telegram!");
+                                    return;
+                                }
 
-                                    // 👇 ВАЖНО: Запоминаем, что мы в ПРОФИЛЕ
-                                    localStorage.setItem('auth_source', 'profile');
+                                // Помечаем, что авторизация запущена из профиля
+                                localStorage.setItem('auth_source', 'profile');
 
-                                    // Запрашиваем ссылку
-                                    const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
+                                // Запрашиваем ссылку у бэкенда
+                                const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
+                                
+                                if (!response.ok) {
+                                    throw new Error("Ошибка сервера при получении ссылки");
+                                }
+                                
+                                const data = await response.json();
 
-                                    if (!response.ok) {
-                                        throw new Error("Ошибка сервера");
-                                    }
-
-                                    const data = await response.json();
-
-                                    // Открываем браузер
+                                if (data.url) {
+                                    // Открываем внешнюю ссылку
                                     tg.openLink(data.url);
 
-                                    // Даем паузу 500мс, чтобы браузер успел перехватить ссылку, 
-                                    // и только потом закрываем Mini App
+                                    // Пауза перед закрытием приложения
                                     setTimeout(() => {
                                         tg.close();
                                     }, 500);
                                 } else {
                                     tg.showAlert("Сервер не вернул ссылку");
-                                    }
-                                } catch (err) {
-                                    console.error(err);
-                                    tg.showAlert("Ошибка: " + err.message);
-                                } finally {
-                                    connBtn.style.opacity = '1';
                                 }
-                            };
-                        }
+                            } catch (err) {
+                                // ОБЯЗАТЕЛЬНЫЙ БЛОК CATCH
+                                console.error("Ошибка Twitch Auth:", err);
+                                tg.showAlert("Ошибка: " + err.message);
+                            } finally {
+                                // ОБЯЗАТЕЛЬНЫЙ БЛОК FINALLY
+                                connBtn.style.opacity = '1';
+                            }
+                        };
+                    }
 
                 const helpBtn = twitchCard.querySelector('#twitch-help-btn');
                 if (helpBtn) {
