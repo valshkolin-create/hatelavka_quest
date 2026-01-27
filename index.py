@@ -4928,7 +4928,7 @@ async def twitch_oauth_callback(
         if not user_info:
             raise HTTPException(status_code=403, detail="Invalid signature")
         
-        telegram_id = int(user_info["id"]) # Принудительно в INT
+        telegram_id = int(user_info["id"]) # Принудительно в INT для фильтра
         broadcaster_id = "883996654"
 
         async with httpx.AsyncClient() as client:
@@ -4956,41 +4956,44 @@ async def twitch_oauth_callback(
 
             # 4. Проверка статусов (Follower / Subscriber)
             new_status = "none"
-            # Проверка фоллоу
-            f_resp = await client.get(f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={broadcaster_id}", headers=headers)
-            if f_resp.status_code == 200 and f_resp.json().get("data"):
-                new_status = "follower"
+            try:
+                f_resp = await client.get(f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={broadcaster_id}", headers=headers)
+                if f_resp.status_code == 200 and f_resp.json().get("data"):
+                    new_status = "follower"
+            except: pass
             
-            # Проверка сабки (приоритет выше)
-            s_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}", headers=headers)
-            if s_resp.status_code == 200:
-                new_status = "subscriber"
+            try:
+                s_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}", headers=headers)
+                if s_resp.status_code == 200:
+                    new_status = "subscriber"
+            except: pass
 
             # 5. Сохраняем VIP, если он уже был в базе
             db_user = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
             if db_user.json() and db_user.json()[0].get("twitch_status") == "vip":
                 new_status = "vip"
 
-            # 6. 🔥 ОБНОВЛЕНИЕ БАЗЫ С ПРОВЕРКОЙ
+            # 6. 🔥 ОБНОВЛЕНИЕ БАЗЫ (УБРАЛИ updated_at)
             update_payload = {
-                "twitch_id": twitch_id, "twitch_login": twitch_login,
-                "twitch_access_token": access_token, "twitch_refresh_token": t_data.get("refresh_token"),
-                "twitch_status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()
+                "twitch_id": twitch_id, 
+                "twitch_login": twitch_login,
+                "twitch_access_token": access_token, 
+                "twitch_refresh_token": t_data.get("refresh_token"),
+                "twitch_status": new_status
             }
 
             patch_resp = await supabase.patch(
                 "/users",
                 params={"telegram_id": f"eq.{telegram_id}"},
                 json=update_payload,
-                headers={"Prefer": "return=representation"} # Просим базу вернуть измененную строку
+                headers={"Prefer": "return=representation"}
             )
             
-            # Если база не обновила ни одной строки (пользователь не найден)
-            if patch_resp.status_code not in [200, 201, 204] or not patch_resp.json():
-                logging.error(f"💀 [DB Error] Failed to update user {telegram_id}. Status: {patch_resp.status_code}, Body: {patch_resp.text}")
-                raise HTTPException(status_code=500, detail="Database update failed. User not found?")
+            if patch_resp.status_code not in [200, 201, 204]:
+                logging.error(f"💀 [DB Error] Status: {patch_resp.status_code}, Body: {patch_resp.text}")
+                raise HTTPException(status_code=500, detail="Database update failed")
 
-        logging.info(f"✅ [Twitch Link Success] User {telegram_id} linked as {twitch_login} (Status: {new_status})")
+        logging.info(f"✅ [Twitch Link Success] User {telegram_id} linked as {twitch_login}")
         
         bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
         app_name = os.getenv("APP_SHORT_NAME", "profile")
