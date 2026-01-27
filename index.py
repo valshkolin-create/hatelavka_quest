@@ -4899,14 +4899,18 @@ async def twitch_oauth_start(
         raise HTTPException(status_code=400, detail="initData is required")
 
     # 1. Кодируем initData в base64, чтобы передать через Twitch как state
-    # Это позволяет обойти блокировку кук (Tracking Prevention)
     try:
+        # Используем urlsafe_b64encode для безопасности символов в URL
         state = base64.urlsafe_b64encode(initData.encode()).decode()
     except Exception as e:
         logging.error(f"State encoding error: {e}")
         raise HTTPException(status_code=500, detail="Encoding error")
 
-    scopes_list = "user:read:email channel:read:redemptions user:read:subscriptions channel:read:vips"
+    # ВАЖНО: Мы обновили scopes_list.
+    # user:read:follows — ОБЯЗАТЕЛЕН, чтобы проверить обычную подписку (фоллоу).
+    # user:read:subscriptions — нужен для проверки платной подписки (сабки).
+    # Остальные (email, vips) оставили по твоему желанию.
+    scopes_list = "user:read:email user:read:subscriptions user:read:follows channel:read:vips"
     
     # 2. Формируем ссылку
     params = {
@@ -4916,10 +4920,13 @@ async def twitch_oauth_start(
         "scope": scopes_list,
         "state": state 
     }
+    
+    # urlencode корректно преобразует пробелы и спецсимволы для URL
     query_string = urlencode(params)
     twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
     
-    # 3. Возвращаем JSON с ссылкой (а не редирект!), чтобы фронтенд мог открыть её через Telegram API
+    # 3. Возвращаем JSON с ссылкой
+    # Фронтенд получит этот URL и откроет его через Telegram.WebApp.openLink
     return JSONResponse(content={"url": twitch_auth_url})
 
 
