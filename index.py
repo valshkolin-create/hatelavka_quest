@@ -1455,7 +1455,7 @@ async def bootstrap_app(
             supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": "1"}),
 
             # F. Реферальные данные + СТАТУС TWITCH
-            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "referrer_id, referral_activated_at, bott_internal_id, bott_ref_id, twitch_status"}),
+            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "referrer_id, referral_activated_at, bott_internal_id, bott_ref_id, twitch_status, twitch_login"}),
             
             # G. Подсчет рефералов
             supabase.get(
@@ -5687,7 +5687,7 @@ async def get_current_user_data(
             supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
             
             # B. Статус привязки Twitch
-            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"}),
+            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, twitch_login"}),
             
             # C. Настройки игры (Гринд) - берем из кэша или быстро из БД
             get_grind_settings_async_global(),
