@@ -4890,29 +4890,23 @@ async def get_public_quests(request_data: InitDataRequest):
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(
     request: Request,
-    initData: str = Query(...)  # Ожидаем initData в query параметрах
+    initData: str = Query(...)
 ):
-    # Логируем для отладки
     logging.info(f"🟣 [Twitch OAuth] Старт авторизации")
 
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
 
-    # 1. Кодируем initData в base64, чтобы передать через Twitch как state
     try:
-        # Используем urlsafe_b64encode для безопасности символов в URL
+        # Кодируем данные для передачи через state
         state = base64.urlsafe_b64encode(initData.encode()).decode()
     except Exception as e:
         logging.error(f"State encoding error: {e}")
         raise HTTPException(status_code=500, detail="Encoding error")
 
-    # ВАЖНО: Мы обновили scopes_list.
-    # user:read:follows — ОБЯЗАТЕЛЕН, чтобы проверить обычную подписку (фоллоу).
-    # user:read:subscriptions — нужен для проверки платной подписки (сабки).
-    # Остальные (email, vips) оставили по твоему желанию.
+    # ВАЖНО: Добавили user:read:follows для проверки фоллоу
     scopes_list = "user:read:email user:read:subscriptions user:read:follows channel:read:vips"
     
-    # 2. Формируем ссылку
     params = {
         "response_type": "code",
         "client_id": TWITCH_CLIENT_ID,
@@ -4921,12 +4915,9 @@ async def twitch_oauth_start(
         "state": state 
     }
     
-    # urlencode корректно преобразует пробелы и спецсимволы для URL
     query_string = urlencode(params)
     twitch_auth_url = f"https://id.twitch.tv/oauth2/authorize?{query_string}"
     
-    # 3. Возвращаем JSON с ссылкой
-    # Фронтенд получит этот URL и откроет его через Telegram.WebApp.openLink
     return JSONResponse(content={"url": twitch_auth_url})
 
 
@@ -4937,11 +4928,9 @@ async def twitch_oauth_callback(
     state: str = Query(...),
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Декодируем initData для идентификации пользователя Telegram
     try:
         init_data = base64.urlsafe_b64decode(state).decode()
     except Exception:
-        logging.error("Ошибка декодирования state")
         raise HTTPException(status_code=400, detail="Invalid state format")
 
     user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
@@ -4949,9 +4938,11 @@ async def twitch_oauth_callback(
         raise HTTPException(status_code=403, detail="Invalid initData signature")
     
     telegram_id = user_info["id"]
+    # Твой ID канала
+    BROADCASTER_ID = "883996654"
 
     async with httpx.AsyncClient() as client:
-        # 2. Обмен кода на Access Token
+        # Обмен кода на токен
         token_response = await client.post(
             "https://id.twitch.tv/oauth2/token",
             data={
@@ -4963,22 +4954,17 @@ async def twitch_oauth_callback(
             }
         )
         token_data = token_response.json()
-        
         if "access_token" not in token_data:
             logging.error(f"Twitch Token Error: {token_data}")
             raise HTTPException(status_code=500, detail="Failed to get access token")
             
         access_token = token_data["access_token"]
         refresh_token = token_data.get("refresh_token")
-        headers = {
-            "Authorization": f"Bearer {access_token}", 
-            "Client-Id": TWITCH_CLIENT_ID
-        }
+        headers = {"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
         
-        # 3. Получаем данные профиля (Twitch ID и Логин)
+        # Получаем данные пользователя Twitch
         user_response = await client.get("https://api.twitch.tv/helix/users", headers=headers)
         user_json = user_response.json()
-        
         if not user_json.get("data"):
             raise HTTPException(status_code=500, detail="No user data from Twitch")
 
@@ -4986,48 +4972,35 @@ async def twitch_oauth_callback(
         twitch_id = twitch_user["id"]
         twitch_login = twitch_user["login"]
 
-        # 4. Определение статуса (Follower / Subscriber / VIP)
-        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
+        # ПРОВЕРКА СТАТУСА
         new_status = "none"
 
-        if broadcaster_id:
-            # Проверка фолловинга
-            try:
-                # ВАЖНО: Требует scope user:read:follows
-                f_url = f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={broadcaster_id}"
-                f_resp = await client.get(f_url, headers=headers)
-                if f_resp.status_code == 200 and f_resp.json().get("data"):
-                    new_status = "follower"
-            except Exception as e:
-                logging.error(f"Ошибка проверки фоллоу: {e}")
-
-            # Проверка подписки (приоритет выше фоллоу)
-            try:
-                # ВАЖНО: Требует scope user:read:subscriptions
-                sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
-                sub_resp = await client.get(sub_url, headers=headers)
-                
-                if sub_resp.status_code == 200:
-                    # Если API вернуло 200, пользователь точно подписан
-                    new_status = "subscriber"
-                elif sub_resp.status_code == 404:
-                    # Пользователь не подписан, оставляем предыдущий статус (none или follower)
-                    pass
-                else:
-                    logging.warning(f"Twitch Sub API вернул код {sub_resp.status_code}: {sub_resp.text}")
-            except Exception as e:
-                logging.error(f"Ошибка проверки подписки: {e}")
-
-        # 5. Сохранение VIP-статуса (чтобы авторизация его не затерла)
+        # 1. Проверка на фолловера
         try:
-            current_db_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
-            db_data = current_db_resp.json()
-            if db_data and db_data[0].get("twitch_status") == "vip":
-                new_status = "vip"
+            f_url = f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={BROADCASTER_ID}"
+            f_resp = await client.get(f_url, headers=headers)
+            if f_resp.status_code == 200 and f_resp.json().get("data"):
+                new_status = "follower"
         except Exception as e:
-            logging.error(f"Ошибка при проверке VIP в БД: {e}")
+            logging.error(f"Follow check error: {e}")
 
-        # 6. Обновление базы данных Supabase
+        # 2. Проверка на саба (платного) — приоритет выше
+        try:
+            sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
+            sub_resp = await client.get(sub_url, headers=headers)
+            if sub_resp.status_code == 200:
+                new_status = "subscriber"
+        except Exception as e:
+            logging.error(f"Sub check error: {e}")
+
+        # 3. Сохраняем VIP, если он уже был в базе
+        try:
+            current_user = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
+            if current_user.json() and current_user.json()[0].get("twitch_status") == "vip":
+                new_status = "vip"
+        except: pass
+
+        # Обновляем БД Supabase
         update_payload = {
             "twitch_id": twitch_id, 
             "twitch_login": twitch_login,
@@ -5043,12 +5016,10 @@ async def twitch_oauth_callback(
             json=update_payload
         )
 
-    # 7. Финальный редирект обратно в Telegram Mini App
+    # Редирект в приложение
     bot_username = os.getenv("BOT_USERNAME", "HATElavka_bot")
     app_short_name = os.getenv("APP_SHORT_NAME", "profile")
-    tg_url = f"https://t.me/{bot_username}/{app_short_name}?startapp=auth_success"
-    
-    return RedirectResponse(url=tg_url)
+    return RedirectResponse(url=f"https://t.me/{bot_username}/{app_short_name}?startapp=auth_success")
 
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
 class InitDataRequest(BaseModel): initData: str
