@@ -12941,7 +12941,12 @@ async def claim_daily_task(
                 else:
                     check_passed = True 
             except Exception as e:
-                return JSONResponse({"success": False, "error": "Не удалось проверить профиль. Проверьте настройки приватности."})
+                # Важно: печатаем ошибку в консоль, чтобы понять, почему бот «ослеп»
+                print(f"Ошибка проверки профиля для юзера {user_id}: {e}")
+                return JSONResponse({
+                    "success": False, 
+                    "error": "Не удалось проверить профиль. Проверьте настройки приватности или попробуйте позже (минутки через 3)."
+                })
 
         if not check_passed:
             target = "фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
