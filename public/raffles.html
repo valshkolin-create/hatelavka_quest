@@ -72,7 +72,14 @@
         .timer_lbl { font-size: 9px; color: var(--primary-blue); margin-top: 2px; font-weight: 600; text-transform: lowercase; }
 
         /* СКИН (УВЕЛИЧЕН) */
-        .prize-img-wrapper { position: absolute; top: 15px; right: -15px; width: 200px; z-index: 2; pointer-events: none; }
+        .prize-img-wrapper { 
+    position: absolute; 
+    top: 15px; 
+    right: -10px; 
+    width: 180px; /* Было 200, ставим 180 */
+    z-index: 2; 
+    pointer-events: none; 
+}
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8)); }
 
         .social_row { margin-top: auto; display: flex; align-items: center; }
@@ -155,7 +162,9 @@
             <h1>История</h1>
             <i class="fa-solid fa-xmark" style="font-size: 24px;" onclick="closeHistory()"></i>
         </div>
-        <div id="total-count" style="font-size: 28px; font-weight: 800; margin-bottom: 25px; letter-spacing: -0.5px;">Разыграно: --</div>
+        <div id="total-count" style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 20px; letter-spacing: 1px;">
+    Разыграно: --
+</div>
         <div id="history-list"></div>
     </div>
 
