@@ -388,7 +388,6 @@ function setupSlider() {
         resetSlideInterval();
     }
 
-
 // --- ЕЖЕНЕДЕЛЬНЫЕ ЦЕЛИ (РЕНДЕР СВОДКИ) ---
 function renderWeeklyGoals(data) {
     const listContainer = dom.weeklyGoalsListContainer;
@@ -1592,16 +1591,101 @@ function startGlobalSliderCycle(count) {
     }, 5000);
 }
 
+// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+function getPlural(n, titles) {
+    return titles[(n % 10 === 1 && n % 100 !== 11) ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
+}
+
+async function initDynamicRaffleSlider() {
+    const wrapper = document.querySelector('.slider-wrapper');
+    if (!wrapper) return;
+
+    // Находим твой оригинальный слайд /raffles
+    const placeholder = wrapper.querySelector('.slide[href="/raffles"], .slide[data-event="skin_race"]');
+    if (!placeholder) return;
+
+    try {
+        const res = await fetch('/api/v1/raffles/active', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
+        });
+        
+        const data = await res.json();
+        const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
+
+        if (activeRaffles.length > 0) {
+            activeRaffles.forEach(raffle => {
+                const s = raffle.settings || {};
+                const img = s.card_image || s.prize_image || '';
+                const rarityColor = s.rarity_color || '#ffd700';
+                const quality = s.skin_quality ? `(${s.skin_quality})` : '';
+                const pCount = raffle.participants_count || 0;
+                const pText = `${pCount} ${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
+
+                const newSlide = document.createElement('a');
+                newSlide.href = "/raffles";
+                newSlide.className = "slide dynamic-raffle-slide";
+                newSlide.innerHTML = `
+                    <div class="premium-slide-box">
+                        <div class="raffle-badge">Розыгрыш</div>
+                        <div class="raffle-item-name">${s.prize_name} <span style="opacity:0.4; font-size:12px;">${quality}</span></div>
+                        <img src="${img}" class="raffle-item-img">
+                        <div class="raffle-full-timer" data-endtime="${raffle.end_time}">
+                            <div class="t-unit"><span class="t-val d-v">0</span><span class="t-lbl">дн</span></div>
+                            <div class="t-unit"><span class="t-val h-v">0</span><span class="t-lbl">час</span></div>
+                            <div class="t-unit"><span class="t-val m-v">0</span><span class="t-lbl">мин</span></div>
+                            <div class="t-unit"><span class="t-val s-v">0</span><span class="t-lbl">сек</span></div>
+                        </div>
+                        <div class="raffle-participants-tag">
+                            <i class="fa-solid fa-users" style="color: ${rarityColor}"></i> ${pText}
+                        </div>
+                    </div>
+                `;
+                // Вставляем новый слайд перед заглушкой
+                placeholder.before(newSlide);
+            });
+
+            // Убираем старую картинку-заглушку
+            placeholder.remove();
+            startSliderTick();
+        }
+    } catch (e) {
+        console.warn("Raffle slider error:", e);
+    }
+}
+
+function startSliderTick() {
+    const update = () => {
+        document.querySelectorAll('.raffle-full-timer').forEach(el => {
+            const end = new Date(el.dataset.endtime);
+            const diff = end - new Date();
+            if (diff <= 0) { el.innerHTML = "<span style='font-weight:800; color:#ff453a;'>ЗАВЕРШАЕТСЯ</span>"; return; }
+            
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const m = Math.floor((diff / (1000 * 60)) % 60);
+            const s = Math.floor((diff / 1000) % 60);
+
+            if(el.querySelector('.d-v')) el.querySelector('.d-v').innerText = d;
+            if(el.querySelector('.h-v')) el.querySelector('.h-v').innerText = h;
+            if(el.querySelector('.m-v')) el.querySelector('.m-v').innerText = m;
+            if(el.querySelector('.s-v')) el.querySelector('.s-v').innerText = s;
+        });
+    };
+    update();
+    setInterval(update, 1000);
+}
+
 async function main() {
-    // 1. Хак для перенаправления с профиля
+    // Хак для перенаправления с профиля
     if (window.location.pathname.includes('/profile') || window.location.href.includes('profile')) {
         window.history.replaceState({}, document.title, "/");
-        if (dom.viewDashboard) dom.viewDashboard.classList.remove('hidden');
-        if (dom.viewQuests) dom.viewQuests.classList.add('hidden');
+        dom.viewDashboard.classList.remove('hidden');
+        dom.viewQuests.classList.add('hidden');
     }
 
     try {
-        // 2. Проверка Telegram окружения
         if (window.Telegram && !Telegram.WebApp.initData) {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
@@ -1617,20 +1701,19 @@ async function main() {
             let bootstrapData = null;
             let usedCache = false;
 
-            // А. Пытаемся взять данные из кэша для мгновенного появления
+            // А. Кэш
             try {
                 const cachedJson = localStorage.getItem('app_bootstrap_cache');
                 if (cachedJson) {
                     bootstrapData = JSON.parse(cachedJson);
                     usedCache = true;
                 }
-            } catch (e) { console.warn("Cache error:", e); }
+            } catch (e) { console.warn(e); }
 
-            // Б. Если кэша нет — идем в сеть
+            // Б. Сеть
             if (!bootstrapData) {
                 let fakeP = 1;
                 const timer = setInterval(() => { if(fakeP < 30) updateLoading(++fakeP); }, 50);
-                
                 try {
                     bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
                 } finally {
@@ -1640,10 +1723,9 @@ async function main() {
 
             if (!bootstrapData) throw new Error("Нет данных (bootstrap)");
 
-            // В. Предзагрузка критических изображений (скинов/баннеров)
+            // В. Картинки
             const startP = usedCache ? 5 : 35;
             updateLoading(startP);
-            
             const imageUrls = extractImageUrls(bootstrapData);
             if (imageUrls.length > 0) {
                 await preloadImages(imageUrls, (p) => {
@@ -1651,47 +1733,45 @@ async function main() {
                     const val = startP + Math.floor((p * range) / 100);
                     updateLoading(val);
                 });
-            } else {
-                updateLoading(95);
-            }
+            } else { updateLoading(95); }
 
-            // Г. Рендер основного интерфейса (Создаем скелет страницы)
+            // Г. Рендер интерфейса (твои старые слайды появятся тут)
             await renderFullInterface(bootstrapData);
             
-            // Д. 🔥 ХИРУРГИЧЕСКАЯ ВСТАВКА: Оживляем слайдер розыгрышей 
-            // Это делается СТРОГО после рендера, когда wrapper уже в DOM
+            // Д. 🔥 ХИРУРГИЧЕСКАЯ ВСТАВКА: Оживляем розыгрыши
+            // Мы меняем 1 слайд-заглушку на живые розыгрыши
             await initDynamicRaffleSlider();
 
-            // Е. Завершение загрузки
+            // Е. Финальный запуск логики слайдера
+            // Теперь он увидит новые слайды и правильно настроит точки/свайпы
+            setupSlider();
+
+            // Ж. Финиш
             updateLoading(100);
             setTimeout(() => {
                 if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
                 if (dom.mainContent) dom.mainContent.classList.add('visible');
-                
-                // Если грузились из кэша — обновляем данные «бесшумно» в фоне
                 if (usedCache) {
-                    updateBootstrapSilently()
-                        .then(() => initDynamicRaffleSlider()) // Обновляем слайдер новыми данными
-                        .catch(console.error); 
+                    updateBootstrapSilently().catch(console.error); 
                 }
             }, 300);
             
         } 
-        // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ (Refresh/Visible) ---
+        // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ (Обновление) ---
         else {
             await updateBootstrapSilently();
-            // Снова вызываем слайдер, чтобы проверить, не появились ли новые розыгрыши
             await initDynamicRaffleSlider();
+            setupSlider(); // Пересобираем слайдер при обновлении данных
         }
 
     } catch (e) {
-        console.error("Critical error in main:", e);
+        console.error("Error inside main:", e);
         if (dom.loaderOverlay) {
             dom.loadingText.textContent = "Ошибка запуска";
             dom.loadingText.style.color = "#ff453a";
             setTimeout(() => {
                  dom.loaderOverlay.classList.add('hidden');
-                 if (dom.mainContent) dom.mainContent.classList.add('visible');
+                 dom.mainContent.classList.add('visible');
             }, 2000);
         }
     }
