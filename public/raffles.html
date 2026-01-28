@@ -21,14 +21,12 @@
             background: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             margin: 0; padding: 16px; 
-            padding-bottom: 0; /* Отступ теперь внутри контента */
             -webkit-tap-highlight-color: transparent; 
         }
         
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 5px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
         h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
         
-        .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
         .history-btn { 
             background: #1c1c1e; min-width: 54px; height: 48px; 
             border-radius: 14px; display: flex; flex-direction: column; 
@@ -36,9 +34,6 @@
             border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: 0.1s;
         }
         .history-btn span { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
-        
-        /* Счетчик разыгранных скинов */
-        .total-raffled { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
 
         /* --- КАРТОЧКИ --- */
         .card { 
@@ -46,7 +41,7 @@
             margin-bottom: 16px; position: relative; overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
             animation: slideUp 0.4s ease; 
-            min-height: 250px; /* Одинаковая высота */
+            min-height: 250px;
             display: flex; flex-direction: column;
         }
 
@@ -70,10 +65,9 @@
 
         .timer_row { display: flex; gap: 10px; margin-bottom: 15px; }
         .timer_item { display: flex; flex-direction: column; align-items: flex-start; }
-        .timer_val { font-size: 20px; font-weight: 700; color: var(--primary-blue); line-height: 1; }
+        .timer_val { font-size: 20px; font-weight: 700; color: var(--primary-blue); line-height: 1; font-variant-numeric: tabular-nums; }
         .timer_lbl { font-size: 9px; color: var(--primary-blue); margin-top: 2px; font-weight: 600; }
 
-        /* КАРТИНКА (УВЕЛИЧЕНА) */
         .prize-img-wrapper { position: absolute; top: 10px; right: -15px; width: 190px; z-index: 2; pointer-events: none; }
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8)); }
 
@@ -85,20 +79,21 @@
             width: 100%; background: var(--primary-blue); color: #fff;
             border: none; padding: 14px; border-radius: 20px;
             font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.1s;
-            margin-top: 12px;
+            margin-top: 12px; text-transform: uppercase;
         }
+        .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); }
 
         .winner_box { 
             margin-top: 10px; background: rgba(255,255,255,0.03); border-radius: 16px; 
             padding: 8px 14px; border: 1px solid rgba(255,255,255,0.05); 
         }
         .w-title { font-size: 9px; color: #ffd700; text-transform: uppercase; font-weight: 800; margin-bottom: 2px; }
-        .w-user { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .w-user { font-size: 14px; font-weight: 700; color: #fff; }
 
         /* ОТСТУП СНИЗУ */
-        .bottom-spacer { height: 160px; width: 100%; pointer-events: none; }
+        .bottom-spacer { height: 180px; width: 100%; pointer-events: none; }
 
-        /* Footer & Others */
+        /* FOOTER */
         .app-footer {
             display: flex; justify-content: space-around; align-items: center;
             background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px);
@@ -108,16 +103,17 @@
         }
         .footer-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #8E8E93; text-decoration: none; flex: 1; font-size: 10px; }
         .footer-item .icon-wrapper { font-size: 22px; }
-        .close-container { position: fixed; bottom: 95px; left: 0; right: 0; display: flex; justify-content: center; z-index: 1000; }
-        .btn-close { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px 35px; border-radius: 30px; font-size: 14px; font-weight: 600; cursor: pointer; }
+
         .hidden { display: none !important; }
         .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1100; padding: 16px; overflow-y: auto; display: none; }
         .history-overlay.active { display: block; }
+        
+        /* Модалка с кнопками Да/Нет */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 1200; display: none; align-items: center; justify-content: center; }
-        .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; }
-        .verify-loader { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+        .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .m-btn-sec { background: rgba(255,255,255,0.05); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 600; }
 
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
@@ -125,12 +121,11 @@
 
     <div class="header-row">
         <h1>Розыгрыши</h1>
-        <div class="header-right">
+        <div class="header-right" style="display: flex; flex-direction: column; align-items: flex-end;">
             <div class="history-btn" onclick="openHistory()">
                 <i class="fa-solid fa-clock-rotate-left"></i>
                 <span>История</span>
             </div>
-            <div id="total-count" class="total-raffled">Разыграно: --</div>
         </div>
     </div>
 
@@ -145,10 +140,11 @@
     </div>
 
     <div id="history-overlay" class="history-overlay">
-        <div class="header-row" style="margin-bottom: 20px;">
+        <div class="header-row" style="margin-bottom: 5px;">
             <h1>История</h1>
             <i class="fa-solid fa-xmark" style="font-size: 24px; padding: 5px;" onclick="closeHistory()"></i>
         </div>
+        <div id="total-count" style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 20px; letter-spacing: 1px;">Разыграно: --</div>
         <div id="history-list"></div>
     </div>
 
@@ -162,21 +158,21 @@
 
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
-            <div id="modal-icon" style="height: 60px;"></div>
-            <div class="m-head" id="m-head"></div>
-            <div class="m-desc" id="m-desc"></div>
-            <button class="btn-main" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
+            <div id="modal-icon" style="font-size: 50px; margin-bottom: 15px;"></div>
+            <div id="m-head" style="font-size: 22px; font-weight: 800; margin-bottom: 8px;"></div>
+            <div id="m-desc" style="color: var(--text-muted); margin-bottom: 25px; font-size: 15px; line-height: 1.4;"></div>
+            <div id="modal-actions">
+                <button class="btn-main" id="m-btn-ok">Понятно</button>
+            </div>
+            <button class="m-btn-sec" id="m-btn-cancel" style="margin-top: 10px; width: 100%; display: none;">Отмена</button>
         </div>
-    </div>
-
-    <div id="verify-modal" class="modal-overlay" style="z-index: 2000;">
-        <div class="verify-loader"></div>
-        <div style="text-align: center;">Проверяем условия...</div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+
+        let rafflesData = [];
 
         function openHistory() { document.getElementById('history-overlay').classList.add('active'); }
         function closeHistory() { document.getElementById('history-overlay').classList.remove('active'); }
@@ -187,26 +183,33 @@
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({initData:tg.initData})
                 });
-                const data = await res.json();
-                render(data);
+                rafflesData = await res.json();
+                render(rafflesData);
                 checkDeepLink(); 
             } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center">Ошибка сети</p>'; }
         }
 
-        async function checkDeepLink() {
-            const startParam = tg.initDataUnsafe.start_param; 
-            if (startParam && startParam.startsWith('raffle_')) {
-                document.getElementById('close-btn-container').classList.remove('hidden');
-                const raffleId = startParam.split('_')[1];
-                if (sessionStorage.getItem('checked_raffle_' + raffleId)) return;
-                const vModal = document.getElementById('verify-modal');
-                vModal.style.display = 'flex';
-                await new Promise(r => setTimeout(r, 1500));
-                sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
-                await join(raffleId, true);
-                vModal.style.display = 'none';
-            }
-        }
+        // Динамический таймер
+        setInterval(() => {
+            const timers = document.querySelectorAll('.timer-container');
+            timers.forEach(container => {
+                const endTime = container.dataset.endtime;
+                const diff = new Date(endTime) - new Date();
+                if (diff <= 0) {
+                    container.innerHTML = "Завершается...";
+                    return;
+                }
+                const d = Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+                const h = Math.max(0, Math.floor((diff / (1000 * 60 * 60)) % 24));
+                const m = Math.max(0, Math.floor((diff / (1000 * 60)) % 60));
+                const s = Math.max(0, Math.floor((diff / 1000) % 60));
+                
+                container.querySelector('.d-val').innerText = d;
+                container.querySelector('.h-val').innerText = h;
+                container.querySelector('.m-val').innerText = m;
+                container.querySelector('.s-val').innerText = s;
+            });
+        }, 1000);
 
         function render(data) {
             const list = document.getElementById('list');
@@ -227,51 +230,47 @@
                 let conditions = '';
                 if (!done) {
                     if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram" style="color:${rarityColor}"></i> Канал</div>`;
-                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch" style="color:${rarityColor}"></i> Twitch: ${s.min_daily_messages}</div>`;
-                    if (s.ticket_cost > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-ticket" style="color:${rarityColor}"></i> ${s.ticket_cost} билетов</div>`;
+                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch" style="color:${rarityColor}"></i> Сообщений: ${s.min_daily_messages}</div>`;
                 }
 
-                let timerHtml = '';
-                if (r.end_time && !done) {
-                    const diff = new Date(r.end_time) - new Date();
-                    const d = Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-                    const h = Math.max(0, Math.floor((diff / (1000 * 60 * 60)) % 24));
-                    const m = Math.max(0, Math.floor((diff / (1000 * 60)) % 60));
-                    timerHtml = `
-                        <div class="timer_row">
-                            <div class="timer_item"><span class="timer_val">${d}</span><span class="timer_lbl">дней</span></div>
-                            <div class="timer_item"><span class="timer_val">${h}</span><span class="timer_lbl">часов</span></div>
-                            <div class="timer_item"><span class="timer_val">${m}</span><span class="timer_lbl">мин</span></div>
-                        </div>`;
+                // Кнопка с ценой
+                let btnText = 'Участвовать';
+                if (!r.is_joined && s.ticket_cost > 0) {
+                    btnText = `ЗАПЛАТИТЬ ${s.ticket_cost} БИЛЕТОВ`;
                 }
-
-                const statusText = done ? 'Розыгрыш завершен' : `<b>${r.participants_count || 0}</b> участников`;
 
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
                     <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
                     <div class="card_content">
                         <div class="prize-img-wrapper">
-                            <img src="${img}" class="prize-img" onerror="this.style.display='none'">
+                            <img src="${img}" class="prize-img">
                         </div>
                         <div class="r-label" style="color: ${rarityColor}">РОЗЫГРЫШ</div>
                         <h3 class="r-title">${fullPrizeName}</h3>
                         
-                        ${!done ? `<div class="conditions">${conditions}</div>` : ''}
-                        ${!done ? timerHtml : ''}
+                        ${!done ? `
+                            <div class="conditions">${conditions}</div>
+                            <div class="timer_row timer-container" data-endtime="${r.end_time}">
+                                <div class="timer_item"><span class="timer_val d-val">0</span><span class="timer_lbl">дн</span></div>
+                                <div class="timer_item"><span class="timer_val h-val">0</span><span class="timer_lbl">час</span></div>
+                                <div class="timer_item"><span class="timer_val m-val">0</span><span class="timer_lbl">мин</span></div>
+                                <div class="timer_item"><span class="timer_val s-val">0</span><span class="timer_lbl">сек</span></div>
+                            </div>
+                        ` : ''}
 
                         <div class="social_row">
-                            <div class="social_text">${statusText}</div>
+                            <div class="social_text">${done ? 'Розыгрыш завершен' : `<b>${r.participants_count || 0}</b> участников`}</div>
                         </div>
 
                         ${!done ? `
-                            <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="join(${r.id})">
-                                ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : 'Участвовать'}
+                            <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="confirmJoin(${r.id}, ${s.ticket_cost || 0})">
+                                ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnText}
                             </button>
                         ` : `
                             <div class="winner_box">
                                 <div class="w-title" style="color:${rarityColor}">Победитель</div>
-                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
+                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Айдар'}</div>
                             </div>
                         `}
                     </div>
@@ -281,19 +280,20 @@
                 else list.innerHTML += cardHtml;
             });
 
-            // Обновляем счетчик
             document.getElementById('total-count').innerText = `Разыграно: ${completedCount} скинов`;
-
-            // Добавляем отступы в концы списков
             list.innerHTML += '<div class="bottom-spacer"></div>';
             historyList.innerHTML += '<div class="bottom-spacer"></div>';
+        }
 
-            if (!data.filter(x => x.status !== 'completed').length) {
-                list.innerHTML = '<div style="text-align:center; padding: 50px; color: var(--text-muted);">Активных розыгрышей нет</div><div class="bottom-spacer"></div>';
+        function confirmJoin(id, cost) {
+            if (cost > 0) {
+                showModal('confirm', 'Участие за билеты', `Вы уверены, что хотите потратить ${cost} билетов на участие в этом розыгрыше?`, () => join(id));
+            } else {
+                join(id);
             }
         }
 
-        async function join(id, isAuto = false) {
+        async function join(id) {
             try {
                 const res = await fetch('/api/v1/raffles/join', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -302,19 +302,39 @@
                 const ans = await res.json();
                 if(res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    if(!isAuto) showModal('success', 'Успех!', ans.message);
+                    showModal('info', 'Успех!', ans.message);
                     load(); 
-                } else if(!isAuto) {
-                    tg.HapticFeedback.notificationOccurred('error');
-                    showModal('error', 'Упс...', ans.detail);
+                } else {
+                    showModal('info', 'Упс...', ans.detail);
                 }
-            } catch(e) { if(!isAuto) showModal('error', 'Ошибка', 'Нет связи'); }
+            } catch(e) { showModal('info', 'Ошибка', 'Нет связи'); }
         }
 
-        function showModal(type, title, msg) {
+        function showModal(mode, title, msg, onConfirm = null) {
+            const m = document.getElementById('modal');
             document.getElementById('m-head').innerText = title;
             document.getElementById('m-desc').innerText = msg;
-            document.getElementById('modal').style.display = 'flex';
+            const okBtn = document.getElementById('m-btn-ok');
+            const cancelBtn = document.getElementById('m-btn-cancel');
+
+            if (mode === 'confirm') {
+                okBtn.innerText = "Да, участвую!";
+                cancelBtn.style.display = "block";
+                okBtn.onclick = () => { m.style.display = 'none'; onConfirm(); };
+                cancelBtn.onclick = () => { m.style.display = 'none'; };
+            } else {
+                okBtn.innerText = "Понятно";
+                cancelBtn.style.display = "none";
+                okBtn.onclick = () => { m.style.display = 'none'; };
+            }
+            m.style.display = 'flex';
+        }
+
+        async function checkDeepLink() {
+            const startParam = tg.initDataUnsafe.start_param; 
+            if (startParam && startParam.startsWith('raffle_')) {
+                document.getElementById('close-btn-container').classList.remove('hidden');
+            }
         }
 
         load();
