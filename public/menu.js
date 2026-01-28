@@ -1621,65 +1621,6 @@ function getPlural(n, titles) {
     return titles[(n % 10 === 1 && n % 100 !== 11) ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
 }
 
-async function initDynamicRaffleSlider() {
-    const wrapper = document.querySelector('.slider-wrapper');
-    if (!wrapper) return;
-
-    // Находим твой оригинальный слайд /raffles
-    const placeholder = wrapper.querySelector('.slide[href="/raffles"], .slide[data-event="skin_race"]');
-    if (!placeholder) return;
-
-    try {
-        const res = await fetch('/api/v1/raffles/active', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
-        });
-        
-        const data = await res.json();
-        const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
-
-        if (activeRaffles.length > 0) {
-            activeRaffles.forEach(raffle => {
-                const s = raffle.settings || {};
-                const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#ffd700';
-                const quality = s.skin_quality ? `(${s.skin_quality})` : '';
-                const pCount = raffle.participants_count || 0;
-                const pText = `${pCount} ${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
-
-                const newSlide = document.createElement('a');
-                newSlide.href = "/raffles";
-                newSlide.className = "slide dynamic-raffle-slide";
-                newSlide.innerHTML = `
-                    <div class="premium-slide-box">
-                        <div class="raffle-badge">Розыгрыш</div>
-                        <div class="raffle-item-name">${s.prize_name} <span style="opacity:0.4; font-size:12px;">${quality}</span></div>
-                        <img src="${img}" class="raffle-item-img">
-                        <div class="raffle-full-timer" data-endtime="${raffle.end_time}">
-                            <div class="t-unit"><span class="t-val d-v">0</span><span class="t-lbl">дн</span></div>
-                            <div class="t-unit"><span class="t-val h-v">0</span><span class="t-lbl">час</span></div>
-                            <div class="t-unit"><span class="t-val m-v">0</span><span class="t-lbl">мин</span></div>
-                            <div class="t-unit"><span class="t-val s-v">0</span><span class="t-lbl">сек</span></div>
-                        </div>
-                        <div class="raffle-participants-tag">
-                            <i class="fa-solid fa-users" style="color: ${rarityColor}"></i> ${pText}
-                        </div>
-                    </div>
-                `;
-                // Вставляем новый слайд перед заглушкой
-                placeholder.before(newSlide);
-            });
-
-            // Убираем старую картинку-заглушку
-            placeholder.remove();
-            startSliderTick();
-        }
-    } catch (e) {
-        console.warn("Raffle slider error:", e);
-    }
-}
-
 function startSliderTick() {
     const update = () => {
         document.querySelectorAll('.raffle-full-timer').forEach(el => {
