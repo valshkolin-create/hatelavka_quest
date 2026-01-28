@@ -1502,9 +1502,11 @@ async function updateBootstrapSilently() {
 }
 
 async function initDynamicRaffleSlider() {
-    // Ищем слайд, который ведет на розыгрыши
-    const raffleSlide = document.querySelector('a.slide[href="/raffles"]');
-    if (!raffleSlide) return;
+    const wrapper = document.querySelector('.slider-wrapper');
+    if (!wrapper) return;
+
+    const placeholder = wrapper.querySelector('.slide[href="/raffles"], .slide[data-event="skin_race"]');
+    if (!placeholder) return;
 
     try {
         const res = await fetch('/api/v1/raffles/active', {
@@ -1517,49 +1519,52 @@ async function initDynamicRaffleSlider() {
         const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
 
         if (activeRaffles.length > 0) {
-            // Создаем временный контейнер для новых слайдов
-            const newSlides = [];
-
             activeRaffles.forEach(raffle => {
                 const s = raffle.settings || {};
                 const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#2481cc';
+                const rarityColor = s.rarity_color || '#ffd700'; // Тот самый цвет из админки
                 const quality = s.skin_quality ? `(${s.skin_quality})` : '';
+                const pCount = raffle.participants_count || 0;
+                
+                const newSlide = document.createElement('a');
+                newSlide.href = "/raffles";
+                newSlide.className = "slide dynamic-raffle-slide";
+                // Передаем цвет редкости в CSS переменную
+                newSlide.style.setProperty('--rarity-color', rarityColor);
 
-                // Создаем новый элемент слайда
-                const slideAnchor = document.createElement('a');
-                slideAnchor.href = "/raffles";
-                slideAnchor.className = "slide dynamic-raffle-slide";
-                slideAnchor.innerHTML = `
-                    <div class="dynamic-raffle-content">
-                        <div style="text-align:center;">
-                            <div style="font-size:10px; font-weight:800; color:${rarityColor}; text-transform:uppercase; letter-spacing:2px;">Розыгрыш</div>
-                            <div style="font-size:16px; font-weight:800; color:#fff;">${s.prize_name} ${quality}</div>
+                newSlide.innerHTML = `
+                    <div class="premium-slide-box">
+                        <div class="slide-rarity-glow"></div>
+                        
+                        <div style="display:flex; flex-direction:column; align-items:center;">
+                            <div class="raffle-badge">Розыгрыш</div>
+                            <div class="raffle-item-name">${s.prize_name} <span style="opacity:0.4; font-size:14px;">${quality}</span></div>
                         </div>
-                        <img src="${img}" class="dyn-skin-img">
-                        <div class="dyn-timer" data-endtime="${raffle.end_time}">00:00:00</div>
+
+                        <img src="${img}" class="raffle-item-img">
+                        
+                        <div style="display:flex; flex-direction:column; align-items:center; width:100%;">
+                            <div class="raffle-full-timer" data-endtime="${raffle.end_time}">
+                                <div class="t-unit"><span class="t-val d-v">0</span><span class="t-lbl">дн</span></div>
+                                <div class="t-unit"><span class="t-val h-v">0</span><span class="t-lbl">час</span></div>
+                                <div class="t-unit"><span class="t-val m-v">0</span><span class="t-lbl">мин</span></div>
+                                <div class="t-unit"><span class="t-val s-v">0</span><span class="t-lbl">сек</span></div>
+                            </div>
+                            <div class="raffle-participants-tag">
+                                <i class="fa-solid fa-users" style="color: ${rarityColor}"></i>
+                                <span>${pCount} ${getPlural(pCount, ['участник', 'участника', 'участников'])}</span>
+                            </div>
+                        </div>
                     </div>
                 `;
-                newSlides.push(slideAnchor);
+                placeholder.before(newSlide);
             });
 
-            // Заменяем оригинальный слайд на новые динамические
-            // Вставляем все новые слайды ПЕРЕД оригинальным, а потом удаляем оригинал
-            newSlides.forEach(slide => raffleSlide.before(slide));
-            raffleSlide.remove();
-
-            // Запускаем таймеры для новых слайдов
-            startDynTimers();
-            
-            // Переинициализируем твой стандартный цикл слайдера (если он есть)
-            // Или запускаем наш, если их стало больше
-            const totalSlides = document.querySelectorAll('.slider-wrapper .slide').length;
-            if (totalSlides > 1) {
-                startGlobalSliderCycle(totalSlides);
-            }
+            placeholder.remove();
+            startSliderTick();
         }
     } catch (e) {
-        console.error("Dynamic slide error:", e);
+        console.warn("Slider dynamic failed", e);
     }
 }
 
