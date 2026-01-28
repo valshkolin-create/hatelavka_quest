@@ -2179,3 +2179,63 @@ body.tutorial-active #main-content {
     font-variant-numeric: tabular-nums;
 }
 
+/* ПРЕМИАЛЬНЫЙ ДИЗАЙН РОЗЫГРЫША В СЛАЙДЕРЕ */
+.premium-slide-box {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, rgba(30, 30, 30, 0.4) 0%, #111 100%);
+    padding: 15px;
+    text-decoration: none;
+    overflow: hidden;
+}
+
+.raffle-badge {
+    position: absolute;
+    top: 15px;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--primary);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.raffle-item-name {
+    margin-top: 25px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255,255,255,0.2);
+}
+
+.raffle-item-img {
+    height: 50%; /* Идеальный размер для 1200x600 */
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.9));
+    margin: 5px 0;
+    transition: transform 0.3s ease;
+}
+
+/* Полноценный таймер (Дни, Часы, Минуты, Секунды) */
+.raffle-full-timer {
+    display: flex;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    padding: 6px 15px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.t-unit { display: flex; flex-direction: column; align-items: center; min-width: 35px; }
+.t-val { font-size: 16px; font-weight: 800; color: var(--primary); line-height: 1; font-variant-numeric: tabular-nums; }
+.t-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; opacity: 0.6; margin-top: 2px; }
+
