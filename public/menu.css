@@ -2180,62 +2180,103 @@ body.tutorial-active #main-content {
 }
 
 /* ПРЕМИАЛЬНЫЙ ДИЗАЙН РОЗЫГРЫША В СЛАЙДЕРЕ */
+/* --- НОВЫЙ УЛЬТРА-ПРЕМИАЛЬНЫЙ ДИЗАЙН --- */
 .premium-slide-box {
     position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    background: radial-gradient(circle at center, rgba(30, 30, 30, 0.4) 0%, #111 100%);
-    padding: 15px;
+    justify-content: space-between; /* Распределяем элементы по краям */
+    padding: 20px 15px;
+    background: #0b0b0b; /* Глубокий черный фон */
     text-decoration: none;
     overflow: hidden;
 }
 
-.raffle-badge {
+/* Фоновое свечение (Glow), которое мы будем подкрашивать из JS */
+.slide-rarity-glow {
     position: absolute;
-    top: 15px;
-    font-size: 10px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, var(--rarity-color, #ffd700) 0%, transparent 70%);
+    opacity: 0.15; /* Очень мягкое свечение */
+    filter: blur(40px);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.raffle-badge {
+    position: relative;
+    z-index: 5;
+    font-size: 9px;
     font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 3px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    background: rgba(255, 215, 0, 0.1);
-    color: var(--primary);
-    border: 1px solid rgba(255, 215, 0, 0.2);
+    letter-spacing: 4px;
+    padding: 5px 14px;
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--rarity-color, #ffd700);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
 }
 
 .raffle-item-name {
-    margin-top: 25px;
-    font-size: 18px;
-    font-weight: 800;
+    position: relative;
+    z-index: 5;
+    margin-top: 10px;
+    font-size: 20px;
+    font-weight: 900;
     color: #fff;
-    text-shadow: 0 0 20px rgba(255,255,255,0.2);
+    text-align: center;
+    line-height: 1.1;
+    text-shadow: 0 4px 15px rgba(0,0,0,0.5);
 }
 
 .raffle-item-img {
-    height: 50%; /* Идеальный размер для 1200x600 */
+    position: relative;
+    z-index: 3;
+    height: 120px; /* Фиксируем высоту для 1200x600 */
     width: auto;
     object-fit: contain;
-    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.9));
+    /* Тень под скином для объема */
+    filter: drop-shadow(0 20px 30px rgba(0,0,0,0.8));
     margin: 5px 0;
-    transition: transform 0.3s ease;
+    transform: perspective(500px) rotateY(-10deg); /* Легкий 3D эффект */
 }
 
-/* Полноценный таймер (Дни, Часы, Минуты, Секунды) */
+/* Стеклянный таймер */
 .raffle-full-timer {
+    position: relative;
+    z-index: 5;
     display: flex;
-    gap: 8px;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(10px);
-    padding: 6px 15px;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    padding: 10px 20px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-.t-unit { display: flex; flex-direction: column; align-items: center; min-width: 35px; }
-.t-val { font-size: 16px; font-weight: 800; color: var(--primary); line-height: 1; font-variant-numeric: tabular-nums; }
-.t-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; opacity: 0.6; margin-top: 2px; }
+.t-unit { display: flex; flex-direction: column; align-items: center; min-width: 40px; }
+.t-val { font-size: 18px; font-weight: 800; color: #fff; line-height: 1; }
+.t-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; color: var(--sec); margin-top: 4px; }
+
+/* Плашка участников */
+.raffle-participants-tag {
+    position: relative;
+    z-index: 5;
+    margin-top: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--sec);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
 
