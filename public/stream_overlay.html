@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS Raffle Overlay</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        /* --- БАЗА ДЛЯ OBS --- */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent; /* ПРОЗРАЧНЫЙ ФОН */
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* --- КОНТЕЙНЕР КАРТОЧКИ (АДАПТИРОВАННЫЙ v5.0) --- */
+        .obs-card-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0; /* Скрыто по умолчанию для анимации */
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+            transform: translateY(20px);
+        }
+
+        .obs-card-wrapper.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .premium-slide-box {
+            position: relative;
+            width: 95%; /* Чуть отступаем от краев OBS источника */
+            height: 90%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            box-sizing: border-box;
+            border-radius: 24px; /* Закругленные углы */
+            overflow: hidden;
+
+            /* Фон карточки */
+            background: #0a0a0a;
+            background-image: radial-gradient(circle at 60% 50%, rgba(var(--rarity-rgb), 0.25) 0%, rgba(15, 15, 15, 1) 85%);
+            border: 2px solid rgba(var(--rarity-rgb), 0.3); /* Яркая обводка для стрима */
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8), inset 0 0 40px rgba(var(--rarity-rgb), 0.1);
+        }
+
+        /* Блик */
+        .premium-slide-box::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+            transform: rotate(30deg);
+            pointer-events: none;
+            animation: shine 6s infinite;
+        }
+
+        @keyframes shine {
+            0% { transform: translateX(-100%) rotate(30deg); }
+            20% { transform: translateX(100%) rotate(30deg); }
+            100% { transform: translateX(100%) rotate(30deg); }
+        }
+
+        /* БЕЙДЖ "РОЗЫГРЫШ" */
+        .raffle-badge-top-right {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 20;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fff;
+            background: rgba(var(--rarity-rgb), 0.4); /* Ярче для стрима */
+            border: 1px solid rgba(var(--rarity-rgb), 0.6);
+            box-shadow: 0 0 15px rgba(var(--rarity-rgb), 0.3);
+            padding: 5px 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* ЛЕВАЯ ЧАСТЬ (ТЕКСТ) */
+        .slide-content-left {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            z-index: 5;
+            max-width: 60%;
+            height: 100%;
+            text-shadow: 0 2px 8px rgba(0,0,0,1);
+        }
+
+        /* Качество */
+        .raffle-quality-tag-top {
+            font-size: 12px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Название */
+        .raffle-item-name-new {
+            font-size: 26px; /* Крупно для стрима */
+            font-weight: 900;
+            color: #ffffff;
+            line-height: 1.05;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-align: left;
+            text-transform: uppercase; /* Для эпичности */
+        }
+
+        /* ТАЙМЕР */
+        .raffle-timer-box-new {
+            display: flex;
+            gap: 8px;
+            margin-top: auto;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(6px);
+        }
+
+        .timer-unit-new {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 24px;
+        }
+
+        .timer-val-new {
+            font-family: 'Courier New', monospace; /* Моноширинный шрифт */
+            font-size: 18px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .timer-lbl-new {
+            font-size: 8px;
+            text-transform: uppercase;
+            color: #bbb;
+            margin-top: 2px;
+            font-weight: 700;
+        }
+
+        .timer-sep { color: #888; font-weight: bold; font-size: 14px; margin-top: 2px; }
+
+        /* КАРТИНКА */
+        .raffle-item-img-new {
+            position: absolute;
+            right: -20px;
+            bottom: -10px;
+            height: auto;
+            max-height: 110%; /* Крупная пушка */
+            max-width: 60%;
+            width: auto;
+            object-fit: contain;
+            z-index: 10; /* Поверх текста */
+            image-rendering: -webkit-optimize-contrast;
+            filter: drop-shadow(0 15px 40px rgba(0,0,0,0.9)); /* Глубокая тень */
+            animation: weaponFloat 6s ease-in-out infinite;
+            transform-origin: center center;
+        }
+
+        @keyframes weaponFloat {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="card-container" class="obs-card-wrapper"></div>
+
+    <script>
+        // === НАСТРОЙКИ ===
+        const API_URL = '/api/v1/raffles/active';
+        const CYCLE_INTERVAL = 10000; // Менять слайд каждые 10 секунд
+        const FADE_DURATION = 500;    // Время анимации исчезновения (0.5 сек)
+
+        // Переменные состояния
+        let activeRaffles = [];
+        let currentIndex = 0;
+        let cycleTimer = null;
+        let countdownTimer = null;
+
+        // Вспомогательная функция цветов
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0';
+        }
+
+        // Загрузка данных
+        async function fetchRaffles() {
+            try {
+                // Если API требует авторизации, нужно добавить хедеры.
+                // Для OBS обычно делают публичный эндпоинт или передают токен в URL.
+                // Пока пробуем стандартный fetch (если сервер позволяет CORS или это same-origin)
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    // ПУСТОЙ initData, так как в OBS нет Telegram!
+                    // Если твой бэкенд требует initData, тебе нужно отключить проверку для этого эндпоинта
+                    // или передать секретный ключ.
+                    body: JSON.stringify({ initData: "" }) 
+                });
+
+                if(!res.ok) throw new Error('API Error');
+                
+                const data = await res.json();
+                activeRaffles = data.filter(r => r.status === 'active');
+
+                if (activeRaffles.length > 0) {
+                    startCycle();
+                } else {
+                    document.getElementById('card-container').innerHTML = ''; // Пусто, если нет розыгрышей
+                }
+            } catch (e) {
+                console.error("OBS Fetch Error:", e);
+                // Можно вывести заглушку для теста
+                // activeRaffles = [mockRaffle]; startCycle(); 
+            }
+        }
+
+        function renderCard(raffle) {
+            const container = document.getElementById('card-container');
+            const s = raffle.settings || {};
+            
+            const img = s.card_image || s.prize_image || '';
+            const rarityColor = s.rarity_color || '#ffd700';
+            const rgbColor = hexToRgb(rarityColor);
+            const quality = s.skin_quality || 'FT';
+            const prizeName = s.prize_name || 'Prize';
+
+            // Формируем HTML (БЕЗ УЧАСТНИКОВ)
+            container.innerHTML = `
+                <div class="premium-slide-box" style="--rarity-rgb: ${rgbColor}">
+                    <div class="raffle-badge-top-right">
+                        <i class="fa-solid fa-gift"></i> Розыгрыш
+                    </div>
+
+                    <div class="slide-content-left">
+                        <div class="raffle-quality-tag-top">
+                            <span style="color:${rarityColor}">${quality}</span>
+                        </div>
+                        
+                        <div class="raffle-item-name-new">${prizeName}</div>
+                        
+                        <div class="raffle-timer-box-new" id="obs-timer">
+                            <div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">ДН</span></div>
+                            <div class="timer-sep">:</div>
+                            <div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">ЧАС</span></div>
+                            <div class="timer-sep">:</div>
+                            <div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">МИН</span></div>
+                        </div>
+                    </div>
+
+                    <img src="${img}" class="raffle-item-img-new" alt="Skin">
+                </div>
+            `;
+
+            // Запускаем таймер для этой карточки
+            startTimer(raffle.end_time);
+        }
+
+        function startCycle() {
+            if (activeRaffles.length === 0) return;
+
+            const container = document.getElementById('card-container');
+
+            const showNext = () => {
+                // 1. Скрываем старое
+                container.classList.remove('active');
+
+                setTimeout(() => {
+                    // 2. Меняем данные
+                    renderCard(activeRaffles[currentIndex]);
+                    
+                    // 3. Показываем новое
+                    container.classList.add('active');
+
+                    // 4. Обновляем индекс
+                    currentIndex = (currentIndex + 1) % activeRaffles.length;
+
+                }, FADE_DURATION); // Ждем пока исчезнет
+            };
+
+            // Первый запуск сразу
+            renderCard(activeRaffles[0]);
+            container.classList.add('active');
+            currentIndex = (currentIndex + 1) % activeRaffles.length;
+
+            // Если слайдов больше 1, запускаем цикл
+            if (activeRaffles.length > 1) {
+                if (cycleTimer) clearInterval(cycleTimer);
+                cycleTimer = setInterval(showNext, CYCLE_INTERVAL);
+            }
+        }
+
+        function startTimer(endTimeStr) {
+            if (countdownTimer) clearInterval(countdownTimer);
+            
+            const update = () => {
+                const el = document.getElementById('obs-timer');
+                if (!el) return;
+
+                const end = new Date(endTimeStr);
+                const now = new Date();
+                const diff = end - now;
+
+                if (diff <= 0) {
+                    el.innerHTML = '<span style="color:#ff453a; font-weight:800; font-size:14px;">ЗАВЕРШЕНО</span>';
+                    return;
+                }
+
+                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                const m = Math.floor((diff / (1000 * 60)) % 60);
+
+                el.querySelector('.d-v').innerText = String(d).padStart(2, '0');
+                el.querySelector('.h-v').innerText = String(h).padStart(2, '0');
+                el.querySelector('.m-v').innerText = String(m).padStart(2, '0');
+            };
+
+            update();
+            countdownTimer = setInterval(update, 1000);
+        }
+
+        // Запуск при загрузке
+        fetchRaffles();
+        // Обновлять список розыгрышей раз в 5 минут (чтобы подтянуть новые)
+        setInterval(fetchRaffles, 5 * 60 * 1000);
+
+    </script>
+</body>
+</html>
