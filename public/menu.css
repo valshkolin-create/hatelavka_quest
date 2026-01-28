@@ -2182,25 +2182,26 @@ body.tutorial-active #main-content {
 /* ПРЕМИАЛЬНЫЙ ДИЗАЙН РОЗЫГРЫША В СЛАЙДЕРЕ */
 /* --- ПРЕМИАЛЬНЫЙ СЛАЙДЕР: ВЕРСИЯ 4.0 (FINAL SHARP) --- */
 
+/* --- ПРЕМИАЛЬНЫЙ СЛАЙДЕР: ВЕРСИЯ 5.0 (LAYERED & COMPACT) --- */
+
 .premium-slide-box {
     position: absolute;
     inset: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 25px;
+    padding: 15px 20px; /* Чуть меньше отступы, чтобы больше влезало */
     box-sizing: border-box;
     overflow: hidden;
     text-decoration: none;
 
-    /* Глубокий фон + шум */
     background: #0a0a0a;
-    background-image: radial-gradient(circle at 80% 50%, rgba(var(--rarity-rgb), 0.12) 0%, rgba(10, 10, 10, 1) 70%);
+    /* Градиент смещен, чтобы подсвечивать центр */
+    background-image: radial-gradient(circle at 60% 50%, rgba(var(--rarity-rgb), 0.15) 0%, rgba(10, 10, 10, 1) 75%);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
 }
 
-/* Блик */
 .premium-slide-box::after {
     content: '';
     position: absolute;
@@ -2213,22 +2214,22 @@ body.tutorial-active #main-content {
 /* --- БЕЙДЖ РОЗЫГРЫШ (СВЕРХУ СПРАВА) --- */
 .raffle-badge-top-right {
     position: absolute;
-    top: 15px;
-    right: 15px;
-    z-index: 10;
+    top: 12px;
+    right: 12px;
+    z-index: 20; /* Самый верхний слой, даже выше оружия */
     
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     
     color: #fff;
-    background: rgba(var(--rarity-rgb), 0.2);
-    border: 1px solid rgba(var(--rarity-rgb), 0.4);
-    box-shadow: 0 0 15px rgba(var(--rarity-rgb), 0.15);
+    background: rgba(var(--rarity-rgb), 0.25);
+    border: 1px solid rgba(var(--rarity-rgb), 0.5);
+    box-shadow: 0 0 15px rgba(var(--rarity-rgb), 0.2);
     
-    padding: 6px 12px;
-    border-radius: 8px;
+    padding: 4px 10px;
+    border-radius: 6px;
     backdrop-filter: blur(4px);
 }
 
@@ -2238,113 +2239,120 @@ body.tutorial-active #main-content {
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    z-index: 5; /* Текст поверх картинки, если наедет */
-    max-width: 55%; 
+    
+    /* 🔥 ВАЖНО: Слой ниже картинки (было выше) */
+    z-index: 5; 
+    
+    /* Ограничиваем ширину, чтобы текст не лез на всё фото, но мог зайти ПОД него */
+    max-width: 65%; 
     height: 100%;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.9); /* Тень для читаемости */
+    text-shadow: 0 2px 8px rgba(0,0,0,1); /* Сильная тень, чтобы читалось под дулом */
 }
 
-/* Качество (FT) - ТЕПЕРЬ СВЕРХУ */
+/* Качество (FT) - Сверху */
 .raffle-quality-tag-top {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 4px; /* Отступ до названия */
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 2px;
     text-transform: uppercase;
     letter-spacing: 1px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 }
-.raffle-quality-tag-top i { font-size: 10px; opacity: 0.7; }
 
-/* Название скина */
+/* Название скина (УМЕНЬШЕННЫЙ ШРИФТ) */
 .raffle-item-name-new {
-    font-size: 24px; /* Чуть крупнее */
-    font-weight: 900;
+    /* 👇 Уменьшили шрифт */
+    font-size: 18px; 
+    font-weight: 800;
     color: #ffffff;
-    line-height: 1.05;
-    margin-bottom: 12px;
+    line-height: 1.1;
+    margin-bottom: 8px;
     
-    /* Красивый обрыв текста */
+    /* Границы текста */
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 2; /* Максимум 2 строки */
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-align: left;
+    word-break: break-word; /* Чтобы длинные слова переносились */
+    max-width: 90%; /* Доп. граница */
 }
 
 /* --- ТАЙМЕР --- */
 .raffle-timer-box-new {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     margin-top: auto; 
-    background: rgba(0,0,0,0.5);
-    padding: 8px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(5px);
+    background: rgba(0,0,0,0.6); /* Чуть темнее фон для читаемости */
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(4px);
 }
 
 .timer-unit-new {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 22px;
+    min-width: 18px;
 }
 
 .timer-val-new {
     font-family: 'SF Mono', 'Roboto Mono', monospace;
-    font-size: 15px;
-    font-weight: 800;
+    font-size: 14px; /* Чуть компактнее */
+    font-weight: 700;
     color: #fff;
     line-height: 1;
 }
 
 .timer-lbl-new {
-    font-size: 8px;
+    font-size: 7px;
     text-transform: uppercase;
-    color: #888;
-    margin-top: 3px;
+    color: #999;
+    margin-top: 2px;
     font-weight: 600;
 }
 
-/* separator (:) */
-.timer-sep { color: #555; font-weight: bold; font-size: 12px; margin-top: 1px; }
+.timer-sep { color: #666; font-weight: bold; font-size: 10px; margin-top: 2px; }
 
-/* --- КАРТИНКА (ПРАВАЯ ЧАСТЬ) --- */
+/* --- КАРТИНКА (ПРАВАЯ ЧАСТЬ - ПОВЕРХ ТЕКСТА) --- */
 .raffle-item-img-new {
     position: absolute;
-    right: -10px; /* Чуть правее */
-    bottom: 5px;  /* Чуть выше низа */
+    /* Сдвигаем левее, чтобы наезжала на текст */
+    right: -15px; 
+    bottom: -5px;
     
-    /* 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ МЫЛА 🔥 */
+    /* Размеры */
     height: auto;
-    max-height: 90%; /* Не растягиваем больше, чем есть места */
-    max-width: 55%;  /* Не занимаем больше половины ширины */
+    max-height: 95%; /* Крупная */
+    max-width: 60%;  
     width: auto;
     
     object-fit: contain;
-    z-index: 1;
     
-    /* Четкость рендеринга */
+    /* 🔥 ВАЖНО: Слой выше текста (было 1) */
+    z-index: 10; 
+    
+    /* Четкость */
     image-rendering: -webkit-optimize-contrast; 
-    
-    filter: drop-shadow(0 15px 30px rgba(0,0,0,0.8)); /* Глубокая тень */
+    filter: drop-shadow(0 10px 30px rgba(0,0,0,0.9));
     
     /* Анимация */
     animation: weaponFloat 6s ease-in-out infinite;
     transform-origin: center center;
-    will-change: transform; /* Оптимизация для браузера */
+    pointer-events: none; /* Чтобы клики проходили сквозь картинку */
 }
 
 @keyframes weaponFloat {
     0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-6px) rotate(1deg); }
+    50% { transform: translateY(-5px) rotate(1.5deg); }
 }
 
 @media (max-width: 360px) {
-    .raffle-item-name-new { font-size: 20px; }
-    .raffle-item-img-new { right: -20px; max-width: 50%; }
+    .raffle-item-name-new { font-size: 16px; }
+    .premium-slide-box { padding: 15px; }
 }
 
