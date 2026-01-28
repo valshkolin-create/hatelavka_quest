@@ -1506,8 +1506,10 @@ async function initDynamicRaffleSlider() {
     const wrapper = document.querySelector('.slider-wrapper');
     if (!wrapper) return;
 
-    // Сохраняем твою оригинальную заглушку, чтобы не потерять её
-    const staticDraft = wrapper.innerHTML; 
+    // Сохраняем твой статичный баннер как дефолт
+    if (!window.defaultBannerHtml) {
+        window.defaultBannerHtml = wrapper.innerHTML;
+    }
 
     try {
         const res = await fetch('/api/v1/raffles/active', {
@@ -1516,83 +1518,92 @@ async function initDynamicRaffleSlider() {
             body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
         });
         
-        const allData = await res.json();
-        // Берем только активные, максимум 3
-        const activeRaffles = allData.filter(r => r.status === 'active').slice(0, 3);
+        const data = await res.json();
+        const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
 
         if (activeRaffles.length > 0) {
-            let newSlidesHtml = '';
+            let slidesHtml = '';
 
             activeRaffles.forEach(raffle => {
                 const s = raffle.settings || {};
                 const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#2481cc';
+                const rarityColor = s.rarity_color || '#ffd700';
                 const quality = s.skin_quality ? `(${s.skin_quality})` : '';
 
-                newSlidesHtml += `
-                    <div class="slide">
-                        <a href="/raffles" class="slide-raffle-content">
-                            <div style="display:flex; flex-direction:column; align-items:center;">
-                                <div style="font-size:10px; font-weight:800; color:${rarityColor}; text-transform:uppercase; letter-spacing:2px; margin-bottom:2px;">Розыгрыш</div>
-                                <div style="font-size:15px; font-weight:800; color:#fff; text-align:center;">${s.prize_name} ${quality}</div>
+                // Создаем слайд по твоей структуре <a class="slide">
+                slidesHtml += `
+                    <a href="/events" class="slide">
+                        <div class="dynamic-raffle-box">
+                            <div class="dynamic-item-name" style="color: ${rarityColor}">
+                                ${s.prize_name} <span style="opacity:0.6; font-size:12px;">${quality}</span>
                             </div>
-                            
-                            <img src="${img}" style="height:45%; width:auto; object-fit:contain; filter:drop-shadow(0 10px 20px rgba(0,0,0,0.5));">
-                            
-                            <div class="slide-raffle-timer" data-endtime="${raffle.end_time}" style="background:rgba(0,0,0,0.6); padding:5px 15px; border-radius:12px; color:#2481cc; font-weight:800; font-size:14px; border:1px solid rgba(36,129,204,0.3);">
+                            <img src="${img}" class="dynamic-item-img">
+                            <div class="dynamic-item-timer" data-endtime="${raffle.end_time}">
                                 00:00:00
                             </div>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
                 `;
             });
 
-            // Вставляем розыгрыши + добавляем твою заглушку в конец (чтобы логика не ломалась)
-            wrapper.innerHTML = newSlidesHtml + staticDraft;
+            // Заменяем содержимое твоего wrapper на активные розыгрыши
+            wrapper.innerHTML = slidesHtml;
 
-            startBannerTimers();
+            // Запускаем таймеры
+            startSliderTimers();
             
-            // Запускаем перелистывание, если слайдов больше 1
-            const totalSlides = activeRaffles.length + 1; // +1 это твоя заглушка
-            startSliderAutoCycle(totalSlides);
+            // Если розыгрышей > 1, включаем листание
+            if (activeRaffles.length > 1) {
+                startSliderRotation(activeRaffles.length);
+            }
+        } else {
+            // Если розыгрышей нет - возвращаем твой оригинальный баннер
+            wrapper.innerHTML = window.defaultBannerHtml;
         }
     } catch (e) {
-        console.error("Slider error, static kept", e);
+        console.error("Slider Fail:", e);
+        wrapper.innerHTML = window.defaultBannerHtml;
     }
 }
 
-function startBannerTimers() {
-    setInterval(() => {
-        document.querySelectorAll('.slide-raffle-timer').forEach(t => {
-            const end = new Date(t.dataset.endtime);
+function startSliderTimers() {
+    const update = () => {
+        document.querySelectorAll('.dynamic-item-timer').forEach(el => {
+            const end = new Date(el.dataset.endtime);
             const diff = end - new Date();
-            if (diff <= 0) { t.innerText = "ЗАВЕРШЕНО"; return; }
+            if (diff <= 0) {
+                el.innerText = "ЗАВЕРШАЕТСЯ";
+                return;
+            }
             const h = Math.floor(diff / (1000 * 60 * 60));
             const m = Math.floor((diff / (1000 * 60)) % 60);
             const s = Math.floor((diff / 1000) % 60);
-            t.innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            el.innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         });
-    }, 1000);
+    };
+    update();
+    setInterval(update, 1000);
 }
 
-function startSliderAutoCycle(count) {
-    let current = 0;
+function startSliderRotation(count) {
+    let idx = 0;
     const wrapper = document.querySelector('.slider-wrapper');
     setInterval(() => {
-        current = (current + 1) % count;
-        wrapper.style.transform = `translateX(-${current * 100}%)`;
-    }, 4000); // 4 секунды на слайд
+        idx = (idx + 1) % count;
+        wrapper.style.transform = `translateX(-${idx * 100}%)`;
+    }, 5000);
 }
 
 async function main() {
-    // Хак для перенаправления с профиля
+    // 1. Хак для перенаправления с профиля
     if (window.location.pathname.includes('/profile') || window.location.href.includes('profile')) {
         window.history.replaceState({}, document.title, "/");
-        dom.viewDashboard.classList.remove('hidden');
-        dom.viewQuests.classList.add('hidden');
+        if (dom.viewDashboard) dom.viewDashboard.classList.remove('hidden');
+        if (dom.viewQuests) dom.viewQuests.classList.add('hidden');
     }
 
     try {
+        // 2. Проверка Telegram окружения
         if (window.Telegram && !Telegram.WebApp.initData) {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
@@ -1608,16 +1619,16 @@ async function main() {
             let bootstrapData = null;
             let usedCache = false;
 
-            // А. Кэш
+            // А. Пытаемся взять данные из кэша для мгновенного появления
             try {
                 const cachedJson = localStorage.getItem('app_bootstrap_cache');
                 if (cachedJson) {
                     bootstrapData = JSON.parse(cachedJson);
                     usedCache = true;
                 }
-            } catch (e) { console.warn(e); }
+            } catch (e) { console.warn("Cache error:", e); }
 
-            // Б. Сеть (если нет кэша)
+            // Б. Если кэша нет — идем в сеть
             if (!bootstrapData) {
                 let fakeP = 1;
                 const timer = setInterval(() => { if(fakeP < 30) updateLoading(++fakeP); }, 50);
@@ -1631,7 +1642,7 @@ async function main() {
 
             if (!bootstrapData) throw new Error("Нет данных (bootstrap)");
 
-            // В. Картинки
+            // В. Предзагрузка критических изображений (скинов/баннеров)
             const startP = usedCache ? 5 : 35;
             updateLoading(startP);
             
@@ -1646,38 +1657,43 @@ async function main() {
                 updateLoading(95);
             }
 
-            // Г. Рендер основного интерфейса
+            // Г. Рендер основного интерфейса (Создаем скелет страницы)
             await renderFullInterface(bootstrapData);
             
-            // 🔥 ХИРУРГИЧЕСКАЯ ВСТАВКА: Инициализация живого слайдера розыгрышей
+            // Д. 🔥 ХИРУРГИЧЕСКАЯ ВСТАВКА: Оживляем слайдер розыгрышей 
+            // Это делается СТРОГО после рендера, когда wrapper уже в DOM
             await initDynamicRaffleSlider();
 
-            // Д. Финиш
+            // Е. Завершение загрузки
             updateLoading(100);
             setTimeout(() => {
                 if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
                 if (dom.mainContent) dom.mainContent.classList.add('visible');
+                
+                // Если грузились из кэша — обновляем данные «бесшумно» в фоне
                 if (usedCache) {
-                    updateBootstrapSilently().catch(console.error); 
+                    updateBootstrapSilently()
+                        .then(() => initDynamicRaffleSlider()) // Обновляем слайдер новыми данными
+                        .catch(console.error); 
                 }
             }, 300);
             
         } 
-        // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ (Обновление) ---
+        // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ (Refresh/Visible) ---
         else {
             await updateBootstrapSilently();
-            // 🔥 ХИРУРГИЧЕСКАЯ ВСТАВКА: Обновляем слайдер при фоновом обновлении данных
+            // Снова вызываем слайдер, чтобы проверить, не появились ли новые розыгрыши
             await initDynamicRaffleSlider();
         }
 
     } catch (e) {
-        console.error("Error inside main:", e);
+        console.error("Critical error in main:", e);
         if (dom.loaderOverlay) {
             dom.loadingText.textContent = "Ошибка запуска";
             dom.loadingText.style.color = "#ff453a";
             setTimeout(() => {
                  dom.loaderOverlay.classList.add('hidden');
-                 dom.mainContent.classList.add('visible');
+                 if (dom.mainContent) dom.mainContent.classList.add('visible');
             }, 2000);
         }
     }
