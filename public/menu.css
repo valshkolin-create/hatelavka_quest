@@ -2112,67 +2112,50 @@ body.tutorial-active #main-content {
 }
 
 /* Динамический контент розыгрыша в слайдере */
+/* ЖЕСТКАЯ ФИКСАЦИЯ РАЗМЕРА СЛАЙДЕРА */
+.slider-container {
+    width: 100%;
+    /* Пропорция 1200x600 это 2 к 1. Чтобы высота была идеальной: */
+    aspect-ratio: 1200 / 600; 
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px; /* или как у тебя в проекте */
+    background: #1c1c1e; /* Цвет фона, пока грузится картинка */
+}
+
+.slider-wrapper {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide {
+    min-width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Чтобы картинка-заглушка сидела идеально */
+}
+
+/* Внутрянка динамического слайда */
 .slide-raffle-content {
     position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    background: radial-gradient(circle at center, rgba(36, 129, 204, 0.2) 0%, transparent 80%);
-    padding: 10px;
-    text-align: center;
+    justify-content: space-between; /* Распределяем: текст сверху, скин центр, таймер низ */
+    padding: 15px;
+    background: radial-gradient(circle at center, rgba(36, 129, 204, 0.15) 0%, transparent 80%);
     text-decoration: none;
-    color: #fff;
 }
 
-.slide-raffle-label {
-    font-size: 10px;
-    font-weight: 800;
-    color: var(--primary);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 4px;
-}
-
-.slide-raffle-name {
-    font-size: 16px;
-    font-weight: 800;
-    max-width: 80%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 5px;
-}
-
-.slide-raffle-img {
-    height: 90px;
-    width: auto;
-    object-fit: contain;
-    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
-    margin: 5px 0;
-}
-
-.slide-raffle-timer {
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(5px);
-    padding: 4px 12px;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 700;
-    color: #2481cc;
-    border: 1px solid rgba(36, 129, 204, 0.3);
-    margin-top: 5px;
-    font-variant-numeric: tabular-nums;
-}
-
-/* Слайдер анимация */
-.slider-wrapper {
-    display: flex;
-    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.slide {
-    min-width: 100%;
-    position: relative;
-}
