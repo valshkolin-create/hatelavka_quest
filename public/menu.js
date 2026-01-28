@@ -1504,8 +1504,11 @@ async function updateBootstrapSilently() {
 
 async function initDynamicRaffleSlider() {
     const wrapper = document.querySelector('.slider-wrapper');
-    const staticSlide = wrapper.innerHTML; // Сохраняем твою заглушку
-    
+    if (!wrapper) return;
+
+    // Сохраняем твою оригинальную заглушку, чтобы не потерять её
+    const staticDraft = wrapper.innerHTML; 
+
     try {
         const res = await fetch('/api/v1/raffles/active', {
             method: 'POST',
@@ -1514,54 +1517,56 @@ async function initDynamicRaffleSlider() {
         });
         
         const allData = await res.json();
+        // Берем только активные, максимум 3
         const activeRaffles = allData.filter(r => r.status === 'active').slice(0, 3);
 
         if (activeRaffles.length > 0) {
-            wrapper.innerHTML = ''; // Очищаем только если есть розыгрыши
-            
+            let newSlidesHtml = '';
+
             activeRaffles.forEach(raffle => {
                 const s = raffle.settings || {};
                 const img = s.card_image || s.prize_image || '';
                 const rarityColor = s.rarity_color || '#2481cc';
-                
-                const slide = document.createElement('div');
-                slide.className = 'slide';
-                slide.innerHTML = `
-                    <a href="/raffles" class="slide-raffle-content">
-                        <div class="slide-raffle-label" style="color: ${rarityColor}">Активный розыгрыш</div>
-                        <div class="slide-raffle-name">${s.prize_name}</div>
-                        <img src="${img}" class="slide-raffle-img">
-                        <div class="slide-raffle-timer" id="timer-banner-${raffle.id}" data-endtime="${raffle.end_time}">
-                            00:00:00
-                        </div>
-                    </a>
+                const quality = s.skin_quality ? `(${s.skin_quality})` : '';
+
+                newSlidesHtml += `
+                    <div class="slide">
+                        <a href="/raffles" class="slide-raffle-content">
+                            <div style="display:flex; flex-direction:column; align-items:center;">
+                                <div style="font-size:10px; font-weight:800; color:${rarityColor}; text-transform:uppercase; letter-spacing:2px; margin-bottom:2px;">Розыгрыш</div>
+                                <div style="font-size:15px; font-weight:800; color:#fff; text-align:center;">${s.prize_name} ${quality}</div>
+                            </div>
+                            
+                            <img src="${img}" style="height:45%; width:auto; object-fit:contain; filter:drop-shadow(0 10px 20px rgba(0,0,0,0.5));">
+                            
+                            <div class="slide-raffle-timer" data-endtime="${raffle.end_time}" style="background:rgba(0,0,0,0.6); padding:5px 15px; border-radius:12px; color:#2481cc; font-weight:800; font-size:14px; border:1px solid rgba(36,129,204,0.3);">
+                                00:00:00
+                            </div>
+                        </a>
+                    </div>
                 `;
-                wrapper.appendChild(slide);
             });
 
-            // Запускаем тиканье таймеров в баннере
+            // Вставляем розыгрыши + добавляем твою заглушку в конец (чтобы логика не ломалась)
+            wrapper.innerHTML = newSlidesHtml + staticDraft;
+
             startBannerTimers();
             
-            // Если розыгрышей больше 1, включаем автопрокрутку
-            if (activeRaffles.length > 1) {
-                startSliderAutoCycle(activeRaffles.length);
-            }
+            // Запускаем перелистывание, если слайдов больше 1
+            const totalSlides = activeRaffles.length + 1; // +1 это твоя заглушка
+            startSliderAutoCycle(totalSlides);
         }
     } catch (e) {
-        console.log("Slider fallback: using static banner");
+        console.error("Slider error, static kept", e);
     }
 }
 
 function startBannerTimers() {
     setInterval(() => {
-        const timers = document.querySelectorAll('.slide-raffle-timer');
-        timers.forEach(t => {
+        document.querySelectorAll('.slide-raffle-timer').forEach(t => {
             const end = new Date(t.dataset.endtime);
             const diff = end - new Date();
-            if (diff <= 0) {
-                t.innerText = "ЗАВЕРШАЕТСЯ";
-                return;
-            }
+            if (diff <= 0) { t.innerText = "ЗАВЕРШЕНО"; return; }
             const h = Math.floor(diff / (1000 * 60 * 60));
             const m = Math.floor((diff / (1000 * 60)) % 60);
             const s = Math.floor((diff / 1000) % 60);
@@ -1576,7 +1581,7 @@ function startSliderAutoCycle(count) {
     setInterval(() => {
         current = (current + 1) % count;
         wrapper.style.transform = `translateX(-${current * 100}%)`;
-    }, 5000); // Смена слайда каждые 5 секунд
+    }, 4000); // 4 секунды на слайд
 }
 
 async function main() {
