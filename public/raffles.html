@@ -14,6 +14,7 @@
             --text: #ffffff;
             --text-muted: #8e8e93;
             --accent-green: #34c759;
+            --danger: #ff453a;
         }
 
         body { 
@@ -24,7 +25,6 @@
             -webkit-tap-highlight-color: transparent; 
         }
         
-        /* --- Header --- */
         .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
         h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
         
@@ -54,9 +54,16 @@
         .card_content { padding: 24px; position: relative; z-index: 1; }
 
         .r-label { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
-        .r-title { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 20px 0; line-height: 1.2; max-width: 60%; }
+        .r-title { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 15px 0; line-height: 1.2; max-width: 65%; }
 
-        /* Таймер */
+        /* Условия (Telegram/Twitch) */
+        .conditions { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+        .cond-row { 
+            font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; 
+        }
+        .cond-row i { color: var(--primary-blue); width: 14px; text-align: center; }
+
+        /* Таймер синий */
         .timer_row { display: flex; gap: 18px; margin-bottom: 25px; }
         .timer_item { display: flex; flex-direction: column; align-items: flex-start; }
         .timer_val { font-size: 26px; font-weight: 700; color: var(--primary-blue); line-height: 1; }
@@ -66,7 +73,7 @@
         .prize-img-wrapper { position: absolute; top: 25px; right: 10px; width: 130px; }
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.6)); }
 
-        /* Статус (участники или завершение) */
+        /* Статус участников */
         .social_row { display: flex; align-items: center; margin-bottom: 20px; }
         .social_text { font-size: 14px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
         .social_text b { color: #fff; font-weight: 700; }
@@ -78,7 +85,7 @@
             font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.1s;
         }
         .btn-main:active { transform: scale(0.98); opacity: 0.9; }
-        .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); }
+        .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); cursor: default; }
 
         /* Победитель */
         .winner_box { 
@@ -88,19 +95,11 @@
         .w-title { font-size: 10px; color: #ffd700; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 6px; opacity: 0.7; }
         .w-user { font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
 
-        /* КНОПКА ЗАКРЫТЬ */
-        .close-container { 
-            position: fixed; bottom: 100px; left: 0; right: 0; 
-            display: flex; justify-content: center; z-index: 1000;
-        }
-        .btn-close { 
-            background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); 
-            color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; 
-            cursor: pointer; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .hidden { display: none !important; }
+        /* Закрыть */
+        .close-container { position: fixed; bottom: 100px; left: 0; right: 0; display: flex; justify-content: center; z-index: 1000; }
+        .btn-close { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 15px; }
 
-        /* --- FOOTER (1 в 1 без active) --- */
+        /* FOOTER (Нейтральный) */
         .app-footer {
             display: flex; justify-content: space-around; align-items: center;
             background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px);
@@ -123,6 +122,7 @@
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -194,8 +194,8 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        function openHistory() { document.getElementById('history-overlay').style.display = 'block'; }
-        function closeHistory() { document.getElementById('history-overlay').style.display = 'none'; }
+        function openHistory() { document.getElementById('history-overlay').classList.add('active'); }
+        function closeHistory() { document.getElementById('history-overlay').classList.remove('active'); }
 
         async function load() {
             try {
@@ -241,6 +241,12 @@
                 const img = s.prize_image || '';
                 const pCount = r.participants_count || 0;
 
+                // Условия (логика из твоего кода)
+                let conditions = '';
+                if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на канал</div>`;
+                if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> ${s.min_daily_messages} сообщ. на Twitch</div>`;
+
+                // Таймер
                 let timerHtml = '';
                 if (r.end_time && !done) {
                     const diff = new Date(r.end_time) - new Date();
@@ -259,7 +265,7 @@
                     `;
                 }
 
-                const statusText = done ? 'Розыгрыш завершен' : `<b>${pCount}</b> участников`;
+                const statusText = done ? 'Розыгрыш завершен' : `<i class="fa-solid fa-users-viewfinder"></i> <b>${pCount}</b> участников`;
 
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
@@ -270,6 +276,8 @@
                         </div>
                         <div class="r-label">${r.title || 'Розыгрыш'}</div>
                         <h3 class="r-title">${s.prize_name}</h3>
+                        
+                        <div class="conditions">${conditions}</div>
                         
                         ${!done ? timerHtml : ''}
 
@@ -284,7 +292,7 @@
                         ` : `
                             <div class="winner_box">
                                 <div class="w-title">Победитель</div>
-                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
+                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Айдар'}</div>
                             </div>
                         `}
                     </div>
@@ -314,9 +322,16 @@
         }
 
         function showModal(type, title, msg) {
+            const m = document.getElementById('modal');
+            const iconBox = document.getElementById('modal-icon');
+            if(type === 'success') {
+                iconBox.innerHTML = `<svg class="checkmark" viewBox="0 0 52 52" style="width:80px; height:80px;"><circle cx="26" cy="26" r="25" fill="none" stroke="var(--accent-green)" stroke-width="2"/><path fill="none" stroke="var(--accent-green)" stroke-width="2" d="M14 27l7 7 16-16"/></svg>`;
+            } else {
+                iconBox.innerHTML = `<svg class="cross" viewBox="0 0 52 52" style="width:80px; height:80px;"><circle cx="26" cy="26" r="25" fill="none" stroke="var(--danger)" stroke-width="2"/><path fill="none" stroke="var(--danger)" stroke-width="2" d="M16 16l20 20M36 16L16 36"/></svg>`;
+            }
             document.getElementById('m-head').innerText = title;
             document.getElementById('m-desc').innerText = msg;
-            document.getElementById('modal').style.display = 'flex';
+            m.style.display = 'flex';
         }
 
         load();
