@@ -13632,15 +13632,18 @@ async def join_raffle(
         
     return {"message": "Участие принято! 🍀"}
     
-# 5. (Юзер) Список
+# 5. (Юзер + OBS) Список
 @app.post("/api/v1/raffles/active")
 async def get_user_raffles(
     req: InitDataRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # 1. Проверяем InitData. Если она есть — получаем user_id. Если нет (OBS) — user_id будет None.
+    # МЫ УБРАЛИ: if not user_info: raise HTTPException(status_code=401)
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401)
+    user_id = user_info['id'] if user_info else None
     
+    # 2. Получаем список всех розыгрышей (работает для всех)
     resp = await supabase.get(
         "/raffles", 
         params={
@@ -13650,12 +13653,18 @@ async def get_user_raffles(
         }
     )
     raffles = resp.json()
-    user_id = user_info['id']
     
-    for r in raffles:
-        check = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{r['id']}", "user_id": f"eq.{user_id}"})
-        r['is_joined'] = len(check.json()) > 0
-        
+    # 3. Проверяем участие (is_joined)
+    if user_id:
+        # Если это ЮЗЕР (из Телеграм) — проверяем каждый розыгрыш через БД
+        for r in raffles:
+            check = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{r['id']}", "user_id": f"eq.{user_id}"})
+            r['is_joined'] = len(check.json()) > 0
+    else:
+        # Если это OBS (нет юзера) — просто проставляем False всем, чтобы не ломать фронтенд
+        for r in raffles:
+            r['is_joined'] = False
+            
     return raffles
 
 # 6. ВЕБХУК ДЛЯ АВТОМАТИЧЕСКОГО ЗАВЕРШЕНИЯ (QStash)
