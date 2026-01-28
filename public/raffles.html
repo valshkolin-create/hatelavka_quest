@@ -24,6 +24,7 @@
             -webkit-tap-highlight-color: transparent; 
         }
         
+        /* --- Header --- */
         .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
         h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
         
@@ -65,10 +66,9 @@
         .prize-img-wrapper { position: absolute; top: 25px; right: 10px; width: 130px; }
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.6)); }
 
-        /* Участники (без фото) */
+        /* Статус (участники или завершение) */
         .social_row { display: flex; align-items: center; margin-bottom: 20px; }
         .social_text { font-size: 14px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-        .social_text i { font-size: 14px; color: #444; } /* Иконка участников */
         .social_text b { color: #fff; font-weight: 700; }
 
         /* Кнопка */
@@ -88,7 +88,7 @@
         .w-title { font-size: 10px; color: #ffd700; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 6px; opacity: 0.7; }
         .w-user { font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
 
-        /* --- КНОПКА ЗАКРЫТЬ (ДЛЯ DEEP LINK) --- */
+        /* КНОПКА ЗАКРЫТЬ */
         .close-container { 
             position: fixed; bottom: 100px; left: 0; right: 0; 
             display: flex; justify-content: center; z-index: 1000;
@@ -100,7 +100,7 @@
         }
         .hidden { display: none !important; }
 
-        /* --- FOOTER (БЕЗ ACTIVE) --- */
+        /* --- FOOTER (1 в 1 без active) --- */
         .app-footer {
             display: flex; justify-content: space-around; align-items: center;
             background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px);
@@ -112,7 +112,7 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
             color: #8E8E93; text-decoration: none; flex: 1; font-size: 10px; font-weight: 500;
         }
-        .footer-item .icon-wrapper { font-size: 22px; transition: 0.2s; }
+        .footer-item .icon-wrapper { font-size: 22px; }
 
         /* Системное */
         .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1100; padding: 16px; overflow-y: auto; display: none; }
@@ -212,12 +212,9 @@
         async function checkDeepLink() {
             const startParam = tg.initDataUnsafe.start_param; 
             if (startParam && startParam.startsWith('raffle_')) {
-                // Если зашли по прямой ссылке на розыгрыш — показываем кнопку Закрыть
                 document.getElementById('close-btn-container').classList.remove('hidden');
-                
                 const raffleId = startParam.split('_')[1];
                 if (sessionStorage.getItem('checked_raffle_' + raffleId)) return;
-                
                 const vModal = document.getElementById('verify-modal');
                 vModal.style.display = 'flex';
                 await new Promise(r => setTimeout(r, 1500));
@@ -262,12 +259,14 @@
                     `;
                 }
 
+                const statusText = done ? 'Розыгрыш завершен' : `<b>${pCount}</b> участников`;
+
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
                     <div class="card_glow"></div>
                     <div class="card_content">
                         <div class="prize-img-wrapper">
-                            <img src="${img}" class="prize-img">
+                            <img src="${img}" class="prize-img" onerror="this.style.display='none'">
                         </div>
                         <div class="r-label">${r.title || 'Розыгрыш'}</div>
                         <h3 class="r-title">${s.prize_name}</h3>
@@ -275,10 +274,7 @@
                         ${!done ? timerHtml : ''}
 
                         <div class="social_row">
-                            <div class="social_text">
-                                <i class="fa-solid fa-users-viewfinder"></i>
-                                <b>${pCount}</b> участников
-                            </div>
+                            <div class="social_text">${statusText}</div>
                         </div>
 
                         ${!done ? `
@@ -288,7 +284,7 @@
                         ` : `
                             <div class="winner_box">
                                 <div class="w-title">Победитель</div>
-                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Айдар'}</div>
+                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
                             </div>
                         `}
                     </div>
