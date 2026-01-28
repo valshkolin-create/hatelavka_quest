@@ -13617,6 +13617,13 @@ async def join_raffle(
     except:
         # Если вдруг параллельный запрос проскочил
         raise HTTPException(status_code=400, detail="Вы уже участвуете!")
+
+    # 3. 🔥 ОБНОВЛЯЕМ СЧЕТЧИК (Колонка participants_count в таблице raffles)
+    # Вызываем RPC функцию, которую создали в Supabase
+    try:
+        await supabase.post("/rpc/increment_raffle_participants", json={"raffle_id_param": req.raffle_id})
+    except Exception as e:
+        print(f"⚠️ Ошибка обновления счетчика RPC: {e}")
         
     return {"message": "Участие принято! 🍀"}
     
