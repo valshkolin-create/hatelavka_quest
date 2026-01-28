@@ -9,7 +9,7 @@
     <style>
         :root {
             --bg: #000000;
-            --card: #1c1c1e;
+            --card: #141416;
             --primary: #ffd700;
             --text: #fff;
             --sec: #8e8e93;
@@ -27,72 +27,119 @@
         .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
         h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
         
-        /* 🔥 ОБНОВЛЕННАЯ КНОПКА ИСТОРИИ */
         .history-btn { 
-            background: var(--card); 
+            background: #1c1c1e; 
             min-width: 54px; height: 48px; 
             border-radius: 14px; 
-            display: flex; flex-direction: column; /* Элементы в колонку */
+            display: flex; flex-direction: column; 
             align-items: center; justify-content: center; 
             color: var(--primary); 
             border: 1px solid rgba(255,255,255,0.1); 
             cursor: pointer;
-            gap: 2px; /* Расстояние между иконкой и текстом */
+            gap: 2px;
             transition: 0.1s;
         }
         .history-btn:active { transform: scale(0.95); background: #2c2c2e; }
         .history-btn i { font-size: 16px; }
         .history-btn span { 
-            font-size: 8px; /* Та самая маленькая надпись */
+            font-size: 8px; 
             font-weight: 800; 
             text-transform: uppercase; 
             letter-spacing: 0.5px; 
-            color: var(--sec); /* Сделаем её чуть приглушенной */
+            color: var(--sec); 
         }
 
-        /* --- Cards --- */
+        /* --- 🔥 НОВЫЕ КАРТОЧКИ (КАК НА КАРТИНКЕ) --- */
         .card { 
-            background: var(--card); border-radius: 20px; padding: 16px; margin-bottom: 16px; 
-            position: relative; animation: slideUp 0.4s ease; 
-            border: 1px solid rgba(255,255,255,0.08); 
+            background: #1c1c1e; 
+            border-radius: 24px; 
+            margin-bottom: 16px; 
+            position: relative; 
+            overflow: hidden; 
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.05);
+            animation: slideUp 0.4s ease; 
         }
-        .card.done { opacity: 0.8; border-color: transparent; filter: none; }
+
+        /* Тот самый цветной эллипс на фоне */
+        .draw-card_glow {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+            height: 140px;
+            filter: blur(50px);
+            opacity: 0.25;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .card_top { padding: 20px; position: relative; z-index: 1; }
         
-        .c-body { display: flex; gap: 14px; }
-        .prize-img { 
-            width: 80px; height: 80px; background: #2c2c2e; border-radius: 16px; 
-            object-fit: cover; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.05);
-        }
-        .c-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-        .r-title { font-weight: 700; font-size: 17px; line-height: 1.2; margin-bottom: 5px; }
-        .r-prize { font-size: 14px; color: var(--primary); font-weight: 600; margin-bottom: 8px; }
+        .card_header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
         
-        .conditions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-        .cond-row { 
-            font-size: 12px; background: rgba(255,255,255,0.06); padding: 8px 12px; 
-            border-radius: 10px; color: #ddd; display: flex; align-items: center; gap: 8px; font-weight: 500; 
-            line-height: 1.3; border: 1px solid rgba(255,255,255,0.02);
+        .title_section { flex: 1; }
+        .r-title { font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 4px; }
+        .r-item-info { font-size: 13px; color: var(--sec); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .r-price { color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 3px; }
+
+        /* Таймер как на макете */
+        .timer_box { display: flex; gap: 6px; }
+        .timer_item { display: flex; flex-direction: column; align-items: center; }
+        .timer_val { font-size: 15px; font-weight: 800; color: #fff; }
+        .timer_lbl { font-size: 9px; color: var(--sec); text-transform: lowercase; }
+
+        .image_section { 
+            height: 120px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            margin: 10px 0;
+            position: relative;
+            z-index: 1;
         }
-        .cond-row i { color: var(--primary); width: 16px; text-align: center; font-size: 13px; }
+        .prize-img { width: 150px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)); }
+
+        .card_bottom { 
+            background: rgba(0,0,0,0.2); 
+            padding: 16px 20px; 
+            border-top: 1px solid rgba(255,255,255,0.03); 
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Блок участников */
+        .participants_row { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            margin-bottom: 14px;
+        }
+        .participants_info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #fff; font-weight: 600; }
+        .avatars_stack { display: flex; align-items: center; }
+        .mini-avatar { 
+            width: 24px; height: 24px; border-radius: 50%; 
+            border: 2px solid #1c1c1e; margin-right: -8px;
+            background: #2c2c2e; object-fit: cover;
+        }
 
         .btn { 
             width: 100%; border: none; padding: 14px; border-radius: 14px; 
-            font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 14px; 
+            font-size: 15px; font-weight: 700; cursor: pointer; 
             transition: 0.1s; display: flex; justify-content: center; align-items: center; gap: 8px; 
         }
-        .btn:active { transform: scale(0.98); opacity: 0.9; }
-        .btn-join { background: var(--primary); color: #000; }
-        .btn-joined { background: rgba(50, 215, 75, 0.15); color: var(--green); cursor: default; }
-        .btn-done { background: rgba(255,255,255,0.1); color: var(--sec); cursor: default; }
+        .btn-join { background: var(--primary); color: #000; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2); }
+        .btn-joined { background: rgba(50, 215, 75, 0.15); color: var(--green); border: 1px solid rgba(50, 215, 75, 0.2); }
+        
+        /* Стили для завершенных (истории) */
+        .card.done { opacity: 0.7; border-color: transparent; }
+        .winner_block { background: rgba(255, 215, 0, 0.05); border-radius: 12px; padding: 10px; text-align: center; border: 1px solid var(--border); }
+        .w-lbl { font-size: 10px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+        .w-name { font-size: 14px; font-weight: 700; }
 
-        .winner { 
-            margin-top: 12px; background: rgba(255, 215, 0, 0.08); 
-            border: 1px solid rgba(255, 215, 0, 0.15); border-radius: 12px; 
-            padding: 12px; text-align: center; 
-        }
-        .w-lbl { font-size: 11px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
-        .w-name { font-weight: 700; font-size: 15px; margin-top: 4px; color: #fff; }
-
+        /* Остальные системные стили */
         .history-overlay {
             position: fixed; inset: 0; background: var(--bg); z-index: 100;
             padding: 16px; overflow-y: auto; display: none;
@@ -102,56 +149,27 @@
         .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .close-x { font-size: 26px; color: var(--sec); cursor: pointer; padding: 5px; }
 
-        .close-container { 
-            position: fixed; bottom: 30px; left: 0; right: 0; 
-            display: flex; justify-content: center; z-index: 10; pointer-events: none; 
-        }
-        .btn-close { 
-            pointer-events: auto; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); 
-            color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; 
-            cursor: pointer; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
+        .close-container { position: fixed; bottom: 30px; left: 0; right: 0; display: flex; justify-content: center; z-index: 10; pointer-events: none; }
+        .btn-close { pointer-events: auto; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 
-        .modal-overlay { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
-            backdrop-filter: blur(20px); z-index: 999; display: none; 
-            align-items: center; justify-content: center; flex-direction: column;
-        }
-        .modal-box { 
-            background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; 
-            text-align: center; animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-        }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 999; display: none; align-items: center; justify-content: center; flex-direction: column; }
+        .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
         .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
         .m-desc { font-size: 15px; color: var(--sec); margin-bottom: 25px; line-height: 1.4; }
-        .m-btn { 
-            background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; 
-            padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; margin-bottom: 10px;
-        }
+        .m-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
         .m-btn-primary { background: var(--primary); color: #000; font-weight: 700; }
 
         .icon-container { width: 80px; height: 80px; margin: 0 auto 15px; position: relative; }
-        .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--green); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
         .checkmark { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--green); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
-        .checkmark-check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
-        .cross-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--danger); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
         .cross { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--danger); animation: fill-red .4s ease-in-out .4s forwards, shake .3s ease-in-out .9s both; }
-        .cross-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
-
         .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 10px; text-align: center; }
 
         @keyframes stroke { 100% { stroke-dashoffset: 0; } }
-        @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
         @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 50px var(--green); } }
         @keyframes fill-red { 100% { box-shadow: inset 0px 0px 0px 50px var(--danger); } }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes shake { 0%, 100% {transform: translateX(0);} 10%, 30%, 50%, 70%, 90% {transform: translateX(-5px);} 20%, 40%, 60%, 80% {transform: translateX(5px);} }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
         @keyframes zoom { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        
-        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -255,43 +273,73 @@
                 const done = r.status === 'completed';
                 const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
                 
-                let conditions = '';
-                if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на канал</div>`;
-                if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> ${s.min_daily_messages} сообщ. на Twitch</div>`;
-                
+                // Определяем цвет свечения (можно завязать на редкость, здесь для примера фиолетовый)
+                const glowColor = s.prize_rarity_color || 'rgb(123, 81, 207)';
+
+                // Парсим время для красивого таймера
+                let timerHtml = '';
                 if (r.end_time && !done) {
-                    try {
-                        const dateObj = new Date(r.end_time);
-                        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-                        const timeStr = dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                        conditions += `<div class="cond-row"><i class="fa-regular fa-clock"></i> Итоги: ${dateStr} в ${timeStr}</div>`;
-                    } catch (e) {}
+                    const now = new Date();
+                    const end = new Date(r.end_time);
+                    const diff = Math.max(0, end - now);
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const mins = Math.floor((diff / (1000 * 60)) % 60);
+                    
+                    timerHtml = `
+                        <div class="timer_box">
+                            <div class="timer_item"><span class="timer_val">${hours}</span><span class="timer_lbl">часов</span></div>
+                            <div class="timer_item"><span class="timer_val">${mins}</span><span class="timer_lbl">мин</span></div>
+                        </div>
+                    `;
                 }
 
-                let btn = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать 🎲</button>`;
-                if (r.is_joined) btn = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
+                let btnHtml = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать</button>`;
+                if (r.is_joined) btnHtml = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
                 
-                let winnerBlock = '';
-                if (done && r.winner) {
-                    winnerBlock = `
-                    <div class="winner">
-                        <div class="w-lbl">Победитель</div>
-                        <div class="w-name">🏆 ${r.winner.full_name}</div>
-                    </div>`;
-                }
+                // Блок участников (количество берем из r.participants_count)
+                const pCount = r.participants_count || 0;
 
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
-                    <div class="c-body">
-                        <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/100x100/2c2c2e/FFF?text=Error'">
-                        <div class="c-info">
-                            <div class="r-title">${r.title}</div>
-                            <div class="r-prize">${s.prize_name}</div>
+                    <div class="draw-card_glow" style="background-color: ${glowColor};"></div>
+                    
+                    <div class="card_top">
+                        <div class="card_header">
+                            <div class="title_section">
+                                <h3 class="r-title">${r.title}</h3>
+                                <div class="r-item-info">
+                                    <span>${s.prize_name}</span>
+                                    <span class="r-price">за <i class="fa-solid fa-gem" style="font-size:10px"></i> ${s.prize_price || '0'}</span>
+                                </div>
+                            </div>
+                            ${!done ? timerHtml : ''}
+                        </div>
+
+                        <div class="image_section">
+                            <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/200x200/2c2c2e/FFF?text=Item'">
                         </div>
                     </div>
-                    <div class="conditions">${conditions}</div>
-                    ${!done ? btn : ''}
-                    ${winnerBlock}
+
+                    <div class="card_bottom">
+                        ${!done ? `
+                        <div class="participants_row">
+                            <div class="participants_info">
+                                <div class="avatars_stack">
+                                    <img src="https://rfl.pro/api/avatar/1" class="mini-avatar">
+                                    <img src="https://rfl.pro/api/avatar/2" class="mini-avatar">
+                                    <img src="https://rfl.pro/api/avatar/3" class="mini-avatar">
+                                </div>
+                                <span>${pCount} участников</span>
+                            </div>
+                        </div>
+                        ${btnHtml}
+                        ` : `
+                        <div class="winner_block">
+                            <div class="w-lbl">Победитель</div>
+                            <div class="w-name">🏆 ${r.winner ? r.winner.full_name : 'Не определен'}</div>
+                        </div>
+                        `}
+                    </div>
                 </div>`;
 
                 if (done) historyList.innerHTML += cardHtml;
@@ -306,10 +354,13 @@
         async function join(id, isAuto = false) {
             let btn = null;
             let oldHtml = '';
-            if(!isAuto && event) {
+            
+            // Находим кнопку через id, чтобы работало и при клике, и при авто-входе
+            const targetBtn = document.querySelector(`[onclick="join(${id})"]`);
+
+            if(!isAuto && targetBtn) {
                 tg.HapticFeedback.impactOccurred('medium');
-                btn = event.target;
-                if(btn.tagName !== 'BUTTON') btn = btn.closest('button');
+                btn = targetBtn;
                 if(btn.classList.contains('btn-joined')) return;
                 oldHtml = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
