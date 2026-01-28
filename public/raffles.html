@@ -2,174 +2,151 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Raffles</title>
+    <title>Raffles | RFL PRO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         :root {
             --bg: #000000;
-            --card: #141416;
-            --primary: #ffd700;
-            --text: #fff;
-            --sec: #8e8e93;
-            --green: #32d74b;
+            --card: #111111; /* Глубокий темный как на скрине */
+            --primary-blue: #2481cc; /* Синий цвет кнопок и таймера */
+            --text: #ffffff;
+            --text-muted: #8e8e93;
+            --accent-green: #34c759;
             --danger: #ff453a;
         }
+
         body { 
             background: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; padding: 16px; padding-bottom: 90px; 
+            margin: 0; padding: 16px; 
+            padding-bottom: calc(100px + env(safe-area-inset-bottom));
             -webkit-tap-highlight-color: transparent; 
         }
         
-        /* --- Header Row --- */
+        /* --- Header --- */
         .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
         h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
         
         .history-btn { 
-            background: #1c1c1e; 
-            min-width: 54px; height: 48px; 
-            border-radius: 14px; 
-            display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; 
-            color: var(--primary); 
-            border: 1px solid rgba(255,255,255,0.1); 
-            cursor: pointer;
-            gap: 2px;
-            transition: 0.1s;
+            background: #1c1c1e; min-width: 54px; height: 48px; 
+            border-radius: 14px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; color: var(--primary-blue); 
+            border: 1px solid rgba(255,255,255,0.1); cursor: pointer; gap: 2px; transition: 0.1s;
         }
-        .history-btn:active { transform: scale(0.95); background: #2c2c2e; }
-        .history-btn i { font-size: 16px; }
-        .history-btn span { 
-            font-size: 8px; 
-            font-weight: 800; 
-            text-transform: uppercase; 
-            letter-spacing: 0.5px; 
-            color: var(--sec); 
-        }
+        .history-btn span { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
 
-        /* --- 🔥 НОВЫЕ КАРТОЧКИ (КАК НА КАРТИНКЕ) --- */
+        /* --- 🔥 КАРТОЧКИ 1 В 1 КАК НА СКРИНШОТЕ --- */
         .card { 
-            background: #1c1c1e; 
-            border-radius: 24px; 
-            margin-bottom: 16px; 
-            position: relative; 
-            overflow: hidden; 
-            display: flex;
-            flex-direction: column;
+            background: var(--card); border-radius: 28px; 
+            margin-bottom: 16px; position: relative; overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
             animation: slideUp 0.4s ease; 
         }
 
-        /* Тот самый цветной эллипс на фоне */
-        .draw-card_glow {
-            position: absolute;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 140px;
-            height: 140px;
-            filter: blur(50px);
-            opacity: 0.25;
+        /* Красное свечение сзади для элитных предметов */
+        .card_glow {
+            position: absolute; top: -10%; right: -10%;
+            width: 200px; height: 200px;
+            background: radial-gradient(circle, rgba(255, 69, 58, 0.15) 0%, transparent 70%);
             pointer-events: none;
-            z-index: 0;
         }
 
-        .card_top { padding: 20px; position: relative; z-index: 1; }
-        
-        .card_header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        
-        .title_section { flex: 1; }
-        .r-title { font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 4px; }
-        .r-item-info { font-size: 13px; color: var(--sec); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-        .r-price { color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 3px; }
+        .card_content { padding: 20px; position: relative; z-index: 1; }
 
-        /* Таймер как на макете */
-        .timer_box { display: flex; gap: 6px; }
-        .timer_item { display: flex; flex-direction: column; align-items: center; }
-        .timer_val { font-size: 15px; font-weight: 800; color: #fff; }
-        .timer_lbl { font-size: 9px; color: var(--sec); text-transform: lowercase; }
+        /* Заголовки */
+        .r-label { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
+        .r-title { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 15px 0; line-height: 1.2; }
 
-        .image_section { 
-            height: 120px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            margin: 10px 0;
-            position: relative;
-            z-index: 1;
+        /* Таймер синими цифрами */
+        .timer_row { display: flex; gap: 15px; margin-bottom: 25px; }
+        .timer_item { display: flex; flex-direction: column; align-items: flex-start; }
+        .timer_val { font-size: 24px; font-weight: 700; color: var(--primary-blue); }
+        .timer_lbl { font-size: 11px; color: var(--primary-blue); margin-top: 2px; }
+
+        /* Изображение предмета (справа вверху) */
+        .prize-img-wrapper {
+            position: absolute; top: 20px; right: 15px; width: 110px;
         }
-        .prize-img { width: 150px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)); }
+        .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); }
 
-        .card_bottom { 
-            background: rgba(0,0,0,0.2); 
-            padding: 16px 20px; 
-            border-top: 1px solid rgba(255,255,255,0.03); 
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Блок участников */
-        .participants_row { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            margin-bottom: 14px;
-        }
-        .participants_info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #fff; font-weight: 600; }
+        /* Социальный ряд (участники и победители) */
+        .social_row { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
+        .social_group { display: flex; align-items: center; gap: 8px; }
         .avatars_stack { display: flex; align-items: center; }
         .mini-avatar { 
-            width: 24px; height: 24px; border-radius: 50%; 
-            border: 2px solid #1c1c1e; margin-right: -8px;
-            background: #2c2c2e; object-fit: cover;
+            width: 22px; height: 22px; border-radius: 50%; 
+            border: 2px solid var(--card); margin-right: -8px;
+            background: #333; object-fit: cover;
+        }
+        .social_text { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+        .social_text b { color: #fff; }
+
+        /* Кнопка 1 в 1 */
+        .btn-main {
+            width: 100%; background: var(--primary-blue); color: #fff;
+            border: none; padding: 16px; border-radius: 20px;
+            font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.1s;
+        }
+        .btn-main:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); }
+
+        /* История / Завершенные */
+        .card.done { opacity: 0.8; }
+        .winner_box { 
+            background: rgba(255,255,255,0.03); border-radius: 16px; 
+            padding: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.05); 
+        }
+        .w-title { font-size: 10px; color: #ffd700; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 4px; }
+        .w-user { font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+        /* --- ✅ FOOTER ИЗ ЛИДЕРБОРДА (1 в 1) --- */
+        .app-footer {
+            display: flex; justify-content: space-around; align-items: center;
+            background-color: rgba(28, 28, 30, 0.85); 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed; bottom: 0; left: 0; width: 100%; z-index: 9999;
+            padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            box-sizing: border-box; height: auto;
+        }
+        .footer-item {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            color: #8E8E93; text-decoration: none; flex: 1; cursor: pointer;
+            background: transparent; border: none; padding: 0; margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 10px; line-height: 1; font-weight: 500; transition: all 0.2s ease;
+        }
+        .footer-item .icon-wrapper {
+            display: flex; justify-content: center; align-items: center;
+            width: 24px; height: 24px; font-size: 22px; position: relative;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+        .footer-item.active { color: #FFFFFF; }
+        .footer-item.active .icon-wrapper {
+            color: #34c759; transform: translateY(-2px);
+            text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
+        }
+        .footer-item.active .icon-wrapper::before {
+            content: ''; position: absolute; top: -8px; width: 20px; height: 2px;
+            background-color: #34c759; border-radius: 2px;
+            box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
         }
 
-        .btn { 
-            width: 100%; border: none; padding: 14px; border-radius: 14px; 
-            font-size: 15px; font-weight: 700; cursor: pointer; 
-            transition: 0.1s; display: flex; justify-content: center; align-items: center; gap: 8px; 
-        }
-        .btn-join { background: var(--primary); color: #000; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2); }
-        .btn-joined { background: rgba(50, 215, 75, 0.15); color: var(--green); border: 1px solid rgba(50, 215, 75, 0.2); }
-        
-        /* Стили для завершенных (истории) */
-        .card.done { opacity: 0.7; border-color: transparent; }
-        .winner_block { background: rgba(255, 215, 0, 0.05); border-radius: 12px; padding: 10px; text-align: center; border: 1px solid var(--border); }
-        .w-lbl { font-size: 10px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-        .w-name { font-size: 14px; font-weight: 700; }
-
-        /* Остальные системные стили */
-        .history-overlay {
-            position: fixed; inset: 0; background: var(--bg); z-index: 100;
-            padding: 16px; overflow-y: auto; display: none;
-            animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        /* Системные элементы */
+        .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 100; padding: 16px; overflow-y: auto; display: none; animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .history-overlay.active { display: block; }
-        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .close-x { font-size: 26px; color: var(--sec); cursor: pointer; padding: 5px; }
-
-        .close-container { position: fixed; bottom: 30px; left: 0; right: 0; display: flex; justify-content: center; z-index: 10; pointer-events: none; }
-        .btn-close { pointer-events: auto; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 999; display: none; align-items: center; justify-content: center; flex-direction: column; }
-        .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
-        .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
-        .m-desc { font-size: 15px; color: var(--sec); margin-bottom: 25px; line-height: 1.4; }
-        .m-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
-        .m-btn-primary { background: var(--primary); color: #000; font-weight: 700; }
+        .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+        .m-desc { font-size: 15px; color: var(--text-muted); margin-bottom: 25px; }
+        .m-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; }
+        .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
 
-        .icon-container { width: 80px; height: 80px; margin: 0 auto 15px; position: relative; }
-        .checkmark { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--green); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
-        .cross { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--danger); animation: fill-red .4s ease-in-out .4s forwards, shake .3s ease-in-out .9s both; }
-        .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-
-        @keyframes stroke { 100% { stroke-dashoffset: 0; } }
-        @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 50px var(--green); } }
-        @keyframes fill-red { 100% { box-shadow: inset 0px 0px 0px 50px var(--danger); } }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes zoom { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
     </style>
 </head>
 <body>
@@ -183,50 +160,62 @@
     </div>
 
     <div id="list">
-        <div style="text-align:center; margin-top:50px; color:var(--sec);">
+        <div style="text-align:center; margin-top:50px; color:var(--text-muted);">
             <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         </div>
     </div>
 
     <div id="history-overlay" class="history-overlay">
-        <div class="history-header">
+        <div class="header-row">
             <h1>Завершенные</h1>
-            <i class="fa-solid fa-xmark close-x" onclick="closeHistory()"></i>
+            <i class="fa-solid fa-xmark" style="font-size: 24px;" onclick="closeHistory()"></i>
         </div>
         <div id="history-list"></div>
     </div>
 
-    <div class="close-container">
-        <button class="btn-close" onclick="tg.close()">Закрыть</button>
-    </div>
+    <footer class="app-footer">
+        <a href="/leaderboard" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+            <span>Лидерборд</span>
+        </a>
+        <a href="/quests" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
+            <span>Задания</span>
+        </a>
+        <a href="/menu" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
+            <span>Главная</span>
+        </a>
+        <a href="/raffles" class="footer-item active">
+            <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
+            <span>Розыгрыши</span>
+        </a>
+        <a href="/auction" class="footer-item">
+            <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
+            <span>Аукцион</span>
+        </a>
+    </footer>
 
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
-            <div id="modal-icon" class="icon-container"></div>
+            <div id="modal-icon" style="height: 80px; margin-bottom: 15px;"></div>
             <div class="m-head" id="m-head"></div>
             <div class="m-desc" id="m-desc"></div>
-            <button id="btn-profile" class="m-btn m-btn-primary" style="display:none;" onclick="location.href='/profile'">⚙️ Настроить профиль</button>
             <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
     </div>
 
     <div id="verify-modal" class="modal-overlay" style="z-index: 1000;">
         <div class="verify-loader"></div>
-        <div class="verify-text">Проверяем условия...<br><span style="font-size:13px; color:var(--sec); font-weight:400;">Секундочку, сверяем данные</span></div>
+        <div style="text-align: center;">Проверяем условия...</div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        tg.BackButton.hide();
 
-        function openHistory() {
-            document.getElementById('history-overlay').classList.add('active');
-            tg.HapticFeedback.impactOccurred('light');
-        }
-        function closeHistory() {
-            document.getElementById('history-overlay').classList.remove('active');
-        }
+        function openHistory() { document.getElementById('history-overlay').style.display = 'block'; }
+        function closeHistory() { document.getElementById('history-overlay').style.display = 'none'; }
 
         async function load() {
             try {
@@ -237,7 +226,7 @@
                 const data = await res.json();
                 render(data);
                 checkDeepLink(); 
-            } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center; color:#555;">Ошибка соединения</p>'; }
+            } catch(e) { document.getElementById('list').innerHTML = '<p>Ошибка соединения</p>'; }
         }
 
         async function checkDeepLink() {
@@ -245,15 +234,12 @@
             if (startParam && startParam.startsWith('raffle_')) {
                 const raffleId = startParam.split('_')[1];
                 if (sessionStorage.getItem('checked_raffle_' + raffleId)) return;
-                if(raffleId) {
-                    const vModal = document.getElementById('verify-modal');
-                    vModal.style.display = 'flex';
-                    tg.HapticFeedback.impactOccurred('light');
-                    await new Promise(r => setTimeout(r, 1500));
-                    sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
-                    await join(raffleId, true);
-                    vModal.style.display = 'none';
-                }
+                const vModal = document.getElementById('verify-modal');
+                vModal.style.display = 'flex';
+                await new Promise(r => setTimeout(r, 1500));
+                sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
+                await join(raffleId, true);
+                vModal.style.display = 'none';
             }
         }
 
@@ -264,80 +250,65 @@
             historyList.innerHTML = '';
             
             if (!data.length) { 
-                list.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px; font-weight:500;">Активных розыгрышей нет 👻</div>'; 
+                list.innerHTML = '<div style="text-align:center; padding: 50px;">Нет активных розыгрышей</div>'; 
                 return; 
             }
 
             data.forEach(r => {
                 const s = r.settings || {};
                 const done = r.status === 'completed';
-                const img = s.prize_image || 'https://placehold.co/100x100/2c2c2e/FFF?text=Prize';
-                
-                // Определяем цвет свечения (можно завязать на редкость, здесь для примера фиолетовый)
-                const glowColor = s.prize_rarity_color || 'rgb(123, 81, 207)';
+                const img = s.prize_image || '';
+                const pCount = r.participants_count || 0;
 
-                // Парсим время для красивого таймера
+                // Парсинг времени для синего таймера
                 let timerHtml = '';
                 if (r.end_time && !done) {
-                    const now = new Date();
-                    const end = new Date(r.end_time);
-                    const diff = Math.max(0, end - now);
-                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const diff = new Date(r.end_time) - new Date();
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
                     const mins = Math.floor((diff / (1000 * 60)) % 60);
                     
                     timerHtml = `
-                        <div class="timer_box">
+                        <div class="timer_row">
+                            <div class="timer_item"><span class="timer_val">${days}</span><span class="timer_lbl">дней</span></div>
                             <div class="timer_item"><span class="timer_val">${hours}</span><span class="timer_lbl">часов</span></div>
                             <div class="timer_item"><span class="timer_val">${mins}</span><span class="timer_lbl">мин</span></div>
                         </div>
                     `;
                 }
 
-                let btnHtml = `<button class="btn btn-join" onclick="join(${r.id})">Участвовать</button>`;
-                if (r.is_joined) btnHtml = `<button class="btn btn-joined"><i class="fa-solid fa-check"></i> Вы участвуете</button>`;
-                
-                // Блок участников (количество берем из r.participants_count)
-                const pCount = r.participants_count || 0;
-
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
-                    <div class="draw-card_glow" style="background-color: ${glowColor};"></div>
-                    
-                    <div class="card_top">
-                        <div class="card_header">
-                            <div class="title_section">
-                                <h3 class="r-title">${r.title}</h3>
-                                <div class="r-item-info">
-                                    <span>${s.prize_name}</span>
-                                    <span class="r-price">за <i class="fa-solid fa-gem" style="font-size:10px"></i> ${s.prize_price || '0'}</span>
-                                </div>
-                            </div>
-                            ${!done ? timerHtml : ''}
+                    <div class="card_glow"></div>
+                    <div class="card_content">
+                        <div class="prize-img-wrapper">
+                            <img src="${img}" class="prize-img">
                         </div>
+                        <div class="r-label">${r.title || 'Розыгрыш'}</div>
+                        <h3 class="r-title">${s.prize_name}</h3>
+                        
+                        ${!done ? timerHtml : ''}
 
-                        <div class="image_section">
-                            <img src="${img}" class="prize-img" onerror="this.src='https://placehold.co/200x200/2c2c2e/FFF?text=Item'">
-                        </div>
-                    </div>
-
-                    <div class="card_bottom">
-                        ${!done ? `
-                        <div class="participants_row">
-                            <div class="participants_info">
+                        <div class="social_row">
+                            <div class="social_group">
                                 <div class="avatars_stack">
                                     <img src="https://rfl.pro/api/avatar/1" class="mini-avatar">
                                     <img src="https://rfl.pro/api/avatar/2" class="mini-avatar">
                                     <img src="https://rfl.pro/api/avatar/3" class="mini-avatar">
                                 </div>
-                                <span>${pCount} участников</span>
+                                <div class="social_text"><b>${pCount}</b> участников</div>
                             </div>
                         </div>
-                        ${btnHtml}
+
+                        ${!done ? `
+                            <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="join(${r.id})">
+                                ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : 'Участвовать'}
+                            </button>
                         ` : `
-                        <div class="winner_block">
-                            <div class="w-lbl">Победитель</div>
-                            <div class="w-name">🏆 ${r.winner ? r.winner.full_name : 'Не определен'}</div>
-                        </div>
+                            <div class="winner_box">
+                                <div class="w-title">Победитель</div>
+                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Айдар'}</div>
+                            </div>
                         `}
                     </div>
                 </div>`;
@@ -345,27 +316,9 @@
                 if (done) historyList.innerHTML += cardHtml;
                 else list.innerHTML += cardHtml;
             });
-
-            if (historyList.innerHTML === '') {
-                historyList.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px;">История пуста</div>';
-            }
         }
 
         async function join(id, isAuto = false) {
-            let btn = null;
-            let oldHtml = '';
-            
-            // Находим кнопку через id, чтобы работало и при клике, и при авто-входе
-            const targetBtn = document.querySelector(`[onclick="join(${id})"]`);
-
-            if(!isAuto && targetBtn) {
-                tg.HapticFeedback.impactOccurred('medium');
-                btn = targetBtn;
-                if(btn.classList.contains('btn-joined')) return;
-                oldHtml = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            }
-            
             try {
                 const res = await fetch('/api/v1/raffles/join', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -379,32 +332,14 @@
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
                     showModal('error', 'Упс...', ans.detail);
-                    if(btn) btn.innerHTML = oldHtml;
                 }
-            } catch(e) {
-                tg.HapticFeedback.notificationOccurred('error');
-                showModal('error', 'Ошибка', 'Проверьте соединение');
-                if(btn) btn.innerHTML = oldHtml;
-            }
+            } catch(e) { showModal('error', 'Ошибка', 'Нет связи'); }
         }
 
         function showModal(type, title, msg) {
-            const m = document.getElementById('modal');
-            const iconBox = document.getElementById('modal-icon');
-            const btnProfile = document.getElementById('btn-profile');
-            
-            if(type === 'success') {
-                iconBox.innerHTML = `<svg class="checkmark" viewBox="0 0 52 52"><circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`;
-                btnProfile.style.display = 'none';
-            } else {
-                iconBox.innerHTML = `<svg class="cross" viewBox="0 0 52 52"><circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/><path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/></svg>`;
-                const mLow = msg.toLowerCase();
-                btnProfile.style.display = (mLow.includes('trade') || mLow.includes('twitch') || mLow.includes('профиль')) ? 'block' : 'none';
-            }
-
             document.getElementById('m-head').innerText = title;
             document.getElementById('m-desc').innerText = msg;
-            m.style.display = 'flex';
+            document.getElementById('modal').style.display = 'flex';
         }
 
         load();
