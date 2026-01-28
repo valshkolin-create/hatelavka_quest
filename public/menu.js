@@ -1501,6 +1501,12 @@ async function updateBootstrapSilently() {
     } catch (e) { console.error("Ошибка тихого обновления:", e); }
 }
 
+// Функция для превращения HEX в RGB (нужна для прозрачного свечения)
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0';
+}
+
 async function initDynamicRaffleSlider() {
     const wrapper = document.querySelector('.slider-wrapper');
     if (!wrapper) return;
@@ -1522,39 +1528,32 @@ async function initDynamicRaffleSlider() {
             activeRaffles.forEach(raffle => {
                 const s = raffle.settings || {};
                 const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#ffd700'; // Тот самый цвет из админки
-                const quality = s.skin_quality ? `(${s.skin_quality})` : '';
+                const rarityColor = s.rarity_color || '#ffd700';
+                const quality = s.skin_quality || '';
                 const pCount = raffle.participants_count || 0;
                 
                 const newSlide = document.createElement('a');
                 newSlide.href = "/raffles";
-                newSlide.className = "slide dynamic-raffle-slide";
-                // Передаем цвет редкости в CSS переменную
+                newSlide.className = "slide";
                 newSlide.style.setProperty('--rarity-color', rarityColor);
+                newSlide.style.setProperty('--rarity-rgb', hexToRgb(rarityColor));
 
                 newSlide.innerHTML = `
                     <div class="premium-slide-box">
-                        <div class="slide-rarity-glow"></div>
-                        
-                        <div style="display:flex; flex-direction:column; align-items:center;">
-                            <div class="raffle-badge">Розыгрыш</div>
-                            <div class="raffle-item-name">${s.prize_name} <span style="opacity:0.4; font-size:14px;">${quality}</span></div>
+                        <div class="slide-content-left">
+                            <div class="raffle-badge-new">Активный Розыгрыш</div>
+                            <div class="raffle-item-name-new">${s.prize_name}</div>
+                            <div class="raffle-quality-tag">${quality ? quality : ''} • ${pCount} чел.</div>
+                            
+                            <div class="raffle-timer-box-new raffle-full-timer" data-endtime="${raffle.end_time}">
+                                <div class="timer-unit-new"><span class="timer-val-new d-v">0</span><span class="timer-lbl-new">дн</span></div>
+                                <div class="timer-unit-new"><span class="timer-val-new h-v">0</span><span class="timer-lbl-new">ч</span></div>
+                                <div class="timer-unit-new"><span class="timer-val-new m-v">0</span><span class="timer-lbl-new">м</span></div>
+                                <div class="timer-unit-new"><span class="timer-val-new s-v">0</span><span class="timer-lbl-new">с</span></div>
+                            </div>
                         </div>
 
-                        <img src="${img}" class="raffle-item-img">
-                        
-                        <div style="display:flex; flex-direction:column; align-items:center; width:100%;">
-                            <div class="raffle-full-timer" data-endtime="${raffle.end_time}">
-                                <div class="t-unit"><span class="t-val d-v">0</span><span class="t-lbl">дн</span></div>
-                                <div class="t-unit"><span class="t-val h-v">0</span><span class="t-lbl">час</span></div>
-                                <div class="t-unit"><span class="t-val m-v">0</span><span class="t-lbl">мин</span></div>
-                                <div class="t-unit"><span class="t-val s-v">0</span><span class="t-lbl">сек</span></div>
-                            </div>
-                            <div class="raffle-participants-tag">
-                                <i class="fa-solid fa-users" style="color: ${rarityColor}"></i>
-                                <span>${pCount} ${getPlural(pCount, ['участник', 'участника', 'участников'])}</span>
-                            </div>
-                        </div>
+                        <img src="${img}" class="raffle-item-img-new">
                     </div>
                 `;
                 placeholder.before(newSlide);
@@ -1567,7 +1566,6 @@ async function initDynamicRaffleSlider() {
         console.warn("Slider dynamic failed", e);
     }
 }
-
 function startDynTimers() {
     const update = () => {
         document.querySelectorAll('.dyn-timer').forEach(el => {
