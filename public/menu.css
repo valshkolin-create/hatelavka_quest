@@ -2181,102 +2181,93 @@ body.tutorial-active #main-content {
 
 /* ПРЕМИАЛЬНЫЙ ДИЗАЙН РОЗЫГРЫША В СЛАЙДЕРЕ */
 /* --- НОВЫЙ УЛЬТРА-ПРЕМИАЛЬНЫЙ ДИЗАЙН --- */
+/* --- ПРЕМИАЛЬНЫЙ СЛАЙДЕР: ВЕРСИЯ 2.0 (ЧЕТКОСТЬ И СТИЛЬ) --- */
 .premium-slide-box {
     position: absolute;
     inset: 0;
     display: flex;
-    flex-direction: column;
+    flex-direction: row; /* Скин справа, текст слева */
     align-items: center;
-    justify-content: space-between; /* Распределяем элементы по краям */
-    padding: 20px 15px;
-    background: #0b0b0b; /* Глубокий черный фон */
+    justify-content: space-between;
+    padding: 25px 35px;
+    background: #0f0f0f;
+    background-image: radial-gradient(circle at 70% 50%, rgba(var(--rarity-rgb), 0.15) 0%, transparent 60%);
     text-decoration: none;
     overflow: hidden;
 }
 
-/* Фоновое свечение (Glow), которое мы будем подкрашивать из JS */
-.slide-rarity-glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 250px;
-    height: 250px;
-    background: radial-gradient(circle, var(--rarity-color, #ffd700) 0%, transparent 70%);
-    opacity: 0.15; /* Очень мягкое свечение */
-    filter: blur(40px);
-    z-index: 1;
-    pointer-events: none;
+/* Контейнер для текста слева */
+.slide-content-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    z-index: 5;
+    max-width: 55%;
 }
 
-.raffle-badge {
-    position: relative;
-    z-index: 5;
-    font-size: 9px;
+.raffle-badge-new {
+    font-size: 10px;
     font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 4px;
-    padding: 5px 14px;
-    border-radius: 30px;
-    background: rgba(255, 255, 255, 0.05);
+    letter-spacing: 2px;
     color: var(--rarity-color, #ffd700);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 10px;
+    border-radius: 6px;
 }
 
-.raffle-item-name {
-    position: relative;
-    z-index: 5;
-    margin-top: 10px;
-    font-size: 20px;
+.raffle-item-name-new {
+    font-size: 22px;
     font-weight: 900;
     color: #fff;
-    text-align: center;
     line-height: 1.1;
-    text-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    margin-bottom: 5px;
+    text-align: left;
 }
 
-.raffle-item-img {
-    position: relative;
-    z-index: 3;
-    height: 120px; /* Фиксируем высоту для 1200x600 */
+.raffle-quality-tag {
+    font-size: 13px;
+    color: var(--sec);
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+/* Четкое изображение без мыла */
+.raffle-item-img-new {
+    height: 140px; /* Оптимально для 1200x600 */
     width: auto;
     object-fit: contain;
-    /* Тень под скином для объема */
-    filter: drop-shadow(0 20px 30px rgba(0,0,0,0.8));
-    margin: 5px 0;
-    transform: perspective(500px) rotateY(-10deg); /* Легкий 3D эффект */
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.6));
+    z-index: 3;
+    /* Убираем rotateY, который давал мыло */
+    transform: translateZ(0); 
+    flex-shrink: 0;
 }
 
-/* Стеклянный таймер */
-.raffle-full-timer {
-    position: relative;
-    z-index: 5;
+/* Компактный таймер */
+.raffle-timer-box-new {
     display: flex;
-    gap: 12px;
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    padding: 10px 20px;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-
-.t-unit { display: flex; flex-direction: column; align-items: center; min-width: 40px; }
-.t-val { font-size: 18px; font-weight: 800; color: #fff; line-height: 1; }
-.t-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; color: var(--sec); margin-top: 4px; }
-
-/* Плашка участников */
-.raffle-participants-tag {
-    position: relative;
-    z-index: 5;
+    gap: 10px;
     margin-top: 10px;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--sec);
+}
+
+.timer-unit-new {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
+}
+
+.timer-val-new {
+    font-size: 18px;
+    font-weight: 900;
+    color: #fff;
+}
+
+.timer-lbl-new {
+    font-size: 8px;
+    text-transform: uppercase;
+    color: var(--sec);
+    font-weight: 700;
 }
 
