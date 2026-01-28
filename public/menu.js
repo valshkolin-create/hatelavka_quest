@@ -1501,7 +1501,7 @@ async function updateBootstrapSilently() {
     } catch (e) { console.error("Ошибка тихого обновления:", e); }
 }
 
-// Функция для превращения HEX в RGB (нужна для прозрачного свечения)
+// Убедись, что функция hexToRgb есть в коде (она у тебя была)
 function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0';
@@ -1511,6 +1511,7 @@ async function initDynamicRaffleSlider() {
     const wrapper = document.querySelector('.slider-wrapper');
     if (!wrapper) return;
 
+    // Ищем заглушку
     const placeholder = wrapper.querySelector('.slide[href="/raffles"], .slide[data-event="skin_race"]');
     if (!placeholder) return;
 
@@ -1522,50 +1523,71 @@ async function initDynamicRaffleSlider() {
         });
         
         const data = await res.json();
+        // Берем до 3 активных розыгрышей
         const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
 
         if (activeRaffles.length > 0) {
             activeRaffles.forEach(raffle => {
                 const s = raffle.settings || {};
                 const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#ffd700';
+                
+                // Цвета и качество
+                const rarityColor = s.rarity_color || '#ffd700'; // По дефолту золото
                 const quality = s.skin_quality || '';
                 const pCount = raffle.participants_count || 0;
                 
+                // Создаем слайд
                 const newSlide = document.createElement('a');
-                newSlide.href = "/raffles";
+                newSlide.href = "/raffles"; // Ссылка на страницу розыгрышей
                 newSlide.className = "slide";
+                
+                // Передаем переменные в CSS
                 newSlide.style.setProperty('--rarity-color', rarityColor);
                 newSlide.style.setProperty('--rarity-rgb', hexToRgb(rarityColor));
 
+                // Новая HTML структура
                 newSlide.innerHTML = `
                     <div class="premium-slide-box">
                         <div class="slide-content-left">
-                            <div class="raffle-badge-new">Активный Розыгрыш</div>
-                            <div class="raffle-item-name-new">${s.prize_name}</div>
-                            <div class="raffle-quality-tag">${quality ? quality : ''} • ${pCount} чел.</div>
+                            <div class="raffle-badge-new">
+                                <i class="fa-solid fa-gift"></i> Розыгрыш
+                            </div>
+                            
+                            <div class="raffle-item-name-new">${escapeHTML(s.prize_name)}</div>
+                            
+                            <div class="raffle-quality-tag">
+                                <span>${escapeHTML(quality)}</span>
+                                <span style="margin: 0 4px">•</span>
+                                <i class="fa-solid fa-users"></i> ${pCount}
+                            </div>
                             
                             <div class="raffle-timer-box-new raffle-full-timer" data-endtime="${raffle.end_time}">
-                                <div class="timer-unit-new"><span class="timer-val-new d-v">0</span><span class="timer-lbl-new">дн</span></div>
-                                <div class="timer-unit-new"><span class="timer-val-new h-v">0</span><span class="timer-lbl-new">ч</span></div>
-                                <div class="timer-unit-new"><span class="timer-val-new m-v">0</span><span class="timer-lbl-new">м</span></div>
-                                <div class="timer-unit-new"><span class="timer-val-new s-v">0</span><span class="timer-lbl-new">с</span></div>
+                                <div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">ДН</span></div>
+                                <div style="color:#555; font-weight:bold; padding-top:2px;">:</div>
+                                <div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">ЧАС</span></div>
+                                <div style="color:#555; font-weight:bold; padding-top:2px;">:</div>
+                                <div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">МИН</span></div>
                             </div>
                         </div>
 
-                        <img src="${img}" class="raffle-item-img-new">
+                        <img src="${img}" class="raffle-item-img-new" alt="Skin">
                     </div>
                 `;
+                // Вставляем перед заглушкой
                 placeholder.before(newSlide);
             });
 
+            // Удаляем старую заглушку
             placeholder.remove();
+            
+            // Запускаем тиканье таймера (функция startSliderTick у тебя уже есть ниже в коде)
             startSliderTick();
         }
     } catch (e) {
         console.warn("Slider dynamic failed", e);
     }
 }
+
 function startDynTimers() {
     const update = () => {
         document.querySelectorAll('.dyn-timer').forEach(el => {
