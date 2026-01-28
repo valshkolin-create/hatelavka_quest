@@ -1511,7 +1511,6 @@ async function initDynamicRaffleSlider() {
     const wrapper = document.querySelector('.slider-wrapper');
     if (!wrapper) return;
 
-    // Ищем заглушку
     const placeholder = wrapper.querySelector('.slide[href="/raffles"], .slide[data-event="skin_race"]');
     if (!placeholder) return;
 
@@ -1523,7 +1522,6 @@ async function initDynamicRaffleSlider() {
         });
         
         const data = await res.json();
-        // Берем до 3 активных розыгрышей
         const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
 
         if (activeRaffles.length > 0) {
@@ -1531,41 +1529,38 @@ async function initDynamicRaffleSlider() {
                 const s = raffle.settings || {};
                 const img = s.card_image || s.prize_image || '';
                 
-                // Цвета и качество
-                const rarityColor = s.rarity_color || '#ffd700'; // По дефолту золото
-                const quality = s.skin_quality || '';
+                const rarityColor = s.rarity_color || '#ffd700'; 
+                const quality = s.skin_quality || 'FT'; // Дефолт если нет данных
                 const pCount = raffle.participants_count || 0;
                 
-                // Создаем слайд
                 const newSlide = document.createElement('a');
-                newSlide.href = "/raffles"; // Ссылка на страницу розыгрышей
+                newSlide.href = "/raffles";
                 newSlide.className = "slide";
                 
-                // Передаем переменные в CSS
                 newSlide.style.setProperty('--rarity-color', rarityColor);
                 newSlide.style.setProperty('--rarity-rgb', hexToRgb(rarityColor));
 
-                // Новая HTML структура
                 newSlide.innerHTML = `
                     <div class="premium-slide-box">
+                        <div class="raffle-badge-top-right">
+                            <i class="fa-solid fa-gift"></i> Розыгрыш
+                        </div>
+
                         <div class="slide-content-left">
-                            <div class="raffle-badge-new">
-                                <i class="fa-solid fa-gift"></i> Розыгрыш
+                            
+                            <div class="raffle-quality-tag-top">
+                                <span>${escapeHTML(quality)}</span>
+                                <span style="opacity:0.4; font-size: 8px;">●</span>
+                                <i class="fa-solid fa-users"></i> ${pCount}
                             </div>
                             
                             <div class="raffle-item-name-new">${escapeHTML(s.prize_name)}</div>
                             
-                            <div class="raffle-quality-tag">
-                                <span>${escapeHTML(quality)}</span>
-                                <span style="margin: 0 4px">•</span>
-                                <i class="fa-solid fa-users"></i> ${pCount}
-                            </div>
-                            
                             <div class="raffle-timer-box-new raffle-full-timer" data-endtime="${raffle.end_time}">
                                 <div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">ДН</span></div>
-                                <div style="color:#555; font-weight:bold; padding-top:2px;">:</div>
+                                <div class="timer-sep">:</div>
                                 <div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">ЧАС</span></div>
-                                <div style="color:#555; font-weight:bold; padding-top:2px;">:</div>
+                                <div class="timer-sep">:</div>
                                 <div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">МИН</span></div>
                             </div>
                         </div>
@@ -1573,14 +1568,10 @@ async function initDynamicRaffleSlider() {
                         <img src="${img}" class="raffle-item-img-new" alt="Skin">
                     </div>
                 `;
-                // Вставляем перед заглушкой
                 placeholder.before(newSlide);
             });
 
-            // Удаляем старую заглушку
             placeholder.remove();
-            
-            // Запускаем тиканье таймера (функция startSliderTick у тебя уже есть ниже в коде)
             startSliderTick();
         }
     } catch (e) {
