@@ -47,23 +47,23 @@
         .card_glow {
             position: absolute; top: -10%; right: -10%;
             width: 200px; height: 200px;
-            background: radial-gradient(circle, rgba(255, 69, 58, 0.12) 0%, transparent 70%);
+            /* Цвет задается динамически в JS через style */
             pointer-events: none;
+            opacity: 0.12;
+            filter: blur(60px);
         }
 
         .card_content { padding: 24px; position: relative; z-index: 1; }
 
-        .r-label { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
-        .r-title { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 15px 0; line-height: 1.2; max-width: 65%; }
+        .r-label { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+        .r-title { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 15px 0; line-height: 1.2; max-width: 60%; }
 
-        /* Условия (Telegram/Twitch) */
+        /* Условия */
         .conditions { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
-        .cond-row { 
-            font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; 
-        }
+        .cond-row { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
         .cond-row i { color: var(--primary-blue); width: 14px; text-align: center; }
 
-        /* Таймер синий */
+        /* Таймер */
         .timer_row { display: flex; gap: 18px; margin-bottom: 25px; }
         .timer_item { display: flex; flex-direction: column; align-items: flex-start; }
         .timer_val { font-size: 26px; font-weight: 700; color: var(--primary-blue); line-height: 1; }
@@ -97,9 +97,9 @@
 
         /* Закрыть */
         .close-container { position: fixed; bottom: 100px; left: 0; right: 0; display: flex; justify-content: center; z-index: 1000; }
-        .btn-close { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 15px; }
-
-        /* FOOTER (Нейтральный) */
+        .btn-close { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px 40px; border-radius: 30px; font-weight: 600; cursor: pointer; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* FOOTER */
         .app-footer {
             display: flex; justify-content: space-around; align-items: center;
             background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px);
@@ -113,7 +113,7 @@
         }
         .footer-item .icon-wrapper { font-size: 22px; }
 
-        /* Системное */
+        .hidden { display: none !important; }
         .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1100; padding: 16px; overflow-y: auto; display: none; }
         .history-overlay.active { display: block; }
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 1200; display: none; align-items: center; justify-content: center; }
@@ -122,7 +122,6 @@
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -154,26 +153,11 @@
     </div>
 
     <footer class="app-footer">
-        <a href="/leaderboard" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
-            <span>Лидерборд</span>
-        </a>
-        <a href="/quests" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
-            <span>Задания</span>
-        </a>
-        <a href="/menu" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
-            <span>Главная</span>
-        </a>
-        <a href="/raffles" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
-            <span>Розыгрыши</span>
-        </a>
-        <a href="/auction" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
-            <span>Аукцион</span>
-        </a>
+        <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
+        <a href="/quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
+        <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
+        <a href="/raffles" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Розыгрыши</span></a>
+        <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
     </footer>
 
     <div id="modal" class="modal-overlay">
@@ -227,8 +211,7 @@
         function render(data) {
             const list = document.getElementById('list');
             const historyList = document.getElementById('history-list');
-            list.innerHTML = '';
-            historyList.innerHTML = '';
+            list.innerHTML = ''; historyList.innerHTML = '';
             
             if (!data.length) { 
                 list.innerHTML = '<div style="text-align:center; padding: 50px; color: var(--text-muted);">Активных розыгрышей нет</div>'; 
@@ -238,43 +221,42 @@
             data.forEach(r => {
                 const s = r.settings || {};
                 const done = r.status === 'completed';
-                const img = s.prize_image || '';
-                const pCount = r.participants_count || 0;
+                
+                // --- ПРИОРИТЕТ КАРТИНКИ И ЦВЕТ ---
+                const img = s.card_image || s.prize_image || '';
+                const rarityColor = s.rarity_color || '#2481cc'; 
 
-                // Условия (логика из твоего кода)
                 let conditions = '';
                 if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на канал</div>`;
                 if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> ${s.min_daily_messages} сообщ. на Twitch</div>`;
+                if (s.ticket_cost > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-ticket"></i> Вход: ${s.ticket_cost} билетов</div>`;
 
-                // Таймер
                 let timerHtml = '';
                 if (r.end_time && !done) {
                     const diff = new Date(r.end_time) - new Date();
-                    const days = Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-                    const hours = Math.max(0, Math.floor((diff / (1000 * 60 * 60)) % 24));
-                    const mins = Math.max(0, Math.floor((diff / (1000 * 60)) % 60));
-                    const secs = Math.max(0, Math.floor((diff / 1000) % 60));
-                    
+                    const d = Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+                    const h = Math.max(0, Math.floor((diff / (1000 * 60 * 60)) % 24));
+                    const m = Math.max(0, Math.floor((diff / (1000 * 60)) % 60));
+                    const sc = Math.max(0, Math.floor((diff / 1000) % 60));
                     timerHtml = `
                         <div class="timer_row">
-                            <div class="timer_item"><span class="timer_val">${days}</span><span class="timer_lbl">дней</span></div>
-                            <div class="timer_item"><span class="timer_val">${hours}</span><span class="timer_lbl">часов</span></div>
-                            <div class="timer_item"><span class="timer_val">${mins}</span><span class="timer_lbl">мин</span></div>
-                            <div class="timer_item"><span class="timer_val">${secs}</span><span class="timer_lbl">сек</span></div>
-                        </div>
-                    `;
+                            <div class="timer_item"><span class="timer_val">${d}</span><span class="timer_lbl">дней</span></div>
+                            <div class="timer_item"><span class="timer_val">${h}</span><span class="timer_lbl">часов</span></div>
+                            <div class="timer_item"><span class="timer_val">${m}</span><span class="timer_lbl">мин</span></div>
+                            <div class="timer_item"><span class="timer_val">${sc}</span><span class="timer_lbl">сек</span></div>
+                        </div>`;
                 }
 
-                const statusText = done ? 'Розыгрыш завершен' : `<i class="fa-solid fa-users-viewfinder"></i> <b>${pCount}</b> участников`;
+                const statusText = done ? 'Розыгрыш завершен' : `<b>${r.participants_count || 0}</b> участников`;
 
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
-                    <div class="card_glow"></div>
+                    <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 70%);"></div>
                     <div class="card_content">
                         <div class="prize-img-wrapper">
                             <img src="${img}" class="prize-img" onerror="this.style.display='none'">
                         </div>
-                        <div class="r-label">${r.title || 'Розыгрыш'}</div>
+                        <div class="r-label" style="color: ${rarityColor}; opacity: 0.8;">${r.title || 'Розыгрыш'}</div>
                         <h3 class="r-title">${s.prize_name}</h3>
                         
                         <div class="conditions">${conditions}</div>
@@ -292,7 +274,7 @@
                         ` : `
                             <div class="winner_box">
                                 <div class="w-title">Победитель</div>
-                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Айдар'}</div>
+                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
                             </div>
                         `}
                     </div>
@@ -312,11 +294,11 @@
                 const ans = await res.json();
                 if(res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    showModal('success', 'Успех!', ans.message);
+                    if(!isAuto) showModal('success', 'Успех!', ans.message);
                     load(); 
-                } else {
+                } else if(!isAuto) {
                     tg.HapticFeedback.notificationOccurred('error');
-                    if(!isAuto) showModal('error', 'Упс...', ans.detail);
+                    showModal('error', 'Упс...', ans.detail);
                 }
             } catch(e) { if(!isAuto) showModal('error', 'Ошибка', 'Нет связи'); }
         }
