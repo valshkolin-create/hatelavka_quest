@@ -250,6 +250,9 @@
 
                 const statusText = done ? 'Розыгрыш завершен' : `<b>${r.participants_count || 0}</b> участников`;
 
+                // Формируем полное название: Имя скина + Качество (если оно есть)
+                const fullPrizeName = `${s.prize_name} ${s.skin_quality ? `(${s.skin_quality})` : ''}`;
+
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
                     <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 70%);"></div>
@@ -257,8 +260,10 @@
                         <div class="prize-img-wrapper">
                             <img src="${img}" class="prize-img" onerror="this.style.display='none'">
                         </div>
+                        
                         <div class="r-label" style="color: ${rarityColor}">${r.title || 'Розыгрыш'}</div>
-                        <h3 class="r-title">${s.prize_name}</h3>
+                        
+                        <h3 class="r-title">${fullPrizeName}</h3>
                         
                         <div class="conditions">${conditions}</div>
                         
