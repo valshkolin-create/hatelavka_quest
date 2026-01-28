@@ -1502,6 +1502,83 @@ async function updateBootstrapSilently() {
     } catch (e) { console.error("Ошибка тихого обновления:", e); }
 }
 
+async function initDynamicRaffleSlider() {
+    const wrapper = document.querySelector('.slider-wrapper');
+    const staticSlide = wrapper.innerHTML; // Сохраняем твою заглушку
+    
+    try {
+        const res = await fetch('/api/v1/raffles/active', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
+        });
+        
+        const allData = await res.json();
+        const activeRaffles = allData.filter(r => r.status === 'active').slice(0, 3);
+
+        if (activeRaffles.length > 0) {
+            wrapper.innerHTML = ''; // Очищаем только если есть розыгрыши
+            
+            activeRaffles.forEach(raffle => {
+                const s = raffle.settings || {};
+                const img = s.card_image || s.prize_image || '';
+                const rarityColor = s.rarity_color || '#2481cc';
+                
+                const slide = document.createElement('div');
+                slide.className = 'slide';
+                slide.innerHTML = `
+                    <a href="/raffles" class="slide-raffle-content">
+                        <div class="slide-raffle-label" style="color: ${rarityColor}">Активный розыгрыш</div>
+                        <div class="slide-raffle-name">${s.prize_name}</div>
+                        <img src="${img}" class="slide-raffle-img">
+                        <div class="slide-raffle-timer" id="timer-banner-${raffle.id}" data-endtime="${raffle.end_time}">
+                            00:00:00
+                        </div>
+                    </a>
+                `;
+                wrapper.appendChild(slide);
+            });
+
+            // Запускаем тиканье таймеров в баннере
+            startBannerTimers();
+            
+            // Если розыгрышей больше 1, включаем автопрокрутку
+            if (activeRaffles.length > 1) {
+                startSliderAutoCycle(activeRaffles.length);
+            }
+        }
+    } catch (e) {
+        console.log("Slider fallback: using static banner");
+    }
+}
+
+function startBannerTimers() {
+    setInterval(() => {
+        const timers = document.querySelectorAll('.slide-raffle-timer');
+        timers.forEach(t => {
+            const end = new Date(t.dataset.endtime);
+            const diff = end - new Date();
+            if (diff <= 0) {
+                t.innerText = "ЗАВЕРШАЕТСЯ";
+                return;
+            }
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff / (1000 * 60)) % 60);
+            const s = Math.floor((diff / 1000) % 60);
+            t.innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        });
+    }, 1000);
+}
+
+function startSliderAutoCycle(count) {
+    let current = 0;
+    const wrapper = document.querySelector('.slider-wrapper');
+    setInterval(() => {
+        current = (current + 1) % count;
+        wrapper.style.transform = `translateX(-${current * 100}%)`;
+    }, 5000); // Смена слайда каждые 5 секунд
+}
+
 async function main() {
     // Хак для перенаправления с профиля
     if (window.location.pathname.includes('/profile') || window.location.href.includes('profile')) {
@@ -1564,9 +1641,12 @@ async function main() {
                 updateLoading(95);
             }
 
-            // Г. Рендер
+            // Г. Рендер основного интерфейса
             await renderFullInterface(bootstrapData);
             
+            // 🔥 ХИРУРГИЧЕСКАЯ ВСТАВКА: Инициализация живого слайдера розыгрышей
+            await initDynamicRaffleSlider();
+
             // Д. Финиш
             updateLoading(100);
             setTimeout(() => {
@@ -1578,9 +1658,11 @@ async function main() {
             }, 300);
             
         } 
-        // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ ---
+        // --- СЦЕНАРИЙ 2: ПОВТОРНЫЙ ВЫЗОВ (Обновление) ---
         else {
             await updateBootstrapSilently();
+            // 🔥 ХИРУРГИЧЕСКАЯ ВСТАВКА: Обновляем слайдер при фоновом обновлении данных
+            await initDynamicRaffleSlider();
         }
 
     } catch (e) {
@@ -1595,7 +1677,6 @@ async function main() {
         }
     }
 }
-
 // -------------------------------------------------------------
 // 5. PULL TO REFRESH (1 в 1 старая логика)
 // -------------------------------------------------------------
