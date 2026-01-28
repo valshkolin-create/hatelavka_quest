@@ -21,6 +21,7 @@
             background: var(--bg); color: var(--text); 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             margin: 0; padding: 16px; 
+            padding-bottom: 0;
             -webkit-tap-highlight-color: transparent; 
         }
         
@@ -47,28 +48,31 @@
 
         .card_glow {
             position: absolute; top: -10%; right: -10%;
-            width: 250px; height: 250px;
+            width: 280px; height: 280px;
             pointer-events: none;
             opacity: 0.15;
             filter: blur(60px);
             z-index: 0;
         }
 
-        .card_content { padding: 20px; position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; }
+        .card_content { padding: 24px; position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; }
 
         .r-label { font-size: 11px; font-weight: 700; margin-bottom: 4px; letter-spacing: 1.5px; }
-        .r-title { font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 12px 0; line-height: 1.2; max-width: 50%; }
+        .r-title { font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 15px 0; line-height: 1.2; max-width: 50%; }
 
+        /* Условия */
         .conditions { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
         .cond-row { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
         .cond-row i { color: var(--primary-blue); width: 12px; text-align: center; }
 
+        /* Таймер с секундами */
         .timer_row { display: flex; gap: 10px; margin-bottom: 15px; }
         .timer_item { display: flex; flex-direction: column; align-items: flex-start; }
         .timer_val { font-size: 20px; font-weight: 700; color: var(--primary-blue); line-height: 1; font-variant-numeric: tabular-nums; }
-        .timer_lbl { font-size: 9px; color: var(--primary-blue); margin-top: 2px; font-weight: 600; }
+        .timer_lbl { font-size: 9px; color: var(--primary-blue); margin-top: 2px; font-weight: 600; text-transform: lowercase; }
 
-        .prize-img-wrapper { position: absolute; top: 10px; right: -15px; width: 190px; z-index: 2; pointer-events: none; }
+        /* СКИН (УВЕЛИЧЕН) */
+        .prize-img-wrapper { position: absolute; top: 15px; right: -15px; width: 200px; z-index: 2; pointer-events: none; }
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8)); }
 
         .social_row { margin-top: auto; display: flex; align-items: center; }
@@ -77,18 +81,26 @@
 
         .btn-main {
             width: 100%; background: var(--primary-blue); color: #fff;
-            border: none; padding: 14px; border-radius: 20px;
+            border: none; padding: 16px; border-radius: 22px;
             font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.1s;
             margin-top: 12px; text-transform: uppercase;
         }
+        .btn-main:active { transform: scale(0.98); opacity: 0.9; }
         .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); }
+
+        /* Инфо о билетах под кнопкой */
+        .user-tickets-info { 
+            text-align: center; font-size: 11px; color: var(--text-muted); 
+            margin-top: 8px; font-weight: 600; letter-spacing: 0.3px;
+        }
+        .user-tickets-info b { color: var(--primary-blue); }
 
         .winner_box { 
             margin-top: 10px; background: rgba(255,255,255,0.03); border-radius: 16px; 
-            padding: 8px 14px; border: 1px solid rgba(255,255,255,0.05); 
+            padding: 10px 14px; border: 1px solid rgba(255,255,255,0.05); 
         }
         .w-title { font-size: 9px; color: #ffd700; text-transform: uppercase; font-weight: 800; margin-bottom: 2px; }
-        .w-user { font-size: 14px; font-weight: 700; color: #fff; }
+        .w-user { font-size: 15px; font-weight: 700; color: #fff; }
 
         /* ОТСТУП СНИЗУ */
         .bottom-spacer { height: 180px; width: 100%; pointer-events: none; }
@@ -108,11 +120,12 @@
         .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1100; padding: 16px; overflow-y: auto; display: none; }
         .history-overlay.active { display: block; }
         
-        /* Модалка с кнопками Да/Нет */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 1200; display: none; align-items: center; justify-content: center; }
+        /* Модалка */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 2000; display: none; align-items: center; justify-content: center; }
         .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
-        .m-btn-sec { background: rgba(255,255,255,0.05); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 600; }
+        .m-btn-confirm { background: var(--primary-blue); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 700; }
+        .m-btn-cancel { background: rgba(255,255,255,0.05); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 600; }
 
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
@@ -121,11 +134,9 @@
 
     <div class="header-row">
         <h1>Розыгрыши</h1>
-        <div class="header-right" style="display: flex; flex-direction: column; align-items: flex-end;">
-            <div class="history-btn" onclick="openHistory()">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-                <span>История</span>
-            </div>
+        <div class="history-btn" onclick="openHistory()">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>История</span>
         </div>
     </div>
 
@@ -142,9 +153,9 @@
     <div id="history-overlay" class="history-overlay">
         <div class="header-row" style="margin-bottom: 5px;">
             <h1>История</h1>
-            <i class="fa-solid fa-xmark" style="font-size: 24px; padding: 5px;" onclick="closeHistory()"></i>
+            <i class="fa-solid fa-xmark" style="font-size: 24px;" onclick="closeHistory()"></i>
         </div>
-        <div id="total-count" style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 20px; letter-spacing: 1px;">Разыграно: --</div>
+        <div id="total-count" style="font-size: 28px; font-weight: 800; margin-bottom: 25px; letter-spacing: -0.5px;">Разыграно: --</div>
         <div id="history-list"></div>
     </div>
 
@@ -156,15 +167,15 @@
         <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
     </footer>
 
-    <div id="modal" class="modal-overlay">
+    <div id="confirm-modal" class="modal-overlay">
         <div class="modal-box">
-            <div id="modal-icon" style="font-size: 50px; margin-bottom: 15px;"></div>
-            <div id="m-head" style="font-size: 22px; font-weight: 800; margin-bottom: 8px;"></div>
-            <div id="m-desc" style="color: var(--text-muted); margin-bottom: 25px; font-size: 15px; line-height: 1.4;"></div>
-            <div id="modal-actions">
-                <button class="btn-main" id="m-btn-ok">Понятно</button>
+            <div style="font-size: 50px; margin-bottom: 15px;">🎫</div>
+            <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">Участие за билеты</div>
+            <div style="color: var(--text-muted); margin-bottom: 25px; font-size: 15px;">С вашего баланса будет списано <b id="ticket-price" style="color:#fff">--</b> билетов. Участвуем?</div>
+            <div class="modal-btns">
+                <button class="m-btn-cancel" onclick="closeConfirm()">Отмена</button>
+                <button class="m-btn-confirm" id="confirm-join-btn">Да, списать</button>
             </div>
-            <button class="m-btn-sec" id="m-btn-cancel" style="margin-top: 10px; width: 100%; display: none;">Отмена</button>
         </div>
     </div>
 
@@ -172,44 +183,53 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let rafflesData = [];
+        let userTickets = 0;
 
         function openHistory() { document.getElementById('history-overlay').classList.add('active'); }
         function closeHistory() { document.getElementById('history-overlay').classList.remove('active'); }
+        function closeConfirm() { document.getElementById('confirm-modal').style.display = 'none'; }
+
+        // Обновление таймера
+        setInterval(() => {
+            const timers = document.querySelectorAll('.timer-data');
+            timers.forEach(el => {
+                const endTime = new Date(el.dataset.time);
+                const diff = endTime - new Date();
+                if (diff <= 0) {
+                    el.innerHTML = '<span style="color:var(--danger); font-weight:700;">ЗАВЕРШАЕТСЯ...</span>';
+                    return;
+                }
+                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                const m = Math.floor((diff / (1000 * 60)) % 60);
+                const s = Math.floor((diff / 1000) % 60);
+                el.querySelector('.d-v').innerText = d;
+                el.querySelector('.h-v').innerText = h;
+                el.querySelector('.m-v').innerText = m;
+                el.querySelector('.s-v').innerText = s;
+            });
+        }, 1000);
 
         async function load() {
             try {
+                // Сначала грузим профиль юзера для билетов
+                const userRes = await fetch('/api/v1/user/me', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({initData:tg.initData})
+                });
+                const userData = await userRes.json();
+                userTickets = userData.tickets || 0;
+
+                // Потом розыгрыши
                 const res = await fetch('/api/v1/raffles/active', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({initData:tg.initData})
                 });
-                rafflesData = await res.json();
-                render(rafflesData);
+                const data = await res.json();
+                render(data);
                 checkDeepLink(); 
             } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center">Ошибка сети</p>'; }
         }
-
-        // Динамический таймер
-        setInterval(() => {
-            const timers = document.querySelectorAll('.timer-container');
-            timers.forEach(container => {
-                const endTime = container.dataset.endtime;
-                const diff = new Date(endTime) - new Date();
-                if (diff <= 0) {
-                    container.innerHTML = "Завершается...";
-                    return;
-                }
-                const d = Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-                const h = Math.max(0, Math.floor((diff / (1000 * 60 * 60)) % 24));
-                const m = Math.max(0, Math.floor((diff / (1000 * 60)) % 60));
-                const s = Math.max(0, Math.floor((diff / 1000) % 60));
-                
-                container.querySelector('.d-val').innerText = d;
-                container.querySelector('.h-val').innerText = h;
-                container.querySelector('.m-val').innerText = m;
-                container.querySelector('.s-val').innerText = s;
-            });
-        }, 1000);
 
         function render(data) {
             const list = document.getElementById('list');
@@ -229,14 +249,15 @@
 
                 let conditions = '';
                 if (!done) {
-                    if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram" style="color:${rarityColor}"></i> Канал</div>`;
-                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch" style="color:${rarityColor}"></i> Сообщений: ${s.min_daily_messages}</div>`;
+                    if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Канал</div>`;
+                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений: ${s.min_daily_messages}</div>`;
                 }
 
-                // Кнопка с ценой
-                let btnText = 'Участвовать';
+                let btnLabel = "УЧАСТВОВАТЬ";
+                let ticketInfo = "";
                 if (!r.is_joined && s.ticket_cost > 0) {
-                    btnText = `ЗАПЛАТИТЬ ${s.ticket_cost} БИЛЕТОВ`;
+                    btnLabel = `ЗАПЛАТИТЬ ${s.ticket_cost} БИЛЕТОВ`;
+                    ticketInfo = `<div class="user-tickets-info">У вас: <b>${userTickets}</b> билетов</div>`;
                 }
 
                 const cardHtml = `
@@ -244,18 +265,18 @@
                     <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
                     <div class="card_content">
                         <div class="prize-img-wrapper">
-                            <img src="${img}" class="prize-img">
+                            <img src="${img}" class="prize-img" onerror="this.style.display='none'">
                         </div>
                         <div class="r-label" style="color: ${rarityColor}">РОЗЫГРЫШ</div>
                         <h3 class="r-title">${fullPrizeName}</h3>
                         
                         ${!done ? `
                             <div class="conditions">${conditions}</div>
-                            <div class="timer_row timer-container" data-endtime="${r.end_time}">
-                                <div class="timer_item"><span class="timer_val d-val">0</span><span class="timer_lbl">дн</span></div>
-                                <div class="timer_item"><span class="timer_val h-val">0</span><span class="timer_lbl">час</span></div>
-                                <div class="timer_item"><span class="timer_val m-val">0</span><span class="timer_lbl">мин</span></div>
-                                <div class="timer_item"><span class="timer_val s-val">0</span><span class="timer_lbl">сек</span></div>
+                            <div class="timer_row timer-data" data-time="${r.end_time}">
+                                <div class="timer_item"><span class="timer_val d-v">0</span><span class="timer_lbl">дн</span></div>
+                                <div class="timer_item"><span class="timer_val h-v">0</span><span class="timer_lbl">час</span></div>
+                                <div class="timer_item"><span class="timer_val m-v">0</span><span class="timer_lbl">мин</span></div>
+                                <div class="timer_item"><span class="timer_val s-v">0</span><span class="timer_lbl">сек</span></div>
                             </div>
                         ` : ''}
 
@@ -264,9 +285,10 @@
                         </div>
 
                         ${!done ? `
-                            <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="confirmJoin(${r.id}, ${s.ticket_cost || 0})">
-                                ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnText}
+                            <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="handleJoin(${r.id}, ${s.ticket_cost || 0}, ${r.is_joined})">
+                                ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnLabel}
                             </button>
+                            ${ticketInfo}
                         ` : `
                             <div class="winner_box">
                                 <div class="w-title" style="color:${rarityColor}">Победитель</div>
@@ -280,14 +302,20 @@
                 else list.innerHTML += cardHtml;
             });
 
-            document.getElementById('total-count').innerText = `Разыграно: ${completedCount} скинов`;
+            document.getElementById('total-count').innerText = `Разыграно: ${completedCount}`;
             list.innerHTML += '<div class="bottom-spacer"></div>';
             historyList.innerHTML += '<div class="bottom-spacer"></div>';
         }
 
-        function confirmJoin(id, cost) {
+        function handleJoin(id, cost, isJoined) {
+            if(isJoined) return;
             if (cost > 0) {
-                showModal('confirm', 'Участие за билеты', `Вы уверены, что хотите потратить ${cost} билетов на участие в этом розыгрыше?`, () => join(id));
+                document.getElementById('ticket-price').innerText = cost;
+                document.getElementById('confirm-modal').style.display = 'flex';
+                document.getElementById('confirm-join-btn').onclick = () => {
+                    closeConfirm();
+                    join(id);
+                };
             } else {
                 join(id);
             }
@@ -302,32 +330,11 @@
                 const ans = await res.json();
                 if(res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    showModal('info', 'Успех!', ans.message);
                     load(); 
                 } else {
-                    showModal('info', 'Упс...', ans.detail);
+                    tg.showAlert(ans.detail || 'Ошибка');
                 }
-            } catch(e) { showModal('info', 'Ошибка', 'Нет связи'); }
-        }
-
-        function showModal(mode, title, msg, onConfirm = null) {
-            const m = document.getElementById('modal');
-            document.getElementById('m-head').innerText = title;
-            document.getElementById('m-desc').innerText = msg;
-            const okBtn = document.getElementById('m-btn-ok');
-            const cancelBtn = document.getElementById('m-btn-cancel');
-
-            if (mode === 'confirm') {
-                okBtn.innerText = "Да, участвую!";
-                cancelBtn.style.display = "block";
-                okBtn.onclick = () => { m.style.display = 'none'; onConfirm(); };
-                cancelBtn.onclick = () => { m.style.display = 'none'; };
-            } else {
-                okBtn.innerText = "Понятно";
-                cancelBtn.style.display = "none";
-                okBtn.onclick = () => { m.style.display = 'none'; };
-            }
-            m.style.display = 'flex';
+            } catch(e) { tg.showAlert('Нет связи с сервером'); }
         }
 
         async function checkDeepLink() {
