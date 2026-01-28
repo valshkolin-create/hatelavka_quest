@@ -1503,13 +1503,9 @@ async function updateBootstrapSilently() {
 }
 
 async function initDynamicRaffleSlider() {
-    const wrapper = document.querySelector('.slider-wrapper');
-    if (!wrapper) return;
-
-    // Сохраняем твой статичный баннер как дефолт
-    if (!window.defaultBannerHtml) {
-        window.defaultBannerHtml = wrapper.innerHTML;
-    }
+    // Ищем слайд, который ведет на розыгрыши
+    const raffleSlide = document.querySelector('a.slide[href="/raffles"]');
+    if (!raffleSlide) return;
 
     try {
         const res = await fetch('/api/v1/raffles/active', {
@@ -1522,59 +1518,58 @@ async function initDynamicRaffleSlider() {
         const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
 
         if (activeRaffles.length > 0) {
-            let slidesHtml = '';
+            // Создаем временный контейнер для новых слайдов
+            const newSlides = [];
 
             activeRaffles.forEach(raffle => {
                 const s = raffle.settings || {};
                 const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#ffd700';
+                const rarityColor = s.rarity_color || '#2481cc';
                 const quality = s.skin_quality ? `(${s.skin_quality})` : '';
 
-                // Создаем слайд по твоей структуре <a class="slide">
-                slidesHtml += `
-                    <a href="/events" class="slide">
-                        <div class="dynamic-raffle-box">
-                            <div class="dynamic-item-name" style="color: ${rarityColor}">
-                                ${s.prize_name} <span style="opacity:0.6; font-size:12px;">${quality}</span>
-                            </div>
-                            <img src="${img}" class="dynamic-item-img">
-                            <div class="dynamic-item-timer" data-endtime="${raffle.end_time}">
-                                00:00:00
-                            </div>
+                // Создаем новый элемент слайда
+                const slideAnchor = document.createElement('a');
+                slideAnchor.href = "/raffles";
+                slideAnchor.className = "slide dynamic-raffle-slide";
+                slideAnchor.innerHTML = `
+                    <div class="dynamic-raffle-content">
+                        <div style="text-align:center;">
+                            <div style="font-size:10px; font-weight:800; color:${rarityColor}; text-transform:uppercase; letter-spacing:2px;">Розыгрыш</div>
+                            <div style="font-size:16px; font-weight:800; color:#fff;">${s.prize_name} ${quality}</div>
                         </div>
-                    </a>
+                        <img src="${img}" class="dyn-skin-img">
+                        <div class="dyn-timer" data-endtime="${raffle.end_time}">00:00:00</div>
+                    </div>
                 `;
+                newSlides.push(slideAnchor);
             });
 
-            // Заменяем содержимое твоего wrapper на активные розыгрыши
-            wrapper.innerHTML = slidesHtml;
+            // Заменяем оригинальный слайд на новые динамические
+            // Вставляем все новые слайды ПЕРЕД оригинальным, а потом удаляем оригинал
+            newSlides.forEach(slide => raffleSlide.before(slide));
+            raffleSlide.remove();
 
-            // Запускаем таймеры
-            startSliderTimers();
+            // Запускаем таймеры для новых слайдов
+            startDynTimers();
             
-            // Если розыгрышей > 1, включаем листание
-            if (activeRaffles.length > 1) {
-                startSliderRotation(activeRaffles.length);
+            // Переинициализируем твой стандартный цикл слайдера (если он есть)
+            // Или запускаем наш, если их стало больше
+            const totalSlides = document.querySelectorAll('.slider-wrapper .slide').length;
+            if (totalSlides > 1) {
+                startGlobalSliderCycle(totalSlides);
             }
-        } else {
-            // Если розыгрышей нет - возвращаем твой оригинальный баннер
-            wrapper.innerHTML = window.defaultBannerHtml;
         }
     } catch (e) {
-        console.error("Slider Fail:", e);
-        wrapper.innerHTML = window.defaultBannerHtml;
+        console.error("Dynamic slide error:", e);
     }
 }
 
-function startSliderTimers() {
+function startDynTimers() {
     const update = () => {
-        document.querySelectorAll('.dynamic-item-timer').forEach(el => {
+        document.querySelectorAll('.dyn-timer').forEach(el => {
             const end = new Date(el.dataset.endtime);
             const diff = end - new Date();
-            if (diff <= 0) {
-                el.innerText = "ЗАВЕРШАЕТСЯ";
-                return;
-            }
+            if (diff <= 0) { el.innerText = "ЗАВЕРШАЕТСЯ"; return; }
             const h = Math.floor(diff / (1000 * 60 * 60));
             const m = Math.floor((diff / (1000 * 60)) % 60);
             const s = Math.floor((diff / 1000) % 60);
@@ -1585,12 +1580,15 @@ function startSliderTimers() {
     setInterval(update, 1000);
 }
 
-function startSliderRotation(count) {
-    let idx = 0;
+function startGlobalSliderCycle(count) {
+    let current = 0;
     const wrapper = document.querySelector('.slider-wrapper');
-    setInterval(() => {
-        idx = (idx + 1) % count;
-        wrapper.style.transform = `translateX(-${idx * 100}%)`;
+    // Очищаем старые интервалы если были (опционально)
+    if (window.raffleSliderInterval) clearInterval(window.raffleSliderInterval);
+    
+    window.raffleSliderInterval = setInterval(() => {
+        current = (current + 1) % count;
+        wrapper.style.transform = `translateX(-${current * 100}%)`;
     }, 5000);
 }
 
