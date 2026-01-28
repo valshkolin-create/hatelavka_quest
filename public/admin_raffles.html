@@ -49,7 +49,6 @@
         }
         .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
         
-        /* New Section Styling */
         .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
         .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
         .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -139,7 +138,7 @@
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -212,16 +211,30 @@
 
                 <label>Качество (Wear)</label>
                 <select name="quality" id="inp-quality" onchange="updatePreview()">
-                <option value="">Без качества</option>
-                <option value="FN">Factory New (Прямо с завода)</option>
-                <option value="MW">Minimal Wear (Немного поношенное)</option>
-                <option value="FT">Field-Tested (После полевых испытаний)</option>
-                <option value="WW">Well-Worn (Поношенное)</option>
-                <option value="BS">Battle-Scarred (Закаленное в боях)</option>
+                    <option value="">Без качества</option>
+                    <option value="FN">Factory New (Прямо с завода)</option>
+                    <option value="MW">Minimal Wear (Немного поношенное)</option>
+                    <option value="FT">Field-Tested (После полевых испытаний)</option>
+                    <option value="WW">Well-Worn (Поношенное)</option>
+                    <option value="BS">Battle-Scarred (Закаленное в боях)</option>
                 </select>
 
-                <label>Картинка (URL)</label>
+                <label>Картинка для поста (URL)</label>
                 <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
+
+                <label>Картинка для карточки в приложении (PNG без фона)</label>
+                <input type="text" name="card_image" id="inp-card-img" placeholder="https://..." oninput="updatePreview()">
+
+                <label>Редкость предмета (Цвет подсветки)</label>
+                <select name="rarity_color" id="inp-rarity-color" onchange="updatePreview()">
+                    <option value="#b0c3d9">Ширпотреб (Серый)</option>
+                    <option value="#5e98d9">Промышленное (Синий)</option>
+                    <option value="#4b69ff">Армейское (Фиолетовый)</option>
+                    <option value="#8847ff">Запрещенное (Розовый)</option>
+                    <option value="#d32ce6">Засекреченное (Малиновый)</option>
+                    <option value="#eb4b4b">Тайное (Красный)</option>
+                    <option value="#ffd700">★ Нож / Перчатки (Золотой)</option>
+                </select>
 
                 <label>Текст поста</label>
                 <textarea name="desc" id="inp-desc" rows="3" placeholder="Доп. условия или описание..." oninput="updatePreview()"></textarea>
@@ -292,7 +305,6 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // --- Navigation ---
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
             if (document.getElementById('modal-parts').classList.contains('modal-active')) {
@@ -311,22 +323,18 @@
             document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
             document.getElementById('tab-' + t).classList.remove('hidden');
             
-            // Управление активным классом на кнопках
             const tabs = document.querySelectorAll('.tab');
             if(t === 'create') tabs[0].classList.add('active');
             else if(t === 'list') { tabs[1].classList.add('active'); loadRaffles(); }
             else if(t === 'scheduled') { tabs[2].classList.add('active'); loadRaffles(); }
         }
 
-        // --- Logic: Preview & Update ---
         function updatePreview() {
-            // Сбор данных
             const prize = document.getElementById('inp-prize').value || 'Приз';
             const quality = document.getElementById('inp-quality').value;
             const desc = document.getElementById('inp-desc').value || '';
             const imgUrl = document.getElementById('inp-img').value;
             
-            // Условия
             const tickets = document.querySelector('input[name="ticket_cost"]').value;
             const refs = document.querySelector('input[name="min_referrals"]').value;
             const coins = document.querySelector('input[name="min_coins"]').value;
@@ -334,11 +342,10 @@
             const msgs = document.querySelector('input[name="min_msgs"]').value;
             const sub = document.querySelector('input[name="sub_req"]').checked;
             
-            // Генерация текста
             const prizeFull = quality ? `${prize} (${quality})` : prize;
             let html = `🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n`;
             
-            if (desc) html += `<i>${desc}</i>\n\n`;
+            if (desc) html += `<i>{desc}</i>\n\n`;
             html += `🏆 <b>Приз:</b> ${prizeFull}\n`;
             html += `\n📌 <b>Условия:</b>\n`;
             
@@ -349,7 +356,6 @@
             if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
             if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ.)\n`;
 
-            // Время
             const dateVal = document.querySelector('input[name="end_time"]').value;
             if (dateVal) {
                 const d = new Date(dateVal);
@@ -360,7 +366,6 @@
 
             html += `\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>`;
 
-            // Картинка
             const imgEl = document.getElementById('prev-img');
             if (imgUrl) { 
                 imgEl.src = imgUrl; 
@@ -372,15 +377,12 @@
             document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
         }
 
-        // --- Logic: Create Raffle ---
-        // isSilentMode: true = Отложенный/Тихий, false = Публичный сразу
         async function submitRaffle(isSilentMode) {
             const form = document.getElementById('create-form');
-            if(!form.reportValidity()) return; // Проверка обязательных полей
+            if(!form.reportValidity()) return;
 
             const fd = new FormData(form);
             
-            // Собираем расширенные настройки
             const payload = {
                 initData: tg.initData,
                 title: fd.get('prize'),
@@ -390,11 +392,10 @@
                     prize_name: fd.get('prize'),
                     skin_quality: fd.get('quality'),
                     prize_image: fd.get('image'),
+                    card_image: fd.get('card_image'),      // 🔥 НОВОЕ
+                    rarity_color: fd.get('rarity_color'),  // 🔥 НОВОЕ
                     description: fd.get('desc'),
-                    
-                    // Ключевой флаг, который мы передаем в функцию
                     is_silent: isSilentMode,
-                    
                     requires_telegram_sub: fd.get('sub_req') === 'on',
                     ticket_cost: parseInt(fd.get('ticket_cost') || 0),
                     min_referrals: parseInt(fd.get('min_referrals') || 0),
@@ -404,7 +405,6 @@
                 }
             };
 
-            // Визуальный фидбек
             tg.MainButton.showProgress();
 
             try {
@@ -415,15 +415,11 @@
 
                 if (res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    
                     let msg = 'Розыгрыш опубликован в канале!';
                     if (isSilentMode) msg = 'Розыгрыш создан в "Отложенных".';
-                    
                     showCustomAlert('Успех!', msg);
                     form.reset(); 
                     updatePreview(); 
-                    
-                    // Переключаем на нужную вкладку
                     switchTab(isSilentMode ? 'scheduled' : 'list'); 
                 } else {
                     const err = await res.json();
@@ -438,9 +434,7 @@
             }
         }
 
-        // --- Logic: List & Clone ---
         async function loadRaffles() {
-            // Грузим данные, потом распределяем по вкладкам
             try {
                 const res = await fetch('/api/v1/admin/raffles/list', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -451,37 +445,27 @@
             } catch(e) { 
                 console.error(e);
                 document.getElementById('list-container').innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>';
-                document.getElementById('scheduled-container').innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>';
             }
         }
 
         function renderList(list) {
             const cActive = document.getElementById('list-container');
             const cSched = document.getElementById('scheduled-container');
+            cActive.innerHTML = ''; cSched.innerHTML = '';
             
-            cActive.innerHTML = '';
-            cSched.innerHTML = '';
-            
-            let activeCount = 0;
-            let schedCount = 0;
+            let activeCount = 0; let schedCount = 0;
 
             list.forEach(r => {
                 const s = r.settings || {};
                 const isDone = r.status === 'completed';
                 const isSilent = s.is_silent === true;
-                
-                // Фильтрация:
-                // Если Silent и Не Завершен -> В Отложенные
-                // Иначе (Публичный или Завершенный) -> В Активные
                 const targetContainer = (isSilent && !isDone) ? cSched : cActive;
                 
-                if(targetContainer === cSched) schedCount++;
-                else activeCount++;
+                if(targetContainer === cSched) schedCount++; else activeCount++;
 
                 const img = s.prize_image ? `<img src="${s.prize_image}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
                 const safeJson = encodeURIComponent(JSON.stringify(r));
 
-                // Бейдж статуса
                 let statusBadge = '';
                 if(isDone) statusBadge = `<span class="status-badge st-done">Завершен</span>`;
                 else if(isSilent) statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-clock"></i> Отложен</span>`;
@@ -509,8 +493,7 @@
                             `<div class="trade-copy" onclick="copyText('${r.winner.trade_link}')">
                                 <span><i class="fa-solid fa-link"></i> Ссылка на трейд</span>
                                 <span style="color:var(--primary); font-weight:700;">COPY</span>
-                             </div>` : 
-                            `<div style="font-size:11px; color:#555;">Трейд-ссылка не указана</div>`
+                             </div>` : `<div style="font-size:11px; color:#555;">Трейд-ссылка не указана</div>`
                         }
                     </div>
                     <div class="card-actions">
@@ -521,11 +504,8 @@
                     html += `
                     <div class="card-actions">
                         <button onclick="finishRaffle(${r.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
-                        
                         ${isSilent 
-                            /* В отложенных кнопка "Опубликовать" (Клон -> Пост) */
                             ? `<button onclick="cloneRaffle('${safeJson}', false)" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> Опубликовать</button>` 
-                            /* В активных просто копия */
                             : `<button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
                         }
                         <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
@@ -540,20 +520,18 @@
             if(!schedCount) cSched.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
         }
 
-        // --- Logic: Clone (Copy) ---
-        // isSilent = true (Копия в черновик)
-        // isSilent = false (Публикация - сразу в канал)
         window.cloneRaffle = function(jsonStr, makeSilent) {
             const r = JSON.parse(decodeURIComponent(jsonStr));
             const s = r.settings || {};
 
             switchTab('create');
             
-            // Заполнение полей
             document.getElementById('type-select').value = r.type;
             document.getElementById('inp-prize').value = s.prize_name || '';
             document.getElementById('inp-quality').value = s.skin_quality || '';
             document.getElementById('inp-img').value = s.prize_image || '';
+            document.getElementById('inp-card-img').value = s.card_image || ''; // 🔥 НОВОЕ
+            document.getElementById('inp-rarity-color').value = s.rarity_color || '#2481cc'; // 🔥 НОВОЕ
             document.getElementById('inp-desc').value = s.description || '';
             
             document.querySelector('input[name="ticket_cost"]').value = s.ticket_cost || '';
@@ -564,18 +542,10 @@
             document.querySelector('input[name="sub_req"]').checked = s.requires_telegram_sub;
             
             tg.HapticFeedback.impactOccurred('medium');
-            
-            if(makeSilent === false) {
-                showCustomAlert('Публикация', 'Данные скопированы из черновика. Нажмите "ЗАПУСТИТЬ СЕЙЧАС", чтобы опубликовать.');
-            } else {
-                showCustomAlert('Копирование', 'Данные скопированы.');
-            }
-            
             updatePreview();
         };
 
-        // --- Actions ---
-        function finishRaffle(id) {
+        async function finishRaffle(id) {
             showConfirm('Завершить розыгрыш?', 'Бот выберет победителя прямо сейчас.', async () => {
                 try {
                     const res = await fetch('/api/v1/admin/raffles/draw', {
@@ -594,8 +564,7 @@
             const l = document.getElementById('parts-list');
             const cnt = document.getElementById('parts-count');
             l.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
-            cnt.innerText = '';
-
+            
             try {
                 const res = await fetch('/api/v1/admin/raffles/participants', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -604,18 +573,13 @@
                 const users = await res.json();
                 cnt.innerText = `(${users.length})`;
                 l.innerHTML = '';
-                
                 if(!users.length) { l.innerHTML = '<div style="text-align:center; opacity:0.5; padding:20px;">Нет участников</div>'; return; }
 
-                // Рендер списка участников (С ИСПРАВЛЕННЫМ ДОСТУПОМ К ДАННЫМ)
                 users.forEach(u => {
-                    // Данные юзера лежат в поле "user" (из-за select: "*, user:users(...)")
                     const usr = u.user || {}; 
                     const name = usr.full_name || 'Неизвестный';
                     const username = usr.username ? `@${usr.username}` : '---';
                     const initial = name[0] || '?';
-                    
-                    // Источник: telegram (синий) или twitch (фиолетовый)
                     const source = u.source || 'telegram';
                     const sourceIcon = source === 'twitch' ? '<i class="fa-brands fa-twitch"></i>' : '<i class="fa-brands fa-telegram"></i>';
                     const sourceClass = source === 'twitch' ? 'src-tw' : 'src-tg';
@@ -632,19 +596,15 @@
                         </div>
                     </div>`;
                 });
-            } catch(e) { 
-                console.error(e);
-                l.innerHTML = '<div style="text-align:center; color:#ff4d4d; padding:20px;">Ошибка загрузки</div>'; 
-            }
+            } catch(e) { l.innerHTML = '<div style="text-align:center; color:#ff4d4d; padding:20px;">Ошибка загрузки</div>'; }
         }
 
         function copyText(txt) {
             navigator.clipboard.writeText(txt);
             tg.HapticFeedback.notificationOccurred('success');
-            showCustomAlert('Готово', 'Ссылка скопирована в буфер.');
+            showCustomAlert('Готово', 'Ссылка скопирована.');
         }
 
-        // --- Custom Modals Utils ---
         function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
         
         function showCustomAlert(title, msg) {
@@ -653,7 +613,6 @@
             document.getElementById('alert-msg').innerText = msg;
             const okBtn = document.getElementById('alert-ok');
             const cBtn = document.getElementById('alert-cancel');
-            
             cBtn.classList.add('hidden');
             okBtn.onclick = () => m.classList.remove('modal-active');
             m.classList.add('modal-active');
@@ -665,7 +624,6 @@
             document.getElementById('alert-msg').innerText = msg;
             const okBtn = document.getElementById('alert-ok');
             const cBtn = document.getElementById('alert-cancel');
-            
             cBtn.classList.remove('hidden');
             cBtn.onclick = () => m.classList.remove('modal-active');
             okBtn.onclick = () => { onYes(); m.classList.remove('modal-active'); };
