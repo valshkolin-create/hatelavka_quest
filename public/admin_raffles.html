@@ -378,61 +378,64 @@
         }
 
         async function submitRaffle(isSilentMode) {
-            const form = document.getElementById('create-form');
-            if(!form.reportValidity()) return;
+    const form = document.getElementById('create-form');
+    if(!form.reportValidity()) return;
 
-            const fd = new FormData(form);
-            
-            const payload = {
-                initData: tg.initData,
-                title: fd.get('prize'),
-                type: fd.get('type'),
-                end_time: fd.get('end_time'),
-                settings: {
-                    prize_name: fd.get('prize'),
-                    skin_quality: fd.get('quality'),
-                    prize_image: fd.get('image'),
-                    card_image: fd.get('card_image'),      // 🔥 НОВОЕ
-                    rarity_color: fd.get('rarity_color'),  // 🔥 НОВОЕ
-                    description: fd.get('desc'),
-                    is_silent: isSilentMode,
-                    requires_telegram_sub: fd.get('sub_req') === 'on',
-                    ticket_cost: parseInt(fd.get('ticket_cost') || 0),
-                    min_referrals: parseInt(fd.get('min_referrals') || 0),
-                    min_coins: parseFloat(fd.get('min_coins') || 0),
-                    required_name_tag: fd.get('name_tag'),
-                    min_daily_messages: parseInt(fd.get('min_msgs') || 0)
-                }
-            };
-
-            tg.MainButton.showProgress();
-
-            try {
-                const res = await fetch('/api/v1/admin/raffles/create', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                    let msg = 'Розыгрыш опубликован в канале!';
-                    if (isSilentMode) msg = 'Розыгрыш создан в "Отложенных".';
-                    showCustomAlert('Успех!', msg);
-                    form.reset(); 
-                    updatePreview(); 
-                    switchTab(isSilentMode ? 'scheduled' : 'list'); 
-                } else {
-                    const err = await res.json();
-                    tg.HapticFeedback.notificationOccurred('error');
-                    showCustomAlert('Ошибка', err.detail || 'Не удалось создать розыгрыш');
-                }
-            } catch (error) {
-                tg.HapticFeedback.notificationOccurred('error');
-                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
-            } finally {
-                tg.MainButton.hideProgress();
-            }
+    const fd = new FormData(form);
+    
+    // Получаем качество напрямую по ID, чтобы избежать багов FormData с селектами
+    const qualityValue = document.getElementById('inp-quality').value;
+    
+    const payload = {
+        initData: tg.initData,
+        title: fd.get('prize'),
+        type: fd.get('type'),
+        end_time: fd.get('end_time'),
+        settings: {
+            prize_name: fd.get('prize'),
+            skin_quality: qualityValue, // Используем проверенное значение
+            prize_image: fd.get('image'),
+            card_image: fd.get('card_image'),      // 🔥 НОВОЕ
+            rarity_color: fd.get('rarity_color'),  // 🔥 НОВОЕ
+            description: fd.get('desc'),
+            is_silent: isSilentMode,
+            requires_telegram_sub: fd.get('sub_req') === 'on',
+            ticket_cost: parseInt(fd.get('ticket_cost') || 0),
+            min_referrals: parseInt(fd.get('min_referrals') || 0),
+            min_coins: parseFloat(fd.get('min_coins') || 0),
+            required_name_tag: fd.get('name_tag'),
+            min_daily_messages: parseInt(fd.get('min_msgs') || 0)
         }
+    };
+
+    tg.MainButton.showProgress();
+
+    try {
+        const res = await fetch('/api/v1/admin/raffles/create', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            tg.HapticFeedback.notificationOccurred('success');
+            let msg = 'Розыгрыш опубликован в канале!';
+            if (isSilentMode) msg = 'Розыгрыш создан в "Отложенных".';
+            showCustomAlert('Успех!', msg);
+            form.reset(); 
+            updatePreview(); 
+            switchTab(isSilentMode ? 'scheduled' : 'list'); 
+        } else {
+            const err = await res.json();
+            tg.HapticFeedback.notificationOccurred('error');
+            showCustomAlert('Ошибка', err.detail || 'Не удалось создать розыгрыш');
+        }
+    } catch (error) {
+        tg.HapticFeedback.notificationOccurred('error');
+        showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+    } finally {
+        tg.MainButton.hideProgress();
+    }
+}
 
         async function loadRaffles() {
             try {
