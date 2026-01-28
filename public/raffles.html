@@ -36,7 +36,7 @@
         }
         .history-btn span { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
 
-        /* --- КАРТОЧКИ --- */
+        /* --- КАРТОЧКИ (НОВЫЙ ДИЗАЙН) --- */
         .card { 
             background: var(--card); border-radius: 28px; 
             margin-bottom: 16px; position: relative; overflow: hidden;
@@ -111,13 +111,50 @@
         .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1100; padding: 16px; overflow-y: auto; display: none; }
         .history-overlay.active { display: block; }
         
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 2000; display: none; align-items: center; justify-content: center; }
-        .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        /* МОДАЛКИ (СТАРЫЙ ФУНКЦИОНАЛ В НОВОМ СТИЛЕ) */
+        .modal-overlay { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
+            backdrop-filter: blur(20px); z-index: 2000; display: none; 
+            align-items: center; justify-content: center; 
+        }
+        .modal-box { 
+            background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; 
+            text-align: center; border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
         .m-btn-confirm { background: var(--primary-blue); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 700; }
         .m-btn-cancel { background: rgba(255,255,255,0.05); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 600; }
+        
+        .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+        .m-desc { font-size: 15px; color: var(--text-muted); margin-bottom: 25px; line-height: 1.4; }
+        .m-btn { 
+            background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; 
+            padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; margin-bottom: 10px;
+        }
+        .m-btn-primary { background: var(--primary-blue); color: #fff; font-weight: 700; }
 
+        /* АНИМАЦИИ ГАЛОЧЕК И КРЕСТИКОВ (ВЕРНУЛИ) */
+        .icon-container { width: 80px; height: 80px; margin: 0 auto 15px; position: relative; }
+        .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--accent-green); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .checkmark { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--accent-green); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
+        .checkmark-check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
+        .cross-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--danger); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .cross { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--danger); animation: fill-red .4s ease-in-out .4s forwards, shake .3s ease-in-out .9s both; }
+        .cross-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
+
+        .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 10px; text-align: center; }
+
+        @keyframes stroke { 100% { stroke-dashoffset: 0; } }
+        @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
+        @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 50px var(--accent-green); } }
+        @keyframes fill-red { 100% { box-shadow: inset 0px 0px 0px 50px var(--danger); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 10%, 30%, 50%, 70%, 90% {transform: translateX(-5px);} 20%, 40%, 60%, 80% {transform: translateX(5px);} }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes zoom { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -136,8 +173,8 @@
         </div>
     </div>
 
-    <div id="close-btn-container" class="close-container hidden">
-        <button class="btn-close" onclick="tg.close()">Закрыть</button>
+    <div id="close-btn-container" class="close-container hidden" style="position: fixed; bottom: 90px; width: 100%; text-align: center; z-index: 10;">
+        <button class="btn-main" style="width: auto; padding: 10px 30px;" onclick="tg.close()">Закрыть</button>
     </div>
 
     <div id="history-overlay" class="history-overlay">
@@ -160,8 +197,8 @@
     <div id="confirm-modal" class="modal-overlay">
         <div class="modal-box">
             <div style="font-size: 50px; margin-bottom: 15px;">🎫</div>
-            <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">Подтвердите участие</div>
-            <div style="color: var(--text-muted); margin-bottom: 25px;">С вашего баланса будет списано <b id="ticket-price" style="color:#fff">--</b> билетов.</div>
+            <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff;">Подтвердите</div>
+            <div style="color: var(--text-muted); margin-bottom: 25px;">Списать <b id="ticket-price" style="color:#fff">--</b> билетов?</div>
             <div class="modal-btns">
                 <button class="m-btn-cancel" onclick="closeConfirm()">Отмена</button>
                 <button class="m-btn-confirm" id="confirm-join-btn">Да, списать</button>
@@ -171,25 +208,30 @@
 
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
-            <div id="modal-icon" style="font-size: 50px; margin-bottom: 15px;"></div>
-            <div class="m-head" id="m-head" style="font-size: 22px; font-weight: 800; margin-bottom: 8px;"></div>
-            <div class="m-desc" id="m-desc" style="color: var(--text-muted); margin-bottom: 25px; line-height: 1.4;"></div>
-            <button class="btn-main" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
+            <div id="modal-icon" class="icon-container"></div>
+            <div class="m-head" id="m-head"></div>
+            <div class="m-desc" id="m-desc"></div>
+            <button id="btn-profile" class="m-btn m-btn-primary" style="display:none;" onclick="location.href='/profile'">⚙️ Настроить профиль</button>
+            <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
     </div>
 
-    <div id="verify-modal" class="modal-overlay" style="z-index: 2000;">
+    <div id="verify-modal" class="modal-overlay" style="z-index: 3000;">
         <div class="verify-loader"></div>
-        <div style="text-align: center;">Проверяем условия...</div>
+        <div class="verify-text">Проверяем условия...<br><span style="font-size:13px; color:var(--text-muted); font-weight:400;">Секундочку, сверяем данные</span></div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        tg.BackButton.hide();
 
         let userTickets = 0;
 
-        function openHistory() { document.getElementById('history-overlay').classList.add('active'); }
+        function openHistory() { 
+            document.getElementById('history-overlay').classList.add('active'); 
+            tg.HapticFeedback.impactOccurred('light');
+        }
         function closeHistory() { document.getElementById('history-overlay').classList.remove('active'); }
         function closeConfirm() { document.getElementById('confirm-modal').style.display = 'none'; }
 
@@ -198,7 +240,7 @@
             return titles[(n % 10 === 1 && n % 100 !== 11) ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
         }
 
-        // Обновление таймеров каждую секунду
+        // Обновление таймеров
         setInterval(() => {
             document.querySelectorAll('.timer-data').forEach(el => {
                 const endTime = new Date(el.dataset.time);
@@ -220,7 +262,7 @@
 
         async function load() {
             try {
-                // Грузим профиль для билетов
+                // Грузим профиль
                 const uRes = await fetch('/api/v1/user/me', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({initData:tg.initData}) });
                 const uData = await uRes.json();
                 userTickets = uData.tickets || 0;
@@ -238,6 +280,10 @@
             list.innerHTML = ''; historyList.innerHTML = '';
             
             let completedCount = 0;
+
+            if (!data.length) { 
+                list.innerHTML = '<div style="text-align:center; margin-top:50px; color:var(--text-muted);">Активных розыгрышей нет 👻</div>'; 
+            }
 
             data.forEach(r => {
                 const s = r.settings || {};
@@ -304,6 +350,7 @@
             historyList.innerHTML += '<div class="bottom-spacer"></div>';
         }
 
+        // Обработка нажатия на кнопку (проверка билетов)
         function handleJoin(id, cost, isJoined) {
             if(isJoined) return;
             if (cost > 0) {
@@ -313,25 +360,99 @@
             } else { join(id); }
         }
 
-        async function join(id) {
+        // ГЛАВНАЯ ФУНКЦИЯ УЧАСТИЯ (ВОССТАНОВЛЕНА ЛОГИКА)
+        async function join(id, isAuto = false) {
+            let btn = null;
+            let oldHtml = '';
+            
+            // Если вызов от пользователя (клик), меняем кнопку на спиннер
+            if(!isAuto && window.event) {
+                tg.HapticFeedback.impactOccurred('medium');
+                let target = window.event.target;
+                if(target.tagName !== 'BUTTON') target = target.closest('button');
+                
+                if (target && !target.classList.contains('joined')) {
+                    btn = target;
+                    oldHtml = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                    btn.style.opacity = '0.7';
+                }
+            }
+            
             try {
-                const res = await fetch('/api/v1/raffles/join', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({initData:tg.initData, raffle_id:id}) });
+                const res = await fetch('/api/v1/raffles/join', { 
+                    method: 'POST', headers: {'Content-Type':'application/json'}, 
+                    body: JSON.stringify({initData:tg.initData, raffle_id:id}) 
+                });
                 const ans = await res.json();
+                
                 if(res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    load(); // Обновляем состояние карточки сразу
-                } else { tg.showAlert(ans.detail || 'Ошибка'); }
-            } catch(e) { tg.showAlert('Нет связи с сервером'); }
+                    // Показываем красивую модалку успеха
+                    showModal('success', 'Успех!', ans.message);
+                    load(); // Перерисовываем карточки (кнопка станет "Вы участвуете")
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    // Показываем красивую модалку ошибки
+                    showModal('error', 'Упс...', ans.detail);
+                    // Возвращаем кнопку в исходное состояние
+                    if(btn) {
+                        btn.innerHTML = oldHtml;
+                        btn.style.opacity = '1';
+                    }
+                }
+            } catch(e) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showModal('error', 'Ошибка', 'Проверьте соединение');
+                if(btn) {
+                    btn.innerHTML = oldHtml;
+                    btn.style.opacity = '1';
+                }
+            }
         }
 
+        // ФУНКЦИЯ ПОКАЗА МОДАЛКИ (ВОССТАНОВЛЕНА)
+        function showModal(type, title, msg) {
+            const m = document.getElementById('modal');
+            const iconBox = document.getElementById('modal-icon');
+            const btnProfile = document.getElementById('btn-profile');
+            
+            if(type === 'success') {
+                iconBox.innerHTML = `<svg class="checkmark" viewBox="0 0 52 52"><circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`;
+                btnProfile.style.display = 'none';
+            } else {
+                iconBox.innerHTML = `<svg class="cross" viewBox="0 0 52 52"><circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/><path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/></svg>`;
+                // Если ошибка связана с профилем, показываем кнопку
+                const mLow = msg ? msg.toLowerCase() : '';
+                btnProfile.style.display = (mLow.includes('trade') || mLow.includes('twitch') || mLow.includes('профиль') || mLow.includes('билет')) ? 'block' : 'none';
+            }
+
+            document.getElementById('m-head').innerText = title;
+            document.getElementById('m-desc').innerText = msg;
+            m.style.display = 'flex';
+        }
+
+        // ЛОГИКА DEEPLINK (ВОССТАНОВЛЕНА С ВИЗУАЛОМ)
         async function checkDeepLink() {
             const startParam = tg.initDataUnsafe.start_param; 
             if (startParam && startParam.startsWith('raffle_')) {
                 document.getElementById('close-btn-container').classList.remove('hidden');
                 const raffleId = startParam.split('_')[1];
+                
+                // Проверяем, не чекали ли мы это в текущей сессии
                 if (!sessionStorage.getItem('checked_raffle_' + raffleId)) {
+                    // Показываем модалку проверки
+                    const vModal = document.getElementById('verify-modal');
+                    vModal.style.display = 'flex';
+                    tg.HapticFeedback.impactOccurred('light');
+                    
+                    // Небольшая задержка для визуализации проверки
+                    await new Promise(r => setTimeout(r, 1000));
+                    
                     sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
-                    await join(raffleId);
+                    await join(raffleId, true);
+                    
+                    vModal.style.display = 'none';
                 }
             }
         }
