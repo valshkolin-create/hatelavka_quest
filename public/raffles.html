@@ -173,16 +173,16 @@
         </div>
     </div>
 
-    <div id="close-btn-container" class="close-container hidden" style="position: fixed; bottom: 90px; width: 100%; text-align: center; z-index: 10;">
-        <button class="btn-main" style="width: auto; padding: 10px 30px;" onclick="tg.close()">Закрыть</button>
-    </div>
+    <div id="close-btn-container" class="close-container hidden" style="position: fixed; bottom: 90px; width: 100%; text-align: center; z-index: 99;">
+    <button class="btn-main" style="width: auto; padding: 10px 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onclick="tg.close()">Закрыть</button>
+</div>
 
     <div id="history-overlay" class="history-overlay">
         <div class="header-row">
             <h1>История</h1>
             <i class="fa-solid fa-xmark" style="font-size: 24px;" onclick="closeHistory()"></i>
         </div>
-        <div id="total-count" style="font-size: 28px; font-weight: 800; margin-bottom: 25px; letter-spacing: -0.5px;">Разыграно: --</div>
+        <div id="total-count" style="font-size: 13px; font-weight: 500; color: var(--text-muted); margin-top: -15px; margin-bottom: 20px; letter-spacing: 0;">Разыграно: --</div>
         <div id="history-list"></div>
     </div>
 
@@ -435,24 +435,31 @@
         // ЛОГИКА DEEPLINK (ВОССТАНОВЛЕНА С ВИЗУАЛОМ)
         async function checkDeepLink() {
             const startParam = tg.initDataUnsafe.start_param; 
+            
+            // Если человек зашел по ссылке raffle_...
             if (startParam && startParam.startsWith('raffle_')) {
-                document.getElementById('close-btn-container').classList.remove('hidden');
+                
+                // 🔥 ВОТ ЗДЕСЬ ПОКАЗЫВАЕМ КНОПКУ ЗАКРЫТЬ
+                const closeBtn = document.getElementById('close-btn-container');
+                if(closeBtn) closeBtn.classList.remove('hidden');
+
                 const raffleId = startParam.split('_')[1];
                 
                 // Проверяем, не чекали ли мы это в текущей сессии
                 if (!sessionStorage.getItem('checked_raffle_' + raffleId)) {
                     // Показываем модалку проверки
                     const vModal = document.getElementById('verify-modal');
-                    vModal.style.display = 'flex';
+                    if(vModal) vModal.style.display = 'flex';
+                    
                     tg.HapticFeedback.impactOccurred('light');
                     
                     // Небольшая задержка для визуализации проверки
                     await new Promise(r => setTimeout(r, 1000));
                     
                     sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
-                    await join(raffleId, true);
+                    await join(raffleId, true); // true означает автоматический вход
                     
-                    vModal.style.display = 'none';
+                    if(vModal) vModal.style.display = 'none';
                 }
             }
         }
