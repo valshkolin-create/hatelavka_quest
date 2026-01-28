@@ -32,7 +32,7 @@
             background: #1c1c1e; min-width: 54px; height: 48px; 
             border-radius: 14px; display: flex; flex-direction: column; 
             align-items: center; justify-content: center; color: var(--primary-blue); 
-            border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: 0.1s;
+            border: 1px solid rgba(255,255,255,0.1); cursor: pointer; gap: 2px; transition: 0.1s;
         }
         .history-btn span { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
 
@@ -48,7 +48,7 @@
 
         .card_glow {
             position: absolute; top: -10%; right: -10%;
-            width: 280px; height: 280px;
+            width: 250px; height: 250px;
             pointer-events: none;
             opacity: 0.15;
             filter: blur(60px);
@@ -60,26 +60,16 @@
         .r-label { font-size: 11px; font-weight: 700; margin-bottom: 4px; letter-spacing: 1.5px; }
         .r-title { font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 15px 0; line-height: 1.2; max-width: 50%; }
 
-        /* Условия */
         .conditions { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
         .cond-row { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
         .cond-row i { color: var(--primary-blue); width: 12px; text-align: center; }
 
-        /* Таймер с секундами */
         .timer_row { display: flex; gap: 10px; margin-bottom: 15px; }
         .timer_item { display: flex; flex-direction: column; align-items: flex-start; }
         .timer_val { font-size: 20px; font-weight: 700; color: var(--primary-blue); line-height: 1; font-variant-numeric: tabular-nums; }
-        .timer_lbl { font-size: 9px; color: var(--primary-blue); margin-top: 2px; font-weight: 600; text-transform: lowercase; }
+        .timer_lbl { font-size: 9px; color: var(--primary-blue); margin-top: 2px; font-weight: 600; }
 
-        /* СКИН (УВЕЛИЧЕН) */
-        .prize-img-wrapper { 
-    position: absolute; 
-    top: 15px; 
-    right: -10px; 
-    width: 180px; /* Было 200, ставим 180 */
-    z-index: 2; 
-    pointer-events: none; 
-}
+        .prize-img-wrapper { position: absolute; top: 15px; right: -10px; width: 180px; z-index: 2; pointer-events: none; }
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8)); }
 
         .social_row { margin-top: auto; display: flex; align-items: center; }
@@ -88,18 +78,13 @@
 
         .btn-main {
             width: 100%; background: var(--primary-blue); color: #fff;
-            border: none; padding: 16px; border-radius: 22px;
+            border: none; padding: 14px; border-radius: 20px;
             font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.1s;
             margin-top: 12px; text-transform: uppercase;
         }
-        .btn-main:active { transform: scale(0.98); opacity: 0.9; }
-        .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); }
+        .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); cursor: default; }
 
-        /* Инфо о билетах под кнопкой */
-        .user-tickets-info { 
-            text-align: center; font-size: 11px; color: var(--text-muted); 
-            margin-top: 8px; font-weight: 600; letter-spacing: 0.3px;
-        }
+        .user-tickets-info { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 8px; font-weight: 600; }
         .user-tickets-info b { color: var(--primary-blue); }
 
         .winner_box { 
@@ -109,7 +94,6 @@
         .w-title { font-size: 9px; color: #ffd700; text-transform: uppercase; font-weight: 800; margin-bottom: 2px; }
         .w-user { font-size: 15px; font-weight: 700; color: #fff; }
 
-        /* ОТСТУП СНИЗУ */
         .bottom-spacer { height: 180px; width: 100%; pointer-events: none; }
 
         /* FOOTER */
@@ -127,7 +111,6 @@
         .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1100; padding: 16px; overflow-y: auto; display: none; }
         .history-overlay.active { display: block; }
         
-        /* Модалка */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 2000; display: none; align-items: center; justify-content: center; }
         .modal-box { background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
         .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
@@ -158,13 +141,11 @@
     </div>
 
     <div id="history-overlay" class="history-overlay">
-        <div class="header-row" style="margin-bottom: 5px;">
+        <div class="header-row">
             <h1>История</h1>
             <i class="fa-solid fa-xmark" style="font-size: 24px;" onclick="closeHistory()"></i>
         </div>
-        <div id="total-count" style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 20px; letter-spacing: 1px;">
-    Разыграно: --
-</div>
+        <div id="total-count" style="font-size: 28px; font-weight: 800; margin-bottom: 25px; letter-spacing: -0.5px;">Разыграно: --</div>
         <div id="history-list"></div>
     </div>
 
@@ -172,20 +153,34 @@
         <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
         <a href="/quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
         <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-        <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
+        <a href="/raffles" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Розыгрыши</span></a>
         <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
     </footer>
 
     <div id="confirm-modal" class="modal-overlay">
         <div class="modal-box">
             <div style="font-size: 50px; margin-bottom: 15px;">🎫</div>
-            <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">Участие за билеты</div>
-            <div style="color: var(--text-muted); margin-bottom: 25px; font-size: 15px;">С вашего баланса будет списано <b id="ticket-price" style="color:#fff">--</b> билетов. Участвуем?</div>
+            <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">Подтвердите участие</div>
+            <div style="color: var(--text-muted); margin-bottom: 25px;">С вашего баланса будет списано <b id="ticket-price" style="color:#fff">--</b> билетов.</div>
             <div class="modal-btns">
                 <button class="m-btn-cancel" onclick="closeConfirm()">Отмена</button>
                 <button class="m-btn-confirm" id="confirm-join-btn">Да, списать</button>
             </div>
         </div>
+    </div>
+
+    <div id="modal" class="modal-overlay">
+        <div class="modal-box">
+            <div id="modal-icon" style="font-size: 50px; margin-bottom: 15px;"></div>
+            <div class="m-head" id="m-head" style="font-size: 22px; font-weight: 800; margin-bottom: 8px;"></div>
+            <div class="m-desc" id="m-desc" style="color: var(--text-muted); margin-bottom: 25px; line-height: 1.4;"></div>
+            <button class="btn-main" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
+        </div>
+    </div>
+
+    <div id="verify-modal" class="modal-overlay" style="z-index: 2000;">
+        <div class="verify-loader"></div>
+        <div style="text-align: center;">Проверяем условия...</div>
     </div>
 
     <script>
@@ -198,10 +193,14 @@
         function closeHistory() { document.getElementById('history-overlay').classList.remove('active'); }
         function closeConfirm() { document.getElementById('confirm-modal').style.display = 'none'; }
 
-        // Обновление таймера
+        // Склонение участников
+        function getPlural(n, titles) {
+            return titles[(n % 10 === 1 && n % 100 !== 11) ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
+        }
+
+        // Обновление таймеров каждую секунду
         setInterval(() => {
-            const timers = document.querySelectorAll('.timer-data');
-            timers.forEach(el => {
+            document.querySelectorAll('.timer-data').forEach(el => {
                 const endTime = new Date(el.dataset.time);
                 const diff = endTime - new Date();
                 if (diff <= 0) {
@@ -221,19 +220,12 @@
 
         async function load() {
             try {
-                // Сначала грузим профиль юзера для билетов
-                const userRes = await fetch('/api/v1/user/me', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({initData:tg.initData})
-                });
-                const userData = await userRes.json();
-                userTickets = userData.tickets || 0;
+                // Грузим профиль для билетов
+                const uRes = await fetch('/api/v1/user/me', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({initData:tg.initData}) });
+                const uData = await uRes.json();
+                userTickets = uData.tickets || 0;
 
-                // Потом розыгрыши
-                const res = await fetch('/api/v1/raffles/active', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({initData:tg.initData})
-                });
+                const res = await fetch('/api/v1/raffles/active', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({initData:tg.initData}) });
                 const data = await res.json();
                 render(data);
                 checkDeepLink(); 
@@ -269,18 +261,18 @@
                     ticketInfo = `<div class="user-tickets-info">У вас: <b>${userTickets}</b> билетов</div>`;
                 }
 
+                const pCount = r.participants_count || 0;
+                const pText = done ? 'Розыгрыш завершен' : `<b>${pCount}</b> ${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
+
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
                     <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
                     <div class="card_content">
-                        <div class="prize-img-wrapper">
-                            <img src="${img}" class="prize-img" onerror="this.style.display='none'">
-                        </div>
+                        <div class="prize-img-wrapper"><img src="${img}" class="prize-img" onerror="this.style.display='none'"></div>
                         <div class="r-label" style="color: ${rarityColor}">РОЗЫГРЫШ</div>
                         <h3 class="r-title">${fullPrizeName}</h3>
-                        
+                        ${!done ? `<div class="conditions">${conditions}</div>` : ''}
                         ${!done ? `
-                            <div class="conditions">${conditions}</div>
                             <div class="timer_row timer-data" data-time="${r.end_time}">
                                 <div class="timer_item"><span class="timer_val d-v">0</span><span class="timer_lbl">дн</span></div>
                                 <div class="timer_item"><span class="timer_val h-v">0</span><span class="timer_lbl">час</span></div>
@@ -288,11 +280,7 @@
                                 <div class="timer_item"><span class="timer_val s-v">0</span><span class="timer_lbl">сек</span></div>
                             </div>
                         ` : ''}
-
-                        <div class="social_row">
-                            <div class="social_text">${done ? 'Розыгрыш завершен' : `<b>${r.participants_count || 0}</b> участников`}</div>
-                        </div>
-
+                        <div class="social_row"><div class="social_text">${pText}</div></div>
                         ${!done ? `
                             <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="handleJoin(${r.id}, ${s.ticket_cost || 0}, ${r.is_joined})">
                                 ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnLabel}
@@ -301,7 +289,7 @@
                         ` : `
                             <div class="winner_box">
                                 <div class="w-title" style="color:${rarityColor}">Победитель</div>
-                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Айдар'}</div>
+                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
                             </div>
                         `}
                     </div>
@@ -321,28 +309,18 @@
             if (cost > 0) {
                 document.getElementById('ticket-price').innerText = cost;
                 document.getElementById('confirm-modal').style.display = 'flex';
-                document.getElementById('confirm-join-btn').onclick = () => {
-                    closeConfirm();
-                    join(id);
-                };
-            } else {
-                join(id);
-            }
+                document.getElementById('confirm-join-btn').onclick = () => { closeConfirm(); join(id); };
+            } else { join(id); }
         }
 
         async function join(id) {
             try {
-                const res = await fetch('/api/v1/raffles/join', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({initData:tg.initData, raffle_id:id})
-                });
+                const res = await fetch('/api/v1/raffles/join', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({initData:tg.initData, raffle_id:id}) });
                 const ans = await res.json();
                 if(res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    load(); 
-                } else {
-                    tg.showAlert(ans.detail || 'Ошибка');
-                }
+                    load(); // Обновляем состояние карточки сразу
+                } else { tg.showAlert(ans.detail || 'Ошибка'); }
             } catch(e) { tg.showAlert('Нет связи с сервером'); }
         }
 
@@ -350,6 +328,11 @@
             const startParam = tg.initDataUnsafe.start_param; 
             if (startParam && startParam.startsWith('raffle_')) {
                 document.getElementById('close-btn-container').classList.remove('hidden');
+                const raffleId = startParam.split('_')[1];
+                if (!sessionStorage.getItem('checked_raffle_' + raffleId)) {
+                    sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
+                    await join(raffleId);
+                }
             }
         }
 
