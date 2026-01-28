@@ -2113,20 +2113,19 @@ body.tutorial-active #main-content {
 
 /* Динамический контент розыгрыша в слайдере */
 /* ЖЕСТКАЯ ФИКСАЦИЯ РАЗМЕРА СЛАЙДЕРА */
+/* ЖЕСТКАЯ ФИКСАЦИЯ РАЗМЕРА (1200x600) */
 .slider-container {
     width: 100%;
-    /* Пропорция 1200x600 это 2 к 1. Чтобы высота была идеальной: */
-    aspect-ratio: 1200 / 600; 
+    aspect-ratio: 1200 / 600; /* Пропорции твоего баннера */
     position: relative;
     overflow: hidden;
-    border-radius: 20px; /* или как у тебя в проекте */
-    background: #1c1c1e; /* Цвет фона, пока грузится картинка */
+    border-radius: 18px;
+    background: #111;
 }
 
 .slider-wrapper {
     display: flex;
     height: 100%;
-    width: 100%;
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -2137,25 +2136,43 @@ body.tutorial-active #main-content {
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
 }
 
-.slide img {
+.slide img#menu-banner-img {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Чтобы картинка-заглушка сидела идеально */
+    object-fit: cover;
 }
 
-/* Внутрянка динамического слайда */
-.slide-raffle-content {
+/* Контент розыгрыша поверх слайда */
+.slide-raffle-overlay {
     position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between; /* Распределяем: текст сверху, скин центр, таймер низ */
-    padding: 15px;
-    background: radial-gradient(circle at center, rgba(36, 129, 204, 0.15) 0%, transparent 80%);
+    justify-content: center;
+    background: radial-gradient(circle at center, rgba(36, 129, 204, 0.1) 0%, transparent 80%);
     text-decoration: none;
+    padding: 15px;
+}
+
+.slide-raffle-img {
+    height: 55%; /* Скин по центру, крупный */
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8));
+    margin: 8px 0;
+}
+
+.slide-raffle-timer {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--primary-blue);
+    background: rgba(0,0,0,0.7);
+    padding: 6px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(36, 129, 204, 0.3);
+    font-variant-numeric: tabular-nums;
 }
 
