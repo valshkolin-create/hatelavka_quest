@@ -221,15 +221,19 @@
                 const s = r.settings || {};
                 const done = r.status === 'completed';
                 
-                const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#2481cc'; 
+                // --- ПАРАМЕТРЫ ПРЕДМЕТА ---
+                const img = s.card_image || s.prize_image || ''; // Картинка для приложения
+                const rarityColor = s.rarity_color || '#2481cc';  // Цвет рарности
+                
+                // Формируем название: Предмет + Качество (если есть)
+                const fullPrizeName = `${s.prize_name} ${s.skin_quality ? `(${s.skin_quality})` : ''}`;
 
                 // Условия только для активных
                 let conditions = '';
                 if (!done) {
-                    if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Подписка на канал</div>`;
-                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> ${s.min_daily_messages} сообщ. на Twitch</div>`;
-                    if (s.ticket_cost > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-ticket"></i> Вход: ${s.ticket_cost} билетов</div>`;
+                    if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram" style="color:${rarityColor}"></i> Подписка на канал</div>`;
+                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch" style="color:${rarityColor}"></i> ${s.min_daily_messages} сообщ. на Twitch</div>`;
+                    if (s.ticket_cost > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-ticket" style="color:${rarityColor}"></i> Вход: ${s.ticket_cost} билетов</div>`;
                 }
 
                 let timerHtml = '';
@@ -250,26 +254,23 @@
 
                 const statusText = done ? 'Розыгрыш завершен' : `<b>${r.participants_count || 0}</b> участников`;
 
-                // Формируем полное название: Имя скина + Качество (если оно есть)
-                const fullPrizeName = `${s.prize_name} ${s.skin_quality ? `(${s.skin_quality})` : ''}`;
-
                 const cardHtml = `
-                <div class="card ${done ? 'done' : ''}">
-                    <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 70%);"></div>
+                <div class="card ${done ? 'done' : ''}" style="min-height: 250px;">
+                    <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
                     <div class="card_content">
-                        <div class="prize-img-wrapper">
+                        <div class="prize-img-wrapper" style="width: 180px; right: -10px; top: 10px;">
                             <img src="${img}" class="prize-img" onerror="this.style.display='none'">
                         </div>
+
+                        <div class="r-label" style="color: ${rarityColor}; font-size: 11px; letter-spacing: 1.5px; opacity: 0.9;">РОЗЫГРЫШ</div>
                         
-                        <div class="r-label" style="color: ${rarityColor}">${r.title || 'Розыгрыш'}</div>
-                        
-                        <h3 class="r-title">${fullPrizeName}</h3>
+                        <h3 class="r-title" style="font-size: 16px; margin-bottom: 10px; max-width: 50%;">${fullPrizeName}</h3>
                         
                         <div class="conditions">${conditions}</div>
                         
                         ${!done ? timerHtml : ''}
 
-                        <div class="social_row">
+                        <div class="social_row" style="margin-top: auto;">
                             <div class="social_text">${statusText}</div>
                         </div>
 
@@ -278,9 +279,9 @@
                                 ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : 'Участвовать'}
                             </button>
                         ` : `
-                            <div class="winner_box">
+                            <div class="winner_box" style="padding: 8px 12px; margin-top: 10px;">
                                 <div class="w-title">Победитель</div>
-                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
+                                <div class="w-user" style="font-size: 14px;">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
                             </div>
                         `}
                     </div>
@@ -289,6 +290,10 @@
                 if (done) historyList.innerHTML += cardHtml;
                 else list.innerHTML += cardHtml;
             });
+
+            if (historyList.innerHTML === '') {
+                historyList.innerHTML = '<div style="text-align:center; color:#555; margin-top:50px;">История пуста</div>';
+            }
         }
 
         async function join(id, isAuto = false) {
