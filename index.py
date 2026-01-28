@@ -13303,7 +13303,8 @@ async def create_raffle(
                 txt += "\n📌 <b>Условия:</b>\n"
                 
                 if sub_req:
-                    txt += '└ Подписка на <a href="https://t.me/hatelovettv">HATElove_ttv</a>\n'
+                    # ИСПРАВЛЕНИЕ 1: Правильная ссылка
+                    txt += '└ Подписка на <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
                 
                 if ticket_cost > 0:
                     txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
@@ -13333,8 +13334,9 @@ async def create_raffle(
                 url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
                 kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
 
-                # Отправка (Интеграция card_image: если она есть, шлем её в пост)
-                prize_img = s.get('card_image') or s.get('prize_image')
+                # ИСПРАВЛЕНИЕ 2: Сначала ищем prize_image (для поста), потом card_image
+                prize_img = s.get('prize_image') or s.get('card_image')
+                
                 if prize_img:
                     await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
                 else:
@@ -13442,8 +13444,11 @@ async def publish_raffle_webhook(
             url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
             
-            if s.get('prize_image'):
-                await bot.send_photo(chat_id=channel_id, photo=s.get('prize_image'), caption=txt, reply_markup=kb, parse_mode="HTML")
+            # ИСПРАВЛЕНИЕ: Сначала ищем картинку для поста, если нет — берем карточку
+            post_img = s.get('prize_image') or s.get('card_image')
+
+            if post_img:
+                await bot.send_photo(chat_id=channel_id, photo=post_img, caption=txt, reply_markup=kb, parse_mode="HTML")
             else:
                 await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
             
