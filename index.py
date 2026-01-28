@@ -792,6 +792,10 @@ class RaffleSettings(BaseModel):
     # Для розыгрыша по комментам
     channel_post_link: Optional[str] = None 
 
+# --- НОВЫЕ ПОЛЯ ДЛЯ КАРТИНКИ И ЦВЕТА ---
+    card_image: Optional[str] = None  # Картинка без фона для приложения
+    rarity_color: Optional[str] = "#2481cc" # HEX цвет подсветки (по умолчанию синий)
+
 class RaffleCreateRequest(BaseModel):
     initData: str
     title: str
@@ -13329,8 +13333,8 @@ async def create_raffle(
                 url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
                 kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
 
-                # Отправка
-                prize_img = s.get('prize_image')
+                # Отправка (Интеграция card_image: если она есть, шлем её в пост)
+                prize_img = s.get('card_image') or s.get('prize_image')
                 if prize_img:
                     await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
                 else:
