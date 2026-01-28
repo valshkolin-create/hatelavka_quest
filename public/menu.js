@@ -1530,7 +1530,7 @@ async function initDynamicRaffleSlider() {
                 const img = s.card_image || s.prize_image || '';
                 
                 const rarityColor = s.rarity_color || '#ffd700'; 
-                const quality = s.skin_quality || 'FT'; // Дефолт если нет данных
+                const quality = s.skin_quality || 'FT'; 
                 const pCount = raffle.participants_count || 0;
                 
                 const newSlide = document.createElement('a');
@@ -1547,7 +1547,6 @@ async function initDynamicRaffleSlider() {
                         </div>
 
                         <div class="slide-content-left">
-                            
                             <div class="raffle-quality-tag-top">
                                 <span>${escapeHTML(quality)}</span>
                                 <span style="opacity:0.4; font-size: 8px;">●</span>
@@ -1557,11 +1556,11 @@ async function initDynamicRaffleSlider() {
                             <div class="raffle-item-name-new">${escapeHTML(s.prize_name)}</div>
                             
                             <div class="raffle-timer-box-new raffle-full-timer" data-endtime="${raffle.end_time}">
-                                <div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">ДН</span></div>
+                                <div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">Д</span></div>
                                 <div class="timer-sep">:</div>
-                                <div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">ЧАС</span></div>
+                                <div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">Ч</span></div>
                                 <div class="timer-sep">:</div>
-                                <div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">МИН</span></div>
+                                <div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">М</span></div>
                             </div>
                         </div>
 
