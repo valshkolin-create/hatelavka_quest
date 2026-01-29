@@ -13304,7 +13304,7 @@ async def create_raffle(
                 
                 if sub_req:
                     # ИСПРАВЛЕНИЕ 1: Правильная ссылка
-                    txt += '└ Подписка на <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
+                    txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
                 
                 if ticket_cost > 0:
                     txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
