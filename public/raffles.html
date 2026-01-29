@@ -17,12 +17,53 @@
             --danger: #ff453a;
         }
 
-        body { 
-            background: var(--bg); color: var(--text); 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; padding: 16px; 
-            padding-bottom: 0;
-            -webkit-tap-highlight-color: transparent; 
+        /* === ГЛАВНАЯ ЗАЩИТА ОТ СВОРАЧИВАНИЯ (Pull-to-Refresh Setup) === */
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            position: fixed; /* Фиксируем body */
+            overflow: hidden; /* Убираем скролл body */
+            overscroll-behavior-y: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* === КОНТЕЙНЕР ДЛЯ СКРОЛЛА === */
+        #main-content {
+            height: 100vh;
+            overflow-y: auto !important; /* Скролл здесь */
+            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+            padding: 16px;
+            padding-bottom: 120px; /* Отступ под футер */
+        }
+
+        /* === PULL TO REFRESH СТИЛИ === */
+        #pull-to-refresh {
+            position: fixed;
+            top: -80px;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            background: transparent;
+            pointer-events: none;
+            padding: 0;
+            will-change: transform;
+        }
+
+        #pull-to-refresh i {
+            font-size: 24px;
+            color: var(--primary-blue);
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 0.2s, transform 0.2s;
+            text-shadow: 0 0 15px rgba(36, 129, 204, 0.6);
         }
         
         .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
@@ -36,7 +77,7 @@
         }
         .history-btn span { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
 
-        /* --- КАРТОЧКИ (НОВЫЙ ДИЗАЙН) --- */
+        /* --- КАРТОЧКИ --- */
         .card { 
             background: var(--card); border-radius: 28px; 
             margin-bottom: 16px; position: relative; overflow: hidden;
@@ -72,9 +113,26 @@
         .prize-img-wrapper { position: absolute; top: 15px; right: -10px; width: 180px; z-index: 2; pointer-events: none; }
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8)); }
 
-        .social_row { margin-top: auto; display: flex; align-items: center; }
-        .social_text { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .social_row { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
+        .social_text { font-size: 13px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; justify-content: space-between; }
         .social_text b { color: #fff; }
+
+        /* Стиль для шанса */
+        .chance-badge {
+            font-size: 11px; 
+            color: #ffd700; 
+            background: rgba(255, 215, 0, 0.1);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            margin-top: 5px;
+            align-self: flex-start;
+        }
+        .chance-badge i { font-size: 12px; opacity: 0.8; }
 
         .btn-main {
             width: 100%; background: var(--primary-blue); color: #fff;
@@ -108,13 +166,19 @@
         .footer-item .icon-wrapper { font-size: 22px; }
 
         .hidden { display: none !important; }
-        .history-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 1100; padding: 16px; overflow-y: auto; display: none; }
+        
+        /* История (Overlay) */
+        .history-overlay { 
+            position: fixed; inset: 0; background: var(--bg); z-index: 2500; 
+            padding: 16px; overflow-y: auto; display: none; 
+            padding-bottom: 120px; /* Чтобы контент не перекрывал футер или низ */
+        }
         .history-overlay.active { display: block; }
         
-        /* МОДАЛКИ (СТАРЫЙ ФУНКЦИОНАЛ В НОВОМ СТИЛЕ) */
+        /* МОДАЛКИ */
         .modal-overlay { 
             position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
-            backdrop-filter: blur(20px); z-index: 2000; display: none; 
+            backdrop-filter: blur(20px); z-index: 3000; display: none; 
             align-items: center; justify-content: center; 
         }
         .modal-box { 
@@ -135,7 +199,7 @@
         }
         .m-btn-primary { background: var(--primary-blue); color: #fff; font-weight: 700; }
 
-        /* АНИМАЦИИ ГАЛОЧЕК И КРЕСТИКОВ (ВЕРНУЛИ) */
+        /* АНИМАЦИИ */
         .icon-container { width: 80px; height: 80px; margin: 0 auto 15px; position: relative; }
         .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--accent-green); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
         .checkmark { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--accent-green); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
@@ -159,23 +223,29 @@
 </head>
 <body>
 
-    <div class="header-row">
-        <h1>Розыгрыши</h1>
-        <div class="history-btn" onclick="openHistory()">
-            <i class="fa-solid fa-clock-rotate-left"></i>
-            <span>История</span>
-        </div>
+    <div id="pull-to-refresh">
+        <i class="fa-solid fa-rotate-right"></i> 
     </div>
 
-    <div id="list">
-        <div style="text-align:center; margin-top:50px; color:var(--text-muted);">
-            <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+    <main id="main-content">
+        <div class="header-row">
+            <h1>Розыгрыши</h1>
+            <div class="history-btn" onclick="openHistory()">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>История</span>
+            </div>
         </div>
-    </div>
 
-    <div id="close-btn-container" class="close-container hidden" style="position: fixed; bottom: 90px; width: 100%; text-align: center; z-index: 99;">
-    <button class="btn-main" style="width: auto; padding: 10px 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onclick="tg.close()">Закрыть</button>
-</div>
+        <div id="list">
+            <div style="text-align:center; margin-top:50px; color:var(--text-muted);">
+                <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+            </div>
+        </div>
+
+        <div id="close-btn-container" class="close-container hidden" style="position: fixed; bottom: 90px; width: 100%; text-align: center; z-index: 99; left: 0;">
+            <button class="btn-main" style="width: auto; padding: 10px 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onclick="tg.close()">Закрыть</button>
+        </div>
+    </main>
 
     <div id="history-overlay" class="history-overlay">
         <div class="header-row">
@@ -190,7 +260,7 @@
         <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
         <a href="/quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
         <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-        <a href="/raffles" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Розыгрыши</span></a>
+        <a href="/raffles" class="footer-item active"><div class="icon-wrapper" style="color:#fff;"><i class="fa-solid fa-fire"></i></div><span>Розыгрыши</span></a>
         <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
     </footer>
 
@@ -228,12 +298,101 @@
 
         let userTickets = 0;
 
+        // === PULL TO REFRESH ЛОГИКА ===
+        function initPullToRefresh() {
+            const content = document.getElementById('main-content');
+            const ptrContainer = document.getElementById('pull-to-refresh');
+            const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
+            
+            if (!content || !ptrContainer || !icon) return;
+
+            let startY = 0;
+            let pulledDistance = 0;
+            let isPulling = false;
+            const triggerThreshold = 80;
+
+            content.addEventListener('touchstart', (e) => {
+                if (content.scrollTop <= 0) {
+                    startY = e.touches[0].clientY;
+                    isPulling = true;
+                    content.style.transition = 'none'; 
+                    ptrContainer.style.transition = 'none'; 
+                    icon.style.transition = 'none';
+                } else {
+                    isPulling = false;
+                }
+            }, { passive: true });
+
+            content.addEventListener('touchmove', (e) => {
+                if (!isPulling) return;
+                const currentY = e.touches[0].clientY;
+                const diff = currentY - startY;
+
+                if (diff > 0 && content.scrollTop <= 0) {
+                    if (e.cancelable) e.preventDefault();
+                    pulledDistance = Math.pow(diff, 0.85); 
+                    if (pulledDistance > 180) pulledDistance = 180;
+
+                    content.style.transform = `translateY(${pulledDistance}px)`;
+                    ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
+                    icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
+                    
+                    if (pulledDistance > triggerThreshold) {
+                        icon.style.color = "#34c759";
+                    } else {
+                        icon.style.color = "var(--primary-blue)";
+                    }
+                }
+            }, { passive: false });
+
+            content.addEventListener('touchend', () => {
+                if (!isPulling) return;
+                isPulling = false;
+                
+                content.style.transition = 'transform 0.3s ease-out';
+                ptrContainer.style.transition = 'transform 0.3s ease-out';
+
+                if (pulledDistance > triggerThreshold) {
+                    content.style.transform = `translateY(80px)`;
+                    ptrContainer.style.transform = `translateY(80px)`;
+                    icon.classList.add('fa-spin');
+                    if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
+                    setTimeout(() => { window.location.reload(); }, 500);
+                } else {
+                    content.style.transform = 'translateY(0px)';
+                    ptrContainer.style.transform = 'translateY(0px)';
+                    icon.style.transform = 'rotate(0deg)';
+                }
+                pulledDistance = 0;
+            });
+        }
+
+        // --- 📳 ВИБРАЦИЯ (HAPTIC FEEDBACK) 📳 ---
+        document.body.addEventListener('click', (e) => {
+            const selector = `a, button, .history-btn, .card, .m-btn, .chance-badge`;
+            if (e.target.closest(selector)) {
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                    try {
+                        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                    } catch (err) { console.warn("Haptic error:", err); }
+                }
+            }
+        });
+
         function openHistory() { 
             document.getElementById('history-overlay').classList.add('active'); 
             tg.HapticFeedback.impactOccurred('light');
         }
         function closeHistory() { document.getElementById('history-overlay').classList.remove('active'); }
         function closeConfirm() { document.getElementById('confirm-modal').style.display = 'none'; }
+
+        // Показ информации о шансах
+        function showChanceInfo(e) {
+            e.stopPropagation(); // Чтобы не кликнуть по карточке если что
+            showModal('info', 'Шанс победы', 'Процент победы рассчитывается делением 100% на количество участников. Чем больше участников, тем ниже шанс, но победить может каждый! 🍀');
+        }
 
         // Склонение участников
         function getPlural(n, titles) {
@@ -310,6 +469,17 @@
                 const pCount = r.participants_count || 0;
                 const pText = done ? 'Розыгрыш завершен' : `<b>${pCount}</b> ${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
 
+                // Логика отображения шанса
+                let chanceHtml = '';
+                if (!done && pCount > 0) {
+                    const chanceVal = (100 / pCount).toFixed(2).replace('.00', '');
+                    chanceHtml = `
+                    <div class="chance-badge" onclick="showChanceInfo(event)">
+                        🔥 Шанс: ${chanceVal}% 
+                        <i class="fa-regular fa-circle-question"></i>
+                    </div>`;
+                }
+
                 const cardHtml = `
                 <div class="card ${done ? 'done' : ''}">
                     <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
@@ -326,7 +496,10 @@
                                 <div class="timer_item"><span class="timer_val s-v">0</span><span class="timer_lbl">сек</span></div>
                             </div>
                         ` : ''}
-                        <div class="social_row"><div class="social_text">${pText}</div></div>
+                        <div class="social_row">
+                            <div class="social_text">${pText}</div>
+                            ${chanceHtml}
+                        </div>
                         ${!done ? `
                             <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="handleJoin(${r.id}, ${s.ticket_cost || 0}, ${r.is_joined})">
                                 ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnLabel}
@@ -360,7 +533,7 @@
             } else { join(id); }
         }
 
-        // ГЛАВНАЯ ФУНКЦИЯ УЧАСТИЯ (ВОССТАНОВЛЕНА ЛОГИКА)
+        // ГЛАВНАЯ ФУНКЦИЯ УЧАСТИЯ
         async function join(id, isAuto = false) {
             let btn = null;
             let oldHtml = '';
@@ -388,14 +561,11 @@
                 
                 if(res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    // Показываем красивую модалку успеха
                     showModal('success', 'Успех!', ans.message);
-                    load(); // Перерисовываем карточки (кнопка станет "Вы участвуете")
+                    load(); 
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
-                    // Показываем красивую модалку ошибки
                     showModal('error', 'Упс...', ans.detail);
-                    // Возвращаем кнопку в исходное состояние
                     if(btn) {
                         btn.innerHTML = oldHtml;
                         btn.style.opacity = '1';
@@ -411,7 +581,7 @@
             }
         }
 
-        // ФУНКЦИЯ ПОКАЗА МОДАЛКИ (ВОССТАНОВЛЕНА)
+        // ФУНКЦИЯ ПОКАЗА МОДАЛКИ
         function showModal(type, title, msg) {
             const m = document.getElementById('modal');
             const iconBox = document.getElementById('modal-icon');
@@ -420,9 +590,12 @@
             if(type === 'success') {
                 iconBox.innerHTML = `<svg class="checkmark" viewBox="0 0 52 52"><circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`;
                 btnProfile.style.display = 'none';
+            } else if (type === 'info') {
+                // Иконка для информации
+                iconBox.innerHTML = '<i class="fa-solid fa-circle-info" style="font-size: 60px; color: var(--primary-blue); margin-top: 10px;"></i>';
+                btnProfile.style.display = 'none';
             } else {
                 iconBox.innerHTML = `<svg class="cross" viewBox="0 0 52 52"><circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/><path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/></svg>`;
-                // Если ошибка связана с профилем, показываем кнопку
                 const mLow = msg ? msg.toLowerCase() : '';
                 btnProfile.style.display = (mLow.includes('trade') || mLow.includes('twitch') || mLow.includes('профиль') || mLow.includes('билет')) ? 'block' : 'none';
             }
@@ -432,38 +605,34 @@
             m.style.display = 'flex';
         }
 
-        // ЛОГИКА DEEPLINK (ВОССТАНОВЛЕНА С ВИЗУАЛОМ)
+        // ЛОГИКА DEEPLINK
         async function checkDeepLink() {
             const startParam = tg.initDataUnsafe.start_param; 
             
-            // Если человек зашел по ссылке raffle_...
             if (startParam && startParam.startsWith('raffle_')) {
-                
-                // 🔥 ВОТ ЗДЕСЬ ПОКАЗЫВАЕМ КНОПКУ ЗАКРЫТЬ
                 const closeBtn = document.getElementById('close-btn-container');
                 if(closeBtn) closeBtn.classList.remove('hidden');
 
                 const raffleId = startParam.split('_')[1];
                 
-                // Проверяем, не чекали ли мы это в текущей сессии
                 if (!sessionStorage.getItem('checked_raffle_' + raffleId)) {
-                    // Показываем модалку проверки
                     const vModal = document.getElementById('verify-modal');
                     if(vModal) vModal.style.display = 'flex';
                     
                     tg.HapticFeedback.impactOccurred('light');
                     
-                    // Небольшая задержка для визуализации проверки
                     await new Promise(r => setTimeout(r, 1000));
                     
                     sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
-                    await join(raffleId, true); // true означает автоматический вход
+                    await join(raffleId, true); 
                     
                     if(vModal) vModal.style.display = 'none';
                 }
             }
         }
 
+        // Запуск инициализаций
+        document.addEventListener('DOMContentLoaded', initPullToRefresh);
         load();
     </script>
 </body>
