@@ -114,25 +114,23 @@
         .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8)); }
 
         .social_row { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
-        .social_text { font-size: 13px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; justify-content: space-between; }
+        .social_text { font-size: 13px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; flex-wrap: wrap; }
         .social_text b { color: #fff; }
 
-        /* Стиль для шанса */
-        .chance-badge {
-            font-size: 11px; 
-            color: #ffd700; 
-            background: rgba(255, 215, 0, 0.1);
-            padding: 4px 8px;
-            border-radius: 8px;
+        /* Стиль для шанса в строке */
+        .chance-span {
+            color: #ffd700; /* Золотой цвет */
             font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
+            margin-left: 8px;
             cursor: pointer;
-            margin-top: 5px;
-            align-self: flex-start;
+            white-space: nowrap; /* Чтобы не переносилось */
         }
-        .chance-badge i { font-size: 12px; opacity: 0.8; }
+        .chance-span i {
+            margin-left: 4px;
+            opacity: 0.8;
+            font-size: 12px;
+        }
+
 
         .btn-main {
             width: 100%; background: var(--primary-blue); color: #fff;
@@ -371,7 +369,8 @@
 
         // --- 📳 ВИБРАЦИЯ (HAPTIC FEEDBACK) 📳 ---
         document.body.addEventListener('click', (e) => {
-            const selector = `a, button, .history-btn, .card, .m-btn, .chance-badge`;
+            // Добавили .chance-span в список элементов, вызывающих вибрацию
+            const selector = `a, button, .history-btn, .card, .m-btn, .chance-span`;
             if (e.target.closest(selector)) {
                 if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
                     try {
@@ -467,17 +466,14 @@
                 }
 
                 const pCount = r.participants_count || 0;
-                const pText = done ? 'Розыгрыш завершен' : `<b>${pCount}</b> ${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
+                // Формируем базовую строку с участниками
+                let pTextFinal = done ? 'Розыгрыш завершен' : `<b>${pCount}</b> ${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
 
-                // Логика отображения шанса
-                let chanceHtml = '';
+                // Если розыгрыш активен и есть участники, добавляем шанс в ту же строку через span
                 if (!done && pCount > 0) {
                     const chanceVal = (100 / pCount).toFixed(2).replace('.00', '');
-                    chanceHtml = `
-                    <div class="chance-badge" onclick="showChanceInfo(event)">
-                        🔥 Шанс: ${chanceVal}% 
-                        <i class="fa-regular fa-circle-question"></i>
-                    </div>`;
+                    // Добавляем кликабельный span с шансом в ту же строку
+                    pTextFinal += `<span class="chance-span" onclick="showChanceInfo(event)"> 🔥 Шанс: ${chanceVal}% <i class="fa-regular fa-circle-question"></i></span>`;
                 }
 
                 const cardHtml = `
@@ -497,8 +493,7 @@
                             </div>
                         ` : ''}
                         <div class="social_row">
-                            <div class="social_text">${pText}</div>
-                            ${chanceHtml}
+                            <div class="social_text">${pTextFinal}</div>
                         </div>
                         ${!done ? `
                             <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="handleJoin(${r.id}, ${s.ticket_cost || 0}, ${r.is_joined})">
