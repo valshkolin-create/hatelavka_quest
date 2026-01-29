@@ -119,16 +119,19 @@
 
         /* Стиль для шанса в строке */
         .chance-span {
-            color: #ffd700; /* Золотой цвет */
+            color: #ffd700; 
             font-weight: 600;
-            margin-left: 8px;
+            margin-left: 12px; /* <-- Увеличил отступ, чтобы не сливалось */
             cursor: pointer;
-            white-space: nowrap; /* Чтобы не переносилось */
+            white-space: nowrap;
+            font-size: 10px;   /* <-- Добавил размер шрифта поменьше */
+            display: inline-block; /* <-- Для лучшего позиционирования */
+            transform: translateY(-1px); /* <-- Чуть приподнять, если нужно */
         }
         .chance-span i {
-            margin-left: 4px;
+            margin-left: 3px;
             opacity: 0.8;
-            font-size: 12px;
+            font-size: 10px; /* <-- Иконку тоже уменьшаем */
         }
 
 
