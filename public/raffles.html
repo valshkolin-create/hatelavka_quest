@@ -126,7 +126,6 @@
             white-space: nowrap;
             font-size: 10px;   /* <-- Добавил размер шрифта поменьше */
             display: inline-block; /* <-- Для лучшего позиционирования */
-            transform: translateY(-1px); /* <-- Чуть приподнять, если нужно */
         }
         .chance-span i {
             margin-left: 3px;
@@ -470,7 +469,7 @@
 
                 const pCount = r.participants_count || 0;
                 // Формируем базовую строку с участниками
-                let pTextFinal = done ? 'Розыгрыш завершен' : `<b>${pCount}</b> ${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
+                let pTextFinal = done ? 'Розыгрыш завершен' : `<b style="margin-right: 6px;">${pCount}</b>${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
 
                 // Если розыгрыш активен и есть участники, добавляем шанс в ту же строку через span
                 if (!done && pCount > 0) {
