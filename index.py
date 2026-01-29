@@ -13648,7 +13648,11 @@ async def get_user_raffles(
         "/raffles", 
         params={
             "select": "*, winner:users(full_name, username)", 
-            "order": "status.asc,created_at.desc", 
+            # ИЗМЕНЕНИЕ:
+            # 1. status.asc       -> Сначала активные
+            # 2. sort_order.asc   -> 1 (VIP) выше, чем 100 (обычные)
+            # 3. end_time.asc     -> Ближайшие по времени выше дальних
+            "order": "status.asc,sort_order.asc,end_time.asc", 
             "is_visible": "eq.true"
         }
     )
