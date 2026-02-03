@@ -9,42 +9,58 @@
   
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   
-  <link rel="stylesheet" href="quest.css" />
+  <link rel="stylesheet" href="quests.css" />
 
   <style>
-    /* === ПРИНУДИТЕЛЬНАЯ ТЕМА TELEGRAM (СИНИЕ ТОНА) === */
+    /* === ПЕРЕОПРЕДЕЛЕНИЕ ПЕРЕМЕННЫХ ДЛЯ СИНЕЙ ТЕМЫ === */
     :root {
-        --primary-color: #0088cc; /* Telegram Blue */
+        --primary-color: #0088cc;
+        --action-color: #0088cc;
+        --tg-color: #0088cc;
         --primary-gradient: linear-gradient(90deg, #0088cc, #00aaff);
         --bg-gradient: radial-gradient(ellipse at 50% 100%, #0b1a2e, #000000);
         --tickets-bg: rgba(36, 161, 222, 0.15);
-        --tg-color: #0088cc;
-        --action-color: #0088cc;
     }
 
-    /* Фикс для body, чтобы фон применился */
     body {
-        background-color: #000000;
+        background-color: #000;
         background-image: var(--bg-gradient);
         color: #fff;
     }
 
-    /* Стили для слайдера, вписанные в дизайн */
+    /* Фикс контейнера, чтобы футер не перекрывал контент */
+    #main-content {
+        padding: 20px 15px 120px 15px; /* 120px снизу для футера */
+        min-height: 100vh;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* === СТИЛИ ДЛЯ СЛАЙДЕРА (Вписанные в дизайн квестов) === */
     .slider-card-content {
         padding: 15px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 20px;
+        gap: 15px;
     }
 
     .count-display {
-        font-size: 72px;
+        font-size: 64px;
         font-weight: 900;
         color: var(--tg-color);
-        text-shadow: 0 0 30px rgba(0, 136, 204, 0.4);
+        text-shadow: 0 0 25px rgba(0, 136, 204, 0.4);
         line-height: 1;
         margin-top: 5px;
+    }
+    
+    .slider-label {
+        font-size: 12px;
+        color: #8e8e93;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
     }
 
     .range-wrapper {
@@ -53,23 +69,24 @@
         box-sizing: border-box;
     }
 
+    /* Стилизация input type=range под дизайн */
     input[type=range] {
         width: 100%;
         -webkit-appearance: none;
         background: rgba(255,255,255,0.1);
-        height: 8px;
-        border-radius: 4px;
+        height: 6px;
+        border-radius: 3px;
         outline: none;
     }
     input[type=range]::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 28px;
-        height: 28px;
+        width: 24px;
+        height: 24px;
         background: #fff;
-        border: 4px solid var(--tg-color);
+        border: 3px solid var(--tg-color);
         border-radius: 50%;
         cursor: pointer;
-        box-shadow: 0 0 15px var(--tg-color);
+        box-shadow: 0 0 10px rgba(0, 136, 204, 0.5);
         transition: transform 0.1s;
     }
     input[type=range]::-webkit-slider-thumb:active {
@@ -79,36 +96,48 @@
     /* Блок награды */
     .reward-preview {
         background: rgba(0, 136, 204, 0.1);
-        border: 1px solid rgba(0, 136, 204, 0.2);
+        border: 1px solid rgba(0, 136, 204, 0.3);
         border-radius: 12px;
-        padding: 12px 25px;
+        padding: 10px 20px;
         display: flex;
         flex-direction: column;
         align-items: center;
         min-width: 140px;
     }
-
     .reward-val {
-        font-size: 28px;
+        font-size: 24px;
         font-weight: 800;
         color: #FFD700;
         text-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-        margin-top: 5px;
+        margin-top: 4px;
     }
 
-    /* Контейнер контента */
-    #main-content {
-        padding: 20px 15px 120px 15px;
+    /* Хедер (кнопка назад + билеты) */
+    .header-nav {
         display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-        box-sizing: border-box;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .back-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        padding: 8px 14px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
     }
 
+    /* Анимации */
     .fade-in { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Стили для кнопок отмены (из quest.css) */
+    /* Кнопки отмены (из quest.js логики) */
     .cancel-btn-group {
         display: flex;
         flex-direction: column;
@@ -116,7 +145,7 @@
         width: 100%;
         margin-top: 15px;
     }
-    .cancel-btn-group button {
+    .btn-cancel {
         width: 100%;
         border-radius: 8px;
         padding: 10px;
@@ -129,20 +158,9 @@
         justify-content: center;
         gap: 6px;
     }
-    .btn-free-cancel {
-        background: #3a3a3c;
-        color: #fff;
-    }
-    .btn-paid-cancel {
-        background: rgba(255, 165, 0, 0.15); 
-        border: 1px solid rgba(255, 165, 0, 0.4) !important; 
-        color: #ffae00;
-    }
-    .btn-free-cancel:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        color: #888;
-    }
+    .btn-free { background: #3a3a3c; color: #fff; }
+    .btn-paid { background: rgba(255, 165, 0, 0.15); border: 1px solid rgba(255, 165, 0, 0.4) !important; color: #ffae00; }
+    .btn-timer { background: #222; color: #888; cursor: default; }
 
   </style>
 </head>
@@ -150,27 +168,27 @@
 
   <div id="loader-overlay" style="display: flex; flex-direction: column; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
     <div class="spinner" style="width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: #0088cc; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-    <div id="loading-text" style="color: #fff; margin-top: 15px; font-family: sans-serif; font-weight: bold; font-size: 18px;">Загрузка...</div>
+    <div style="color: #fff; margin-top: 15px; font-family: sans-serif; font-weight: bold; font-size: 16px;">Загрузка...</div>
     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
   </div>
 
-  <main id="main-content" class="main-content" style="opacity: 0; transition: opacity 0.3s;">
+  <main id="main-content" style="opacity: 0; transition: opacity 0.3s;">
     
-    <div style="display: flex; align-items: center; margin-bottom: 20px;">
-        <button onclick="window.location.href='/quests'" style="background:rgba(255,255,255,0.1); border:none; color:#fff; padding:8px 14px; border-radius:20px; font-size:14px; display:flex; align-items:center; gap:6px; cursor:pointer;">
+    <div class="header-nav">
+        <button class="back-btn" onclick="window.location.href='/quests'">
             <i class="fa-solid fa-arrow-left"></i> Назад
         </button>
-        <div style="flex-grow:1; text-align:right;">
-             <div class="tickets-item" style="display:inline-flex; background:var(--tickets-bg);">
-                <span id="ticketStats" class="stats-text" style="color:var(--tg-color);">0</span>
-                <div class="stats-icon-star" style="background:var(--tg-color);"><i class="fa-solid fa-ticket"></i></div>
+        <div class="tickets-item" style="background: var(--tickets-bg); border-radius: 12px; padding: 6px 10px; display: flex; align-items: center; gap: 6px;">
+            <span id="ticketStats" class="stats-text" style="color: var(--tg-color); font-weight: 700;">0</span>
+            <div class="stats-icon-star" style="background: var(--tg-color); width: 20px; height: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center;">
+                <i class="fa-solid fa-ticket" style="color: #fff; font-size: 10px;"></i>
             </div>
         </div>
     </div>
 
     <div style="text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 22px; font-weight: 800;">Telegram Вызов</h1>
-        <p style="margin: 5px 0 0; color: #888; font-size: 13px;">Установи цель и забери награду</p>
+        <p style="margin: 4px 0 0; color: #8e8e93; font-size: 13px;">Установи цель и забери награду</p>
     </div>
 
     <div id="dynamic-content" class="fade-in"></div>
@@ -185,17 +203,11 @@
     <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
   </footer>
 
-  <div id="universal-modal-overlay" class="modal-overlay hidden" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:10000; justify-content:center; align-items:center;">
-    <div class="modal-content" style="background:#1c1c1e; padding:20px; border-radius:16px; width:80%; max-width:300px; text-align:center;">
-         <h3 id="univ-modal-title" style="margin-top:0;">Внимание</h3>
-         <div id="univ-modal-body"></div>
-         <button onclick="document.getElementById('universal-modal-overlay').style.display='none'" style="margin-top:15px; width:100%; padding:10px; border-radius:8px; border:none; background:#444; color:#fff;">Закрыть</button>
-    </div>
-  </div>
+  <div id="custom-prompt-overlay" class="prompt-overlay hidden"></div>
 
 <script>
     // Инициализация Telegram
-    if (window.Telegram?.WebApp) {
+    if (window.Telegram && window.Telegram.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
         Telegram.WebApp.setHeaderColor('#000000'); 
@@ -210,12 +222,12 @@
     // Глобальные переменные
     let userData = {};
     let availableTiers = []; 
-    let countdownIntervals = {};
+    const QUEST_ID = 999; // ID спец. квеста
 
-    // --- 1. ЗАГРУЗКА ВСЕГО (USER + QUEST STATUS) ---
+    // --- 1. ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
     async function init() {
         try {
-            // 1.1 Получаем User Data (для билетов и таймеров отмены)
+            // Загружаем данные юзера (для баланса и таймеров отмены)
             const userRes = await fetch('/api/v1/user/me', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -223,33 +235,31 @@
             });
             userData = await userRes.json();
             
-            // Обновляем билеты в хедере
+            // Обновляем билеты
             if(userData.tickets !== undefined) ticketStats.innerText = userData.tickets;
 
-            // 1.2 Получаем статус квеста
+            // Загружаем статус квеста (слайдера)
             const questRes = await fetch('/api/v1/tg/challenge/status', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
             const questData = await questRes.json();
-
+            
             // Сохраняем доступные номиналы (для слайдера)
             if (questData.available_tiers) availableTiers = questData.available_tiers;
 
-            // Рендер
             if (questData.active) {
                 renderActiveQuest(questData);
             } else {
                 renderSlider();
             }
 
-            // Показываем контент
             loader.style.display = 'none';
             mainContent.style.opacity = '1';
 
         } catch (e) {
-            container.innerHTML = `<div style="text-align:center; color:red; margin-top:50px;">Ошибка загрузки: ${e.message}</div>`;
+            container.innerHTML = `<div style="text-align:center; color:#ff4757; margin-top:50px;">Ошибка загрузки: ${e.message}</div>`;
             loader.style.display = 'none';
             mainContent.style.opacity = '1';
         }
@@ -257,14 +267,12 @@
 
     // --- 2. РЕНДЕР СЛАЙДЕРА (ВЫБОР) ---
     function renderSlider() {
-        // Дефолтное значение
         const defaultVal = 100;
         
         container.innerHTML = `
             <div class="quest-card fade-in" style="padding: 0;">
-                
                 <div class="slider-card-content">
-                    <span class="slider-label">ВЫБЕРИТЕ КОЛИЧЕСТВО СООБЩЕНИЙ</span>
+                    <span class="slider-label">Выберите количество сообщений</span>
                     
                     <div class="count-display" id="val-display">${defaultVal}</div>
                     
@@ -273,22 +281,23 @@
                     </div>
 
                     <div class="reward-preview">
-                        <span class="quest-subtitle" style="margin-bottom:2px;">ВАША НАГРАДА</span>
+                        <span style="font-size:11px; color:#8e8e93; text-transform:uppercase;">Ваша награда</span>
                         <div class="reward-val" id="reward-display">
                             +${calculateReward(defaultVal)} <i class="fa-solid fa-ticket"></i>
                         </div>
                     </div>
                 </div>
 
-                <div class="button-container" style="width:100%; padding: 15px; box-sizing: border-box;">
-                    <button id="btn-start" class="claim-reward-button" style="width:100%; font-size:16px; padding:14px; background: linear-gradient(90deg, #0088cc, #00aaff); color: white; box-shadow: 0 4px 15px rgba(0,136,204,0.3);">
+                <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <button id="btn-start" class="claim-reward-button" style="width:100%; background: linear-gradient(90deg, #0088cc, #00aaff); color: white; box-shadow: 0 4px 15px rgba(0,136,204,0.3); font-size:16px; padding:14px;">
                         ПРИНЯТЬ ВЫЗОВ
                     </button>
                 </div>
             </div>
 
             <p style="text-align: center; color: var(--text-color-muted); font-size: 12px; margin-top: 15px; padding: 0 20px;">
-                <i class="fa-solid fa-circle-info"></i> Сообщения засчитываются только в официальном чате. <br> Награда рассчитывается автоматически по таблице.
+                <i class="fa-solid fa-circle-info"></i> Сообщения засчитываются автоматически в чате. 
+                Награда рассчитывается автоматически по наличию на складе.
             </p>
         `;
 
@@ -323,16 +332,13 @@
                     })
                 });
 
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || "Ошибка сервера");
-                }
+                if (!res.ok) throw new Error("Ошибка сервера");
                 
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 }
                 
-                init(); // Перезагружаем состояние
+                init(); // Перезагружаем
 
             } catch (e) {
                 Telegram.WebApp.showAlert(e.message);
@@ -363,59 +369,72 @@
         return theory; // Фолбек, если база пустая
     }
 
-    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (С ЛОГИКОЙ ОТМЕНЫ ИЗ QUEST.JS) ---
+    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (С ПОЛНОЦЕННОЙ ЛОГИКОЙ ОТМЕНЫ) ---
     function renderActiveQuest(data) {
         const current = data.current;
         const target = data.target;
         const percent = Math.min(100, (current / target) * 100);
         const isDone = current >= target;
         
-        let buttonHtml = '';
-        
+        let mainButton = '';
+        let cancelButtons = '';
+
         if (isDone) {
             // Кнопка ЗАБРАТЬ
-            buttonHtml = `
-                <button onclick="claimReward()" class="claim-reward-button" style="width:100%; background: linear-gradient(90deg, #ffdd40, #ffc700); color: #000;">
+            mainButton = `
+                <button onclick="claimReward()" class="claim-reward-button" style="width:100%; background: linear-gradient(90deg, #ffdd40, #ffc700); color: #000; font-size:16px; padding:14px;">
                     <i class="fa-solid fa-gift"></i> ЗАБРАТЬ НАГРАДУ
                 </button>`;
         } else {
-            // ЛОГИКА ОТМЕНЫ (Перенесена из quest.js)
+            // Кнопка "В ПРОЦЕССЕ" (Неактивная)
+            mainButton = `
+                <button disabled class="claim-reward-button" style="width:100%; background: #2c2c2e; color: #8e8e93; box-shadow: none; cursor: default; opacity: 1; font-size:14px; padding:14px;">
+                    <i class="fa-solid fa-person-running"></i> ВЫПОЛНЯЕТСЯ...
+                </button>`;
+
+            // --- ЛОГИКА ОТМЕНЫ (ИЗ QUEST.JS) ---
             const lastCancel = userData.last_quest_cancel_at;
             let cancelBtnDisabled = false;
             let cooldownEndTime = null;
 
-            // Проверка 24ч кулдауна
+            // Проверяем 24 часа
             if (lastCancel) {
                 const lastCancelDate = new Date(lastCancel);
                 const now = new Date();
-                const diffHours = (now - lastCancelDate) / 3600000;
-                if (diffHours < 24) {
+                const diffMs = now - lastCancelDate;
+                const cooldownMs = 24 * 60 * 60 * 1000;
+
+                if (diffMs < cooldownMs) {
                     cancelBtnDisabled = true;
-                    cooldownEndTime = new Date(lastCancelDate.getTime() + 24 * 60 * 60 * 1000);
+                    cooldownEndTime = new Date(lastCancelDate.getTime() + cooldownMs);
                 }
             }
-            
+
             const cost = userData.next_cancel_cost || 5; 
 
-            // Кнопка бесплатной отмены
-            buttonHtml += `
-                <button id="cancel-quest-btn" class="btn-free-cancel" style="width:100%; border-radius:8px; padding:10px; font-weight:600; margin-top:10px; cursor:pointer; border:none; color:#fff; background:#3a3a3c;" ${cancelBtnDisabled ? 'disabled' : ''}>
-                    Отменить бесплатно
-                </button>
-            `;
-
-            // Кнопка платной отмены (если бесплатно нельзя)
-            if (cancelBtnDisabled) {
-                buttonHtml += `
-                    <button id="paid-cancel-quest-btn" data-cost="${cost}" class="btn-paid-cancel" style="width:100%; border-radius:8px; padding:10px; font-weight:600; margin-top:8px; cursor:pointer; border:1px solid rgba(255,165,0,0.4); background:rgba(255,165,0,0.15); color:#ffae00;">
-                        <i class="fa-solid fa-ticket"></i> Отменить за ${cost} билетов
-                    </button>
-                `;
-            }
-
-            // Запускаем таймер для кнопки (если заблокирована)
-            if (cancelBtnDisabled && cooldownEndTime) {
-                startTimer(cooldownEndTime);
+            // Генерируем кнопки отмены
+            if (!cancelBtnDisabled) {
+                // Можно бесплатно
+                cancelButtons = `
+                    <div class="cancel-btn-group">
+                        <button id="cancel-quest-btn" class="btn-cancel btn-free">
+                            Отменить бесплатно
+                        </button>
+                    </div>`;
+            } else {
+                // Платно + Таймер
+                cancelButtons = `
+                    <div class="cancel-btn-group">
+                        <button disabled id="timer-btn" class="btn-cancel btn-timer">
+                            Бесплатно через ..:..
+                        </button>
+                        <button id="paid-cancel-quest-btn" data-cost="${cost}" class="btn-cancel btn-paid">
+                            <i class="fa-solid fa-ticket"></i> Отменить за ${cost} билетов
+                        </button>
+                    </div>`;
+                
+                // Запускаем таймер
+                if (cooldownEndTime) startTimer(cooldownEndTime);
             }
         }
 
@@ -424,11 +443,11 @@
                 ${!isDone ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
                 
                 <div class="quest-content-wrapper">
-                    <div class="quest-icon" style="font-size: 32px; margin-bottom: 10px; color: var(--tg-color); text-shadow: 0 0 15px rgba(0,136,204,0.4);">
+                    <div class="quest-icon" style="font-size: 32px; margin-bottom: 15px; color: var(--tg-color); text-shadow: 0 0 15px rgba(0,136,204,0.4);">
                         <i class="fa-brands fa-telegram"></i>
                     </div>
                     
-                    <h2 class="quest-title" style="font-size: 18px;">Персональный Вызов</h2>
+                    <h2 class="quest-title" style="font-size: 18px; margin-bottom: 5px;">Персональный Вызов</h2>
                     <p class="quest-subtitle" style="font-size: 13px;">Написать ${target} сообщений</p>
                     
                     <div class="progress-bar" style="height: 12px; margin: 20px 0; background: rgba(255,255,255,0.1);">
@@ -441,53 +460,51 @@
                     </div>
                 </div>
 
-                <div class="button-container" style="width:100%; margin-top: 15px;">
-                    ${buttonHtml}
+                <div class="button-container" style="width:100%; margin-top: 20px;">
+                    ${mainButton}
                 </div>
             </div>
+            
+            ${cancelButtons}
         `;
         
-        // Вешаем слушатели на кнопки отмены (если они есть)
+        // Вешаем слушатели на кнопки отмены
         attachCancelListeners();
     }
 
-    // --- ТАЙМЕР ДЛЯ КНОПКИ ОТМЕНЫ ---
+    // --- ТАЙМЕР ОТМЕНЫ ---
     function startTimer(endTime) {
         const update = () => {
-            const btn = document.getElementById('cancel-quest-btn');
-            const paidBtn = document.getElementById('paid-cancel-quest-btn');
+            const btn = document.getElementById('timer-btn');
             if (!btn) return;
             
             const now = new Date();
             const diff = endTime - now;
             
             if (diff <= 0) {
-                btn.disabled = false;
-                btn.textContent = 'Отменить бесплатно';
-                if (paidBtn) paidBtn.style.display = 'none';
+                init();
                 return;
             }
             
-            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const s = Math.floor((diff % (1000 * 60)) / 1000);
-            btn.textContent = `Бесплатно через ${h}:${m}:${s}`;
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            
+            btn.textContent = `Бесплатно через ${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
             requestAnimationFrame(update);
         };
         update();
     }
 
-    // --- ОБРАБОТЧИКИ ОТМЕНЫ (1в1 как в quests.js) ---
+    // --- ОБРАБОТЧИКИ ОТМЕНЫ (Логика из quest.js) ---
     function attachCancelListeners() {
         const freeBtn = document.getElementById('cancel-quest-btn');
         const paidBtn = document.getElementById('paid-cancel-quest-btn');
 
         if (freeBtn) {
             freeBtn.onclick = () => {
-                Telegram.WebApp.showConfirm("Вы уверены, что хотите отменить это задание? Отменять задания бесплатно можно лишь раз в сутки.", async (ok) => {
-                    if (ok) {
-                        await performCancel('/api/v1/quests/cancel');
-                    }
+                Telegram.WebApp.showConfirm("Вы уверены? Прогресс будет сброшен. Бесплатная отмена раз в 24ч.", async (ok) => {
+                    if (ok) await performCancel('/api/v1/quests/cancel');
                 });
             };
         }
@@ -496,18 +513,16 @@
             paidBtn.onclick = () => {
                 const cost = paidBtn.dataset.cost;
                 Telegram.WebApp.showConfirm(`Списать ${cost} билетов за отмену задания?`, async (ok) => {
-                    if (ok) {
-                        await performCancel('/api/v1/quests/cancel_paid');
-                    }
+                    if (ok) await performCancel('/api/v1/quests/cancel_paid');
                 });
             };
         }
     }
 
     async function performCancel(url) {
-        // Показываем загрузку на кнопках
-        const btns = document.querySelectorAll('.button-container button');
-        btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; });
+        // Блокируем интерфейс
+        const btns = document.querySelectorAll('button');
+        btns.forEach(b => { b.disabled = true; });
 
         try {
             const res = await fetch(url, {
@@ -525,7 +540,7 @@
             }
         } catch (e) {
             Telegram.WebApp.showAlert("Ошибка: " + e.message);
-            init(); // Перезагрузка
+            init(); 
         }
     }
 
@@ -540,7 +555,7 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     initData: Telegram.WebApp.initData,
-                    quest_id: 999 // ID нашего шаблонного квеста
+                    quest_id: QUEST_ID 
                 })
             });
 
@@ -555,7 +570,7 @@
             }
         } catch (e) {
             Telegram.WebApp.showAlert("Ошибка: " + e.message);
-            if(btn) { btn.disabled = false; btn.innerText = "ЗАБРАТЬ"; }
+            if(btn) { btn.disabled = false; btn.innerText = "ЗАБРАТЬ НАГРАДУ"; }
         }
     };
 
