@@ -6,26 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  
   <link rel="stylesheet" href="quests.css" />
 
   <style>
-    /* === ПЕРЕОПРЕДЕЛЕНИЕ ПЕРЕМЕННЫХ ДЛЯ СИНЕЙ ТЕМЫ === */
     :root {
         --primary-color: #0088cc;
-        --action-color: #0088cc;
         --tg-color: #0088cc;
-        --primary-gradient: linear-gradient(90deg, #0088cc, #00aaff);
-        --bg-gradient: radial-gradient(ellipse at 50% 100%, #0b1a2e, #000000);
         --tickets-bg: rgba(36, 161, 222, 0.15);
+        --bg-gradient: radial-gradient(ellipse at 50% 100%, #0b1a2e, #000000);
     }
 
     body {
         background-color: #000;
         background-image: var(--bg-gradient);
         color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
 
     #main-content {
@@ -36,7 +32,7 @@
         flex-direction: column;
     }
 
-    /* === СТИЛИ ДЛЯ СЛАЙДЕРА (Вписанные в дизайн квестов) === */
+    /* === СЛАЙДЕР === */
     .slider-card-content {
         padding: 15px;
         display: flex;
@@ -44,7 +40,6 @@
         align-items: center;
         gap: 15px;
     }
-
     .count-display {
         font-size: 64px;
         font-weight: 900;
@@ -53,145 +48,56 @@
         line-height: 1;
         margin-top: 5px;
     }
+    .slider-label { font-size: 12px; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
     
-    .slider-label {
-        font-size: 12px;
-        color: #8e8e93;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
-    }
-
-    .range-wrapper {
-        width: 100%;
-        padding: 0 10px;
-        box-sizing: border-box;
-    }
-
     input[type=range] {
-        width: 100%;
-        -webkit-appearance: none;
-        background: rgba(255,255,255,0.1);
-        height: 6px;
-        border-radius: 3px;
-        outline: none;
+        width: 100%; -webkit-appearance: none; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; outline: none;
     }
     input[type=range]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 24px;
-        height: 24px;
-        background: #fff;
-        border: 3px solid var(--tg-color);
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: 0 0 10px rgba(0, 136, 204, 0.5);
-        transition: transform 0.1s;
+        -webkit-appearance: none; width: 24px; height: 24px; background: #fff; border: 3px solid var(--tg-color);
+        border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(0, 136, 204, 0.5); transition: transform 0.1s;
     }
-    input[type=range]::-webkit-slider-thumb:active {
-        transform: scale(1.2);
-    }
+    input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
 
     .reward-preview {
-        background: rgba(0, 136, 204, 0.1);
-        border: 1px solid rgba(0, 136, 204, 0.3);
-        border-radius: 12px;
-        padding: 10px 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        min-width: 140px;
+        background: rgba(0, 136, 204, 0.1); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 12px;
+        padding: 10px 20px; display: flex; flex-direction: column; align-items: center; min-width: 140px;
     }
-    .reward-val {
-        font-size: 24px;
-        font-weight: 800;
-        color: #FFD700;
-        text-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-        margin-top: 4px;
-    }
+    .reward-val { font-size: 24px; font-weight: 800; color: #FFD700; text-shadow: 0 0 15px rgba(255, 215, 0, 0.3); margin-top: 4px; }
 
     /* Хедер */
-    .header-nav {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
+    .header-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .back-btn {
-        background: rgba(255, 255, 255, 0.1);
-        border: none;
-        color: #fff;
-        font-size: 14px;
-        font-weight: 500;
-        padding: 8px 14px;
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
+        background: rgba(255, 255, 255, 0.1); border: none; color: #fff; font-size: 14px; font-weight: 500;
+        padding: 8px 14px; border-radius: 20px; display: flex; align-items: center; gap: 6px; cursor: pointer;
     }
 
     .fade-in { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Дополнительные стили для кнопок отмены внутри карточки */
-    .cancel-btn-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        width: 100%;
-        margin-top: 10px;
-    }
+    /* === СТИЛИ ОТМЕНЫ (Копия из quests.js) === */
+    .cancel-btn-group { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px; }
     
-    /* Стили идентичные quests.js */
     .btn-cancel {
-        width: 100%;
-        border-radius: 12px; /* Подстраиваем под стиль кнопок в quests.css */
-        padding: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        border: none;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        transition: all 0.2s;
+        width: 100%; border-radius: 12px; padding: 12px; font-weight: 700; cursor: pointer; border: none;
+        font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
     }
-    
-    .btn-free { 
-        background: #3a3a3c; 
-        color: #fff; 
-    }
-    
-    .btn-paid { 
-        background: rgba(255, 165, 0, 0.15); 
-        border: 1px solid rgba(255, 165, 0, 0.4) !important; 
-        color: #ffae00; 
-    }
-    
-    .btn-timer { 
-        background: #222; 
-        color: #666; 
-        cursor: default;
-        font-size: 12px;
-        padding: 8px;
-    }
+    .btn-free { background: #3a3a3c; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+    .btn-paid { background: rgba(255, 165, 0, 0.15); border: 1px solid rgba(255, 165, 0, 0.4) !important; color: #ffae00; }
+    .btn-timer { background: #222; color: #666; cursor: default; font-size: 12px; padding: 8px; box-shadow: none; border: 1px solid transparent; }
 
-    /* Адаптация под компактный вид */
+    /* Карточка */
     .quest-card {
-        /* Убеждаемся, что используются переменные из quests.css */
-        background: #1c1c1e; /* Дефолт из quests.js */
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 20px;
-        padding: 20px;
-        position: relative;
-        overflow: hidden;
+        background: #1c1c1e; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 20px;
+        position: relative; overflow: hidden; margin-bottom: 15px;
     }
-    
     .quest-icon.tg-style {
-        color: var(--tg-color);
-        background: rgba(0, 136, 204, 0.15);
-        box-shadow: 0 0 15px rgba(0, 136, 204, 0.2);
+        color: var(--tg-color); background: rgba(0, 136, 204, 0.15); box-shadow: 0 0 15px rgba(0, 136, 204, 0.2);
+        width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 15px;
+    }
+    .active-quest-indicator {
+        position: absolute; top: 12px; right: 12px; background: rgba(52, 199, 89, 0.2); color: #32d74b;
+        font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 6px; text-transform: uppercase;
     }
 
   </style>
@@ -236,7 +142,6 @@
   </footer>
 
 <script>
-    // Инициализация Telegram
     if (window.Telegram && window.Telegram.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
@@ -253,21 +158,20 @@
     let availableTiers = []; 
     const QUEST_ID = 999; 
 
-    // --- 1. ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
+    // --- ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
     async function init() {
         try {
-            // Загружаем данные юзера
+            // Загрузка юзера
             const userRes = await fetch('/api/v1/user/me', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
             userData = await userRes.json();
-            
             if(userData.tickets !== undefined) ticketStats.innerText = userData.tickets;
 
-            // Загружаем статус квеста
-            const questRes = await fetch('/api/v1/tg/challenge/status', {
+            // Загрузка статуса (С защитой от кэша ?t=...)
+            const questRes = await fetch('/api/v1/tg/challenge/status?t=' + Date.now(), {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
@@ -292,41 +196,28 @@
         }
     }
 
-    // --- 2. РЕНДЕР СЛАЙДЕРА (ВЫБОР) ---
+    // --- СЛАЙДЕР ---
     function renderSlider() {
         const defaultVal = 100;
-        
         container.innerHTML = `
             <div class="quest-card fade-in" style="padding: 0; overflow:hidden;">
                 <div class="slider-card-content">
                     <span class="slider-label">Выберите количество сообщений</span>
-                    
                     <div class="count-display" id="val-display">${defaultVal}</div>
-                    
                     <div class="range-wrapper">
                         <input type="range" id="slider" min="10" max="500" step="10" value="${defaultVal}">
                     </div>
-
                     <div class="reward-preview">
                         <span style="font-size:11px; color:#8e8e93; text-transform:uppercase;">Ваша награда</span>
-                        <div class="reward-val" id="reward-display">
-                            +${calculateReward(defaultVal)} <i class="fa-solid fa-ticket"></i>
-                        </div>
+                        <div class="reward-val" id="reward-display">+${calculateReward(defaultVal)} <i class="fa-solid fa-ticket"></i></div>
                     </div>
                 </div>
-
                 <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
-                    <button id="btn-start" class="claim-reward-button" style="width:100%; background: linear-gradient(90deg, #0088cc, #00aaff); color: white; box-shadow: 0 4px 15px rgba(0,136,204,0.3); font-size:16px; padding:14px;">
-                        ПРИНЯТЬ ВЫЗОВ
-                    </button>
+                    <button id="btn-start" class="claim-reward-button" style="width:100%; background: linear-gradient(90deg, #0088cc, #00aaff); color: white; box-shadow: 0 4px 15px rgba(0,136,204,0.3); font-size:16px; padding:14px;">ПРИНЯТЬ ВЫЗОВ</button>
                 </div>
             </div>
-
-            <p style="text-align: center; color: #8e8e93; font-size: 12px; margin-top: 15px; padding: 0 20px;">
-                <i class="fa-solid fa-circle-info"></i> Сообщения засчитываются автоматически в чате. 
-            </p>
+            <p style="text-align: center; color: #8e8e93; font-size: 12px; margin-top: 15px; padding: 0 20px;"><i class="fa-solid fa-circle-info"></i> Сообщения засчитываются автоматически в чате.</p>
         `;
-
         const slider = document.getElementById('slider');
         const valDisplay = document.getElementById('val-display');
         const rewardDisplay = document.getElementById('reward-display');
@@ -335,37 +226,23 @@
         slider.oninput = () => {
             const val = parseInt(slider.value);
             valDisplay.innerText = val;
-            const reward = calculateReward(val);
-            rewardDisplay.innerHTML = `+${reward} <i class="fa-solid fa-ticket"></i>`;
-            
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-                Telegram.WebApp.HapticFeedback.selectionChanged();
-            }
+            rewardDisplay.innerHTML = `+${calculateReward(val)} <i class="fa-solid fa-ticket"></i>`;
+            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
         };
 
         btn.onclick = async () => {
             const amount = parseInt(slider.value);
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-
             try {
                 const res = await fetch('/api/v1/tg/challenge/commit', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        initData: Telegram.WebApp.initData,
-                        amount: amount
-                    })
+                    body: JSON.stringify({ initData: Telegram.WebApp.initData, amount: amount })
                 });
-
                 if (!res.ok) throw new Error("Ошибка сервера");
-                
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                    Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                }
-                
-                init(); 
-
+                if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                init();
             } catch (e) {
                 Telegram.WebApp.showAlert(e.message);
                 btn.disabled = false;
@@ -379,16 +256,13 @@
         if (theory < 1) theory = 1;
         if (availableTiers && availableTiers.length > 0) {
             let best = 0;
-            for (let t of availableTiers) {
-                if (t <= theory) best = t;
-                else break;
-            }
+            for (let t of availableTiers) { if (t <= theory) best = t; else break; }
             return best > 0 ? best : availableTiers[0];
         }
         return theory;
     }
 
-    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (1в1 как в quests.js) ---
+    // --- АКТИВНЫЙ КВЕСТ (ЛОГИКА 1-В-1 С QUESTS.JS) ---
     function renderActiveQuest(data) {
         const current = data.current;
         const target = data.target;
@@ -404,13 +278,12 @@
                     <i class="fa-solid fa-gift"></i> ЗАБРАТЬ НАГРАДУ
                 </button>`;
         } else {
-            // Кнопка статуса (неактивная)
             mainButton = `
                 <button disabled class="claim-reward-button" style="width:100%; background: #2c2c2e; color: #8e8e93; box-shadow: none; cursor: default; opacity: 1; font-size:14px; padding:14px; border: 1px solid rgba(255,255,255,0.05);">
                     <i class="fa-solid fa-person-running"></i> ВЫПОЛНЯЕТСЯ...
                 </button>`;
 
-            // --- ЛОГИКА ОТМЕНЫ (1в1 с quests.js) ---
+            // Проверка кулдауна (используем глобальное поле, как в quests.js)
             const lastCancel = userData.last_quest_cancel_at;
             let cooldownEndTime = null;
             let isCooldownActive = false;
@@ -418,7 +291,7 @@
             if (lastCancel) {
                 const lastCancelDate = new Date(lastCancel);
                 const now = new Date();
-                const cooldownMs = 24 * 60 * 60 * 1000; // 24 часа
+                const cooldownMs = 24 * 60 * 60 * 1000;
                 if (now - lastCancelDate < cooldownMs) {
                     isCooldownActive = true;
                     cooldownEndTime = new Date(lastCancelDate.getTime() + cooldownMs);
@@ -428,165 +301,142 @@
             const cost = userData.next_cancel_cost || 5;
 
             if (!isCooldownActive) {
-                // Кнопка бесплатной отмены
                 cancelSectionHtml = `
                     <button id="cancel-quest-btn" class="btn-cancel btn-free" style="margin-top: 10px;">
                         Отменить бесплатно
                     </button>`;
             } else {
-                // Кнопка платной отмены + Таймер
                 cancelSectionHtml = `
                     <div class="cancel-btn-group">
-                        <button disabled id="timer-btn" class="btn-cancel btn-timer">
-                            Бесплатно через ..:..
-                        </button>
+                        <button disabled id="timer-btn" class="btn-cancel btn-timer">Бесплатно через ..:..</button>
                         <button id="paid-cancel-quest-btn" data-cost="${cost}" class="btn-cancel btn-paid">
                             <i class="fa-solid fa-ticket"></i> Отменить за ${cost} билетов
                         </button>
                     </div>`;
-                
-                // Запуск таймера
-                if (cooldownEndTime) {
-                    setTimeout(() => startCancelTimer(cooldownEndTime), 0);
-                }
+                if (cooldownEndTime) setTimeout(() => startCancelTimer(cooldownEndTime), 0);
             }
         }
 
-        // Рендерим в структуру .quest-card без инлайн-стилей размера, чтобы было как в quests.js
         container.innerHTML = `
             <div class="quest-card fade-in">
                 ${!isDone ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
-                
                 <div class="quest-content-wrapper">
-                    <div class="quest-icon tg-style">
-                        <i class="fa-brands fa-telegram"></i>
-                    </div>
+                    <div class="quest-icon tg-style"><i class="fa-brands fa-telegram"></i></div>
                     <h2 class="quest-title">Персональный Вызов</h2>
                     <p class="quest-subtitle">Написать ${target} сообщений</p>
-                    
-                    <div class="progress-bar">
+                    <div class="progress-bar" style="height: 12px; margin: 20px 0; background: rgba(255,255,255,0.1);">
                         <div class="progress-fill" style="width: ${percent}%; background: linear-gradient(90deg, #0088cc, #00c6ff);"></div>
-                        <div class="progress-content">
-                            <span class="progress-text">✉️ ${current} / ${target}</span>
-                        </div>
+                        <div class="progress-content"><span class="progress-text">✉️ ${current} / ${target}</span></div>
                     </div>
                 </div>
-
                 <div class="button-container" style="width:100%; margin-top: 15px;">
                     ${mainButton}
                     ${cancelSectionHtml}
                 </div>
             </div>
         `;
-        
         attachCancelHandlers();
     }
 
-    // --- ТАЙМЕР ОТМЕНЫ ---
     function startCancelTimer(endTime) {
         const timerBtn = document.getElementById('timer-btn');
         if (!timerBtn) return;
-
         const update = () => {
             const now = new Date();
             const diff = endTime - now;
-            
-            if (diff <= 0) {
-                init(); // Перезагружаем, чтобы появилась кнопка "Бесплатно"
-                return;
-            }
-            
+            if (diff <= 0) { init(); return; }
             const h = Math.floor(diff / 3600000);
             const m = Math.floor((diff % 3600000) / 60000);
             const s = Math.floor((diff % 60000) / 1000);
-            
             timerBtn.textContent = `Бесплатно через ${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
             requestAnimationFrame(update);
         };
         update();
     }
 
-    // --- ОБРАБОТЧИКИ КНОПОК ОТМЕНЫ ---
+    // === УМНАЯ ОТМЕНА (Попытка своего эндпоинта -> Попытка общего) ===
     function attachCancelHandlers() {
         const freeBtn = document.getElementById('cancel-quest-btn');
         const paidBtn = document.getElementById('paid-cancel-quest-btn');
 
         if (freeBtn) {
             freeBtn.onclick = () => {
-                Telegram.WebApp.showConfirm("Вы уверены? Прогресс будет сброшен. Бесплатная отмена доступна раз в 24 часа.", async (ok) => {
-                    if (ok) await requestCancel('/api/v1/quests/cancel');
+                Telegram.WebApp.showConfirm("Вы уверены? Прогресс будет сброшен. Бесплатная отмена раз в 24 часа.", async (ok) => {
+                    // Пробуем специальный эндпоинт, если нет - общий
+                    if (ok) await smartCancel('/api/v1/tg/challenge/cancel', '/api/v1/quests/cancel');
                 });
             };
         }
-
         if (paidBtn) {
             paidBtn.onclick = () => {
                 const cost = paidBtn.dataset.cost;
                 Telegram.WebApp.showConfirm(`Списать ${cost} билетов за отмену задания?`, async (ok) => {
-                    if (ok) await requestCancel('/api/v1/quests/cancel_paid');
+                    if (ok) await smartCancel('/api/v1/tg/challenge/cancel_paid', '/api/v1/quests/cancel_paid');
                 });
             };
         }
     }
 
-    async function requestCancel(url) {
-        // Блокируем кнопки
+    async function smartCancel(primaryUrl, fallbackUrl) {
         const btns = document.querySelectorAll('.btn-cancel');
         btns.forEach(b => { b.disabled = true; if(b.tagName === 'BUTTON') b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; });
-        
+
         try {
-            const res = await fetch(url, {
+            // 1. Попытка основного адреса
+            let res = await fetch(primaryUrl, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
+
+            // 2. Если 404 (нет эндпоинта), пробуем запасной
+            if (res.status === 404) {
+                console.warn(`Эндпоинт ${primaryUrl} не найден, пробуем ${fallbackUrl}`);
+                res = await fetch(fallbackUrl, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    // Добавляем ID 999 на случай, если общий сброс умеет понимать ID
+                    body: JSON.stringify({ initData: Telegram.WebApp.initData, quest_id: 999 })
+                });
+            }
+
             const result = await res.json();
             
             if (res.ok) {
                 Telegram.WebApp.showAlert(result.message || "Задание отменено.");
-                init(); // Полная перезагрузка
+                init(); 
             } else {
-                throw new Error(result.detail || "Ошибка сервера");
+                throw new Error(result.detail || result.message || "Ошибка сервера");
             }
         } catch (e) {
-            Telegram.WebApp.showAlert(e.message);
-            // Возвращаем интерфейс при ошибке
-            init();
+            Telegram.WebApp.showAlert("Ошибка: " + e.message);
+            // Если совсем ничего не сработало, хотя бы перезагрузим интерфейс
+            setTimeout(init, 1000);
         }
     }
 
     window.claimReward = async () => {
         const btn = document.querySelector('.claim-reward-button');
         if(btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
-
         try {
             const res = await fetch('/api/v1/promocode', { 
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    initData: Telegram.WebApp.initData,
-                    quest_id: QUEST_ID 
-                })
+                body: JSON.stringify({ initData: Telegram.WebApp.initData, quest_id: QUEST_ID })
             });
-
             const result = await res.json();
-            
             if (res.ok) {
                 Telegram.WebApp.showAlert("Награда получена!");
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 init(); 
-            } else {
-                throw new Error(result.detail || "Ошибка");
-            }
+            } else { throw new Error(result.detail || "Ошибка"); }
         } catch (e) {
             Telegram.WebApp.showAlert("Ошибка: " + e.message);
             if(btn) { btn.disabled = false; btn.innerText = "ЗАБРАТЬ НАГРАДУ"; }
         }
     };
 
-    // Запуск
     init();
-
 </script>
 </body>
 </html>
