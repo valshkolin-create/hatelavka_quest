@@ -6,38 +6,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   
-  <link rel="stylesheet" href="quests.css" />
+  <link rel="stylesheet" href="/quests.css" />
 
   <style>
     /* === ПРИНУДИТЕЛЬНАЯ ТЕМА TELEGRAM (СИНИЕ ТОНА) === */
+    /* Перекрываем переменные из quests.css, чтобы сделать страницу синей */
     :root {
         --primary-color: #0088cc;
         --action-color: #0088cc;
         --tg-color: #0088cc;
-        /* Переопределяем градиенты из quests.css под синий стиль */
         --primary-gradient: linear-gradient(90deg, #0088cc, #00aaff);
         --bg-gradient: radial-gradient(ellipse at 50% 100%, #0b1a2e, #000000);
         --tickets-bg: rgba(36, 161, 222, 0.15);
     }
 
+    /* Принудительный фон для body */
     body {
         background-color: #000;
         background-image: var(--bg-gradient);
         color: #fff;
     }
 
-    /* Фикс контейнера, чтобы футер не перекрывал контент */
+    /* Фикс контейнера для футера */
     #main-content {
-        padding: 20px 15px 120px 15px; /* 120px снизу для футера */
+        padding: 20px 15px 120px 15px;
         min-height: 100vh;
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
     }
 
-    /* === СТИЛИ ДЛЯ СЛАЙДЕРА (Вписанные в дизайн квестов) === */
+    /* === СТИЛИ СЛАЙДЕРА (Вписанные в дизайн квестов) === */
     .slider-card-content {
         padding: 15px;
         display: flex;
@@ -69,7 +71,6 @@
         box-sizing: border-box;
     }
 
-    /* Стилизация input type=range под дизайн */
     input[type=range] {
         width: 100%;
         -webkit-appearance: none;
@@ -93,7 +94,6 @@
         transform: scale(1.2);
     }
 
-    /* Блок награды */
     .reward-preview {
         background: rgba(0, 136, 204, 0.1);
         border: 1px solid rgba(0, 136, 204, 0.3);
@@ -112,7 +112,6 @@
         margin-top: 4px;
     }
 
-    /* Хедер (кнопка назад + билеты) */
     .header-nav {
         display: flex;
         justify-content: space-between;
@@ -133,11 +132,10 @@
         cursor: pointer;
     }
 
-    /* Анимации */
     .fade-in { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Кнопки отмены (из quest.js логики) */
+    /* Кнопки отмены */
     .cancel-btn-group {
         display: flex;
         flex-direction: column;
@@ -172,7 +170,7 @@
     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
   </div>
 
-  <main id="main-content" style="opacity: 0; transition: opacity 0.3s;">
+  <main id="main-content" class="main-content" style="opacity: 0; transition: opacity 0.3s;">
     
     <div class="header-nav">
         <button class="back-btn" onclick="window.location.href='/quests'">
@@ -203,6 +201,8 @@
     <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
   </footer>
 
+  <div id="custom-prompt-overlay" class="prompt-overlay hidden"></div>
+
 <script>
     // Инициализация Telegram
     if (window.Telegram && window.Telegram.WebApp) {
@@ -212,20 +212,20 @@
         Telegram.WebApp.setBackgroundColor('#000000');
     }
 
-    // DOM Elements
     const container = document.getElementById('dynamic-content');
     const loader = document.getElementById('loader-overlay');
     const mainContent = document.getElementById('main-content');
     const ticketStats = document.getElementById('ticketStats');
 
-    // Данные
+    // Глобальные переменные
     let userData = {};
+    let availableTiers = []; 
     const QUEST_ID = 999; // ID спец. квеста
 
     // --- 1. ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
     async function init() {
         try {
-            // Загружаем данные юзера (для баланса и таймеров отмены)
+            // Загружаем данные юзера
             const userRes = await fetch('/api/v1/user/me', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -236,22 +236,23 @@
             // Обновляем билеты
             if(userData.tickets !== undefined) ticketStats.innerText = userData.tickets;
 
-            // Загружаем статус квеста
+            // Загружаем статус квеста (слайдера)
             const questRes = await fetch('/api/v1/tg/challenge/status', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ initData: Telegram.WebApp.initData })
             });
             const questData = await questRes.json();
+            
+            // Сохраняем доступные номиналы (для слайдера)
+            if (questData.available_tiers) availableTiers = questData.available_tiers;
 
-            // Рендер в зависимости от состояния
             if (questData.active) {
                 renderActiveQuest(questData);
             } else {
                 renderSlider();
             }
 
-            // Показать контент
             loader.style.display = 'none';
             mainContent.style.opacity = '1';
 
@@ -292,9 +293,9 @@
                 </div>
             </div>
 
-            <p style="text-align: center; color: var(--text-color-muted); font-size: 12px; margin-top: 20px; line-height: 1.4; padding: 0 20px;">
+            <p style="text-align: center; color: var(--text-color-muted); font-size: 12px; margin-top: 15px; padding: 0 20px;">
                 <i class="fa-solid fa-circle-info"></i> Сообщения засчитываются автоматически в чате. 
-                Награда рассчитывается как 10% от цели.
+                Награда рассчитывается автоматически по наличию на складе.
             </p>
         `;
 
@@ -345,14 +346,28 @@
         };
     }
 
+    // --- ЛОГИКА РАСЧЕТА НАГРАДЫ (Снэппинг к базе) ---
     function calculateReward(val) {
-        // Формула: 10% от сообщений. Минимум 1.
-        let reward = Math.floor(val * 0.1);
-        if (reward < 1) reward = 1;
-        return reward;
+        // 1. Считаем "Теорию" (например, 10% от цели)
+        let theory = Math.floor(val * 0.1);
+        if (theory < 1) theory = 1;
+
+        // 2. Если есть список реальных наград из базы, ищем ближайшую снизу
+        if (availableTiers && availableTiers.length > 0) {
+            let best = 0;
+            // availableTiers должны быть отсортированы [1, 3, 5, 10...]
+            for (let t of availableTiers) {
+                if (t <= theory) best = t;
+                else break;
+            }
+            // Если даже минимум не подходит, даем самый маленький (или 0)
+            return best > 0 ? best : availableTiers[0];
+        }
+        
+        return theory; // Фолбек, если база пустая
     }
 
-    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (С ПОЛНОЦЕННОЙ ЛОГИКОЙ ОТМЕНЫ) ---
+    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (С ЛОГИКОЙ ОТМЕНЫ ИЗ QUEST.JS) ---
     function renderActiveQuest(data) {
         const current = data.current;
         const target = data.target;
@@ -421,7 +436,6 @@
             }
         }
 
-        // Рендерим HTML
         container.innerHTML = `
             <div class="quest-card fade-in" style="padding: 20px; border: 1px solid var(--tg-color);">
                 ${!isDone ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
@@ -466,7 +480,6 @@
             const diff = endTime - now;
             
             if (diff <= 0) {
-                // Время вышло - перезагружаем страницу (появится бесплатная кнопка)
                 init();
                 return;
             }
