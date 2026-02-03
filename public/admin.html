@@ -464,7 +464,7 @@
                 <button id="go-create-quest" class="admin-menu-button" style="width: auto; padding: 8px 12px; font-size: 14px;">Создать</button>
             </div>
 
-            <div style="padding: 0 5px 15px 5px;">
+            <div style="padding: 0 5px 15px 5px; display: flex; flex-direction: column; gap: 10px;">
                 <a href="/quests" class="admin-action-btn" style="
                     text-decoration: none;
                     display: flex;
@@ -481,6 +481,24 @@
                     border: 1px solid rgba(255,255,255,0.1);
                 ">
                     <i class="fa-solid fa-vial"></i> Открыть страницу квестов (/quests)
+                </a>
+
+                <a href="/tg_challenge" class="admin-action-btn" style="
+                    text-decoration: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    background: linear-gradient(90deg, #0088cc, #005f8f);
+                    color: white;
+                    font-weight: 600;
+                    font-size: 13px;
+                    padding: 10px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 12px rgba(0, 136, 204, 0.2);
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
+                    <i class="fa-solid fa-list-check"></i> Открыть ТГ Испытания (/tg_challenge)
                 </a>
             </div>
             <div id="quests-list" class="quests-container"></div>
