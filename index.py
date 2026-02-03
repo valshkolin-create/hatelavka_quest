@@ -14061,6 +14061,39 @@ async def handle_reaction_update(reaction: MessageReactionUpdated):
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
+@app.post("/api/v1/tg/challenge/cancel_paid")
+async def cancel_tg_challenge_paid(request: Request):
+    data = await request.json()
+    # Тут твоя логика получения user_id из initData
+    user = await get_user_from_init_data(data.get('initData')) 
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # 1. Проверяем, есть ли активный челлендж
+    # (Предполагаем, что статус хранится в user.challenge_active или отдельной таблице)
+    if not user.has_active_challenge: 
+        raise HTTPException(status_code=400, detail="Нет активного челленджа для отмены")
+
+    # 2. Проверяем баланс (например, цена 5 билетов)
+    cost = 5
+    if user.tickets < cost:
+        raise HTTPException(status_code=400, detail="Недостаточно билетов")
+
+    # 3. Списываем билеты и сбрасываем челлендж
+    user.tickets -= cost
+    
+    # Сброс прогресса челленджа
+    user.challenge_current = 0
+    user.challenge_active = False
+    
+    # ВАЖНО: Обновляем таймер отмены, чтобы синхронизироваться с quests.js
+    user.last_quest_cancel_at = datetime.utcnow()
+
+    await user.save() # Сохраняем в БД
+
+    return {"success": True, "message": f"Челлендж отменен. Списано {cost} билетов."}
+
 @app.post("/api/v1/tg/challenge/status")
 async def get_tg_slider_status(
     request_data: InitDataRequest,
