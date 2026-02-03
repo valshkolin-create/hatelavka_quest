@@ -2,557 +2,378 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Telegram Challenge</title>
+  <title>Telegram Вызов</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
   <link rel="stylesheet" href="quest.css" />
 
 <style>
-    /* --- БАЗОВЫЕ ПЕРЕМЕННЫЕ (Из твоего Лидерборда) --- */
-    :root {
-      --bg-color: #000000;
-      --surface-color: #1c1c1e;
-      --text-color: #ffffff;
-      --text-color-muted: #b0b0b0;
-      --tg-color: #0088cc;
-      --twitch-color: #9146ff;
-      --gold-glow: #ffd700;
-      --accent-green: #34c759;
-      --danger-color: #ff4757;
+    /* Доп. стили специфичные для этой страницы */
+    body {
+        background-color: #000; /* Черный фон как в лидерборде */
+        color: #fff;
     }
 
-    /* === ГЛАВНЫЙ ФИКС СКРОЛЛА === */
-    html, body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        position: fixed;
-        overflow: hidden; 
-        overscroll-behavior-y: none;
-        background-color: var(--bg-color);
-        color: var(--text-color);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-
-    /* === КОНТЕЙНЕР КОНТЕНТА === */
     #main-content {
-        height: 100vh; 
-        overflow-y: auto !important; 
-        -webkit-overflow-scrolling: touch; 
-        position: relative;
-        z-index: 10;
+        padding: 20px 15px 120px 15px; /* Отступы под футер */
         display: flex;
         flex-direction: column;
+        min-height: 100vh;
         box-sizing: border-box;
-        /* Отступы как в лидерборде + место под футер */
-        padding: 20px 15px 110px 15px; 
     }
 
-    /* === КРУТИЛКА ОБНОВЛЕНИЯ === */
-    #pull-to-refresh {
-        position: fixed; top: -80px; left: 0; width: 100%; height: 80px;
-        display: flex; justify-content: center; align-items: center; 
-        z-index: 2000; pointer-events: none; will-change: transform;
-    }
-    #pull-to-refresh i {
-        font-size: 24px; color: var(--gold-glow);
-        text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
-    }
-
-    /* --- ХЕДЕР С КНОПКОЙ НАЗАД --- */
-    .header-controls { 
-        display: flex; align-items: center; margin-bottom: 20px; 
-    }
-    .back-btn {
-        background: rgba(255, 255, 255, 0.1); border: none; color: var(--text-color);
-        font-size: 14px; font-weight: 500; cursor: pointer; padding: 8px 16px; border-radius: 20px;
-        display: flex; align-items: center; gap: 8px;
-        transition: background 0.2s;
-    }
-    .back-btn:active { background: rgba(255, 255, 255, 0.2); }
-
-    /* --- ОБЩЕЕ СОБЫТИЕ (Стилизация под quest.css, но крупнее) --- */
-    .community-event-card {
-        background-color: var(--surface-color);
+    /* Слайдер Контейнер */
+    .slider-wrapper {
+        background: rgba(28, 28, 30, 0.75); /* surface-glass-bg */
         border-radius: 12px;
         padding: 20px;
-        margin-bottom: 30px;
+        text-align: center;
         border: 1px solid rgba(255, 255, 255, 0.08);
-        position: relative; overflow: hidden;
-    }
-    .community-event-card h3 { margin: 10px 0; font-size: 18px; color: #fff; }
-    .event-badges { display: flex; justify-content: space-between; font-size: 11px; color: var(--tg-color); font-weight: 700; }
-    
-    /* Используем прогресс-бар стилистику, похожую на quest.js но для общего ивента */
-    .comm-progress-track {
-        background: rgba(0,0,0,0.4); height: 10px; border-radius: 5px;
-        margin: 10px 0; position: relative; overflow: hidden;
-    }
-    .comm-progress-fill {
-        background: linear-gradient(90deg, #0088cc, #00c6ff);
-        height: 100%; width: 0%; transition: width 1s; border-radius: 5px;
-    }
-    .comm-info { font-size: 12px; color: #888; display: flex; justify-content: space-between; }
-
-    /* --- ЦЕНТРАЛЬНАЯ СЕКЦИЯ (WRAPPER) --- */
-    .personal-challenge-wrapper {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        width: 100%;
-    }
-
-    /* --- СОСТОЯНИЕ 1: СЛАЙДЕР (ВЫБОР) --- */
-    .slider-display { margin-bottom: 20px; text-align: center; }
-    .count-number {
-        font-size: 72px; font-weight: 900; color: var(--tg-color);
-        line-height: 1; letter-spacing: -2px;
-        text-shadow: 0 0 30px rgba(0, 136, 204, 0.25);
-    }
-    .count-label { font-size: 14px; font-weight: 500; color: var(--text-color-muted); display: block; margin-top: 5px; }
-
-    .range-container { width: 100%; padding: 0 10px; box-sizing: border-box; margin-bottom: 40px; }
-    .custom-range {
-        -webkit-appearance: none; width: 100%; height: 8px;
-        background: #2c2c2e; border-radius: 4px; outline: none;
-    }
-    .custom-range::-webkit-slider-thumb {
-        -webkit-appearance: none; width: 32px; height: 32px;
-        background: var(--text-color); border-radius: 50%; cursor: pointer;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 4px solid var(--tg-color);
-        transition: transform 0.1s;
-    }
-    .custom-range::-webkit-slider-thumb:active { transform: scale(1.2); }
-
-    .reward-calculation {
-        background: rgba(255, 255, 255, 0.05); padding: 15px 25px; border-radius: 16px;
-        border: 1px dashed rgba(255, 255, 255, 0.15); min-width: 180px; text-align: center;
-    }
-    .reward-calculation span { font-size: 11px; color: var(--text-color-muted); text-transform: uppercase; }
-    .reward-value { font-size: 28px; font-weight: 800; margin-top: 5px; color: var(--gold-glow); }
-
-    /* --- СОСТОЯНИЕ 2: АКТИВНЫЙ КВЕСТ (СТИЛЬ QUEST.JS) --- */
-    /* Мы будем инжектить сюда HTML структуру, которая использует классы из quest.css */
-    #state-active { width: 100%; }
-    
-    /* Дополнительный контейнер чтобы отцентровать и увеличить карточку */
-    .active-quest-large-view {
-        transform: scale(1.1); /* Чуть крупнее чем в списке */
-        width: 100%;
+        backdrop-filter: blur(15px);
         margin-top: 20px;
     }
 
-    /* --- КНОПКА ДЕЙСТВИЯ --- */
-    .action-area { width: 100%; margin-top: auto; padding-top: 30px; }
-    .main-action-btn {
+    /* Огромная цифра */
+    .count-display {
+        font-size: 80px;
+        font-weight: 900;
+        color: var(--tg-color, #0088cc);
+        text-shadow: 0 0 30px rgba(0, 136, 204, 0.2);
+        line-height: 1;
+        margin: 10px 0;
+    }
+    
+    /* Инпут */
+    input[type=range] {
         width: 100%;
-        background: linear-gradient(135deg, var(--tg-color) 0%, #005f8f 100%);
-        color: white; border: none; padding: 18px;
-        font-size: 16px; font-weight: 700; border-radius: 16px;
-        cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
-        display: flex; justify-content: center; align-items: center; gap: 10px;
-        box-shadow: 0 8px 25px rgba(0, 136, 204, 0.3);
-        transition: transform 0.1s;
+        -webkit-appearance: none;
+        background: #2c2c2e;
+        height: 10px;
+        border-radius: 5px;
+        outline: none;
+        margin: 20px 0;
     }
-    .main-action-btn:active { transform: scale(0.97); }
-    .main-action-btn:disabled { background: #333; color: #666; box-shadow: none; }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 32px;
+        height: 32px;
+        background: #fff;
+        border: 4px solid var(--tg-color, #0088cc);
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 15px rgba(0, 136, 204, 0.5);
+    }
 
-    /* --- ФУТЕР --- */
-    .app-footer {
-        display: flex; justify-content: space-around; align-items: center;
-        background-color: rgba(28, 28, 30, 0.85); 
-        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        position: fixed; bottom: 0; left: 0; width: 100%; z-index: 9999;
-        padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
-        box-sizing: border-box; height: auto;
+    /* Блок награды */
+    .reward-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 215, 0, 0.1);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        padding: 8px 16px;
+        border-radius: 20px;
+        color: #FFD700;
+        font-weight: 700;
+        font-size: 18px;
     }
-    .footer-item {
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-        color: #8E8E93; text-decoration: none; flex: 1; cursor: pointer;
-        background: transparent; border: none; padding: 0; margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        font-size: 10px; line-height: 1; font-weight: 500; transition: all 0.2s ease;
+
+    /* Кнопка внизу */
+    .action-btn {
+        width: 100%;
+        padding: 16px;
+        font-size: 16px;
+        font-weight: 700;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        text-transform: uppercase;
+        margin-top: auto; /* Прижимаем к низу */
+        background: linear-gradient(90deg, #0088cc, #00aaff);
+        color: white;
+        box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
     }
-    .footer-item .icon-wrapper {
-        display: flex; justify-content: center; align-items: center;
-        width: 24px; height: 24px; font-size: 22px; position: relative;
-        transition: transform 0.2s ease, color 0.2s ease;
+    .action-btn:disabled {
+        background: #333;
+        color: #666;
+        box-shadow: none;
     }
-    .footer-item.active { color: #FFFFFF; }
-    .footer-item.active span { font-weight: 600; }
-    .footer-item.active .icon-wrapper {
-        color: var(--accent-green); transform: translateY(-2px);
-        text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
+
+    /* Хедер навигации */
+    .nav-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
     }
-    .footer-item.active .icon-wrapper::before {
-        content: ''; position: absolute; top: -8px; width: 20px; height: 2px;
-        background-color: var(--accent-green); border-radius: 2px;
-        box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
+    .back-btn {
+        background: rgba(255,255,255,0.1);
+        border: none;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
     }
+
+    /* Анимации */
+    .fade-in { animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
 
-  <main id="main-content">
-    <div id="pull-to-refresh"><i class="fa-solid fa-rotate-right"></i></div>
-
-    <div class="header-controls">
+<main id="main-content">
+    
+    <div class="nav-header">
         <button class="back-btn" onclick="window.location.href='/quests'">
             <i class="fa-solid fa-arrow-left"></i> Назад
         </button>
     </div>
 
-    <div class="community-event-card" id="community-card">
-        <div class="event-header">
-            <span class="event-badge">🔥 ОБЩАЯ ЦЕЛЬ</span>
-            <span class="event-timer" id="event-timer">--:--</span>
-        </div>
-        <h3 id="event-title">Загрузка события...</h3>
-        <div class="comm-progress-track">
-            <div class="comm-progress-fill" id="community-fill"></div>
-        </div>
-        <div class="comm-info">
-            <span id="community-text">0 / 0</span>
-            <span id="event-reward-desc">💎 Награда всем</span>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 24px;">Telegram Вызов</h1>
+        <p style="margin: 5px 0 0; color: #888; font-size: 13px;">Установи цель и забирай награду</p>
+    </div>
+
+    <div id="dynamic-content" style="flex-grow: 1; display: flex; flex-direction: column;">
+        <div style="margin: auto; color: #666;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px;"></i>
         </div>
     </div>
 
-    <div class="personal-challenge-wrapper">
-        
-        <div id="state-selector" style="width: 100%;">
-            <div style="text-align:center; margin-bottom:10px;">
-                <h2 style="margin:0; font-size:20px;">Ваша цель</h2>
-                <p style="color:#888; font-size:12px; margin:5px 0 0;">Выберите нагрузку на эту неделю</p>
-            </div>
+</main>
 
-            <div class="slider-display">
-                <div class="count-number" id="msg-count-display">100</div>
-                <span class="count-label">сообщений</span>
-            </div>
-
-            <div class="range-container">
-                <input type="range" min="10" max="500" value="100" step="10" class="custom-range" id="messageSlider">
-            </div>
-
-            <div class="reward-calculation">
-                <span>Награда за выполнение</span>
-                <div class="reward-value">
-                    +<span id="reward-amount-display">10</span> 
-                    <i class="fa-solid fa-ticket"></i>
-                </div>
-            </div>
-        </div>
-
-        <div id="state-active" class="active-quest-large-view" style="display: none;">
-            </div>
-
-    </div>
-
-    <div class="action-area">
-        <button id="commit-btn" class="main-action-btn">
-            ПРИНЯТЬ ВЫЗОВ
-        </button>
-    </div>
-
-  </main> 
-
-  <footer class="app-footer">
-    <a href="/leaderboard" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
-        <span>Лидерборд</span>
-    </a>
-    <a href="/quests" id="nav-quests" class="footer-item active">
-        <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
-        <span>Задания</span>
-    </a>
-    <a href="/menu" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
-        <span>Главная</span>
-    </a>
-    <a href="/events" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
-        <span>Гринд</span>
-    </a>
-    <a href="/auction" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
-        <span>Аукцион</span>
-    </a>
-  </footer>
+<footer class="app-footer">
+    <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
+    <a href="/quests" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
+    <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
+    <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
+    <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
+</footer>
 
 <script>
-  // Инициализация
-  if (window.Telegram && window.Telegram.WebApp) {
-      Telegram.WebApp.ready();
-      Telegram.WebApp.expand();
-      Telegram.WebApp.setHeaderColor('#000000'); 
-      Telegram.WebApp.setBackgroundColor('#000000');
-  }
+    // Инициализация
+    if (window.Telegram?.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        Telegram.WebApp.setHeaderColor('#000000'); 
+        Telegram.WebApp.setBackgroundColor('#000000');
+    }
 
-  // DOM Elements
-  const dom = {
-    slider: document.getElementById('messageSlider'),
-    countDisplay: document.getElementById('msg-count-display'),
-    rewardDisplay: document.getElementById('reward-amount-display'),
-    commitBtn: document.getElementById('commit-btn'),
+    const container = document.getElementById('dynamic-content');
     
-    stateSelector: document.getElementById('state-selector'),
-    stateActive: document.getElementById('state-active'),
-    
-    // Community
-    commTitle: document.getElementById('event-title'),
-    commFill: document.getElementById('community-fill'),
-    commText: document.getElementById('community-text'),
-    commTimer: document.getElementById('event-timer'),
-    
-    // Refresh
-    mainContent: document.getElementById('main-content'),
-    ptrContainer: document.getElementById('pull-to-refresh')
-  };
+    // Коэффициент награды (100 сообщ = 10 билетов)
+    const REWARD_RATIO = 0.1; 
 
-  let availableTiers = []; // Номиналы из базы
-  const REWARD_FACTOR = 0.1; 
+    // --- 1. ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
+    async function loadState() {
+        try {
+            // Запрашиваем статус у твоего нового эндпоинта
+            const res = await fetch('/api/v1/tg/challenge/status', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+            });
 
-  // 1. Логика Слайдера
-  function calculateReward(val) {
-      const theory = Math.floor(val * REWARD_FACTOR);
-      if (theory < 1) return 1;
-      if (!availableTiers.length) return theory; // Фолбек
+            if (!res.ok) throw new Error("Ошибка сети");
+            const data = await res.json();
 
-      let bestMatch = 0;
-      for (let t of availableTiers) {
-          if (t <= theory) bestMatch = t;
-          else break;
-      }
-      return bestMatch > 0 ? bestMatch : availableTiers[0]; 
-  }
+            // Если квест активен -> Рисуем Карточку Прогресса
+            if (data.active) {
+                renderActiveQuest(data);
+            } 
+            // Если квеста нет -> Рисуем Слайдер
+            else {
+                renderSlider();
+            }
 
-  function updateSlider() {
-      const val = parseInt(dom.slider.value);
-      dom.countDisplay.textContent = val;
-      const reward = calculateReward(val);
-      dom.rewardDisplay.textContent = reward;
-      
-      // Haptic
-      if (val % 50 === 0 && window.Telegram && Telegram.WebApp.HapticFeedback) {
-           Telegram.WebApp.HapticFeedback.selectionChanged();
-      }
-  }
+        } catch (e) {
+            container.innerHTML = `<div style="text-align:center; color:red; margin:auto;">Ошибка: ${e.message}</div>`;
+        }
+    }
 
-  dom.slider.addEventListener('input', updateSlider);
+    // --- 2. РЕНДЕР СЛАЙДЕРА ---
+    function renderSlider() {
+        container.innerHTML = `
+            <div class="slider-wrapper fade-in">
+                <div style="font-size:12px; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Цель</div>
+                <div class="count-display" id="val-display">100</div>
+                <div style="font-size:14px; color:#fff;">сообщений в чате</div>
 
-  // 2. Функция создания HTML прогресса (1в1 как в quest.js)
-  // Мы используем классы .quest-card, .progress-bar и т.д. из quest.css
-  function generateQuestCardHTML(commitment) {
-      const current = commitment.current_value;
-      const target = commitment.target_value;
-      const percent = Math.min(100, (current / target) * 100);
-      const isCompleted = current >= target;
-      
-      const statusText = isCompleted 
-        ? `<div style="color:#FFD700; margin-bottom:5px; font-weight:bold;">✨ Выполнено!</div>` 
-        : `<div style="color:#888; margin-bottom:5px;">В процессе</div>`;
+                <input type="range" id="slider" min="10" max="500" step="10" value="100">
 
-      // Эта структура должна совпадать с тем, что в quest.js для наследования стилей
-      return `
-        <div class="quest-card" style="border: 1px solid var(--tg-color); box-shadow: 0 0 15px rgba(0,136,204,0.2);">
-            ${statusText}
-            <div class="quest-content-wrapper">
-                <div class="quest-icon"><i class="fa-solid fa-person-running"></i></div>
-                <h2 class="quest-title" style="font-size:18px;">Мой Челлендж</h2>
-                <p class="quest-subtitle">Написать ${target} сообщений</p>
-                
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${percent}%;"></div>
-                    <div class="progress-content">
-                        <span class="progress-text">💬 ${current} / ${target}</span>
+                <div style="margin-top: 30px;">
+                    <div class="reward-pill">
+                        <span id="reward-display">+10</span> 
+                        <i class="fa-solid fa-ticket"></i>
                     </div>
+                    <div style="margin-top:8px; font-size:11px; color:#666;">Награда за выполнение</div>
                 </div>
             </div>
-            
-            <div style="margin-top:15px; text-align:right;">
-                <span style="font-size:12px; color:#888;">Награда: </span>
-                <span style="font-weight:bold; color:#fff;">${commitment.reward_amount} <i class="fa-solid fa-ticket"></i></span>
+
+            <div style="background: rgba(0, 136, 204, 0.1); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 10px; padding: 12px; margin-top: 20px; font-size: 12px; color: #8ecae6; line-height: 1.4;">
+                <i class="fa-solid fa-circle-info" style="margin-right: 5px;"></i>
+                Сообщения считаются автоматически. Выбери цель, которую реально сможешь выполнить!
             </div>
-        </div>
-      `;
-  }
 
-  // 3. Загрузка данных
-  async function loadData() {
-      dom.commitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
-      dom.commitBtn.disabled = true;
+            <button id="btn-start" class="action-btn">
+                ПРИНЯТЬ ВЫЗОВ
+            </button>
+        `;
 
-      try {
-          const res = await fetch('/api/v1/tg/challenge/status', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ initData: Telegram.WebApp.initData })
-          });
-          const data = await res.json();
+        const slider = document.getElementById('slider');
+        const valDisplay = document.getElementById('val-display');
+        const rewardDisplay = document.getElementById('reward-display');
+        const btn = document.getElementById('btn-start');
 
-          if (data.available_tiers) availableTiers = data.available_tiers;
+        // Логика пересчета
+        slider.oninput = () => {
+            const val = parseInt(slider.value);
+            valDisplay.innerText = val;
+            
+            // Расчет: минимум 1 билет
+            let reward = Math.floor(val * REWARD_RATIO);
+            if (reward < 1) reward = 1;
+            
+            rewardDisplay.innerText = `+${reward}`;
+            
+            // Вибрация
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.selectionChanged();
+            }
+        };
 
-          // Обновляем Global Event
-          if (data.has_active_event && data.event) {
-             const ev = data.event;
-             dom.commTitle.textContent = ev.title;
-             const p = Math.min(100, (ev.current_global_progress / ev.global_goal) * 100);
-             dom.commFill.style.width = `${p}%`;
-             dom.commText.textContent = `${ev.current_global_progress.toLocaleString()} / ${ev.global_goal.toLocaleString()}`;
-             
-             // Простой таймер
-             const end = new Date(ev.end_date);
-             const now = new Date();
-             const diff = end - now;
-             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-             const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-             dom.commTimer.textContent = `⏳ ${days}д ${hours}ч`;
+        // Логика старта
+        btn.onclick = async () => {
+            const amount = parseInt(slider.value);
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
 
-          } else {
-             document.getElementById('community-card').innerHTML = '<p style="padding:10px; color:#666">Нет активных событий</p>';
-          }
+            try {
+                const res = await fetch('/api/v1/tg/challenge/commit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        initData: Telegram.WebApp.initData,
+                        amount: amount
+                    })
+                });
 
-          // Проверяем состояние юзера
-          if (data.user_commitment) {
-             renderActiveMode(data.user_commitment);
-          } else {
-             renderSelectorMode();
-          }
+                if (!res.ok) throw new Error("Ошибка сервера");
+                
+                // Успех -> Перезагружаем интерфейс (покажет активный квест)
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+                loadState();
 
-      } catch (e) {
-          console.error(e);
-          dom.commitBtn.innerText = "Ошибка сети";
-      }
-  }
+            } catch (e) {
+                Telegram.WebApp.showAlert("Не удалось создать вызов: " + e.message);
+                btn.disabled = false;
+                btn.innerText = "ПРИНЯТЬ ВЫЗОВ";
+            }
+        };
+    }
 
-  // РЕЖИМ 1: Выбор (Слайдер)
-  function renderSelectorMode() {
-      dom.stateSelector.style.display = 'block';
-      dom.stateActive.style.display = 'none';
-      dom.commitBtn.disabled = false;
-      dom.commitBtn.innerText = 'ПРИНЯТЬ ВЫЗОВ';
-      dom.commitBtn.onclick = commitChallenge;
-      updateSlider();
-  }
+    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (Стиль quest.css) ---
+    function renderActiveQuest(data) {
+        // Мы используем HTML структуру из quest.js, чтобы классы .quest-card, .progress-bar подхватились из quest.css
+        
+        const isDone = data.current >= data.target;
+        
+        let btnHtml = '';
+        if (isDone) {
+            // Если выполнено - кнопка забрать (используем существующий API квестов или промокодов)
+            // Но тут у нас ID 999. Нужно решить, как забирать.
+            // Для простоты, покажем "Забрать" и вызовем обычный claim (надо будет адаптировать API под ID 999)
+            // В твоем случае лучше использовать /api/v1/promocode с quest_id=999
+            
+            btnHtml = `
+                <button onclick="claimReward()" class="claim-reward-button" style="width:100%; margin-top:15px;">
+                    <i class="fa-solid fa-gift"></i> ЗАБРАТЬ НАГРАДУ
+                </button>
+            `;
+        } else {
+            btnHtml = `
+                <button disabled class="claim-reward-button" style="width:100%; margin-top:15px; background:#333; color:#777; box-shadow:none;">
+                    В ПРОЦЕССЕ...
+                </button>
+            `;
+        }
 
-  // РЕЖИМ 2: Активный (Прогресс из quest.js)
-  function renderActiveMode(commitment) {
-      dom.stateSelector.style.display = 'none';
-      dom.stateActive.style.display = 'block';
-      
-      // Генерируем HTML карточку, используя стили quest.css
-      dom.stateActive.innerHTML = generateQuestCardHTML(commitment);
+        container.innerHTML = `
+            <div style="margin: auto; width: 100%; max-width: 400px;" class="fade-in">
+                
+                <div class="quest-card" style="padding: 20px; border: 1px solid var(--tg-color);">
+                    
+                    <div class="quest-content-wrapper">
+                        <div class="quest-icon" style="font-size: 32px; margin-bottom: 10px;">
+                            <i class="fa-brands fa-telegram"></i>
+                        </div>
+                        
+                        <h2 class="quest-title" style="font-size: 18px;">Персональный Вызов</h2>
+                        <p class="quest-subtitle" style="font-size: 13px;">Написать ${data.target} сообщений</p>
+                        
+                        <div class="progress-bar" style="height: 12px; margin: 15px 0;">
+                            <div class="progress-fill" style="width: ${data.percent}%;"></div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; margin-top: 5px;">
+                            <span>${data.current} / ${data.target}</span>
+                            <span style="color: #FFD700;">+${data.reward} <i class="fa-solid fa-ticket"></i></span>
+                        </div>
+                    </div>
 
-      // Логика кнопки
-      if (commitment.current_value >= commitment.target_value) {
-          if (commitment.status === 'claimed') {
-              dom.commitBtn.innerText = "✅ НАГРАДА ПОЛУЧЕНА";
-              dom.commitBtn.disabled = true;
-              dom.commitBtn.style.background = "#2c2c2e";
-          } else {
-              dom.commitBtn.innerText = "🎁 ЗАБРАТЬ НАГРАДУ";
-              dom.commitBtn.disabled = false;
-              // Сюда можно повесить функцию claim (когда будет готова на бэке)
-              dom.commitBtn.onclick = () => { Telegram.WebApp.showAlert("Награда зачисляется автоматически!"); };
-          }
-      } else {
-          dom.commitBtn.innerText = "В ПРОЦЕССЕ...";
-          dom.commitBtn.disabled = true;
-          dom.commitBtn.style.background = "#2c2c2e";
-          dom.commitBtn.style.color = "#666";
-      }
-  }
+                    ${btnHtml}
+                    
+                </div>
 
-  // 4. Отправка "Принять вызов"
-  async function commitChallenge() {
-      const amount = parseInt(dom.slider.value);
-      dom.commitBtn.disabled = true;
-      dom.commitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                <p style="text-align: center; color: #666; font-size: 12px; margin-top: 20px;">
+                    Прогресс обновляется автоматически при отправке сообщений.
+                </p>
+            </div>
+        `;
+    }
 
-      try {
-          if (window.Telegram && Telegram.WebApp.HapticFeedback) {
-              Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-          }
+    // Функция клейма (использует стандартный механизм квестов)
+    window.claimReward = async () => {
+        const btn = document.querySelector('.claim-reward-button');
+        if(btn) { btn.disabled = true; btn.innerHTML = '...'; }
 
-          const res = await fetch('/api/v1/tg/challenge/commit', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ 
-                  initData: Telegram.WebApp.initData,
-                  amount: amount
-              })
-          });
-          
-          if (!res.ok) {
-              const err = await res.json();
-              throw new Error(err.detail || "Ошибка");
-          }
-          
-          // Успех -> перезагрузка для смены состояния
-          window.location.reload();
+        try {
+            // Используем стандартный эндпоинт квестов, так как мы записали это в user_quest_progress
+            // ID квеста = 999 (как мы договорились в SQL)
+            const res = await fetch('/api/v1/promocode', { 
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    initData: Telegram.WebApp.initData,
+                    quest_id: 999 
+                })
+            });
 
-      } catch (e) {
-          Telegram.WebApp.showAlert(e.message);
-          dom.commitBtn.disabled = false;
-          dom.commitBtn.innerText = "Попробовать снова";
-      }
-  }
+            const result = await res.json();
+            
+            if (res.ok) {
+                Telegram.WebApp.showAlert("Награда получена!");
+                loadState(); // Перезагрузка
+            } else {
+                throw new Error(result.detail || "Ошибка");
+            }
+        } catch (e) {
+            Telegram.WebApp.showAlert("Ошибка: " + e.message);
+            if(btn) { btn.disabled = false; btn.innerText = "ЗАБРАТЬ"; }
+        }
+    };
 
-  // 5. Pull to Refresh (Твой код)
-  function initPullToRefresh() {
-      const content = dom.mainContent;
-      const ptr = dom.ptrContainer;
-      const icon = ptr.querySelector('i');
-      let startY = 0; let pulled = 0; let isPulling = false;
+    // Старт
+    loadState();
 
-      content.addEventListener('touchstart', (e) => {
-          if (content.scrollTop <= 0) {
-              startY = e.touches[0].clientY;
-              isPulling = true;
-              content.style.transition = ptr.style.transition = icon.style.transition = 'none';
-          }
-      }, {passive: true});
-
-      content.addEventListener('touchmove', (e) => {
-          if (!isPulling) return;
-          const diff = e.touches[0].clientY - startY;
-          if (diff > 0 && content.scrollTop <= 0) {
-              if (e.cancelable) e.preventDefault();
-              pulled = Math.pow(diff, 0.85);
-              if (pulled > 180) pulled = 180;
-              content.style.transform = `translateY(${pulled}px)`;
-              ptr.style.transform = `translateY(${pulled}px)`;
-              icon.style.transform = `rotate(${pulled * 2.5}deg)`;
-              icon.style.color = pulled > 80 ? "#34c759" : "#FFD700";
-          }
-      }, {passive: false});
-
-      content.addEventListener('touchend', () => {
-          if (!isPulling) return;
-          isPulling = false;
-          content.style.transition = ptr.style.transition = 'transform 0.3s ease-out';
-          if (pulled > 80) {
-              content.style.transform = ptr.style.transform = `translateY(80px)`;
-              icon.classList.add('fa-spin');
-              setTimeout(() => window.location.reload(), 500);
-          } else {
-              content.style.transform = ptr.style.transform = 'translateY(0px)';
-          }
-          pulled = 0;
-      });
-  }
-
-  // Запуск
-  loadData();
-  initPullToRefresh();
 </script>
 </body>
 </html>
