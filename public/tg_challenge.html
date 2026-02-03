@@ -4,160 +4,148 @@
   <meta charset="UTF-8" />
   <title>Telegram Вызов</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   
-  <link rel="stylesheet" href="quest.css" />
+  <link rel="stylesheet" href="/quests.css?v=2" />
 
-<style>
-    /* Доп. стили специфичные для этой страницы */
-    body {
-        background-color: #000; /* Черный фон как в лидерборде */
-        color: #fff;
-    }
+  <style>
+    /* Дополнительные стили, специфичные для слайдера, 
+       но использующие твои переменные из quest.css */
 
-    #main-content {
-        padding: 20px 15px 120px 15px; /* Отступы под футер */
+    /* Контейнер для слайдера, стилизованный под quest-card */
+    .slider-card-content {
+        padding: 10px;
         display: flex;
         flex-direction: column;
-        min-height: 100vh;
-        box-sizing: border-box;
-    }
-
-    /* Слайдер Контейнер */
-    .slider-wrapper {
-        background: rgba(28, 28, 30, 0.75); /* surface-glass-bg */
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(15px);
-        margin-top: 20px;
+        align-items: center;
+        gap: 15px;
     }
 
     /* Огромная цифра */
     .count-display {
-        font-size: 80px;
+        font-size: 64px;
         font-weight: 900;
-        color: var(--tg-color, #0088cc);
-        text-shadow: 0 0 30px rgba(0, 136, 204, 0.2);
+        color: var(--telegram-color, #0088CC); /* Используем переменную из quest.css */
+        text-shadow: 0 0 30px rgba(0, 136, 204, 0.3);
         line-height: 1;
-        margin: 10px 0;
+        margin-top: 10px;
     }
     
-    /* Инпут */
+    .slider-label {
+        font-size: 13px;
+        color: var(--text-color-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+
+    /* Кастомный Input Range, вписанный в дизайн */
+    .range-wrapper {
+        width: 100%;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
     input[type=range] {
         width: 100%;
         -webkit-appearance: none;
-        background: #2c2c2e;
-        height: 10px;
-        border-radius: 5px;
+        background: rgba(255,255,255,0.1);
+        height: 6px;
+        border-radius: 3px;
         outline: none;
-        margin: 20px 0;
     }
     input[type=range]::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 32px;
-        height: 32px;
+        width: 24px;
+        height: 24px;
         background: #fff;
-        border: 4px solid var(--tg-color, #0088cc);
+        border: 3px solid var(--telegram-color, #0088CC);
         border-radius: 50%;
         cursor: pointer;
-        box-shadow: 0 0 15px rgba(0, 136, 204, 0.5);
+        box-shadow: 0 0 15px var(--telegram-color);
+        transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:active {
+        transform: scale(1.2);
     }
 
-    /* Блок награды */
-    .reward-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: rgba(255, 215, 0, 0.1);
-        border: 1px solid rgba(255, 215, 0, 0.3);
-        padding: 8px 16px;
-        border-radius: 20px;
-        color: #FFD700;
-        font-weight: 700;
-        font-size: 18px;
-    }
-
-    /* Кнопка внизу */
-    .action-btn {
-        width: 100%;
-        padding: 16px;
-        font-size: 16px;
-        font-weight: 700;
+    /* Блок награды внутри слайдера */
+    .reward-preview {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
-        border: none;
-        cursor: pointer;
-        text-transform: uppercase;
-        margin-top: auto; /* Прижимаем к низу */
-        background: linear-gradient(90deg, #0088cc, #00aaff);
-        color: white;
-        box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
-    }
-    .action-btn:disabled {
-        background: #333;
-        color: #666;
-        box-shadow: none;
+        padding: 10px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        box-sizing: border-box;
     }
 
-    /* Хедер навигации */
-    .nav-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    .back-btn {
-        background: rgba(255,255,255,0.1);
-        border: none;
-        color: #fff;
-        padding: 8px 14px;
-        border-radius: 20px;
-        font-size: 14px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 5px;
+    .reward-val {
+        font-size: 28px;
+        font-weight: 800;
+        color: #FFD700;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
     }
 
-    /* Анимации */
-    .fade-in { animation: fadeIn 0.4s ease; }
+    /* Кнопка назад в стиле заголовка */
+    .header-bar {
+        display: flex;
+        align-items: center;
+        padding-bottom: 15px;
+    }
+    .back-icon {
+        color: var(--text-color-muted);
+        font-size: 20px;
+        margin-right: 15px;
+        cursor: pointer;
+    }
+    .header-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--text-color);
+    }
+
+    /* Анимация появления */
+    .fade-in { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-</style>
+  </style>
 </head>
 <body>
 
-<main id="main-content">
+  <div id="loader-overlay" style="display: flex; flex-direction: column; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
+    <div class="spinner" style="width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    <div id="loading-text" style="color: #fff; margin-top: 15px; font-family: sans-serif; font-weight: bold; font-size: 18px;">Загрузка...</div>
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+  </div>
+
+  <main id="main-content" class="main-content" style="opacity: 0; transition: opacity 0.3s;">
     
-    <div class="nav-header">
-        <button class="back-btn" onclick="window.location.href='/quests'">
-            <i class="fa-solid fa-arrow-left"></i> Назад
-        </button>
+    <div class="header-bar">
+        <i class="fa-solid fa-arrow-left back-icon" onclick="window.location.href='/quests'"></i>
+        <span class="header-title">Telegram Вызов</span>
     </div>
 
-    <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 24px;">Telegram Вызов</h1>
-        <p style="margin: 5px 0 0; color: #888; font-size: 13px;">Установи цель и забирай награду</p>
-    </div>
+    <div id="dynamic-content" class="fade-in"></div>
 
-    <div id="dynamic-content" style="flex-grow: 1; display: flex; flex-direction: column;">
-        <div style="margin: auto; color: #666;">
-            <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px;"></i>
-        </div>
-    </div>
+  </main>
 
-</main>
-
-<footer class="app-footer">
+  <footer class="app-footer">
     <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
     <a href="/quests" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
     <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
     <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
     <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
-</footer>
+  </footer>
+
+  <div id="custom-prompt-overlay" class="prompt-overlay hidden"></div>
 
 <script>
-    // Инициализация
+    // Инициализация Telegram
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
@@ -166,14 +154,16 @@
     }
 
     const container = document.getElementById('dynamic-content');
-    
-    // Коэффициент награды (100 сообщ = 10 билетов)
-    const REWARD_RATIO = 0.1; 
+    const loader = document.getElementById('loader-overlay');
+    const mainContent = document.getElementById('main-content');
+
+    // ID специального квеста (созданного в SQL)
+    const SLIDER_QUEST_ID = 999; 
 
     // --- 1. ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
     async function loadState() {
         try {
-            // Запрашиваем статус у твоего нового эндпоинта
+            // Запрашиваем статус (существует ли прогресс по квесту 999)
             const res = await fetch('/api/v1/tg/challenge/status', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -192,38 +182,48 @@
                 renderSlider();
             }
 
+            // Убираем лоадер
+            loader.style.display = 'none';
+            mainContent.style.opacity = '1';
+
         } catch (e) {
-            container.innerHTML = `<div style="text-align:center; color:red; margin:auto;">Ошибка: ${e.message}</div>`;
+            container.innerHTML = `<div style="text-align:center; color:red; margin-top:50px;">Ошибка: ${e.message}</div>`;
+            loader.style.display = 'none';
+            mainContent.style.opacity = '1';
         }
     }
 
-    // --- 2. РЕНДЕР СЛАЙДЕРА ---
+    // --- 2. РЕНДЕР СЛАЙДЕРА (В стиле quest-card) ---
     function renderSlider() {
+        // Мы используем класс .quest-card из твоего CSS, чтобы фон и блюр были идентичны
         container.innerHTML = `
-            <div class="slider-wrapper fade-in">
-                <div style="font-size:12px; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Цель</div>
-                <div class="count-display" id="val-display">100</div>
-                <div style="font-size:14px; color:#fff;">сообщений в чате</div>
-
-                <input type="range" id="slider" min="10" max="500" step="10" value="100">
-
-                <div style="margin-top: 30px;">
-                    <div class="reward-pill">
-                        <span id="reward-display">+10</span> 
-                        <i class="fa-solid fa-ticket"></i>
+            <div class="quest-card fade-in">
+                
+                <div class="slider-card-content">
+                    <span class="slider-label">ВЫБЕРИТЕ ЦЕЛЬ НА НЕДЕЛЮ</span>
+                    
+                    <div class="count-display" id="val-display">100</div>
+                    
+                    <div class="range-wrapper">
+                        <input type="range" id="slider" min="10" max="500" step="10" value="100">
                     </div>
-                    <div style="margin-top:8px; font-size:11px; color:#666;">Награда за выполнение</div>
+
+                    <div class="reward-preview">
+                        <span class="quest-subtitle" style="margin-bottom:5px;">НАГРАДА</span>
+                        <div class="reward-val" id="reward-display">+10 <i class="fa-solid fa-ticket"></i></div>
+                    </div>
+                </div>
+
+                <div class="button-container" style="width:100%; margin-top:10px;">
+                    <button id="btn-start" class="claim-reward-button" style="width:100%; font-size:16px; padding:14px;">
+                        ПРИНЯТЬ ВЫЗОВ
+                    </button>
                 </div>
             </div>
 
-            <div style="background: rgba(0, 136, 204, 0.1); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 10px; padding: 12px; margin-top: 20px; font-size: 12px; color: #8ecae6; line-height: 1.4;">
-                <i class="fa-solid fa-circle-info" style="margin-right: 5px;"></i>
-                Сообщения считаются автоматически. Выбери цель, которую реально сможешь выполнить!
-            </div>
-
-            <button id="btn-start" class="action-btn">
-                ПРИНЯТЬ ВЫЗОВ
-            </button>
+            <p style="text-align: center; color: var(--text-color-muted); font-size: 12px; margin-top: 15px; padding: 0 20px;">
+                Сообщения засчитываются автоматически из чата. <br> Награда зависит от сложности.
+            </p>
         `;
 
         const slider = document.getElementById('slider');
@@ -231,16 +231,16 @@
         const rewardDisplay = document.getElementById('reward-display');
         const btn = document.getElementById('btn-start');
 
-        // Логика пересчета
+        // Логика пересчета (10% от цели)
         slider.oninput = () => {
             const val = parseInt(slider.value);
             valDisplay.innerText = val;
             
-            // Расчет: минимум 1 билет
-            let reward = Math.floor(val * REWARD_RATIO);
+            // Расчет: 10% от цели, минимум 1
+            let reward = Math.floor(val * 0.1);
             if (reward < 1) reward = 1;
             
-            rewardDisplay.innerText = `+${reward}`;
+            rewardDisplay.innerHTML = `+${reward} <i class="fa-solid fa-ticket"></i>`;
             
             // Вибрация
             if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -252,7 +252,7 @@
         btn.onclick = async () => {
             const amount = parseInt(slider.value);
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+            btn.innerHTML = '<div class="spinner" style="width:20px; height:20px; border-width:2px;"></div>';
 
             try {
                 const res = await fetch('/api/v1/tg/challenge/commit', {
@@ -266,10 +266,11 @@
 
                 if (!res.ok) throw new Error("Ошибка сервера");
                 
-                // Успех -> Перезагружаем интерфейс (покажет активный квест)
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 }
+                
+                // Перезагружаем состояние
                 loadState();
 
             } catch (e) {
@@ -280,80 +281,80 @@
         };
     }
 
-    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (Стиль quest.css) ---
+    // --- 3. РЕНДЕР АКТИВНОГО КВЕСТА (Абсолютно 1в1 как в quests.js) ---
     function renderActiveQuest(data) {
-        // Мы используем HTML структуру из quest.js, чтобы классы .quest-card, .progress-bar подхватились из quest.css
+        const current = data.current;
+        const target = data.target;
+        const percent = Math.min(100, (current / target) * 100);
+        const isDone = current >= target;
         
-        const isDone = data.current >= data.target;
+        let buttonHtml = '';
         
-        let btnHtml = '';
         if (isDone) {
-            // Если выполнено - кнопка забрать (используем существующий API квестов или промокодов)
-            // Но тут у нас ID 999. Нужно решить, как забирать.
-            // Для простоты, покажем "Забрать" и вызовем обычный claim (надо будет адаптировать API под ID 999)
-            // В твоем случае лучше использовать /api/v1/promocode с quest_id=999
-            
-            btnHtml = `
-                <button onclick="claimReward()" class="claim-reward-button" style="width:100%; margin-top:15px;">
+            // Кнопка ЗАБРАТЬ
+            buttonHtml = `
+                <button onclick="claimReward()" class="claim-reward-button" style="width:100%;">
                     <i class="fa-solid fa-gift"></i> ЗАБРАТЬ НАГРАДУ
-                </button>
-            `;
+                </button>`;
         } else {
-            btnHtml = `
-                <button disabled class="claim-reward-button" style="width:100%; margin-top:15px; background:#333; color:#777; box-shadow:none;">
+            // Кнопка В ПРОЦЕССЕ (неактивная)
+            buttonHtml = `
+                <button disabled class="claim-reward-button" style="width:100%; background: #333; color: #777; box-shadow: none; cursor: default;">
                     В ПРОЦЕССЕ...
-                </button>
-            `;
+                </button>`;
         }
 
+        // Мы используем ту же структуру HTML, что и в renderActiveAutomaticQuest
         container.innerHTML = `
-            <div style="margin: auto; width: 100%; max-width: 400px;" class="fade-in">
+            <div class="quest-card fade-in">
+                ${!isDone ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
                 
-                <div class="quest-card" style="padding: 20px; border: 1px solid var(--tg-color);">
+                <div class="quest-content-wrapper">
+                    <div class="quest-icon">
+                        <i class="fa-brands fa-telegram"></i>
+                    </div>
                     
-                    <div class="quest-content-wrapper">
-                        <div class="quest-icon" style="font-size: 32px; margin-bottom: 10px;">
-                            <i class="fa-brands fa-telegram"></i>
-                        </div>
-                        
-                        <h2 class="quest-title" style="font-size: 18px;">Персональный Вызов</h2>
-                        <p class="quest-subtitle" style="font-size: 13px;">Написать ${data.target} сообщений</p>
-                        
-                        <div class="progress-bar" style="height: 12px; margin: 15px 0;">
-                            <div class="progress-fill" style="width: ${data.percent}%;"></div>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; margin-top: 5px;">
-                            <span>${data.current} / ${data.target}</span>
-                            <span style="color: #FFD700;">+${data.reward} <i class="fa-solid fa-ticket"></i></span>
+                    <h2 class="quest-title">Персональный Вызов</h2>
+                    <p class="quest-subtitle">Написать ${target} сообщений</p>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percent}%;"></div>
+                        <div class="progress-content">
+                            <span class="progress-text">💬 ${current} / ${target}</span>
                         </div>
                     </div>
-
-                    ${btnHtml}
                     
+                    <div style="margin-top:10px; font-size:12px; color:#888;">
+                        Награда: <span style="color:#fff; font-weight:bold;">${data.reward} <i class="fa-solid fa-ticket" style="color:#FFD700;"></i></span>
+                    </div>
                 </div>
 
-                <p style="text-align: center; color: #666; font-size: 12px; margin-top: 20px;">
-                    Прогресс обновляется автоматически при отправке сообщений.
-                </p>
+                <div class="button-container">
+                    ${buttonHtml}
+                </div>
             </div>
+            
+            ${!isDone ? `
+                <div style="margin-top: 15px; text-align: center;">
+                     <button onclick="cancelChallenge()" style="background:none; border:none; color:#555; font-size:12px; text-decoration:underline;">Отменить вызов</button>
+                </div>
+            ` : ''}
         `;
     }
 
-    // Функция клейма (использует стандартный механизм квестов)
+    // Функция клейма (через стандартный API промокодов/наград)
     window.claimReward = async () => {
         const btn = document.querySelector('.claim-reward-button');
         if(btn) { btn.disabled = true; btn.innerHTML = '...'; }
 
         try {
-            // Используем стандартный эндпоинт квестов, так как мы записали это в user_quest_progress
-            // ID квеста = 999 (как мы договорились в SQL)
+            // Используем стандартный эндпоинт квестов с ID 999
             const res = await fetch('/api/v1/promocode', { 
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     initData: Telegram.WebApp.initData,
-                    quest_id: 999 
+                    quest_id: SLIDER_QUEST_ID 
                 })
             });
 
@@ -361,7 +362,7 @@
             
             if (res.ok) {
                 Telegram.WebApp.showAlert("Награда получена!");
-                loadState(); // Перезагрузка
+                loadState(); 
             } else {
                 throw new Error(result.detail || "Ошибка");
             }
@@ -371,7 +372,28 @@
         }
     };
 
-    // Старт
+    // Функция отмены (опционально)
+    window.cancelChallenge = async () => {
+        Telegram.WebApp.showConfirm("Вы уверены? Прогресс будет потерян.", async (ok) => {
+            if (ok) {
+                try {
+                    // Используем стандартную отмену квеста
+                    // Но так как это "особый" квест, лучше сбросить через API 
+                    // (или можно просто использовать /api/v1/quests/cancel, если он поддерживает сброс по active_quest_id в users)
+                    // Но у нас свой user_quest_progress.
+                    // Для простоты пока вызовем обычную отмену, если она работает с users table.
+                    // Если нет - нужно добавить эндпоинт сброса.
+                    // В данном коде я предполагаю, что пользователь просто хочет выйти.
+                    
+                    // Для примера просто перезагрузим страницу выбора (в реале нужен API call)
+                    // Для полной реализации нужен эндпоинт очистки user_quest_progress для ID 999.
+                    Telegram.WebApp.showAlert("Функция отмены пока не подключена к API.");
+                } catch(e) {}
+            }
+        });
+    };
+
+    // Запуск
     loadState();
 
 </script>
