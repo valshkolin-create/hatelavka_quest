@@ -14063,37 +14063,61 @@ async def handle_reaction_update(reaction: MessageReactionUpdated):
 
 @app.post("/api/v1/tg/challenge/cancel_paid")
 async def cancel_tg_challenge_paid(request: Request):
-    data = await request.json()
-    # Тут твоя логика получения user_id из initData
-    user = await get_user_from_init_data(data.get('initData')) 
-    
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        data = await request.json()
+        init_data = data.get('initData')
 
-    # 1. Проверяем, есть ли активный челлендж
-    # (Предполагаем, что статус хранится в user.challenge_active или отдельной таблице)
-    if not user.has_active_challenge: 
-        raise HTTPException(status_code=400, detail="Нет активного челленджа для отмены")
+        # 1. Получаем ID пользователя (используем ВАШУ существующую функцию)
+        # Обратите внимание: функция может называться get_user_id_from_init_data
+        # Если она асинхронная, добавьте await перед вызовом. Если нет — уберите.
+        telegram_id = get_user_id_from_init_data(init_data) 
+        
+        if not telegram_id:
+            raise HTTPException(status_code=401, detail="Ошибка авторизации: неверный initData")
 
-    # 2. Проверяем баланс (например, цена 5 билетов)
-    cost = 5
-    if user.tickets < cost:
-        raise HTTPException(status_code=400, detail="Недостаточно билетов")
+        # 2. Получаем данные пользователя из Supabase
+        # (предполагаем, что таблица называется 'users' или 'profiles' — проверьте название!)
+        response = supabase.table('users').select('*').eq('telegram_id', telegram_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+            
+        user = response.data[0] # Это словарь (dict), а не объект
 
-    # 3. Списываем билеты и сбрасываем челлендж
-    user.tickets -= cost
-    
-    # Сброс прогресса челленджа
-    user.challenge_current = 0
-    user.challenge_active = False
-    
-    # ВАЖНО: Обновляем таймер отмены, чтобы синхронизироваться с quests.js
-    user.last_quest_cancel_at = datetime.utcnow()
+        # 3. Логика проверки (обращаемся к полям как user['field'])
+        # Если поля tg_challenge_active нет, считаем, что челленджа нет
+        if not user.get('tg_challenge_active'):
+             raise HTTPException(status_code=400, detail="Нет активного челленджа для отмены")
 
-    await user.save() # Сохраняем в БД
+        cost = 5
+        user_tickets = user.get('tickets', 0)
+        
+        if user_tickets < cost:
+            raise HTTPException(status_code=400, detail=f"Недостаточно билетов (нужно {cost}, есть {user_tickets})")
 
-    return {"success": True, "message": f"Челлендж отменен. Списано {cost} билетов."}
+        # 4. Формируем обновление для базы
+        update_payload = {
+            "tickets": user_tickets - cost,
+            "tg_challenge_active": False,
+            "tg_challenge_current": 0,
+            # Важно: Supabase требует дату в формате ISO строки
+            "last_quest_cancel_at": datetime.utcnow().isoformat()
+        }
 
+        # 5. Отправляем изменения в Supabase
+        supabase.table('users').update(update_payload).eq('telegram_id', telegram_id).execute()
+
+        return {"success": True, "message": f"Челлендж отменен. Списано {cost} билетов."}
+
+    except Exception as e:
+        # Логируем ошибку в консоль сервера, чтобы видеть детали
+        print(f"Error in cancel_tg_challenge_paid: {str(e)}")
+        # Если ошибка уже HTTPException, пробрасываем её дальше
+        if isinstance(e, HTTPException):
+            raise e
+        # Иначе возвращаем 500
+        raise HTTPException(status_code=500, detail=str(e))
+        
 @app.post("/api/v1/tg/challenge/status")
 async def get_tg_slider_status(
     request_data: InitDataRequest,
