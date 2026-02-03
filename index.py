@@ -14061,19 +14061,22 @@ async def handle_reaction_update(reaction: MessageReactionUpdated):
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
+from datetime import datetime
+from fastapi import Request, HTTPException
+
 @app.post("/api/v1/tg/challenge/cancel_paid")
 async def cancel_tg_challenge_paid(request: Request):
     try:
         data = await request.json()
         init_data = data.get('initData')
 
-        # 🔥 ИСПРАВЛЕНИЕ: Добавили await перед вызовом функции
-        telegram_id = await get_user_id_from_init_data(init_data) 
+        # 1. Авторизация (с await)
+        telegram_id = await get_user_id_from_init_data(init_data)
         
         if not telegram_id:
             raise HTTPException(status_code=401, detail="Ошибка авторизации: неверный initData")
 
-        # 2. Получаем данные пользователя
+        # 2. Получаем данные пользователя из Supabase
         response = supabase.table('users').select('*').eq('telegram_id', telegram_id).execute()
         
         if not response.data or len(response.data) == 0:
@@ -14082,28 +14085,39 @@ async def cancel_tg_challenge_paid(request: Request):
         user = response.data[0]
 
         # 3. Проверка наличия челленджа
-        # Проверяем оба варианта ключа (на случай, если в базе он называется иначе)
+        # Проверяем флаг активности
         is_active = user.get('tg_challenge_active') or user.get('challenge_active')
         
         if not is_active:
              raise HTTPException(status_code=400, detail="Нет активного челленджа для отмены")
 
+        # 4. Проверка баланса
         cost = 5
         user_tickets = user.get('tickets', 0)
         
         if user_tickets < cost:
             raise HTTPException(status_code=400, detail=f"Недостаточно билетов (нужно {cost}, есть {user_tickets})")
 
-        # 4. Формируем обновление
+        # 5. Формируем обновление (СБРАСЫВАЕМ ВСЁ ПОДЧИСТУЮ)
         update_payload = {
+            # Списываем билеты
             "tickets": user_tickets - cost,
+            
+            # Отключаем флаг активности
             "tg_challenge_active": False,
+            
+            # Сбрасываем прогресс
             "tg_challenge_current": 0,
-            # Важно: используем utcnow() и isoformat()
+            
+            # 🔥 ВАЖНОЕ ИСПРАВЛЕНИЕ: Обнуляем цель!
+            # Это гарантирует, что статус квеста перейдет в состояние "Не выбран"
+            "tg_challenge_target": 0,
+            
+            # Обновляем таймер отмены (для блокировки бесплатной кнопки на 24ч)
             "last_quest_cancel_at": datetime.utcnow().isoformat()
         }
 
-        # 5. Отправляем в Supabase
+        # 6. Отправляем в Supabase
         supabase.table('users').update(update_payload).eq('telegram_id', telegram_id).execute()
 
         return {"success": True, "message": f"Челлендж отменен. Списано {cost} билетов."}
