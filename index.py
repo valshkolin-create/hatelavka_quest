@@ -14067,26 +14067,25 @@ async def cancel_tg_challenge_paid(request: Request):
         data = await request.json()
         init_data = data.get('initData')
 
-        # 1. Получаем ID пользователя (используем ВАШУ существующую функцию)
-        # Обратите внимание: функция может называться get_user_id_from_init_data
-        # Если она асинхронная, добавьте await перед вызовом. Если нет — уберите.
-        telegram_id = get_user_id_from_init_data(init_data) 
+        # 🔥 ИСПРАВЛЕНИЕ: Добавили await перед вызовом функции
+        telegram_id = await get_user_id_from_init_data(init_data) 
         
         if not telegram_id:
             raise HTTPException(status_code=401, detail="Ошибка авторизации: неверный initData")
 
-        # 2. Получаем данные пользователя из Supabase
-        # (предполагаем, что таблица называется 'users' или 'profiles' — проверьте название!)
+        # 2. Получаем данные пользователя
         response = supabase.table('users').select('*').eq('telegram_id', telegram_id).execute()
         
         if not response.data or len(response.data) == 0:
             raise HTTPException(status_code=404, detail="Пользователь не найден")
             
-        user = response.data[0] # Это словарь (dict), а не объект
+        user = response.data[0]
 
-        # 3. Логика проверки (обращаемся к полям как user['field'])
-        # Если поля tg_challenge_active нет, считаем, что челленджа нет
-        if not user.get('tg_challenge_active'):
+        # 3. Проверка наличия челленджа
+        # Проверяем оба варианта ключа (на случай, если в базе он называется иначе)
+        is_active = user.get('tg_challenge_active') or user.get('challenge_active')
+        
+        if not is_active:
              raise HTTPException(status_code=400, detail="Нет активного челленджа для отмены")
 
         cost = 5
@@ -14095,27 +14094,24 @@ async def cancel_tg_challenge_paid(request: Request):
         if user_tickets < cost:
             raise HTTPException(status_code=400, detail=f"Недостаточно билетов (нужно {cost}, есть {user_tickets})")
 
-        # 4. Формируем обновление для базы
+        # 4. Формируем обновление
         update_payload = {
             "tickets": user_tickets - cost,
             "tg_challenge_active": False,
             "tg_challenge_current": 0,
-            # Важно: Supabase требует дату в формате ISO строки
+            # Важно: используем utcnow() и isoformat()
             "last_quest_cancel_at": datetime.utcnow().isoformat()
         }
 
-        # 5. Отправляем изменения в Supabase
+        # 5. Отправляем в Supabase
         supabase.table('users').update(update_payload).eq('telegram_id', telegram_id).execute()
 
         return {"success": True, "message": f"Челлендж отменен. Списано {cost} билетов."}
 
     except Exception as e:
-        # Логируем ошибку в консоль сервера, чтобы видеть детали
         print(f"Error in cancel_tg_challenge_paid: {str(e)}")
-        # Если ошибка уже HTTPException, пробрасываем её дальше
         if isinstance(e, HTTPException):
             raise e
-        # Иначе возвращаем 500
         raise HTTPException(status_code=500, detail=str(e))
         
 @app.post("/api/v1/tg/challenge/status")
