@@ -858,6 +858,10 @@ class PromocodeCopyRequest(BaseModel):
     promocode_id: str | int  # <--- Разрешаем и строки, и числа
     initData: str
 
+class TgSliderCommitRequest(BaseModel):
+    initData: str
+    amount: int  # Сколько сообщений выбрал (10-500)
+
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
@@ -14058,163 +14062,112 @@ async def handle_reaction_update(reaction: MessageReactionUpdated):
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
 @app.post("/api/v1/tg/challenge/status")
-async def get_tg_challenge_status(
+async def get_tg_slider_status(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Возвращает данные для страницы:
-    1. Глобальный ивент.
-    2. Личный прогресс.
-    3. 🔥 СПИСОК ДОСТУПНЫХ НОМИНАЛОВ (чтобы фронтенд знал, какие награды реальны).
+    Проверяет, взял ли пользователь уже этот квест (ID 999).
+    Возвращает прогресс, если квест активен.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(401, "Unauthorized")
     user_id = user_info['id']
+    
+    QUEST_ID = 999 # ID нашего шаблонного квеста
 
-    # 1. Ищем активный ивент
-    event_resp = await supabase.get(
-        "/community_events", 
-        params={"is_active": "eq.true", "order": "id.desc", "limit": 1}
-    )
-    events = event_resp.json()
+    # 1. Получаем прогресс из таблицы
+    # Важно: нам нужно знать текущее кол-во сообщений юзера, чтобы посчитать прогресс
+    # (Формула: Current - Start)
     
-    # 2. 🔥 ПОЛУЧАЕМ ИНВЕНТАРЬ ПРОМОКОДОВ 🔥
-    # Нам нужно узнать, какие номиналы (reward_value) есть в наличии (is_used=false, telegram_id=null)
-    # Мы берем просто список значений, чтобы фронт мог адаптировать слайдер
-    inventory_resp = await supabase.get(
-        "/promocodes",
-        params={
-            "select": "reward_value",
-            "is_used": "eq.false",
-            "telegram_id": "is.null"
-        }
-    )
+    # Запрос данных пользователя и прогресса квеста параллельно
+    task_user = supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "telegram_total_message_count"})
+    task_prog = supabase.get("/user_quest_progress", params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{QUEST_ID}"})
     
-    # Собираем уникальные номиналы (например: [1, 3, 5, 10])
-    available_tiers = []
-    if inventory_resp.json():
-        # Используем set для уникальности и sort для порядка
-        raw_values = [item['reward_value'] for item in inventory_resp.json() if item.get('reward_value') is not None]
-        available_tiers = sorted(list(set(raw_values)))
+    user_res, prog_res = await asyncio.gather(task_user, task_prog)
+    
+    user_data = user_res.json()
+    prog_data = prog_res.json()
+    
+    if not user_data:
+        return {"active": False}
+        
+    total_msgs = user_data[0].get('telegram_total_message_count', 0)
 
-    if not events:
-        return {"has_active_event": False, "available_tiers": available_tiers}
+    # Если прогресса нет или он уже заклеймлен (claimed_at не null) -> даем выбрать новый
+    if not prog_data:
+        return {"active": False, "available_tiers": [10, 50, 100, 200, 300, 500]} # Пример тиров
+
+    quest_row = prog_data[0]
     
-    active_event = events[0]
+    if quest_row.get('claimed_at'):
+        # Если уже забрал награду — можно показать "Выполнено" или дать взять новый (зависит от логики)
+        # Пока даем взять новый:
+        return {"active": False, "last_status": "claimed"}
+
+    # Если активен:
+    start_val = quest_row.get('start_value', 0)
+    target_val = quest_row.get('target_value', 100) # Наша новая колонка
     
-    # 3. Ищем, участвует ли юзер
-    commitment_resp = await supabase.get(
-        "/user_event_commitments",
-        params={"event_id": f"eq.{active_event['id']}", "user_id": f"eq.{user_id}"}
-    )
-    commitment = commitment_resp.json()[0] if commitment_resp.json() else None
+    # Считаем реальный прогресс
+    current_progress = total_msgs - start_val
+    if current_progress < 0: current_progress = 0 # На случай сбросов
+    
+    # Считаем награду (например, 10% от цели)
+    reward = int(target_val * 0.1) 
+    if reward < 1: reward = 1
 
     return {
-        "has_active_event": True,
-        "event": active_event,
-        "user_commitment": commitment,
-        "available_tiers": available_tiers # Отправляем на фронт, чтобы слайдер не врал
+        "active": True,
+        "current": current_progress,
+        "target": target_val,
+        "reward": reward,
+        "percent": min(100, int((current_progress / target_val) * 100)),
+        "quest_id": QUEST_ID
     }
 
+# --- ЭНДПОИНТ: ПРИНЯТЬ ВЫЗОВ (COMMIT) ---
 @app.post("/api/v1/tg/challenge/commit")
-async def commit_tg_challenge(
-    request_data: TgEventCommitRequest,
+async def commit_tg_slider(
+    req: TgSliderCommitRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    Пользователь нажал 'Принять вызов'.
-    Мы рассчитываем награду и ПОДГОНЯЕМ её под реальные промокоды в базе.
-    """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(401, "Unauthorized")
     user_id = user_info['id']
-    
-    # 1. Получаем активный ивент
-    event_resp = await supabase.get(
-        "/community_events", 
-        params={"is_active": "eq.true", "order": "id.desc", "limit": 1}
-    )
-    if not event_resp.json():
-        raise HTTPException(404, "Нет активных событий")
-    
-    event_id = event_resp.json()[0]['id']
-    target_amount = request_data.amount
+    QUEST_ID = 999
 
-    # Валидация
-    if target_amount < 10 or target_amount > 500:
-        raise HTTPException(400, "Неверное значение цели")
+    # 1. Получаем текущее кол-во сообщений пользователя (это будет точка старта)
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "telegram_total_message_count"})
+    user_data = user_res.json()
+    if not user_data: raise HTTPException(404, "User not found")
+    
+    start_value = user_data[0].get('telegram_total_message_count', 0)
 
-    # 2. 🔥 РАСЧЕТ И ПОДГОНКА НАГРАДЫ 🔥
-    
-    # А. Считаем "Желаемую награду" по формуле (например: 0.1 за сообщение)
-    # Пример: 100 сообщений -> 10 монет/билетов
-    # Пример: 50 сообщений -> 5 монет
-    theoretical_reward = int(target_amount * 0.1) # Коэффициент можно менять (0.1, 0.05 и т.д.)
-    
-    # Если получилось 0 (мало сообщений), даем минимум 1
-    if theoretical_reward < 1: theoretical_reward = 1
-
-    # Б. Проверяем СКЛАД (реальные промокоды)
-    inventory_resp = await supabase.get(
-        "/promocodes",
-        params={
-            "select": "reward_value",
-            "is_used": "eq.false",
-            "telegram_id": "is.null"
-        }
-    )
-    
-    final_reward = 0
-    
-    if inventory_resp.json():
-        # Получаем список доступных номиналов: [1, 3, 5, 10, 50]
-        available_values = sorted(list(set(r['reward_value'] for r in inventory_resp.json() if r.get('reward_value') is not None)))
-        
-        # В. Ищем ближайший подходящий номинал (округляем ВНИЗ или берем точное совпадение)
-        # Пример: теор. награда 12, есть коды [5, 10, 20]. Выберем 10.
-        # Пример: теор. награда 4, есть коды [5, 10]. Выберем 0 (или минимальный, если решим).
-        
-        for val in available_values:
-            if val <= theoretical_reward:
-                final_reward = val
-            else:
-                # Как только номинал стал больше теоретического, останавливаемся.
-                # final_reward хранит последнее "подходящее" число.
-                break
-    
-    # Г. Если подходящего кода нет (склад пуст или цель слишком маленькая)
-    if final_reward == 0:
-        # Вариант 1: Отказать
-        # raise HTTPException(400, "К сожалению, награды такого номинала закончились.")
-        
-        # Вариант 2 (Лучше): Дать минимальный доступный (если он не сильно больше) или просто 0 (участие ради участия)
-        # Пока поставим защиту:
-        raise HTTPException(400, f"Награда за {target_amount} сообщений ({theoretical_reward}) сейчас недоступна на складе.")
-
-    # 3. Записываем в таблицу-сборщик
-    try:
-        await supabase.post(
-            "/user_event_commitments",
-            json={
-                "user_id": user_id,
-                "event_id": event_id,
-                "target_value": target_amount,
-                "current_value": 0,
-                "reward_amount": final_reward, # Записываем РЕАЛЬНЫЙ номинал, который потом выдадим
-                "status": "active"
-            }
-        )
-    except Exception as e:
-        logging.error(f"Commit error: {e}")
-        raise HTTPException(400, "Вы уже участвуете в этом событии!")
-
-    return {
-        "success": True, 
-        "message": f"Вызов принят! Цель: {target_amount}. Награда: {final_reward}",
-        "confirmed_reward": final_reward
+    # 2. Создаем/Обновляем запись в user_quest_progress
+    # Мы записываем target_value в базу!
+    payload = {
+        "user_id": user_id,
+        "quest_id": QUEST_ID,
+        "current_progress": 0,       # Сбрасываем визуальный прогресс
+        "start_value": start_value,  # Фиксируем точку старта
+        "target_value": req.amount,  # Фиксируем цель
+        "last_updated_at": datetime.now(timezone.utc).isoformat(),
+        "claimed_at": None           # Сбрасываем клейм, если был старый
     }
 
+    # Используем Upsert (Prefer: resolution=merge-duplicates)
+    res = await supabase.post(
+        "/user_quest_progress",
+        json=payload,
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+    
+    if res.status_code >= 400:
+        logging.error(f"Error creating quest: {res.text}")
+        raise HTTPException(500, "Ошибка базы данных")
+
+    return {"success": True}
 
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
 
