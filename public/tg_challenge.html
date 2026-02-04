@@ -1,442 +1,563 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Telegram Challenge</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="stylesheet" href="quests.css" />
-
-  <style>
-    :root {
-        --primary-color: #0088cc;
-        --tg-color: #0088cc;
-        --tickets-bg: rgba(36, 161, 222, 0.15);
-        --bg-gradient: radial-gradient(ellipse at 50% 100%, #0b1a2e, #000000);
-    }
-
-    body {
-        background-color: #000;
-        background-image: var(--bg-gradient);
-        color: #fff;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    }
-
-    #main-content {
-        padding: 20px 15px 120px 15px;
-        min-height: 100vh;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-    }
-
-    /* === СЛАЙДЕР === */
-    .slider-card-content {
-        padding: 15px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 15px;
-    }
-    .count-display {
-        font-size: 64px;
-        font-weight: 900;
-        color: var(--tg-color);
-        text-shadow: 0 0 25px rgba(0, 136, 204, 0.4);
-        line-height: 1;
-        margin-top: 5px;
-    }
-    .slider-label { font-size: 12px; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Challenges 2.0</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    input[type=range] {
-        width: 100%; -webkit-appearance: none; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; outline: none;
-    }
-    input[type=range]::-webkit-slider-thumb {
-        -webkit-appearance: none; width: 24px; height: 24px; background: #fff; border: 3px solid var(--tg-color);
-        border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(0, 136, 204, 0.5); transition: transform 0.1s;
-    }
-    input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
 
-    .reward-preview {
-        background: rgba(0, 136, 204, 0.1); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 12px;
-        padding: 10px 20px; display: flex; flex-direction: column; align-items: center; min-width: 140px;
-    }
-    .reward-val { font-size: 24px; font-weight: 800; color: #FFD700; text-shadow: 0 0 15px rgba(255, 215, 0, 0.3); margin-top: 4px; }
+        :root {
+            --bg-color: #0f1014;
+            --card-bg: #1a1b20;
+            --text-main: #ffffff;
+            --text-sec: #8a8d96;
+            
+            /* Цвета редкости */
+            --rarity-common: #b0b0b0;    /* 0% - Серый */
+            --rarity-rare: #4b69ff;      /* 25% - Синий */
+            --rarity-epic: #8847ff;      /* 50% - Фиолетовый */
+            --rarity-legend: #eb4b4b;    /* 75% - Красный */
+            --rarity-gold: #ffd700;      /* 100% - Золотой */
+        }
 
-    /* Хедер */
-    .header-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .back-btn {
-        background: rgba(255, 255, 255, 0.1); border: none; color: #fff; font-size: 14px; font-weight: 500;
-        padding: 8px 14px; border-radius: 20px; display: flex; align-items: center; gap: 6px; cursor: pointer;
-    }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    .fade-in { animation: fadeIn 0.3s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .container {
+            padding: 20px;
+            padding-bottom: 100px;
+        }
 
-    /* === СТИЛИ ОТМЕНЫ (Копия из quests.js) === */
-    .cancel-btn-group { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px; }
-    
-    .btn-cancel {
-        width: 100%; border-radius: 12px; padding: 12px; font-weight: 700; cursor: pointer; border: none;
-        font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
-    }
-    .btn-free { background: #3a3a3c; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
-    .btn-paid { background: rgba(255, 165, 0, 0.15); border: 1px solid rgba(255, 165, 0, 0.4) !important; color: #ffae00; }
-    .btn-timer { background: #222; color: #666; cursor: default; font-size: 12px; padding: 8px; box-shadow: none; border: 1px solid transparent; }
+        /* HEADER */
+        .header {
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            margin: 0;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p {
+            color: var(--text-sec);
+            font-size: 14px;
+            margin-top: 5px;
+        }
 
-    /* Карточка */
-    .quest-card {
-        background: #1c1c1e; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 20px;
-        position: relative; overflow: hidden; margin-bottom: 15px;
-    }
-    .quest-icon.tg-style {
-        color: var(--tg-color); background: rgba(0, 136, 204, 0.15); box-shadow: 0 0 15px rgba(0, 136, 204, 0.2);
-        width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 15px;
-    }
-    .active-quest-indicator {
-        position: absolute; top: 12px; right: 12px; background: rgba(52, 199, 89, 0.2); color: #32d74b;
-        font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 6px; text-transform: uppercase;
-    }
+        /* CHALLENGE CARD */
+        .challenge-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.3s;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
 
-  </style>
+        /* Динамическая подсветка */
+        .challenge-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 16px;
+            padding: 2px; /* толщина границы */
+            background: linear-gradient(135deg, var(--border-color), transparent 60%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Стили для разных стадий */
+        .theme-common { --border-color: var(--rarity-common); --shadow: rgba(176,176,176,0.1); }
+        .theme-rare   { --border-color: var(--rarity-rare);   --shadow: rgba(75,105,255,0.2); }
+        .theme-epic   { --border-color: var(--rarity-epic);   --shadow: rgba(136,71,255,0.25); }
+        .theme-legend { --border-color: var(--rarity-legend); --shadow: rgba(235,75,75,0.3); }
+        .theme-gold   { --border-color: var(--rarity-gold);   --shadow: rgba(255,215,0,0.4); box-shadow: 0 0 20px var(--shadow); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .card-reward {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.1);
+            color: var(--border-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .card-desc {
+            font-size: 13px;
+            color: var(--text-sec);
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        /* PROGRESS BAR */
+        .progress-container {
+            height: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--border-color);
+            box-shadow: 0 0 10px var(--border-color);
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #fff;
+            text-align: right;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        /* BUTTONS */
+        .action-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 14px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-start {
+            background: #2a2d35;
+            color: #fff;
+        }
+        .btn-start:active { transform: scale(0.98); }
+
+        .btn-claim {
+            background: linear-gradient(90deg, #FFD700, #FFA500);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            animation: pulse-gold 2s infinite;
+        }
+
+        .btn-completed {
+            background: #111;
+            color: #444;
+            cursor: default;
+            border: 1px solid #333;
+        }
+
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+        }
+
+        /* --- ROULETTE MODAL --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .roulette-container {
+            width: 100%;
+            max-width: 400px;
+            height: 200px;
+            background: #151515;
+            position: relative;
+            border-top: 2px solid #FFD700;
+            border-bottom: 2px solid #FFD700;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .roulette-pointer {
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 100%;
+            background: #FFD700;
+            z-index: 10;
+            box-shadow: 0 0 10px #FFD700;
+        }
+
+        .roulette-track {
+            display: flex;
+            height: 100%;
+            align-items: center;
+            will-change: transform;
+        }
+
+        .roulette-item {
+            width: 140px;
+            height: 140px;
+            margin: 0 5px;
+            background: #202025;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 3px solid transparent;
+            position: relative;
+        }
+        
+        .roulette-item img {
+            width: 90px;
+            height: auto;
+            filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));
+        }
+
+        .roulette-item .r-name {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 5px;
+            color: #ccc;
+            padding: 0 5px;
+        }
+
+        /* Win Modal */
+        .win-modal {
+            text-align: center;
+            color: #fff;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .win-title { font-size: 24px; font-weight: 800; color: #FFD700; margin-bottom: 10px; }
+        .win-img { width: 180px; filter: drop-shadow(0 0 20px rgba(255,215,0,0.3)); }
+        .win-name { font-size: 18px; margin-top: 10px; font-weight: 600; }
+        .win-btn {
+            background: #fff;
+            color: #000;
+            padding: 10px 30px;
+            border-radius: 20px;
+            margin-top: 20px;
+            font-weight: 700;
+            border: none;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Helpers */
+        .hidden { display: none !important; }
+        .loading { text-align: center; color: #666; margin-top: 50px; }
+
+        /* Rarity Borders for Items */
+        .item-blue { border-bottom-color: #4b69ff !important; background: linear-gradient(to top, rgba(75,105,255,0.1), transparent); }
+        .item-purple { border-bottom-color: #8847ff !important; background: linear-gradient(to top, rgba(136,71,255,0.1), transparent); }
+        .item-pink { border-bottom-color: #d32ce6 !important; background: linear-gradient(to top, rgba(211,44,230,0.1), transparent); }
+        .item-red { border-bottom-color: #eb4b4b !important; background: linear-gradient(to top, rgba(235,75,75,0.1), transparent); }
+        .item-gold { border-bottom-color: #ffd700 !important; background: linear-gradient(to top, rgba(255,215,0,0.1), transparent); }
+
+    </style>
 </head>
 <body>
 
-  <div id="loader-overlay" style="display: flex; flex-direction: column; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
-    <div class="spinner" style="width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: #0088cc; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-    <div style="color: #fff; margin-top: 15px; font-family: sans-serif; font-weight: bold; font-size: 16px;">Загрузка...</div>
-    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-  </div>
+    <div class="container">
+        <div class="header">
+            <h1>Контракты</h1>
+            <p>Выполняй задания, прокачивай карточку, забирай скины.</p>
+        </div>
 
-  <main id="main-content" style="opacity: 0; transition: opacity 0.3s;">
-    
-    <div class="header-nav">
-        <button class="back-btn" onclick="window.location.href='/quests'">
-            <i class="fa-solid fa-arrow-left"></i> Назад
-        </button>
-        <div class="tickets-item" style="background: var(--tickets-bg); border-radius: 12px; padding: 6px 10px; display: flex; align-items: center; gap: 6px;">
-            <span id="ticketStats" class="stats-text" style="color: var(--tg-color); font-weight: 700;">0</span>
-            <div class="stats-icon-star" style="background: var(--tg-color); width: 20px; height: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center;">
-                <i class="fa-solid fa-ticket" style="color: #fff; font-size: 10px;"></i>
-            </div>
+        <div id="challenges-list">
+            <div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка контрактов...</div>
         </div>
     </div>
 
-    <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 22px; font-weight: 800;">Telegram Вызов</h1>
-        <p style="margin: 4px 0 0; color: #8e8e93; font-size: 13px;">Установи цель и забери награду</p>
+    <div id="roulette-modal" class="modal-overlay">
+        <div class="roulette-container" id="roulette-box">
+            <div class="roulette-pointer"></div>
+            <div class="roulette-track" id="roulette-track">
+                </div>
+        </div>
+
+        <div id="win-display" class="win-modal">
+            <div class="win-title">ВЫИГРЫШ!</div>
+            <img id="win-img-el" class="win-img" src="" alt="">
+            <div id="win-name-el" class="win-name">AK-47 | Asiimov</div>
+            <button class="win-btn" onclick="closeRoulette()">ЗАБРАТЬ</button>
+        </div>
     </div>
 
-    <div id="dynamic-content" class="fade-in"></div>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
 
-  </main>
+        const API_BASE = '/api/challenges'; 
+        const ITEM_WIDTH = 150; // Width 140 + Margin 10
 
-  <footer class="app-footer">
-    <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
-    <a href="/quests" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
-    <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-    <a href="/events" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
-    <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
-  </footer>
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchChallenges();
+        });
 
-<script>
-    if (window.Telegram && window.Telegram.WebApp) {
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand();
-        Telegram.WebApp.setHeaderColor('#000000'); 
-        Telegram.WebApp.setBackgroundColor('#000000');
-    }
-
-    const container = document.getElementById('dynamic-content');
-    const loader = document.getElementById('loader-overlay');
-    const mainContent = document.getElementById('main-content');
-    const ticketStats = document.getElementById('ticketStats');
-
-    let userData = {};
-    let availableTiers = []; 
-    const QUEST_ID = 999; 
-
-    // --- ГЛАВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ---
-    async function init() {
-        try {
-            // Загрузка юзера
-            const userRes = await fetch('/api/v1/user/me', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData })
-            });
-            userData = await userRes.json();
-            if(userData.tickets !== undefined) ticketStats.innerText = userData.tickets;
-
-            // Загрузка статуса (С защитой от кэша ?t=...)
-            const questRes = await fetch('/api/v1/tg/challenge/status?t=' + Date.now(), {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData })
-            });
-            const questData = await questRes.json();
-            
-            if (questData.available_tiers) availableTiers = questData.available_tiers;
-
-            if (questData.active) {
-                renderActiveQuest(questData);
-            } else {
-                renderSlider();
-            }
-
-            loader.style.display = 'none';
-            mainContent.style.opacity = '1';
-
-        } catch (e) {
-            container.innerHTML = `<div style="text-align:center; color:#ff4757; margin-top:50px;">Ошибка загрузки: ${e.message}</div>`;
-            loader.style.display = 'none';
-            mainContent.style.opacity = '1';
-        }
-    }
-
-    // --- СЛАЙДЕР ---
-    function renderSlider() {
-        const defaultVal = 100;
-        container.innerHTML = `
-            <div class="quest-card fade-in" style="padding: 0; overflow:hidden;">
-                <div class="slider-card-content">
-                    <span class="slider-label">Выберите количество сообщений</span>
-                    <div class="count-display" id="val-display">${defaultVal}</div>
-                    <div class="range-wrapper">
-                        <input type="range" id="slider" min="10" max="500" step="10" value="${defaultVal}">
-                    </div>
-                    <div class="reward-preview">
-                        <span style="font-size:11px; color:#8e8e93; text-transform:uppercase;">Ваша награда</span>
-                        <div class="reward-val" id="reward-display">+${calculateReward(defaultVal)} <i class="fa-solid fa-ticket"></i></div>
-                    </div>
-                </div>
-                <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
-                    <button id="btn-start" class="claim-reward-button" style="width:100%; background: linear-gradient(90deg, #0088cc, #00aaff); color: white; box-shadow: 0 4px 15px rgba(0,136,204,0.3); font-size:16px; padding:14px;">ПРИНЯТЬ ВЫЗОВ</button>
-                </div>
-            </div>
-            <p style="text-align: center; color: #8e8e93; font-size: 12px; margin-top: 15px; padding: 0 20px;"><i class="fa-solid fa-circle-info"></i> Сообщения засчитываются автоматически в чате.</p>
-        `;
-        const slider = document.getElementById('slider');
-        const valDisplay = document.getElementById('val-display');
-        const rewardDisplay = document.getElementById('reward-display');
-        const btn = document.getElementById('btn-start');
-
-        slider.oninput = () => {
-            const val = parseInt(slider.value);
-            valDisplay.innerText = val;
-            rewardDisplay.innerHTML = `+${calculateReward(val)} <i class="fa-solid fa-ticket"></i>`;
-            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
-        };
-
-        btn.onclick = async () => {
-            const amount = parseInt(slider.value);
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        // 1. Fetch Data
+        async function fetchChallenges() {
             try {
-                const res = await fetch('/api/v1/tg/challenge/commit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData, amount: amount })
-                });
-                if (!res.ok) throw new Error("Ошибка сервера");
-                if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                init();
+                const res = await fetch(`${API_BASE}/list?initData=${encodeURIComponent(tg.initData)}`);
+                const data = await res.json();
+                
+                if (!data.challenges) throw new Error("No data");
+                renderChallenges(data.challenges);
             } catch (e) {
-                Telegram.WebApp.showAlert(e.message);
-                btn.disabled = false;
-                btn.innerText = "ПРИНЯТЬ ВЫЗОВ";
+                document.getElementById('challenges-list').innerHTML = `<div class="loading" style="color:red">Ошибка: ${e.message}</div>`;
             }
-        };
-    }
-
-    function calculateReward(val) {
-        let theory = Math.floor(val * 0.1);
-        if (theory < 1) theory = 1;
-        if (availableTiers && availableTiers.length > 0) {
-            let best = 0;
-            for (let t of availableTiers) { if (t <= theory) best = t; else break; }
-            return best > 0 ? best : availableTiers[0];
         }
-        return theory;
-    }
 
-    // --- АКТИВНЫЙ КВЕСТ (ЛОГИКА 1-В-1 С QUESTS.JS) ---
-    function renderActiveQuest(data) {
-        const current = data.current;
-        const target = data.target;
-        const percent = Math.min(100, (current / target) * 100);
-        const isDone = current >= target;
-        
-        let mainButton = '';
-        let cancelSectionHtml = '';
+        // 2. Render List
+        function renderChallenges(challenges) {
+            const container = document.getElementById('challenges-list');
+            container.innerHTML = '';
 
-        if (isDone) {
-            mainButton = `
-                <button onclick="claimReward()" class="claim-reward-button" style="width:100%; background: linear-gradient(90deg, #ffdd40, #ffc700); color: #000; font-size:16px; padding:14px;">
-                    <i class="fa-solid fa-gift"></i> ЗАБРАТЬ НАГРАДУ
-                </button>`;
-        } else {
-            mainButton = `
-                <button disabled class="claim-reward-button" style="width:100%; background: #2c2c2e; color: #8e8e93; box-shadow: none; cursor: default; opacity: 1; font-size:14px; padding:14px; border: 1px solid rgba(255,255,255,0.05);">
-                    <i class="fa-solid fa-person-running"></i> ВЫПОЛНЯЕТСЯ...
-                </button>`;
+            if (challenges.length === 0) {
+                container.innerHTML = '<div class="loading">Нет доступных контрактов.</div>';
+                return;
+            }
 
-            // Проверка кулдауна (используем глобальное поле, как в quests.js)
-            const lastCancel = userData.last_quest_cancel_at;
-            let cooldownEndTime = null;
-            let isCooldownActive = false;
+            challenges.forEach(c => {
+                const card = document.createElement('div');
+                
+                // Logic: Determine Theme Class
+                const percent = Math.min(100, Math.floor((c.progress / c.target) * 100));
+                let themeClass = 'theme-common';
+                if (percent >= 25) themeClass = 'theme-rare';
+                if (percent >= 50) themeClass = 'theme-epic';
+                if (percent >= 75) themeClass = 'theme-legend';
+                if (percent >= 100) themeClass = 'theme-gold';
+                
+                // If status is claimed, dim it
+                const opacity = c.status === 'claimed' ? '0.5' : '1';
 
-            if (lastCancel) {
-                const lastCancelDate = new Date(lastCancel);
-                const now = new Date();
-                const cooldownMs = 24 * 60 * 60 * 1000;
-                if (now - lastCancelDate < cooldownMs) {
-                    isCooldownActive = true;
-                    cooldownEndTime = new Date(lastCancelDate.getTime() + cooldownMs);
+                card.className = `challenge-card ${themeClass}`;
+                card.style.opacity = opacity;
+
+                // Button Logic
+                let btnHtml = '';
+                if (c.status === 'available') {
+                    btnHtml = `<button class="action-btn btn-start" onclick="startChallenge(${c.template_id})">ПОДПИСАТЬ КОНТРАКТ</button>`;
+                } else if (c.status === 'active') {
+                    // Show just progress text or disabled button
+                    btnHtml = `<div style="text-align:center; font-size:12px; color:#666;">В ПРОЦЕССЕ...</div>`;
+                } else if (c.status === 'completed') {
+                    btnHtml = `<button class="action-btn btn-claim" onclick="claimChallenge(${c.template_id})">ЗАБРАТЬ НАГРАДУ</button>`;
+                } else if (c.status === 'claimed') {
+                    btnHtml = `<button class="action-btn btn-completed">ВЫПОЛНЕНО</button>`;
                 }
-            }
 
-            const cost = userData.next_cancel_cost || 5;
+                // Reward Text
+                let rewardText = c.reward_type === 'coins' ? '💰 Монеты' : '🔫 Скин';
+                if(c.reward_config && c.reward_config.amount) rewardText = `💰 ${c.reward_config.amount}`;
 
-            if (!isCooldownActive) {
-                cancelSectionHtml = `
-                    <button id="cancel-quest-btn" class="btn-cancel btn-free" style="margin-top: 10px;">
-                        Отменить бесплатно
-                    </button>`;
-            } else {
-                cancelSectionHtml = `
-                    <div class="cancel-btn-group">
-                        <button disabled id="timer-btn" class="btn-cancel btn-timer">Бесплатно через ..:..</button>
-                        <button id="paid-cancel-quest-btn" data-cost="${cost}" class="btn-cancel btn-paid">
-                            <i class="fa-solid fa-ticket"></i> Отменить за ${cost} билетов
-                        </button>
-                    </div>`;
-                if (cooldownEndTime) setTimeout(() => startCancelTimer(cooldownEndTime), 0);
-            }
-        }
-
-        container.innerHTML = `
-            <div class="quest-card fade-in">
-                ${!isDone ? '<div class="active-quest-indicator">Выполняется</div>' : ''}
-                <div class="quest-content-wrapper">
-                    <div class="quest-icon tg-style"><i class="fa-brands fa-telegram"></i></div>
-                    <h2 class="quest-title">Персональный Вызов</h2>
-                    <p class="quest-subtitle">Написать ${target} сообщений</p>
-                    <div class="progress-bar" style="height: 12px; margin: 20px 0; background: rgba(255,255,255,0.1);">
-                        <div class="progress-fill" style="width: ${percent}%; background: linear-gradient(90deg, #0088cc, #00c6ff);"></div>
-                        <div class="progress-content"><span class="progress-text">✉️ ${current} / ${target}</span></div>
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="card-title">${c.title}</div>
+                        <div class="card-reward">${rewardText}</div>
                     </div>
-                </div>
-                <div class="button-container" style="width:100%; margin-top: 15px;">
-                    ${mainButton}
-                    ${cancelSectionHtml}
-                </div>
-            </div>
-        `;
-        attachCancelHandlers();
-    }
+                    <div class="card-desc">${c.description}</div>
+                    
+                    ${c.status !== 'available' && c.status !== 'claimed' ? `
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: ${percent}%"></div>
+                        </div>
+                        <div class="progress-text">${c.progress} / ${c.target} (${percent}%)</div>
+                    ` : ''}
 
-    function startCancelTimer(endTime) {
-        const timerBtn = document.getElementById('timer-btn');
-        if (!timerBtn) return;
-        const update = () => {
-            const now = new Date();
-            const diff = endTime - now;
-            if (diff <= 0) { init(); return; }
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            const s = Math.floor((diff % 60000) / 1000);
-            timerBtn.textContent = `Бесплатно через ${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-            requestAnimationFrame(update);
-        };
-        update();
-    }
+                    ${btnHtml}
+                `;
 
-    // === УМНАЯ ОТМЕНА (Попытка своего эндпоинта -> Попытка общего) ===
-    function attachCancelHandlers() {
-        const freeBtn = document.getElementById('cancel-quest-btn');
-        const paidBtn = document.getElementById('paid-cancel-quest-btn');
-
-        if (freeBtn) {
-            freeBtn.onclick = () => {
-                Telegram.WebApp.showConfirm("Вы уверены? Прогресс будет сброшен. Бесплатная отмена раз в 24 часа.", async (ok) => {
-                    // Пробуем специальный эндпоинт, если нет - общий
-                    if (ok) await smartCancel('/api/v1/tg/challenge/cancel', '/api/v1/quests/cancel');
-                });
-            };
-        }
-        if (paidBtn) {
-            paidBtn.onclick = () => {
-                const cost = paidBtn.dataset.cost;
-                Telegram.WebApp.showConfirm(`Списать ${cost} билетов за отмену задания?`, async (ok) => {
-                    if (ok) await smartCancel('/api/v1/tg/challenge/cancel_paid', '/api/v1/quests/cancel_paid');
-                });
-            };
-        }
-    }
-
-    async function smartCancel(primaryUrl, fallbackUrl) {
-        const btns = document.querySelectorAll('.btn-cancel');
-        btns.forEach(b => { b.disabled = true; if(b.tagName === 'BUTTON') b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; });
-
-        try {
-            // 1. Попытка основного адреса
-            let res = await fetch(primaryUrl, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+                container.appendChild(card);
             });
+        }
 
-            // 2. Если 404 (нет эндпоинта), пробуем запасной
-            if (res.status === 404) {
-                console.warn(`Эндпоинт ${primaryUrl} не найден, пробуем ${fallbackUrl}`);
-                res = await fetch(fallbackUrl, {
+        // 3. Actions
+        async function startChallenge(id) {
+            tg.HapticFeedback.impactOccurred('medium');
+            try {
+                const res = await fetch(`${API_BASE}/start`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    // Добавляем ID 999 на случай, если общий сброс умеет понимать ID
-                    body: JSON.stringify({ initData: Telegram.WebApp.initData, quest_id: 999 })
+                    body: JSON.stringify({ initData: tg.initData, template_id: id })
                 });
+                const json = await res.json();
+                if (json.status === 'ok') {
+                    fetchChallenges(); // Reload
+                } else {
+                    tg.showAlert(json.message);
+                }
+            } catch (e) {
+                tg.showAlert("Ошибка соединения");
             }
+        }
 
-            const result = await res.json();
+        async function claimChallenge(id) {
+            tg.HapticFeedback.notificationOccurred('success');
             
-            if (res.ok) {
-                Telegram.WebApp.showAlert(result.message || "Задание отменено.");
-                init(); 
-            } else {
-                throw new Error(result.detail || result.message || "Ошибка сервера");
+            // Optimistic UI: disable buttons
+            const btns = document.querySelectorAll('.btn-claim');
+            btns.forEach(b => b.innerText = '...');
+
+            try {
+                const res = await fetch(`${API_BASE}/claim`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: tg.initData, template_id: id })
+                });
+                const json = await res.json();
+
+                if (json.status === 'ok') {
+                    const data = json.data;
+                    
+                    // Case 1: Roulette
+                    if (data.reward_type === 'skin_random' && data.roulette_strip) {
+                        launchRoulette(data.roulette_strip, data.winner);
+                    } 
+                    // Case 2: Simple Reward
+                    else {
+                        tg.showAlert(`Получено: ${data.amount || 'Награда'}`);
+                        fetchChallenges();
+                    }
+                } else {
+                    tg.showAlert(json.message);
+                    fetchChallenges();
+                }
+            } catch (e) {
+                tg.showAlert("Ошибка при получении награды");
+                fetchChallenges();
             }
-        } catch (e) {
-            Telegram.WebApp.showAlert("Ошибка: " + e.message);
-            // Если совсем ничего не сработало, хотя бы перезагрузим интерфейс
-            setTimeout(init, 1000);
         }
-    }
 
-    window.claimReward = async () => {
-        const btn = document.querySelector('.claim-reward-button');
-        if(btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
-        try {
-            const res = await fetch('/api/v1/promocode', { 
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ initData: Telegram.WebApp.initData, quest_id: QUEST_ID })
+        // --- ROULETTE LOGIC ---
+        function launchRoulette(items, winner) {
+            const modal = document.getElementById('roulette-modal');
+            const track = document.getElementById('roulette-track');
+            const box = document.getElementById('roulette-box');
+            const winDisplay = document.getElementById('win-display');
+            
+            // Reset
+            track.innerHTML = '';
+            track.style.transition = 'none';
+            track.style.transform = 'translateX(0px)';
+            box.style.display = 'block';
+            winDisplay.style.display = 'none';
+            modal.style.display = 'flex';
+
+            // 1. Render Strip
+            // Winner logic: Usually index ~25-30 is the winner in a strip of 40
+            // Backend sends 'items' (e.g. 30 items), the winner is usually the last one or predefined.
+            // Let's assume winner is the *last* item in array, OR verify with ID.
+            // To be safe: we put winner at index 25.
+            
+            // Insert winner at specific index (25)
+            const WINNER_INDEX = 25;
+            items[WINNER_INDEX] = winner; // Ensure winner is at landing spot
+
+            items.forEach((item) => {
+                const div = document.createElement('div');
+                // Determine CSS class by rarity
+                let rarityClass = 'item-blue';
+                const r = item.rarity?.toLowerCase();
+                if (r === 'purple') rarityClass = 'item-purple';
+                if (r === 'pink') rarityClass = 'item-pink';
+                if (r === 'red') rarityClass = 'item-red';
+                if (r === 'gold') rarityClass = 'item-gold';
+
+                div.className = `roulette-item ${rarityClass}`;
+                div.innerHTML = `
+                    <img src="${item.image_url}" alt="skin">
+                    <div class="r-name">${item.name}</div>
+                `;
+                track.appendChild(div);
             });
-            const result = await res.json();
-            if (res.ok) {
-                Telegram.WebApp.showAlert("Награда получена!");
-                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                init(); 
-            } else { throw new Error(result.detail || "Ошибка"); }
-        } catch (e) {
-            Telegram.WebApp.showAlert("Ошибка: " + e.message);
-            if(btn) { btn.disabled = false; btn.innerText = "ЗАБРАТЬ НАГРАДУ"; }
-        }
-    };
 
-    init();
-</script>
+            // 2. Calculate Roll
+            // Center of container
+            const containerCenter = box.offsetWidth / 2;
+            // Target item position (center of item 25)
+            // (25 * 150) + (150 / 2) = 3750 + 75 = 3825
+            const itemCenter = (WINNER_INDEX * ITEM_WIDTH) + (ITEM_WIDTH / 2);
+            
+            // Random offset within the item (±30px) so pointer isn't always dead center
+            const randomOffset = Math.floor(Math.random() * 60) - 30;
+            
+            // Final scroll position
+            // We want itemCenter to be at containerCenter
+            // transformX = -(itemCenter - containerCenter + randomOffset)
+            const rollPosition = -(itemCenter - containerCenter + randomOffset);
+
+            // 3. Animate
+            setTimeout(() => {
+                // Audio effect (optional)
+                tg.HapticFeedback.impactOccurred('heavy');
+                
+                track.style.transition = 'transform 6s cubic-bezier(0.15, 0, 0.20, 1)'; // Slow down effect
+                track.style.transform = `translateX(${rollPosition}px)`;
+            }, 100);
+
+            // 4. Show Result
+            setTimeout(() => {
+                tg.HapticFeedback.notificationOccurred('success');
+                // Hide roulette, show winner card
+                box.style.display = 'none';
+                
+                document.getElementById('win-img-el').src = winner.image_url;
+                document.getElementById('win-name-el').innerText = winner.name;
+                winDisplay.style.display = 'block';
+                
+                // Fire confetti (if library exists, optional)
+            }, 6500);
+        }
+
+        function closeRoulette() {
+            document.getElementById('roulette-modal').style.display = 'none';
+            fetchChallenges(); // Refresh list to show 'claimed'
+        }
+
+    </script>
 </body>
 </html>
