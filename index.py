@@ -126,6 +126,67 @@ async def get_background_client():
         )
     return _background_supabase_client
 
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ РУЛЕТКИ (CS:GO) ---
+
+async def pick_roulette_winner(min_price: int = 0, max_price: int = 1000000):
+    """
+    Выбирает случайный скин из базы с учетом шансов (chance_weight).
+    Адаптировано под синхронный клиент Supabase.
+    """
+    try:
+        # 1. Берем доступные скины (БЕЗ await перед запросом)
+        response = supabase.table("cs_items")\
+            .select("*")\
+            .eq("is_active", True)\
+            .gte("price", min_price)\
+            .lte("price", max_price)\
+            .execute()
+        
+        items = response.data
+        if not items:
+            return None
+
+        # 2. Логика весов (шансов)
+        weighted_items = []
+        for item in items:
+            # Если chance_weight не задан, считаем его равным 10
+            weight = item.get('chance_weight', 10)
+            # Защита от кривых данных
+            if weight is None: weight = 10
+            
+            # Добавляем item в список weight раз
+            weighted_items.extend([item] * int(weight))
+        
+        if not weighted_items:
+            return items[0] # Fallback
+
+        winner = random.choice(weighted_items)
+        return winner
+    except Exception as e:
+        logging.error(f"Error picking roulette winner: {e}")
+        return None
+
+async def get_roulette_strip(winner_item, count=30):
+    """
+    Генерирует ленту (массив скинов) для анимации.
+    """
+    try:
+        # Берем рандомные скины для массовки (БЕЗ await)
+        response = supabase.table("cs_items").select("*").limit(50).execute()
+        all_items = response.data
+        
+        if not all_items:
+            return [winner_item] * count
+
+        strip = []
+        for _ in range(count):
+            strip.append(random.choice(all_items))
+        
+        return strip
+    except Exception as e:
+        logging.error(f"Error generating strip: {e}")
+        return [winner_item] * count
+
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
     initData: str
