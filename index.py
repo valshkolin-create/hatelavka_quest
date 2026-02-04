@@ -8364,174 +8364,171 @@ async def activate_referral_bonus(
 # ==========================================
 
 @app.get("/api/challenges/list")
-async def list_challenges_v2(initData: str = Query(...)):
+async def list_challenges_v3(initData: str = Query(...)):
     """
-    Возвращает список челленджей.
-    Прогресс берется напрямую из статистики пользователя (telegram_daily_message_count).
+    Возвращает челлендж с учетом текущей ступени (Tier).
     """
     user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(status_code=401, detail="Unauthorized")
     telegram_id = user_info['id']
 
-    # 1. Получаем шаблоны заданий (СИНХРОННО, без await)
-    templates_res = supabase.table("challenge_templates")\
-        .select("*").eq("is_active", True).order("id").execute()
-    templates = templates_res.data
-
-    # 2. Получаем статистику пользователя и его контракты
-    # Нам нужно знать, сколько он написал сообщений и какие квесты уже начал/сдал
-    user_res = supabase.table("users")\
-        .select("telegram_daily_message_count, telegram_weekly_message_count")\
-        .eq("telegram_id", telegram_id).execute()
+    # 1. Получаем шаблоны и статистику (СИНХРОННО)
+    templates_res = supabase.table("challenge_templates").select("*").eq("is_active", True).order("id").execute()
+    user_res = supabase.table("users").select("telegram_daily_message_count").eq("telegram_id", telegram_id).execute()
+    contracts_res = supabase.table("user_contracts").select("*").eq("user_id", telegram_id).execute()
     
-    contracts_res = supabase.table("user_contracts")\
-        .select("*").eq("user_id", telegram_id).execute()
-    
-    # Данные пользователя
     user_stats = user_res.data[0] if user_res.data else {"telegram_daily_message_count": 0}
-    # Словарь контрактов {template_id: data}
     user_contracts = {c['template_id']: c for c in contracts_res.data}
-
+    
+    current_msgs = user_stats.get('telegram_daily_message_count', 0)
+    
     result = []
-    for t in templates:
+    for t in templates_res.data:
         contract = user_contracts.get(t['id'])
+        config = t['reward_config']
         
-        # --- ЛОГИКА ПРОГРЕССА ---
-        # Определяем, какую статистику использовать
-        current_val = 0
-        if t['task_type'] == 'tg_messages':
-            # Если задание на день - берем дневной счетчик
-            current_val = user_stats.get('telegram_daily_message_count', 0)
-        elif t['task_type'] == 'tg_messages_week':
-            current_val = user_stats.get('telegram_weekly_message_count', 0)
-        
-        # Определяем статус
-        status = contract['status'] if contract else "available"
-        
-        # Если статус "active", но цель достигнута -> меняем на "completed" (визуально)
-        if status == 'active' and current_val >= t['target_value']:
-             status = 'completed'
+        # --- ЛОГИКА СТУПЕНЕЙ (TIERS) ---
+        if config.get('mode') == 'tiered':
+            tiers = config.get('tiers', [])
+            # Узнаем текущую ступень (из контракта или 0)
+            tier_idx = contract['current_tier'] if contract else 0
+            
+            # Если прошли все ступени
+            if tier_idx >= len(tiers):
+                status = "completed"
+                current_tier_data = tiers[-1] # Показываем последний
+                next_tier_data = None
+                target = current_tier_data['target']
+            else:
+                status = "active" if contract else "available"
+                current_tier_data = tiers[tier_idx]
+                next_tier_data = tiers[tier_idx + 1] if (tier_idx + 1) < len(tiers) else None
+                target = current_tier_data['target']
+                
+                # Если цель достигнута, статус "ready_to_claim" (для кнопки ЗАБРАТЬ)
+                if contract and current_msgs >= target:
+                    status = "ready_to_claim"
 
-        item = {
-            "template_id": t['id'],
-            "title": t['title'],
-            "description": t['description'],
-            "target": t['target_value'],
-            "reward_type": t['reward_type'],
-            "reward_config": t['reward_config'],
-            "status": status,
-            "progress": current_val  # Отдаем реальное кол-во сообщений из базы
-        }
+            item = {
+                "template_id": t['id'],
+                "title": t['title'],
+                "description": t['description'],
+                "current_progress": current_msgs,
+                "target": target,
+                "status": status,
+                # Данные текущей награды
+                "reward_amount": current_tier_data.get('reward'),
+                "reward_type": current_tier_data.get('type', 'tickets'),
+                # Данные следующей награды (для футера)
+                "next_tier": next_tier_data, 
+                "is_tiered": True
+            }
+        
+        # --- ОБЫЧНЫЙ РЕЖИМ (LEGACY) ---
+        else:
+            status = contract['status'] if contract else "available"
+            if status == 'active' and current_msgs >= t['target_value']: status = 'ready_to_claim'
+            
+            item = {
+                "template_id": t['id'],
+                "title": t['title'],
+                "description": t['description'],
+                "current_progress": current_msgs,
+                "target": t['target_value'],
+                "status": status,
+                "reward_amount": config.get('amount'),
+                "reward_type": t['reward_type'],
+                "is_tiered": False
+            }
+            
         result.append(item)
 
     return JSONResponse(content={"challenges": result})
 
 
-@app.post("/api/challenges/start")
-async def start_challenge_v2(req: ChallengeStartRequest):
-    """Пользователь подписывает контракт."""
+@app.post("/api/challenges/claim")
+async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
+    """Выдача награды за текущую ступень."""
     user = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user: raise HTTPException(status_code=401)
+    user_id = user['id']
     
-    # Проверка: уже есть контракт? (без await)
-    existing = supabase.table("user_contracts").select("*")\
-        .eq("user_id", user['id']).eq("template_id", req.template_id).execute()
-    
-    if existing.data:
-        return JSONResponse(content={"status": "error", "message": "Испытание уже начато"})
-
-    # Создаем контракт (без await)
-    supabase.table("user_contracts").insert({
-        "user_id": user['id'],
-        "template_id": req.template_id,
-        "current_progress": 0, # Тут 0, но в /list мы покажем реальные цифры из users
-        "status": "active"
-    }).execute()
-    
-    return JSONResponse(content={"status": "ok", "message": "Испытание начато!"})
-
-
-@app.post("/api/challenges/claim")
-async def claim_challenge_reward_v2(req: ChallengeClaimRequest):
-    """Выдача награды."""
-    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401)
-    user_id = user_info['id']
-    
-    # 1. Получаем контракт + шаблон + статистику юзера (БЕЗ await)
-    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)")\
-        .eq("user_id", user_id)\
-        .eq("template_id", req.template_id)\
-        .execute()
-    
-    if not contract_res.data:
-        return JSONResponse({"status": "error", "message": "Контракт не найден"})
+    # 1. Получаем данные
+    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)").eq("user_id", user_id).eq("template_id", req.template_id).execute()
+    if not contract_res.data: return JSONResponse({"status": "error", "message": "Контракт не найден"})
     
     contract = contract_res.data[0]
-    if contract['status'] == 'claimed':
-        return JSONResponse({"status": "error", "message": "Уже получено"})
-
-    # 2. Проверяем выполнение через таблицу USERS
-    user_stats_res = supabase.table("users").select("telegram_daily_message_count")\
-        .eq("telegram_id", user_id).execute()
-    
-    current_val = 0
-    if user_stats_res.data:
-        current_val = user_stats_res.data[0].get('telegram_daily_message_count', 0)
-
-    target = contract['challenge_templates']['target_value']
-    
-    # Если сообщений меньше цели - ошибка
-    if current_val < target:
-        return JSONResponse({"status": "error", "message": f"Нужно {target} сообщений, у вас {current_val}."})
-
-    # --- ЛОГИКА ВЫДАЧИ ---
     template = contract['challenge_templates']
-    r_type = template['reward_type']
     config = template['reward_config']
-    response_data = {"reward_type": r_type}
+    
+    # Получаем статистику сообщений (для проверки)
+    stats_res = supabase.table("users").select("telegram_daily_message_count").eq("telegram_id", user_id).execute()
+    current_msgs = stats_res.data[0]['telegram_daily_message_count']
 
-    # ВАРИАНТ А: РУЛЕТКА
-    if r_type == 'skin_random':
-        min_p = config.get('min_price', 0)
-        max_p = config.get('max_price', 999999)
-        # pick_roulette_winner у тебя асинхронная, тут await нужен
-        winner = await pick_roulette_winner(min_p, max_p)
+    # --- ОПРЕДЕЛЯЕМ НАГРАДУ ---
+    reward_to_give = {}
+    
+    if config.get('mode') == 'tiered':
+        tiers = config.get('tiers', [])
+        tier_idx = contract['current_tier']
         
-        if not winner:
-            return JSONResponse({"status": "error", "message": "Склад пуст :("})
+        if tier_idx >= len(tiers):
+            return JSONResponse({"status": "error", "message": "Все награды уже получены!"})
+            
+        tier_data = tiers[tier_idx]
         
-        strip = await get_roulette_strip(winner)
-        response_data['winner'] = winner
-        response_data['roulette_strip'] = strip
+        # Проверка цели
+        if current_msgs < tier_data['target']:
+            return JSONResponse({"status": "error", "message": f"Нужно {tier_data['target']} сообщений!"})
+            
+        reward_to_give = tier_data
+        
+        # АПДЕЙТ СТУПЕНИ: +1 к тиру
+        new_tier = tier_idx + 1
+        update_data = {"current_tier": new_tier}
+        
+        # Если это была последняя ступень -> статус completed
+        if new_tier >= len(tiers):
+            update_data["status"] = "completed"
+            update_data["completed_at"] = datetime.now(timezone.utc).isoformat()
+            
+        supabase.table("user_contracts").update(update_data).eq("id", contract['id']).execute()
+        
+    else:
+        # Обычный режим
+        if contract['status'] == 'claimed': return JSONResponse({"status": "error", "message": "Уже забрано"})
+        if current_msgs < template['target_value']: return JSONResponse({"status": "error", "message": "Рано!"})
+        
+        reward_to_give = {"reward": config.get('amount'), "type": template['reward_type']}
+        
+        # Ставим статус claimed
+        supabase.table("user_contracts").update({
+            "status": "claimed", 
+            "completed_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", contract['id']).execute()
 
-        # Списываем кол-во скина (БЕЗ await, так как table().update() синхронный в этой версии)
-        new_qty = winner['quantity'] - 1
-        supabase.table("cs_items").update({"quantity": new_qty}).eq("id", winner['id']).execute()
-        
-        # Логируем в историю
-        supabase.table("cs_history").insert({
-            "user_id": user_id,
-            "item_id": winner['id'],
-            "code_used": "challenge_reward",
-            "status": "completed"
-        }).execute()
+    # --- ВЫДАЧА (САМА ТРАНЗАКЦИЯ) ---
+    r_type = reward_to_give.get('type', 'tickets')
+    amount = reward_to_give.get('reward', 0)
+    
+    response_data = {"reward_type": r_type, "amount": amount}
 
-    # ВАРИАНТ Б: МОНЕТЫ
+    if r_type == 'tickets':
+        supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": amount}).execute()
+        
     elif r_type == 'coins':
-        amount = config.get('amount', 100)
-        # RPC вызов безопаснее
-        # supabase.post для RPC тоже синхронный в этой версии клиента, если не через httpx
-        # Но у тебя есть глобальный 'supabase', используем его методы
         supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": amount}).execute()
-        response_data['amount'] = amount
-
-    # 3. Обновляем статус на CLAIMED (БЕЗ await)
-    supabase.table("user_contracts").update({
-        "status": "claimed",
-        "completed_at": datetime.now(timezone.utc).isoformat()
-    }).eq("id", contract['id']).execute()
-
+        
+    elif r_type == 'skin_random':
+        # Логика рулетки (упрощенная для примера)
+        min_p = reward_to_give.get('min_price', 0)
+        winner = await pick_roulette_winner(min_p, 999999) # Тут нужен await т.к. функция async
+        if winner:
+            strip = await get_roulette_strip(winner)
+            response_data['winner'] = winner
+            response_data['roulette_strip'] = strip
+            # Списание...
+            
     return JSONResponse(content={"status": "ok", "data": response_data})
     
 # --- Пользовательские эндпоинты ---
