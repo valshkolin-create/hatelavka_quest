@@ -261,53 +261,64 @@ function startButtonCooldown(btnId, lastClaimedIso, cooldownHours = 20) {
 // === НОВАЯ ФУНКЦИЯ: ОТРИСОВКА БЛОКА ЭМОЦИЙ ===
 async function renderEmotionBlock(container) {
     try {
-        // Запрашиваем данные о прогрессе
         const res = await makeApiRequest('/api/v1/telegram/emotion_progress', {}, 'GET', true);
         
-        // Значения по умолчанию, если бэкенд молчит
+        // Данные (если нули, то ставим дефолт для красоты пока не заработает)
         const count = res?.count || 0;
         const target = res?.target || 35;
         const level = res?.level || 1;
         const percent = Math.min(100, (count / target) * 100);
-        const reward = level * 2; // Награда растет с уровнем
+        
+        // Формула награды
+        const reward = level * 2; 
 
-        // Создаем элемент в том же стиле, что и tg-task-item
         const el = document.createElement('div');
-        el.className = 'tg-task-item';
-        // Добавляем немного уникальности (золотой оттенок)
-        el.style.background = 'linear-gradient(90deg, rgba(255, 215, 0, 0.08) 0%, rgba(30, 30, 30, 0.5) 100%)';
-        el.style.borderLeft = '3px solid #FFD700';
+        el.className = 'tg-task-item'; // Тот же класс, что у остальных
+        // Темный фон с легким оранжевым свечением
+        el.style.background = 'linear-gradient(90deg, #1a1a1a 0%, #252525 100%)';
+        el.style.borderLeft = '3px solid #ff5e00'; // Оранжевый акцент
+        el.style.marginBottom = '12px';
 
         el.innerHTML = `
-            <div class="tg-task-header">
-                <div class="tg-left-col">
-                    <div class="tg-icon-box" style="color: #FFD700; background: rgba(255, 215, 0, 0.15);">
-                        <i class="fa-solid fa-fire"></i>
+            <div style="padding: 12px 12px 8px 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 32px; height: 32px; background: rgba(255, 94, 0, 0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #ff5e00;">
+                            <i class="fa-solid fa-fire-flame-curved"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 800; font-size: 13px; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+                                Мстители, общий сбор <span style="opacity: 0.5; font-size: 10px;">LVL ${level}</span>
+                            </div>
+                            <div style="font-size: 10px; color: #888;">
+                                Награда завтра: <span style="color: #FFD700; font-weight: bold;">+${reward} билетов</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="tg-text-col">
-                        <span class="tg-title" style="color: #FFD700;">Настроение канала (День ${level})</span>
-                        <span class="tg-subtitle">
-                            Цель: ${count}/${target} реакций. Награда завтра: <b>+${reward}</b> <i class="fa-solid fa-ticket" style="font-size:10px"></i>
-                        </span>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 700; font-size: 14px; color: #ff5e00;">${count}/${target}</div>
                     </div>
                 </div>
-                <div class="tg-right-col">
-                    <div style="font-weight: 800; font-size: 14px; color: #fff;">${Math.floor(percent)}%</div>
+
+                <div style="position: relative; height: 16px; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${percent}%; background: linear-gradient(90deg, #ff5e00, #ffae00); box-shadow: 0 0 15px rgba(255, 94, 0, 0.6); transition: width 0.5s ease;"></div>
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 9px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); z-index: 2;">${Math.floor(percent)}%</span>
+                    </div>
                 </div>
-            </div>
-            <div class="tg-progress-track" style="margin-top: 10px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-                <div class="tg-progress-fill" style="width: ${percent}%; height: 100%; background: #FFD700; box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); transition: width 0.5s ease;"></div>
+                
+                <div style="font-size: 9px; color: #555; margin-top: 6px; text-align: center;">
+                    Накидайте реакций на посты, чтобы поднять уровень!
+                </div>
             </div>
         `;
 
-        // Добавляем в контейнер первым
         container.appendChild(el);
 
     } catch (e) {
-        console.error("Не удалось загрузить прогресс эмоций:", e);
+        console.error("Emotion error:", e);
     }
 }
-
 async function loadTelegramTasks() {
     const container = document.getElementById('tg-tasks-list');
     if (!container) return;
