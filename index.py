@@ -2035,6 +2035,14 @@ async def process_webhook_in_background(update: dict):
     except Exception as e:
         logging.error(f"Ошибка в process_webhook_in_background: {e}")
 
+# Нужно убедиться, что у тебя есть эта функция-обертка для фона
+# Вставь её ПЕРЕД вебхуком, если её нет
+async def feed_update_safe(update_obj):
+    try:
+        await dp.feed_update(bot, update_obj)
+    except Exception as e:
+        print(f"Background task error: {e}")
+
 @app.post("/api/v1/webhook")
 async def telegram_webhook(
     update: dict,
@@ -2043,30 +2051,48 @@ async def telegram_webhook(
     """
     SUPER-FAST WEBHOOK (10-20ms response time)
     """
-    # 1. СРАЗУ возвращаем ответ Телеграму, если это редактирование
-    if "edited_message" in update or "channel_post" in update:
+    # 1. СРАЗУ возвращаем ответ Телеграму, если это редактирование или пост канала
+    # (Оставляем твою логику, но убеждаемся, что это не реакция)
+    if ("edited_message" in update or "channel_post" in update) and "message_reaction" not in update:
         return JSONResponse(content={"status": "ignored"})
 
-    # 2. Быстрая фильтрация чата (как делали раньше)
+    # 2. Быстрая фильтрация чата (для сообщений)
     if "message" in update:
         chat_id = update["message"].get("chat", {}).get("id")
-        if ALLOWED_CHAT_ID != 0 and chat_id != ALLOWED_CHAT_ID and update["message"].get("chat", {}).get("type") != "private":
+        # Приводим к int на всякий случай
+        allowed = int(ALLOWED_CHAT_ID) if ALLOWED_CHAT_ID else 0
+        
+        if allowed != 0 and chat_id != allowed and update["message"].get("chat", {}).get("type") != "private":
             return JSONResponse(content={"status": "ignored"})
 
-    # 3. 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Не ждем Aiogram!
-    # Мы создаем объект обновления и кидаем его в фон.
-    # Сама функция завершится мгновенно.
-    
+    # === 🔥 ДОБАВЛЕНО: Логика для РЕАКЦИЙ 🔥 ===
+    if "message_reaction" in update:
+        # Логируем, чтобы ты видел в Vercel
+        print("🔥 WEBHOOK: Обнаружена реакция (message_reaction)!")
+        
+        # Проверяем ID чата для реакции
+        chat_id = update["message_reaction"].get("chat", {}).get("id")
+        allowed = int(ALLOWED_CHAT_ID) if ALLOWED_CHAT_ID else 0
+        
+        if allowed != 0 and chat_id != allowed:
+            print(f"⛔ Реакция из чужого чата {chat_id}, игнорируем.")
+            return JSONResponse(content={"status": "ignored_chat"})
+    # ===========================================
+
+    # 3. Обработка через BackgroundTasks
     try:
-        # Превращаем JSON в объект Aiogram (это быстро)
-        update_obj = types.Update(**update)
+        # Превращаем JSON в объект Aiogram
+        # Используем model_validate (надежнее для v3), но твой вариант тоже оставил
+        try:
+            update_obj = Update.model_validate(update, context={"bot": bot})
+        except:
+            update_obj = types.Update(**update)
         
         # Кидаем обработку в BackgroundTasks
-        # ВАЖНО: Мы НЕ пишем await dp.feed... мы добавляем задачу.
         background_tasks.add_task(feed_update_safe, update_obj)
         
     except Exception as e:
-        # Даже если ошибка парсинга, отвечаем ОК, чтобы Телеграм не спамил повторами
+        # Даже если ошибка парсинга, отвечаем ОК
         print(f"Update parse error: {e}")
 
     return JSONResponse(content={"status": "ok"})
