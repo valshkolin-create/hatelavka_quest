@@ -4135,6 +4135,8 @@ async def get_active_slay_nominations(
 
     return result
 
+
+
 @app.post("/api/v1/admin/slay/nomination/finish")
 async def finish_slay_nomination(
     request_data: SlayNominationFinish,
@@ -11121,6 +11123,67 @@ async def get_pending_submissions_for_single_quest(
         logging.error(f"Ошибка при получении заявок для квеста {quest_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить список заявок.")
 # --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
+
+# --- АДМИНКА ТГ ИСПЫТАНИЙ (Конструктор) ---
+
+class TgChallengeConfigUpdate(BaseModel):
+    initData: str
+    config: dict
+
+@app.post("/api/v1/admin/tg_challenge/get_config")
+async def get_tg_challenge_config(
+    req: InitDataRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Возвращает конфиг для ТГ испытаний (шаблон ID=1)."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    
+    # Ищем шаблон с ID 1 (или создаем новый, если нет)
+    # Предполагаем, что ID 1 зарезервирован под "Ежедневная активность"
+    res = supabase.table("challenge_templates").select("reward_config").eq("id", 1).execute()
+    
+    if not res.data:
+        return {"tiers": []}
+        
+    return res.data[0]['reward_config']
+
+@app.post("/api/v1/admin/tg_challenge/save_config")
+async def save_tg_challenge_config(
+    req: TgChallengeConfigUpdate,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Сохраняет JSON конфиг уровней в шаблон ID=1."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    
+    # Обновляем (без await, так как клиент синхронный)
+    # Либо используем httpx клиент из Depends (он асинхронный)
+    # Здесь supabase передан через Depends, значит он асинхронный (httpx).
+    # Используем REST API вызов
+    
+    # 1. Проверяем, существует ли запись ID=1
+    check = await supabase.get("/challenge_templates", params={"id": "eq.1"})
+    
+    payload = {
+        "reward_config": req.config,
+        "task_type": "tg_messages", # Принудительно ставим тип
+        "is_active": True
+    }
+
+    if not check.json():
+        # Создаем, если нет
+        payload["id"] = 1
+        payload["title"] = "Ежедневная активность"
+        payload["description"] = "Общайся в чате и получай награды!"
+        payload["target_value"] = 9999 # Фиктивное значение для совместимости
+        payload["reward_type"] = "tiered"
+        await supabase.post("/challenge_templates", json=payload)
+    else:
+        # Обновляем
+        await supabase.patch("/challenge_templates", params={"id": "eq.1"}, json=payload)
+        
+    return {"status": "ok"}
 
 @app.post("/api/v1/admin/users/clear-checkpoint-stars")
 async def clear_user_checkpoint_stars(
