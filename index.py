@@ -1475,15 +1475,19 @@ async def handle_reaction_update(update: MessageReactionUpdated):
 # Нужно создать эндпоинт для фронтенда, чтобы получать эти цифры
 @app.get("/api/v1/telegram/emotion_progress")
 async def get_emotion_progress(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Отдает данные для Шкалы Хайпа на фронтенд."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    res = await supabase.get("/daily_emotions", params={"date": f"eq.{today}"})
-    data = res.json()
-    
-    if data:
-        return data[0]
-    else:
-        # Если данных на сегодня еще нет, возвращаем старт
-        return {"count": 0, "target": 5, "level": 1}
+    try:
+        # Ищем запись на сегодня
+        res = await supabase.from_("daily_emotions").select("*").eq("date", today).execute()
+        if res.data:
+            return res.data[0]
+        else:
+            # Если записи нет, возвращаем дефолт (1 уровень)
+            return {"count": 0, "target": 35, "level": 1}
+    except Exception as e:
+        logging.error(f"API Error get_emotion_progress: {e}")
+        return {"count": 0, "target": 35, "level": 1}
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
@@ -13790,7 +13794,7 @@ async def fix_webhook_settings():
         "callback_query", 
         "chat_member", 
         "my_chat_member", 
-        "message_reaction",        # <--- ВОТ ОНО
+        "message_reaction",        # <--- ГЛАВНОЕ: Разрешаем реакции
         "message_reaction_count"
     ]
     
@@ -13802,7 +13806,6 @@ async def fix_webhook_settings():
         return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
-
 
 # ==========================================
 # 🛠️ МОДЕЛИ ДАННЫХ (Вставь это перед вебхуками)
@@ -14551,79 +14554,107 @@ async def telegram_vote(
 
 # --- ХЕНДЛЕР РЕАКЦИЙ (ИСПРАВЛЕННЫЙ) ---
 @router.message_reaction()
-async def handle_reaction_update(reaction: MessageReactionUpdated):
-    """
-    Ловит реакции и обновляет еженедельный прогресс.
-    """
-    # 1. Проверки: тот ли чат, добавление ли это реакции
-    if TG_QUEST_CHANNEL_ID == 0 or reaction.chat.id != TG_QUEST_CHANNEL_ID:
-        return
-    if not reaction.new_reaction: # Если реакцию сняли, игнорируем
+async def handle_reaction_update(update: MessageReactionUpdated):
+    # 1. Логируем, что сигнал пришел
+    print(f"⚡ REACTION EVENT: User={update.user.id} Chat={update.chat.id}")
+
+    # 2. Проверка канала (если нужно). 
+    # Если переменная окружения задана, проверяем. Если нет — пропускаем всех.
+    # Преобразуем в int, так как из env может прийти строка
+    if ALLOWED_CHAT_ID:
+        try:
+            target_chat_id = int(ALLOWED_CHAT_ID)
+            if update.chat.id != target_chat_id:
+                print(f"⛔ Skipped: Chat {update.chat.id} != {target_chat_id}")
+                return
+        except ValueError:
+            print("⚠️ ALLOWED_CHAT_ID is not an integer, skipping check")
+
+    # 3. Считаем математику (поставили или убрали)
+    old_count = len(update.old_reaction)
+    new_count = len(update.new_reaction)
+    
+    change = 0
+    if new_count > old_count:
+        change = 1  # Поставил
+    elif new_count < old_count:
+        change = -1 # Убрал
+    
+    if change == 0:
+        print("ℹ️ No count change (emoji swap?)")
         return
 
-    user = reaction.user
-    if not user: return
-    user_id = user.id
-
-    logging.info(f"❤️ REACT: User {user_id} reacted to msg {reaction.message_id}")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    print(f"📅 Processing Date: {today}, Change: {change}")
 
     try:
-        # 2. Получаем данные (используем твою логику с run_in_threadpool)
-        res = await run_in_threadpool(
-            lambda: supabase.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
-        )
+        # Используем твой клиент Supabase
+        client = await get_background_client()
         
-        # Если записи нет — создаем
-        if not res.data:
-            record = {
-                "user_id": user_id,
-                "reaction_count_weekly": 1,
-                "last_reaction_reset": datetime.now(timezone.utc).isoformat()
+        # 4. Пробуем получить запись на СЕГОДНЯ
+        # Обрати внимание: postgrest-py (библиотека под капотом) возвращает объект response.
+        # response.data - это список.
+        res = await client.from_("daily_emotions").select("*").eq("date", today).execute()
+        data = res.data
+
+        if not data:
+            print("🆕 Row missing. Creating new record for today...")
+            
+            # --- ЛОГИКА НОВОГО ДНЯ ---
+            # Смотрим вчерашний день, чтобы понять уровень
+            yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+            y_res = await client.from_("daily_emotions").select("*").eq("date", yesterday).execute()
+            y_data = y_res.data
+            
+            next_level = 1
+            # Если вчера была запись и цель выполнена -> повышаем уровень
+            if y_data and len(y_data) > 0:
+                y_rec = y_data[0]
+                # Защита от None в базе
+                y_count = y_rec.get('count', 0) or 0
+                y_target = y_rec.get('target', 35) or 35
+                y_lvl = y_rec.get('level', 1) or 1
+                
+                if y_count >= y_target:
+                    next_level = min(7, y_lvl + 1)
+                    print(f"🚀 Level UP! {y_lvl} -> {next_level}")
+                else:
+                    print(f"📉 Reset to Level 1 (Target missed yesterday)")
+            
+            # Цель: 35 (как ты просил)
+            # Если хочешь усложнять: new_target = 35 + (next_level * 5)
+            new_target = 35 
+            
+            # Сразу учитываем текущий клик (0 + change)
+            initial_count = max(0, change)
+
+            new_record = {
+                "date": today,
+                "count": initial_count,
+                "target": new_target,
+                "level": next_level
             }
-            await run_in_threadpool(
-                lambda: supabase.table("telegram_challenges").insert(record).execute()
-            )
-            # Начисляем билет
-            await run_in_threadpool(
-                lambda: supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
-            )
-            return
+            
+            # Создаем запись
+            await client.from_("daily_emotions").insert(new_record).execute()
+            print(f"✅ Created: {new_record}")
 
-        # Если запись есть — обновляем
-        record = res.data[0]
-        
-        # Сброс недели
-        now = datetime.now(timezone.utc)
-        last_reset_str = record.get('last_reaction_reset') or now.isoformat()
-        last_reset = datetime.fromisoformat(last_reset_str.replace('Z', '+00:00'))
-        
-        count = record.get('reaction_count_weekly', 0)
-        
-        if now - last_reset > timedelta(days=7):
-            count = 0 # Новая неделя
-            # Обновляем дату сброса
-            await run_in_threadpool(
-                lambda: supabase.table("telegram_challenges").update({
-                    "last_reaction_reset": now.isoformat()
-                }).eq("user_id", user_id).execute()
-            )
-
-        # Если лимит не достигнут — засчитываем
-        if count < TG_REACTION_WEEKLY_LIMIT:
-            new_count = count + 1
-            await run_in_threadpool(
-                lambda: supabase.table("telegram_challenges").update({
-                    "reaction_count_weekly": new_count
-                }).eq("user_id", user_id).execute()
-            )
-            # Награда
-            await run_in_threadpool(
-                lambda: supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
-            )
-            logging.info(f"✅ Билет выдан {user_id} ({new_count}/{TG_REACTION_WEEKLY_LIMIT})")
-
+        else:
+            print("🔄 Row exists. Updating...")
+            current_rec = data[0]
+            current_val = current_rec.get('count', 0)
+            
+            # Чтобы счетчик не ушел в минус
+            new_val = max(0, current_val + change)
+            
+            await client.from_("daily_emotions").update({"count": new_val}).eq("date", today).execute()
+            print(f"✅ Updated: {current_val} -> {new_val}")
+            
     except Exception as e:
-        logging.error(f"Reaction handler error: {e}")
+        # Важно видеть ошибку в логах Vercel
+        print(f"❌ DATABASE ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
