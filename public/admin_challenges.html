@@ -8,65 +8,148 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="admin.css"> 
   <style>
-      body { padding: 20px; padding-bottom: 80px; }
+      body { 
+          padding: 15px; 
+          padding-bottom: 120px; /* Большой отступ снизу */
+          background-color: #0f1014;
+          color: #fff;
+          font-family: 'Montserrat', sans-serif;
+      }
       
+      .page-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+      .page-header-title { font-size: 20px; font-weight: 800; margin: 0; }
+
+      /* Компактная карточка уровня */
       .tier-card {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: #1a1b20;
+          border: 1px solid rgba(255,255,255,0.08);
           border-radius: 12px;
-          padding: 15px;
-          margin-bottom: 15px;
-          position: relative;
-      }
-      
-      .tier-header {
-          display: flex; justify-content: space-between; align-items: center;
+          padding: 12px;
           margin-bottom: 10px;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-          padding-bottom: 8px;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
       }
-      .tier-title { font-weight: 700; color: #ffd700; font-size: 14px; text-transform: uppercase; }
       
-      .remove-tier-btn {
-          background: rgba(255, 59, 48, 0.2); color: #ff3b30;
-          border: none; border-radius: 6px; width: 24px; height: 24px;
-          cursor: pointer; display: flex; align-items: center; justify-content: center;
+      .tier-top-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
       }
 
-      .input-group { margin-bottom: 10px; }
-      .input-group label { display: block; font-size: 11px; color: #888; margin-bottom: 4px; }
-      .input-group input, .input-group select {
-          width: 100%; box-sizing: border-box;
-          background: #222; border: 1px solid #444;
-          color: #fff; padding: 10px; border-radius: 8px;
-          font-size: 14px; outline: none;
+      .tier-index-badge {
+          background: rgba(255,255,255,0.1);
+          color: #ffd700;
+          font-weight: 700;
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 6px;
+          min-width: 24px;
+          text-align: center;
+      }
+
+      .input-wrapper {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
       }
       
-      /* Специфичные поля для скинов */
-      .skin-settings {
-          padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-top: 5px;
-          border: 1px dashed #444;
+      .input-label {
+          font-size: 10px;
+          color: #888;
+          margin-bottom: 2px;
+          text-transform: uppercase;
+          font-weight: 600;
       }
+
+      .compact-input {
+          background: #111;
+          border: 1px solid #333;
+          color: #fff;
+          padding: 8px;
+          border-radius: 6px;
+          font-size: 13px;
+          outline: none;
+          width: 100%;
+          box-sizing: border-box;
+      }
+      .compact-input:focus { border-color: #0088cc; }
+
+      .remove-btn {
+          background: rgba(255, 59, 48, 0.15);
+          color: #ff3b30;
+          border: none;
+          width: 32px; height: 32px;
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: 0.2s;
+      }
+      .remove-btn:active { transform: scale(0.9); background: rgba(255, 59, 48, 0.3); }
+
+      /* Блок выбора наград (Комбинация) */
+      .rewards-selector {
+          background: rgba(0,0,0,0.3);
+          border-radius: 8px;
+          padding: 8px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+      }
+
+      .reward-option {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          cursor: pointer;
+          user-select: none;
+          background: rgba(255,255,255,0.05);
+          padding: 4px 8px;
+          border-radius: 6px;
+          border: 1px solid transparent;
+          transition: 0.2s;
+      }
+      
+      .reward-option.active {
+          background: rgba(0, 136, 204, 0.15);
+          border-color: #0088cc;
+          color: #fff;
+      }
+
+      .reward-inputs {
+          display: flex;
+          gap: 10px;
+          margin-top: 5px;
+      }
+      
+      .hidden { display: none !important; }
 
       .add-btn {
-          width: 100%; padding: 15px;
-          background: rgba(255,255,255,0.1); border: 1px dashed #666;
-          color: #fff; border-radius: 12px; cursor: pointer; font-weight: 600;
-          margin-bottom: 20px; transition: 0.2s;
+          width: 100%; padding: 12px;
+          background: rgba(255,255,255,0.08); 
+          border: 1px dashed #555;
+          color: #ccc; border-radius: 10px; 
+          cursor: pointer; font-weight: 600; font-size: 13px;
+          transition: 0.2s;
       }
-      .add-btn:active { background: rgba(255,255,255,0.2); }
+      .add-btn:active { background: rgba(255,255,255,0.15); }
 
       .save-bar {
           position: fixed; bottom: 0; left: 0; width: 100%;
           padding: 15px; box-sizing: border-box;
-          background: #1c1c1e; border-top: 1px solid #333;
+          background: rgba(20,20,25,0.95); 
+          backdrop-filter: blur(10px);
+          border-top: 1px solid #333;
           z-index: 100;
       }
       .save-btn {
           width: 100%; padding: 14px;
-          background: #34c759; color: #fff; border: none;
-          border-radius: 12px; font-weight: 800; font-size: 16px;
-          box-shadow: 0 4px 15px rgba(52, 199, 89, 0.3);
+          background: #0088cc; color: #fff; border: none;
+          border-radius: 12px; font-weight: 800; font-size: 15px;
+          box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+          text-transform: uppercase;
       }
   </style>
 </head>
@@ -74,7 +157,7 @@
 
     <div class="page-header">
         <a href="/admin" class="back-button"><i class="fa-solid fa-arrow-left"></i> Админка</a>
-        <h1 class="page-header-title">ТГ Испытания</h1>
+        <h1 class="page-header-title">Этапы Испытаний</h1>
         <div style="width: 60px;"></div>
     </div>
 
@@ -83,11 +166,11 @@
     </div>
 
     <button class="add-btn" onclick="addTier()">
-        <i class="fa-solid fa-plus"></i> Добавить уровень
+        <i class="fa-solid fa-plus"></i> Добавить этап
     </button>
 
     <div class="save-bar">
-        <button class="save-btn" onclick="saveAll()">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
+        <button class="save-btn" onclick="saveAll()">СОХРАНИТЬ</button>
     </div>
 
     <script>
@@ -96,83 +179,92 @@
 
         let tiersData = [];
 
-        // 1. Загрузка данных
         async function loadData() {
             const container = document.getElementById('tiers-container');
             try {
-                // Запрашиваем конфиг (предполагаем ID=1 для основного ТГ челленджа)
-                // Или используем спец. эндпоинт. Пока возьмем /api/challenges/list и отфильтруем
-                // Но лучше сделать прямой запрос к таблице challenge_templates
+                // Запрашиваем конфиг с сервера
+                const res = await fetch('/api/v1/admin/tg_challenge/get_config', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                const data = await res.json();
                 
-                // ВРЕМЕННО: Используем заглушку, пока ты не добавишь эндпоинт.
-                // В идеале нужен: GET /api/v1/admin/tg_challenge/config
+                tiersData = (data && data.tiers) ? data.tiers : [];
                 
-                // Пока эмулируем пустой список или дефолт
-                tiersData = [
-                    { target: 5, reward: 2, type: 'tickets' },
-                    { target: 15, reward: 5, type: 'tickets' }
-                ]; 
+                // Если пусто, добавляем пример
+                if (tiersData.length === 0) {
+                    tiersData = [{ target: 5, rewards: { tickets: 2 } }];
+                }
                 
-                // Если у тебя есть эндпоинт, раскомментируй:
-                // const res = await fetch('/api/v1/admin/tg_challenge/get_config', { ... });
-                // tiersData = (await res.json()).tiers || [];
-
                 render();
             } catch (e) {
                 container.innerHTML = `<p style="color:red; text-align:center;">Ошибка: ${e.message}</p>`;
             }
         }
 
-        // 2. Рендер
         function render() {
             const container = document.getElementById('tiers-container');
             container.innerHTML = '';
 
-            if (tiersData.length === 0) {
-                container.innerHTML = '<p style="text-align:center; color:#555; margin-bottom:20px;">Нет уровней. Добавьте первый!</p>';
-                return;
-            }
-
             tiersData.forEach((tier, index) => {
                 const div = document.createElement('div');
                 div.className = 'tier-card';
+                
+                // Нормализация данных (старый формат -> новый)
+                const rewards = tier.rewards || {};
+                // Если старый формат (одна награда), конвертируем
+                if (tier.reward && tier.type) {
+                    if (tier.type === 'tickets') rewards.tickets = tier.reward;
+                    if (tier.type === 'coins') rewards.coins = tier.reward;
+                    if (tier.type === 'skin_random') rewards.skin = { min: tier.min_price, max: tier.max_price };
+                }
+
                 div.innerHTML = `
-                    <div class="tier-header">
-                        <span class="tier-title">Уровень ${index + 1}</span>
-                        <button class="remove-tier-btn" onclick="removeTier(${index})"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px;">
-                        <div class="input-group" style="flex:1;">
-                            <label>Цель (Сообщений)</label>
-                            <input type="number" class="inp-target" value="${tier.target || ''}" placeholder="10">
+                    <div class="tier-top-row">
+                        <div class="tier-index-badge">#${index + 1}</div>
+                        
+                        <div class="input-wrapper" style="flex: 2;">
+                            <span class="input-label">Цель (Сообщений)</span>
+                            <input type="number" class="compact-input inp-target" value="${tier.target}" placeholder="50">
                         </div>
-                        <div class="input-group" style="flex:1;">
-                            <label>Тип награды</label>
-                            <select class="inp-type" onchange="updateRowUI(this)">
-                                <option value="tickets" ${tier.type === 'tickets' ? 'selected' : ''}>Билеты</option>
-                                <option value="coins" ${tier.type === 'coins' ? 'selected' : ''}>Монеты</option>
-                                <option value="skin_random" ${tier.type === 'skin_random' ? 'selected' : ''}>Кейс (Скин)</option>
-                            </select>
+
+                        <button class="remove-btn" onclick="removeTier(${index})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+
+                    <div class="input-wrapper">
+                        <span class="input-label">Награды (Комбинация)</span>
+                        <div class="rewards-selector">
+                            <div class="reward-option ${rewards.tickets ? 'active' : ''}" onclick="toggleReward(this, 'tickets')">
+                                <i class="fa-solid fa-ticket"></i> Билеты
+                            </div>
+                            <div class="reward-option ${rewards.coins ? 'active' : ''}" onclick="toggleReward(this, 'coins')">
+                                <i class="fa-solid fa-coins"></i> Монеты
+                            </div>
+                            <div class="reward-option ${rewards.skin ? 'active' : ''}" onclick="toggleReward(this, 'skin')">
+                                <i class="fa-solid fa-gift"></i> Скин
+                            </div>
                         </div>
                     </div>
 
-                    <div class="input-group val-box">
-                        <label>Количество</label>
-                        <input type="number" class="inp-amount" value="${tier.reward || ''}" placeholder="5">
+                    <div class="reward-inputs">
+                        <div class="input-wrapper inp-tickets ${rewards.tickets ? '' : 'hidden'}">
+                            <span class="input-label">Билетов</span>
+                            <input type="number" class="compact-input val-tickets" value="${rewards.tickets || ''}" placeholder="10">
+                        </div>
+                        <div class="input-wrapper inp-coins ${rewards.coins ? '' : 'hidden'}">
+                            <span class="input-label">Монет</span>
+                            <input type="number" class="compact-input val-coins" value="${rewards.coins || ''}" placeholder="100">
+                        </div>
                     </div>
 
-                    <div class="skin-box skin-settings ${tier.type === 'skin_random' ? '' : 'hidden'}" style="display: ${tier.type === 'skin_random' ? 'block' : 'none'}">
-                        <label style="color:#ffd700; font-size:10px; margin-bottom:5px;">Настройки Рулетки</label>
-                        <div style="display:flex; gap:10px;">
-                            <div class="input-group" style="flex:1; margin-bottom:0;">
-                                <label>Мин. цена</label>
-                                <input type="number" class="inp-min" value="${tier.min_price || 0}">
-                            </div>
-                            <div class="input-group" style="flex:1; margin-bottom:0;">
-                                <label>Макс. цена</label>
-                                <input type="number" class="inp-max" value="${tier.max_price || 500}">
-                            </div>
+                    <div class="reward-inputs inp-skin ${rewards.skin ? '' : 'hidden'}">
+                         <div class="input-wrapper">
+                            <span class="input-label">Мин. Цена</span>
+                            <input type="number" class="compact-input val-min" value="${rewards.skin?.min || 0}">
+                        </div>
+                        <div class="input-wrapper">
+                            <span class="input-label">Макс. Цена</span>
+                            <input type="number" class="compact-input val-max" value="${rewards.skin?.max || 500}">
                         </div>
                     </div>
                 `;
@@ -180,34 +272,26 @@
             });
         }
 
-        // 3. Логика UI
+        window.toggleReward = (el, type) => {
+            el.classList.toggle('active');
+            const card = el.closest('.tier-card');
+            const isActive = el.classList.contains('active');
+            
+            card.querySelector(`.inp-${type}`).classList.toggle('hidden', !isActive);
+        }
+
         window.addTier = () => {
-            tiersData.push({ target: '', reward: '', type: 'tickets' });
+            tiersData.push({ target: '', rewards: { tickets: 5 } });
             render();
         }
 
         window.removeTier = (index) => {
-            if(confirm('Удалить уровень?')) {
+            if(confirm('Удалить этот этап?')) {
                 tiersData.splice(index, 1);
                 render();
             }
         }
 
-        window.updateRowUI = (select) => {
-            const card = select.closest('.tier-card');
-            const valBox = card.querySelector('.val-box');
-            const skinBox = card.querySelector('.skin-box');
-            
-            if (select.value === 'skin_random') {
-                valBox.style.display = 'none';
-                skinBox.style.display = 'block';
-            } else {
-                valBox.style.display = 'block';
-                skinBox.style.display = 'none';
-            }
-        }
-
-        // 4. Сбор данных и Сохранение
         window.saveAll = async () => {
             const cards = document.querySelectorAll('.tier-card');
             const newTiers = [];
@@ -215,35 +299,42 @@
 
             cards.forEach(card => {
                 const target = parseInt(card.querySelector('.inp-target').value);
-                const type = card.querySelector('.inp-type').value;
-                const tierObj = { target, type };
-
                 if (!target) isValid = false;
 
-                if (type === 'skin_random') {
-                    tierObj.min_price = parseInt(card.querySelector('.inp-min').value) || 0;
-                    tierObj.max_price = parseInt(card.querySelector('.inp-max').value) || 100000;
-                    tierObj.reward = 1; // 1 скин
-                } else {
-                    tierObj.reward = parseInt(card.querySelector('.inp-amount').value);
-                    if (!tierObj.reward) isValid = false;
+                const rewards = {};
+                
+                // Билеты
+                if (!card.querySelector('.inp-tickets').classList.contains('hidden')) {
+                    const val = parseInt(card.querySelector('.val-tickets').value);
+                    if (val > 0) rewards.tickets = val;
                 }
-                newTiers.push(tierObj);
+                // Монеты
+                if (!card.querySelector('.inp-coins').classList.contains('hidden')) {
+                    const val = parseInt(card.querySelector('.val-coins').value);
+                    if (val > 0) rewards.coins = val;
+                }
+                // Скин
+                if (!card.querySelector('.inp-skin').classList.contains('hidden')) {
+                    const min = parseInt(card.querySelector('.val-min').value) || 0;
+                    const max = parseInt(card.querySelector('.val-max').value) || 500;
+                    rewards.skin = { min, max };
+                }
+
+                // Проверка: должна быть хоть одна награда
+                if (Object.keys(rewards).length === 0) isValid = false;
+
+                newTiers.push({ target, rewards });
             });
 
-            if (!isValid) return tg.showAlert("Заполните все поля (Цель и Награда)!");
+            if (!isValid) return tg.showAlert("Ошибка: Заполните цель и выберите хотя бы одну награду для каждого этапа.");
 
-            // Сортируем по возрастанию цели, чтобы логика не ломалась
             newTiers.sort((a,b) => a.target - b.target);
 
             const payload = {
                 mode: "tiered",
                 tiers: newTiers
             };
-            
-            // ОТПРАВКА НА СЕРВЕР (Нужен новый эндпоинт в Python)
-            // Мы будем сохранять это в конкретный challenge_template (ID=1, например)
-            // Или создадим спец. конфиг.
+
             try {
                 const btn = document.querySelector('.save-btn');
                 btn.textContent = "Сохранение...";
@@ -255,11 +346,11 @@
                     body: JSON.stringify({ initData: tg.initData, config: payload })
                 });
 
-                tg.showPopup({message: "Настройки сохранены!"});
+                tg.showPopup({message: "Сохранено!"});
             } catch(e) {
                 tg.showAlert("Ошибка: " + e.message);
             } finally {
-                document.querySelector('.save-btn').textContent = "СОХРАНИТЬ ИЗМЕНЕНИЯ";
+                document.querySelector('.save-btn').textContent = "СОХРАНИТЬ";
                 document.querySelector('.save-btn').disabled = false;
             }
         }
