@@ -1170,21 +1170,6 @@ async def sleep_mode_check(request: Request, call_next):
 # --- Глобальная переменная для ленивой инициализации ---
 _lazy_supabase_client: Optional[httpx.AsyncClient] = None
 
-Конечно. Ты абсолютно прав, ошибки возникают из-за того, что:
-
-await используется с синхронными вызовами supabase.table(...) — это вызывает первую ошибку.
-
-Мы пытаемся записать поле title, которого нет в таблице manual_rewards — это вызывает вторую ошибку.
-
-Вот исправленные версии обеих функций. Я убрал лишние await перед запросами к базе и удалил поле title из вставки, перенеся название скина в reward_details.
-
-Вставь этот код в index (16).py, заменив старые версии этих функций.
-
-1. Исправленная update_challenge_progress
-(Убраны await перед supabase.table)
-
-Python
-
 async def update_challenge_progress(user_id: int, task_type: str, increment: int = 1):
     """
     Универсальная функция: находит активный контракт юзера и обновляет прогресс.
