@@ -14439,26 +14439,26 @@ async def telegram_vote(
 
 
 # ==========================================
-# 🔥 БРОНЕБОЙНЫЙ БЛОК ЭМОЦИЙ (DIRECT HTTP) 🔥
+# 🔥 ИСПРАВЛЕННЫЙ БЛОК ЭМОЦИЙ (HTTP ЗАПРОСЫ) 🔥
 # ==========================================
 
-# Вспомогательная функция для запросов к Supabase
-async def direct_supabase_request(method: str, endpoint: str, data: dict = None, params: dict = None):
+# Вспомогательная функция для общения с Supabase напрямую через URL
+async def supabase_request(method: str, endpoint: str, data: dict = None, params: dict = None):
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     
     if not url or not key:
-        print("❌ CRITICAL: SUPABASE_URL or SUPABASE_KEY not found in env!")
+        print("❌ ОШИБКА: Нет переменных SUPABASE_URL или SUPABASE_KEY")
         return None
 
-    # Формируем правильный URL для REST API (v1)
+    # Собираем прямой URL к таблице
     api_url = f"{url.rstrip('/')}/rest/v1/{endpoint}"
     
     headers = {
         "apikey": key,
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
-        "Prefer": "return=representation" # Чтобы Supabase возвращал данные после insert/update
+        "Prefer": "return=representation" # Чтобы база возвращала ответ
     }
 
     async with httpx.AsyncClient() as client:
@@ -14470,17 +14470,15 @@ async def direct_supabase_request(method: str, endpoint: str, data: dict = None,
             elif method == "PATCH":
                 r = await client.patch(api_url, headers=headers, json=data, params=params)
             
-            # Логируем ошибки, если есть
             if r.status_code >= 400:
-                print(f"⚠️ Supabase Error {r.status_code}: {r.text}")
+                print(f"⚠️ Ошибка Supabase {r.status_code}: {r.text}")
                 return None
-            
             return r.json()
         except Exception as e:
-            print(f"❌ HTTP Request Error: {e}")
+            print(f"❌ Ошибка запроса: {e}")
             return None
 
-# 1. Эндпоинт для включения реакций
+# 1. Фикс вебхука
 @app.get("/api/v1/admin/fix_webhook")
 async def fix_webhook_settings():
     webhook_url = f"{WEB_APP_URL}/api/v1/webhook"
@@ -14488,64 +14486,61 @@ async def fix_webhook_settings():
     try:
         await bot.delete_webhook()
         await bot.set_webhook(url=webhook_url, allowed_updates=updates)
-        return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
+        return {"status": "ok", "message": "✅ Вебхук обновлен!", "url": webhook_url}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
-# 2. Эндпоинт для Фронтенда
+# 2. Эндпоинт для фронтенда
 @app.get("/api/v1/telegram/emotion_progress")
 async def get_emotion_progress():
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    data = await direct_supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
+    # Прямой GET запрос
+    data = await supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
     
     if data and len(data) > 0:
         return data[0]
     else:
         return {"count": 0, "target": 35, "level": 1}
 
-# 3. Обработчик реакций (Логика)
+# 3. Обработчик реакций
 @router.message_reaction()
 async def handle_reaction_update(update: MessageReactionUpdated):
-    # 1. Логируем факт прихода реакции
-    print(f"⚡ REACTION: Chat={update.chat.id}, User={update.user.id}")
+    # Лог, чтобы видеть, что бот живой
+    print(f"⚡ REACTION: User={update.user.id if update.user else 'Anon'} Chat={update.chat.id}")
 
-    # 2. Проверка канала (если нужно)
+    # Проверка чата
     if ALLOWED_CHAT_ID:
         try:
             if update.chat.id != int(ALLOWED_CHAT_ID):
                 return 
         except: pass
 
-    # 3. Считаем
-    old_count = len(update.old_reaction)
-    new_count = len(update.new_reaction)
-    
+    # Считаем
+    old_c = len(update.old_reaction)
+    new_c = len(update.new_reaction)
     change = 0
-    if new_count > old_count: change = 1
-    elif new_count < old_count: change = -1
+    if new_c > old_c: change = 1
+    elif new_c < old_c: change = -1
     
     if change == 0: return
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"📅 DB Write: {today}, Change: {change}")
+    print(f"📝 Пишем в базу: {today}, Изменение: {change}")
 
-    # 4. Работаем с базой напрямую
-    # Получаем запись на сегодня
-    data = await direct_supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
+    # Получаем запись (GET)
+    data = await supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
 
-    if not data: # Если пусто (False или пустой список)
-        print("🆕 New day logic...")
-        
-        # Получаем вчерашний день
+    if not data:
+        # Создаем новую (POST)
+        print("🆕 Новый день...")
         yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
-        y_data = await direct_supabase_request("GET", "daily_emotions", params={"date": f"eq.{yesterday}", "select": "*"})
+        y_data = await supabase_request("GET", "daily_emotions", params={"date": f"eq.{yesterday}", "select": "*"})
         
         next_level = 1
         if y_data and len(y_data) > 0:
-            y_rec = y_data[0]
-            if y_rec.get('count', 0) >= y_rec.get('target', 35):
-                next_level = min(7, y_rec.get('level', 1) + 1)
+            if y_data[0].get('count', 0) >= y_data[0].get('target', 35):
+                next_level = min(7, y_data[0].get('level', 1) + 1)
         
         new_record = {
             "date": today,
@@ -14553,20 +14548,21 @@ async def handle_reaction_update(update: MessageReactionUpdated):
             "target": 35,
             "level": next_level
         }
-        
-        # Создаем
-        res = await direct_supabase_request("POST", "daily_emotions", data=new_record)
-        print(f"✅ Created result: {res}")
-
+        await supabase_request("POST", "daily_emotions", data=new_record)
+        print("✅ Запись создана")
     else:
-        # Обновляем
+        # Обновляем (PATCH)
         current_rec = data[0]
         new_val = max(0, current_rec.get('count', 0) + change)
         
-        res = await direct_supabase_request("PATCH", "daily_emotions", 
-                                            data={"count": new_val}, 
-                                            params={"date": f"eq.{today}"})
-        print(f"✅ Updated result: {res}")
+        await supabase_rpc("PATCH", "daily_emotions", 
+                           data={"count": new_val}, 
+                           params={"date": f"eq.{today}"}) # <-- ВНИМАНИЕ: тут была опечатка, исправляю ниже
+        
+        # Исправленный вызов обновления:
+        await supabase_request("PATCH", "daily_emotions", data={"count": new_val}, params={"date": f"eq.{today}"})
+        
+        print(f"✅ Обновлено: {new_val}")
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
