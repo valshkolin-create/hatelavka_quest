@@ -8,18 +8,29 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="admin.css"> 
   <style>
+      /* --- ИСПРАВЛЕНИЕ СКРОЛЛА --- */
+      html {
+          height: 100%;
+          overflow-y: auto; /* Разрешаем вертикальный скролл */
+          -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+      }
+
       body { 
+          margin: 0;
           padding: 15px; 
+          padding-bottom: 160px; /* ОГРОМНЫЙ ОТСТУП СНИЗУ */
           background-color: #0f1014;
           color: #fff;
           font-family: 'Montserrat', sans-serif;
-          min-height: 100vh;
+          min-height: 100%;
           box-sizing: border-box;
+          overflow-x: hidden; /* Запрещаем горизонтальный скролл */
       }
       
       .page-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
       .page-header-title { font-size: 20px; font-weight: 800; margin: 0; }
 
+      /* Карточка уровня */
       .tier-card {
           background: #1a1b20;
           border: 1px solid rgba(255,255,255,0.08);
@@ -28,40 +39,37 @@
           margin-bottom: 12px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
           box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       }
       
       .tier-top-row {
           display: flex;
-          align-items: flex-end; /* Выравнивание по низу инпута */
+          align-items: center;
           gap: 10px;
+          justify-content: space-between;
       }
 
       .tier-index-badge {
           background: rgba(255,255,255,0.1);
           color: #ffd700;
           font-weight: 700;
-          font-size: 11px;
-          padding: 6px 8px;
-          border-radius: 6px;
-          height: 20px;
-          display: flex;
-          align-items: center;
-          margin-bottom: 2px; /* Подгонка под инпут */
+          font-size: 14px;
+          padding: 6px 10px;
+          border-radius: 8px;
       }
 
       .input-wrapper {
           flex: 1;
           display: flex;
           flex-direction: column;
-          min-width: 0; /* Важно для flex контейнеров */
+          min-width: 0; 
       }
       
       .input-label {
           font-size: 10px;
           color: #888;
-          margin-bottom: 3px;
+          margin-bottom: 4px;
           text-transform: uppercase;
           font-weight: 700;
       }
@@ -70,9 +78,9 @@
           background: #111;
           border: 1px solid #333;
           color: #fff;
-          padding: 10px;
+          padding: 12px;
           border-radius: 8px;
-          font-size: 14px;
+          font-size: 15px;
           outline: none;
           width: 100%;
           box-sizing: border-box;
@@ -84,19 +92,18 @@
           background: rgba(255, 59, 48, 0.15);
           color: #ff3b30;
           border: none;
-          width: 36px; height: 36px;
-          border-radius: 8px;
+          width: 40px; height: 40px;
+          border-radius: 10px;
           cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          margin-bottom: 1px; /* Подгонка */
       }
       .remove-btn:active { background: rgba(255, 59, 48, 0.3); }
 
-      /* Комбинации наград */
+      /* Селектор наград */
       .rewards-selector {
           display: flex;
           gap: 8px;
-          flex-wrap: wrap; /* Позволяет перенос кнопок */
+          flex-wrap: wrap; 
           margin-top: 5px;
       }
 
@@ -109,11 +116,11 @@
           cursor: pointer;
           user-select: none;
           background: rgba(255,255,255,0.05);
-          padding: 8px 12px;
+          padding: 10px 14px;
           border-radius: 8px;
           border: 1px solid rgba(255,255,255,0.1);
           transition: 0.2s;
-          flex: 1; /* Растягиваем кнопки */
+          flex-grow: 1;
           justify-content: center;
           white-space: nowrap;
       }
@@ -128,33 +135,39 @@
       .reward-inputs {
           display: flex;
           gap: 10px;
-          flex-wrap: wrap; /* Позволяет полям переноситься */
+          flex-wrap: wrap; 
+          background: rgba(0,0,0,0.2);
+          padding: 10px;
+          border-radius: 8px;
       }
       
       .reward-inputs .input-wrapper {
-          min-width: 100px; /* Минимальная ширина поля */
+          min-width: 120px; /* Чтобы не сплющивались */
+          flex: 1;
       }
 
       .hidden { display: none !important; }
 
       .add-btn {
-          width: 100%; padding: 14px;
+          width: 100%; padding: 16px;
           background: rgba(255,255,255,0.08); 
           border: 1px dashed #555;
           color: #ccc; border-radius: 12px; 
           cursor: pointer; font-weight: 600; font-size: 14px;
           transition: 0.2s;
+          margin-top: 10px;
       }
       .add-btn:active { background: rgba(255,255,255,0.15); }
 
-      /* Панель сохранения */
+      /* Фиксированная панель сохранения */
       .save-bar {
           position: fixed; bottom: 0; left: 0; width: 100%;
-          padding: 15px 20px 25px 20px; /* Больше отступа снизу для iPhone */
+          padding: 15px 20px 30px 20px; /* Extra padding for iOS Home Indicator */
           box-sizing: border-box;
           background: #1c1c1e; 
           border-top: 1px solid #333;
           z-index: 1000;
+          box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
       }
       .save-btn {
           width: 100%; padding: 16px;
@@ -164,10 +177,11 @@
           text-transform: uppercase;
       }
 
-      /* Распорка снизу, чтобы контент не перекрывался кнопкой */
+      /* Специальный блок-распорка внизу страницы */
       .spacer-bottom {
-          height: 120px;
+          display: block;
           width: 100%;
+          height: 100px; /* Высота, чтобы контент уходил выше кнопки */
       }
   </style>
 </head>
@@ -175,7 +189,7 @@
 
     <div class="page-header">
         <a href="/admin" class="back-button"><i class="fa-solid fa-arrow-left"></i> Админка</a>
-        <h1 class="page-header-title">Этапы Испытаний</h1>
+        <h1 class="page-header-title">ТГ Испытания</h1>
         <div style="width: 60px;"></div>
     </div>
 
@@ -230,51 +244,57 @@
                 
                 // Нормализация данных
                 const rewards = tier.rewards || {};
+                // Конвертация старого формата
                 if (tier.reward && tier.type) {
                     if (tier.type === 'tickets') rewards.tickets = tier.reward;
                     if (tier.type === 'coins') rewards.coins = tier.reward;
                     if (tier.type === 'skin_random') rewards.skin = { min: tier.min_price, max: tier.max_price };
                 }
 
+                // Проверка, какие секции показывать
+                const showTickets = rewards.tickets !== undefined;
+                const showCoins = rewards.coins !== undefined;
+                const showSkin = rewards.skin !== undefined;
+
                 div.innerHTML = `
                     <div class="tier-top-row">
-                        <div class="tier-index-badge">#${index + 1}</div>
-                        
-                        <div class="input-wrapper">
-                            <span class="input-label">Цель (Сообщений)</span>
-                            <input type="number" class="compact-input inp-target" value="${tier.target}" placeholder="50">
+                        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                            <div class="tier-index-badge">#${index + 1}</div>
+                            <div class="input-wrapper">
+                                <span class="input-label">Цель (Сообщений)</span>
+                                <input type="number" class="compact-input inp-target" value="${tier.target}" placeholder="50">
+                            </div>
                         </div>
-
                         <button class="remove-btn" onclick="removeTier(${index})"><i class="fa-solid fa-trash"></i></button>
                     </div>
 
                     <div class="input-wrapper">
-                        <span class="input-label">НАГРАДЫ (МОЖНО НЕСКОЛЬКО)</span>
+                        <span class="input-label" style="margin-top: 5px;">Награды (Комбинация)</span>
                         <div class="rewards-selector">
-                            <div class="reward-option ${rewards.tickets ? 'active' : ''}" onclick="toggleReward(this, 'tickets')">
+                            <div class="reward-option ${showTickets ? 'active' : ''}" onclick="toggleReward(this, 'tickets')">
                                 <i class="fa-solid fa-ticket"></i> Билеты
                             </div>
-                            <div class="reward-option ${rewards.coins ? 'active' : ''}" onclick="toggleReward(this, 'coins')">
+                            <div class="reward-option ${showCoins ? 'active' : ''}" onclick="toggleReward(this, 'coins')">
                                 <i class="fa-solid fa-coins"></i> Монеты
                             </div>
-                            <div class="reward-option ${rewards.skin ? 'active' : ''}" onclick="toggleReward(this, 'skin')">
+                            <div class="reward-option ${showSkin ? 'active' : ''}" onclick="toggleReward(this, 'skin')">
                                 <i class="fa-solid fa-gift"></i> Скин
                             </div>
                         </div>
                     </div>
 
-                    <div class="reward-inputs">
-                        <div class="input-wrapper inp-tickets ${rewards.tickets ? '' : 'hidden'}">
+                    <div class="reward-inputs ${(!showTickets && !showCoins) ? 'hidden' : ''}" id="inputs-values-${index}">
+                        <div class="input-wrapper inp-tickets ${showTickets ? '' : 'hidden'}">
                             <span class="input-label">Билетов</span>
                             <input type="number" class="compact-input val-tickets" value="${rewards.tickets || ''}" placeholder="10">
                         </div>
-                        <div class="input-wrapper inp-coins ${rewards.coins ? '' : 'hidden'}">
+                        <div class="input-wrapper inp-coins ${showCoins ? '' : 'hidden'}">
                             <span class="input-label">Монет</span>
                             <input type="number" class="compact-input val-coins" value="${rewards.coins || ''}" placeholder="100">
                         </div>
                     </div>
 
-                    <div class="reward-inputs inp-skin ${rewards.skin ? '' : 'hidden'}" style="background: rgba(255, 215, 0, 0.05); padding: 10px; border-radius: 8px; border: 1px dashed rgba(255, 215, 0, 0.3);">
+                    <div class="reward-inputs inp-skin ${showSkin ? '' : 'hidden'}" style="background: rgba(255, 215, 0, 0.05); border-color: rgba(255, 215, 0, 0.3);">
                          <div class="input-wrapper">
                             <span class="input-label" style="color:#ffd700">Мин. Цена</span>
                             <input type="number" class="compact-input val-min" value="${rewards.skin?.min || 0}">
@@ -294,7 +314,19 @@
             const card = el.closest('.tier-card');
             const isActive = el.classList.contains('active');
             
-            card.querySelector(`.inp-${type}`).classList.toggle('hidden', !isActive);
+            // Тоглим поле ввода
+            const inputField = card.querySelector(`.inp-${type}`);
+            if(inputField) inputField.classList.toggle('hidden', !isActive);
+
+            // Проверяем видимость контейнера "Values" (Билеты/Монеты)
+            const ticketActive = card.querySelector('.reward-option[onclick*="tickets"]').classList.contains('active');
+            const coinActive = card.querySelector('.reward-option[onclick*="coins"]').classList.contains('active');
+            
+            // Находим контейнер по ID (мы добавили ID при рендере) или по классу внутри карточки
+            const valuesContainer = card.querySelector('.reward-inputs:not(.inp-skin)');
+            if (valuesContainer) {
+                valuesContainer.classList.toggle('hidden', (!ticketActive && !coinActive));
+            }
         }
 
         window.addTier = () => {
@@ -366,7 +398,7 @@
                     body: JSON.stringify({ initData: tg.initData, config: payload })
                 });
 
-                tg.showPopup({message: "Настройки сохранены!"});
+                tg.showPopup({message: "Сохранено!"});
             } catch(e) {
                 tg.showAlert("Ошибка: " + e.message);
             } finally {
