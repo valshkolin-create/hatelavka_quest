@@ -8526,14 +8526,13 @@ async def start_challenge_v3(req: ChallengeStartRequest):
 
 @app.post("/api/challenges/claim")
 async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
-    """Выдача награды."""
+    """Выдача награды за текущую ступень."""
     user = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user: raise HTTPException(status_code=401)
     user_id = user['id']
     
     # 1. Получаем контракт (СИНХРОННО)
-    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)")\
-        .eq("user_id", user_id).eq("template_id", req.template_id).execute()
+    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)").eq("user_id", user_id).eq("template_id", req.template_id).execute()
     
     if not contract_res.data: return JSONResponse({"status": "error", "message": "Контракт не найден"})
     
@@ -8598,16 +8597,42 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
         min_p = reward_to_give.get('min_price', 0)
         # Здесь используем await, т.к. функция async, но внутри нее DB запросы синхронные
         winner = await pick_roulette_winner(min_p, 999999) 
+        
         if winner:
             strip = await get_roulette_strip(winner)
             response_data['winner'] = winner
             response_data['roulette_strip'] = strip
             
-            # Списание количества (СИНХРОННО)
+            # 1. Списание количества (СИНХРОННО)
             try:
                 new_qty = winner['quantity'] - 1
                 supabase.table("cs_items").update({"quantity": new_qty}).eq("id", winner['id']).execute()
             except: pass
+
+            # 2. Логируем в историю
+            try:
+                supabase.table("cs_history").insert({
+                    "user_id": user_id,
+                    "item_id": winner['id'],
+                    "code_used": "challenge_reward",
+                    "status": "pending"
+                }).execute()
+            except: pass
+
+            # 3. 🔥 ЗАПИСЬ В АДМИНКУ (MANUAL REWARDS) 🔥
+            try:
+                # Важно: source_description содержит слово "Чекпоинт", чтобы admin.js его отловил
+                supabase.table("manual_rewards").insert({
+                    "user_id": user_id,
+                    "status": "pending",
+                    "source_type": "checkpoint",
+                    "source_description": f"Чекпоинт (Челлендж: {template.get('title', 'Без названия')})",
+                    "reward_details": f"Скин: {winner['name']}",
+                    "title": winner['name'],
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }).execute()
+            except Exception as e:
+                logging.error(f"Error adding to manual_rewards: {e}")
             
     return JSONResponse(content={"status": "ok", "data": response_data})
 
