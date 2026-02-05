@@ -8474,8 +8474,8 @@ async def list_challenges_v3(initData: str = Query(...)):
                 "current_progress": current_msgs,
                 "target": target,
                 "status": status,
-                "reward_amount": current_tier_data.get('reward'),
-                "reward_type": current_tier_data.get('type', 'tickets'),
+                "reward_amount": current_tier_data.get('rewards') or current_tier_data.get('reward'), # Универсально
+                "reward_type": "combo", # Флаг для фронта
                 "next_tier": next_tier_data, 
                 "is_tiered": True
             }
@@ -8529,12 +8529,12 @@ async def start_challenge_v3(req: ChallengeStartRequest):
 
 @app.post("/api/challenges/claim")
 async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
-    """Выдача награды за текущую ступень."""
+    """Выдача награды (Мульти-выдача: Билеты + Монеты + Скин)."""
     user = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user: raise HTTPException(status_code=401)
     user_id = user['id']
     
-    # 1. Получаем контракт (СИНХРОННО - БЕЗ AWAIT)
+    # 1. Получаем контракт (СИНХРОННО)
     contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)")\
         .eq("user_id", user_id).eq("template_id", req.template_id).execute()
     
@@ -8544,102 +8544,153 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
     template = contract['challenge_templates']
     config = template['reward_config']
     
-    # Получаем статистику (БЕЗ AWAIT)
+    # Статистика
     stats_res = supabase.table("users").select("telegram_daily_message_count").eq("telegram_id", user_id).execute()
     current_msgs = stats_res.data[0]['telegram_daily_message_count'] if stats_res.data else 0
 
-    reward_to_give = {}
+    # Определяем текущую ступень
+    tiers = config.get('tiers', [])
+    tier_idx = contract.get('current_tier', 0)
     
-    # --- ЛОГИКА ОПРЕДЕЛЕНИЯ НАГРАДЫ ---
+    # Защита от переполнения
     if config.get('mode') == 'tiered':
-        tiers = config.get('tiers', [])
-        tier_idx = contract.get('current_tier', 0)
-        
-        if tier_idx >= len(tiers):
-            return JSONResponse({"status": "error", "message": "Всё получено!"})
-            
+        if tier_idx >= len(tiers): return JSONResponse({"status": "error", "message": "Всё получено!"})
         tier_data = tiers[tier_idx]
         if current_msgs < tier_data['target']:
             return JSONResponse({"status": "error", "message": f"Нужно {tier_data['target']} сообщений!"})
-            
-        reward_to_give = tier_data
-        
-        # Апдейт уровня (БЕЗ AWAIT)
-        new_tier = tier_idx + 1
-        update_data = {"current_tier": new_tier}
-        if new_tier >= len(tiers):
-            update_data["status"] = "completed"
-            update_data["completed_at"] = datetime.now(timezone.utc).isoformat()
-            
-        supabase.table("user_contracts").update(update_data).eq("id", contract['id']).execute()
-        
     else:
-        # Обычный режим
+        # Обычный режим (одна цель)
         if contract['status'] == 'claimed': return JSONResponse({"status": "error", "message": "Уже забрано"})
         if current_msgs < template['target_value']: return JSONResponse({"status": "error", "message": "Рано!"})
-        
-        reward_to_give = {"reward": config.get('amount'), "type": template['reward_type']}
-        
-        # Обновляем статус (БЕЗ AWAIT)
-        supabase.table("user_contracts").update({
-            "status": "claimed", 
-            "completed_at": datetime.now(timezone.utc).isoformat()
-        }).eq("id", contract['id']).execute()
+        # Эмулируем tier_data для обычного режима
+        tier_data = {
+            "type": template['reward_type'], 
+            "reward": config.get('amount'),
+            "min_price": config.get('min_price'),
+            "max_price": config.get('max_price')
+        }
 
-    # --- ВЫДАЧА НАГРАДЫ ---
-    r_type = reward_to_give.get('type', 'tickets')
-    amount = reward_to_give.get('reward', 0)
-    
-    response_data = {"reward_type": r_type, "amount": amount}
+    # --- НОРМАЛИЗАЦИЯ НАГРАД (Поддержка старого и нового формата) ---
+    rewards = tier_data.get('rewards', {})
+    if not rewards:
+        # Если формат старый ("type": "tickets", "reward": 5)
+        old_type = tier_data.get('type')
+        val = tier_data.get('reward', 0)
+        
+        if old_type == 'tickets': rewards['tickets'] = val
+        elif old_type == 'coins': rewards['coins'] = val
+        elif old_type == 'skin_random': 
+            rewards['skin'] = {
+                'min': tier_data.get('min_price', 0), 
+                'max': tier_data.get('max_price', 1000000)
+            }
 
-    if r_type == 'tickets':
-        # RPC вызовы тоже синхронные через глобальный клиент supabase
-        supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": amount}).execute()
+    response_data = {"messages": [], "reward_type": "combo"} # reward_type combo чтобы фронт не путался
+
+    # ==========================
+    # 1. ВЫДАЧА БИЛЕТОВ
+    # ==========================
+    if rewards.get('tickets'):
+        amount = int(rewards['tickets'])
+        if amount > 0:
+            supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": amount}).execute()
+            response_data['messages'].append(f"+{amount} 🎟️")
+
+    # ==========================
+    # 2. ВЫДАЧА МОНЕТ (Промокод)
+    # ==========================
+    if rewards.get('coins'):
+        amount = int(rewards['coins'])
+        if amount > 0:
+            # Ищем свободный код нужного номинала (СИНХРОННО)
+            # telegram_id is null означает, что код свободен
+            code_res = supabase.table("promocodes")\
+                .select("id, code")\
+                .eq("reward_value", amount)\
+                .eq("is_used", False)\
+                .is_("telegram_id", "null")\
+                .limit(1).execute()
+            
+            if code_res.data:
+                code_item = code_res.data[0]
+                # Привязываем код к пользователю
+                supabase.table("promocodes").update({
+                    "is_used": True,
+                    "telegram_id": user_id,
+                    "claimed_at": datetime.now(timezone.utc).isoformat(),
+                    "description": f"Challenge Reward (Tier {tier_idx+1})"
+                }).eq("id", code_item['id']).execute()
+                
+                response_data['messages'].append(f"+{amount} 💰 (Код в профиле)")
+            else:
+                # Фолбэк: если кодов нет, начисляем на баланс напрямую, чтобы не обижать юзера
+                supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": amount}).execute()
+                response_data['messages'].append(f"+{amount} 💰")
+
+    # ==========================
+    # 3. ВЫДАЧА СКИНА (Рулетка)
+    # ==========================
+    if rewards.get('skin'):
+        skin_cfg = rewards['skin']
+        min_p = skin_cfg.get('min', 0)
+        max_p = skin_cfg.get('max', 999999)
         
-    elif r_type == 'coins':
-        supabase.rpc("increment_coins", {"p_user_id": user_id, "p_amount": amount}).execute()
-        
-    elif r_type == 'skin_random':
-        # Рулетка
-        min_p = reward_to_give.get('min_price', 0)
-        # pick_roulette_winner у нас async, поэтому ТУТ нужен await
-        winner = await pick_roulette_winner(min_p, 999999) 
+        # pick_roulette_winner - асинхронная, нужен await
+        winner = await pick_roulette_winner(min_p, max_p) 
         
         if winner:
             strip = await get_roulette_strip(winner)
             response_data['winner'] = winner
             response_data['roulette_strip'] = strip
+            response_data['reward_type'] = 'skin_random' # Флаг для фронта, чтобы запустить рулетку
             
-            # 1. Списание количества (БЕЗ AWAIT)
+            # Списание количества (СИНХРОННО)
             try:
                 new_qty = winner['quantity'] - 1
                 supabase.table("cs_items").update({"quantity": new_qty}).eq("id", winner['id']).execute()
             except: pass
 
-            # 2. Логируем в историю (БЕЗ AWAIT)
+            # Логируем в историю
             try:
                 supabase.table("cs_history").insert({
                     "user_id": user_id,
                     "item_id": winner['id'],
-                    "code_used": "challenge_reward",
+                    "code_used": "challenge_tier",
                     "status": "pending"
                 }).execute()
             except: pass
 
-            # 3. 🔥 ЗАПИСЬ В АДМИНКУ (ИСПРАВЛЕНО) 🔥
+            # Запись в Админку (Чекпоинт) - БЕЗ поля title
             try:
-                # Убрали поле 'title', добавили скин в 'reward_details'
                 supabase.table("manual_rewards").insert({
                     "user_id": user_id,
                     "status": "pending",
                     "source_type": "checkpoint",
-                    "source_description": f"Чекпоинт (Челлендж: {template.get('title', 'Без названия')})",
-                    "reward_details": f"Скин: {winner['name']}", 
+                    "source_description": f"Чекпоинт (Этап {tier_idx+1})",
+                    "reward_details": f"Скин: {winner['name']}",
                     "created_at": datetime.now(timezone.utc).isoformat()
                 }).execute()
             except Exception as e:
                 logging.error(f"Error adding to manual_rewards: {e}")
-            
+
+    # ==========================
+    # 4. ОБНОВЛЕНИЕ КОНТРАКТА
+    # ==========================
+    if config.get('mode') == 'tiered':
+        new_tier = tier_idx + 1
+        update_data = {"current_tier": new_tier}
+        if new_tier >= len(tiers):
+            update_data["status"] = "completed"
+            update_data["completed_at"] = datetime.now(timezone.utc).isoformat()
+        
+        supabase.table("user_contracts").update(update_data).eq("id", contract['id']).execute()
+    else:
+        # Обычный режим
+        supabase.table("user_contracts").update({
+            "status": "claimed", 
+            "completed_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", contract['id']).execute()
+
     return JSONResponse(content={"status": "ok", "data": response_data})
 
 
