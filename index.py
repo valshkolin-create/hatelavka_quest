@@ -2051,48 +2051,51 @@ async def telegram_webhook(
     """
     SUPER-FAST WEBHOOK (10-20ms response time)
     """
-    # 1. СРАЗУ возвращаем ответ Телеграму, если это редактирование или пост канала
-    # (Оставляем твою логику, но убеждаемся, что это не реакция)
+    
+    # --- 🔥 БЛОК ДЛЯ ОТЛАДКИ (ВИДЕН В ЛОГАХ) ---
+    # Если это реакция, мы сразу пишем в лог, до всех проверок
+    if "message_reaction" in update:
+        print(f"🔥 WEBHOOK: ПРИШЛА РЕАКЦИЯ! Данные: {update['message_reaction']}")
+
+    # 1. СРАЗУ возвращаем ответ Телеграму, если это редактирование
+    # ИСПРАВЛЕНИЕ: Добавили проверку 'and "message_reaction" not in update'
+    # чтобы случайно не заблокировать реакцию, если Телеграм решит прислать что-то лишнее
     if ("edited_message" in update or "channel_post" in update) and "message_reaction" not in update:
         return JSONResponse(content={"status": "ignored"})
 
-    # 2. Быстрая фильтрация чата (для сообщений)
+    # 2. Быстрая фильтрация чата (как делали раньше)
     if "message" in update:
         chat_id = update["message"].get("chat", {}).get("id")
-        # Приводим к int на всякий случай
-        allowed = int(ALLOWED_CHAT_ID) if ALLOWED_CHAT_ID else 0
-        
-        if allowed != 0 and chat_id != allowed and update["message"].get("chat", {}).get("type") != "private":
+        if ALLOWED_CHAT_ID != 0 and chat_id != ALLOWED_CHAT_ID and update["message"].get("chat", {}).get("type") != "private":
             return JSONResponse(content={"status": "ignored"})
 
-    # === 🔥 ДОБАВЛЕНО: Логика для РЕАКЦИЙ 🔥 ===
+    # 3. 🔥 ДОП. ПРОВЕРКА ДЛЯ РЕАКЦИЙ 🔥
+    # Если пришла реакция, проверяем ID чата здесь, чтобы не пускать чужие
     if "message_reaction" in update:
-        # Логируем, чтобы ты видел в Vercel
-        print("🔥 WEBHOOK: Обнаружена реакция (message_reaction)!")
-        
-        # Проверяем ID чата для реакции
         chat_id = update["message_reaction"].get("chat", {}).get("id")
+        # Приводим к int, так как в JSON это может быть число, а ALLOWED_CHAT_ID может быть строкой
         allowed = int(ALLOWED_CHAT_ID) if ALLOWED_CHAT_ID else 0
         
         if allowed != 0 and chat_id != allowed:
-            print(f"⛔ Реакция из чужого чата {chat_id}, игнорируем.")
+            print(f"⛔ Реакция из левого чата {chat_id}, игнорируем.")
             return JSONResponse(content={"status": "ignored_chat"})
-    # ===========================================
 
-    # 3. Обработка через BackgroundTasks
+    # 4. Обработка
     try:
         # Превращаем JSON в объект Aiogram
-        # Используем model_validate (надежнее для v3), но твой вариант тоже оставил
+        # Используем try-except для совместимости версий Aiogram
         try:
+            # Новый способ (Aiogram 3.x)
             update_obj = Update.model_validate(update, context={"bot": bot})
         except:
+            # Старый способ / запасной
             update_obj = types.Update(**update)
         
         # Кидаем обработку в BackgroundTasks
         background_tasks.add_task(feed_update_safe, update_obj)
         
     except Exception as e:
-        # Даже если ошибка парсинга, отвечаем ОК
+        # Даже если ошибка парсинга, отвечаем ОК, чтобы Телеграм не спамил повторами
         print(f"Update parse error: {e}")
 
     return JSONResponse(content={"status": "ok"})
