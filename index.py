@@ -11182,22 +11182,49 @@ class TgChallengeConfigUpdate(BaseModel):
     config: dict
 
 @app.post("/api/v1/admin/tg_challenge/get_config")
-async def get_tg_challenge_config(
-    req: InitDataRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
+async def get_tg_challenge_config(req: InitDataRequest):
     """Возвращает конфиг для ТГ испытаний (шаблон ID=1)."""
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
     
-    # Ищем шаблон с ID 1 (или создаем новый, если нет)
-    # Предполагаем, что ID 1 зарезервирован под "Ежедневная активность"
+    # Используем глобальный клиент supabase (синхронный)
+    # БЕЗ await перед .table()
     res = supabase.table("challenge_templates").select("reward_config").eq("id", 1).execute()
     
     if not res.data:
         return {"tiers": []}
         
     return res.data[0]['reward_config']
+
+@app.post("/api/v1/admin/tg_challenge/save_config")
+async def save_tg_challenge_config(req: TgChallengeConfigUpdate):
+    """Сохраняет JSON конфиг уровней в шаблон ID=1."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    
+    # Используем глобальный клиент supabase (синхронный)
+    # 1. Проверяем, существует ли запись ID=1
+    check = supabase.table("challenge_templates").select("id").eq("id", 1).execute()
+    
+    payload = {
+        "reward_config": req.config,
+        "task_type": "tg_messages",
+        "is_active": True
+    }
+
+    if not check.data:
+        # Создаем, если нет
+        payload["id"] = 1
+        payload["title"] = "Ежедневная активность"
+        payload["description"] = "Общайся в чате и получай награды!"
+        payload["target_value"] = 9999
+        payload["reward_type"] = "tiered"
+        supabase.table("challenge_templates").insert(payload).execute()
+    else:
+        # Обновляем
+        supabase.table("challenge_templates").update(payload).eq("id", 1).execute()
+        
+    return {"status": "ok"}
 
 @app.post("/api/v1/admin/tg_challenge/save_config")
 async def save_tg_challenge_config(
