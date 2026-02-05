@@ -1402,7 +1402,6 @@ async def track_message(message: types.Message):
     # Запускаем обновление прогресса в фоне (не ждем ответа БД, чтобы бот не тупил)
     asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
 
-
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
     now = time.time()
@@ -2035,14 +2034,6 @@ async def process_webhook_in_background(update: dict):
     except Exception as e:
         logging.error(f"Ошибка в process_webhook_in_background: {e}")
 
-# Нужно убедиться, что у тебя есть эта функция-обертка для фона
-# Вставь её ПЕРЕД вебхуком, если её нет
-async def feed_update_safe(update_obj):
-    try:
-        await dp.feed_update(bot, update_obj)
-    except Exception as e:
-        print(f"Background task error: {e}")
-
 @app.post("/api/v1/webhook")
 async def telegram_webhook(
     update: dict,
@@ -2051,16 +2042,8 @@ async def telegram_webhook(
     """
     SUPER-FAST WEBHOOK (10-20ms response time)
     """
-    
-    # --- 🔥 БЛОК ДЛЯ ОТЛАДКИ (ВИДЕН В ЛОГАХ) ---
-    # Если это реакция, мы сразу пишем в лог, до всех проверок
-    if "message_reaction" in update:
-        print(f"🔥 WEBHOOK: ПРИШЛА РЕАКЦИЯ! Данные: {update['message_reaction']}")
-
     # 1. СРАЗУ возвращаем ответ Телеграму, если это редактирование
-    # ИСПРАВЛЕНИЕ: Добавили проверку 'and "message_reaction" not in update'
-    # чтобы случайно не заблокировать реакцию, если Телеграм решит прислать что-то лишнее
-    if ("edited_message" in update or "channel_post" in update) and "message_reaction" not in update:
+    if "edited_message" in update or "channel_post" in update:
         return JSONResponse(content={"status": "ignored"})
 
     # 2. Быстрая фильтрация чата (как делали раньше)
@@ -2069,29 +2052,16 @@ async def telegram_webhook(
         if ALLOWED_CHAT_ID != 0 and chat_id != ALLOWED_CHAT_ID and update["message"].get("chat", {}).get("type") != "private":
             return JSONResponse(content={"status": "ignored"})
 
-    # 3. 🔥 ДОП. ПРОВЕРКА ДЛЯ РЕАКЦИЙ 🔥
-    # Если пришла реакция, проверяем ID чата здесь, чтобы не пускать чужие
-    if "message_reaction" in update:
-        chat_id = update["message_reaction"].get("chat", {}).get("id")
-        # Приводим к int, так как в JSON это может быть число, а ALLOWED_CHAT_ID может быть строкой
-        allowed = int(ALLOWED_CHAT_ID) if ALLOWED_CHAT_ID else 0
-        
-        if allowed != 0 and chat_id != allowed:
-            print(f"⛔ Реакция из левого чата {chat_id}, игнорируем.")
-            return JSONResponse(content={"status": "ignored_chat"})
-
-    # 4. Обработка
+    # 3. 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Не ждем Aiogram!
+    # Мы создаем объект обновления и кидаем его в фон.
+    # Сама функция завершится мгновенно.
+    
     try:
-        # Превращаем JSON в объект Aiogram
-        # Используем try-except для совместимости версий Aiogram
-        try:
-            # Новый способ (Aiogram 3.x)
-            update_obj = Update.model_validate(update, context={"bot": bot})
-        except:
-            # Старый способ / запасной
-            update_obj = types.Update(**update)
+        # Превращаем JSON в объект Aiogram (это быстро)
+        update_obj = types.Update(**update)
         
         # Кидаем обработку в BackgroundTasks
+        # ВАЖНО: Мы НЕ пишем await dp.feed... мы добавляем задачу.
         background_tasks.add_task(feed_update_safe, update_obj)
         
     except Exception as e:
@@ -13722,6 +13692,35 @@ async def check_telegram_profile(
     except Exception as e:
         return JSONResponse({"error": str(e)}, status=500)
 
+# --- СПЕЦИАЛЬНЫЙ ЭНДПОИНТ ДЛЯ ВКЛЮЧЕНИЯ РЕАКЦИЙ ---
+@app.get("/api/v1/admin/fix_webhook")
+async def fix_webhook_settings():
+    """
+    Запусти этот эндпоинт один раз в браузере, чтобы включить реакции.
+    Пример: https://твоя-ссылка.vercel.app/api/v1/admin/fix_webhook
+    """
+    webhook_url = f"{WEB_APP_URL}/api/v1/webhook"
+    
+    # Указываем ВСЕ типы обновлений, включая реакции
+    updates = [
+        "message", 
+        "callback_query", 
+        "chat_member", 
+        "my_chat_member", 
+        "message_reaction",        # <--- ВОТ ОНО
+        "message_reaction_count"
+    ]
+    
+    try:
+        # Сначала удаляем (на всякий случай)
+        await bot.delete_webhook()
+        # Ставим заново с правильными настройками
+        await bot.set_webhook(url=webhook_url, allowed_updates=updates)
+        return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
 # ==========================================
 # 🛠️ МОДЕЛИ ДАННЫХ (Вставь это перед вебхуками)
 # ==========================================
@@ -14467,130 +14466,81 @@ async def telegram_vote(
 
 
 
-# ==========================================
-# 🔥 ИСПРАВЛЕННЫЙ БЛОК ЭМОЦИЙ (HTTP ЗАПРОСЫ) 🔥
-# ==========================================
-
-# Вспомогательная функция для общения с Supabase напрямую через URL
-async def supabase_request(method: str, endpoint: str, data: dict = None, params: dict = None):
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    
-    if not url or not key:
-        print("❌ ОШИБКА: Нет переменных SUPABASE_URL или SUPABASE_KEY")
-        return None
-
-    # Собираем прямой URL к таблице
-    api_url = f"{url.rstrip('/')}/rest/v1/{endpoint}"
-    
-    headers = {
-        "apikey": key,
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation" # Чтобы база возвращала ответ
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            if method == "GET":
-                r = await client.get(api_url, headers=headers, params=params)
-            elif method == "POST":
-                r = await client.post(api_url, headers=headers, json=data)
-            elif method == "PATCH":
-                r = await client.patch(api_url, headers=headers, json=data, params=params)
-            
-            if r.status_code >= 400:
-                print(f"⚠️ Ошибка Supabase {r.status_code}: {r.text}")
-                return None
-            return r.json()
-        except Exception as e:
-            print(f"❌ Ошибка запроса: {e}")
-            return None
-
-# 1. Фикс вебхука
-@app.get("/api/v1/admin/fix_webhook")
-async def fix_webhook_settings():
-    webhook_url = f"{WEB_APP_URL}/api/v1/webhook"
-    updates = ["message", "callback_query", "chat_member", "my_chat_member", "message_reaction", "message_reaction_count"]
-    try:
-        await bot.delete_webhook()
-        await bot.set_webhook(url=webhook_url, allowed_updates=updates)
-        return {"status": "ok", "message": "✅ Вебхук обновлен!", "url": webhook_url}
-    except Exception as e:
-        return {"status": "error", "detail": str(e)}
-
-# 2. Эндпоинт для фронтенда
-@app.get("/api/v1/telegram/emotion_progress")
-async def get_emotion_progress():
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    
-    # Прямой GET запрос
-    data = await supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
-    
-    if data and len(data) > 0:
-        return data[0]
-    else:
-        return {"count": 0, "target": 35, "level": 1}
-
-# 3. Обработчик реакций
+# --- ХЕНДЛЕР РЕАКЦИЙ (ИСПРАВЛЕННЫЙ) ---
 @router.message_reaction()
-async def handle_reaction_update(update: MessageReactionUpdated):
-    # Лог, чтобы видеть, что бот живой
-    print(f"⚡ REACTION: User={update.user.id if update.user else 'Anon'} Chat={update.chat.id}")
+async def handle_reaction_update(reaction: MessageReactionUpdated):
+    """
+    Ловит реакции и обновляет еженедельный прогресс.
+    """
+    # 1. Проверки: тот ли чат, добавление ли это реакции
+    if TG_QUEST_CHANNEL_ID == 0 or reaction.chat.id != TG_QUEST_CHANNEL_ID:
+        return
+    if not reaction.new_reaction: # Если реакцию сняли, игнорируем
+        return
 
-    # Проверка чата
-    if ALLOWED_CHAT_ID:
-        try:
-            if update.chat.id != int(ALLOWED_CHAT_ID):
-                return 
-        except: pass
+    user = reaction.user
+    if not user: return
+    user_id = user.id
 
-    # Считаем
-    old_c = len(update.old_reaction)
-    new_c = len(update.new_reaction)
-    change = 0
-    if new_c > old_c: change = 1
-    elif new_c < old_c: change = -1
-    
-    if change == 0: return
+    logging.info(f"❤️ REACT: User {user_id} reacted to msg {reaction.message_id}")
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"📝 Пишем в базу: {today}, Изменение: {change}")
-
-    # Получаем запись (GET)
-    # Убедись, что функция supabase_request объявлена выше в файле!
-    data = await supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
-
-    if not data:
-        # Создаем новую (POST)
-        print("🆕 Новый день...")
-        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
-        y_data = await supabase_request("GET", "daily_emotions", params={"date": f"eq.{yesterday}", "select": "*"})
+    try:
+        # 2. Получаем данные (используем твою логику с run_in_threadpool)
+        res = await run_in_threadpool(
+            lambda: supabase.table("telegram_challenges").select("*").eq("user_id", user_id).execute()
+        )
         
-        next_level = 1
-        if y_data and len(y_data) > 0:
-            if y_data[0].get('count', 0) >= y_data[0].get('target', 35):
-                next_level = min(7, y_data[0].get('level', 1) + 1)
+        # Если записи нет — создаем
+        if not res.data:
+            record = {
+                "user_id": user_id,
+                "reaction_count_weekly": 1,
+                "last_reaction_reset": datetime.now(timezone.utc).isoformat()
+            }
+            await run_in_threadpool(
+                lambda: supabase.table("telegram_challenges").insert(record).execute()
+            )
+            # Начисляем билет
+            await run_in_threadpool(
+                lambda: supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
+            )
+            return
+
+        # Если запись есть — обновляем
+        record = res.data[0]
         
-        new_record = {
-            "date": today,
-            "count": max(0, change),
-            "target": 35,
-            "level": next_level
-        }
-        await supabase_request("POST", "daily_emotions", data=new_record)
-        print("✅ Запись создана")
-    else:
-        # Обновляем (PATCH)
-        current_rec = data[0]
-        new_val = max(0, current_rec.get('count', 0) + change)
+        # Сброс недели
+        now = datetime.now(timezone.utc)
+        last_reset_str = record.get('last_reaction_reset') or now.isoformat()
+        last_reset = datetime.fromisoformat(last_reset_str.replace('Z', '+00:00'))
         
-        # 🔥 ИСПРАВЛЕНО: Было supabase_rpc, стало supabase_request
-        await supabase_request("PATCH", "daily_emotions", 
-                               data={"count": new_val}, 
-                               params={"date": f"eq.{today}"})
+        count = record.get('reaction_count_weekly', 0)
         
-        print(f"✅ Обновлено: {new_val}")
+        if now - last_reset > timedelta(days=7):
+            count = 0 # Новая неделя
+            # Обновляем дату сброса
+            await run_in_threadpool(
+                lambda: supabase.table("telegram_challenges").update({
+                    "last_reaction_reset": now.isoformat()
+                }).eq("user_id", user_id).execute()
+            )
+
+        # Если лимит не достигнут — засчитываем
+        if count < TG_REACTION_WEEKLY_LIMIT:
+            new_count = count + 1
+            await run_in_threadpool(
+                lambda: supabase.table("telegram_challenges").update({
+                    "reaction_count_weekly": new_count
+                }).eq("user_id", user_id).execute()
+            )
+            # Награда
+            await run_in_threadpool(
+                lambda: supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": 1}).execute()
+            )
+            logging.info(f"✅ Билет выдан {user_id} ({new_count}/{TG_REACTION_WEEKLY_LIMIT})")
+
+    except Exception as e:
+        logging.error(f"Reaction handler error: {e}")
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
