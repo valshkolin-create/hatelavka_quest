@@ -13,15 +13,16 @@
         :root {
             --bg-color: #0b0c10;
             --card-bg: #15161b;
+            --primary: #4b69ff;
+            --primary-gradient: linear-gradient(135deg, #4b69ff 0%, #8847ff 100%);
+            --gold-gradient: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
             --text-main: #ffffff;
             --text-muted: #888899;
             
-            /* Градиенты прогресса */
             --grad-blue: linear-gradient(135deg, #4b69ff 0%, #3d5afe 100%);
             --grad-purple: linear-gradient(135deg, #8847ff 0%, #6f00ff 100%);
             --grad-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
             
-            /* Тени */
             --shadow-blue: 0 5px 15px rgba(75, 105, 255, 0.3);
             --shadow-gold: 0 5px 20px rgba(255, 215, 0, 0.4);
         }
@@ -44,7 +45,30 @@
             background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
 
-        /* --- КАРТОЧКА ИСПЫТАНИЯ --- */
+        /* --- МИНИ-КНОПКА (Как на скрине) --- */
+        .mini-start-card {
+            width: 100%;
+            background: #5a9bfb; /* Приятный синий цвет как на скрине */
+            color: #fff;
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(90, 155, 251, 0.3);
+            transition: transform 0.2s, background 0.2s;
+            margin-bottom: 15px;
+            text-decoration: none;
+        }
+        .mini-start-card:active { transform: scale(0.97); background: #4a8beb; }
+        .mini-start-card i { font-size: 18px; }
+
+        /* --- PREMIUM CARD --- */
         .challenge-card {
             background: var(--card-bg);
             border-radius: 20px;
@@ -55,16 +79,23 @@
             margin-bottom: 20px;
             overflow: hidden;
             transition: all 0.3s ease;
+            animation: expandCard 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         
-        /* Цветовые темы карточки */
+        @keyframes expandCard { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .challenge-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: var(--primary-gradient); opacity: 0.7;
+        }
+        
         .theme-common { border-color: rgba(255,255,255,0.1); }
         .theme-rare { border-color: rgba(75, 105, 255, 0.4); box-shadow: 0 0 20px rgba(75, 105, 255, 0.1); }
         .theme-epic { border-color: rgba(136, 71, 255, 0.4); box-shadow: 0 0 20px rgba(136, 71, 255, 0.15); }
         .theme-gold { border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 0 30px rgba(255, 215, 0, 0.2); }
+        .status-ready::before { background: var(--gold-gradient); }
 
         .top-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        
         .card-title { font-size: 20px; font-weight: 800; line-height: 1.2; text-transform: uppercase; }
         
         .reward-badge {
@@ -78,13 +109,8 @@
         }
         .reward-badge.gold { border-color: #ffd700; color: #ffd700; background: rgba(255, 215, 0, 0.1); }
 
-        /* Прогресс бар */
         .progress-container { margin-bottom: 25px; }
-        .progress-labels { 
-            display: flex; justify-content: space-between; 
-            font-size: 12px; color: var(--text-muted); font-weight: 600; 
-            margin-bottom: 8px; 
-        }
+        .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
         .current-val { color: #fff; }
         
         .progress-track {
@@ -101,8 +127,6 @@
             transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
             position: relative;
         }
-        
-        /* Эффект блика на прогресс баре */
         .progress-fill::after {
             content: ''; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
@@ -110,131 +134,80 @@
             animation: shimmer 2s infinite;
         }
         
-        /* Цвета прогресса */
         .theme-epic .progress-fill { background: var(--grad-purple); box-shadow: 0 0 15px rgba(136, 71, 255, 0.6); }
         .theme-gold .progress-fill { background: var(--grad-gold); box-shadow: 0 0 15px rgba(255, 215, 0, 0.6); }
 
         /* Next Reward Info */
         .next-reward-block {
             background: rgba(255,255,255,0.03);
-            border-radius: 12px;
-            padding: 12px;
-            margin-top: 15px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            border-radius: 12px; padding: 12px; margin-top: 15px;
+            display: flex; align-items: center; gap: 12px;
             border: 1px dashed rgba(255,255,255,0.1);
         }
-        .next-icon {
-            width: 32px; height: 32px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: #888;
-            font-size: 14px;
-        }
+        .next-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #888; font-size: 14px; }
         .next-text { font-size: 12px; color: #aaa; line-height: 1.4; }
         .next-highlight { color: #fff; font-weight: 700; }
 
-        /* Info Block (Rules) */
+        /* Info Block */
         .info-block {
-            margin-top: 15px;
-            background: rgba(40, 167, 69, 0.05); /* Зеленоватый фон */
+            margin-top: 15px; background: rgba(40, 167, 69, 0.05);
             border: 1px solid rgba(40, 167, 69, 0.2);
-            border-radius: 12px;
-            padding: 15px;
-            font-size: 12px;
-            line-height: 1.5;
-            color: #ccc;
+            border-radius: 12px; padding: 15px;
+            font-size: 12px; line-height: 1.5; color: #ccc;
             animation: slideDown 0.4s ease-out;
         }
         .info-title { color: #55ff55; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; }
+        .chat-link { color: #fff; text-decoration: none; border-bottom: 1px dashed #fff; cursor: pointer; font-weight: 700; }
 
         /* Buttons */
         .btn {
-            width: 100%; padding: 16px;
-            border-radius: 14px; border: none;
-            font-weight: 800; font-size: 14px;
-            text-transform: uppercase; letter-spacing: 1px;
-            cursor: pointer; position: relative; overflow: hidden;
-            transition: all 0.2s;
+            width: 100%; padding: 16px; border-radius: 14px; border: none;
+            font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; position: relative; overflow: hidden; transition: all 0.2s;
         }
         .btn:active { transform: scale(0.98); }
         .btn:disabled { opacity: 0.6; cursor: default; }
-
-        .btn-start { 
-            background: rgba(255,255,255,0.08); 
-            color: #fff; 
-            border: 1px solid rgba(255,255,255,0.1); 
-        }
-        .btn-claim { 
-            background: var(--gold-gradient); 
-            color: #111; 
-            box-shadow: var(--shadow-gold);
-            animation: pulse-gold 2s infinite;
-        }
+        .btn-start { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+        .btn-claim { background: var(--gold-gradient); color: #111; box-shadow: var(--shadow-gold); animation: pulse-gold 2s infinite; }
         .btn-done { background: #1a1a1a; color: #444; border: 1px solid #333; }
-        
         .btn-loading { color: transparent !important; pointer-events: none; }
         .btn-loading::after {
-            content: ''; position: absolute; top: 50%; left: 50%;
-            width: 20px; height: 20px; margin: -10px;
-            border: 2px solid rgba(255,255,255,0.5); border-top-color: #fff;
-            border-radius: 50%; animation: spin 0.8s linear infinite;
+            content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; margin: -10px;
+            border: 2px solid rgba(255,255,255,0.5); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite;
         }
 
-        /* --- Анимации --- */
         @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
         @keyframes pulse-gold { 0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* --- CUSTOM ALERT --- */
-        .custom-alert-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
-            z-index: 10000; display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: 0.3s;
-        }
+        /* Custom Alert */
+        .custom-alert-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; }
         .custom-alert-overlay.visible { opacity: 1; pointer-events: auto; }
-        
-        .custom-alert-box {
-            background: #1e1f25; width: 80%; max-width: 320px;
-            padding: 25px; border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.1);
-            text-align: center; transform: scale(0.9); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-        }
+        .custom-alert-box { background: #1e1f25; width: 80%; max-width: 320px; padding: 25px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); text-align: center; transform: scale(0.9); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
         .custom-alert-overlay.visible .custom-alert-box { transform: scale(1); }
-
         .alert-icon { font-size: 40px; margin-bottom: 15px; background: var(--gold-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .alert-title { font-size: 18px; font-weight: 800; margin-bottom: 10px; color: #fff; }
         .alert-msg { font-size: 14px; color: #aaa; margin-bottom: 20px; line-height: 1.5; white-space: pre-line; }
         .alert-btn { background: var(--primary-gradient); color: #fff; border:none; padding: 12px; width: 100%; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
-        /* --- ROULETTE STYLES --- */
-        .r-modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); z-index: 9999;
-            display: none; justify-content: center; align-items: center; flex-direction: column;
-            backdrop-filter: blur(10px);
-        }
+        /* Roulette */
+        .r-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(10px); }
         .r-game-area { width: 100%; height: 200px; position: relative; overflow: hidden; border-top: 1px solid #333; border-bottom: 1px solid #333; background: rgba(20,20,20,0.5); }
         .r-track { display: flex; height: 100%; align-items: center; will-change: transform; }
         .r-card { width: 140px; height: 140px; margin: 0 4px; background: #1a1b20; border-radius: 8px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         .r-card img { width: 100px; height: 70px; object-fit: contain; }
         .r-card-name { font-size:10px; color:#ccc; text-align:center; max-width:90%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:10px;}
         .r-marker { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ffd700; transform: translateX(-50%); z-index: 10; box-shadow: 0 0 10px #ffd700; }
-        
         .r-blue { border-color: #4b69ff; background: radial-gradient(circle, rgba(75,105,255,0.1), #1a1b20); }
         .r-purple { border-color: #8847ff; background: radial-gradient(circle, rgba(136,71,255,0.1), #1a1b20); }
         .r-pink { border-color: #d32ce6; background: radial-gradient(circle, rgba(211,44,230,0.1), #1a1b20); }
         .r-red { border-color: #eb4b4b; background: radial-gradient(circle, rgba(235,75,75,0.1), #1a1b20); }
         .r-gold { border-color: #ffd700; background: radial-gradient(circle, rgba(255,215,0,0.1), #1a1b20); }
-
         .win-screen { display: none; text-align: center; animation: fadeIn 0.5s; padding: 20px; }
         .win-img { width: 180px; filter: drop-shadow(0 0 30px rgba(255,215,0,0.5)); animation: float 3s infinite ease-in-out; }
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -290,6 +263,10 @@
             return parts.length > 0 ? parts.join(' + ') : 'Награда';
         }
 
+        function openChat() {
+            tg.openTelegramLink('https://t.me/hatelovettv');
+        }
+
         async function init() {
             try {
                 const res = await fetch(`/api/challenges/list?initData=${encodeURIComponent(tg.initData)}`);
@@ -310,23 +287,36 @@
             }
 
             list.forEach(item => {
-                const card = document.createElement('div');
-                const percent = Math.min(100, Math.floor((item.current_progress / item.target) * 100));
-                
-                const isReady = item.status === 'ready_to_claim';
-                const isCompleted = item.status === 'completed';
+                // ЛОГИКА: Свернутая кнопка или полная карточка
                 const isAvailable = item.status === 'available';
 
-                // --- 1. ВИЗУАЛЬНАЯ ТЕМА ---
+                if (isAvailable) {
+                    // Рендерим минимизированную кнопку
+                    const btn = document.createElement('button');
+                    btn.className = 'mini-start-card';
+                    btn.innerHTML = `<i class="fa-solid fa-fire"></i> Начать испытание`;
+                    btn.onclick = () => handleAction('start', item.template_id, btn);
+                    app.appendChild(btn);
+                    return; // Не рендерим карточку
+                }
+
+                // Рендерим полную карточку (если уже начато)
+                const card = document.createElement('div');
+                const percent = Math.min(100, Math.floor((item.current_progress / item.target) * 100));
+                const isReady = item.status === 'ready_to_claim';
+                const isCompleted = item.status === 'completed';
+
+                // Тема карточки
                 let theme = 'theme-common';
                 if(percent >= 25) theme = 'theme-rare';
                 if(percent >= 50) theme = 'theme-epic';
                 if(isReady) theme = 'theme-gold';
+                
                 card.className = `challenge-card ${theme} ${isReady ? 'status-ready' : ''}`;
 
                 const rewardTxt = formatRewardText(item.reward_amount, item.reward_type);
 
-                // --- 2. БЛОК СЛЕДУЮЩЕЙ НАГРАДЫ ---
+                // Следующая награда
                 let nextRewardHtml = '';
                 if(item.next_tier) {
                     const nextRwd = formatRewardText(item.next_tier.rewards || item.next_tier.reward, item.next_tier.type);
@@ -349,29 +339,25 @@
                         </div>`;
                 }
 
-                // --- 3. ИНФО-БЛОК (ПРАВИЛА) ---
+                // Инфо блок с правилами (Появляется ТОЛЬКО когда карточка активна)
                 let infoBlockHtml = '';
-                // Показываем правила, если квест начат (active) или доступен (available)
-                // Но не показываем, если уже готов к выдаче или завершен (чтобы не мусорить)
-                if (isAvailable || (item.status === 'active' && !isReady)) {
+                if (!isCompleted) {
                     infoBlockHtml = `
                         <div class="info-block">
-                            <div class="info-title"><i class="fa-solid fa-circle-info"></i> Как выполнять:</div>
-                            Общайся в чате <b><a href="https://t.me/hatelove_ttv_chat" target="_blank" style="color: #fff; text-decoration: underline;">HATElove Chat</a></b>.<br>
+                            <div class="info-title"><i class="fa-solid fa-circle-info"></i> Правила:</div>
+                            Общайся в чате <span class="chat-link" onclick="openChat()">HATElove Chat</span>.<br>
                             • Спам и флуд не учитываются.<br>
                             • Сообщения короче 2 символов не считаются.
                         </div>
                     `;
                 }
 
-                // --- 4. КНОПКА ---
+                // Кнопка в карточке
                 let btnHtml = '';
                 if (isCompleted) {
                     btnHtml = `<button class="btn btn-done" disabled>ВЫПОЛНЕНО</button>`;
                 } else if (isReady) {
                     btnHtml = `<button class="btn btn-claim" onclick="handleAction('claim', ${item.template_id}, this)">ЗАБРАТЬ ${rewardTxt}</button>`;
-                } else if (isAvailable) {
-                    btnHtml = `<button class="btn btn-start" onclick="handleAction('start', ${item.template_id}, this)">НАЧАТЬ</button>`;
                 } else {
                     btnHtml = `<button class="btn btn-start" disabled>В ПРОЦЕССЕ...</button>`;
                 }
@@ -457,14 +443,13 @@
             document.getElementById('custom-alert').classList.remove('visible');
         }
 
-        // --- ROULETTE LOGIC (Old Animation) ---
+        // --- ROULETTE LOGIC ---
         function launchRoulette(items, winner, extraMessages) {
             const modal = document.getElementById('r-modal');
             const area = document.getElementById('r-area');
             const track = document.getElementById('r-track');
             const winScreen = document.getElementById('r-win');
             
-            // Reset
             track.style.transition = 'none';
             track.style.transform = 'translateX(0)';
             track.innerHTML = '';
@@ -473,9 +458,8 @@
             modal.style.display = 'flex';
 
             const CARD_W = 148; 
-            const WINNER_IDX = 60; // Победитель на 60 позиции
+            const WINNER_IDX = 60; 
 
-            // Генерируем ленту
             let fullList = [];
             while(fullList.length < 80) fullList = fullList.concat(items);
             fullList[WINNER_IDX] = winner;
@@ -488,33 +472,22 @@
                 return `<div class="r-card ${rClass}"><img src="${item.image_url}"><div class="r-card-name">${item.name}</div></div>`
             }).join('');
 
-            // Анимация
             setTimeout(() => {
                 const screenCenter = window.innerWidth / 2;
                 const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
-                
-                // 1. Первая фаза: Разгон (быстро, но не мгновенно, чтобы было ощущение веса)
-                // Сдвиг чуть дальше центра (перелёт)
-                const overshootOffset = -(winnerCenter - screenCenter + (Math.random() * 200 + 100)); 
+                const overshoot = -(winnerCenter - screenCenter + (Math.random() * 200 + 100)); 
 
-                // cubic-bezier(0.1, 0, 0.1, 1) - резкий старт, очень плавное замедление
                 track.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)'; 
-                track.style.transform = `translateX(${overshootOffset}px)`;
+                track.style.transform = `translateX(${overshoot}px)`;
                 
-                // Трещотка (Haptic)
                 let ticker = setInterval(() => haptic.selectionChanged(), 150);
 
                 setTimeout(() => {
                     clearInterval(ticker);
-                    
-                    // 2. Вторая фаза: Доводка (возврат в центр)
-                    // Теперь считаем точный центр победителя
                     const finalOffset = -(winnerCenter - screenCenter);
-                    
                     track.style.transition = 'transform 1s ease-out';
                     track.style.transform = `translateX(${finalOffset}px)`;
                     
-                    // Финальный удар
                     haptic.impactOccurred('heavy');
 
                     setTimeout(() => {
@@ -533,7 +506,7 @@
                         }
                     }, 1000);
 
-                }, 8000); // Ждем окончания первой фазы
+                }, 8000); 
             }, 100);
         }
 
