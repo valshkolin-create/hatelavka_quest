@@ -13,92 +13,142 @@
         :root {
             --bg-color: #0b0c10;
             --card-bg: #15161b;
-            --primary: #4b69ff;
-            --primary-gradient: linear-gradient(135deg, #4b69ff 0%, #8847ff 100%);
-            --gold-gradient: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
             --text-main: #ffffff;
             --text-muted: #888899;
-            --border-color: rgba(255, 255, 255, 0.08);
+            
+            /* Градиенты прогресса */
+            --grad-blue: linear-gradient(135deg, #4b69ff 0%, #3d5afe 100%);
+            --grad-purple: linear-gradient(135deg, #8847ff 0%, #6f00ff 100%);
+            --grad-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            
+            /* Тени */
+            --shadow-blue: 0 5px 15px rgba(75, 105, 255, 0.3);
+            --shadow-gold: 0 5px 20px rgba(255, 215, 0, 0.4);
         }
 
-        /* Исправление скролла */
-        html { height: 100%; overflow-y: auto; }
         body {
             margin: 0; padding: 20px;
-            padding-bottom: 50px; /* Отступ снизу */
             background-color: var(--bg-color);
             color: var(--text-main);
             font-family: 'Montserrat', sans-serif;
             -webkit-tap-highlight-color: transparent;
-            min-height: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding-bottom: 40px;
         }
 
-        /* HEADER */
-        .header { margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; }
+        .header { margin-bottom: 25px; }
         .header h1 { 
-            font-size: 22px; font-weight: 800; margin: 0; text-transform: uppercase; 
+            font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; 
             letter-spacing: 1px;
-            background: linear-gradient(90deg, #fff, #a0a0a0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
 
-        /* PREMIUM CARD */
+        /* --- КАРТОЧКА ИСПЫТАНИЯ --- */
         .challenge-card {
             background: var(--card-bg);
             border-radius: 20px;
             padding: 24px;
             position: relative;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(255,255,255,0.08);
             box-shadow: 0 10px 30px rgba(0,0,0,0.4);
             margin-bottom: 20px;
             overflow: hidden;
-            transition: transform 0.2s ease;
+            transition: all 0.3s ease;
         }
         
-        /* Свечение сверху */
-        .challenge-card::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-            background: var(--primary-gradient); opacity: 0.7;
-        }
-        .status-ready { border-color: #FFD700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.15); }
-        .status-ready::before { background: var(--gold-gradient); }
+        /* Цветовые темы карточки */
+        .theme-common { border-color: rgba(255,255,255,0.1); }
+        .theme-rare { border-color: rgba(75, 105, 255, 0.4); box-shadow: 0 0 20px rgba(75, 105, 255, 0.1); }
+        .theme-epic { border-color: rgba(136, 71, 255, 0.4); box-shadow: 0 0 20px rgba(136, 71, 255, 0.15); }
+        .theme-gold { border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 0 30px rgba(255, 215, 0, 0.2); }
 
-        .top-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        .card-title { font-size: 18px; font-weight: 700; line-height: 1.3; }
+        .top-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        
+        .card-title { font-size: 20px; font-weight: 800; line-height: 1.2; text-transform: uppercase; }
         
         .reward-badge {
             background: rgba(255,255,255,0.08);
-            padding: 6px 12px;
+            padding: 8px 14px;
             border-radius: 12px;
-            font-size: 13px; font-weight: 700; color: #e0e0e0;
-            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 13px; font-weight: 700; color: #fff;
+            border: 1px solid rgba(255,255,255,0.15);
             white-space: nowrap;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
         }
+        .reward-badge.gold { border-color: #ffd700; color: #ffd700; background: rgba(255, 215, 0, 0.1); }
 
-        /* Progress Bar */
-        .progress-container { margin: 20px 0; }
+        /* Прогресс бар */
+        .progress-container { margin-bottom: 25px; }
+        .progress-labels { 
+            display: flex; justify-content: space-between; 
+            font-size: 12px; color: var(--text-muted); font-weight: 600; 
+            margin-bottom: 8px; 
+        }
+        .current-val { color: #fff; }
+        
         .progress-track {
-            height: 8px; background: rgba(255,255,255,0.05);
-            border-radius: 4px; overflow: hidden; margin-bottom: 8px;
+            height: 12px; background: rgba(0,0,0,0.3);
+            border-radius: 6px; overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
+            position: relative;
         }
         .progress-fill {
             height: 100%; width: 0%;
-            background: var(--primary-gradient);
-            box-shadow: 0 0 10px rgba(75, 105, 255, 0.5);
-            border-radius: 4px;
-            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--grad-blue);
+            box-shadow: 0 0 15px rgba(75, 105, 255, 0.6);
+            border-radius: 6px;
+            transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
         }
-        .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); font-weight: 600; }
-        .current-val { color: #fff; }
+        
+        /* Эффект блика на прогресс баре */
+        .progress-fill::after {
+            content: ''; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transform: translateX(-100%);
+            animation: shimmer 2s infinite;
+        }
+        
+        /* Цвета прогресса */
+        .theme-epic .progress-fill { background: var(--grad-purple); box-shadow: 0 0 15px rgba(136, 71, 255, 0.6); }
+        .theme-gold .progress-fill { background: var(--grad-gold); box-shadow: 0 0 15px rgba(255, 215, 0, 0.6); }
 
-        /* Footer Info */
-        .footer-info {
-            margin-top: 15px; padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-            font-size: 11px; color: var(--text-muted);
-            text-align: center; display: flex; justify-content: center; align-items: center; gap: 8px;
+        /* Next Reward Info */
+        .next-reward-block {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px dashed rgba(255,255,255,0.1);
         }
-        .footer-highlight { color: #ccc; font-weight: 700; }
+        .next-icon {
+            width: 32px; height: 32px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #888;
+            font-size: 14px;
+        }
+        .next-text { font-size: 12px; color: #aaa; line-height: 1.4; }
+        .next-highlight { color: #fff; font-weight: 700; }
+
+        /* Info Block (Rules) */
+        .info-block {
+            margin-top: 15px;
+            background: rgba(40, 167, 69, 0.05); /* Зеленоватый фон */
+            border: 1px solid rgba(40, 167, 69, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #ccc;
+            animation: slideDown 0.4s ease-out;
+        }
+        .info-title { color: #55ff55; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; }
 
         /* Buttons */
         .btn {
@@ -112,16 +162,20 @@
         .btn:active { transform: scale(0.98); }
         .btn:disabled { opacity: 0.6; cursor: default; }
 
-        .btn-start { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+        .btn-start { 
+            background: rgba(255,255,255,0.08); 
+            color: #fff; 
+            border: 1px solid rgba(255,255,255,0.1); 
+        }
         .btn-claim { 
-            background: var(--gold-gradient); color: #111; 
-            box-shadow: 0 5px 20px rgba(255, 165, 0, 0.3);
+            background: var(--gold-gradient); 
+            color: #111; 
+            box-shadow: var(--shadow-gold);
             animation: pulse-gold 2s infinite;
         }
         .btn-done { background: #1a1a1a; color: #444; border: 1px solid #333; }
         
-        /* Лоадер внутри кнопки */
-        .btn-loading { pointer-events: none; color: transparent !important; }
+        .btn-loading { color: transparent !important; pointer-events: none; }
         .btn-loading::after {
             content: ''; position: absolute; top: 50%; left: 50%;
             width: 20px; height: 20px; margin: -10px;
@@ -129,10 +183,13 @@
             border-radius: 50%; animation: spin 0.8s linear infinite;
         }
 
+        /* --- Анимации --- */
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
         @keyframes pulse-gold { 0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); } }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* --- CUSTOM MODAL (Alert) --- */
+        /* --- CUSTOM ALERT --- */
         .custom-alert-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
@@ -163,7 +220,7 @@
             backdrop-filter: blur(10px);
         }
         .r-game-area { width: 100%; height: 200px; position: relative; overflow: hidden; border-top: 1px solid #333; border-bottom: 1px solid #333; background: rgba(20,20,20,0.5); }
-        .r-track { display: flex; height: 100%; align-items: center; }
+        .r-track { display: flex; height: 100%; align-items: center; will-change: transform; }
         .r-card { width: 140px; height: 140px; margin: 0 4px; background: #1a1b20; border-radius: 8px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         .r-card img { width: 100px; height: 70px; object-fit: contain; }
         .r-card-name { font-size:10px; color:#ccc; text-align:center; max-width:90%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:10px;}
@@ -178,8 +235,6 @@
         .win-screen { display: none; text-align: center; animation: fadeIn 0.5s; padding: 20px; }
         .win-img { width: 180px; filter: drop-shadow(0 0 30px rgba(255,215,0,0.5)); animation: float 3s infinite ease-in-out; }
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -221,15 +276,13 @@
         tg.expand();
         const haptic = tg.HapticFeedback;
 
-        // --- HELPERS ---
         function formatRewardText(rewardObj, rewardType) {
             let parts = [];
             if (rewardObj && typeof rewardObj === 'object') {
                 if (rewardObj.tickets > 0) parts.push(`${rewardObj.tickets} 🎟️`);
                 if (rewardObj.coins > 0) parts.push(`${rewardObj.coins} 💰`);
                 if (rewardObj.skin) parts.push(`🔥 Кейс`);
-            } 
-            else if (typeof rewardObj === 'number') {
+            } else if (typeof rewardObj === 'number') {
                 if(rewardType === 'coins') parts.push(`${rewardObj} 💰`);
                 else if(rewardType === 'skin_random') parts.push(`🔥 Кейс`);
                 else parts.push(`${rewardObj} 🎟️`);
@@ -237,7 +290,6 @@
             return parts.length > 0 ? parts.join(' + ') : 'Награда';
         }
 
-        // --- CORE ---
         async function init() {
             try {
                 const res = await fetch(`/api/challenges/list?initData=${encodeURIComponent(tg.initData)}`);
@@ -263,50 +315,71 @@
                 
                 const isReady = item.status === 'ready_to_claim';
                 const isCompleted = item.status === 'completed';
-                // 🔥 ВАЖНОЕ ИСПРАВЛЕНИЕ:
-                // Если статус 'available' (нет контракта) — ВСЕГДА показываем "НАЧАТЬ", даже если прогресс есть.
                 const isAvailable = item.status === 'available';
 
-                card.className = `challenge-card ${isReady ? 'status-ready' : ''}`;
-                
+                // --- 1. ВИЗУАЛЬНАЯ ТЕМА ---
+                let theme = 'theme-common';
+                if(percent >= 25) theme = 'theme-rare';
+                if(percent >= 50) theme = 'theme-epic';
+                if(isReady) theme = 'theme-gold';
+                card.className = `challenge-card ${theme} ${isReady ? 'status-ready' : ''}`;
+
                 const rewardTxt = formatRewardText(item.reward_amount, item.reward_type);
 
-                // Footer
-                let footerHtml = '';
+                // --- 2. БЛОК СЛЕДУЮЩЕЙ НАГРАДЫ ---
+                let nextRewardHtml = '';
                 if(item.next_tier) {
                     const nextRwd = formatRewardText(item.next_tier.rewards || item.next_tier.reward, item.next_tier.type);
-                    footerHtml = `
-                        <div class="footer-info">
-                            <i class="fa-solid fa-arrow-trend-up"></i>
-                            Далее: <span class="footer-highlight">${item.next_tier.target} сообщ.</span>
-                            для <span class="footer-highlight">${nextRwd}</span>
+                    nextRewardHtml = `
+                        <div class="next-reward-block">
+                            <div class="next-icon"><i class="fa-solid fa-gift"></i></div>
+                            <div class="next-text">
+                                Следующий этап: <span class="next-highlight">${item.next_tier.target} сообщений</span><br>
+                                Награда: <span class="next-highlight" style="color: #ffd700;">${nextRwd}</span>
+                            </div>
                         </div>`;
                 } else if (!isCompleted) {
-                    footerHtml = `<div class="footer-info"><i class="fa-solid fa-trophy"></i> Это максимальный уровень!</div>`;
+                    nextRewardHtml = `
+                        <div class="next-reward-block" style="border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.05);">
+                            <div class="next-icon" style="color: #ffd700;"><i class="fa-solid fa-trophy"></i></div>
+                            <div class="next-text">
+                                Это <span class="next-highlight">ФИНАЛЬНЫЙ</span> уровень!<br>
+                                Главный приз ждет тебя.
+                            </div>
+                        </div>`;
                 }
 
-                // Button Logic
+                // --- 3. ИНФО-БЛОК (ПРАВИЛА) ---
+                let infoBlockHtml = '';
+                // Показываем правила, если квест начат (active) или доступен (available)
+                // Но не показываем, если уже готов к выдаче или завершен (чтобы не мусорить)
+                if (isAvailable || (item.status === 'active' && !isReady)) {
+                    infoBlockHtml = `
+                        <div class="info-block">
+                            <div class="info-title"><i class="fa-solid fa-circle-info"></i> Как выполнять:</div>
+                            Общайся в чате <b><a href="https://t.me/hatelove_ttv_chat" target="_blank" style="color: #fff; text-decoration: underline;">HATElove Chat</a></b>.<br>
+                            • Спам и флуд не учитываются.<br>
+                            • Сообщения короче 2 символов не считаются.
+                        </div>
+                    `;
+                }
+
+                // --- 4. КНОПКА ---
                 let btnHtml = '';
-                
                 if (isCompleted) {
                     btnHtml = `<button class="btn btn-done" disabled>ВЫПОЛНЕНО</button>`;
-                } 
-                else if (isReady) {
+                } else if (isReady) {
                     btnHtml = `<button class="btn btn-claim" onclick="handleAction('claim', ${item.template_id}, this)">ЗАБРАТЬ ${rewardTxt}</button>`;
-                } 
-                else if (isAvailable) {
-                    // Всегда активная кнопка для старта
+                } else if (isAvailable) {
                     btnHtml = `<button class="btn btn-start" onclick="handleAction('start', ${item.template_id}, this)">НАЧАТЬ</button>`;
-                } 
-                else {
-                    // Статус 'active', но не ready_to_claim -> В процессе
+                } else {
                     btnHtml = `<button class="btn btn-start" disabled>В ПРОЦЕССЕ...</button>`;
                 }
 
                 card.innerHTML = `
                     <div class="top-row">
                         <div class="card-title">${item.title}</div>
-                        <div class="reward-badge">${rewardTxt}</div>
+                        <div class="reward-badge ${isReady ? 'gold' : ''}">${rewardTxt}</div>
                     </div>
                     
                     <div class="progress-container">
@@ -320,7 +393,8 @@
                     </div>
 
                     ${btnHtml}
-                    ${footerHtml}
+                    ${nextRewardHtml}
+                    ${infoBlockHtml}
                 `;
                 app.appendChild(card);
             });
@@ -328,8 +402,6 @@
 
         async function handleAction(type, id, btn) {
             haptic.impactOccurred('medium');
-            
-            // Локальный лоадер
             const originalText = btn.innerHTML;
             btn.classList.add('btn-loading');
             
@@ -342,11 +414,9 @@
                 const json = await res.json();
                 
                 if(json.status === 'ok') {
-                    // Рулетка
                     if (json.data && json.data.reward_type === 'skin_random' && json.data.roulette_strip) {
                         launchRoulette(json.data.roulette_strip, json.data.winner, json.data.messages);
                     } else {
-                        // Обычная выдача
                         if(type === 'claim') {
                             haptic.notificationOccurred('success');
                             let msg = "Награда получена!";
@@ -373,17 +443,13 @@
             }
         }
 
-        // --- UI UTILS ---
         function showCustomAlert(title, msg, type) {
             const overlay = document.getElementById('custom-alert');
             const iconEl = document.getElementById('alert-icon');
-            
             document.getElementById('alert-title').textContent = title;
             document.getElementById('alert-msg').textContent = msg;
-            
             if (type === 'error') iconEl.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color:#ff5555;"></i>';
             else iconEl.innerHTML = '<i class="fa-solid fa-gift"></i>';
-
             overlay.classList.add('visible');
         }
 
@@ -391,13 +457,14 @@
             document.getElementById('custom-alert').classList.remove('visible');
         }
 
-        // --- ROULETTE LOGIC ---
+        // --- ROULETTE LOGIC (Old Animation) ---
         function launchRoulette(items, winner, extraMessages) {
             const modal = document.getElementById('r-modal');
             const area = document.getElementById('r-area');
             const track = document.getElementById('r-track');
             const winScreen = document.getElementById('r-win');
             
+            // Reset
             track.style.transition = 'none';
             track.style.transform = 'translateX(0)';
             track.innerHTML = '';
@@ -405,9 +472,10 @@
             winScreen.style.display = 'none';
             modal.style.display = 'flex';
 
-            const WINNER_IDX = 60;
             const CARD_W = 148; 
-            
+            const WINNER_IDX = 60; // Победитель на 60 позиции
+
+            // Генерируем ленту
             let fullList = [];
             while(fullList.length < 80) fullList = fullList.concat(items);
             fullList[WINNER_IDX] = winner;
@@ -420,40 +488,57 @@
                 return `<div class="r-card ${rClass}"><img src="${item.image_url}"><div class="r-card-name">${item.name}</div></div>`
             }).join('');
 
+            // Анимация
             setTimeout(() => {
                 const screenCenter = window.innerWidth / 2;
                 const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
-                const offset = -(winnerCenter - screenCenter + (Math.random() * 80 - 40));
                 
-                track.style.transition = 'transform 6s cubic-bezier(0.1, 0, 0.2, 1)';
-                track.style.transform = `translateX(${offset}px)`;
+                // 1. Первая фаза: Разгон (быстро, но не мгновенно, чтобы было ощущение веса)
+                // Сдвиг чуть дальше центра (перелёт)
+                const overshootOffset = -(winnerCenter - screenCenter + (Math.random() * 200 + 100)); 
+
+                // cubic-bezier(0.1, 0, 0.1, 1) - резкий старт, очень плавное замедление
+                track.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)'; 
+                track.style.transform = `translateX(${overshootOffset}px)`;
                 
-                let ticker = setInterval(() => haptic.selectionChanged(), 100);
+                // Трещотка (Haptic)
+                let ticker = setInterval(() => haptic.selectionChanged(), 150);
 
                 setTimeout(() => {
                     clearInterval(ticker);
-                    haptic.notificationOccurred('success');
                     
-                    area.style.display = 'none';
-                    document.getElementById('r-win-img').src = winner.image_url;
-                    document.getElementById('r-win-name').textContent = winner.name;
-                    winScreen.style.display = 'block';
+                    // 2. Вторая фаза: Доводка (возврат в центр)
+                    // Теперь считаем точный центр победителя
+                    const finalOffset = -(winnerCenter - screenCenter);
+                    
+                    track.style.transition = 'transform 1s ease-out';
+                    track.style.transform = `translateX(${finalOffset}px)`;
+                    
+                    // Финальный удар
+                    haptic.impactOccurred('heavy');
 
-                    if (extraMessages && extraMessages.length > 0) {
-                        const msgDiv = document.createElement('div');
-                        msgDiv.style.marginTop = '10px';
-                        msgDiv.style.color = '#aaa';
-                        msgDiv.innerHTML = "А ТАКЖЕ:<br>" + extraMessages.join('<br>');
-                        winScreen.appendChild(msgDiv);
-                    }
+                    setTimeout(() => {
+                        haptic.notificationOccurred('success');
+                        area.style.display = 'none';
+                        document.getElementById('r-win-img').src = winner.image_url;
+                        document.getElementById('r-win-name').textContent = winner.name;
+                        winScreen.style.display = 'block';
 
-                }, 6000);
+                        if (extraMessages && extraMessages.length > 0) {
+                            const msgDiv = document.createElement('div');
+                            msgDiv.style.marginTop = '10px';
+                            msgDiv.style.color = '#aaa';
+                            msgDiv.innerHTML = "А ТАКЖЕ:<br>" + extraMessages.join('<br>');
+                            winScreen.appendChild(msgDiv);
+                        }
+                    }, 1000);
+
+                }, 8000); // Ждем окончания первой фазы
             }, 100);
         }
 
         function closeRoulette() {
             document.getElementById('r-modal').style.display = 'none';
-            // Очистка доп. сообщений
             const extra = document.querySelector('#r-win div[style*="margin-top"]');
             if(extra) extra.remove();
             init(); 
