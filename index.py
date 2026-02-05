@@ -1402,6 +1402,89 @@ async def track_message(message: types.Message):
     # Запускаем обновление прогресса в фоне (не ждем ответа БД, чтобы бот не тупил)
     asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
 
+@router.message_reaction()
+async def handle_reaction_update(update: MessageReactionUpdated):
+    """
+    Ловит изменения реакций (кто-то поставил или убрал).
+    Считает общий прогресс "Настроения канала".
+    """
+    # 1. Проверяем, что это целевой канал
+    if ALLOWED_CHAT_ID != 0 and update.chat.id != ALLOWED_CHAT_ID:
+        return
+
+    # 2. Считаем разницу (поставили (+) или убрали (-))
+    old_count = len(update.old_reaction)
+    new_count = len(update.new_reaction)
+    
+    change = 0
+    if new_count > old_count:
+        change = 1 # Поставил
+    elif new_count < old_count:
+        change = -1 # Убрал
+    
+    if change == 0:
+        return
+
+    # 3. Обновляем счетчик в базе (через RPC или прямой update)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    try:
+        client = await get_background_client()
+        
+        # Атомарное обновление (чтобы не было гонки данных)
+        # Создай RPC функцию increment_daily_emotions в Supabase для надежности
+        # Или делай так (простой вариант):
+        
+        # Сначала проверяем, есть ли запись на сегодня
+        res = await client.get("/daily_emotions", params={"date": f"eq.{today}"})
+        data = res.json()
+        
+        if not data:
+            # Инициализация дня (если первый раз за сегодня)
+            # Логика уровней: Если вчера уровень был X и цель выполнена -> X+1, иначе 1
+            yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+            y_res = await client.get("/daily_emotions", params={"date": f"eq.{yesterday}"})
+            y_data = y_res.json()
+            
+            next_level = 1
+            if y_data:
+                y_rec = y_data[0]
+                if y_rec['count'] >= y_rec['target']:
+                    next_level = min(7, y_rec['level'] + 1) # Максимум 7 уровень
+                else:
+                    next_level = 1 # Сброс, если не справились
+            
+            # Формула цели: 5 * level (5, 10, 15...)
+            new_target = 5 * next_level
+            
+            await client.post("/daily_emotions", json={
+                "date": today,
+                "count": 1 if change > 0 else 0,
+                "target": new_target,
+                "level": next_level
+            })
+        else:
+            # Просто обновляем счетчик
+            current = data[0]['count']
+            new_val = max(0, current + change)
+            await client.patch("/daily_emotions", params={"date": f"eq.{today}"}, json={"count": new_val})
+            
+    except Exception as e:
+        logging.error(f"Error handling reaction: {e}")
+
+# Нужно создать эндпоинт для фронтенда, чтобы получать эти цифры
+@app.get("/api/v1/telegram/emotion_progress")
+async def get_emotion_progress(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    res = await supabase.get("/daily_emotions", params={"date": f"eq.{today}"})
+    data = res.json()
+    
+    if data:
+        return data[0]
+    else:
+        # Если данных на сегодня еще нет, возвращаем старт
+        return {"count": 0, "target": 5, "level": 1}
+
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
     now = time.time()
