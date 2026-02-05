@@ -3,21 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Challenges & Roulette</title>
+    <title>Daily Challenge</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
-
-        :root {
-            /* Цвета редкости */
-            --rarity-blue: #4b69ff;
-            --rarity-purple: #8847ff;
-            --rarity-pink: #d32ce6;
-            --rarity-red: #eb4b4b;
-            --rarity-gold: #ffd700;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
 
         body {
             margin: 0; padding: 20px;
@@ -28,10 +19,9 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* --- CHALLENGE CARDS STYLES --- */
         .header { margin-bottom: 25px; }
         .header h1 { font-size: 26px; font-weight: 800; margin: 0; text-transform: uppercase; background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-
+        
         .challenge-card {
             background: #1a1b20;
             border-radius: 16px;
@@ -43,35 +33,74 @@
             margin-bottom: 15px;
         }
 
-        /* Темы карточек */
-        .theme-common { border-color: #444; }
-        .theme-rare   { border-color: var(--rarity-blue); box-shadow: 0 0 15px rgba(75,105,255,0.15); }
-        .theme-epic   { border-color: var(--rarity-purple); box-shadow: 0 0 15px rgba(136,71,255,0.2); }
-        .theme-legend { border-color: var(--rarity-red); box-shadow: 0 0 15px rgba(235,75,75,0.25); }
-        .theme-gold   { border-color: var(--rarity-gold); box-shadow: 0 0 25px rgba(255,215,0,0.3); }
+        /* Цвета редкости */
+        .card-common { border-color: #444; }
+        .card-rare   { border-color: #4b69ff; box-shadow: 0 0 15px rgba(75,105,255,0.15); }
+        .card-epic   { border-color: #8847ff; box-shadow: 0 0 15px rgba(136,71,255,0.2); }
+        .card-legend { border-color: #eb4b4b; box-shadow: 0 0 15px rgba(235,75,75,0.25); }
+        .card-gold   { border-color: #ffd700; box-shadow: 0 0 25px rgba(255,215,0,0.3); }
 
         .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .card-title { font-size: 18px; font-weight: 700; }
+        
         .reward-badge {
-            background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px;
-            font-size: 12px; font-weight: 600; color: #ccc; border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ccc;
+            border: 1px solid rgba(255,255,255,0.2);
+            white-space: nowrap;
         }
 
-        .progress-track { height: 10px; background: rgba(0,0,0,0.4); border-radius: 5px; overflow: hidden; margin-bottom: 8px; }
-        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4b69ff, #8847ff); transition: width 0.5s ease; }
+        .progress-track {
+            height: 10px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4b69ff, #8847ff);
+            transition: width 0.5s ease;
+        }
+        
         .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 20px; }
         .current-val { color: #fff; font-weight: 700; }
 
-        .next-reward-info { font-size: 11px; color: #666; text-align: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .next-reward-info {
+            font-size: 11px;
+            color: #666;
+            text-align: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
         .next-reward-info span { color: #aaa; font-weight: 600; }
 
-        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 800; font-size: 14px; text-transform: uppercase; cursor: pointer; transition: 0.2s; }
+        /* Buttons */
+        .btn {
+            width: 100%; padding: 14px;
+            border-radius: 12px; border: none;
+            font-weight: 800; font-size: 14px;
+            text-transform: uppercase; cursor: pointer;
+            transition: 0.2s;
+        }
         .btn-start { background: #2a2d35; color: #fff; }
-        .btn-claim { background: linear-gradient(90deg, #FFD700, #FFA500); color: #000; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); animation: pulse 2s infinite; }
+        .btn-claim { 
+            background: linear-gradient(90deg, #FFD700, #FFA500); 
+            color: #000; 
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+            animation: pulse 2s infinite;
+        }
         .btn-done { background: #111; color: #444; cursor: default; }
+
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
 
-        /* --- ROULETTE STYLES (1:1 from cs_roulette.html) --- */
+        /* --- ROULETTE STYLES --- */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); z-index: 9999;
@@ -110,7 +139,6 @@
             border-left: 10px solid transparent; border-right: 10px solid transparent;
             border-top: 15px solid #ffd700; filter: drop-shadow(0 0 10px rgba(255,215,0,0.8)); z-index: 21;
         }
-
         .marker-arrow-bottom {
             position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
             border-left: 10px solid transparent; border-right: 10px solid transparent;
@@ -143,7 +171,6 @@
             text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        /* Rarity Colors */
         .r-blue { border-bottom-color: var(--rarity-blue); background: radial-gradient(circle at center, rgba(75, 105, 255, 0.15) 0%, #1a1b20 80%); }
         .r-purple { border-bottom-color: var(--rarity-purple); background: radial-gradient(circle at center, rgba(136, 71, 255, 0.15) 0%, #1a1b20 80%); }
         .r-pink { border-bottom-color: var(--rarity-pink); background: radial-gradient(circle at center, rgba(211, 44, 230, 0.15) 0%, #1a1b20 80%); }
@@ -156,9 +183,7 @@
         .win-img { width: 160px; filter: drop-shadow(0 0 25px rgba(255,215,0,0.4)); animation: floatItem 3s infinite ease-in-out; margin-bottom: 15px;}
         @keyframes floatItem { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .win-name-large { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 20px;}
-        
         .modal-btn { padding: 12px 30px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer; background: #fff; color: #000; font-size: 16px;}
-
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -173,7 +198,6 @@
     </div>
 
     <div id="roulette-modal" class="modal-overlay">
-        
         <div id="roulette-game-area" style="width: 100%;">
             <div class="roulette-container" id="roulette-box">
                 <div class="roulette-window">
@@ -200,9 +224,8 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Константы из твоей рулетки
-        const CARD_FULL_WIDTH = 148; // 140px + 8px margin
-        const WINNER_INDEX = 60;     // Победитель всегда на 60 позиции
+        const CARD_FULL_WIDTH = 148; 
+        const WINNER_INDEX = 60; 
 
         async function init() {
             try {
@@ -212,6 +235,26 @@
             } catch (e) {
                 document.getElementById('app').innerHTML = `<div style="color:red">Ошибка: ${e.message}</div>`;
             }
+        }
+
+        // --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ТЕКСТА НАГРАДЫ ---
+        function formatRewardText(rewardObj, rewardType) {
+            let parts = [];
+            
+            // Если пришел объект (новый формат мульти-наград)
+            if (rewardObj && typeof rewardObj === 'object') {
+                if (rewardObj.tickets > 0) parts.push(`${rewardObj.tickets} 🎟️`);
+                if (rewardObj.coins > 0) parts.push(`${rewardObj.coins} 💰`);
+                if (rewardObj.skin) parts.push(`🔥 Кейс`);
+            } 
+            // Старый формат (число + тип)
+            else if (typeof rewardObj === 'number') {
+                if(rewardType === 'coins') parts.push(`${rewardObj} 💰`);
+                else if(rewardType === 'skin_random') parts.push(`🔥 Кейс`);
+                else parts.push(`${rewardObj} 🎟️`);
+            }
+            
+            return parts.length > 0 ? parts.join(' + ') : 'Награда';
         }
 
         function render(list) {
@@ -227,27 +270,32 @@
                 const card = document.createElement('div');
                 const percent = Math.min(100, Math.floor((item.current_progress / item.target) * 100));
                 
-                let theme = 'theme-common';
-                if(percent >= 25) theme = 'theme-rare';
-                if(percent >= 50) theme = 'theme-epic';
-                if(percent >= 75) theme = 'theme-legend';
-                if(item.status === 'ready_to_claim') theme = 'theme-gold';
+                let theme = 'card-common';
+                if(percent >= 25) theme = 'card-rare';
+                if(percent >= 50) theme = 'card-epic';
+                if(percent >= 75) theme = 'card-legend';
+                if(item.status === 'ready_to_claim') theme = 'card-gold';
 
                 card.className = `challenge-card ${theme}`;
-                
-                let rewardTxt = `${item.reward_amount} 🎟️`;
-                if(item.reward_type === 'coins') rewardTxt = `${item.reward_amount} 💰`;
-                if(item.reward_type === 'skin_random') rewardTxt = `🔥 Кейс`;
 
+                // Формируем текст текущей награды
+                const rewardTxt = formatRewardText(item.reward_amount, item.reward_type);
+
+                // Формируем текст следующей награды (если есть)
                 let footerHtml = '';
                 if(item.next_tier) {
-                    let nextRwd = item.next_tier.reward + (item.next_tier.type === 'coins' ? ' монет' : ' билетов');
-                    if(item.next_tier.type === 'skin_random') nextRwd = 'Случайный Скин';
-                    footerHtml = `<div class="next-reward-info">Следующая цель: <span>${item.next_tier.target} сообщений</span> | Награда: <span>${nextRwd}</span></div>`;
+                    // next_tier содержит {target: X, rewards: {...}}
+                    const nextRewardTxt = formatRewardText(item.next_tier.rewards || item.next_tier.reward, item.next_tier.type);
+                    footerHtml = `
+                        <div class="next-reward-info">
+                            Следующая цель: <span>${item.next_tier.target} сообщений</span> | Награда: <span>${nextRewardTxt}</span>
+                        </div>
+                    `;
                 } else if (item.status !== 'completed') {
                     footerHtml = `<div class="next-reward-info">Это максимальный уровень! 🏆</div>`;
                 }
 
+                // Кнопка
                 let btnHtml = '';
                 if(item.status === 'available') {
                     btnHtml = `<button class="btn btn-start" onclick="action('start', ${item.template_id})">НАЧАТЬ</button>`;
@@ -260,11 +308,23 @@
                 }
 
                 card.innerHTML = `
-                    <div class="top-row"><div class="card-title">${item.title}</div><div class="reward-badge">${rewardTxt}</div></div>
-                    <div class="progress-track"><div class="progress-fill" style="width: ${percent}%"></div></div>
-                    <div class="progress-labels"><span>Прогресс</span><span class="current-val">${item.current_progress} / ${item.target}</span></div>
-                    ${btnHtml}${footerHtml}
+                    <div class="top-row">
+                        <div class="card-title">${item.title}</div>
+                        <div class="reward-badge">${rewardTxt}</div>
+                    </div>
+                    
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width: ${percent}%"></div>
+                    </div>
+                    <div class="progress-labels">
+                        <span>Прогресс</span>
+                        <span class="current-val">${item.current_progress} / ${item.target}</span>
+                    </div>
+
+                    ${btnHtml}
+                    ${footerHtml}
                 `;
+
                 app.appendChild(card);
             });
         }
@@ -282,13 +342,29 @@
                 const json = await res.json();
                 
                 if(json.status === 'ok') {
-                    // --- ЛОГИКА ЗАПУСКА РУЛЕТКИ ---
+                    // 1. ЕСТЬ ЛИ РУЛЕТКА?
                     if (json.data && json.data.reward_type === 'skin_random' && json.data.roulette_strip) {
                         launchRoulette(json.data.roulette_strip, json.data.winner);
+                        
+                        // Если были еще и сообщения (например, билеты вместе со скином)
+                        if (json.data.messages && json.data.messages.length > 0) {
+                             setTimeout(() => {
+                                 tg.showAlert("Также получено:\n" + json.data.messages.join("\n"));
+                             }, 1000); // Показываем чуть позже
+                        }
                     } else {
+                        // 2. ОБЫЧНАЯ ВЫДАЧА (Показываем список полученного)
                         if(type === 'claim') {
                             tg.HapticFeedback.notificationOccurred('success');
-                            tg.showAlert(`Награда получена: ${json.data.amount || ''}`);
+                            
+                            let msg = "Награда получена!";
+                            if (json.data && json.data.messages && json.data.messages.length > 0) {
+                                msg = "Получено:\n" + json.data.messages.join("\n");
+                            } else if (json.data.amount) {
+                                msg = `Награда: ${json.data.amount}`;
+                            }
+                            
+                            tg.showAlert(msg);
                         }
                         init();
                     }
@@ -304,14 +380,12 @@
             }
         }
 
-        // --- ЛОГИКА РУЛЕТКИ (1 в 1 из твоего файла) ---
         function launchRoulette(items, winner) {
             const modal = document.getElementById('roulette-modal');
             const track = document.getElementById('track');
             const gameArea = document.getElementById('roulette-game-area');
             const winDisplay = document.getElementById('win-display');
             
-            // Сброс состояния
             track.innerHTML = '';
             track.style.transition = 'none';
             track.style.transform = 'translateX(0px)';
@@ -319,15 +393,12 @@
             winDisplay.style.display = 'none';
             modal.style.display = 'flex';
 
-            // Генерируем массив карточек (80 шт), вставляем победителя на 60 место
-            // items - это массив от сервера (30 шт). Дублируем его, чтобы хватило.
             let fullList = [];
             while(fullList.length < 80) {
                 fullList = fullList.concat(items);
             }
-            fullList[WINNER_INDEX] = winner; // Подмена
+            fullList[WINNER_INDEX] = winner; 
 
-            // Рендерим HTML
             let html = '';
             fullList.forEach(item => {
                 let rClass = 'r-blue';
@@ -343,37 +414,28 @@
             });
             track.innerHTML = html;
 
-            // Расчет позиции для анимации (Центрирование)
             const screenCenter = window.innerWidth / 2;
             const winnerCenterOnTrack = (WINNER_INDEX * CARD_FULL_WIDTH) + (CARD_FULL_WIDTH / 2);
             const exactCenterPosition = winnerCenterOnTrack - screenCenter;
-            const randomOffset = (Math.random() * 90) - 45; // Рандом +/- 45px
+            const randomOffset = (Math.random() * 90) - 45; 
             const finalSpinPosition = exactCenterPosition + randomOffset;
 
-            // Запускаем через 100мс
             setTimeout(() => {
-                // Вибрация-трещотка
                 let hapticInterval = setInterval(() => { tg.HapticFeedback.selectionChanged(); }, 150);
 
-                // Фаза 1: Быстрый спин (8 сек)
-                track.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)';
+                track.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)'; 
                 track.style.transform = `translateX(-${finalSpinPosition}px)`;
-
-                // Фаза 2: Доводка и победа
+                
                 setTimeout(() => {
                     clearInterval(hapticInterval);
-                    
-                    // Перерасчет центра (на случай ресайза)
                     const currentScreenCenter = window.innerWidth / 2;
                     const perfectPosition = ((WINNER_INDEX * CARD_FULL_WIDTH) + (CARD_FULL_WIDTH / 2)) - currentScreenCenter;
 
-                    // Доводка
                     track.style.transition = 'transform 0.8s cubic-bezier(0.25, 1, 0.5, 1)';
                     track.style.transform = `translateX(-${perfectPosition}px)`;
                     tg.HapticFeedback.impactOccurred('heavy');
 
-                    // Показ окна победы
-                    setTimeout(() => {
+                    setTimeout(() => { 
                         gameArea.style.display = 'none';
                         document.getElementById('win-img-el').src = winner.image_url;
                         document.getElementById('win-name-el').innerText = winner.name;
@@ -381,7 +443,7 @@
                         tg.HapticFeedback.notificationOccurred('success');
                     }, 1000);
 
-                }, 8000);
+                }, 8000); 
             }, 100);
         }
 
