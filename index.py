@@ -14558,6 +14558,7 @@ async def handle_reaction_update(update: MessageReactionUpdated):
     print(f"📝 Пишем в базу: {today}, Изменение: {change}")
 
     # Получаем запись (GET)
+    # Убедись, что функция supabase_request объявлена выше в файле!
     data = await supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
 
     if not data:
@@ -14584,12 +14585,10 @@ async def handle_reaction_update(update: MessageReactionUpdated):
         current_rec = data[0]
         new_val = max(0, current_rec.get('count', 0) + change)
         
-        await supabase_rpc("PATCH", "daily_emotions", 
-                           data={"count": new_val}, 
-                           params={"date": f"eq.{today}"}) # <-- ВНИМАНИЕ: тут была опечатка, исправляю ниже
-        
-        # Исправленный вызов обновления:
-        await supabase_request("PATCH", "daily_emotions", data={"count": new_val}, params={"date": f"eq.{today}"})
+        # 🔥 ИСПРАВЛЕНО: Было supabase_rpc, стало supabase_request
+        await supabase_request("PATCH", "daily_emotions", 
+                               data={"count": new_val}, 
+                               params={"date": f"eq.{today}"})
         
         print(f"✅ Обновлено: {new_val}")
 
