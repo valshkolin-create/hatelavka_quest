@@ -1402,23 +1402,6 @@ async def track_message(message: types.Message):
     # Запускаем обновление прогресса в фоне (не ждем ответа БД, чтобы бот не тупил)
     asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
 
-# Нужно создать эндпоинт для фронтенда, чтобы получать эти цифры
-@app.get("/api/v1/telegram/emotion_progress")
-async def get_emotion_progress(client: httpx.AsyncClient = Depends(get_supabase_client)):
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    try:
-        # ИСПРАВЛЕНО: Используем .get() вместо .table()
-        res = await client.get("/daily_emotions", params={"date": f"eq.{today}", "select": "*"})
-        # Supabase возвращает JSON (список)
-        data = res.json()
-        
-        if data:
-            return data[0]
-        else:
-            return {"count": 0, "target": 35, "level": 1}
-    except Exception as e:
-        logging.error(f"API Error get_emotion_progress: {e}")
-        return {"count": 0, "target": 35, "level": 1}
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
@@ -13710,34 +13693,6 @@ async def check_telegram_profile(
     except Exception as e:
         return JSONResponse({"error": str(e)}, status=500)
 
-# --- СПЕЦИАЛЬНЫЙ ЭНДПОИНТ ДЛЯ ВКЛЮЧЕНИЯ РЕАКЦИЙ ---
-@app.get("/api/v1/admin/fix_webhook")
-async def fix_webhook_settings():
-    """
-    Запусти этот эндпоинт один раз в браузере, чтобы включить реакции.
-    Пример: https://твоя-ссылка.vercel.app/api/v1/admin/fix_webhook
-    """
-    webhook_url = f"{WEB_APP_URL}/api/v1/webhook"
-    
-    # Указываем ВСЕ типы обновлений, включая реакции
-    updates = [
-        "message", 
-        "callback_query", 
-        "chat_member", 
-        "my_chat_member", 
-        "message_reaction",        # <--- ГЛАВНОЕ: Разрешаем реакции
-        "message_reaction_count"
-    ]
-    
-    try:
-        # Сначала удаляем (на всякий случай)
-        await bot.delete_webhook()
-        # Ставим заново с правильными настройками
-        await bot.set_webhook(url=webhook_url, allowed_updates=updates)
-        return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
-    except Exception as e:
-        return {"status": "error", "detail": str(e)}
-
 # ==========================================
 # 🛠️ МОДЕЛИ ДАННЫХ (Вставь это перед вебхуками)
 # ==========================================
@@ -14483,18 +14438,86 @@ async def telegram_vote(
 
 
 
-# --- ХЕНДЛЕР РЕАКЦИЙ (ИСПРАВЛЕННЫЙ) ---
+# ==========================================
+# 🔥 БРОНЕБОЙНЫЙ БЛОК ЭМОЦИЙ (DIRECT HTTP) 🔥
+# ==========================================
+
+# Вспомогательная функция для запросов к Supabase
+async def direct_supabase_request(method: str, endpoint: str, data: dict = None, params: dict = None):
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not url or not key:
+        print("❌ CRITICAL: SUPABASE_URL or SUPABASE_KEY not found in env!")
+        return None
+
+    # Формируем правильный URL для REST API (v1)
+    api_url = f"{url.rstrip('/')}/rest/v1/{endpoint}"
+    
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation" # Чтобы Supabase возвращал данные после insert/update
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            if method == "GET":
+                r = await client.get(api_url, headers=headers, params=params)
+            elif method == "POST":
+                r = await client.post(api_url, headers=headers, json=data)
+            elif method == "PATCH":
+                r = await client.patch(api_url, headers=headers, json=data, params=params)
+            
+            # Логируем ошибки, если есть
+            if r.status_code >= 400:
+                print(f"⚠️ Supabase Error {r.status_code}: {r.text}")
+                return None
+            
+            return r.json()
+        except Exception as e:
+            print(f"❌ HTTP Request Error: {e}")
+            return None
+
+# 1. Эндпоинт для включения реакций
+@app.get("/api/v1/admin/fix_webhook")
+async def fix_webhook_settings():
+    webhook_url = f"{WEB_APP_URL}/api/v1/webhook"
+    updates = ["message", "callback_query", "chat_member", "my_chat_member", "message_reaction", "message_reaction_count"]
+    try:
+        await bot.delete_webhook()
+        await bot.set_webhook(url=webhook_url, allowed_updates=updates)
+        return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+# 2. Эндпоинт для Фронтенда
+@app.get("/api/v1/telegram/emotion_progress")
+async def get_emotion_progress():
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    data = await direct_supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
+    
+    if data and len(data) > 0:
+        return data[0]
+    else:
+        return {"count": 0, "target": 35, "level": 1}
+
+# 3. Обработчик реакций (Логика)
 @router.message_reaction()
 async def handle_reaction_update(update: MessageReactionUpdated):
-    print(f"⚡ REACTION EVENT: User={update.user.id} Chat={update.chat.id}")
+    # 1. Логируем факт прихода реакции
+    print(f"⚡ REACTION: Chat={update.chat.id}, User={update.user.id}")
 
+    # 2. Проверка канала (если нужно)
     if ALLOWED_CHAT_ID:
         try:
-            target_chat_id = int(ALLOWED_CHAT_ID)
-            if update.chat.id != target_chat_id:
+            if update.chat.id != int(ALLOWED_CHAT_ID):
                 return 
-        except ValueError: pass
+        except: pass
 
+    # 3. Считаем
     old_count = len(update.old_reaction)
     new_count = len(update.new_reaction)
     
@@ -14505,53 +14528,45 @@ async def handle_reaction_update(update: MessageReactionUpdated):
     if change == 0: return
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    print(f"📅 DB Write: {today}, Change: {change}")
 
-    try:
-        client = await get_background_client()
+    # 4. Работаем с базой напрямую
+    # Получаем запись на сегодня
+    data = await direct_supabase_request("GET", "daily_emotions", params={"date": f"eq.{today}", "select": "*"})
+
+    if not data: # Если пусто (False или пустой список)
+        print("🆕 New day logic...")
         
-        # А. ПРОВЕРЯЕМ ЗАПИСЬ (GET)
-        res = await client.get("/daily_emotions", params={"date": f"eq.{today}", "select": "*"})
-        data = res.json()
+        # Получаем вчерашний день
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+        y_data = await direct_supabase_request("GET", "daily_emotions", params={"date": f"eq.{yesterday}", "select": "*"})
+        
+        next_level = 1
+        if y_data and len(y_data) > 0:
+            y_rec = y_data[0]
+            if y_rec.get('count', 0) >= y_rec.get('target', 35):
+                next_level = min(7, y_rec.get('level', 1) + 1)
+        
+        new_record = {
+            "date": today,
+            "count": max(0, change),
+            "target": 35,
+            "level": next_level
+        }
+        
+        # Создаем
+        res = await direct_supabase_request("POST", "daily_emotions", data=new_record)
+        print(f"✅ Created result: {res}")
 
-        if not data:
-            print("🆕 Создаем запись на сегодня...")
-            
-            # Смотрим вчерашний день для уровня
-            yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
-            y_res = await client.get("/daily_emotions", params={"date": f"eq.{yesterday}", "select": "*"})
-            y_data = y_res.json()
-            
-            next_level = 1
-            if y_data:
-                y_rec = y_data[0]
-                if y_rec.get('count', 0) >= y_rec.get('target', 35):
-                    next_level = min(7, y_rec.get('level', 1) + 1)
-            
-            new_target = 35 
-            initial_count = max(0, change)
-
-            new_record = {
-                "date": today,
-                "count": initial_count,
-                "target": new_target,
-                "level": next_level
-            }
-            
-            # Б. СОЗДАЕМ (POST)
-            await client.post("/daily_emotions", json=new_record)
-            print(f"✅ Created: {new_record}")
-
-        else:
-            # В. ОБНОВЛЯЕМ (PATCH)
-            current_rec = data[0]
-            current_val = current_rec.get('count', 0)
-            new_val = max(0, current_val + change)
-            
-            await client.patch("/daily_emotions", params={"date": f"eq.{today}"}, json={"count": new_val})
-            print(f"✅ Updated: {new_val}")
-            
-    except Exception as e:
-        print(f"❌ DATABASE ERROR: {str(e)}")
+    else:
+        # Обновляем
+        current_rec = data[0]
+        new_val = max(0, current_rec.get('count', 0) + change)
+        
+        res = await direct_supabase_request("PATCH", "daily_emotions", 
+                                            data={"count": new_val}, 
+                                            params={"date": f"eq.{today}"})
+        print(f"✅ Updated result: {res}")
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
