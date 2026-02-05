@@ -1402,91 +1402,22 @@ async def track_message(message: types.Message):
     # Запускаем обновление прогресса в фоне (не ждем ответа БД, чтобы бот не тупил)
     asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
 
-@router.message_reaction()
-async def handle_reaction_update(update: MessageReactionUpdated):
-    """
-    Ловит изменения реакций (кто-то поставил или убрал).
-    Считает общий прогресс "Настроения канала".
-    """
-    # 1. Проверяем, что это целевой канал
-    if ALLOWED_CHAT_ID != 0 and update.chat.id != ALLOWED_CHAT_ID:
-        return
-
-    # 2. Считаем разницу (поставили (+) или убрали (-))
-    old_count = len(update.old_reaction)
-    new_count = len(update.new_reaction)
-    
-    change = 0
-    if new_count > old_count:
-        change = 1 # Поставил
-    elif new_count < old_count:
-        change = -1 # Убрал
-    
-    if change == 0:
-        return
-
-    # 3. Обновляем счетчик в базе (через RPC или прямой update)
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    
-    try:
-        client = await get_background_client()
-        
-        # Атомарное обновление (чтобы не было гонки данных)
-        # Создай RPC функцию increment_daily_emotions в Supabase для надежности
-        # Или делай так (простой вариант):
-        
-        # Сначала проверяем, есть ли запись на сегодня
-        res = await client.get("/daily_emotions", params={"date": f"eq.{today}"})
-        data = res.json()
-        
-        if not data:
-            # Инициализация дня (если первый раз за сегодня)
-            # Логика уровней: Если вчера уровень был X и цель выполнена -> X+1, иначе 1
-            yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
-            y_res = await client.get("/daily_emotions", params={"date": f"eq.{yesterday}"})
-            y_data = y_res.json()
-            
-            next_level = 1
-            if y_data:
-                y_rec = y_data[0]
-                if y_rec['count'] >= y_rec['target']:
-                    next_level = min(7, y_rec['level'] + 1) # Максимум 7 уровень
-                else:
-                    next_level = 1 # Сброс, если не справились
-            
-            # Формула цели: 5 * level (5, 10, 15...)
-            new_target = 5 * next_level
-            
-            await client.post("/daily_emotions", json={
-                "date": today,
-                "count": 1 if change > 0 else 0,
-                "target": new_target,
-                "level": next_level
-            })
-        else:
-            # Просто обновляем счетчик
-            current = data[0]['count']
-            new_val = max(0, current + change)
-            await client.patch("/daily_emotions", params={"date": f"eq.{today}"}, json={"count": new_val})
-            
-    except Exception as e:
-        logging.error(f"Error handling reaction: {e}")
-
 # Нужно создать эндпоинт для фронтенда, чтобы получать эти цифры
 @app.get("/api/v1/telegram/emotion_progress")
 async def get_emotion_progress(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """Отдает данные для Шкалы Хайпа на фронтенд."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     try:
-        # Ищем запись на сегодня
-        res = await supabase.from_("daily_emotions").select("*").eq("date", today).execute()
+        # ИСПРАВЛЕНИЕ: Используем .table() вместо .from_()
+        res = await supabase.table("daily_emotions").select("*").eq("date", today).execute()
+        
         if res.data:
             return res.data[0]
         else:
-            # Если записи нет, возвращаем дефолт (1 уровень)
             return {"count": 0, "target": 35, "level": 1}
     except Exception as e:
         logging.error(f"API Error get_emotion_progress: {e}")
+        # Возвращаем дефолт, чтобы фронт не ломался
         return {"count": 0, "target": 35, "level": 1}
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
@@ -14555,106 +14486,73 @@ async def telegram_vote(
 # --- ХЕНДЛЕР РЕАКЦИЙ (ИСПРАВЛЕННЫЙ) ---
 @router.message_reaction()
 async def handle_reaction_update(update: MessageReactionUpdated):
-    # 1. Логируем, что сигнал пришел
+    # Логируем, чтобы видеть в Vercel, что бот жив
     print(f"⚡ REACTION EVENT: User={update.user.id} Chat={update.chat.id}")
 
-    # 2. Проверка канала (если нужно). 
-    # Если переменная окружения задана, проверяем. Если нет — пропускаем всех.
-    # Преобразуем в int, так как из env может прийти строка
+    # Проверка ID канала (если настроено)
     if ALLOWED_CHAT_ID:
         try:
             target_chat_id = int(ALLOWED_CHAT_ID)
             if update.chat.id != target_chat_id:
-                print(f"⛔ Skipped: Chat {update.chat.id} != {target_chat_id}")
-                return
-        except ValueError:
-            print("⚠️ ALLOWED_CHAT_ID is not an integer, skipping check")
+                return 
+        except: pass
 
-    # 3. Считаем математику (поставили или убрали)
+    # Считаем разницу (+1 или -1)
     old_count = len(update.old_reaction)
     new_count = len(update.new_reaction)
     
     change = 0
     if new_count > old_count:
-        change = 1  # Поставил
+        change = 1
     elif new_count < old_count:
-        change = -1 # Убрал
+        change = -1
     
     if change == 0:
-        print("ℹ️ No count change (emoji swap?)")
         return
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"📅 Processing Date: {today}, Change: {change}")
 
     try:
-        # Используем твой клиент Supabase
         client = await get_background_client()
         
-        # 4. Пробуем получить запись на СЕГОДНЯ
-        # Обрати внимание: postgrest-py (библиотека под капотом) возвращает объект response.
-        # response.data - это список.
-        res = await client.from_("daily_emotions").select("*").eq("date", today).execute()
+        # ИСПРАВЛЕНО: .table() вместо .from_()
+        res = await client.table("daily_emotions").select("*").eq("date", today).execute()
         data = res.data
 
         if not data:
-            print("🆕 Row missing. Creating new record for today...")
-            
-            # --- ЛОГИКА НОВОГО ДНЯ ---
-            # Смотрим вчерашний день, чтобы понять уровень
+            print("🆕 Создаем запись на сегодня...")
+            # Проверяем вчерашний день для уровня
             yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
-            y_res = await client.from_("daily_emotions").select("*").eq("date", yesterday).execute()
-            y_data = y_res.data
+            
+            y_res = await client.table("daily_emotions").select("*").eq("date", yesterday).execute()
             
             next_level = 1
-            # Если вчера была запись и цель выполнена -> повышаем уровень
-            if y_data and len(y_data) > 0:
-                y_rec = y_data[0]
-                # Защита от None в базе
-                y_count = y_rec.get('count', 0) or 0
-                y_target = y_rec.get('target', 35) or 35
-                y_lvl = y_rec.get('level', 1) or 1
-                
-                if y_count >= y_target:
-                    next_level = min(7, y_lvl + 1)
-                    print(f"🚀 Level UP! {y_lvl} -> {next_level}")
-                else:
-                    print(f"📉 Reset to Level 1 (Target missed yesterday)")
+            if y_res.data:
+                y_rec = y_res.data[0]
+                # Если цель вчера выполнена -> повышаем уровень
+                if y_rec.get('count', 0) >= y_rec.get('target', 35):
+                    next_level = min(7, y_rec.get('level', 1) + 1)
             
-            # Цель: 35 (как ты просил)
-            # Если хочешь усложнять: new_target = 35 + (next_level * 5)
             new_target = 35 
             
-            # Сразу учитываем текущий клик (0 + change)
-            initial_count = max(0, change)
-
-            new_record = {
+            # Создаем новую запись
+            await client.table("daily_emotions").insert({
                 "date": today,
-                "count": initial_count,
+                "count": max(0, change),
                 "target": new_target,
                 "level": next_level
-            }
-            
-            # Создаем запись
-            await client.from_("daily_emotions").insert(new_record).execute()
-            print(f"✅ Created: {new_record}")
-
+            }).execute()
         else:
-            print("🔄 Row exists. Updating...")
+            # Обновляем текущую запись
             current_rec = data[0]
             current_val = current_rec.get('count', 0)
-            
-            # Чтобы счетчик не ушел в минус
             new_val = max(0, current_val + change)
             
-            await client.from_("daily_emotions").update({"count": new_val}).eq("date", today).execute()
-            print(f"✅ Updated: {current_val} -> {new_val}")
+            await client.table("daily_emotions").update({"count": new_val}).eq("date", today).execute()
+            print(f"✅ Обновлено: {current_val} -> {new_val}")
             
     except Exception as e:
-        # Важно видеть ошибку в логах Vercel
         print(f"❌ DATABASE ERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
 
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ СЛАЙДЕР-ИВЕНТОВ (С ПРОВЕРКОЙ СКЛАДА) ---
 
