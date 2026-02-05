@@ -1170,14 +1170,29 @@ async def sleep_mode_check(request: Request, call_next):
 # --- Глобальная переменная для ленивой инициализации ---
 _lazy_supabase_client: Optional[httpx.AsyncClient] = None
 
+Конечно. Ты абсолютно прав, ошибки возникают из-за того, что:
+
+await используется с синхронными вызовами supabase.table(...) — это вызывает первую ошибку.
+
+Мы пытаемся записать поле title, которого нет в таблице manual_rewards — это вызывает вторую ошибку.
+
+Вот исправленные версии обеих функций. Я убрал лишние await перед запросами к базе и удалил поле title из вставки, перенеся название скина в reward_details.
+
+Вставь этот код в index (16).py, заменив старые версии этих функций.
+
+1. Исправленная update_challenge_progress
+(Убраны await перед supabase.table)
+
+Python
+
 async def update_challenge_progress(user_id: int, task_type: str, increment: int = 1):
     """
     Универсальная функция: находит активный контракт юзера и обновляет прогресс.
+    ИСПРАВЛЕНО: Синхронные вызовы к БД.
     """
     try:
-        # Ищем активный контракт этого типа у юзера
-        # Связываем таблицы: user_contracts -> challenge_templates
-        res = await supabase.table("user_contracts")\
+        # Ищем активный контракт этого типа у юзера (БЕЗ AWAIT)
+        res = supabase.table("user_contracts")\
             .select("*, challenge_templates!inner(task_type, target_value)")\
             .eq("user_id", user_id)\
             .eq("status", "active")\
@@ -1197,15 +1212,15 @@ async def update_challenge_progress(user_id: int, task_type: str, increment: int
                 
                 # Если с этим действием мы достигаем цели
                 if new_val >= target:
-                    # Ставим статус completed + фиксируем время
-                    await supabase.table("user_contracts").update({
-                        "current_progress": target, # Визуально 100%
+                    # Ставим статус completed + фиксируем время (БЕЗ AWAIT)
+                    supabase.table("user_contracts").update({
+                        "current_progress": target, 
                         "status": "completed",
                         "completed_at": datetime.now(timezone.utc).isoformat()
                     }).eq("id", c['id']).execute()
                 else:
-                    # Просто обновляем прогресс
-                    await supabase.table("user_contracts").update({
+                    # Просто обновляем прогресс (БЕЗ AWAIT)
+                    supabase.table("user_contracts").update({
                         "current_progress": new_val
                     }).eq("id", c['id']).execute()
                     
@@ -8531,8 +8546,9 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
     if not user: raise HTTPException(status_code=401)
     user_id = user['id']
     
-    # 1. Получаем контракт (СИНХРОННО)
-    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)").eq("user_id", user_id).eq("template_id", req.template_id).execute()
+    # 1. Получаем контракт (СИНХРОННО - БЕЗ AWAIT)
+    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)")\
+        .eq("user_id", user_id).eq("template_id", req.template_id).execute()
     
     if not contract_res.data: return JSONResponse({"status": "error", "message": "Контракт не найден"})
     
@@ -8540,6 +8556,7 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
     template = contract['challenge_templates']
     config = template['reward_config']
     
+    # Получаем статистику (БЕЗ AWAIT)
     stats_res = supabase.table("users").select("telegram_daily_message_count").eq("telegram_id", user_id).execute()
     current_msgs = stats_res.data[0]['telegram_daily_message_count'] if stats_res.data else 0
 
@@ -8559,7 +8576,7 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
             
         reward_to_give = tier_data
         
-        # Апдейт уровня
+        # Апдейт уровня (БЕЗ AWAIT)
         new_tier = tier_idx + 1
         update_data = {"current_tier": new_tier}
         if new_tier >= len(tiers):
@@ -8575,6 +8592,7 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
         
         reward_to_give = {"reward": config.get('amount'), "type": template['reward_type']}
         
+        # Обновляем статус (БЕЗ AWAIT)
         supabase.table("user_contracts").update({
             "status": "claimed", 
             "completed_at": datetime.now(timezone.utc).isoformat()
@@ -8587,6 +8605,7 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
     response_data = {"reward_type": r_type, "amount": amount}
 
     if r_type == 'tickets':
+        # RPC вызовы тоже синхронные через глобальный клиент supabase
         supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": amount}).execute()
         
     elif r_type == 'coins':
@@ -8595,7 +8614,7 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
     elif r_type == 'skin_random':
         # Рулетка
         min_p = reward_to_give.get('min_price', 0)
-        # Здесь используем await, т.к. функция async, но внутри нее DB запросы синхронные
+        # pick_roulette_winner у нас async, поэтому ТУТ нужен await
         winner = await pick_roulette_winner(min_p, 999999) 
         
         if winner:
@@ -8603,13 +8622,13 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
             response_data['winner'] = winner
             response_data['roulette_strip'] = strip
             
-            # 1. Списание количества (СИНХРОННО)
+            # 1. Списание количества (БЕЗ AWAIT)
             try:
                 new_qty = winner['quantity'] - 1
                 supabase.table("cs_items").update({"quantity": new_qty}).eq("id", winner['id']).execute()
             except: pass
 
-            # 2. Логируем в историю
+            # 2. Логируем в историю (БЕЗ AWAIT)
             try:
                 supabase.table("cs_history").insert({
                     "user_id": user_id,
@@ -8619,16 +8638,15 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
                 }).execute()
             except: pass
 
-            # 3. 🔥 ЗАПИСЬ В АДМИНКУ (MANUAL REWARDS) 🔥
+            # 3. 🔥 ЗАПИСЬ В АДМИНКУ (ИСПРАВЛЕНО) 🔥
             try:
-                # Важно: source_description содержит слово "Чекпоинт", чтобы admin.js его отловил
+                # Убрали поле 'title', добавили скин в 'reward_details'
                 supabase.table("manual_rewards").insert({
                     "user_id": user_id,
                     "status": "pending",
                     "source_type": "checkpoint",
                     "source_description": f"Чекпоинт (Челлендж: {template.get('title', 'Без названия')})",
-                    "reward_details": f"Скин: {winner['name']}",
-                    "title": winner['name'],
+                    "reward_details": f"Скин: {winner['name']}", 
                     "created_at": datetime.now(timezone.utc).isoformat()
                 }).execute()
             except Exception as e:
