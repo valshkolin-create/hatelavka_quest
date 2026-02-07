@@ -8402,8 +8402,8 @@ async def activate_referral_bonus(
         else:
             raise HTTPException(status_code=400, detail="Не удалось проверить подписку. Попробуйте позже.")
 
-    # =========================================================================
-    # 🔥 ФИКС 3: ЛОГИКА ПРИВЯЗКИ РЕФЕРАЛА (ВСТАВЛЕНО ЗДЕСЬ)
+   # =========================================================================
+    # 🔥 ФИКС 3: ЛОГИКА ПРИВЯЗКИ РЕФЕРАЛА (С ПОИСКОМ ПО BOTT_REF_ID)
     # =========================================================================
     final_referrer_id = None
     
@@ -8414,33 +8414,46 @@ async def activate_referral_bonus(
         
         if code.startswith("r_"):
             try:
-                # Извлекаем ID пригласившего из "r_123456"
-                potential_referrer_id = int(code.split("_")[1])
+                # Извлекаем число из "r_123456" (например, 23662302)
+                incoming_id = int(code.split("_")[1])
                 
-                # Защита: нельзя пригласить самого себя
-                if potential_referrer_id != user_id:
-                    # Проверяем, существует ли такой "папа" в базе
-                    ref_check = await supabase.get("/users", params={"telegram_id": f"eq.{potential_referrer_id}"})
-                    if ref_check.json():
-                        logging.info(f"[REFERRAL_ACTIVATE] ✅ Реферер подтвержден: {potential_referrer_id}")
-                        final_referrer_id = potential_referrer_id
+                real_referrer_id = None
+                
+                # ШАГ 1: Пробуем найти по telegram_id (на случай старых ссылок)
+                ref_check = await supabase.get("/users", params={"telegram_id": f"eq.{incoming_id}", "select": "telegram_id"})
+                found_list = ref_check.json()
+                
+                if found_list:
+                    real_referrer_id = found_list[0]['telegram_id']
+                else:
+                    # ШАГ 2: Ищем по bott_ref_id (Твой случай: 23662302 -> 477521935)
+                    logging.info(f"[REFERRAL_ACTIVATE] Ищем по bott_ref_id: {incoming_id}...")
+                    ref_check_bott = await supabase.get("/users", params={"bott_ref_id": f"eq.{incoming_id}", "select": "telegram_id"})
+                    found_list_bott = ref_check_bott.json()
+                    
+                    if found_list_bott:
+                        real_referrer_id = found_list_bott[0]['telegram_id']
+                        logging.info(f"[REFERRAL_ACTIVATE] ✅ Нашли по ref_id! Это юзер: {real_referrer_id}")
+
+                # Если нашли реального пользователя
+                if real_referrer_id:
+                    # Защита: нельзя пригласить самого себя
+                    if real_referrer_id != user_id:
+                        final_referrer_id = real_referrer_id
                         
-                        # --- НАЧИСЛЕНИЕ БОНУСА ПРИГЛАСИВШЕМУ (INVITER) ---
-                        # Чтобы работал бонус "+0.1 монет", нужно увеличить счетчик рефералов
-                        # Чтобы работал бонус "+1 билет", нужно либо дать его сейчас, либо счетчик сам это сделает
-                        
-                        # 1. Увеличиваем счетчик кол-ва рефералов у пригласившего (для бонуса +0.1)
-                        # Предполагаем, что есть RPC или поле referrals_count. 
-                        # Если нет, просто пропускаем этот шаг, главное - связь ID.
+                        # --- НАЧИСЛЕНИЕ БОНУСА ПРИГЛАСИВШЕМУ ---
                         try:
-                             # Опционально: даем сразу 1 билет пригласившему как мгновенную награду
-                             await supabase.post("/rpc/increment_tickets", json={"p_user_id": potential_referrer_id, "p_amount": 1})
-                             logging.info(f"[REFERRAL_ACTIVATE] 🎟️ Пригласившему выдан мгновенный билет")
+                             # Даем 1 билет пригласившему
+                             await supabase.post("/rpc/increment_tickets", json={"p_user_id": final_referrer_id, "p_amount": 1})
+                             logging.info(f"[REFERRAL_ACTIVATE] 🎟️ Пригласившему ({final_referrer_id}) выдан билет")
                         except Exception as ex_ref:
-                             logging.error(f"[REFERRAL_ACTIVATE] Ошибка начисления бонуса пригласившему: {ex_ref}")
+                             logging.error(f"[REFERRAL_ACTIVATE] Ошибка бонуса пригласившему: {ex_ref}")
 
                     else:
-                        logging.warning(f"[REFERRAL_ACTIVATE] Реферер {potential_referrer_id} не найден в БД")
+                        logging.warning("[REFERRAL_ACTIVATE] Попытка само-реферальства")
+                else:
+                    logging.warning(f"[REFERRAL_ACTIVATE] Реферер {incoming_id} не найден.")
+
             except Exception as e_ref:
                 logging.error(f"[REFERRAL_ACTIVATE] Ошибка парсинга рефкода: {e_ref}")
 
@@ -8458,7 +8471,7 @@ async def activate_referral_bonus(
             "is_bot_active": True
         }
         
-        # 🔥 ВАЖНО: Если мы нашли пригласившего, записываем его ID новичку
+        # 🔥 ВАЖНО: Если мы нашли пригласившего, записываем его НАСТОЯЩИЙ Telegram ID
         if final_referrer_id:
             update_payload["referrer_id"] = final_referrer_id
             logging.info(f"[REFERRAL_ACTIVATE] 🔗 Связываем: {user_id} -> пригласил {final_referrer_id}")
