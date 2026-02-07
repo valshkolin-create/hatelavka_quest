@@ -790,7 +790,68 @@ function markStepPending(el, icon) {
 }
 
 // --- РЕФЕРАЛКА И БОНУСЫ (WELCOME POPUP) ---
-async function openWelcomePopup(currentUserData) {
+
+// 1. Функция проверки и запуска (Исправленная)
+async function checkReferralAndWelcome(userData) {
+    // 1. Получаем сырой параметр запуска
+    const rawParam = (Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param) || null;
+    const bonusBtn = document.getElementById('open-bonus-btn');
+
+    // 2. Проверяем: это точно реферальный код?
+    let validRefCode = null;
+    if (rawParam && rawParam.startsWith('r_')) {
+        validRefCode = rawParam;
+        console.log("Referral code cached:", validRefCode);
+        localStorage.setItem('cached_referral_code', validRefCode);
+    }
+
+    // 3. Если бонус уже активирован — скрываем кнопку, чистим память и уходим
+    if (userData.referral_activated_at) {
+        if (bonusBtn) bonusBtn.classList.add('hidden');
+        localStorage.removeItem('openRefPopupOnLoad');
+        localStorage.removeItem('cached_referral_code');
+        localStorage.removeItem('pending_ref_code');
+        return; 
+    }
+
+    // 4. Достаем старый кэш
+    const savedCode = localStorage.getItem('cached_referral_code');
+
+    // 5. Определяем лучший код для передачи (Свежий > Сохраненный)
+    // Используем validRefCode, а не rawParam, чтобы не передать мусор
+    const codeToPass = validRefCode || savedCode;
+
+    // 6. Условие показа:
+    // - Либо юзер уже связан в базе (userData.referrer_id)
+    // - Либо у нас есть валидный код на руках (codeToPass)
+    const shouldShowBonus = userData.referrer_id || codeToPass;
+
+    if (shouldShowBonus) {
+        if (bonusBtn) {
+            bonusBtn.classList.remove('hidden');
+            // Передаем код в функцию открытия
+            bonusBtn.onclick = () => openWelcomePopup(userData, codeToPass);
+        }
+        
+        // 7. Логика авто-открытия
+        if (localStorage.getItem('openRefPopupOnLoad')) {
+            // Если вернулись с Twitch - берем код, который сохраняли перед уходом (pending)
+            // или тот, который вычислили выше
+            const autoCode = localStorage.getItem('pending_ref_code') || codeToPass;
+            openWelcomePopup(userData, autoCode);
+            localStorage.removeItem('openRefPopupOnLoad');
+        } 
+        else if (!localStorage.getItem('bonusPopupDeferred')) {
+            // Если пользователь не нажимал "Позже" - открываем сразу
+            openWelcomePopup(userData, codeToPass);
+        } 
+    } else {
+        if (bonusBtn) bonusBtn.classList.add('hidden');
+    }
+}
+
+// 2. Функция открытия попапа (Исправленная)
+async function openWelcomePopup(currentUserData, referralCode = null) {
     const popup = document.getElementById('welcome-popup');
     const successModal = document.getElementById('subscription-success-modal');
     const sosOverlay = document.getElementById('sos-modal-overlay');
@@ -854,6 +915,15 @@ async function openWelcomePopup(currentUserData) {
                 btnConnect.onclick = async (e) => {
                     e.preventDefault(); e.stopPropagation();
                     const originalText = btnConnect.innerHTML;
+                    
+                    // 🔥 СОХРАНЯЕМ КОД ПЕРЕД УХОДОМ НА TWITCH
+                    if (referralCode) localStorage.setItem('pending_ref_code', referralCode);
+                    else {
+                        // Если кода нет в аргументе, попробуем кэш
+                        const cached = localStorage.getItem('cached_referral_code');
+                        if (cached) localStorage.setItem('pending_ref_code', cached);
+                    }
+
                     btnConnect.style.opacity = '0.7';
                     btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; 
                     try {
@@ -906,19 +976,33 @@ async function openWelcomePopup(currentUserData) {
     async function claimReward() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
+        
+        // 🔥 ФИКС: Собираем код из всех источников (аргумент -> временный -> постоянный кэш)
+        const finalRefCode = referralCode || localStorage.getItem('pending_ref_code') || localStorage.getItem('cached_referral_code');
+        
+        console.log("Activating with code:", finalRefCode);
+
         try {
             const response = await fetch('/api/v1/user/referral/activate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+                body: JSON.stringify({ 
+                    initData: Telegram.WebApp.initData,
+                    referral_code: finalRefCode // Явно отправляем!
+                })
             });
             const res = await response.json();
             if (response.ok) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 actionBtn.textContent = "Готово!";
                 document.getElementById('open-bonus-btn')?.classList.add('hidden');
+                
+                // Чистим кэши
                 localStorage.removeItem('openRefPopupOnLoad');
                 localStorage.removeItem('bonusPopupDeferred');
+                localStorage.removeItem('pending_ref_code');
+                localStorage.removeItem('cached_referral_code');
+                
                 setTimeout(() => {
                     popup.classList.remove('visible');
                     if (successModal) { successModal.classList.remove('hidden'); successModal.classList.add('visible'); }
@@ -996,34 +1080,6 @@ async function openWelcomePopup(currentUserData) {
     }
     setTimeout(() => { runCheck(); }, 400);
 }
-
-async function checkReferralAndWelcome(userData) {
-    const startParam = (Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param) || null;
-    const bonusBtn = document.getElementById('open-bonus-btn');
-
-    if (userData.referral_activated_at) {
-        if (bonusBtn) bonusBtn.classList.add('hidden');
-        localStorage.removeItem('openRefPopupOnLoad');
-        return; 
-    }
-
-    let potentialReferral = startParam && startParam.startsWith('r_');
-    if (userData.referrer_id || potentialReferral) {
-        if (bonusBtn) {
-            bonusBtn.classList.remove('hidden');
-            bonusBtn.onclick = () => openWelcomePopup(userData);
-        }
-        if (localStorage.getItem('openRefPopupOnLoad')) {
-            openWelcomePopup(userData);
-            localStorage.removeItem('openRefPopupOnLoad');
-        } else if (!localStorage.getItem('bonusPopupDeferred')) {
-            openWelcomePopup(userData);
-        } 
-    } else {
-        if (bonusBtn) bonusBtn.classList.add('hidden');
-    }
-}
-
 // --- ЕЖЕДНЕВНЫЙ ПОДАРОК ---
 async function checkGift() {
     if (!bonusGiftEnabled) {
