@@ -11800,6 +11800,7 @@ async def claim_grind_reward_endpoint(
     """
     Пользователь забирает ежедневную награду.
     ИСПРАВЛЕНО: Убрано двойное ожидание задач (double await fix).
+    ДОБАВЛЕНО: Подсчет рефералов (+0.1 за каждого).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -11812,13 +11813,17 @@ async def claim_grind_reward_endpoint(
         task_rpc = supabase.post("/rpc/claim_grind_reward", json={"p_user_id": telegram_id})
         task_user = supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, referral_activated_at"})
         task_settings = get_grind_settings_async_global()
+        
+        # 🔥 ЗАДАЧА НА ПОДСЧЕТ РЕФЕРАЛОВ (head=true возвращает только кол-во в заголовках)
+        task_refs = supabase.get("/users", params={"referrer_id": f"eq.{telegram_id}", "select": "id", "count": "exact", "head": "true"})
 
         # 2. Ждем ВСЕ результаты ОДИН РАЗ в одной точке
-        rpc_resp, user_resp, settings = await asyncio.gather(task_rpc, task_user, task_settings)
+        rpc_resp, user_resp, settings, refs_resp = await asyncio.gather(task_rpc, task_user, task_settings, task_refs)
 
         # 3. Проверяем ошибки
         rpc_resp.raise_for_status()
         user_resp.raise_for_status() # Важно проверить и это!
+        # refs_resp.raise_for_status() # (Можно не проверять жестко, если ошибка - просто 0 рефералов)
 
         result = rpc_resp.json()
         
@@ -11826,9 +11831,24 @@ async def claim_grind_reward_endpoint(
         user_data_list = user_resp.json()
         user_data = user_data_list[0] if user_data_list else {}
 
+        # 🔥 Парсим количество рефералов из заголовка
+        referrals_count = 0
+        content_range = refs_resp.headers.get("Content-Range") # Пример: "0-5/6" (где 6 - общее кол-во)
+        if content_range:
+            try:
+                referrals_count = int(content_range.split('/')[-1])
+            except:
+                pass
+
         extra_bonus = 0.0
 
-        # --- A. Бонус за VIP ---
+        # --- A. Бонус за Рефералов (+0.1 за каждого) ---
+        if referrals_count > 0:
+            ref_bonus = referrals_count * 0.1
+            extra_bonus += ref_bonus
+            logging.info(f"🚀 Бонус за {referrals_count} рефералов: +{ref_bonus}")
+
+        # --- B. Бонус за VIP ---
         ref_date_str = user_data.get('referral_activated_at')
         if ref_date_str:
             try:
@@ -11838,7 +11858,7 @@ async def claim_grind_reward_endpoint(
             except ValueError:
                 pass
 
-        # --- B. Бонус за Twitch ---
+        # --- C. Бонус за Twitch ---
         t_status = user_data.get('twitch_status')
         if t_status in ['vip', 'subscriber']:
             extra_bonus += settings.twitch_status_boost_coins
@@ -11859,6 +11879,9 @@ async def claim_grind_reward_endpoint(
             # Обновляем ответ
             result['new_coins'] = final_coins
             result['reward_claimed'] = round(float(result.get('reward_claimed', 0)) + extra_bonus, 4)
+        
+        # Добавляем кол-во рефералов в ответ, чтобы фронт мог отрисовать "🚀 Друзья (N)"
+        result['active_referrals_count'] = referrals_count
 
         return result
 
