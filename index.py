@@ -34,6 +34,8 @@ from fastapi.responses import JSONResponse, FileResponse, Response, RedirectResp
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File # Добавили UploadFile, File
+import uuid # Для уникальных имен файлов
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
 from contextlib import asynccontextmanager
@@ -13814,6 +13816,46 @@ async def fix_webhook_settings():
         return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+# ==========================================
+# 📸 UPLOAD SYSTEM (ЗАГРУЗКА ФОТО)
+# ==========================================
+@app.post("/api/v1/upload")
+async def upload_image(
+    file: UploadFile = File(...),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Генерируем уникальное имя файла
+    file_ext = file.filename.split('.')[-1]
+    file_name = f"{uuid.uuid4()}.{file_ext}"
+    
+    # Читаем байты файла
+    file_bytes = await file.read()
+    
+    # Загружаем в Supabase Storage (бакет 'images')
+    # Supabase REST API для Storage: POST /storage/v1/object/{bucket}/{path}
+    try:
+        url = f"{os.getenv('SUPABASE_URL')}/storage/v1/object/images/{file_name}"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_KEY')}",
+            "Content-Type": file.content_type,
+            "x-upsert": "true" # Перезаписать если существует
+        }
+        
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, content=file_bytes, headers=headers)
+            
+            if resp.status_code != 200:
+                print(f"Storage Error: {resp.text}")
+                raise HTTPException(status_code=500, detail="Ошибка загрузки в Storage")
+                
+        # Формируем публичную ссылку
+        public_url = f"{os.getenv('SUPABASE_URL')}/storage/v1/object/public/images/{file_name}"
+        return {"url": public_url}
+        
+    except Exception as e:
+        print(f"Upload Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ==========================================
