@@ -63,8 +63,12 @@
         input:checked + .slider:before { transform: translateX(18px); }
         
         /* Refund System */
-        .refund-box { margin-top: 10px; background: rgba(255, 77, 77, 0.05); padding: 10px; border-radius: 12px; border: 1px dashed rgba(255, 77, 77, 0.2); display: none; }
+        .refund-box { margin-top: 10px; background: rgba(255, 77, 77, 0.05); padding: 10px; border-radius: 12px; border: 1px dashed rgba(255, 77, 77, 0.2); display: none; transition: 0.3s; }
         .refund-box.visible { display: block; animation: fadeIn 0.3s; }
+        
+        .refund-controls { margin-top: 10px; transition: 0.3s; opacity: 1; max-height: 100px; overflow: hidden; }
+        .refund-controls.hidden-slider { opacity: 0.3; pointer-events: none; max-height: 0; margin-top: 0; }
+
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; padding: 0; border: none; margin: 10px 0; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; margin-top: -6px; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #444; border-radius: 2px; }
@@ -219,14 +223,16 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <span style="font-size: 12px; font-weight:700;">💸 Система возврата</span>
                         <label class="toggle-switch" style="transform:scale(0.8);">
-                            <input type="checkbox" name="is_refund_enabled" checked>
+                            <input type="checkbox" name="is_refund_enabled" id="refund-check" checked onchange="toggleSliderVisibility()">
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div style="font-size:11px; color:#aaa; margin-bottom:5px;">
-                        Процент возврата при отмене: <span id="refund-val" style="color:var(--text); font-weight:bold;">100%</span>
+                    <div id="refund-controls" class="refund-controls">
+                        <div style="font-size:11px; color:#aaa; margin-bottom:5px;">
+                            Процент возврата при отмене: <span id="refund-val" style="color:var(--text); font-weight:bold;">100%</span>
+                        </div>
+                        <input type="range" name="refund_percent" min="0" max="100" value="100" oninput="document.getElementById('refund-val').innerText=this.value+'%'">
                     </div>
-                    <input type="range" name="refund_percent" min="0" max="100" value="100" oninput="document.getElementById('refund-val').innerText=this.value+'%'">
                 </div>
 
                 <label style="margin-top:15px;">🏷 Обязательный тег в нике</label>
@@ -361,38 +367,45 @@
             document.getElementById('tab-' + t).classList.remove('hidden');
             
             const tabs = document.querySelectorAll('.tab');
-            // 0:Create, 1:Active, 2:Scheduled, 3:Completed
             if(t === 'create') tabs[0].classList.add('active');
             else if(t === 'list') { tabs[1].classList.add('active'); loadRaffles(); }
             else if(t === 'scheduled') { tabs[2].classList.add('active'); loadRaffles(); }
             else if(t === 'completed') { tabs[3].classList.add('active'); loadRaffles(); }
         }
 
-        // Логика кнопки "Отложенные": показать табло времени
         function toggleScheduleMode() {
             const box = document.getElementById('schedule-setup');
             const btn = document.getElementById('btn-schedule');
             
             if (box.classList.contains('hidden')) {
                 box.classList.remove('hidden');
-                // Меняем кнопку на подтверждение
                 btn.innerHTML = `<i class="fa-solid fa-check"></i><span>СОЗДАТЬ ОТЛОЖЕННЫЙ</span>`;
                 btn.style.background = "var(--primary)";
                 btn.style.color = "#000";
-                // Скролл вверх
                 document.querySelector('.admin-form').scrollIntoView({ behavior: 'smooth' });
             } else {
-                // Если уже открыто - сабмитим как scheduled
                 submitRaffle(true);
             }
         }
         
-        // Показать/скрыть возврат в зависимости от цены
+        // Показывает блок возврата, если цена > 0
         function toggleRefundBox() {
             const cost = document.querySelector('input[name="ticket_cost"]').value;
             const box = document.getElementById('refund-section');
-            if (cost > 0) box.classList.add('visible');
-            else box.classList.remove('visible');
+            if (cost > 0) {
+                box.classList.add('visible');
+                toggleSliderVisibility(); // Обновляем состояние слайдера
+            } else {
+                box.classList.remove('visible');
+            }
+        }
+
+        // Скрывает/показывает ползунок в зависимости от чекбокса
+        function toggleSliderVisibility() {
+            const isChecked = document.getElementById('refund-check').checked;
+            const controls = document.getElementById('refund-controls');
+            if (isChecked) controls.classList.remove('hidden-slider');
+            else controls.classList.add('hidden-slider');
         }
 
         function updatePreview() {
@@ -403,7 +416,7 @@
             
             const tickets = document.querySelector('input[name="ticket_cost"]').value;
             const refs = document.querySelector('input[name="min_referrals"]').value;
-            const minParts = document.querySelector('input[name="min_participants"]').value; // NEW
+            const minParts = document.querySelector('input[name="min_participants"]').value;
             const tag = document.querySelector('input[name="name_tag"]').value;
             const msgs = document.querySelector('input[name="min_msgs"]').value;
             const sub = document.querySelector('input[name="sub_req"]').checked;
@@ -417,7 +430,7 @@
             
             if(sub) html += `└ Подписка на этот канал\n`;
             if(tickets > 0) html += `└ Вход: ${tickets} билетов 🎫\n`;
-            if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`; // NEW
+            if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`;
             if(refs > 0) html += `└ Пригласить друзей: ${refs} 👥\n`;
             if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
             if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ.)\n`;
@@ -449,7 +462,6 @@
 
             const fd = new FormData(form);
             
-            // Если режим "Отложенный" и блок открыт - проверяем время
             const schedBox = document.getElementById('schedule-setup');
             if (!schedBox.classList.contains('hidden') && !fd.get('start_time')) {
                 showCustomAlert('Внимание', 'Укажите время старта для отложенного розыгрыша!');
@@ -472,18 +484,17 @@
                     description: fd.get('desc'),
                     
                     is_silent: isSilentMode,
-                    start_time: fd.get('start_time'), // NEW
+                    start_time: fd.get('start_time'),
                     
                     requires_telegram_sub: fd.get('sub_req') === 'on',
                     ticket_cost: parseInt(fd.get('ticket_cost') || 0),
                     min_referrals: parseInt(fd.get('min_referrals') || 0),
-                    min_participants: parseInt(fd.get('min_participants') || 0), // NEW: Замена баланса
-                    // min_coins удалено, так как кнопка бессмысленна
+                    min_participants: parseInt(fd.get('min_participants') || 0),
                     required_name_tag: fd.get('name_tag'),
                     min_daily_messages: parseInt(fd.get('min_msgs') || 0),
                     
-                    is_refund_enabled: fd.get('is_refund_enabled') === 'on', // NEW
-                    refund_percent: parseInt(fd.get('refund_percent') || 100) // NEW
+                    is_refund_enabled: fd.get('is_refund_enabled') === 'on',
+                    refund_percent: parseInt(fd.get('refund_percent') || 100)
                 }
             };
 
@@ -503,7 +514,6 @@
                     
                     showCustomAlert('Успех!', msg);
                     
-                    // Сброс формы и UI
                     form.reset(); 
                     document.getElementById('schedule-setup').classList.add('hidden');
                     const btn = document.getElementById('btn-schedule');
@@ -542,9 +552,12 @@
         function renderList(list) {
             const cActive = document.getElementById('list-container');
             const cSched = document.getElementById('scheduled-container');
-            const cCompl = document.getElementById('completed-container'); // NEW
+            const cCompl = document.getElementById('completed-container');
             
-            cActive.innerHTML = ''; cSched.innerHTML = ''; cCompl.innerHTML = '';
+            // 🔥 СОБИРАЕМ HTML В ПЕРЕМЕННЫЕ (убирает баг с двойной анимацией)
+            let htmlActive = '';
+            let htmlSched = '';
+            let htmlCompl = '';
             
             let activeCount = 0; let schedCount = 0; let complCount = 0;
 
@@ -553,13 +566,10 @@
                 const isDone = r.status === 'completed';
                 const isScheduled = r.status === 'scheduled'; 
                 
-                // Логика распределения по табам
-                let targetContainer;
-                if (isDone) { targetContainer = cCompl; complCount++; }
-                else if (isScheduled || s.is_silent) { targetContainer = cSched; schedCount++; }
-                else { targetContainer = cActive; activeCount++; }
-
-                const img = s.prize_image ? `<img src="${s.prize_image}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
+                // Приоритет картинки: Card (PNG) -> Prize (JPG)
+                const imgUrl = s.card_image || s.prize_image;
+                const img = imgUrl ? `<img src="${imgUrl}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
+                
                 const safeJson = encodeURIComponent(JSON.stringify(r));
 
                 let statusBadge = '';
@@ -585,7 +595,6 @@
                 `;
 
                 if(isDone) {
-                    // КАРТОЧКА ЗАВЕРШЕННОГО
                     if (r.winner) {
                         html += `
                         <div class="winner-section">
@@ -609,7 +618,6 @@
                     </div>`;
 
                 } else {
-                    // КАРТОЧКА АКТИВНОГО / ОТЛОЖЕННОГО
                     html += `
                     <div class="card-actions">
                         <button onclick="finishRaffle(${r.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
@@ -622,12 +630,17 @@
                 }
                 
                 html += `</div>`;
-                targetContainer.innerHTML += html;
+                
+                // Распределяем строки, а не сразу в DOM
+                if (isDone) { htmlCompl += html; complCount++; }
+                else if (isScheduled || s.is_silent) { htmlSched += html; schedCount++; }
+                else { htmlActive += html; activeCount++; }
             });
             
-            if(!activeCount) cActive.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
-            if(!schedCount) cSched.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
-            if(!complCount) cCompl.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">История пуста</div>';
+            // Вставляем HTML один раз — это убирает баг с анимацией
+            cActive.innerHTML = activeCount ? htmlActive : '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
+            cSched.innerHTML = schedCount ? htmlSched : '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
+            cCompl.innerHTML = complCount ? htmlCompl : '<div style="text-align:center; opacity:0.5; padding:40px;">История пуста</div>';
         }
 
         window.cloneRaffle = function(jsonStr, makeSilent) {
@@ -646,17 +659,17 @@
             
             document.querySelector('input[name="ticket_cost"]').value = s.ticket_cost || '';
             document.querySelector('input[name="min_referrals"]').value = s.min_referrals || '';
-            document.querySelector('input[name="min_participants"]').value = s.min_participants || ''; // NEW
+            document.querySelector('input[name="min_participants"]').value = s.min_participants || ''; 
             document.querySelector('input[name="name_tag"]').value = s.required_name_tag || '';
             document.querySelector('input[name="min_msgs"]').value = s.min_daily_messages || '';
             document.querySelector('input[name="sub_req"]').checked = s.requires_telegram_sub;
             
-            // Восстанавливаем настройки возврата
+            // Восстанавливаем состояние возврата
             document.querySelector('input[name="is_refund_enabled"]').checked = s.is_refund_enabled;
             document.querySelector('input[name="refund_percent"]').value = s.refund_percent || 100;
             document.getElementById('refund-val').innerText = (s.refund_percent || 100) + '%';
             
-            toggleRefundBox();
+            toggleRefundBox(); // Эта функция теперь также вызовет toggleSliderVisibility()
             tg.HapticFeedback.impactOccurred('medium');
             updatePreview();
         };
