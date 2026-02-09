@@ -64,7 +64,7 @@
         
         /* Refund System */
         .refund-box { margin-top: 10px; background: rgba(255, 77, 77, 0.05); padding: 10px; border-radius: 12px; border: 1px dashed rgba(255, 77, 77, 0.2); display: none; transition: 0.3s; }
-        .refund-box.visible { display: block; animation: fadeIn 0.3s; }
+        .refund-box.visible { display: block; } /* Убрал анимацию fadeIn */
         
         .refund-controls { margin-top: 10px; transition: 0.3s; opacity: 1; max-height: 100px; overflow: hidden; }
         .refund-controls.hidden-slider { opacity: 0.3; pointer-events: none; max-height: 0; margin-top: 0; }
@@ -98,7 +98,7 @@
         .raffle-card {
             background: var(--card-bg); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
             border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px;
-            animation: slideUp 0.4s ease; position: relative;
+            position: relative; /* УБРАЛ ANIMATION SLIDEUP */
         }
         .raffle-card.completed { opacity: 0.7; border-color: transparent; }
         .raffle-card.silent { border-left: 3px solid #64b5ef; }
@@ -131,10 +131,10 @@
         /* --- Custom Modals --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-overlay.center { align-items: center; }
-        .modal-active { display: flex; animation: fadeIn 0.2s; }
+        .modal-active { display: flex; } /* УБРАЛ ANIMATION */
         
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 80vh; display: flex; flex-direction: column; animation: slideUp 0.3s; }
-        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 80vh; display: flex; flex-direction: column; } /* УБРАЛ ANIMATION */
+        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); } /* УБРАЛ ANIMATION */
         
         .part-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .part-ava { width: 36px; height: 36px; background: linear-gradient(135deg, #444, #222); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; font-size: 14px; position: relative; }
@@ -147,9 +147,6 @@
         .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
         .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
 
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -241,8 +238,15 @@
             
             <div class="section-box">
                 <h3 class="sec-title"><i class="fa-solid fa-pen-fancy"></i> Оформление</h3>
-                <label>Название приза</label>
-                <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()">
+                
+                <label>Картинка для поста (URL)</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload-post').click()" style="flex-shrink: 0; background: var(--card-bg);">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+                    <input type="file" id="file-upload-post" hidden accept="image/*" onchange="uploadImage(this, 'inp-img')">
+                </div>
 
                 <label>Качество (Wear)</label>
                 <select name="quality" id="inp-quality" onchange="updatePreview()">
@@ -254,11 +258,14 @@
                     <option value="BS">Battle-Scarred (Закаленное в боях)</option>
                 </select>
 
-                <label>Картинка для поста (URL)</label>
-                <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
-
-                <label>Картинка для карточки в приложении (PNG без фона)</label>
-                <input type="text" name="card_image" id="inp-card-img" placeholder="https://..." oninput="updatePreview()">
+                <label>Картинка для карточки (PNG без фона)</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" name="card_image" id="inp-card-img" placeholder="https://..." oninput="updatePreview()">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload-card').click()" style="flex-shrink: 0; background: var(--card-bg);">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+                    <input type="file" id="file-upload-card" hidden accept="image/*" onchange="uploadImage(this, 'inp-card-img')">
+                </div>
 
                 <label>Редкость предмета (Цвет подсветки)</label>
                 <select name="rarity_color" id="inp-rarity-color" onchange="updatePreview()">
@@ -388,19 +395,17 @@
             }
         }
         
-        // Показывает блок возврата, если цена > 0
         function toggleRefundBox() {
             const cost = document.querySelector('input[name="ticket_cost"]').value;
             const box = document.getElementById('refund-section');
             if (cost > 0) {
                 box.classList.add('visible');
-                toggleSliderVisibility(); // Обновляем состояние слайдера
+                toggleSliderVisibility(); 
             } else {
                 box.classList.remove('visible');
             }
         }
 
-        // Скрывает/показывает ползунок в зависимости от чекбокса
         function toggleSliderVisibility() {
             const isChecked = document.getElementById('refund-check').checked;
             const controls = document.getElementById('refund-controls');
@@ -454,6 +459,42 @@
             }
 
             document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
+        }
+
+        async function uploadImage(input, targetId) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const btn = input.previousElementSibling;
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/v1/upload', {
+                    method: 'POST',
+                    body: formData 
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById(targetId).value = data.url;
+                    updatePreview();
+                    showCustomAlert('Готово', 'Картинка загружена!');
+                } else {
+                    showCustomAlert('Ошибка', 'Не удалось загрузить фото');
+                }
+            } catch (e) {
+                console.error(e);
+                showCustomAlert('Ошибка', 'Сбой соединения');
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.disabled = false;
+                input.value = ''; 
+            }
         }
 
         async function submitRaffle(isSilentMode) {
@@ -554,7 +595,6 @@
             const cSched = document.getElementById('scheduled-container');
             const cCompl = document.getElementById('completed-container');
             
-            // 🔥 СОБИРАЕМ HTML В ПЕРЕМЕННЫЕ (убирает баг с двойной анимацией)
             let htmlActive = '';
             let htmlSched = '';
             let htmlCompl = '';
@@ -566,7 +606,6 @@
                 const isDone = r.status === 'completed';
                 const isScheduled = r.status === 'scheduled'; 
                 
-                // Приоритет картинки: Card (PNG) -> Prize (JPG)
                 const imgUrl = s.card_image || s.prize_image;
                 const img = imgUrl ? `<img src="${imgUrl}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
                 
@@ -631,13 +670,11 @@
                 
                 html += `</div>`;
                 
-                // Распределяем строки, а не сразу в DOM
                 if (isDone) { htmlCompl += html; complCount++; }
                 else if (isScheduled || s.is_silent) { htmlSched += html; schedCount++; }
                 else { htmlActive += html; activeCount++; }
             });
             
-            // Вставляем HTML один раз — это убирает баг с анимацией
             cActive.innerHTML = activeCount ? htmlActive : '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
             cSched.innerHTML = schedCount ? htmlSched : '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
             cCompl.innerHTML = complCount ? htmlCompl : '<div style="text-align:center; opacity:0.5; padding:40px;">История пуста</div>';
@@ -664,12 +701,11 @@
             document.querySelector('input[name="min_msgs"]').value = s.min_daily_messages || '';
             document.querySelector('input[name="sub_req"]').checked = s.requires_telegram_sub;
             
-            // Восстанавливаем состояние возврата
             document.querySelector('input[name="is_refund_enabled"]').checked = s.is_refund_enabled;
             document.querySelector('input[name="refund_percent"]').value = s.refund_percent || 100;
             document.getElementById('refund-val').innerText = (s.refund_percent || 100) + '%';
             
-            toggleRefundBox(); // Эта функция теперь также вызовет toggleSliderVisibility()
+            toggleRefundBox();
             tg.HapticFeedback.impactOccurred('medium');
             updatePreview();
         };
