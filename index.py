@@ -13837,7 +13837,7 @@ async def upload_image(
     try:
         url = f"{os.getenv('SUPABASE_URL')}/storage/v1/object/images/{file_name}"
         headers = {
-            "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_KEY')}",
+            "Authorization": f"Bearer {os.getenv('SUPABASE_SERVICE_ROLE_KEY')}",
             "Content-Type": file.content_type,
             "x-upsert": "true" # Перезаписать если существует
         }
