@@ -121,16 +121,16 @@
         .chance-span {
             color: #ffd700; 
             font-weight: 600;
-            margin-left: 10px; /* <-- Увеличил отступ, чтобы не сливалось */
+            margin-left: 10px; 
             cursor: pointer;
             white-space: nowrap;
-            font-size: 8px;   /* <-- Добавил размер шрифта поменьше */
-            display: inline-block; /* <-- Для лучшего позиционирования */
+            font-size: 8px;   
+            display: inline-block; 
         }
         .chance-span i {
             margin-left: 3px;
             opacity: 0.8;
-            font-size: 10px; /* <-- Иконку тоже уменьшаем */
+            font-size: 10px; 
         }
 
 
@@ -371,7 +371,6 @@
 
         // --- 📳 ВИБРАЦИЯ (HAPTIC FEEDBACK) 📳 ---
         document.body.addEventListener('click', (e) => {
-            // Добавили .chance-span в список элементов, вызывающих вибрацию
             const selector = `a, button, .history-btn, .card, .m-btn, .chance-span`;
             if (e.target.closest(selector)) {
                 if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
@@ -440,15 +439,16 @@
             list.innerHTML = ''; historyList.innerHTML = '';
             
             let completedCount = 0;
-
-            if (!data.length) { 
-                list.innerHTML = '<div style="text-align:center; margin-top:50px; color:var(--text-muted);">Активных розыгрышей нет 👻</div>'; 
-            }
+            let activeRendered = 0;
 
             data.forEach(r => {
+                // === ИЗМЕНЕНИЕ 1: Скрываем отложенные от пользователей ===
+                if (r.status === 'scheduled') return; 
+
                 const s = r.settings || {};
                 const done = r.status === 'completed';
                 if(done) completedCount++;
+                else activeRendered++;
 
                 const img = s.card_image || s.prize_image || '';
                 const rarityColor = s.rarity_color || '#2481cc'; 
@@ -458,6 +458,8 @@
                 if (!done) {
                     if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Канал</div>`;
                     if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений за стрим: ${s.min_daily_messages}</div>`;
+                    // === ИЗМЕНЕНИЕ 2: Отображение мин. участников ===
+                    if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
                 }
 
                 let btnLabel = "УЧАСТВОВАТЬ";
@@ -468,14 +470,31 @@
                 }
 
                 const pCount = r.participants_count || 0;
-                // Формируем базовую строку с участниками
                 let pTextFinal = done ? 'Розыгрыш завершен' : `<b style="margin-right: 6px;">${pCount}</b>${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
 
-                // Если розыгрыш активен и есть участники, добавляем шанс в ту же строку через span
                 if (!done && pCount > 0) {
                     const chanceVal = (100 / pCount).toFixed(2).replace('.00', '');
-                    // Добавляем кликабельный span с шансом в ту же строку
                     pTextFinal += `<span class="chance-span" onclick="showChanceInfo(event)"> 🔥 Шанс: ${chanceVal}% <i class="fa-regular fa-circle-question"></i></span>`;
+                }
+
+                // === ИЗМЕНЕНИЕ 3: Блок отмененного (если нет победителя) ===
+                let winnerHtml = '';
+                if (done) {
+                    if (r.winner) {
+                        winnerHtml = `
+                            <div class="winner_box">
+                                <div class="w-title" style="color:${rarityColor}">Победитель</div>
+                                <div class="w-user">🏆 ${r.winner.full_name}</div>
+                            </div>
+                        `;
+                    } else {
+                        winnerHtml = `
+                            <div class="winner_box">
+                                <div class="w-title" style="color:var(--danger)">Отменен</div>
+                                <div class="w-user" style="color:var(--text-muted); font-size: 13px;">❌ Не набралось участников</div>
+                            </div>
+                        `;
+                    }
                 }
 
                 const cardHtml = `
@@ -502,18 +521,17 @@
                                 ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnLabel}
                             </button>
                             ${ticketInfo}
-                        ` : `
-                            <div class="winner_box">
-                                <div class="w-title" style="color:${rarityColor}">Победитель</div>
-                                <div class="w-user">🏆 ${r.winner ? r.winner.full_name : 'Ожидание...'}</div>
-                            </div>
-                        `}
+                        ` : winnerHtml}
                     </div>
                 </div>`;
 
                 if (done) historyList.innerHTML += cardHtml;
                 else list.innerHTML += cardHtml;
             });
+
+            if (activeRendered === 0) { 
+                list.innerHTML = '<div style="text-align:center; margin-top:50px; color:var(--text-muted);">Активных розыгрышей нет 👻</div>'; 
+            }
 
             document.getElementById('total-count').innerText = `Разыграно: ${completedCount}`;
             list.innerHTML += '<div class="bottom-spacer"></div>';
