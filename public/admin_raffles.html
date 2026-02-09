@@ -64,7 +64,7 @@
         
         /* Refund System */
         .refund-box { margin-top: 10px; background: rgba(255, 77, 77, 0.05); padding: 10px; border-radius: 12px; border: 1px dashed rgba(255, 77, 77, 0.2); display: none; transition: 0.3s; }
-        .refund-box.visible { display: block; } /* Убрал анимацию fadeIn */
+        .refund-box.visible { display: block; } /* УБРАЛ ANIMATION FADEIN */
         
         .refund-controls { margin-top: 10px; transition: 0.3s; opacity: 1; max-height: 100px; overflow: hidden; }
         .refund-controls.hidden-slider { opacity: 0.3; pointer-events: none; max-height: 0; margin-top: 0; }
@@ -461,6 +461,7 @@
             document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
         }
 
+        // 🔥 НОВАЯ ФУНКЦИЯ ЗАГРУЗКИ
         async function uploadImage(input, targetId) {
             const file = input.files[0];
             if (!file) return;
@@ -482,7 +483,7 @@
                 if (res.ok) {
                     const data = await res.json();
                     document.getElementById(targetId).value = data.url;
-                    updatePreview();
+                    updatePreview(); // Обновляем превью сразу
                     showCustomAlert('Готово', 'Картинка загружена!');
                 } else {
                     showCustomAlert('Ошибка', 'Не удалось загрузить фото');
