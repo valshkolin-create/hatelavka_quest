@@ -37,7 +37,7 @@
         .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
 
         /* --- Tabs --- */
-        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; }
+        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; overflow-x: auto; }
         .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; }
         .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
@@ -61,6 +61,13 @@
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--primary); }
         input:checked + .slider:before { transform: translateX(18px); }
+        
+        /* Refund System */
+        .refund-box { margin-top: 10px; background: rgba(255, 77, 77, 0.05); padding: 10px; border-radius: 12px; border: 1px dashed rgba(255, 77, 77, 0.2); display: none; }
+        .refund-box.visible { display: block; animation: fadeIn 0.3s; }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; padding: 0; border: none; margin: 10px 0; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; margin-top: -6px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #444; border-radius: 2px; }
 
         /* --- Buttons Grid --- */
         .submit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
@@ -101,6 +108,7 @@
         .st-active { background: rgba(40, 167, 69, 0.2); color: var(--accent); }
         .st-done { background: rgba(255, 255, 255, 0.1); color: var(--text-sec); }
         .st-silent { background: rgba(100, 181, 239, 0.2); color: #64b5ef; border: 1px solid rgba(100, 181, 239, 0.3); }
+        .st-scheduled { background: rgba(255, 215, 0, 0.2); color: var(--primary); border: 1px solid rgba(255, 215, 0, 0.3); }
         
         .card-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
         .action-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 100px; }
@@ -153,10 +161,17 @@
         <button class="tab active" onclick="switchTab('create')">Конструктор</button>
         <button class="tab" onclick="switchTab('list')">Активные</button>
         <button class="tab" onclick="switchTab('scheduled')">Отложенные</button>
+        <button class="tab" onclick="switchTab('completed')">Завершенные</button>
     </div>
 
     <div id="tab-create" class="tab-content">
         <form id="create-form" class="admin-form">
+            
+            <div id="schedule-setup" class="section-box hidden" style="border-color: #64b5ef;">
+                <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-regular fa-clock"></i> Время старта</h3>
+                <input type="datetime-local" name="start_time" id="inp-start-time">
+                <div style="font-size:11px;color:#aaa;margin-top:5px;">Выберите время для автоматической публикации.</div>
+            </div>
             
             <div class="section-box">
                 <h3 class="sec-title"><i class="fa-solid fa-gear"></i> Механика</h3>
@@ -184,15 +199,15 @@
                 <div class="cond-grid">
                     <div>
                         <label>🎫 Цена (Билеты)</label>
-                        <input type="number" name="ticket_cost" placeholder="0" oninput="updatePreview()">
+                        <input type="number" name="ticket_cost" placeholder="0" oninput="toggleRefundBox(); updatePreview()">
+                    </div>
+                    <div>
+                        <label>👥 Мин. участников</label>
+                        <input type="number" name="min_participants" placeholder="0" oninput="updatePreview()">
                     </div>
                     <div>
                         <label>👥 Друзей (Реф)</label>
                         <input type="number" name="min_referrals" placeholder="0" oninput="updatePreview()">
-                    </div>
-                    <div>
-                        <label>💰 Баланс (Монеты)</label>
-                        <input type="number" name="min_coins" placeholder="0" oninput="updatePreview()">
                     </div>
                     <div>
                         <label>💬 Twitch (Сообщ.)</label>
@@ -200,7 +215,21 @@
                     </div>
                 </div>
 
-                <label>🏷 Обязательный тег в нике</label>
+                <div id="refund-section" class="refund-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size: 12px; font-weight:700;">💸 Система возврата</span>
+                        <label class="toggle-switch" style="transform:scale(0.8);">
+                            <input type="checkbox" name="is_refund_enabled" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div style="font-size:11px; color:#aaa; margin-bottom:5px;">
+                        Процент возврата при отмене: <span id="refund-val" style="color:var(--text); font-weight:bold;">100%</span>
+                    </div>
+                    <input type="range" name="refund_percent" min="0" max="100" value="100" oninput="document.getElementById('refund-val').innerText=this.value+'%'">
+                </div>
+
+                <label style="margin-top:15px;">🏷 Обязательный тег в нике</label>
                 <input type="text" name="name_tag" placeholder="Например: HATE" oninput="updatePreview()">
             </div>
             
@@ -253,7 +282,7 @@
                     <span>ЗАПУСТИТЬ СЕЙЧАС</span>
                 </button>
 
-                <button type="button" onclick="submitRaffle(true)" class="action-submit-btn btn-schedule">
+                <button type="button" onclick="toggleScheduleMode()" id="btn-schedule" class="action-submit-btn btn-schedule">
                     <i class="fa-regular fa-clock"></i>
                     <span>В отложенные</span>
                 </button>
@@ -278,6 +307,14 @@
         <div id="scheduled-container">
             <div style="text-align:center; padding: 40px; color: var(--text-sec);">
                 <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-completed" class="tab-content hidden">
+        <div id="completed-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка истории...
             </div>
         </div>
     </div>
@@ -324,9 +361,38 @@
             document.getElementById('tab-' + t).classList.remove('hidden');
             
             const tabs = document.querySelectorAll('.tab');
+            // 0:Create, 1:Active, 2:Scheduled, 3:Completed
             if(t === 'create') tabs[0].classList.add('active');
             else if(t === 'list') { tabs[1].classList.add('active'); loadRaffles(); }
             else if(t === 'scheduled') { tabs[2].classList.add('active'); loadRaffles(); }
+            else if(t === 'completed') { tabs[3].classList.add('active'); loadRaffles(); }
+        }
+
+        // Логика кнопки "Отложенные": показать табло времени
+        function toggleScheduleMode() {
+            const box = document.getElementById('schedule-setup');
+            const btn = document.getElementById('btn-schedule');
+            
+            if (box.classList.contains('hidden')) {
+                box.classList.remove('hidden');
+                // Меняем кнопку на подтверждение
+                btn.innerHTML = `<i class="fa-solid fa-check"></i><span>СОЗДАТЬ ОТЛОЖЕННЫЙ</span>`;
+                btn.style.background = "var(--primary)";
+                btn.style.color = "#000";
+                // Скролл вверх
+                document.querySelector('.admin-form').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                // Если уже открыто - сабмитим как scheduled
+                submitRaffle(true);
+            }
+        }
+        
+        // Показать/скрыть возврат в зависимости от цены
+        function toggleRefundBox() {
+            const cost = document.querySelector('input[name="ticket_cost"]').value;
+            const box = document.getElementById('refund-section');
+            if (cost > 0) box.classList.add('visible');
+            else box.classList.remove('visible');
         }
 
         function updatePreview() {
@@ -337,7 +403,7 @@
             
             const tickets = document.querySelector('input[name="ticket_cost"]').value;
             const refs = document.querySelector('input[name="min_referrals"]').value;
-            const coins = document.querySelector('input[name="min_coins"]').value;
+            const minParts = document.querySelector('input[name="min_participants"]').value; // NEW
             const tag = document.querySelector('input[name="name_tag"]').value;
             const msgs = document.querySelector('input[name="min_msgs"]').value;
             const sub = document.querySelector('input[name="sub_req"]').checked;
@@ -351,8 +417,8 @@
             
             if(sub) html += `└ Подписка на этот канал\n`;
             if(tickets > 0) html += `└ Вход: ${tickets} билетов 🎫\n`;
+            if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`; // NEW
             if(refs > 0) html += `└ Пригласить друзей: ${refs} 👥\n`;
-            if(coins > 0) html += `└ Баланс в боте: ${coins} монет 💰\n`;
             if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
             if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ.)\n`;
 
@@ -378,64 +444,86 @@
         }
 
         async function submitRaffle(isSilentMode) {
-    const form = document.getElementById('create-form');
-    if(!form.reportValidity()) return;
+            const form = document.getElementById('create-form');
+            if(!form.reportValidity()) return;
 
-    const fd = new FormData(form);
-    
-    // Получаем качество напрямую по ID, чтобы избежать багов FormData с селектами
-    const qualityValue = document.getElementById('inp-quality').value;
-    
-    const payload = {
-        initData: tg.initData,
-        title: fd.get('prize'),
-        type: fd.get('type'),
-        end_time: fd.get('end_time'),
-        settings: {
-            prize_name: fd.get('prize'),
-            skin_quality: qualityValue, // Используем проверенное значение
-            prize_image: fd.get('image'),
-            card_image: fd.get('card_image'),      // 🔥 НОВОЕ
-            rarity_color: fd.get('rarity_color'),  // 🔥 НОВОЕ
-            description: fd.get('desc'),
-            is_silent: isSilentMode,
-            requires_telegram_sub: fd.get('sub_req') === 'on',
-            ticket_cost: parseInt(fd.get('ticket_cost') || 0),
-            min_referrals: parseInt(fd.get('min_referrals') || 0),
-            min_coins: parseFloat(fd.get('min_coins') || 0),
-            required_name_tag: fd.get('name_tag'),
-            min_daily_messages: parseInt(fd.get('min_msgs') || 0)
+            const fd = new FormData(form);
+            
+            // Если режим "Отложенный" и блок открыт - проверяем время
+            const schedBox = document.getElementById('schedule-setup');
+            if (!schedBox.classList.contains('hidden') && !fd.get('start_time')) {
+                showCustomAlert('Внимание', 'Укажите время старта для отложенного розыгрыша!');
+                return;
+            }
+            
+            const qualityValue = document.getElementById('inp-quality').value;
+            
+            const payload = {
+                initData: tg.initData,
+                title: fd.get('prize'),
+                type: fd.get('type'),
+                end_time: fd.get('end_time'),
+                settings: {
+                    prize_name: fd.get('prize'),
+                    skin_quality: qualityValue, 
+                    prize_image: fd.get('image'),
+                    card_image: fd.get('card_image'),       
+                    rarity_color: fd.get('rarity_color'),   
+                    description: fd.get('desc'),
+                    
+                    is_silent: isSilentMode,
+                    start_time: fd.get('start_time'), // NEW
+                    
+                    requires_telegram_sub: fd.get('sub_req') === 'on',
+                    ticket_cost: parseInt(fd.get('ticket_cost') || 0),
+                    min_referrals: parseInt(fd.get('min_referrals') || 0),
+                    min_participants: parseInt(fd.get('min_participants') || 0), // NEW: Замена баланса
+                    // min_coins удалено, так как кнопка бессмысленна
+                    required_name_tag: fd.get('name_tag'),
+                    min_daily_messages: parseInt(fd.get('min_msgs') || 0),
+                    
+                    is_refund_enabled: fd.get('is_refund_enabled') === 'on', // NEW
+                    refund_percent: parseInt(fd.get('refund_percent') || 100) // NEW
+                }
+            };
+
+            tg.MainButton.showProgress();
+
+            try {
+                const res = await fetch('/api/v1/admin/raffles/create', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    let msg = 'Розыгрыш опубликован в канале!';
+                    if (payload.settings.start_time) msg = 'Розыгрыш запланирован.';
+                    else if (isSilentMode) msg = 'Тихий розыгрыш создан.';
+                    
+                    showCustomAlert('Успех!', msg);
+                    
+                    // Сброс формы и UI
+                    form.reset(); 
+                    document.getElementById('schedule-setup').classList.add('hidden');
+                    const btn = document.getElementById('btn-schedule');
+                    btn.innerHTML = `<i class="fa-regular fa-clock"></i><span>В отложенные</span>`;
+                    btn.style.background = ""; btn.style.color = "";
+                    
+                    updatePreview(); 
+                    switchTab(payload.settings.start_time ? 'scheduled' : 'list'); 
+                } else {
+                    const err = await res.json();
+                    tg.HapticFeedback.notificationOccurred('error');
+                    showCustomAlert('Ошибка', err.detail || 'Не удалось создать розыгрыш');
+                }
+            } catch (error) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+            } finally {
+                tg.MainButton.hideProgress();
+            }
         }
-    };
-
-    tg.MainButton.showProgress();
-
-    try {
-        const res = await fetch('/api/v1/admin/raffles/create', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-            tg.HapticFeedback.notificationOccurred('success');
-            let msg = 'Розыгрыш опубликован в канале!';
-            if (isSilentMode) msg = 'Розыгрыш создан в "Отложенных".';
-            showCustomAlert('Успех!', msg);
-            form.reset(); 
-            updatePreview(); 
-            switchTab(isSilentMode ? 'scheduled' : 'list'); 
-        } else {
-            const err = await res.json();
-            tg.HapticFeedback.notificationOccurred('error');
-            showCustomAlert('Ошибка', err.detail || 'Не удалось создать розыгрыш');
-        }
-    } catch (error) {
-        tg.HapticFeedback.notificationOccurred('error');
-        showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
-    } finally {
-        tg.MainButton.hideProgress();
-    }
-}
 
         async function loadRaffles() {
             try {
@@ -454,28 +542,34 @@
         function renderList(list) {
             const cActive = document.getElementById('list-container');
             const cSched = document.getElementById('scheduled-container');
-            cActive.innerHTML = ''; cSched.innerHTML = '';
+            const cCompl = document.getElementById('completed-container'); // NEW
             
-            let activeCount = 0; let schedCount = 0;
+            cActive.innerHTML = ''; cSched.innerHTML = ''; cCompl.innerHTML = '';
+            
+            let activeCount = 0; let schedCount = 0; let complCount = 0;
 
             list.forEach(r => {
                 const s = r.settings || {};
                 const isDone = r.status === 'completed';
-                const isSilent = s.is_silent === true;
-                const targetContainer = (isSilent && !isDone) ? cSched : cActive;
+                const isScheduled = r.status === 'scheduled'; 
                 
-                if(targetContainer === cSched) schedCount++; else activeCount++;
+                // Логика распределения по табам
+                let targetContainer;
+                if (isDone) { targetContainer = cCompl; complCount++; }
+                else if (isScheduled || s.is_silent) { targetContainer = cSched; schedCount++; }
+                else { targetContainer = cActive; activeCount++; }
 
                 const img = s.prize_image ? `<img src="${s.prize_image}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
                 const safeJson = encodeURIComponent(JSON.stringify(r));
 
                 let statusBadge = '';
                 if(isDone) statusBadge = `<span class="status-badge st-done">Завершен</span>`;
-                else if(isSilent) statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-clock"></i> Отложен</span>`;
+                else if(isScheduled) statusBadge = `<span class="status-badge st-scheduled"><i class="fa-regular fa-clock"></i> Старт: ${new Date(s.start_time).toLocaleString([], {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>`;
+                else if(s.is_silent) statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-ghost"></i> Тихий</span>`;
                 else statusBadge = `<span class="status-badge st-active">Активен</span>`;
 
                 let html = `
-                <div class="raffle-card ${isDone ? 'completed' : ''} ${isSilent ? 'silent' : ''}">
+                <div class="raffle-card ${isDone ? 'completed' : ''} ${s.is_silent ? 'silent' : ''}">
                     <div class="card-header">
                         ${img}
                         <div class="card-meta">
@@ -484,30 +578,42 @@
                             ${!isDone && r.end_time ? `<span style="font-size:10px; color:var(--danger); margin-left:5px;">⏳ ${new Date(r.end_time).toLocaleString([], {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</span>` : ''}
                         </div>
                     </div>
-                    <div style="font-size:12px; color:var(--text-sec); margin-bottom:10px;">Приз: <span style="color:#fff;">${s.prize_name}</span></div>
+                    <div style="font-size:12px; color:var(--text-sec); margin-bottom:10px;">
+                        Приз: <span style="color:#fff;">${s.prize_name}</span> 
+                        ${s.min_participants > 0 ? `| Мин. уч: ${s.min_participants}` : ''}
+                    </div>
                 `;
 
-                if(isDone && r.winner) {
+                if(isDone) {
+                    // КАРТОЧКА ЗАВЕРШЕННОГО
+                    if (r.winner) {
+                        html += `
+                        <div class="winner-section">
+                            <div class="winner-tag">🏆 Победитель</div>
+                            <div class="winner-name">${r.winner.full_name}</div>
+                            ${r.winner.trade_link ? 
+                                `<div class="trade-copy" onclick="copyText('${r.winner.trade_link}')">
+                                    <span><i class="fa-solid fa-link"></i> Ссылка на трейд</span>
+                                    <span style="color:var(--primary); font-weight:700;">COPY</span>
+                                 </div>` : `<div style="font-size:11px; color:#555;">Трейд-ссылка не указана</div>`
+                            }
+                        </div>`;
+                    } else {
+                        html += `<div class="winner-section"><div class="winner-tag" style="color:var(--danger)">❌ Не состоялся</div><div style="font-size:11px;">Мин. участников не набрано</div></div>`;
+                    }
+                    
                     html += `
-                    <div class="winner-section">
-                        <div class="winner-tag">🏆 Победитель</div>
-                        <div class="winner-name">${r.winner.full_name}</div>
-                        ${r.winner.trade_link ? 
-                            `<div class="trade-copy" onclick="copyText('${r.winner.trade_link}')">
-                                <span><i class="fa-solid fa-link"></i> Ссылка на трейд</span>
-                                <span style="color:var(--primary); font-weight:700;">COPY</span>
-                             </div>` : `<div style="font-size:11px; color:#555;">Трейд-ссылка не указана</div>`
-                        }
-                    </div>
                     <div class="card-actions">
-                        <button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>
+                        <button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-rotate-right"></i> Перезапуск</button>
                         <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
                     </div>`;
-                } else if(!isDone) {
+
+                } else {
+                    // КАРТОЧКА АКТИВНОГО / ОТЛОЖЕННОГО
                     html += `
                     <div class="card-actions">
                         <button onclick="finishRaffle(${r.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
-                        ${isSilent 
+                        ${isScheduled || s.is_silent
                             ? `<button onclick="cloneRaffle('${safeJson}', false)" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> Опубликовать</button>` 
                             : `<button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
                         }
@@ -521,6 +627,7 @@
             
             if(!activeCount) cActive.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
             if(!schedCount) cSched.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
+            if(!complCount) cCompl.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">История пуста</div>';
         }
 
         window.cloneRaffle = function(jsonStr, makeSilent) {
@@ -533,23 +640,29 @@
             document.getElementById('inp-prize').value = s.prize_name || '';
             document.getElementById('inp-quality').value = s.skin_quality || '';
             document.getElementById('inp-img').value = s.prize_image || '';
-            document.getElementById('inp-card-img').value = s.card_image || ''; // 🔥 НОВОЕ
-            document.getElementById('inp-rarity-color').value = s.rarity_color || '#2481cc'; // 🔥 НОВОЕ
+            document.getElementById('inp-card-img').value = s.card_image || ''; 
+            document.getElementById('inp-rarity-color').value = s.rarity_color || '#2481cc'; 
             document.getElementById('inp-desc').value = s.description || '';
             
             document.querySelector('input[name="ticket_cost"]').value = s.ticket_cost || '';
             document.querySelector('input[name="min_referrals"]').value = s.min_referrals || '';
-            document.querySelector('input[name="min_coins"]').value = s.min_coins || '';
+            document.querySelector('input[name="min_participants"]').value = s.min_participants || ''; // NEW
             document.querySelector('input[name="name_tag"]').value = s.required_name_tag || '';
             document.querySelector('input[name="min_msgs"]').value = s.min_daily_messages || '';
             document.querySelector('input[name="sub_req"]').checked = s.requires_telegram_sub;
             
+            // Восстанавливаем настройки возврата
+            document.querySelector('input[name="is_refund_enabled"]').checked = s.is_refund_enabled;
+            document.querySelector('input[name="refund_percent"]').value = s.refund_percent || 100;
+            document.getElementById('refund-val').innerText = (s.refund_percent || 100) + '%';
+            
+            toggleRefundBox();
             tg.HapticFeedback.impactOccurred('medium');
             updatePreview();
         };
 
         async function finishRaffle(id) {
-            showConfirm('Завершить розыгрыш?', 'Бот выберет победителя прямо сейчас.', async () => {
+            showConfirm('Завершить розыгрыш?', 'Бот выберет победителя прямо сейчас (если условия выполнены).', async () => {
                 try {
                     const res = await fetch('/api/v1/admin/raffles/draw', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
