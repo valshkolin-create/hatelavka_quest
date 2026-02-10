@@ -13971,7 +13971,9 @@ async def create_raffle(
     if req.settings.start_time:
         try:
             start_dt = datetime.fromisoformat(req.settings.start_time.replace('Z', ''))
-            if start_dt > datetime.utcnow() + timedelta(minutes=1):
+            # 🔥 ИСПРАВЛЕНИЕ 1: Корректируем время для проверки (МСК -> UTC для сравнения)
+            check_dt = start_dt - timedelta(hours=3)
+            if check_dt > datetime.utcnow() + timedelta(minutes=1):
                 status = "scheduled"
         except: pass
 
@@ -13984,13 +13986,14 @@ async def create_raffle(
         "settings": req.settings.dict()
     }
     
-    # ВАЖНО: Заголовок, чтобы Supabase вернул данные (Fix JSONDecodeError)
+    # 🔥 ИСПРАВЛЕНИЕ 2: Заголовки, чтобы Supabase вернул данные (Fix JSONDecodeError)
     headers = {
         "Prefer": "return=representation",
         "Content-Type": "application/json"
     }
 
     # Получаем сразу ID
+    # Добавили headers=headers
     res = await supabase.post("/raffles", json=payload, params={"select": "id"}, headers=headers)
     
     if res.status_code not in (200, 201):
@@ -14001,7 +14004,7 @@ async def create_raffle(
         new_id = res.json()[0]['id']
     except Exception as e:
         print(f"❌ JSON Parse Error: {e} | Body: {res.text}")
-        raise HTTPException(status_code=500, detail="Не удалось получить ID")
+        raise HTTPException(status_code=500, detail="Не удалось получить ID созданного розыгрыша")
 
     # Переменные для QStash
     qstash_token = os.getenv("QSTASH_TOKEN")
@@ -14083,7 +14086,10 @@ async def create_raffle(
     # 3. ЕСЛИ ОТЛОЖЕННЫЙ СТАРТ -> СТАВИМ ТАЙМЕР НА ПУБЛИКАЦИЮ
     elif status == "scheduled" and start_dt and qstash_token and app_url:
         try:
-            start_unix = int(start_dt.replace(tzinfo=timezone.utc).timestamp())
+            # 🔥 ИСПРАВЛЕНИЕ 3: Вычитаем 3 часа, чтобы перевести МСК в UTC для QStash
+            dt_utc_start = start_dt - timedelta(hours=3)
+            start_unix = int(dt_utc_start.replace(tzinfo=timezone.utc).timestamp())
+            
             target_pub = f"{app_url}/api/v1/webhook/publish_raffle"
             
             async with httpx.AsyncClient() as client:
@@ -14092,7 +14098,7 @@ async def create_raffle(
                     headers={"Authorization": f"Bearer {qstash_token}", "Upstash-Not-Before": str(start_unix), "Content-Type": "application/json"},
                     json={"raffle_id": new_id, "secret": get_cron_secret()}
                 )
-            print(f"⏰ Таймер публикации установлен для ID {new_id}")
+            print(f"⏰ Таймер публикации установлен для ID {new_id} на {start_unix}")
         except Exception as e:
             print(f"⚠️ Ошибка таймера публикации: {e}")
 
@@ -14101,11 +14107,10 @@ async def create_raffle(
         try:
             if qstash_token and app_url:
                 dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                # Считаем, что ввод был в МСК, переводим в UTC для сервера
+                # Здесь уже было верно (-3 часа), оставляем как есть
                 dt_utc = dt_input - timedelta(hours=3)
                 unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
                 
-                # Ставим таймер, только если время в будущем
                 if unix_time > int(datetime.now(timezone.utc).timestamp()):
                     target = f"{app_url}/api/v1/webhook/finalize_raffle"
                     async with httpx.AsyncClient() as client:
