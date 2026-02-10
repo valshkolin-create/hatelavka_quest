@@ -2,806 +2,653 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Raffles</title>
+    <title>Raffles | RFL PRO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         :root {
-            --bg: #0f0f0f;
-            --card-bg: rgba(30, 30, 30, 0.6);
-            --card-border: rgba(255, 255, 255, 0.08);
-            --primary: #ffd700;
-            --accent: #28a745;
-            --danger: #ff4d4d;
+            --bg: #000000;
+            --card: #111111;
+            --primary-blue: #2481cc;
             --text: #ffffff;
-            --text-sec: #aaaaaa;
-            --blur: 10px;
+            --text-muted: #8e8e93;
+            --accent-green: #34c759;
+            --danger: #ff453a;
         }
 
-        body {
-            background-color: var(--bg);
+        /* === ГЛАВНАЯ ЗАЩИТА ОТ СВОРАЧИВАНИЯ (Pull-to-Refresh Setup) === */
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: var(--bg);
             color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0; padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            position: fixed; /* Фиксируем body */
+            overflow: hidden; /* Убираем скролл body */
+            overscroll-behavior-y: none;
             -webkit-tap-highlight-color: transparent;
-            padding-bottom: 100px;
         }
 
-        /* --- Header --- */
-        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-        .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; transition: 0.2s; }
-        .back-btn:active { color: var(--text); transform: scale(0.95); }
-        .page-title { font-size: 20px; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .icon-btn { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 14px; transition: 0.2s; }
-        .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
-
-        /* --- Tabs --- */
-        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; overflow-x: auto; }
-        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; }
-        .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-
-        /* --- Forms --- */
-        .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
-        .admin-form input, .admin-form select, .admin-form textarea {
-            width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
-            color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
+        /* === КОНТЕЙНЕР ДЛЯ СКРОЛЛА === */
+        #main-content {
+            height: 100vh;
+            overflow-y: auto !important; /* Скролл здесь */
+            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+            padding: 16px;
+            padding-bottom: 120px; /* Отступ под футер */
         }
-        .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
-        
-        .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
-        .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-        /* Toggles */
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid var(--card-border); }
-        .toggle-switch { position: relative; width: 40px; height: 22px; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--primary); }
-        input:checked + .slider:before { transform: translateX(18px); }
-        
-        /* Refund System */
-        .refund-box { margin-top: 10px; background: rgba(255, 77, 77, 0.05); padding: 10px; border-radius: 12px; border: 1px dashed rgba(255, 77, 77, 0.2); display: none; transition: 0.3s; }
-        .refund-box.visible { display: block; } 
-        
-        .refund-controls { margin-top: 10px; transition: 0.3s; opacity: 1; max-height: 100px; overflow: hidden; }
-        .refund-controls.hidden-slider { opacity: 0.3; pointer-events: none; max-height: 0; margin-top: 0; }
-
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; padding: 0; border: none; margin: 10px 0; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; margin-top: -6px; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #444; border-radius: 2px; }
-
-        /* --- Buttons Grid --- */
-        .submit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .action-submit-btn {
-            border: none; padding: 15px; border-radius: 14px; font-weight: 700; font-size: 13px; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-            transition: 0.2s; height: 80px; position: relative; overflow: hidden;
+        /* === PULL TO REFRESH СТИЛИ === */
+        #pull-to-refresh {
+            position: fixed;
+            top: -80px;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            background: transparent;
+            pointer-events: none;
+            padding: 0;
+            will-change: transform;
         }
-        .action-submit-btn i { font-size: 18px; margin-bottom: 2px; }
-        .action-submit-btn:active { transform: scale(0.97); opacity: 0.8; }
 
-        .btn-instant { grid-column: 1 / -1; background: var(--primary); color: #000; font-size: 16px; }
-        .btn-schedule { background: rgba(100, 181, 239, 0.15); color: #64b5ef; border: 1px solid rgba(100, 181, 239, 0.2); }
-        .btn-silent { background: rgba(255, 255, 255, 0.05); color: var(--text-sec); border: 1px solid rgba(255, 255, 255, 0.1); }
-
-        /* --- Preview --- */
-        .preview-box { background: #182533; border-radius: 12px; padding: 12px; margin-top: 20px; border-left: 3px solid var(--primary); transition: 0.3s; }
-        .prev-img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: none; }
-        .prev-img.show { display: block; }
-        .prev-text { font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
-        .prev-btn { background: rgba(100, 181, 239, 0.15); color: #64b5ef; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-top: 10px; }
-
-        /* --- Cards List --- */
-        .raffle-card {
-            background: var(--card-bg); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
-            border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px;
-            position: relative; 
+        #pull-to-refresh i {
+            font-size: 24px;
+            color: var(--primary-blue);
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 0.2s, transform 0.2s;
+            text-shadow: 0 0 15px rgba(36, 129, 204, 0.6);
         }
-        .raffle-card.completed { opacity: 0.7; border-color: transparent; }
-        .raffle-card.silent { border-left: 3px solid #64b5ef; }
         
-        .card-header { display: flex; gap: 12px; margin-bottom: 12px; }
-        .card-thumb { width: 50px; height: 50px; border-radius: 10px; background: #222; object-fit: cover; }
-        .card-meta { flex: 1; }
-        .card-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
+        h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
         
-        .status-badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
-        .st-active { background: rgba(40, 167, 69, 0.2); color: var(--accent); }
-        .st-done { background: rgba(255, 255, 255, 0.1); color: var(--text-sec); }
-        .st-silent { background: rgba(100, 181, 239, 0.2); color: #64b5ef; border: 1px solid rgba(100, 181, 239, 0.3); }
-        .st-scheduled { background: rgba(255, 215, 0, 0.2); color: var(--primary); border: 1px solid rgba(255, 215, 0, 0.3); }
-        
-        .card-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-        .action-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 100px; }
-        .btn-parts { background: rgba(255,255,255,0.1); color: var(--text); }
-        .btn-finish { background: rgba(255, 77, 77, 0.2); color: var(--danger); }
-        .btn-copy { background: rgba(255, 215, 0, 0.15); color: var(--primary); }
-        .btn-publish { background: rgba(50, 215, 75, 0.2); color: #32d74b; border: 1px solid rgba(50, 215, 75, 0.3); }
+        .history-btn { 
+            background: #1c1c1e; min-width: 54px; height: 48px; 
+            border-radius: 14px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; color: var(--primary-blue); 
+            border: 1px solid rgba(255,255,255,0.1); cursor: pointer; gap: 2px; transition: 0.1s;
+        }
+        .history-btn span { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
 
-        /* --- Winner Box --- */
-        .winner-section { border-top: 1px dashed rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px; }
-        .winner-tag { font-size: 9px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-        .winner-name { font-weight: 700; font-size: 14px; margin: 2px 0 5px; }
-        .trade-copy { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 8px; font-size: 11px; color: var(--text-sec); display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
-        .trade-copy:active { border-color: var(--primary); background: rgba(255, 215, 0, 0.05); }
+        /* --- КАРТОЧКИ --- */
+        .card { 
+            background: var(--card); border-radius: 28px; 
+            margin-bottom: 16px; position: relative; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+            animation: slideUp 0.4s ease; 
+            min-height: 250px;
+            display: flex; flex-direction: column;
+        }
 
-        /* --- Custom Modals --- */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
-        .modal-overlay.center { align-items: center; }
-        .modal-active { display: flex; } 
-        
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 80vh; display: flex; flex-direction: column; } 
-        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); } 
-        
-        .part-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .part-ava { width: 36px; height: 36px; background: linear-gradient(135deg, #444, #222); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; font-size: 14px; position: relative; }
-        .source-icon { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; border: 1px solid #222; }
-        .src-tg { background: #229ED9; }
-        .src-tw { background: #9146FF; }
-        
-        .alert-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-        .alert-msg { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; }
-        .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
-        .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
+        .card_glow {
+            position: absolute; top: -10%; right: -10%;
+            width: 250px; height: 250px;
+            pointer-events: none;
+            opacity: 0.15;
+            filter: blur(60px);
+            z-index: 0;
+        }
+
+        .card_content { padding: 24px; position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; }
+
+        .r-label { font-size: 11px; font-weight: 700; margin-bottom: 4px; letter-spacing: 1.5px; }
+        .r-title { font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 15px 0; line-height: 1.2; max-width: 50%; }
+
+        .conditions { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+        .cond-row { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+        .cond-row i { color: var(--primary-blue); width: 12px; text-align: center; }
+
+        .timer_row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .timer_item { display: flex; flex-direction: column; align-items: flex-start; }
+        .timer_val { font-size: 20px; font-weight: 700; color: var(--primary-blue); line-height: 1; font-variant-numeric: tabular-nums; }
+        .timer_lbl { font-size: 9px; color: var(--primary-blue); margin-top: 2px; font-weight: 600; }
+
+        .prize-img-wrapper { position: absolute; top: 15px; right: -10px; width: 180px; z-index: 2; pointer-events: none; }
+        .prize-img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.8)); }
+
+        .social_row { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
+        .social_text { font-size: 13px; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; flex-wrap: wrap; }
+        .social_text b { color: #fff; }
+
+        /* Стиль для шанса в строке */
+        .chance-span {
+            color: #ffd700; 
+            font-weight: 600;
+            margin-left: 10px; 
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 8px;   
+            display: inline-block; 
+        }
+        .chance-span i {
+            margin-left: 3px;
+            opacity: 0.8;
+            font-size: 10px; 
+        }
+
+
+        .btn-main {
+            width: 100%; background: var(--primary-blue); color: #fff;
+            border: none; padding: 14px; border-radius: 20px;
+            font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.1s;
+            margin-top: 12px; text-transform: uppercase;
+        }
+        .btn-main.joined { background: #1c1c1e; color: var(--accent-green); border: 1px solid rgba(52, 199, 89, 0.2); cursor: default; }
+
+        .user-tickets-info { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 8px; font-weight: 600; }
+        .user-tickets-info b { color: var(--primary-blue); }
+
+        .winner_box { 
+            margin-top: 10px; background: rgba(255,255,255,0.03); border-radius: 16px; 
+            padding: 10px 14px; border: 1px solid rgba(255,255,255,0.05); 
+        }
+        .w-title { font-size: 9px; color: #ffd700; text-transform: uppercase; font-weight: 800; margin-bottom: 2px; }
+        .w-user { font-size: 15px; font-weight: 700; color: #fff; }
+
+        .bottom-spacer { height: 180px; width: 100%; pointer-events: none; }
+
+        /* FOOTER */
+        .app-footer {
+            display: flex; justify-content: space-around; align-items: center;
+            background-color: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed; bottom: 0; left: 0; width: 100%; z-index: 9999;
+            padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+        }
+        .footer-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #8E8E93; text-decoration: none; flex: 1; font-size: 10px; }
+        .footer-item .icon-wrapper { font-size: 22px; }
 
         .hidden { display: none !important; }
+        
+        /* История (Overlay) */
+        .history-overlay { 
+            position: fixed; inset: 0; background: var(--bg); z-index: 2500; 
+            padding: 16px; overflow-y: auto; display: none; 
+            padding-bottom: 120px; /* Чтобы контент не перекрывал футер или низ */
+        }
+        .history-overlay.active { display: block; }
+        
+        /* МОДАЛКИ */
+        .modal-overlay { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); 
+            backdrop-filter: blur(20px); z-index: 3000; display: none; 
+            align-items: center; justify-content: center; 
+        }
+        .modal-box { 
+            background: #1c1c1e; width: 85%; border-radius: 24px; padding: 30px 20px; 
+            text-align: center; border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .m-btn-confirm { background: var(--primary-blue); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 700; }
+        .m-btn-cancel { background: rgba(255,255,255,0.05); color: #fff; border: none; flex: 1; padding: 14px; border-radius: 12px; font-weight: 600; }
+        
+        .m-head { font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+        .m-desc { font-size: 15px; color: var(--text-muted); margin-bottom: 25px; line-height: 1.4; }
+        .m-btn { 
+            background: rgba(255,255,255,0.1); color: #fff; border: none; width: 100%; 
+            padding: 14px; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: pointer; margin-bottom: 10px;
+        }
+        .m-btn-primary { background: var(--primary-blue); color: #fff; font-weight: 700; }
+
+        /* АНИМАЦИИ */
+        .icon-container { width: 80px; height: 80px; margin: 0 auto 15px; position: relative; }
+        .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--accent-green); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .checkmark { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--accent-green); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
+        .checkmark-check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
+        .cross-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--danger); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .cross { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--danger); animation: fill-red .4s ease-in-out .4s forwards, shake .3s ease-in-out .9s both; }
+        .cross-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
+
+        .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 10px; text-align: center; }
+
+        @keyframes stroke { 100% { stroke-dashoffset: 0; } }
+        @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
+        @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 50px var(--accent-green); } }
+        @keyframes fill-red { 100% { box-shadow: inset 0px 0px 0px 50px var(--danger); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 10%, 30%, 50%, 70%, 90% {transform: translateX(-5px);} 20%, 40%, 60%, 80% {transform: translateX(5px);} }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes zoom { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div class="page-header">
-        <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
-        <h1 class="page-title">Панель Розыгрышей</h1>
-        <a href="/raffles" class="icon-btn"><i class="fa-solid fa-eye"></i></a>
+    <div id="pull-to-refresh">
+        <i class="fa-solid fa-rotate-right"></i> 
     </div>
 
-    <div class="tabs">
-        <button class="tab active" onclick="switchTab('create')">Конструктор</button>
-        <button class="tab" onclick="switchTab('list')">Активные</button>
-        <button class="tab" onclick="switchTab('scheduled')">Отложенные</button>
-        <button class="tab" onclick="switchTab('completed')">Завершенные</button>
+    <main id="main-content">
+        <div class="header-row">
+            <h1>Розыгрыши</h1>
+            <div class="history-btn" onclick="openHistory()">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>История</span>
+            </div>
+        </div>
+
+        <div id="list">
+            <div style="text-align:center; margin-top:50px; color:var(--text-muted);">
+                <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+            </div>
+        </div>
+
+        <div id="close-btn-container" class="close-container hidden" style="position: fixed; bottom: 90px; width: 100%; text-align: center; z-index: 99; left: 0;">
+            <button class="btn-main" style="width: auto; padding: 10px 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onclick="tg.close()">Закрыть</button>
+        </div>
+    </main>
+
+    <div id="history-overlay" class="history-overlay">
+        <div class="header-row">
+            <h1>История</h1>
+            <i class="fa-solid fa-xmark" style="font-size: 24px;" onclick="closeHistory()"></i>
+        </div>
+        <div id="total-count" style="font-size: 13px; font-weight: 500; color: var(--text-muted); margin-top: -15px; margin-bottom: 20px; letter-spacing: 0;">Разыграно: --</div>
+        <div id="history-list"></div>
     </div>
 
-    <div id="tab-create" class="tab-content">
-        <form id="create-form" class="admin-form">
-            
-            <div id="schedule-setup" class="section-box hidden" style="border-color: #64b5ef;">
-                <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-regular fa-clock"></i> Время старта</h3>
-                <input type="datetime-local" name="start_time" id="inp-start-time">
-                <div style="font-size:11px;color:#aaa;margin-top:5px;">Выберите время для автоматической публикации.</div>
-            </div>
-            
-            <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-gear"></i> Механика</h3>
-                <label>Тип победителя</label>
-                <select name="type" id="type-select">
-                    <option value="inline_random">🎲 Случайная кнопка</option>
-                    <option value="most_active">🔥 Топ по активности (Twitch)</option>
-                </select>
+    <footer class="app-footer">
+        <a href="/leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
+        <a href="/quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
+        <a href="/menu" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
+        <a href="/raffles" class="footer-item active"><div class="icon-wrapper" style="color:#fff;"><i class="fa-solid fa-fire"></i></div><span>Розыгрыши</span></a>
+        <a href="/auction" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div><span>Аукцион</span></a>
+    </footer>
 
-                <label>⏰ Авто-завершение (МСК)</label>
-                <input type="datetime-local" name="end_time" required onchange="updatePreview()">
-            </div>
-
-            <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-list-check"></i> Условия входа</h3>
-                
-                <div class="toggle-row" style="margin-top:0; margin-bottom:15px;">
-                    <span style="font-size: 13px;">📢 Подписка на канал</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" name="sub_req" checked onchange="updatePreview()">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-
-                <div class="cond-grid">
-                    <div>
-                        <label>🎫 Цена (Билеты)</label>
-                        <input type="number" name="ticket_cost" placeholder="0" oninput="toggleRefundBox(); updatePreview()">
-                    </div>
-                    <div>
-                        <label>👥 Мин. участников</label>
-                        <input type="number" name="min_participants" placeholder="0" oninput="updatePreview()">
-                    </div>
-                    <div>
-                        <label>👥 Друзей (Реф)</label>
-                        <input type="number" name="min_referrals" placeholder="0" oninput="updatePreview()">
-                    </div>
-                    <div>
-                        <label>💬 Twitch (Сообщ.)</label>
-                        <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()">
-                    </div>
-                </div>
-
-                <div id="refund-section" class="refund-box">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <span style="font-size: 12px; font-weight:700;">💸 Система возврата</span>
-                        <label class="toggle-switch" style="transform:scale(0.8);">
-                            <input type="checkbox" name="is_refund_enabled" id="refund-check" checked onchange="toggleSliderVisibility()">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div id="refund-controls" class="refund-controls">
-                        <div style="font-size:11px; color:#aaa; margin-bottom:5px;">
-                            Процент возврата при отмене: <span id="refund-val" style="color:var(--text); font-weight:bold;">100%</span>
-                        </div>
-                        <input type="range" name="refund_percent" min="0" max="100" value="100" oninput="document.getElementById('refund-val').innerText=this.value+'%'">
-                    </div>
-                </div>
-
-                <label style="margin-top:15px;">🏷 Обязательный тег в нике</label>
-                <input type="text" name="name_tag" placeholder="Например: HATE" oninput="updatePreview()">
-            </div>
-            
-            <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-pen-fancy"></i> Оформление</h3>
-                
-                <label>Название приза</label>
-                <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()">
-
-                <label>Качество (Wear)</label>
-                <select name="quality" id="inp-quality" onchange="updatePreview()">
-                    <option value="">Без качества</option>
-                    <option value="FN">Factory New (Прямо с завода)</option>
-                    <option value="MW">Minimal Wear (Немного поношенное)</option>
-                    <option value="FT">Field-Tested (После полевых испытаний)</option>
-                    <option value="WW">Well-Worn (Поношенное)</option>
-                    <option value="BS">Battle-Scarred (Закаленное в боях)</option>
-                </select>
-
-                <label>Картинка для поста (URL)</label>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
-                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload-post').click()" style="flex-shrink: 0; background: var(--card-bg);">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </button>
-                    <input type="file" id="file-upload-post" hidden accept="image/*" onchange="uploadImage(this, 'inp-img')">
-                </div>
-
-                <label>Картинка для карточки (PNG без фона)</label>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" name="card_image" id="inp-card-img" placeholder="https://..." oninput="updatePreview()">
-                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload-card').click()" style="flex-shrink: 0; background: var(--card-bg);">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </button>
-                    <input type="file" id="file-upload-card" hidden accept="image/*" onchange="uploadImage(this, 'inp-card-img')">
-                </div>
-
-                <label>Редкость предмета (Цвет подсветки)</label>
-                <select name="rarity_color" id="inp-rarity-color" onchange="updatePreview()">
-                    <option value="#b0c3d9">Ширпотреб (Серый)</option>
-                    <option value="#5e98d9">Промышленное (Синий)</option>
-                    <option value="#4b69ff">Армейское (Фиолетовый)</option>
-                    <option value="#8847ff">Запрещенное (Розовый)</option>
-                    <option value="#d32ce6">Засекреченное (Малиновый)</option>
-                    <option value="#eb4b4b">Тайное (Красный)</option>
-                    <option value="#ffd700">★ Нож / Перчатки (Золотой)</option>
-                </select>
-
-                <label>Текст поста</label>
-                <textarea name="desc" id="inp-desc" rows="3" placeholder="Доп. условия или описание..." oninput="updatePreview()"></textarea>
-            </div>
-
-            <div class="preview-box" id="preview-box">
-                <div style="font-size: 10px; text-transform: uppercase; color: #777; margin-bottom: 5px;">Telegram Preview</div>
-                <img src="" id="prev-img" class="prev-img">
-                <div class="prev-text" id="prev-txt"></div>
-                <div class="prev-btn">Участвовать 🎲</div>
-            </div>
-
-            <div class="submit-actions">
-                <button type="button" onclick="submitRaffle(false)" class="action-submit-btn btn-instant">
-                    <i class="fa-solid fa-rocket"></i>
-                    <span>ЗАПУСТИТЬ СЕЙЧАС</span>
-                </button>
-
-                <button type="button" onclick="toggleScheduleMode()" id="btn-schedule" class="action-submit-btn btn-schedule">
-                    <i class="fa-regular fa-clock"></i>
-                    <span>В отложенные</span>
-                </button>
-
-                <button type="button" onclick="submitRaffle(true)" class="action-submit-btn btn-silent">
-                    <i class="fa-solid fa-ghost"></i>
-                    <span>Тихий (App only)</span>
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <div id="tab-list" class="tab-content hidden">
-        <div id="list-container">
-            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
-                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div style="font-size: 50px; margin-bottom: 15px;">🎫</div>
+            <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: #fff;">Подтвердите</div>
+            <div style="color: var(--text-muted); margin-bottom: 25px;">Списать <b id="ticket-price" style="color:#fff">--</b> билетов?</div>
+            <div class="modal-btns">
+                <button class="m-btn-cancel" onclick="closeConfirm()">Отмена</button>
+                <button class="m-btn-confirm" id="confirm-join-btn">Да, списать</button>
             </div>
         </div>
     </div>
 
-    <div id="tab-scheduled" class="tab-content hidden">
-        <div id="scheduled-container">
-            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
-                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
-            </div>
+    <div id="modal" class="modal-overlay">
+        <div class="modal-box">
+            <div id="modal-icon" class="icon-container"></div>
+            <div class="m-head" id="m-head"></div>
+            <div class="m-desc" id="m-desc"></div>
+            <button id="btn-profile" class="m-btn m-btn-primary" style="display:none;" onclick="location.href='/profile'">⚙️ Настроить профиль</button>
+            <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
     </div>
 
-    <div id="tab-completed" class="tab-content hidden">
-        <div id="completed-container">
-            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
-                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка истории...
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-parts" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-parts')">
-        <div class="bottom-sheet">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h3 style="margin:0;">Участники <span id="parts-count" style="font-size:14px; opacity:0.5;"></span></h3>
-                <button onclick="closeModal('modal-parts')" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div id="parts-list" style="overflow-y:auto; flex:1;"></div>
-        </div>
-    </div>
-
-    <div id="modal-alert" class="modal-overlay center">
-        <div class="alert-box">
-            <div class="alert-title" id="alert-title">Title</div>
-            <div class="alert-msg" id="alert-msg">Message</div>
-            <button class="alert-btn" id="alert-ok">OK</button>
-            <button class="alert-btn cancel hidden" id="alert-cancel">Отмена</button>
-        </div>
+    <div id="verify-modal" class="modal-overlay" style="z-index: 3000;">
+        <div class="verify-loader"></div>
+        <div class="verify-text">Проверяем условия...<br><span style="font-size:13px; color:var(--text-muted); font-weight:400;">Секундочку, сверяем данные</span></div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        tg.BackButton.hide();
 
-        tg.BackButton.show();
-        tg.BackButton.onClick(() => {
-            if (document.getElementById('modal-parts').classList.contains('modal-active')) {
-                closeModal('modal-parts'); return;
+        let userTickets = 0;
+
+        // === PULL TO REFRESH ЛОГИКА ===
+        function initPullToRefresh() {
+            const content = document.getElementById('main-content');
+            const ptrContainer = document.getElementById('pull-to-refresh');
+            const icon = ptrContainer ? ptrContainer.querySelector('i') : null;
+            
+            if (!content || !ptrContainer || !icon) return;
+
+            let startY = 0;
+            let pulledDistance = 0;
+            let isPulling = false;
+            const triggerThreshold = 80;
+
+            content.addEventListener('touchstart', (e) => {
+                if (content.scrollTop <= 0) {
+                    startY = e.touches[0].clientY;
+                    isPulling = true;
+                    content.style.transition = 'none'; 
+                    ptrContainer.style.transition = 'none'; 
+                    icon.style.transition = 'none';
+                } else {
+                    isPulling = false;
+                }
+            }, { passive: true });
+
+            content.addEventListener('touchmove', (e) => {
+                if (!isPulling) return;
+                const currentY = e.touches[0].clientY;
+                const diff = currentY - startY;
+
+                if (diff > 0 && content.scrollTop <= 0) {
+                    if (e.cancelable) e.preventDefault();
+                    pulledDistance = Math.pow(diff, 0.85); 
+                    if (pulledDistance > 180) pulledDistance = 180;
+
+                    content.style.transform = `translateY(${pulledDistance}px)`;
+                    ptrContainer.style.transform = `translateY(${pulledDistance}px)`;
+                    icon.style.transform = `rotate(${pulledDistance * 2.5}deg)`;
+                    
+                    if (pulledDistance > triggerThreshold) {
+                        icon.style.color = "#34c759";
+                    } else {
+                        icon.style.color = "var(--primary-blue)";
+                    }
+                }
+            }, { passive: false });
+
+            content.addEventListener('touchend', () => {
+                if (!isPulling) return;
+                isPulling = false;
+                
+                content.style.transition = 'transform 0.3s ease-out';
+                ptrContainer.style.transition = 'transform 0.3s ease-out';
+
+                if (pulledDistance > triggerThreshold) {
+                    content.style.transform = `translateY(80px)`;
+                    ptrContainer.style.transform = `translateY(80px)`;
+                    icon.classList.add('fa-spin');
+                    if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
+                    setTimeout(() => { window.location.reload(); }, 500);
+                } else {
+                    content.style.transform = 'translateY(0px)';
+                    ptrContainer.style.transform = 'translateY(0px)';
+                    icon.style.transform = 'rotate(0deg)';
+                }
+                pulledDistance = 0;
+            });
+        }
+
+        // --- 📳 ВИБРАЦИЯ (HAPTIC FEEDBACK) 📳 ---
+        document.body.addEventListener('click', (e) => {
+            const selector = `a, button, .history-btn, .card, .m-btn, .chance-span`;
+            if (e.target.closest(selector)) {
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                    try {
+                        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                    } catch (err) { console.warn("Haptic error:", err); }
+                }
             }
-            if (document.getElementById('modal-alert').classList.contains('modal-active')) {
-                closeModal('modal-alert'); return;
-            }
-            window.location.href = '/admin';
         });
 
-        function goBack() { window.location.href = '/admin'; }
-        
-        function switchTab(t) {
-            document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
-            document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
-            document.getElementById('tab-' + t).classList.remove('hidden');
-            
-            const tabs = document.querySelectorAll('.tab');
-            if(t === 'create') tabs[0].classList.add('active');
-            else if(t === 'list') { tabs[1].classList.add('active'); loadRaffles(); }
-            else if(t === 'scheduled') { tabs[2].classList.add('active'); loadRaffles(); }
-            else if(t === 'completed') { tabs[3].classList.add('active'); loadRaffles(); }
+        function openHistory() { 
+            document.getElementById('history-overlay').classList.add('active'); 
+            tg.HapticFeedback.impactOccurred('light');
+        }
+        function closeHistory() { document.getElementById('history-overlay').classList.remove('active'); }
+        function closeConfirm() { document.getElementById('confirm-modal').style.display = 'none'; }
+
+        // Показ информации о шансах
+        function showChanceInfo(e) {
+            e.stopPropagation(); // Чтобы не кликнуть по карточке если что
+            showModal('info', 'Шанс победы', 'Процент победы рассчитывается делением 100% на количество участников. Чем больше участников, тем ниже шанс, но победить может каждый! 🍀');
         }
 
-        function toggleScheduleMode() {
-            const box = document.getElementById('schedule-setup');
-            const btn = document.getElementById('btn-schedule');
-            
-            if (box.classList.contains('hidden')) {
-                box.classList.remove('hidden');
-                btn.innerHTML = `<i class="fa-solid fa-check"></i><span>СОЗДАТЬ ОТЛОЖЕННЫЙ</span>`;
-                btn.style.background = "var(--primary)";
-                btn.style.color = "#000";
-                document.querySelector('.admin-form').scrollIntoView({ behavior: 'smooth' });
-            } else {
-                submitRaffle(true);
-            }
-        }
-        
-        function toggleRefundBox() {
-            const cost = document.querySelector('input[name="ticket_cost"]').value;
-            const box = document.getElementById('refund-section');
-            if (cost > 0) {
-                box.classList.add('visible');
-                toggleSliderVisibility(); 
-            } else {
-                box.classList.remove('visible');
-            }
+        // Склонение участников
+        function getPlural(n, titles) {
+            return titles[(n % 10 === 1 && n % 100 !== 11) ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2];
         }
 
-        function toggleSliderVisibility() {
-            const isChecked = document.getElementById('refund-check').checked;
-            const controls = document.getElementById('refund-controls');
-            if (isChecked) controls.classList.remove('hidden-slider');
-            else controls.classList.add('hidden-slider');
-        }
-
-        function updatePreview() {
-            const prize = document.getElementById('inp-prize').value || 'Приз';
-            const quality = document.getElementById('inp-quality').value;
-            const desc = document.getElementById('inp-desc').value || '';
-            
-            // 🔥 ИСПРАВЛЕНИЕ: Берем картинку из любого поля (Пост или Карточка)
-            const imgUrl = document.getElementById('inp-img').value || document.getElementById('inp-card-img').value;
-            
-            const tickets = document.querySelector('input[name="ticket_cost"]').value;
-            const refs = document.querySelector('input[name="min_referrals"]').value;
-            const minParts = document.querySelector('input[name="min_participants"]').value;
-            const tag = document.querySelector('input[name="name_tag"]').value;
-            const msgs = document.querySelector('input[name="min_msgs"]').value;
-            const sub = document.querySelector('input[name="sub_req"]').checked;
-            
-            const prizeFull = quality ? `${prize} (${quality})` : prize;
-            let html = `🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n`;
-            
-            if (desc) html += `<i>{desc}</i>\n\n`;
-            html += `🏆 <b>Приз:</b> ${prizeFull}\n`;
-            html += `\n📌 <b>Условия:</b>\n`;
-            
-            if(sub) html += `└ Подписка на этот канал\n`;
-            if(tickets > 0) html += `└ Вход: ${tickets} билетов 🎫\n`;
-            if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`;
-            if(refs > 0) html += `└ Пригласить друзей: ${refs} 👥\n`;
-            if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
-            if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ.)\n`;
-
-            const dateVal = document.querySelector('input[name="end_time"]').value;
-            if (dateVal) {
-                const d = new Date(dateVal);
-                const dateStr = d.toLocaleDateString('ru-RU');
-                const timeStr = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                html += `\n⏳ <b>Итоги:</b> ${dateStr} ${timeStr} (МСК)\n`;
-            }
-
-            html += `\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>`;
-
-            const imgEl = document.getElementById('prev-img');
-            // 🔥 Проверка на наличие URL
-            if (imgUrl) { 
-                imgEl.src = imgUrl; 
-                imgEl.classList.add('show'); 
-            } else { 
-                imgEl.classList.remove('show'); 
-            }
-
-            document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
-        }
-
-        async function uploadImage(input, targetId) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const btn = input.previousElementSibling;
-            const originalIcon = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            btn.disabled = true;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const res = await fetch('/api/v1/upload', {
-                    method: 'POST',
-                    body: formData 
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    document.getElementById(targetId).value = data.url;
-                    updatePreview(); // Обновляем превью сразу
-                    showCustomAlert('Готово', 'Картинка загружена!');
-                } else {
-                    showCustomAlert('Ошибка', 'Не удалось загрузить фото');
+        // Обновление таймеров
+        setInterval(() => {
+            document.querySelectorAll('.timer-data').forEach(el => {
+                const endTime = new Date(el.dataset.time);
+                const diff = endTime - new Date();
+                if (diff <= 0) {
+                    el.innerHTML = '<span style="color:var(--danger); font-weight:700;">ЗАВЕРШАЕТСЯ...</span>';
+                    return;
                 }
-            } catch (e) {
-                console.error(e);
-                showCustomAlert('Ошибка', 'Сбой соединения');
-            } finally {
-                btn.innerHTML = originalIcon;
-                btn.disabled = false;
-                input.value = ''; 
-            }
-        }
+                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                const m = Math.floor((diff / (1000 * 60)) % 60);
+                const s = Math.floor((diff / 1000) % 60);
+                el.querySelector('.d-v').innerText = d;
+                el.querySelector('.h-v').innerText = h;
+                el.querySelector('.m-v').innerText = m;
+                el.querySelector('.s-v').innerText = s;
+            });
+        }, 1000);
 
-        async function submitRaffle(isSilentMode) {
-            const form = document.getElementById('create-form');
-            if(!form.reportValidity()) return;
-
-            const fd = new FormData(form);
-            
-            const schedBox = document.getElementById('schedule-setup');
-            if (!schedBox.classList.contains('hidden') && !fd.get('start_time')) {
-                showCustomAlert('Внимание', 'Укажите время старта для отложенного розыгрыша!');
-                return;
-            }
-            
-            const qualityValue = document.getElementById('inp-quality').value;
-            
-            const payload = {
-                initData: tg.initData,
-                title: fd.get('prize'),
-                type: fd.get('type'),
-                end_time: fd.get('end_time'),
-                settings: {
-                    prize_name: fd.get('prize'),
-                    skin_quality: qualityValue, 
-                    prize_image: fd.get('image'),
-                    card_image: fd.get('card_image'),       
-                    rarity_color: fd.get('rarity_color'),   
-                    description: fd.get('desc'),
-                    
-                    is_silent: isSilentMode,
-                    start_time: fd.get('start_time'),
-                    
-                    requires_telegram_sub: fd.get('sub_req') === 'on',
-                    ticket_cost: parseInt(fd.get('ticket_cost') || 0),
-                    min_referrals: parseInt(fd.get('min_referrals') || 0),
-                    min_participants: parseInt(fd.get('min_participants') || 0),
-                    required_name_tag: fd.get('name_tag'),
-                    min_daily_messages: parseInt(fd.get('min_msgs') || 0),
-                    
-                    is_refund_enabled: fd.get('is_refund_enabled') === 'on',
-                    refund_percent: parseInt(fd.get('refund_percent') || 100)
-                }
-            };
-
-            tg.MainButton.showProgress();
-
+        async function load() {
             try {
-                const res = await fetch('/api/v1/admin/raffles/create', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
+                // Грузим профиль
+                const uRes = await fetch('/api/v1/user/me', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({initData:tg.initData}) });
+                const uData = await uRes.json();
+                userTickets = uData.tickets || 0;
 
-                if (res.ok) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                    let msg = 'Розыгрыш опубликован в канале!';
-                    if (payload.settings.start_time) msg = 'Розыгрыш запланирован.';
-                    else if (isSilentMode) msg = 'Тихий розыгрыш создан.';
-                    
-                    showCustomAlert('Успех!', msg);
-                    
-                    form.reset(); 
-                    document.getElementById('schedule-setup').classList.add('hidden');
-                    const btn = document.getElementById('btn-schedule');
-                    btn.innerHTML = `<i class="fa-regular fa-clock"></i><span>В отложенные</span>`;
-                    btn.style.background = ""; btn.style.color = "";
-                    
-                    updatePreview(); 
-                    switchTab(payload.settings.start_time ? 'scheduled' : 'list'); 
-                } else {
-                    const err = await res.json();
-                    tg.HapticFeedback.notificationOccurred('error');
-                    showCustomAlert('Ошибка', err.detail || 'Не удалось создать розыгрыш');
-                }
-            } catch (error) {
-                tg.HapticFeedback.notificationOccurred('error');
-                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
-            } finally {
-                tg.MainButton.hideProgress();
-            }
-        }
-
-        async function loadRaffles() {
-            try {
-                const res = await fetch('/api/v1/admin/raffles/list', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({initData: tg.initData})
-                });
+                const res = await fetch('/api/v1/raffles/active', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({initData:tg.initData}) });
                 const data = await res.json();
-                renderList(data);
-            } catch(e) { 
-                console.error(e);
-                document.getElementById('list-container').innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>';
+                render(data);
+                checkDeepLink(); 
+            } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center">Ошибка сети</p>'; }
+        }
+
+        function render(data) {
+            const list = document.getElementById('list');
+            const historyList = document.getElementById('history-list');
+            list.innerHTML = ''; historyList.innerHTML = '';
+            
+            let completedCount = 0;
+            let activeRendered = 0;
+
+            data.forEach(r => {
+                // === ИЗМЕНЕНИЕ 1: Скрываем отложенные от пользователей ===
+                if (r.status === 'scheduled') return; 
+
+                const s = r.settings || {};
+                const done = r.status === 'completed';
+                if(done) completedCount++;
+                else activeRendered++;
+
+                const img = s.card_image || s.prize_image || '';
+                const rarityColor = s.rarity_color || '#2481cc'; 
+                const fullPrizeName = `${s.prize_name} ${s.skin_quality ? `(${s.skin_quality})` : ''}`;
+
+                let conditions = '';
+                if (!done) {
+                    if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Канал</div>`;
+                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений за стрим: ${s.min_daily_messages}</div>`;
+                    // === ИЗМЕНЕНИЕ 2: Отображение мин. участников ===
+                    if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
+                }
+
+                let btnLabel = "УЧАСТВОВАТЬ";
+                let ticketInfo = "";
+                if (!r.is_joined && s.ticket_cost > 0) {
+                    btnLabel = `ЗАПЛАТИТЬ ${s.ticket_cost} БИЛЕТОВ`;
+                    ticketInfo = `<div class="user-tickets-info">У вас: <b>${userTickets}</b> билетов</div>`;
+                }
+
+                const pCount = r.participants_count || 0;
+                let pTextFinal = done ? 'Розыгрыш завершен' : `<b style="margin-right: 6px;">${pCount}</b>${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
+
+                if (!done && pCount > 0) {
+                    const chanceVal = (100 / pCount).toFixed(2).replace('.00', '');
+                    pTextFinal += `<span class="chance-span" onclick="showChanceInfo(event)"> 🔥 Шанс: ${chanceVal}% <i class="fa-regular fa-circle-question"></i></span>`;
+                }
+
+                // === ИЗМЕНЕНИЕ 3: Блок отмененного (если нет победителя) ===
+                let winnerHtml = '';
+                if (done) {
+                    if (r.winner) {
+                        winnerHtml = `
+                            <div class="winner_box">
+                                <div class="w-title" style="color:${rarityColor}">Победитель</div>
+                                <div class="w-user">🏆 ${r.winner.full_name}</div>
+                            </div>
+                        `;
+                    } else {
+                        winnerHtml = `
+                            <div class="winner_box">
+                                <div class="w-title" style="color:var(--danger)">Отменен</div>
+                                <div class="w-user" style="color:var(--text-muted); font-size: 13px;">❌ Не набралось участников</div>
+                            </div>
+                        `;
+                    }
+                }
+
+                const cardHtml = `
+                <div class="card ${done ? 'done' : ''}">
+                    <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
+                    <div class="card_content">
+                        <div class="prize-img-wrapper"><img src="${img}" class="prize-img" onerror="this.style.display='none'"></div>
+                        <div class="r-label" style="color: ${rarityColor}">РОЗЫГРЫШ</div>
+                        <h3 class="r-title">${fullPrizeName}</h3>
+                        ${!done ? `<div class="conditions">${conditions}</div>` : ''}
+                        ${!done ? `
+                            <div class="timer_row timer-data" data-time="${r.end_time}">
+                                <div class="timer_item"><span class="timer_val d-v">0</span><span class="timer_lbl">дн</span></div>
+                                <div class="timer_item"><span class="timer_val h-v">0</span><span class="timer_lbl">час</span></div>
+                                <div class="timer_item"><span class="timer_val m-v">0</span><span class="timer_lbl">мин</span></div>
+                                <div class="timer_item"><span class="timer_val s-v">0</span><span class="timer_lbl">сек</span></div>
+                            </div>
+                        ` : ''}
+                        <div class="social_row">
+                            <div class="social_text">${pTextFinal}</div>
+                        </div>
+                        ${!done ? `
+                            <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="handleJoin(${r.id}, ${s.ticket_cost || 0}, ${r.is_joined})">
+                                ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnLabel}
+                            </button>
+                            ${ticketInfo}
+                        ` : winnerHtml}
+                    </div>
+                </div>`;
+
+                if (done) historyList.innerHTML += cardHtml;
+                else list.innerHTML += cardHtml;
+            });
+
+            if (activeRendered === 0) { 
+                list.innerHTML = '<div style="text-align:center; margin-top:50px; color:var(--text-muted);">Активных розыгрышей нет 👻</div>'; 
+            }
+
+            document.getElementById('total-count').innerText = `Разыграно: ${completedCount}`;
+            list.innerHTML += '<div class="bottom-spacer"></div>';
+            historyList.innerHTML += '<div class="bottom-spacer"></div>';
+        }
+
+        // Обработка нажатия на кнопку (проверка билетов)
+        function handleJoin(id, cost, isJoined) {
+            if(isJoined) return;
+            if (cost > 0) {
+                document.getElementById('ticket-price').innerText = cost;
+                document.getElementById('confirm-modal').style.display = 'flex';
+                document.getElementById('confirm-join-btn').onclick = () => { closeConfirm(); join(id); };
+            } else { join(id); }
+        }
+
+        // ГЛАВНАЯ ФУНКЦИЯ УЧАСТИЯ
+        async function join(id, isAuto = false) {
+            let btn = null;
+            let oldHtml = '';
+            
+            // Если вызов от пользователя (клик), меняем кнопку на спиннер
+            if(!isAuto && window.event) {
+                tg.HapticFeedback.impactOccurred('medium');
+                let target = window.event.target;
+                if(target.tagName !== 'BUTTON') target = target.closest('button');
+                
+                if (target && !target.classList.contains('joined')) {
+                    btn = target;
+                    oldHtml = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                    btn.style.opacity = '0.7';
+                }
+            }
+            
+            try {
+                const res = await fetch('/api/v1/raffles/join', { 
+                    method: 'POST', headers: {'Content-Type':'application/json'}, 
+                    body: JSON.stringify({initData:tg.initData, raffle_id:id}) 
+                });
+                const ans = await res.json();
+                
+                if(res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    showModal('success', 'Успех!', ans.message);
+                    load(); 
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    showModal('error', 'Упс...', ans.detail);
+                    if(btn) {
+                        btn.innerHTML = oldHtml;
+                        btn.style.opacity = '1';
+                    }
+                }
+            } catch(e) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showModal('error', 'Ошибка', 'Проверьте соединение');
+                if(btn) {
+                    btn.innerHTML = oldHtml;
+                    btn.style.opacity = '1';
+                }
             }
         }
 
-        function renderList(list) {
-            const cActive = document.getElementById('list-container');
-            const cSched = document.getElementById('scheduled-container');
-            const cCompl = document.getElementById('completed-container');
+        // ФУНКЦИЯ ПОКАЗА МОДАЛКИ
+        function showModal(type, title, msg) {
+            const m = document.getElementById('modal');
+            const iconBox = document.getElementById('modal-icon');
+            const btnProfile = document.getElementById('btn-profile');
             
-            let htmlActive = '';
-            let htmlSched = '';
-            let htmlCompl = '';
+            if(type === 'success') {
+                iconBox.innerHTML = `<svg class="checkmark" viewBox="0 0 52 52"><circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`;
+                btnProfile.style.display = 'none';
+            } else if (type === 'info') {
+                // Иконка для информации
+                iconBox.innerHTML = '<i class="fa-solid fa-circle-info" style="font-size: 60px; color: var(--primary-blue); margin-top: 10px;"></i>';
+                btnProfile.style.display = 'none';
+            } else {
+                iconBox.innerHTML = `<svg class="cross" viewBox="0 0 52 52"><circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/><path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/></svg>`;
+                const mLow = msg ? msg.toLowerCase() : '';
+                btnProfile.style.display = (mLow.includes('trade') || mLow.includes('twitch') || mLow.includes('профиль') || mLow.includes('билет')) ? 'block' : 'none';
+            }
+
+            document.getElementById('m-head').innerText = title;
+            document.getElementById('m-desc').innerText = msg;
+            m.style.display = 'flex';
+        }
+
+        // ЛОГИКА DEEPLINK
+        async function checkDeepLink() {
+            const startParam = tg.initDataUnsafe.start_param; 
             
-            let activeCount = 0; let schedCount = 0; let complCount = 0;
+            if (startParam && startParam.startsWith('raffle_')) {
+                const closeBtn = document.getElementById('close-btn-container');
+                if(closeBtn) closeBtn.classList.remove('hidden');
 
-            list.forEach(r => {
-                const s = r.settings || {};
-                const isDone = r.status === 'completed';
-                const isScheduled = r.status === 'scheduled'; 
+                const raffleId = startParam.split('_')[1];
                 
-                const imgUrl = s.card_image || s.prize_image;
-                const img = imgUrl ? `<img src="${imgUrl}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
-                
-                const safeJson = encodeURIComponent(JSON.stringify(r));
-
-                let statusBadge = '';
-                if(isDone) statusBadge = `<span class="status-badge st-done">Завершен</span>`;
-                else if(isScheduled) statusBadge = `<span class="status-badge st-scheduled"><i class="fa-regular fa-clock"></i> Старт: ${new Date(s.start_time).toLocaleString([], {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>`;
-                else if(s.is_silent) statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-ghost"></i> Тихий</span>`;
-                else statusBadge = `<span class="status-badge st-active">Активен</span>`;
-
-                let html = `
-                <div class="raffle-card ${isDone ? 'completed' : ''} ${s.is_silent ? 'silent' : ''}">
-                    <div class="card-header">
-                        ${img}
-                        <div class="card-meta">
-                            <div class="card-title">${r.title}</div>
-                            ${statusBadge}
-                            ${!isDone && r.end_time ? `<span style="font-size:10px; color:var(--danger); margin-left:5px;">⏳ ${new Date(r.end_time).toLocaleString([], {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</span>` : ''}
-                        </div>
-                    </div>
-                    <div style="font-size:12px; color:var(--text-sec); margin-bottom:10px;">
-                        Приз: <span style="color:#fff;">${s.prize_name}</span> 
-                        ${s.min_participants > 0 ? `| Мин. уч: ${s.min_participants}` : ''}
-                    </div>
-                `;
-
-                if(isDone) {
-                    if (r.winner) {
-                        html += `
-                        <div class="winner-section">
-                            <div class="winner-tag">🏆 Победитель</div>
-                            <div class="winner-name">${r.winner.full_name}</div>
-                            ${r.winner.trade_link ? 
-                                `<div class="trade-copy" onclick="copyText('${r.winner.trade_link}')">
-                                    <span><i class="fa-solid fa-link"></i> Ссылка на трейд</span>
-                                    <span style="color:var(--primary); font-weight:700;">COPY</span>
-                                 </div>` : `<div style="font-size:11px; color:#555;">Трейд-ссылка не указана</div>`
-                            }
-                        </div>`;
-                    } else {
-                        html += `<div class="winner-section"><div class="winner-tag" style="color:var(--danger)">❌ Не состоялся</div><div style="font-size:11px;">Мин. участников не набрано</div></div>`;
-                    }
+                if (!sessionStorage.getItem('checked_raffle_' + raffleId)) {
+                    const vModal = document.getElementById('verify-modal');
+                    if(vModal) vModal.style.display = 'flex';
                     
-                    html += `
-                    <div class="card-actions">
-                        <button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-rotate-right"></i> Перезапуск</button>
-                        <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
-                    </div>`;
-
-                } else {
-                    html += `
-                    <div class="card-actions">
-                        <button onclick="finishRaffle(${r.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
-                        ${isScheduled || s.is_silent
-                            ? `<button onclick="cloneRaffle('${safeJson}', false)" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> Опубликовать</button>` 
-                            : `<button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
-                        }
-                        <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
-                    </div>`;
+                    tg.HapticFeedback.impactOccurred('light');
+                    
+                    await new Promise(r => setTimeout(r, 1000));
+                    
+                    sessionStorage.setItem('checked_raffle_' + raffleId, 'true');
+                    await join(raffleId, true); 
+                    
+                    if(vModal) vModal.style.display = 'none';
                 }
-                
-                html += `</div>`;
-                
-                if (isDone) { htmlCompl += html; complCount++; }
-                else if (isScheduled || s.is_silent) { htmlSched += html; schedCount++; }
-                else { htmlActive += html; activeCount++; }
-            });
-            
-            cActive.innerHTML = activeCount ? htmlActive : '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
-            cSched.innerHTML = schedCount ? htmlSched : '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
-            cCompl.innerHTML = complCount ? htmlCompl : '<div style="text-align:center; opacity:0.5; padding:40px;">История пуста</div>';
+            }
         }
 
-        window.cloneRaffle = function(jsonStr, makeSilent) {
-            const r = JSON.parse(decodeURIComponent(jsonStr));
-            const s = r.settings || {};
-
-            switchTab('create');
-            
-            document.getElementById('type-select').value = r.type;
-            document.getElementById('inp-prize').value = s.prize_name || '';
-            document.getElementById('inp-quality').value = s.skin_quality || '';
-            document.getElementById('inp-img').value = s.prize_image || '';
-            document.getElementById('inp-card-img').value = s.card_image || ''; 
-            document.getElementById('inp-rarity-color').value = s.rarity_color || '#2481cc'; 
-            document.getElementById('inp-desc').value = s.description || '';
-            
-            document.querySelector('input[name="ticket_cost"]').value = s.ticket_cost || '';
-            document.querySelector('input[name="min_referrals"]').value = s.min_referrals || '';
-            document.querySelector('input[name="min_participants"]').value = s.min_participants || ''; 
-            document.querySelector('input[name="name_tag"]').value = s.required_name_tag || '';
-            document.querySelector('input[name="min_msgs"]').value = s.min_daily_messages || '';
-            document.querySelector('input[name="sub_req"]').checked = s.requires_telegram_sub;
-            
-            document.querySelector('input[name="is_refund_enabled"]').checked = s.is_refund_enabled;
-            document.querySelector('input[name="refund_percent"]').value = s.refund_percent || 100;
-            document.getElementById('refund-val').innerText = (s.refund_percent || 100) + '%';
-            
-            toggleRefundBox();
-            tg.HapticFeedback.impactOccurred('medium');
-            updatePreview();
-        };
-
-        async function finishRaffle(id) {
-            showConfirm('Завершить розыгрыш?', 'Бот выберет победителя прямо сейчас (если условия выполнены).', async () => {
-                try {
-                    const res = await fetch('/api/v1/admin/raffles/draw', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({initData: tg.initData, raffle_id: id})
-                    });
-                    const d = await res.json();
-                    if(res.ok) { showCustomAlert('Успех', d.message); loadRaffles(); }
-                    else showCustomAlert('Ошибка', d.message);
-                } catch(e) { showCustomAlert('Ошибка', 'Сбой сети'); }
-            });
-        }
-
-        async function showParts(id) {
-            document.getElementById('modal-parts').classList.add('modal-active');
-            const l = document.getElementById('parts-list');
-            const cnt = document.getElementById('parts-count');
-            l.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
-            
-            try {
-                const res = await fetch('/api/v1/admin/raffles/participants', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({initData: tg.initData, raffle_id: id})
-                });
-                const users = await res.json();
-                cnt.innerText = `(${users.length})`;
-                l.innerHTML = '';
-                if(!users.length) { l.innerHTML = '<div style="text-align:center; opacity:0.5; padding:20px;">Нет участников</div>'; return; }
-
-                users.forEach(u => {
-                    const usr = u.user || {}; 
-                    const name = usr.full_name || 'Неизвестный';
-                    const username = usr.username ? `@${usr.username}` : '---';
-                    const initial = name[0] || '?';
-                    const source = u.source || 'telegram';
-                    const sourceIcon = source === 'twitch' ? '<i class="fa-brands fa-twitch"></i>' : '<i class="fa-brands fa-telegram"></i>';
-                    const sourceClass = source === 'twitch' ? 'src-tw' : 'src-tg';
-
-                    l.innerHTML += `
-                    <div class="part-item">
-                        <div class="part-ava">
-                            ${initial}
-                            <div class="source-icon ${sourceClass}">${sourceIcon}</div>
-                        </div>
-                        <div>
-                            <div style="font-weight:600; font-size:14px;">${name}</div>
-                            <div style="font-size:12px; color:var(--text-sec);">${username}</div>
-                        </div>
-                    </div>`;
-                });
-            } catch(e) { l.innerHTML = '<div style="text-align:center; color:#ff4d4d; padding:20px;">Ошибка загрузки</div>'; }
-        }
-
-        function copyText(txt) {
-            navigator.clipboard.writeText(txt);
-            tg.HapticFeedback.notificationOccurred('success');
-            showCustomAlert('Готово', 'Ссылка скопирована.');
-        }
-
-        function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
-        
-        function showCustomAlert(title, msg) {
-            const m = document.getElementById('modal-alert');
-            document.getElementById('alert-title').innerText = title;
-            document.getElementById('alert-msg').innerText = msg;
-            const okBtn = document.getElementById('alert-ok');
-            const cBtn = document.getElementById('alert-cancel');
-            cBtn.classList.add('hidden');
-            okBtn.onclick = () => m.classList.remove('modal-active');
-            m.classList.add('modal-active');
-        }
-
-        function showConfirm(title, msg, onYes) {
-            const m = document.getElementById('modal-alert');
-            document.getElementById('alert-title').innerText = title;
-            document.getElementById('alert-msg').innerText = msg;
-            const okBtn = document.getElementById('alert-ok');
-            const cBtn = document.getElementById('alert-cancel');
-            cBtn.classList.remove('hidden');
-            cBtn.onclick = () => m.classList.remove('modal-active');
-            okBtn.onclick = () => { onYes(); m.classList.remove('modal-active'); };
-            m.classList.add('modal-active');
-        }
-
-        updatePreview();
+        // Запуск инициализаций
+        document.addEventListener('DOMContentLoaded', initPullToRefresh);
+        load();
     </script>
 </body>
 </html>
