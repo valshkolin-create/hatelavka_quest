@@ -357,6 +357,7 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
             if (document.getElementById('modal-parts').classList.contains('modal-active')) {
@@ -450,7 +451,7 @@
             const prizeFull = quality ? `${prize} (${quality})` : prize;
             let html = `🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n`;
             
-            if (desc) html += `<i>{desc}</i>\n\n`;
+            if (desc) html += `<i>${desc}</i>\n\n`;
             html += `🏆 <b>Приз:</b> ${prizeFull}\n`;
             html += `\n📌 <b>Условия:</b>\n`;
             
