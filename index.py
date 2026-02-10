@@ -13922,6 +13922,7 @@ async def update_raffle_button(bot, channel_id, message_id, raffle_id, count):
 
 
 # 1. (Админ) Создать розыгрыш + Пост + Таймер
+# 1. (Админ) Создать розыгрыш + Пост + Таймер
 @app.post("/api/v1/admin/raffles/create")
 async def create_raffle(
     req: RaffleCreateRequest, 
@@ -13952,9 +13953,26 @@ async def create_raffle(
         "end_time": req.end_time,
         "settings": req.settings.dict()
     }
+    
+    # --- ИСПРАВЛЕНИЕ: Добавляем заголовок, чтобы Supabase вернул данные ---
+    headers = {
+        "Prefer": "return=representation",
+        "Content-Type": "application/json"
+    }
+
     # Получаем сразу ID (select=id)
-    res = await supabase.post("/raffles", json=payload, params={"select": "id"})
-    new_id = res.json()[0]['id']
+    res = await supabase.post("/raffles", json=payload, params={"select": "id"}, headers=headers)
+    
+    # Проверяем на ошибки БД перед парсингом
+    if res.status_code not in (200, 201):
+        print(f"❌ DB Create Error: {res.text}")
+        raise HTTPException(status_code=500, detail="Ошибка при создании записи в БД")
+
+    try:
+        new_id = res.json()[0]['id']
+    except Exception as e:
+        print(f"❌ JSON Parse Error: {e} | Body: {res.text}")
+        raise HTTPException(status_code=500, detail="Не удалось получить ID созданного розыгрыша")
 
     # Переменные для QStash
     qstash_token = os.getenv("QSTASH_TOKEN")
