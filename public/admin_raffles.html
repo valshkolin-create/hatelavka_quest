@@ -567,7 +567,7 @@
                     prize_name: fd.get('prize'),
                     skin_quality: qualityValue, 
                     prize_image: fd.get('image'),
-                    card_image: fd.get('card_image'),       
+                    card_image: fd.get('card_image'),        
                     rarity_color: fd.get('rarity_color'),   
                     description: fd.get('desc'),
                     
@@ -708,9 +708,9 @@
                     <div class="card-actions">
                         <button onclick="finishRaffle(${r.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
                         ${isScheduled || s.is_silent
-                    </div>`? `<button onclick="publishRaffle(${r.id})" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> Опубликовать</button>` 
-                    </div>`: `<button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
-                }
+                            ? `<button onclick="publishRaffle(${r.id})" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> Опубликовать</button>`
+                            : `<button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
+                        }
                         <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
                     </div>`;
                 }
