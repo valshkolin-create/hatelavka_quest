@@ -14229,7 +14229,7 @@ async def publish_raffle_webhook(
             min_msgs = int(s.get('min_daily_messages', 0))
             sub_req = s.get('requires_telegram_sub', False)
 
-            txt = f"🚀 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
+            txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
             if desc: txt += f"<i>{desc}</i>\n\n"
             txt += f"🏆 <b>Приз:</b> {prize_full}\n"
             txt += "\n📌 <b>Условия:</b>\n"
