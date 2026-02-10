@@ -416,6 +416,31 @@
             else controls.classList.add('hidden-slider');
         }
 
+        // --- НОВАЯ ФУНКЦИЯ ПУБЛИКАЦИИ ---
+        async function publishRaffle(id) {
+            showConfirm('Опубликовать сейчас?', 'Пост появится в канале немедленно, а статус сменится на Active.', async () => {
+                try {
+                    const res = await fetch('/api/v1/admin/raffles/publish_manual', {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({initData: tg.initData, raffle_id: id})
+                    });
+                    const d = await res.json();
+                    
+                    if (res.ok) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        showCustomAlert('Успех', d.message);
+                        loadRaffles(); // Обновляем список
+                    } else {
+                        showCustomAlert('Ошибка', d.message || 'Не удалось опубликовать');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showCustomAlert('Ошибка', 'Сбой соединения');
+                }
+            });
+        }
+
         // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ UPDATE PREVIEW
         function updatePreview() {
             // Безопасное получение элементов
@@ -683,9 +708,9 @@
                     <div class="card-actions">
                         <button onclick="finishRaffle(${r.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
                         ${isScheduled || s.is_silent
-                            ? `<button onclick="cloneRaffle('${safeJson}', false)" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> Опубликовать</button>` 
-                            : `<button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
-                        }
+                    </div>`? `<button onclick="publishRaffle(${r.id})" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> Опубликовать</button>` 
+                    </div>`: `<button onclick="cloneRaffle('${safeJson}', true)" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
+                }
                         <button onclick="showParts(${r.id})" class="action-btn btn-parts"><i class="fa-solid fa-users"></i> Участники</button>
                     </div>`;
                 }
