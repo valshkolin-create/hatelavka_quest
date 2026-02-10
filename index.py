@@ -13867,6 +13867,37 @@ async def upload_image(
 
 
 # ==========================================
+# ⚡ (Админ) ПРИНУДИТЕЛЬНАЯ ПУБЛИКАЦИЯ (Если таймер не сработал или нужно срочно)
+# ==========================================
+class RaffleManualPublishRequest(BaseModel):
+    initData: str
+    raffle_id: int
+
+@app.post("/api/v1/admin/raffles/publish_manual")
+async def publish_raffle_manual(
+    req: RaffleManualPublishRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверка Админа
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. Просто вызываем логику вебхука, но подставляем секрет сами
+    # Мы используем ту же функцию publish_raffle_webhook, которую скидывали выше
+    fake_req = FinalizeRequest(raffle_id=req.raffle_id, secret=get_cron_secret())
+    
+    result = await publish_raffle_webhook(fake_req, supabase)
+    
+    if result.get("status") == "published":
+        return {"message": "Розыгрыш опубликован вручную!"}
+    elif result.get("status") == "published_silent":
+        return {"message": "Розыгрыш активирован (без поста)!"}
+    else:
+        # Если что-то пошло не так
+        return {"message": f"Статус: {result.get('status')}"}
+
+# ==========================================
 # 🛠️ МОДЕЛИ ДАННЫХ (Вставь это перед вебхуками)
 # ==========================================
 
