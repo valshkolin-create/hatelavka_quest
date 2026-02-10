@@ -17,6 +17,7 @@
             --gold: #ffd700;
             --text-main: #ffffff;
             --grad-blue: linear-gradient(90deg, #4b69ff 0%, #3d5afe 100%);
+            --grad-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
         }
 
         body {
@@ -35,51 +36,44 @@
             background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
 
-        /* --- КНОПКА "НАЧАТЬ" (Фиксированный размер) --- */
-        .btn-main {
+        /* --- КНОПКА "НАЧАТЬ" (Мини, как просил) --- */
+        .btn-mini-start {
             width: 100%;
-            height: 60px;
-            border-radius: 14px;
-            border: none;
-            font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            cursor: pointer; transition: 0.2s;
-            position: relative; overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-        .btn-main:active { transform: scale(0.98); }
-        
-        .btn-start {
-            background: #2d2f36;
-            border: 1px dashed rgba(255,255,255,0.3);
+            background: #4b69ff;
             color: #fff;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700; font-size: 15px;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(75, 105, 255, 0.3);
+            margin-bottom: 10px;
+            transition: 0.2s;
         }
-        .btn-claim {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #000;
-            animation: pulse-gold 2s infinite;
-        }
-        
-        /* --- ПАНЕЛЬ ПРОГРЕССА (Вместо кнопки, когда активно) --- */
+        .btn-mini-start:active { transform: scale(0.98); }
+
+        /* --- ПАНЕЛЬ ПРОГРЕССА --- */
         .progress-card {
             background: var(--card-bg);
             border-radius: 16px;
             padding: 20px 16px;
             border: 1px solid rgba(255,255,255,0.08);
-            margin-bottom: 12px;
+            margin-bottom: 15px;
             position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
 
         .pc-header { display: flex; justify-content: space-between; margin-bottom: 25px; font-size: 14px; font-weight: 700; color:#ccc; }
         .pc-val { color: #fff; }
 
-        /* Сложный прогресс бар с засечками */
+        /* Трек с засечками */
         .multi-stage-track {
             height: 10px;
             background: rgba(255,255,255,0.1);
             border-radius: 5px;
             position: relative;
-            margin: 0 5px; /* отступ для иконок */
+            margin: 0 10px;
         }
         
         .multi-stage-fill {
@@ -92,7 +86,6 @@
             box-shadow: 0 0 10px rgba(75, 105, 255, 0.5);
         }
 
-        /* Засечки (Награды) */
         .stage-marker {
             position: absolute;
             top: 50%; transform: translate(-50%, -50%);
@@ -106,35 +99,45 @@
             transition: 0.3s;
         }
         .stage-marker.active {
-            border-color: #ffd700;
-            background: #ffd700;
-            color: #000;
+            border-color: #ffd700; background: #ffd700; color: #000;
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
         }
         
-        /* Подписи под засечками */
         .stage-label {
-            position: absolute;
-            top: 20px; 
-            left: 50%; transform: translateX(-50%);
-            font-size: 9px; color: #666;
-            white-space: nowrap;
-            font-weight: 600;
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            font-size: 9px; color: #666; white-space: nowrap; font-weight: 600;
         }
         .stage-marker.active + .stage-label { color: #ffd700; }
 
-        /* --- КНОПКА ПОДРОБНЕЕ --- */
-        .btn-details {
-            width: 100%; padding: 14px;
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #888;
-            border-radius: 12px;
-            font-size: 12px; font-weight: 700; text-transform: uppercase;
-            display: flex; justify-content: center; align-items: center; gap: 5px;
-            cursor: pointer;
+        /* --- КНОПКИ ДЕЙСТВИЙ --- */
+        .btn-claim {
+            width: 100%; padding: 14px; margin-top: 20px;
+            background: var(--grad-gold); color: #000;
+            border: none; border-radius: 12px; font-weight: 800;
+            animation: pulse-gold 2s infinite; cursor: pointer;
         }
-        .btn-details:active { background: rgba(255,255,255,0.05); }
+        .btn-done {
+            width: 100%; padding: 14px; margin-top: 20px;
+            background: #222; color: #555; border: 1px solid #333;
+            border-radius: 12px; font-weight: 700; cursor: default;
+        }
+
+        /* --- КНОПКА ПОДРОБНЕЕ (Центрированная) --- */
+        .details-wrapper {
+            display: flex; justify-content: center; width: 100%; margin-top: 15px;
+        }
+        .btn-details {
+            padding: 8px 24px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #888;
+            border-radius: 20px;
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            display: flex; align-items: center; gap: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-details:active { background: rgba(255,255,255,0.1); color: #fff; }
 
         /* --- МОДАЛКА --- */
         .details-modal {
@@ -149,10 +152,19 @@
             border-radius: 24px 24px 0 0; padding: 24px;
             transform: translateY(100%); transition: 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
             border-top: 1px solid rgba(255,255,255,0.1);
+            max-height: 80vh; overflow-y: auto;
         }
         .details-modal.visible .details-content { transform: translateY(0); }
-        .dm-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 20px; }
-        .dm-info { color: #ccc; font-size: 13px; line-height: 1.6; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+        .dm-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 20px; text-align: center; }
+        .dm-list { margin-bottom: 20px; }
+        .dm-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .dm-item.active { border-color: #4b69ff; background: rgba(75, 105, 255, 0.1); }
+        .dm-target { font-size: 13px; color: #fff; font-weight: 600; }
+        .dm-reward { font-size: 13px; color: #ffd700; font-weight: 700; }
 
         /* --- ROULETTE (PIXEL PERFECT) --- */
         .r-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(10px); }
@@ -163,7 +175,6 @@
 
         .r-track { display: flex; height: 100%; align-items: center; will-change: transform; }
         
-        /* FIX: 140px width + 4px margin L + 4px margin R = 148px TOTAL */
         .r-card { 
             width: 140px; height: 140px; margin: 0 4px; 
             background: #1a1b20; border-radius: 12px; flex-shrink: 0; 
@@ -172,13 +183,32 @@
         }
         .r-card img { width: 90px; height: 60px; object-fit: contain; }
         .r-card-name { font-size:10px; color:#888; margin-top:10px; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
+
+        /* Colors for rarity */
+        .r-blue { border-color: #4b69ff; background: radial-gradient(circle, rgba(75,105,255,0.1), #1a1b20); }
+        .r-purple { border-color: #8847ff; background: radial-gradient(circle, rgba(136,71,255,0.1), #1a1b20); }
+        .r-pink { border-color: #d32ce6; background: radial-gradient(circle, rgba(211,44,230,0.1), #1a1b20); }
+        .r-gold { border-color: #ffd700; background: radial-gradient(circle, rgba(255,215,0,0.1), #1a1b20); }
+
         .win-screen { display: none; text-align: center; width: 100%; padding: 20px; animation: fadeIn 0.5s; box-sizing: border-box; }
         .win-img { width: 160px; filter: drop-shadow(0 0 30px rgba(255,215,0,0.4)); margin: 20px 0; animation: float 3s infinite; }
-        
+
+        /* Custom Alert */
+        .custom-alert-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; }
+        .custom-alert-overlay.visible { opacity: 1; pointer-events: auto; }
+        .custom-alert-box { background: #1e1f25; width: 80%; max-width: 300px; padding: 25px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); text-align: center; transform: scale(0.9); transition: 0.3s; }
+        .custom-alert-overlay.visible .custom-alert-box { transform: scale(1); }
+
         @keyframes pulse-gold { 0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); } }
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .btn-loading { opacity: 0.7; pointer-events: none; position: relative; color: transparent !important; }
+        .btn-loading::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; margin: -10px;
+            border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
     </style>
 </head>
@@ -189,23 +219,29 @@
     </div>
 
     <div id="app">
-        <div style="text-align:center; padding-top:40px; color:#555;">
-            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        <div style="display:flex; justify-content:center; align-items:center; height: 300px;">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; color: #444;"></i>
         </div>
     </div>
 
     <div id="details-modal" class="details-modal">
         <div class="details-content">
-            <div class="dm-title" id="dm-title">Информация</div>
-            <div class="dm-info">
-                <strong>Правила:</strong><br>
-                1. Общайся в чате <span style="color:#4b69ff">HATElove</span>.<br>
-                2. Сообщения короче 2 символов не считаются.<br>
-                3. Спам фильтруется.
-            </div>
-            <div class="dm-info" id="dm-rewards-list">
+            <div class="dm-title">Все Этапы</div>
+            <div class="dm-list" id="dm-list-container">
                 </div>
-            <button class="btn-main btn-start" onclick="closeDetails()" style="height:50px; font-size:14px;">Закрыть</button>
+            <div style="text-align:center; color:#888; font-size:12px; margin-bottom:20px;">
+                Общайся в чате <a href="#" onclick="openChat()" style="color:#4b69ff">HATElove</a>.<br>
+                Сообщения короче 2 символов не считаются.
+            </div>
+            <button class="btn-mini-start" onclick="closeDetails()" style="background:#2d2f36;">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="custom-alert" class="custom-alert-overlay">
+        <div class="custom-alert-box">
+            <h3 id="alert-title" style="color:#fff; margin-top:0;"></h3>
+            <p id="alert-msg" style="color:#aaa; font-size:14px; white-space:pre-line;"></p>
+            <button class="btn-mini-start" onclick="closeCustomAlert()">OK</button>
         </div>
     </div>
 
@@ -219,7 +255,7 @@
             <h2 style="color:#ffd700; margin:0;">ПОБЕДА!</h2>
             <img id="r-win-img" class="win-img" src="">
             <div id="r-win-name" style="font-weight:700; font-size:16px; margin-bottom:15px; color:#fff;"></div>
-            <button class="btn-main btn-claim" onclick="closeRoulette()">ЗАБРАТЬ В ИНВЕНТАРЬ</button>
+            <button class="btn-claim" onclick="closeRoulette()">ЗАБРАТЬ В ИНВЕНТАРЬ</button>
         </div>
     </div>
 
@@ -228,88 +264,67 @@
         tg.expand();
         const haptic = tg.HapticFeedback;
 
-        // --- ЛОГИКА СУТОК ---
-        function checkDailyReset() {
-            const lastDate = localStorage.getItem('daily_challenge_last_date');
-            const today = new Date().toDateString();
-            if (lastDate && lastDate !== today) {
-                // Если наступил новый день - очищаем локальный статус
-                localStorage.removeItem('daily_challenge_status');
-                console.log('New day reset');
+        function openChat() { tg.openTelegramLink('https://t.me/hatelovettv'); }
+
+        // --- ЛОГИКА ЗАПРОСОВ (КАК В СТАРОМ КОДЕ) ---
+        async function init() {
+            try {
+                // ВАЖНО: Тут твой URL к API
+                const res = await fetch(`/api/challenges/list?initData=${encodeURIComponent(tg.initData)}`);
+                const data = await res.json();
+                render(data.challenges);
+            } catch (e) {
+                // Если API нет, для теста (удали потом)
+                console.error("API Error", e);
+                document.getElementById('app').innerHTML = `<div style="text-align:center;color:#666">Ошибка загрузки</div>`;
             }
         }
-        checkDailyReset();
 
-        // --- ДАННЫЕ (ЭМУЛЯЦИЯ API) ---
-        // Важно: Структура 1 в 1 как у тебя (вложенные next_tier)
-        const mockData = {
-            template_id: 1,
-            title: "Актив в чате",
-            status: localStorage.getItem('daily_challenge_status') || "available", // available, active, ready_to_claim, completed
-            current_progress: parseInt(localStorage.getItem('daily_progress') || 0),
-            
-            // ЭТАП 1
-            target: 50,
-            reward_amount: 100, reward_type: 'coins',
-            
-            // ВЛОЖЕННЫЕ ЭТАПЫ (ЦЕПОЧКА)
-            next_tier: {
-                target: 150, // Общее кол-во (не +150, а всего 150)
-                reward: 1, type: 'tickets',
-                next_tier: {
-                    target: 300,
-                    reward: 1, type: 'skin_random', // ФИНАЛ
-                    next_tier: null
-                }
-            }
-        };
-
-        // --- ГЛАВНАЯ ФУНКЦИЯ РЕНДЕРА ---
-        function render(item) {
+        // --- РЕНДЕР (НОВЫЙ ДИЗАЙН + СТАРАЯ ЛОГИКА) ---
+        function render(list) {
             const app = document.getElementById('app');
             app.innerHTML = '';
 
-            // 1. Собираем все этапы в плоский массив для отрисовки шкалы
-            const tiers = getAllTiers(item);
-            const finalTarget = tiers[tiers.length - 1].target;
-            const currentVal = item.current_progress;
-
-            // Если статус "Доступно" - показываем только кнопку "НАЧАТЬ"
-            if (item.status === 'available') {
-                const btn = document.createElement('button');
-                btn.className = 'btn-main btn-start';
-                btn.innerHTML = `<i class="fa-solid fa-fire"></i> НАЧАТЬ ИСПЫТАНИЕ`;
-                btn.onclick = () => startChallenge(item);
-                app.appendChild(btn);
+            if(!list || list.length === 0) {
+                app.innerHTML = '<div style="text-align:center; color:#666; margin-top:50px;">Заданий нет.</div>';
                 return;
             }
 
-            // Если статус "Активно" или "Готово к сбору" - показываем Шкалу Этапов
-            if (item.status === 'active' || item.status === 'ready_to_claim' || item.status === 'completed') {
-                
+            list.forEach(item => {
+                // 1. Статус AVAILABLE -> Маленькая кнопка
+                if (item.status === 'available') {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-mini-start';
+                    btn.innerHTML = `<i class="fa-solid fa-fire"></i> НАЧАТЬ ИСПЫТАНИЕ`;
+                    btn.onclick = () => handleAction('start', item.template_id, btn);
+                    app.appendChild(btn);
+                    return;
+                }
+
+                // 2. Статус ACTIVE / READY / COMPLETED -> Карточка с прогрессом
                 const card = document.createElement('div');
                 card.className = 'progress-card';
 
-                // Заголовок
-                let headerStatus = 'В ПРОЦЕССЕ';
-                if (item.status === 'ready_to_claim') headerStatus = 'ЗАБЕРИ НАГРАДУ!';
-                if (item.status === 'completed') headerStatus = 'ВСЕ ВЫПОЛНЕНО';
-
+                // Собираем все этапы (для шкалы)
+                const allTiers = getAllTiers(item);
+                // Последний таргет - это "финиш" шкалы
+                const finalTarget = allTiers[allTiers.length - 1].target;
+                const currentVal = item.current_progress || 0;
                 const displayProgress = Math.min(currentVal, finalTarget);
-                
+
                 let html = `
                     <div class="pc-header">
                         <span>${item.title}</span>
-                        <span class="pc-val">${displayProgress} / ${finalTarget}</span>
+                        <span class="pc-val">${currentVal} / ${finalTarget}</span>
                     </div>
                     
                     <div class="multi-stage-track">
                         <div class="multi-stage-fill" style="width: ${(displayProgress / finalTarget) * 100}%"></div>
                 `;
 
-                // РЕНДЕР ЗАСЕЧЕК (МАРКЕРОВ)
-                tiers.forEach((tier, index) => {
-                    const percent = (tier.target / finalTarget) * 100;
+                // Рисуем засечки на шкале
+                allTiers.forEach(tier => {
+                    const percent = Math.min(100, (tier.target / finalTarget) * 100);
                     const isReached = currentVal >= tier.target;
                     const icon = getRewardIcon(tier.type);
                     
@@ -322,55 +337,55 @@
                         </div>
                     `;
                 });
+                html += `</div>`; // Close track
 
-                html += `</div>`; // Закрываем track
+                // Кнопки действий
+                if (item.status === 'ready_to_claim') {
+                    html += `<button class="btn-claim" id="btn-claim-${item.template_id}">ЗАБРАТЬ НАГРАДУ</button>`;
+                } else if (item.status === 'completed') {
+                    html += `<button class="btn-done">ВЫПОЛНЕНО</button>`;
+                }
+
+                // Кнопка ПОДРОБНЕЕ (По центру, маленькая)
+                html += `
+                    <div class="details-wrapper">
+                        <div class="btn-details" id="btn-details-${item.template_id}">
+                            УЗНАТЬ ПОДРОБНЕЕ <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
+                        </div>
+                    </div>
+                `;
+
                 card.innerHTML = html;
                 app.appendChild(card);
 
-                // Если нужно забрать награду
-                if (item.status === 'ready_to_claim') {
-                    const claimBtn = document.createElement('button');
-                    claimBtn.className = 'btn-main btn-claim';
-                    claimBtn.style.marginTop = '10px';
-                    claimBtn.innerHTML = `ЗАБРАТЬ НАГРАДУ`;
-                    claimBtn.onclick = () => claimReward(item);
-                    app.appendChild(claimBtn);
+                // Навешиваем обработчики
+                if(document.getElementById(`btn-claim-${item.template_id}`)) {
+                    document.getElementById(`btn-claim-${item.template_id}`).onclick = function() {
+                        handleAction('claim', item.template_id, this);
+                    };
                 }
-
-                // Кнопка "УЗНАТЬ ПОДРОБНЕЕ" (всегда снизу)
-                const infoBtn = document.createElement('div');
-                infoBtn.className = 'btn-details';
-                infoBtn.innerHTML = `УЗНАТЬ ПОДРОБНЕЕ <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>`;
-                infoBtn.onclick = () => openDetails(tiers);
-                app.appendChild(infoBtn);
                 
-                // Если выполнено (на сегодня)
-                if (item.status === 'completed') {
-                     const doneMsg = document.createElement('div');
-                     doneMsg.style.textAlign='center'; doneMsg.style.color='#666'; doneMsg.style.marginTop='10px'; doneMsg.style.fontSize='12px';
-                     doneMsg.innerHTML = "Приходите завтра за новыми заданиями!";
-                     app.appendChild(doneMsg);
-                }
-            }
+                // Обработчик "Подробнее" - открывает модалку со всеми этапами
+                document.getElementById(`btn-details-${item.template_id}`).onclick = function() {
+                    openDetails(allTiers, currentVal);
+                };
+            });
         }
 
         // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-
-        // Разворачиваем вложенность next_tier в массив
         function getAllTiers(rootItem) {
+            // Разворачивает рекурсию next_tier в плоский массив
             let list = [];
-            // Первый этап (текущий в корне объекта или базовый)
-            // В твоей структуре rootItem обновляется сервером.
-            // Но чтобы нарисовать полную шкалу, нам нужно знать "историю".
-            // Для простоты примера считаем, что mockData содержит полную структуру.
             
-            // Добавляем текущий таргет (или первый, если мы в начале)
+            // Если сервер возвращает item уже как "текущий этап", нам может не хватать истории предыдущих.
+            // Но обычно в таких системах мы просто идем вперед. 
+            // Добавляем текущий:
             list.push({ target: rootItem.target, reward: rootItem.reward_amount, type: rootItem.reward_type });
             
-            let current = rootItem.next_tier;
-            while(current) {
-                list.push({ target: current.target, reward: current.reward || current.rewards, type: current.type });
-                current = current.next_tier;
+            let curr = rootItem.next_tier;
+            while(curr) {
+                list.push({ target: curr.target, reward: curr.rewards || curr.reward, type: curr.type });
+                curr = curr.next_tier;
             }
             return list;
         }
@@ -384,173 +399,176 @@
 
         function formatRewardShort(amount, type) {
             if(type === 'skin_random') return 'Skin';
-            if(type === 'coins') return amount;
+            if(typeof amount === 'object') {
+                 if(amount.tickets) return amount.tickets + ' tkt';
+                 if(amount.coins) return amount.coins;
+            }
             if(type === 'tickets') return amount + ' tkt';
             return amount;
         }
 
-        // --- ДЕЙСТВИЯ ---
-
-        function startChallenge(item) {
-            haptic.impactOccurred('medium');
-            // Эмуляция отправки на сервер
-            item.status = 'active';
-            localStorage.setItem('daily_challenge_status', 'active');
-            
-            // Для теста сразу ставим прогресс, чтобы показать функционал
-            // В реальности тут 0
-            item.current_progress = 20; 
-            localStorage.setItem('daily_progress', 20);
-            
-            render(item);
-        }
-
-        function claimReward(item) {
-            haptic.notificationOccurred('success');
-            
-            // Проверяем, какой этап мы закрыли.
-            // Если это был скин -> Рулетка
-            if (item.reward_type === 'skin_random') {
-                 // Запуск рулетки
-                 const skins = [
-                     {name: 'AK-47 | Slate', image_url: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV092lnYmGm_7zN4Tck29Y_cg_3r_C9I_xjVax_kZtZ2_6JoWddVI5ZQrS8gW4xO_qjJ69u5rJz3Jj6CdxsSqPyhC_h0oaO_sv26Is8_1nkw', rarity:'purple'},
-                     {name: 'AWP | Atheris', image_url: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FAR17PLfYQJD_9W7m5a0n_L1JaKfzzoGuJJ02e2W8d6m2gztrkRoZmigItDGcgA_YVzSq1K7xL_qjJ65vM7BmnI26nUl5yrZzRzm1xEMH5O9J02d', rarity:'blue'},
-                     {name: 'M4A1-S | Printstream', image_url: 'https://community.cloudflare.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpou-6kejhz2v_Nfz5H_uO1gb-Gw_alIITfn2xZ_Mhwd87Ot3v3gLZrNWn6J9CSdgM_YV_V8lfqx-7ug8XovZ_Mz3FmpGB8sr2f8X7L', rarity:'gold'} // WINNER
-                 ];
-                 launchRoulette(skins, skins[2]); // Допустим выиграл 3-й
-            } else {
-                // Если просто монеты - переход к след. этапу
-                proceedNextTier(item);
+        function formatRewardFull(amount, type) {
+            if(type === 'skin_random') return '🔥 Кейс со скином';
+            let txt = '';
+            if(typeof amount === 'object') {
+                if(amount.tickets) txt += `${amount.tickets} Билетов `;
+                if(amount.coins) txt += `${amount.coins} Монет`;
+                return txt;
             }
+            if(type === 'coins') return `${amount} Монет`;
+            if(type === 'tickets') return `${amount} Билетов`;
+            return amount;
         }
 
-        function proceedNextTier(item) {
-            // ЛОГИКА ПЕРЕХОДА (1 в 1)
-            if (item.next_tier) {
-                // Сервер должен вернуть обновленный объект. 
-                // Эмулируем обновление объекта:
-                // Текущие параметры заменяются параметрами next_tier
-                const next = item.next_tier;
-                item.target = next.target;
-                item.reward_amount = next.reward || next.rewards;
-                item.reward_type = next.type;
-                item.next_tier = next.next_tier; // Сдвигаем вложенность
-                
-                item.status = 'active'; // Снова активен (след этап)
-                render(item);
-            } else {
-                item.status = 'completed';
-                // Запоминаем дату завершения, чтобы сбросить только завтра
-                localStorage.setItem('daily_challenge_last_date', new Date().toDateString());
-                localStorage.setItem('daily_challenge_status', 'completed');
-                render(item);
-            }
-        }
-
-        // --- МОДАЛКА И РУЛЕТКА ---
-
-        function openDetails(tiers) {
-            const list = document.getElementById('dm-rewards-list');
-            list.innerHTML = '<strong>Награды по этапам:</strong><br>';
-            tiers.forEach((t, i) => {
-                list.innerHTML += `Этап ${i+1}: ${t.target} смс — <span style="color:#ffd700">${formatRewardShort(t.reward, t.type)}</span><br>`;
+        // --- МОДАЛКА "ПОДРОБНЕЕ" ---
+        function openDetails(tiers, currentProgress) {
+            const container = document.getElementById('dm-list-container');
+            container.innerHTML = '';
+            
+            tiers.forEach((tier, index) => {
+                const isDone = currentProgress >= tier.target;
+                const div = document.createElement('div');
+                div.className = `dm-item ${isDone ? 'active' : ''}`;
+                div.innerHTML = `
+                    <div class="dm-target">Этап ${index + 1}: ${tier.target} смс</div>
+                    <div class="dm-reward">${formatRewardFull(tier.reward, tier.type)}</div>
+                    ${isDone ? '<i class="fa-solid fa-check" style="color:#4b69ff"></i>' : ''}
+                `;
+                container.appendChild(div);
             });
+            
             document.getElementById('details-modal').classList.add('visible');
         }
         function closeDetails() { document.getElementById('details-modal').classList.remove('visible'); }
 
-        function launchRoulette(items, winner) {
-            const modal = document.getElementById('r-modal');
-            const track = document.getElementById('r-track');
-            const area = document.getElementById('r-area');
-            const winScreen = document.getElementById('r-win');
+        // --- ОБРАБОТКА ДЕЙСТВИЙ (API) ---
+        async function handleAction(type, id, btn) {
+            haptic.impactOccurred('medium');
+            const originalText = btn.innerHTML;
+            btn.classList.add('btn-loading');
+            
+            try {
+                const res = await fetch(`/api/challenges/${type}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: tg.initData, template_id: id })
+                });
+                const json = await res.json();
+                
+                if(json.status === 'ok') {
+                    // ЕСЛИ ЭТО БЫЛ КЛЕЙМ И НАГРАДА - СКИН
+                    if (json.data && json.data.reward_type === 'skin_random' && json.data.roulette_strip) {
+                        launchRoulette(json.data.roulette_strip, json.data.winner, json.data.messages);
+                    } else {
+                        // ОБЫЧНЫЙ КЛЕЙМ ИЛИ СТАРТ
+                        if(type === 'claim') {
+                            haptic.notificationOccurred('success');
+                            let msg = "Награда получена!";
+                            if (json.data && json.data.messages && json.data.messages.length > 0) {
+                                msg = json.data.messages.join("\n");
+                            } else if (json.data.amount) {
+                                msg = `+${json.data.amount}`;
+                            }
+                            showCustomAlert("Успешно!", msg);
+                        }
+                        await init(); // Перезагружаем список
+                    }
+                } else {
+                    showCustomAlert("Внимание", json.message || "Ошибка сервера");
+                    await init();
+                }
+            } catch(e) {
+                showCustomAlert("Ошибка", "Проблемы с сетью");
+            } finally {
+                if(document.body.contains(btn)) {
+                    btn.classList.remove('btn-loading');
+                    btn.innerHTML = originalText;
+                }
+            }
+        }
 
-            modal.style.display = 'flex';
-            area.style.display = 'block';
-            winScreen.style.display = 'none';
+        function showCustomAlert(title, msg) {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            document.getElementById('custom-alert').classList.add('visible');
+        }
+        function closeCustomAlert() { document.getElementById('custom-alert').classList.remove('visible'); }
+
+        // --- РУЛЕТКА ---
+        function launchRoulette(items, winner, extraMessages) {
+            const modal = document.getElementById('r-modal');
+            const area = document.getElementById('r-area');
+            const track = document.getElementById('r-track');
+            const winScreen = document.getElementById('r-win');
+            
             track.style.transition = 'none';
             track.style.transform = 'translateX(0)';
+            track.innerHTML = '';
+            area.style.display = 'block';
+            winScreen.style.display = 'none';
+            modal.style.display = 'flex';
 
-            // Генерация ленты
-            let tape = [];
-            for(let i=0; i<50; i++) tape = tape.concat(items);
-            const WIN_INDEX = 65;
-            tape[WIN_INDEX] = winner;
-            
-            track.innerHTML = tape.map(item => `
-                <div class="r-card" style="border-color:${getColor(item.rarity)}">
-                    <img src="${item.image_url}">
-                    <div class="r-card-name">${item.name}</div>
-                </div>
-            `).join('');
+            const CARD_W = 148; 
+            const WINNER_IDX = 60; 
 
-            // МАТЕМАТИКА (PIXEL PERFECT + CENTER)
-            const cardW = 140; 
-            const margin = 8; // 4+4
-            const fullW = cardW + margin;
-            
-            const screenCenter = window.innerWidth / 2;
-            const winnerCenter = (WIN_INDEX * fullW) + (fullW / 2);
-            
-            // 1. Сначала перекручиваем (Overshoot)
-            // Добавляем рандом 20-50 пикселей, чтобы пролетело мимо центра
-            const overshoot = (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 30);
-            const targetPos = -(winnerCenter - screenCenter);
-            const stopPos = targetPos + overshoot;
+            let fullList = [];
+            while(fullList.length < 80) fullList = fullList.concat(items);
+            fullList[WINNER_IDX] = winner;
+
+            track.innerHTML = fullList.map(item => {
+                let rClass = 'r-blue';
+                const r = (item.rarity || 'blue').toLowerCase();
+                if(r==='purple') rClass='r-purple'; if(r==='pink') rClass='r-pink';
+                if(r==='red') rClass='r-red'; if(r==='gold') rClass='r-gold';
+                return `<div class="r-card ${rClass}"><img src="${item.image_url}"><div class="r-card-name">${item.name}</div></div>`
+            }).join('');
 
             setTimeout(() => {
-                // Быстрый спин с замедлением
-                track.style.transition = 'transform 6s cubic-bezier(0.1, 0, 0.1, 1)'; 
-                track.style.transform = `translateX(${stopPos}px)`;
+                const screenCenter = window.innerWidth / 2;
+                const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
+                const overshoot = -(winnerCenter - screenCenter + (Math.random() * 200 + 100)); 
 
-                let tick = setInterval(() => haptic.selectionChanged(), 100);
+                track.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)'; 
+                track.style.transform = `translateX(${overshoot}px)`;
+                
+                let ticker = setInterval(() => haptic.selectionChanged(), 150);
 
                 setTimeout(() => {
-                    clearInterval(tick);
+                    clearInterval(ticker);
+                    const finalOffset = -(winnerCenter - screenCenter);
+                    track.style.transition = 'transform 1s ease-out';
+                    track.style.transform = `translateX(${finalOffset}px)`;
                     
-                    // 2. МЕДЛЕННАЯ ДОВОДКА В ЦЕНТР
-                    track.style.transition = 'transform 1s ease-in-out';
-                    track.style.transform = `translateX(${targetPos}px)`;
                     haptic.impactOccurred('heavy');
 
                     setTimeout(() => {
                         haptic.notificationOccurred('success');
                         area.style.display = 'none';
                         document.getElementById('r-win-img').src = winner.image_url;
-                        document.getElementById('r-win-name').innerText = winner.name;
+                        document.getElementById('r-win-name').textContent = winner.name;
                         winScreen.style.display = 'block';
-                        
-                        // После закрытия рулетки -> след. этап
-                        // В реальном коде это вызовется при нажатии "ЗАБРАТЬ"
-                    }, 1200);
 
-                }, 6100);
+                        if (extraMessages && extraMessages.length > 0) {
+                            const msgDiv = document.createElement('div');
+                            msgDiv.style.marginTop = '10px';
+                            msgDiv.style.color = '#aaa';
+                            msgDiv.innerHTML = "А ТАКЖЕ:<br>" + extraMessages.join('<br>');
+                            winScreen.appendChild(msgDiv);
+                        }
+                    }, 1000);
+
+                }, 8000); 
             }, 100);
         }
 
         function closeRoulette() {
             document.getElementById('r-modal').style.display = 'none';
-            // После рулетки переходим к след этапу
-            proceedNextTier(mockData);
+            const extra = document.querySelector('#r-win div[style*="margin-top"]');
+            if(extra) extra.remove();
+            init(); 
         }
 
-        function getColor(rarity) {
-            if(rarity==='gold') return '#ffd700';
-            if(rarity==='purple') return '#8847ff';
-            return '#4b69ff';
-        }
-
-        // Эмуляция прогресса для демонстрации (Можно удалить)
-        // setTimeout(() => {
-        //     if(mockData.status === 'active' && mockData.current_progress < 50) {
-        //         mockData.current_progress = 50;
-        //         mockData.status = 'ready_to_claim';
-        //         render(mockData);
-        //     }
-        // }, 2000);
-
-        render(mockData);
-
+        init();
     </script>
 </body>
 </html>
