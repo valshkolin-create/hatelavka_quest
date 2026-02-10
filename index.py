@@ -14453,14 +14453,59 @@ async def finalize_raffle_webhook(
     if raffle['status'] == 'completed': 
         return {"status": "already_completed"}
 
-    # 3. ВЫБОР ПОБЕДИТЕЛЯ
+    # 3. ПОЛУЧАЕМ УЧАСТНИКОВ И НАСТРОЙКИ
+    parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
+    participants = parts_resp.json() or []
+    count = len(participants)
+
+    s = raffle.get('settings', {})
+    min_parts = int(s.get('min_participants', 0))
+    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+    reply_to_id = s.get('post_message_id') # Для реплая
+
+    # === 🔥 ПРОВЕРКА НА МИН. КОЛИЧЕСТВО ===
+    if count < min_parts:
+        print(f"⚠️ Розыгрыш {raffle_id}: мало участников ({count} < {min_parts}). Отмена.")
+        
+        # 1. Ставим статус completed, но winner_id остается NULL (розыгрыш не состоялся)
+        await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": None})
+        
+        # 2. ВОЗВРАТ БИЛЕТОВ (Refund Logic)
+        if s.get('is_refund_enabled') and s.get('ticket_cost', 0) > 0:
+            cost = int(s.get('ticket_cost', 0))
+            refund_pct = int(s.get('refund_percent', 100))
+            amount = int(cost * (refund_pct / 100))
+            
+            if amount > 0:
+                for p in participants:
+                    try:
+                        # Возвращаем билеты каждому участнику
+                        u_res = await supabase.get("/users", params={"telegram_id": f"eq.{p['user_id']}"})
+                        if u_res.json():
+                            curr = u_res.json()[0].get('tickets', 0)
+                            await supabase.patch("/users", params={"telegram_id": f"eq.{p['user_id']}"}, json={"tickets": curr + amount})
+                    except Exception as e:
+                        print(f"Err refund: {e}")
+        
+        # 3. ПИШЕМ В КАНАЛ ОБ ОТМЕНЕ
+        if channel_id:
+            try:
+                prize = s.get('prize_name', 'Приз')
+                txt = f"⚠️ <b>Розыгрыш «{prize}» отменен.</b>\n\nНе набрано участников ({count}/{min_parts})."
+                if s.get('is_refund_enabled'): txt += f"\n💸 Билеты возвращены на баланс."
+                
+                if reply_to_id:
+                    await bot.send_message(chat_id=channel_id, text=txt, reply_to_message_id=reply_to_id, parse_mode="HTML")
+                else:
+                    await bot.send_message(chat_id=channel_id, text=txt, parse_mode="HTML")
+            except: pass
+            
+        return {"status": "cancelled_low_participants"}
+
+    # 4. ЕСЛИ ЛЮДЕЙ ХВАТАЕТ -> ВЫБОР ПОБЕДИТЕЛЯ
     winner_id = None
     winner_data = None 
     
-    # Получаем участников
-    parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
-    participants = parts_resp.json() or []
-
     try:
         if raffle['type'] == 'inline_random':
             # --- ЛОГИКА СКРЫТОГО ПРОПУСКА (Как было) ---
@@ -14509,11 +14554,7 @@ async def finalize_raffle_webhook(
     except Exception as e:
         print(f"🔴 Ошибка при выборе победителя: {e}")
 
-    # 4. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА
-    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-    s = raffle.get('settings', {})
-    reply_to_id = s.get('post_message_id') # Для реплая
-
+    # 5. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА О ПОБЕДЕ
     if winner_id:
         # Успешное завершение
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
@@ -14552,7 +14593,7 @@ async def finalize_raffle_webhook(
             except Exception as e:
                 print(f"⚠️ Ошибка отправки сообщения в ТГ: {e}")
     else:
-        # Если участников НЕ БЫЛО вообще
+        # Если участников НЕ БЫЛО вообще (пустой список и не отменилось выше, или ошибка выбора)
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed"})
         if channel_id:
             try:
