@@ -14033,7 +14033,7 @@ async def create_raffle(
                 sub_req = s.get('requires_telegram_sub', False)
 
                 # Текст поста
-                txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n"
+                txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
                 
                 if desc: txt += f"<i>{desc}</i>\n\n"
                 txt += f"🏆 <b>Приз:</b> {prize_full}\n"
