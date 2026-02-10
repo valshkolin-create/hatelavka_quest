@@ -13971,7 +13971,6 @@ async def create_raffle(
     if req.settings.start_time:
         try:
             start_dt = datetime.fromisoformat(req.settings.start_time.replace('Z', ''))
-            # Если время старта в будущем (с запасом 1 мин), ставим scheduled
             if start_dt > datetime.utcnow() + timedelta(minutes=1):
                 status = "scheduled"
         except: pass
@@ -13980,21 +13979,20 @@ async def create_raffle(
     payload = {
         "title": req.title,
         "type": req.type,
-        "status": status, # Используем вычисленный статус
+        "status": status,
         "end_time": req.end_time,
         "settings": req.settings.dict()
     }
     
-    # --- ИСПРАВЛЕНИЕ: Добавляем заголовок, чтобы Supabase вернул данные ---
+    # ВАЖНО: Заголовок, чтобы Supabase вернул данные (Fix JSONDecodeError)
     headers = {
         "Prefer": "return=representation",
         "Content-Type": "application/json"
     }
 
-    # Получаем сразу ID (select=id)
+    # Получаем сразу ID
     res = await supabase.post("/raffles", json=payload, params={"select": "id"}, headers=headers)
     
-    # Проверяем на ошибки БД перед парсингом
     if res.status_code not in (200, 201):
         print(f"❌ DB Create Error: {res.text}")
         raise HTTPException(status_code=500, detail="Ошибка при создании записи в БД")
@@ -14003,7 +14001,7 @@ async def create_raffle(
         new_id = res.json()[0]['id']
     except Exception as e:
         print(f"❌ JSON Parse Error: {e} | Body: {res.text}")
-        raise HTTPException(status_code=500, detail="Не удалось получить ID созданного розыгрыша")
+        raise HTTPException(status_code=500, detail="Не удалось получить ID")
 
     # Переменные для QStash
     qstash_token = os.getenv("QSTASH_TOKEN")
@@ -14033,7 +14031,7 @@ async def create_raffle(
                 name_tag = s.get('required_name_tag')
                 sub_req = s.get('requires_telegram_sub', False)
 
-                # --- ГЕНЕРАЦИЯ ТЕКСТА ---
+                # Текст поста
                 txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n"
                 
                 if desc: txt += f"<i>{desc}</i>\n\n"
@@ -14042,26 +14040,19 @@ async def create_raffle(
                 
                 if sub_req:
                     txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
-                
                 if ticket_cost > 0:
                     txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
-                
                 if min_participants > 0:
                     txt += f"└ Минимум участников: {min_participants} 👥\n"
-                    
                 if min_refs > 0:
                     txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
-
                 if min_coins > 0:
                     txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
-                    
                 if name_tag:
                     txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
-                    
                 if min_msgs > 0:
                     txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
 
-                # Время итогов
                 if req.end_time:
                     try:
                         dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
@@ -14070,21 +14061,17 @@ async def create_raffle(
                 
                 txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
 
-                # Кнопка (изначально 0 участников)
                 url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
                 kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲 (0)", url=url_btn)]])
 
-                # Ищем картинку
                 prize_img = s.get('prize_image') or s.get('card_image')
-                
-                sent_msg = None # Сюда сохраним объект сообщения
+                sent_msg = None 
                 
                 if prize_img:
                     sent_msg = await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
                 else:
                     sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
                 
-                # 🔥 СОХРАНЯЕМ ID СООБЩЕНИЯ В БАЗУ (ДЛЯ ОБНОВЛЕНИЯ КНОПКИ И REPLY)
                 if sent_msg:
                     s['post_message_id'] = sent_msg.message_id
                     s['post_channel_id'] = str(channel_id)
@@ -14096,7 +14083,6 @@ async def create_raffle(
     # 3. ЕСЛИ ОТЛОЖЕННЫЙ СТАРТ -> СТАВИМ ТАЙМЕР НА ПУБЛИКАЦИЮ
     elif status == "scheduled" and start_dt and qstash_token and app_url:
         try:
-            # QStash требует UTC timestamp
             start_unix = int(start_dt.replace(tzinfo=timezone.utc).timestamp())
             target_pub = f"{app_url}/api/v1/webhook/publish_raffle"
             
@@ -14115,9 +14101,11 @@ async def create_raffle(
         try:
             if qstash_token and app_url:
                 dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
+                # Считаем, что ввод был в МСК, переводим в UTC для сервера
                 dt_utc = dt_input - timedelta(hours=3)
                 unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
                 
+                # Ставим таймер, только если время в будущем
                 if unix_time > int(datetime.now(timezone.utc).timestamp()):
                     target = f"{app_url}/api/v1/webhook/finalize_raffle"
                     async with httpx.AsyncClient() as client:
@@ -14126,6 +14114,9 @@ async def create_raffle(
                             headers={"Authorization": f"Bearer {qstash_token}", "Upstash-Not-Before": str(unix_time), "Content-Type": "application/json"},
                             json={"raffle_id": new_id, "secret": get_cron_secret()}
                         )
+                    print(f"⏰ Таймер завершения установлен для ID {new_id} на {unix_time}")
+                else:
+                    print(f"⚠️ Время завершения уже прошло или слишком близко, таймер не установлен.")
         except Exception as e:
             print(f"⚠️ Ошибка QStash (Finalize): {e}")
 
@@ -14454,70 +14445,21 @@ async def finalize_raffle_webhook(
     
     raffle = raffle_data[0]
 
+    # Если уже завершен - выходим
     if raffle['status'] == 'completed': 
         return {"status": "already_completed"}
 
-    # === 🔥 ПРОВЕРКА НА МИН. КОЛИЧЕСТВО УЧАСТНИКОВ ===
-    s = raffle.get('settings', {})
-    min_parts = int(s.get('min_participants', 0))
-    
-    # Считаем участников
-    parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
-    participants = parts_resp.json() or []
-    count = len(participants)
-
-    # Получаем ID поста для реплая (если есть)
-    reply_to_id = s.get('post_message_id')
-    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-
-    if count < min_parts:
-        # ОТМЕНЯЕМ РОЗЫГРЫШ
-        await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": None})
-        
-        # ЛОГИКА ВОЗВРАТА БИЛЕТОВ (Refund)
-        if s.get('is_refund_enabled') and s.get('ticket_cost', 0) > 0:
-            refund_pct = int(s.get('refund_percent', 100))
-            cost = int(s.get('ticket_cost', 0))
-            amount_to_back = int(cost * (refund_pct / 100))
-            
-            if amount_to_back > 0:
-                print(f"💸 Возврат билетов для {count} участников...")
-                # Цикл возврата (В идеале делать через RPC, но делаем здесь циклом)
-                for p in participants:
-                    try:
-                        # Берем текущие билеты
-                        u_res = await supabase.get("/users", params={"telegram_id": f"eq.{p['user_id']}"})
-                        if u_res.json():
-                            curr_tickets = u_res.json()[0].get('tickets', 0)
-                            # Возвращаем
-                            await supabase.patch("/users", params={"telegram_id": f"eq.{p['user_id']}"}, json={"tickets": curr_tickets + amount_to_back})
-                    except Exception as e:
-                        print(f"Err refund user {p['user_id']}: {e}")
-
-        # ПОСТ ОБ ОТМЕНЕ (REPLY)
-        if channel_id:
-            try:
-                prize_name = s.get('prize_name', 'Приз')
-                txt = f"⚠️ <b>Розыгрыш {prize_name} отменен.</b>\n\nНе набрано минимальное количество участников ({count}/{min_parts})."
-                if s.get('is_refund_enabled'):
-                    txt += f"\n\n💸 <b>Билеты возвращены ({s.get('refund_percent', 100)}%)</b>"
-                
-                # 🔥 ОТПРАВЛЯЕМ КАК ОТВЕТ (REPLY)
-                if reply_to_id:
-                    await bot.send_message(chat_id=channel_id, text=txt, reply_to_message_id=reply_to_id, parse_mode="HTML")
-                else:
-                    await bot.send_message(chat_id=channel_id, text=txt, parse_mode="HTML")
-            except: pass
-
-        return {"status": "cancelled_low_participants"}
-
-    # 3. ВЫБОР ПОБЕДИТЕЛЯ (Если участников достаточно)
+    # 3. ВЫБОР ПОБЕДИТЕЛЯ
     winner_id = None
     winner_data = None 
+    
+    # Получаем участников
+    parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
+    participants = parts_resp.json() or []
 
     try:
         if raffle['type'] == 'inline_random':
-            # --- ПОЛУЧАЕМ ПРЕДЫДУЩЕГО ПОБЕДИТЕЛЯ (СКРЫТЫЙ ПРОПУСК) ---
+            # --- ЛОГИКА СКРЫТОГО ПРОПУСКА (Как было) ---
             prev_winner_id = None
             prev_raffle_resp = await supabase.get("/raffles", params={
                 "status": "eq.completed",
@@ -14529,20 +14471,26 @@ async def finalize_raffle_webhook(
                 prev_winner_id = prev_raffle_resp.json()[0].get('winner_id')
 
             if participants: 
-                # Фильтруем список
+                # Фильтруем (убираем прошлого победителя, чтобы дать шанс другим)
                 pool = [p for p in participants if p['user_id'] != prev_winner_id]
                 
+                # Если остался только он или никого, берем всех
                 if not pool:
                     pool = participants
 
+                import random # Убедимся, что random доступен
                 crypto_gen = random.SystemRandom()
+                
+                # Перемешиваем
                 for _ in range(3):
                     crypto_gen.shuffle(pool)
                 
+                # Выбираем
                 winner_entry = crypto_gen.choice(pool)
                 winner_id = winner_entry['user_id']
                 
         elif raffle['type'] == 'most_active':
+            # Логика самого активного
             top_resp = await supabase.get("/users", params={"order": "monthly_message_count.desc", "limit": 1})
             top_users = top_resp.json()
             if top_users: 
@@ -14558,14 +14506,17 @@ async def finalize_raffle_webhook(
         print(f"🔴 Ошибка при выборе победителя: {e}")
 
     # 4. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА
-    
+    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+    s = raffle.get('settings', {})
+    reply_to_id = s.get('post_message_id') # Для реплая
+
     if winner_id:
+        # Успешное завершение
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
         await supabase.patch("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}", "user_id": f"eq.{winner_id}"}, json={"is_winner": True})
         
         if channel_id and winner_data:
             try:
-                s = raffle.get('settings', {})
                 prize_name = s.get('prize_name', 'Приз')
                 quality = s.get('skin_quality', '')
                 prize_full = f"{prize_name} ({quality})" if quality else prize_name
@@ -14582,7 +14533,7 @@ async def finalize_raffle_webhook(
                 
                 prize_img = s.get('prize_image')
                 
-                # 🔥 ОТПРАВЛЯЕМ КАК ОТВЕТ (REPLY)
+                # Отправляем результат (Реплай на пост розыгрыша, если есть ID)
                 if prize_img:
                     if reply_to_id:
                         await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, reply_to_message_id=reply_to_id, parse_mode="HTML")
@@ -14597,7 +14548,7 @@ async def finalize_raffle_webhook(
             except Exception as e:
                 print(f"⚠️ Ошибка отправки сообщения в ТГ: {e}")
     else:
-        # Если участников не было (пустой список)
+        # Если участников НЕ БЫЛО вообще
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed"})
         if channel_id:
             try:
