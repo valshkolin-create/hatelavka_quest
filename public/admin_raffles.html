@@ -64,7 +64,7 @@
         
         /* Refund System */
         .refund-box { margin-top: 10px; background: rgba(255, 77, 77, 0.05); padding: 10px; border-radius: 12px; border: 1px dashed rgba(255, 77, 77, 0.2); display: none; transition: 0.3s; }
-        .refund-box.visible { display: block; } /* УБРАЛ ANIMATION FADEIN */
+        .refund-box.visible { display: block; }
         
         .refund-controls { margin-top: 10px; transition: 0.3s; opacity: 1; max-height: 100px; overflow: hidden; }
         .refund-controls.hidden-slider { opacity: 0.3; pointer-events: none; max-height: 0; margin-top: 0; }
@@ -98,7 +98,7 @@
         .raffle-card {
             background: var(--card-bg); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
             border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px;
-            position: relative; /* УБРАЛ ANIMATION SLIDEUP */
+            position: relative; 
         }
         .raffle-card.completed { opacity: 0.7; border-color: transparent; }
         .raffle-card.silent { border-left: 3px solid #64b5ef; }
@@ -131,10 +131,10 @@
         /* --- Custom Modals --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-overlay.center { align-items: center; }
-        .modal-active { display: flex; } /* УБРАЛ ANIMATION */
+        .modal-active { display: flex; }
         
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 80vh; display: flex; flex-direction: column; } /* УБРАЛ ANIMATION */
-        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); } /* УБРАЛ ANIMATION */
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 80vh; display: flex; flex-direction: column; }
+        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); }
         
         .part-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .part-ava { width: 36px; height: 36px; background: linear-gradient(135deg, #444, #222); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; font-size: 14px; position: relative; }
@@ -239,14 +239,8 @@
             <div class="section-box">
                 <h3 class="sec-title"><i class="fa-solid fa-pen-fancy"></i> Оформление</h3>
                 
-                <label>Картинка для поста (URL)</label>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
-                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload-post').click()" style="flex-shrink: 0; background: var(--card-bg);">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </button>
-                    <input type="file" id="file-upload-post" hidden accept="image/*" onchange="uploadImage(this, 'inp-img')">
-                </div>
+                <label>Название приза</label>
+                <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()">
 
                 <label>Качество (Wear)</label>
                 <select name="quality" id="inp-quality" onchange="updatePreview()">
@@ -257,6 +251,15 @@
                     <option value="WW">Well-Worn (Поношенное)</option>
                     <option value="BS">Battle-Scarred (Закаленное в боях)</option>
                 </select>
+
+                <label>Картинка для поста (URL)</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload-post').click()" style="flex-shrink: 0; background: var(--card-bg);">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+                    <input type="file" id="file-upload-post" hidden accept="image/*" onchange="uploadImage(this, 'inp-img')">
+                </div>
 
                 <label>Картинка для карточки (PNG без фона)</label>
                 <div style="display: flex; gap: 8px; align-items: center;">
@@ -354,7 +357,6 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
             if (document.getElementById('modal-parts').classList.contains('modal-active')) {
@@ -413,18 +415,37 @@
             else controls.classList.add('hidden-slider');
         }
 
+        // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ UPDATE PREVIEW
         function updatePreview() {
-            const prize = document.getElementById('inp-prize').value || 'Приз';
-            const quality = document.getElementById('inp-quality').value;
-            const desc = document.getElementById('inp-desc').value || '';
-            const imgUrl = document.getElementById('inp-img').value;
+            // Безопасное получение элементов
+            const getVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? el.value : '';
+            };
+
+            const prize = getVal('inp-prize') || 'Приз';
+            const quality = getVal('inp-quality');
+            const desc = getVal('inp-desc');
             
-            const tickets = document.querySelector('input[name="ticket_cost"]').value;
-            const refs = document.querySelector('input[name="min_referrals"]').value;
-            const minParts = document.querySelector('input[name="min_participants"]').value;
-            const tag = document.querySelector('input[name="name_tag"]').value;
-            const msgs = document.querySelector('input[name="min_msgs"]').value;
-            const sub = document.querySelector('input[name="sub_req"]').checked;
+            // Берем картинку из любого поля (Пост или Карточка)
+            const imgUrl = getVal('inp-img') || getVal('inp-card-img');
+            
+            // Получаем остальные значения через querySelector (так как это безопаснее для input names)
+            const getInpVal = (name) => {
+                const el = document.querySelector(`input[name="${name}"]`);
+                return el ? el.value : '';
+            };
+            const getCheck = (name) => {
+                const el = document.querySelector(`input[name="${name}"]`);
+                return el ? el.checked : false;
+            };
+
+            const tickets = getInpVal('ticket_cost');
+            const refs = getInpVal('min_referrals');
+            const minParts = getInpVal('min_participants');
+            const tag = getInpVal('name_tag');
+            const msgs = getInpVal('min_msgs');
+            const sub = getCheck('sub_req');
             
             const prizeFull = quality ? `${prize} (${quality})` : prize;
             let html = `🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЦАНОВ</b>\n\n`;
@@ -440,7 +461,7 @@
             if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
             if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ.)\n`;
 
-            const dateVal = document.querySelector('input[name="end_time"]').value;
+            const dateVal = getInpVal('end_time');
             if (dateVal) {
                 const d = new Date(dateVal);
                 const dateStr = d.toLocaleDateString('ru-RU');
@@ -461,7 +482,6 @@
             document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
         }
 
-        // 🔥 НОВАЯ ФУНКЦИЯ ЗАГРУЗКИ
         async function uploadImage(input, targetId) {
             const file = input.files[0];
             if (!file) return;
