@@ -14150,90 +14150,112 @@ async def get_raffle_participants(
 
 @app.post("/api/v1/webhook/publish_raffle")
 async def publish_raffle_webhook(
-    req: FinalizeRequest, # Используем ту же модель {raffle_id, secret}
+    req: FinalizeRequest, # Использует ту же модель {raffle_id, secret}
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    if req.secret != get_cron_secret(): return {"status": "bad secret"}
+    # 1. Проверка секретного ключа (защита от посторонних вызовов)
+    if req.secret != get_cron_secret():
+        print(f"⛔ Publish Webhook: Неверный секрет! (Получен: {req.secret})")
+        return {"status": "bad secret"}
 
-    # 1. МЕНЯЕМ СТАТУС НА ACTIVE
+    print(f"🚀 Публикация отложенного розыгрыша ID: {req.raffle_id}")
+
+    # 2. МЕНЯЕМ СТАТУС НА ACTIVE
+    # Сначала активируем, чтобы он стал виден
     await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"status": "active"})
 
-    # 2. ПОЛУЧАЕМ ДАННЫЕ ДЛЯ ПОСТА
+    # 3. ПОЛУЧАЕМ ДАННЫЕ ДЛЯ ПОСТА
     r_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
-    if not r_resp.json(): return {"status": "not found"}
-    raffle = r_resp.json()[0]
     
-    # Отправляем пост (Логика скопирована с create_raffle)
+    # Проверка на ошибки БД
+    if r_resp.status_code != 200:
+        print(f"⚠️ Ошибка получения розыгрыша: {r_resp.text}")
+        return {"status": "db_error"}
+        
+    data = r_resp.json()
+    if not data:
+        return {"status": "not found"}
+        
+    raffle = data[0]
+    
+    # Отправляем пост (Логика отображения)
     channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     if channel_id:
         try:
             s = raffle.get('settings', {})
-            if not s.get('is_silent'):
-                # Формируем текст
-                prize_name = s.get('prize_name', 'Приз')
-                quality = s.get('skin_quality', '')
-                desc = s.get('description', '')
-                prize_full = f"{prize_name} ({quality})" if quality else prize_name
-                
-                min_participants = int(s.get('min_participants', 0))
-                ticket_cost = int(s.get('ticket_cost', 0))
-                min_refs = int(s.get('min_referrals', 0))
-                min_coins = float(s.get('min_coins', 0.0))
-                name_tag = s.get('required_name_tag')
-                min_msgs = int(s.get('min_daily_messages', 0))
-                sub_req = s.get('requires_telegram_sub', False)
+            
+            # Если "Тихий режим" (silent), то пост не делаем
+            if s.get('is_silent'):
+                print(f"🤫 Розыгрыш {req.raffle_id} опубликован без поста (silent mode)")
+                return {"status": "published_silent"}
 
-                txt = f"🚀 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
-                if desc: txt += f"<i>{desc}</i>\n\n"
-                txt += f"🏆 <b>Приз:</b> {prize_full}\n"
-                txt += "\n📌 <b>Условия:</b>\n"
+            # Формируем текст
+            prize_name = s.get('prize_name', 'Приз')
+            quality = s.get('skin_quality', '')
+            desc = s.get('description', '')
+            prize_full = f"{prize_name} ({quality})" if quality else prize_name
+            
+            min_participants = int(s.get('min_participants', 0))
+            ticket_cost = int(s.get('ticket_cost', 0))
+            min_refs = int(s.get('min_referrals', 0))
+            min_coins = float(s.get('min_coins', 0.0))
+            name_tag = s.get('required_name_tag')
+            min_msgs = int(s.get('min_daily_messages', 0))
+            sub_req = s.get('requires_telegram_sub', False)
 
-                if sub_req:
-                    txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
-                if ticket_cost > 0:
-                    txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
-                if min_participants > 0:
-                    txt += f"└ Минимум участников: {min_participants} 👥\n"
-                if min_refs > 0:
-                    txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
-                
-                if min_coins > 0:
-                    txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
-                if name_tag:
-                    txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
-                if min_msgs > 0:
-                    txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
+            txt = f"🚀 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
+            if desc: txt += f"<i>{desc}</i>\n\n"
+            txt += f"🏆 <b>Приз:</b> {prize_full}\n"
+            txt += "\n📌 <b>Условия:</b>\n"
 
-                # Время итогов
-                if raffle.get('end_time'):
-                    try:
-                        dt_input = datetime.fromisoformat(raffle['end_time'].replace('Z', ''))
-                        txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
-                    except: pass
+            if sub_req:
+                txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
+            if ticket_cost > 0:
+                txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
+            if min_participants > 0:
+                txt += f"└ Минимум участников: {min_participants} 👥\n"
+            if min_refs > 0:
+                txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
+            
+            if min_coins > 0:
+                txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
+            if name_tag:
+                txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
+            if min_msgs > 0:
+                txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
 
-                txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
+            # Время итогов
+            if raffle.get('end_time'):
+                try:
+                    dt_input = datetime.fromisoformat(raffle['end_time'].replace('Z', ''))
+                    txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
+                except: pass
 
-                url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
-                # Старт с 0
-                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲 (0)", url=url_btn)]])
-                
-                post_img = s.get('prize_image') or s.get('card_image')
-                sent_msg = None
+            txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
 
-                if post_img:
-                    sent_msg = await bot.send_photo(chat_id=channel_id, photo=post_img, caption=txt, reply_markup=kb, parse_mode="HTML")
-                else:
-                    sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
-                
-                # 🔥 СОХРАНЯЕМ ID СООБЩЕНИЯ В БАЗУ (ВАЖНО!)
-                if sent_msg:
-                    s['post_message_id'] = sent_msg.message_id
-                    s['post_channel_id'] = str(channel_id)
-                    await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"settings": s})
+            url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
+            
+            # Кнопка (изначально 0 участников)
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲 (0)", url=url_btn)]])
+            
+            post_img = s.get('prize_image') or s.get('card_image')
+            sent_msg = None
 
-                print(f"✅ Отложенный пост опубликован: {req.raffle_id}")
+            if post_img:
+                sent_msg = await bot.send_photo(chat_id=channel_id, photo=post_img, caption=txt, reply_markup=kb, parse_mode="HTML")
+            else:
+                sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+            
+            # 🔥 СОХРАНЯЕМ ID СООБЩЕНИЯ В БАЗУ (ВАЖНО для обновления кнопок)
+            if sent_msg:
+                s['post_message_id'] = sent_msg.message_id
+                s['post_channel_id'] = str(channel_id)
+                await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"settings": s})
+
+            print(f"✅ Отложенный пост опубликован: {req.raffle_id}")
+            
         except Exception as e:
-            print(f"⚠️ Ошибка публикации: {e}")
+            print(f"⚠️ Ошибка публикации (Telegram): {e}")
 
     return {"status": "published"}
 
