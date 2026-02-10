@@ -13943,7 +13943,7 @@ async def create_raffle(
                 min_msgs = int(s.get('min_daily_messages', 0))
                 ticket_cost = int(s.get('ticket_cost', 0))
                 min_refs = int(s.get('min_referrals', 0))
-                min_participants = int(s.get('min_participants', 0)) # НОВОЕ
+                min_participants = int(s.get('min_participants', 0)) 
                 min_coins = float(s.get('min_coins', 0.0))
                 name_tag = s.get('required_name_tag')
                 sub_req = s.get('requires_telegram_sub', False)
@@ -14117,6 +14117,9 @@ async def publish_raffle_webhook(
                 min_participants = int(s.get('min_participants', 0))
                 ticket_cost = int(s.get('ticket_cost', 0))
                 min_refs = int(s.get('min_referrals', 0))
+                min_coins = float(s.get('min_coins', 0.0))
+                name_tag = s.get('required_name_tag')
+                min_msgs = int(s.get('min_daily_messages', 0))
                 sub_req = s.get('requires_telegram_sub', False)
 
                 txt = f"🚀 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
@@ -14133,6 +14136,14 @@ async def publish_raffle_webhook(
                 if min_refs > 0:
                     txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
                 
+                # Добавил недостающие условия, как ты просил
+                if min_coins > 0:
+                    txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
+                if name_tag:
+                    txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
+                if min_msgs > 0:
+                    txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
+
                 # Время итогов
                 if raffle.get('end_time'):
                     try:
@@ -14245,34 +14256,7 @@ async def join_raffle(
         
     print(f"✅ User {user_id} joined raffle {req.raffle_id}")
     return {"message": "Участие принято! 🍀"}
-    # ===============================
-    # ✅ УСПЕХ: СПИСАНИЕ И ЗАПИСЬ
-    # ===============================
 
-    # 1. Если вход платный - СПИСЫВАЕМ БИЛЕТЫ
-    if ticket_cost > 0:
-        new_balance = user_tickets - ticket_cost
-        await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
-
-    # 2. Добавляем в участники
-    source_type = "twitch" if min_msgs > 0 else "telegram"
-    try:
-        await supabase.post("/raffle_participants", json={
-            "raffle_id": req.raffle_id,
-            "user_id": user_id,
-            "source": source_type 
-        })
-    except:
-        raise HTTPException(status_code=400, detail="Вы уже участвуете!")
-
-    # 3. 🔥 ОБНОВЛЯЕМ СЧЕТЧИК
-    try:
-        await supabase.post("/rpc/increment_raffle_participants", json={"raffle_id_param": req.raffle_id})
-    except Exception as e:
-        print(f"⚠️ Ошибка обновления счетчика RPC: {e}")
-        
-    return {"message": "Участие принято! 🍀"}
-    
 # 5. (Юзер + OBS) Список
 @app.post("/api/v1/raffles/active")
 async def get_user_raffles(
