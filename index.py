@@ -13878,10 +13878,48 @@ class FinalizeRequest(BaseModel):
 # 🎁 RAFFLE SYSTEM (РОЗЫГРЫШИ)
 # ==========================================
 
-# Вспомогательная функция для получения секретов (подстраиваемся под твои названия)
+# Вспомогательная функция для получения секретов
 def get_cron_secret():
-    # Проверяем оба варианта написания: через _ и через -
     return os.getenv("CRON_SECRET") or os.getenv("CRON-SECRET")
+
+# --- 🔥 НОВАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ КНОПКИ (ГИБРИДНАЯ) ---
+async def update_raffle_button(bot, channel_id, message_id, raffle_id, count):
+    """
+    Обновляет кнопку с количеством участников.
+    Использует гибридную логику, чтобы не словить Flood Wait от Telegram.
+    """
+    try:
+        # ЛОГИКА ЧАСТОТЫ ОБНОВЛЕНИЯ:
+        should_update = False
+        
+        if count <= 25:
+            # Мало участников - обновляем всегда (чтобы видеть 7, 9, 12...)
+            should_update = True
+        elif count <= 100:
+            # Среднее кол-во - обновляем каждые 5
+            should_update = (count % 5 == 0)
+        else:
+            # Много участников - обновляем каждые 10, бережем API
+            should_update = (count % 10 == 0)
+
+        if not should_update:
+            return
+
+        # Формируем текст и клавиатуру
+        text = f"Участвовать 🎲 ({count})"
+        url = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{raffle_id}"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
+        
+        # Отправляем запрос на редактирование
+        await bot.edit_message_reply_markup(
+            chat_id=channel_id, 
+            message_id=message_id, 
+            reply_markup=kb
+        )
+    except Exception as e:
+        # Ошибки редактирования (например, "message not modified") игнорируем, это норма
+        print(f"⚠️ Button Update Skip: {e}")
+
 
 # 1. (Админ) Создать розыгрыш + Пост + Таймер
 @app.post("/api/v1/admin/raffles/create")
@@ -13914,11 +13952,9 @@ async def create_raffle(
         "end_time": req.end_time,
         "settings": req.settings.dict()
     }
-    await supabase.post("/raffles", json=payload)
-    
-    # Получаем ID созданного розыгрыша
-    last_raffle = await supabase.get("/raffles", params={"order": "id.desc", "limit": 1})
-    new_id = last_raffle.json()[0]['id']
+    # Получаем сразу ID (select=id)
+    res = await supabase.post("/raffles", json=payload, params={"select": "id"})
+    new_id = res.json()[0]['id']
 
     # Переменные для QStash
     qstash_token = os.getenv("QSTASH_TOKEN")
@@ -13967,7 +14003,6 @@ async def create_raffle(
                 if min_refs > 0:
                     txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
 
-                # Если баланс всё еще используется
                 if min_coins > 0:
                     txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
                     
@@ -13986,17 +14021,25 @@ async def create_raffle(
                 
                 txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
 
-                # Кнопка
+                # Кнопка (изначально 0 участников)
                 url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{new_id}"
-                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
+                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲 (0)", url=url_btn)]])
 
                 # Ищем картинку
                 prize_img = s.get('prize_image') or s.get('card_image')
                 
+                sent_msg = None # Сюда сохраним объект сообщения
+                
                 if prize_img:
-                    await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
+                    sent_msg = await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=txt, reply_markup=kb, parse_mode="HTML")
                 else:
-                    await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+                    sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+                
+                # 🔥 СОХРАНЯЕМ ID СООБЩЕНИЯ В БАЗУ (ДЛЯ ОБНОВЛЕНИЯ КНОПКИ И REPLY)
+                if sent_msg:
+                    s['post_message_id'] = sent_msg.message_id
+                    s['post_channel_id'] = str(channel_id)
+                    await supabase.patch("/raffles", params={"id": f"eq.{new_id}"}, json={"settings": s})
                     
             except Exception as e:
                 print(f"⚠️ Ошибка отправки поста: {e}")
@@ -14136,7 +14179,6 @@ async def publish_raffle_webhook(
                 if min_refs > 0:
                     txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
                 
-                # Добавил недостающие условия, как ты просил
                 if min_coins > 0:
                     txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
                 if name_tag:
@@ -14154,15 +14196,23 @@ async def publish_raffle_webhook(
                 txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
 
                 url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
-                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
+                # Старт с 0
+                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲 (0)", url=url_btn)]])
                 
                 post_img = s.get('prize_image') or s.get('card_image')
+                sent_msg = None
 
                 if post_img:
-                    await bot.send_photo(chat_id=channel_id, photo=post_img, caption=txt, reply_markup=kb, parse_mode="HTML")
+                    sent_msg = await bot.send_photo(chat_id=channel_id, photo=post_img, caption=txt, reply_markup=kb, parse_mode="HTML")
                 else:
-                    await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+                    sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
                 
+                # 🔥 СОХРАНЯЕМ ID СООБЩЕНИЯ В БАЗУ (ВАЖНО!)
+                if sent_msg:
+                    s['post_message_id'] = sent_msg.message_id
+                    s['post_channel_id'] = str(channel_id)
+                    await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"settings": s})
+
                 print(f"✅ Отложенный пост опубликован: {req.raffle_id}")
         except Exception as e:
             print(f"⚠️ Ошибка публикации: {e}")
@@ -14249,11 +14299,30 @@ async def join_raffle(
         "source": source_type 
     })
 
+    # Увеличиваем счетчик
     try:
         await supabase.post("/rpc/increment_raffle_participants", json={"raffle_id_param": req.raffle_id})
     except Exception as e:
         print(f"⚠️ RPC Error: {e}")
         
+    # --- 🔥 ОБНОВЛЕНИЕ КНОПКИ С ГИБРИДНОЙ ЛОГИКОЙ ---
+    try:
+        # Заново берем розыгрыш, чтобы узнать актуальный participants_count
+        r_upd = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}", "select": "participants_count, settings"})
+        if r_upd.json():
+            r_data = r_upd.json()[0]
+            new_count = r_data.get('participants_count', 0)
+            sett = r_data.get('settings', {})
+            
+            p_msg_id = sett.get('post_message_id')
+            p_chan_id = sett.get('post_channel_id')
+            
+            if p_msg_id and p_chan_id:
+                # Запускаем в фоне, чтобы юзер не ждал
+                asyncio.create_task(update_raffle_button(bot, p_chan_id, p_msg_id, req.raffle_id, new_count))
+    except Exception as e:
+        print(f"⚠️ Button Upd Error: {e}")
+
     print(f"✅ User {user_id} joined raffle {req.raffle_id}")
     return {"message": "Участие принято! 🍀"}
 
@@ -14326,6 +14395,10 @@ async def finalize_raffle_webhook(
     participants = parts_resp.json() or []
     count = len(participants)
 
+    # Получаем ID поста для реплая (если есть)
+    reply_to_id = s.get('post_message_id')
+    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+
     if count < min_parts:
         # ОТМЕНЯЕМ РОЗЫГРЫШ
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": None})
@@ -14350,15 +14423,19 @@ async def finalize_raffle_webhook(
                     except Exception as e:
                         print(f"Err refund user {p['user_id']}: {e}")
 
-        # ПОСТ ОБ ОТМЕНЕ
-        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+        # ПОСТ ОБ ОТМЕНЕ (REPLY)
         if channel_id:
             try:
                 prize_name = s.get('prize_name', 'Приз')
                 txt = f"⚠️ <b>Розыгрыш {prize_name} отменен.</b>\n\nНе набрано минимальное количество участников ({count}/{min_parts})."
                 if s.get('is_refund_enabled'):
                     txt += f"\n\n💸 <b>Билеты возвращены ({s.get('refund_percent', 100)}%)</b>"
-                await bot.send_message(chat_id=channel_id, text=txt, parse_mode="HTML")
+                
+                # 🔥 ОТПРАВЛЯЕМ КАК ОТВЕТ (REPLY)
+                if reply_to_id:
+                    await bot.send_message(chat_id=channel_id, text=txt, reply_to_message_id=reply_to_id, parse_mode="HTML")
+                else:
+                    await bot.send_message(chat_id=channel_id, text=txt, parse_mode="HTML")
             except: pass
 
         return {"status": "cancelled_low_participants"}
@@ -14410,7 +14487,6 @@ async def finalize_raffle_webhook(
         print(f"🔴 Ошибка при выборе победителя: {e}")
 
     # 4. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА
-    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     
     if winner_id:
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
@@ -14434,10 +14510,19 @@ async def finalize_raffle_webhook(
                 )
                 
                 prize_img = s.get('prize_image')
+                
+                # 🔥 ОТПРАВЛЯЕМ КАК ОТВЕТ (REPLY)
                 if prize_img:
-                    await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, parse_mode="HTML")
+                    if reply_to_id:
+                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, reply_to_message_id=reply_to_id, parse_mode="HTML")
+                    else:
+                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, parse_mode="HTML")
                 else:
-                    await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML")
+                    if reply_to_id:
+                        await bot.send_message(chat_id=channel_id, text=text, reply_to_message_id=reply_to_id, parse_mode="HTML")
+                    else:
+                        await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML")
+                        
             except Exception as e:
                 print(f"⚠️ Ошибка отправки сообщения в ТГ: {e}")
     else:
@@ -14445,7 +14530,11 @@ async def finalize_raffle_webhook(
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed"})
         if channel_id:
             try:
-                await bot.send_message(chat_id=channel_id, text=f"⚠️ Розыгрыш завершен, но участников не было 😔")
+                msg_txt = f"⚠️ Розыгрыш завершен, но участников не было 😔"
+                if reply_to_id:
+                    await bot.send_message(chat_id=channel_id, text=msg_txt, reply_to_message_id=reply_to_id)
+                else:
+                    await bot.send_message(chat_id=channel_id, text=msg_txt)
             except: pass
 
     return {"status": "done", "winner": winner_id}
