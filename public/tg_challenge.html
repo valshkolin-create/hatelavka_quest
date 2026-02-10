@@ -12,12 +12,12 @@
 
         :root {
             --bg-color: #0b0c10;
-            --card-bg: #15161b;
+            --card-bg: #1e1f25; /* Твой цвет фона карточек */
             --primary: #4b69ff;
-            --gold: #ffd700;
+            --primary-gradient: linear-gradient(135deg, #4b69ff 0%, #8847ff 100%);
+            --gold-gradient: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
             --text-main: #ffffff;
-            --grad-blue: linear-gradient(90deg, #4b69ff 0%, #3d5afe 100%);
-            --grad-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            --grad-blue: linear-gradient(90deg, #4b69ff 0%, #7000ff 100%); /* Фиолетовый градиент как на скрине */
         }
 
         body {
@@ -36,118 +36,116 @@
             background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
 
-        /* --- КНОПКА "НАЧАТЬ" --- */
-        .btn-main {
+        /* --- ЕДИНЫЙ СТИЛЬ КНОПОК И КАРТОЧЕК --- */
+        .action-card {
             width: 100%;
-            height: 60px;
             border-radius: 14px;
             border: none;
-            font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            cursor: pointer; transition: 0.2s;
-            position: relative; overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-        .btn-main:active { transform: scale(0.98); }
-        
-        .btn-start {
-            background: #2d2f36;
-            border: 1px dashed rgba(255,255,255,0.3);
-            color: #fff;
-        }
-        .btn-claim {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #000;
-            animation: pulse-gold 2s infinite;
-        }
-        .btn-done {
-            background: #222; color: #555; border: 1px solid #333; cursor: default;
-        }
-        
-        /* --- ПАНЕЛЬ ПРОГРЕССА --- */
-        .progress-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 24px 16px; /* Чуть больше паддинг сверху/снизу */
-            border: 1px solid rgba(255,255,255,0.08);
-            margin-bottom: 15px;
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            box-sizing: border-box;
             position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            overflow: hidden;
+            transition: transform 0.1s;
+        }
+        .action-card:active { transform: scale(0.98); }
+
+        /* 1. Кнопка НАЧАТЬ */
+        .btn-start {
+            height: 64px;
+            background: #4b69ff;
+            box-shadow: 0 4px 15px rgba(75, 105, 255, 0.3);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
         }
 
-        .pc-header { display: flex; justify-content: space-between; margin-bottom: 35px; font-size: 14px; font-weight: 700; color:#ccc; }
-        .pc-val { color: #fff; }
+        /* 2. КАРТОЧКА ПРОГРЕССА (Как на скрине) */
+        .progress-container {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .pc-header { display: flex; justify-content: space-between; margin-bottom: 30px; font-size: 16px; font-weight: 800; color:#fff; }
+        .pc-val { color: #fff; font-family: monospace; font-size: 16px; }
 
         /* Трек прогресса */
-        .multi-stage-track {
-            height: 10px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 5px;
+        .progress-track {
+            height: 12px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 6px;
             position: relative;
-            margin: 0 10px; /* Отступ чтобы кружки не обрезались */
+            margin: 0 10px;
         }
         
-        .multi-stage-fill {
+        .progress-fill {
             height: 100%;
-            background: var(--grad-blue);
-            border-radius: 5px;
+            background: var(--grad-blue); /* Твой градиент */
+            border-radius: 6px;
             transition: width 0.5s ease-out;
             position: relative;
             z-index: 1;
-            box-shadow: 0 0 10px rgba(75, 105, 255, 0.5);
+            box-shadow: 0 0 15px rgba(112, 0, 255, 0.4);
         }
 
-        /* Засечки (Кружки) */
+        /* Маркеры этапов (Желтые галочки) */
         .stage-marker {
             position: absolute;
             top: 50%; transform: translate(-50%, -50%);
-            width: 24px; height: 24px;
-            background: #222;
+            width: 26px; height: 26px;
+            background: #2b2d35;
             border: 2px solid #555;
             border-radius: 50%;
             z-index: 2;
             display: flex; align-items: center; justify-content: center;
-            font-size: 10px; color: #aaa;
+            font-size: 11px; color: #aaa;
             transition: 0.3s;
         }
         .stage-marker.active {
             border-color: #ffd700;
             background: #ffd700;
             color: #000;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
         }
         
-        /* Подписи под засечками (АБСОЛЮТНОЕ ВЫРАВНИВАНИЕ) */
         .stage-label {
-            position: absolute;
-            top: 28px; /* Отступ от центра линии */
-            left: 50%; 
-            transform: translateX(-50%); /* Центрируем текст относительно точки */
-            font-size: 10px; color: #666;
-            white-space: nowrap;
-            font-weight: 600;
-            pointer-events: none;
+            position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+            font-size: 10px; color: #888; white-space: nowrap; font-weight: 600;
+            opacity: 0.8;
         }
-        .stage-marker.active + .stage-label { color: #ffd700; }
+        .stage-marker.active + .stage-label { color: #ffd700; opacity: 1; }
 
-        /* --- КНОПКА ПОДРОБНЕЕ --- */
-        .details-wrapper {
-            display: flex; justify-content: center; width: 100%; margin-top: 20px;
+        /* 3. Кнопка ЗАБРАТЬ */
+        .btn-claim {
+            height: 60px;
+            background: var(--gold-gradient);
+            color: #000;
+            display: flex; align-items: center; justify-content: center;
+            animation: pulse-gold 2s infinite;
+            margin-top: 20px;
         }
+
+        /* 4. Кнопка ПОДРОБНЕЕ (Стиль как в твоем коде) */
         .btn-details {
-            padding: 10px 20px;
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #888;
+            width: fit-content;
+            margin: 15px auto 0 auto;
+            padding: 10px 24px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 20px;
-            font-size: 11px; font-weight: 700; text-transform: uppercase;
-            display: flex; align-items: center; gap: 6px;
-            cursor: pointer;
+            color: #aaa;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
             transition: 0.2s;
         }
         .btn-details:active { background: rgba(255,255,255,0.1); color: #fff; }
 
-        /* --- МОДАЛКА --- */
+        /* --- МОДАЛЬНОЕ ОКНО --- */
         .details-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
@@ -155,35 +153,54 @@
             opacity: 0; pointer-events: none; transition: 0.3s;
         }
         .details-modal.visible { opacity: 1; pointer-events: auto; }
+        
         .details-content {
-            background: #1a1b20; width: 100%;
+            background: #15161b; width: 100%;
             border-radius: 24px 24px 0 0; padding: 24px;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
             transform: translateY(100%); transition: 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
             border-top: 1px solid rgba(255,255,255,0.1);
+            max-height: 80vh; overflow-y: auto;
         }
         .details-modal.visible .details-content { transform: translateY(0); }
-        .dm-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 20px; text-align: center;}
-        .dm-info { color: #ccc; font-size: 13px; line-height: 1.6; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+
+        .dm-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 20px; text-align: center; }
+        .dm-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.03); padding: 14px; border-radius: 12px; margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .dm-item.current { border-color: #4b69ff; background: rgba(75, 105, 255, 0.08); }
+        .dm-target { font-size: 13px; color: #fff; font-weight: 600; }
+        .dm-reward { font-size: 14px; color: #ffd700; font-weight: 700; }
+
+        .btn-close-modal {
+            width: 100%; padding: 16px; background: #2d2f36; color: #fff;
+            border: none; border-radius: 12px; font-weight: 700; font-size: 14px;
+            margin-top: 15px; cursor: pointer;
+        }
 
         /* --- ROULETTE --- */
         .r-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(10px); }
-        .r-game-area { width: 100%; height: 200px; position: relative; overflow: hidden; background: rgba(20,20,20,0.5); border-top: 1px solid #333; border-bottom: 1px solid #333; }
+        .r-game-area { width: 100%; height: 200px; position: relative; overflow: hidden; border-top: 1px solid #333; border-bottom: 1px solid #333; background: rgba(20,20,20,0.5); }
         .r-marker-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ffd700; transform: translateX(-50%); z-index: 20; box-shadow: 0 0 15px #ffd700; }
-        .r-marker-tri { position: absolute; left: 50%; top: -2px; transform: translateX(-50%); border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 12px solid #ffd700; z-index: 21; }
+        .r-marker-tri { position: absolute; left: 50%; top: -5px; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 15px solid #ffd700; z-index: 21; }
         .r-track { display: flex; height: 100%; align-items: center; will-change: transform; }
-        .r-card { width: 140px; height: 140px; margin: 0 4px; background: #1a1b20; border-radius: 12px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .r-card { width: 140px; height: 140px; margin: 0 4px; background: #1a1b20; border-radius: 12px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.05); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
         .r-card img { width: 90px; height: 60px; object-fit: contain; }
         .r-card-name { font-size:10px; color:#888; margin-top:10px; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .win-screen { display: none; text-align: center; width: 100%; padding: 20px; animation: fadeIn 0.5s; box-sizing: border-box; }
-        .win-img { width: 160px; filter: drop-shadow(0 0 30px rgba(255,215,0,0.4)); margin: 20px 0; animation: float 3s infinite; }
-        @keyframes pulse-gold { 0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); } }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         
+        .win-screen { display: none; text-align: center; width: 100%; padding: 20px; box-sizing: border-box; animation: fadeIn 0.5s; }
+        .win-img { width: 180px; filter: drop-shadow(0 0 30px rgba(255,215,0,0.5)); animation: float 3s infinite ease-in-out; margin: 20px 0; }
+        
+        @keyframes pulse-gold { 0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); } }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
         /* Alert */
         .custom-alert-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; }
         .custom-alert-overlay.visible { opacity: 1; pointer-events: auto; }
-        .custom-alert-box { background: #1e1f25; width: 80%; max-width: 300px; padding: 25px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); text-align: center; transform: scale(0.9); transition: 0.3s; }
+        .custom-alert-box { background: #1e1f25; width: 280px; padding: 25px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); transform: scale(0.9); transition: 0.3s; }
         .custom-alert-overlay.visible .custom-alert-box { transform: scale(1); }
         
         .btn-loading { opacity: 0.7; pointer-events: none; position: relative; color: transparent !important; }
@@ -202,31 +219,25 @@
     </div>
 
     <div id="app">
-        <div style="text-align:center; padding-top:40px; color:#555;">
-            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        <div style="text-align:center; padding-top:50px; color:#666;">
+            <i class="fa-solid fa-spinner fa-spin"></i> Загрузка...
         </div>
     </div>
 
     <div id="details-modal" class="details-modal">
         <div class="details-content">
-            <div class="dm-title">Информация</div>
-            <div class="dm-info">
-                <strong>Правила:</strong><br>
-                1. Общайся в чате <span style="color:#4b69ff">HATElove</span>.<br>
-                2. Сообщения короче 2 символов не считаются.<br>
-                3. Спам фильтруется.
-            </div>
-            <div class="dm-info" id="dm-rewards-list">
+            <div class="dm-title">Задание</div>
+            
+            <div id="dm-list-container">
                 </div>
-            <button class="btn-main btn-start" onclick="closeDetails()" style="height:50px; font-size:14px;">Закрыть</button>
-        </div>
-    </div>
+            
+            <div style="margin-top:20px; color:#888; font-size:12px; line-height:1.5;">
+                Правила:<br>
+                • Сообщения в чате <a href="#" onclick="openChat(); return false;" style="color:#4b69ff">HATElove</a><br>
+                • Не менее 2 символов, без спама.
+            </div>
 
-    <div id="custom-alert" class="custom-alert-overlay">
-        <div class="custom-alert-box">
-            <h3 id="alert-title" style="color:#fff; margin-top:0;"></h3>
-            <p id="alert-msg" style="color:#aaa; font-size:14px; white-space:pre-line;"></p>
-            <button class="btn-main btn-start" style="height:45px;" onclick="closeCustomAlert()">OK</button>
+            <button class="btn-close-modal" onclick="closeDetails()">ЗАКРЫТЬ</button>
         </div>
     </div>
 
@@ -237,10 +248,18 @@
             <div class="r-track" id="r-track"></div>
         </div>
         <div id="r-win" class="win-screen">
-            <h2 style="color:#ffd700; margin:0;">ПОБЕДА!</h2>
+            <h2 style="color:#ffd700; margin:0;">ВЫИГРЫШ!</h2>
             <img id="r-win-img" class="win-img" src="">
-            <div id="r-win-name" style="font-weight:700; font-size:16px; margin-bottom:15px; color:#fff;"></div>
-            <button class="btn-main btn-claim" onclick="closeRoulette()">ЗАБРАТЬ В ИНВЕНТАРЬ</button>
+            <div id="r-win-name" style="font-weight:700; font-size:18px;"></div>
+            <button class="action-card btn-claim" style="margin-top:20px;" onclick="closeRoulette()">ЗАБРАТЬ В ИНВЕНТАРЬ</button>
+        </div>
+    </div>
+
+    <div id="custom-alert" class="custom-alert-overlay">
+        <div class="custom-alert-box">
+            <h3 id="alert-title" style="margin-top:0; color:#fff;"></h3>
+            <p id="alert-msg" style="color:#aaa; font-size:14px; margin-bottom:20px; white-space: pre-line;"></p>
+            <button class="action-card btn-start" style="height:45px; font-size:14px;" onclick="closeCustomAlert()">ОК</button>
         </div>
     </div>
 
@@ -253,65 +272,60 @@
 
         async function init() {
             try {
-                // Пытаемся получить данные с API
                 const res = await fetch(`/api/challenges/list?initData=${encodeURIComponent(tg.initData)}`);
                 const data = await res.json();
                 render(data.challenges);
-            } catch (e) {
-                // Если API нет (локальный тест) - используем заглушку, но рабочую
-                console.warn("API Error, using fallback layout");
-                // document.getElementById('app').innerHTML = `<div style="text-align:center;color:#666">Ошибка загрузки</div>`;
+            } catch(e) {
+                // Если API нет (локально)
+                console.log("No API, waiting...");
             }
         }
 
-        // --- ГЛАВНАЯ ФУНКЦИЯ ---
+        // --- ГЛАВНАЯ ФУНКЦИЯ ОТРИСОВКИ ---
         function render(list) {
             const app = document.getElementById('app');
             app.innerHTML = '';
 
             if(!list || list.length === 0) {
-                app.innerHTML = '<div style="text-align:center; color:#666; margin-top:50px;">Заданий нет.</div>';
+                app.innerHTML = '<div style="text-align:center; color:#666; margin-top:50px;">Заданий нет</div>';
                 return;
             }
 
             list.forEach(item => {
-                // 1. СТАТУС: AVAILABLE -> Показываем только кнопку Начать
+                // 1. СТАТУС: AVAILABLE -> Кнопка Начать
                 if (item.status === 'available') {
-                    const btn = document.createElement('button');
-                    btn.className = 'btn-main btn-start';
+                    const btn = document.createElement('div');
+                    btn.className = 'action-card btn-start';
                     btn.innerHTML = `<i class="fa-solid fa-fire"></i> НАЧАТЬ ИСПЫТАНИЕ`;
                     btn.onclick = () => handleAction('start', item.template_id, btn);
                     app.appendChild(btn);
                     return;
                 }
 
-                // 2. СТАТУС: ACTIVE / READY / COMPLETED -> Рисуем карточку с прогрессом
-                const card = document.createElement('div');
-                card.className = 'progress-card';
+                // 2. СТАТУС: ACTIVE / READY_TO_CLAIM -> Шкала прогресса
+                const container = document.createElement('div');
+                container.className = 'progress-container';
 
-                // --- ЛОГИКА ШКАЛЫ (Самая важная часть) ---
-                // Получаем плоский список ВСЕХ этапов из вложенности next_tier
+                // Логика шкалы (расчет всех этапов)
                 const allTiers = getAllTiers(item);
-                // Финальная цель = цель последнего этапа
                 const finalTarget = allTiers[allTiers.length - 1].target;
-                // Текущий прогресс
                 const currentVal = item.current_progress || 0;
-                // Для полоски (не больше 100%)
                 const displayProgress = Math.min(currentVal, finalTarget);
 
+                // Заголовок
                 let html = `
                     <div class="pc-header">
-                        <span>${item.title}</span>
+                        <span>${item.title || 'Испытание'}</span>
                         <span class="pc-val">${currentVal} / ${finalTarget}</span>
                     </div>
                     
-                    <div class="multi-stage-track">
-                        <div class="multi-stage-fill" style="width: ${(displayProgress / finalTarget) * 100}%"></div>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width: ${(displayProgress / finalTarget) * 100}%"></div>
                 `;
 
-                // Рисуем маркеры для КАЖДОГО этапа
-                allTiers.forEach(tier => {
-                    const percent = Math.min(100, (tier.target / finalTarget) * 100);
+                // Рисуем маркеры (Галочки)
+                allTiers.forEach((tier, index) => {
+                    const percent = (tier.target / finalTarget) * 100;
                     const isReached = currentVal >= tier.target;
                     const icon = getRewardIcon(tier.type);
                     
@@ -320,57 +334,60 @@
                             ${isReached ? '<i class="fa-solid fa-check"></i>' : icon}
                         </div>
                         <div class="stage-label" style="left: ${percent}%">
-                            ${formatRewardShort(tier.reward, tier.type)}
+                            ${formatReward(tier.reward, tier.type)}
                         </div>
                     `;
                 });
-
                 html += `</div>`; // Закрываем track
 
-                // Кнопки действий
+                // Кнопка ЗАБРАТЬ
                 if (item.status === 'ready_to_claim') {
-                    html += `<button class="btn-main btn-claim" style="margin-top:20px;" id="btn-claim-${item.template_id}">ЗАБРАТЬ НАГРАДУ</button>`;
-                } else if (item.status === 'completed') {
-                    html += `<button class="btn-main btn-done" style="margin-top:20px;">ВЫПОЛНЕНО</button>`;
+                    html += `<div class="action-card btn-claim" id="btn-claim-${item.template_id}">ЗАБРАТЬ НАГРАДУ</div>`;
                 }
 
-                // Кнопка ПОДРОБНЕЕ (Выровнена по центру)
+                // Кнопка ПОДРОБНЕЕ (маленькая снизу)
                 html += `
-                    <div class="details-wrapper">
-                        <div class="btn-details" id="btn-details-${item.template_id}">
-                            УЗНАТЬ ПОДРОБНЕЕ <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
-                        </div>
+                    <div class="action-card btn-details" id="btn-details-${item.template_id}">
+                        УЗНАТЬ ПОДРОБНЕЕ <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
                     </div>
                 `;
 
-                card.innerHTML = html;
-                app.appendChild(card);
+                // Если выполнено
+                if(item.status === 'completed') {
+                    html += `<div style="text-align:center; color:#666; font-size:12px; margin-top:15px;">Выполнено! Ждем завтра.</div>`;
+                }
 
-                // Вешаем обработчики
+                container.innerHTML = html;
+                app.appendChild(container);
+
+                // Вешаем события
                 if(document.getElementById(`btn-claim-${item.template_id}`)) {
                     document.getElementById(`btn-claim-${item.template_id}`).onclick = function() {
                         handleAction('claim', item.template_id, this);
                     };
                 }
                 document.getElementById(`btn-details-${item.template_id}`).onclick = function() {
-                    openDetails(allTiers, currentVal);
+                    openDetails(item, allTiers);
                 };
             });
         }
 
-        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-        function getAllTiers(rootItem) {
-            let list = [];
-            // Добавляем текущий корневой этап
-            list.push({ target: rootItem.target, reward: rootItem.reward_amount, type: rootItem.reward_type });
+        // --- ФОРМАТИРОВАНИЕ НАГРАД (5 💰 и т.д.) ---
+        function formatReward(reward, type) {
+            if(type === 'skin_random') return 'Skin';
             
-            // Идем по цепочке next_tier
-            let curr = rootItem.next_tier;
-            while(curr) {
-                list.push({ target: curr.target, reward: curr.rewards || curr.reward, type: curr.type });
-                curr = curr.next_tier;
+            // Если награда объект {coins: 5, tickets: 2}
+            if(typeof reward === 'object') {
+                let txt = '';
+                if(reward.tickets) txt += `${reward.tickets}🎟️ `;
+                if(reward.coins) txt += `${reward.coins}🪙`; // Иконка монеты
+                return txt;
             }
-            return list;
+            
+            // Если просто число
+            if(type === 'coins') return `${reward}🪙`;
+            if(type === 'tickets') return `${reward}🎟️`;
+            return reward;
         }
 
         function getRewardIcon(type) {
@@ -380,57 +397,47 @@
             return '<i class="fa-solid fa-gift"></i>';
         }
 
-        function formatRewardShort(amount, type) {
-            if(type === 'skin_random') return 'Skin';
-            if(typeof amount === 'object') {
-                 if(amount.tickets) return amount.tickets + ' tkt';
-                 if(amount.coins) return amount.coins;
+        function getAllTiers(rootItem) {
+            let list = [];
+            list.push({ target: rootItem.target, reward: rootItem.reward_amount, type: rootItem.reward_type, title: rootItem.title });
+            let curr = rootItem.next_tier;
+            while(curr) {
+                list.push({ target: curr.target, reward: curr.rewards || curr.reward, type: curr.type, title: curr.title });
+                curr = curr.next_tier;
             }
-            if(type === 'tickets') return amount + ' tkt';
-            return amount;
-        }
-        
-        function formatRewardFull(amount, type) {
-            if(type === 'skin_random') return '🔥 Кейс со скином';
-            let txt = '';
-            if(typeof amount === 'object') {
-                if(amount.tickets) txt += `${amount.tickets} Билетов `;
-                if(amount.coins) txt += `${amount.coins} Монет`;
-                return txt;
-            }
-            if(type === 'coins') return `${amount} Монет`;
-            if(type === 'tickets') return `${amount} Билетов`;
-            return amount;
+            return list;
         }
 
-        // --- UI ЛОГИКА (МОДАЛКИ, АЛЕРТЫ) ---
-        function openDetails(tiers, currentProgress) {
-            const list = document.getElementById('dm-rewards-list');
-            list.innerHTML = '<strong>Награды по этапам:</strong><br>';
+        // --- UI ДЕТАЛИ ---
+        function openDetails(item, tiers) {
+            const container = document.getElementById('dm-list-container');
+            container.innerHTML = '';
+            
+            // Заголовок модалки = Заголовок задания
+            document.querySelector('.dm-title').innerText = item.title || 'Задание';
+
             tiers.forEach((t, i) => {
-                const isDone = currentProgress >= t.target;
-                const color = isDone ? '#4b69ff' : '#ffd700';
-                list.innerHTML += `<div style="margin-top:5px; display:flex; justify-content:space-between;">
-                    <span>Этап ${i+1} (${t.target} смс)</span>
-                    <span style="color:${color}">${formatRewardFull(t.reward, t.type)} ${isDone ? '✓' : ''}</span>
-                </div>`;
+                const isDone = item.current_progress >= t.target;
+                const div = document.createElement('div');
+                div.className = `dm-item ${isDone ? 'current' : ''}`;
+                div.innerHTML = `
+                    <div class="dm-target">
+                        ${t.title || ('Этап ' + (i+1))} <span style="color:#666; font-size:11px;">(${t.target} смс)</span>
+                    </div>
+                    <div class="dm-reward">
+                        ${formatReward(t.reward, t.type)} ${isDone ? '<i class="fa-solid fa-check" style="color:#4b69ff; margin-left:5px;"></i>' : ''}
+                    </div>
+                `;
+                container.appendChild(div);
             });
             document.getElementById('details-modal').classList.add('visible');
         }
         function closeDetails() { document.getElementById('details-modal').classList.remove('visible'); }
-        
-        function showCustomAlert(title, msg) {
-            document.getElementById('alert-title').innerText = title;
-            document.getElementById('alert-msg').innerText = msg;
-            document.getElementById('custom-alert').classList.add('visible');
-        }
-        function closeCustomAlert() { document.getElementById('custom-alert').classList.remove('visible'); }
 
-        // --- API ACTIONS ---
+        // --- ДЕЙСТВИЯ (API) ---
         async function handleAction(type, id, btn) {
             haptic.impactOccurred('medium');
-            const originalText = btn.innerHTML;
-            btn.classList.add('btn-loading');
+            if(btn) btn.classList.add('btn-loading');
             
             try {
                 const res = await fetch(`/api/challenges/${type}`, {
@@ -447,30 +454,31 @@
                         if(type === 'claim') {
                             haptic.notificationOccurred('success');
                             let msg = "Награда получена!";
-                            if (json.data && json.data.messages && json.data.messages.length > 0) {
-                                msg = json.data.messages.join("\n");
-                            } else if (json.data.amount) {
-                                msg = `+${json.data.amount}`;
-                            }
+                            if (json.data && json.data.messages) msg = json.data.messages.join("\n");
+                            else if (json.data.amount) msg = `+${json.data.amount}`;
                             showCustomAlert("Успешно!", msg);
                         }
                         await init(); 
                     }
                 } else {
-                    showCustomAlert("Внимание", json.message || "Ошибка сервера");
-                    await init(); // Обновляем чтобы сбросить стейт
+                    showCustomAlert("Внимание", json.message || "Ошибка");
+                    await init();
                 }
             } catch(e) {
                 showCustomAlert("Ошибка", "Проблемы с сетью");
             } finally {
-                if(document.body.contains(btn)) {
-                    btn.classList.remove('btn-loading');
-                    btn.innerHTML = originalText;
-                }
+                if(btn) btn.classList.remove('btn-loading');
             }
         }
 
-        // --- ROULETTE LOGIC ---
+        // --- ALERT & ROULETTE ---
+        function showCustomAlert(title, msg) {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            document.getElementById('custom-alert').classList.add('visible');
+        }
+        function closeCustomAlert() { document.getElementById('custom-alert').classList.remove('visible'); }
+
         function launchRoulette(items, winner, extraMessages) {
             const modal = document.getElementById('r-modal');
             const area = document.getElementById('r-area');
@@ -486,28 +494,21 @@
 
             const CARD_W = 148; 
             const WINNER_IDX = 60; 
-
             let fullList = [];
             while(fullList.length < 80) fullList = fullList.concat(items);
             fullList[WINNER_IDX] = winner;
 
             track.innerHTML = fullList.map(item => {
-                let rClass = 'r-card'; // Default style handles borders
+                let color = '#4b69ff';
                 const r = (item.rarity || 'blue').toLowerCase();
-                let borderColor = '#4b69ff';
-                if(r==='purple') borderColor='#8847ff'; 
-                if(r==='pink') borderColor='#d32ce6';
-                if(r==='red') borderColor='#eb4b4b'; 
-                if(r==='gold') borderColor='#ffd700';
-                
-                return `<div class="r-card" style="border-color:${borderColor}"><img src="${item.image_url}"><div class="r-card-name">${item.name}</div></div>`
+                if(r==='purple') color='#8847ff'; if(r==='pink') color='#d32ce6'; if(r==='gold') color='#ffd700';
+                return `<div class="r-card" style="border-color:${color}"><img src="${item.image_url}"><div class="r-card-name">${item.name}</div></div>`
             }).join('');
 
             setTimeout(() => {
                 const screenCenter = window.innerWidth / 2;
                 const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
                 const overshoot = -(winnerCenter - screenCenter + (Math.random() * 200 + 100)); 
-
                 track.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)'; 
                 track.style.transform = `translateX(${overshoot}px)`;
                 
@@ -518,23 +519,14 @@
                     const finalOffset = -(winnerCenter - screenCenter);
                     track.style.transition = 'transform 1s ease-out';
                     track.style.transform = `translateX(${finalOffset}px)`;
-                    
                     haptic.impactOccurred('heavy');
 
                     setTimeout(() => {
                         haptic.notificationOccurred('success');
                         area.style.display = 'none';
                         document.getElementById('r-win-img').src = winner.image_url;
-                        document.getElementById('r-win-name').textContent = winner.name;
+                        document.getElementById('r-win-name').innerText = winner.name;
                         winScreen.style.display = 'block';
-
-                        if (extraMessages && extraMessages.length > 0) {
-                            const msgDiv = document.createElement('div');
-                            msgDiv.style.marginTop = '10px';
-                            msgDiv.style.color = '#aaa';
-                            msgDiv.innerHTML = "А ТАКЖЕ:<br>" + extraMessages.join('<br>');
-                            winScreen.appendChild(msgDiv);
-                        }
                     }, 1000);
                 }, 8000); 
             }, 100);
@@ -542,8 +534,6 @@
 
         function closeRoulette() {
             document.getElementById('r-modal').style.display = 'none';
-            const extra = document.querySelector('#r-win div[style*="margin-top"]');
-            if(extra) extra.remove();
             init(); 
         }
 
