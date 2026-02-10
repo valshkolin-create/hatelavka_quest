@@ -13953,7 +13953,6 @@ async def update_raffle_button(bot, channel_id, message_id, raffle_id, count):
 
 
 # 1. (Админ) Создать розыгрыш + Пост + Таймер
-# 1. (Админ) Создать розыгрыш + Пост + Таймер
 @app.post("/api/v1/admin/raffles/create")
 async def create_raffle(
     req: RaffleCreateRequest, 
@@ -13971,7 +13970,7 @@ async def create_raffle(
     if req.settings.start_time:
         try:
             start_dt = datetime.fromisoformat(req.settings.start_time.replace('Z', ''))
-            # 🔥 ИСПРАВЛЕНИЕ 1: Корректируем время для проверки (МСК -> UTC для сравнения)
+            # 🔥 ИСПРАВЛЕНИЕ 1: Вычитаем 3 часа для корректной проверки "будущего" (МСК -> UTC)
             check_dt = start_dt - timedelta(hours=3)
             if check_dt > datetime.utcnow() + timedelta(minutes=1):
                 status = "scheduled"
@@ -13986,14 +13985,13 @@ async def create_raffle(
         "settings": req.settings.dict()
     }
     
-    # 🔥 ИСПРАВЛЕНИЕ 2: Заголовки, чтобы Supabase вернул данные (Fix JSONDecodeError)
+    # ВАЖНО: Заголовок, чтобы Supabase вернул данные (Fix JSONDecodeError)
     headers = {
         "Prefer": "return=representation",
         "Content-Type": "application/json"
     }
 
     # Получаем сразу ID
-    # Добавили headers=headers
     res = await supabase.post("/raffles", json=payload, params={"select": "id"}, headers=headers)
     
     if res.status_code not in (200, 201):
@@ -14086,7 +14084,7 @@ async def create_raffle(
     # 3. ЕСЛИ ОТЛОЖЕННЫЙ СТАРТ -> СТАВИМ ТАЙМЕР НА ПУБЛИКАЦИЮ
     elif status == "scheduled" and start_dt and qstash_token and app_url:
         try:
-            # 🔥 ИСПРАВЛЕНИЕ 3: Вычитаем 3 часа, чтобы перевести МСК в UTC для QStash
+            # 🔥 ИСПРАВЛЕНИЕ 2: Вычитаем 3 часа перед отправкой в QStash (чтобы пост вышел вовремя)
             dt_utc_start = start_dt - timedelta(hours=3)
             start_unix = int(dt_utc_start.replace(tzinfo=timezone.utc).timestamp())
             
@@ -14107,10 +14105,11 @@ async def create_raffle(
         try:
             if qstash_token and app_url:
                 dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                # Здесь уже было верно (-3 часа), оставляем как есть
+                # Считаем, что ввод был в МСК, переводим в UTC для сервера
                 dt_utc = dt_input - timedelta(hours=3)
                 unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
                 
+                # Ставим таймер, только если время в будущем
                 if unix_time > int(datetime.now(timezone.utc).timestamp()):
                     target = f"{app_url}/api/v1/webhook/finalize_raffle"
                     async with httpx.AsyncClient() as client:
