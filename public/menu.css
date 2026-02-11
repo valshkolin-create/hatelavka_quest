@@ -2356,3 +2356,78 @@ body.tutorial-active #main-content {
     .premium-slide-box { padding: 15px; }
 }
 
+/* ================================================================= */
+/* 🚀 АДАПТАЦИЯ ТОЛЬКО ДЛЯ VK (TELEGRAM НЕ ЗАТРОНЕТ) */
+/* ================================================================= */
+
+/* 1. Блокируем окно ТОЛЬКО в VK */
+html.vk-mode,
+html.vk-mode body {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important; /* Убирает скролл страницы */
+    overscroll-behavior: none;
+    z-index: 0;
+    background-color: #000; /* Фон подложки */
+}
+
+/* 2. Включаем внутренний скролл ТОЛЬКО в VK */
+html.vk-mode #main-content, 
+html.vk-mode .main-content {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    
+    width: 100% !important;
+    height: 100% !important;
+    
+    /* Скролл внутри контейнера */
+    overflow-y: auto !important; 
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    
+    /* Отступы специфичные для VK */
+    box-sizing: border-box !important;
+    padding-top: 10px !important;
+    
+    /* Большой отступ снизу, чтобы футер не перекрывал контент */
+    padding-bottom: 100px !important; 
+    
+    z-index: 10;
+}
+
+/* 3. Фиксируем футер ТОЛЬКО в VK */
+html.vk-mode .app-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 9999 !important;
+    background-color: rgba(28, 28, 30, 0.98) !important; /* Чуть плотнее фон */
+    padding-bottom: 10px !important; /* Чуть больше отступ снизу */
+}
+
+/* 4. Центровка для ПК версии ВК (чтобы не было растянуто) */
+@media (min-width: 768px) {
+    html.vk-mode .main-content {
+        max-width: 500px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        border-left: 1px solid rgba(255,255,255,0.1);
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    html.vk-mode .app-footer {
+        max-width: 500px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        border-radius: 12px 12px 0 0;
+    }
+}
