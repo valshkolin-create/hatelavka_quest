@@ -4,7 +4,21 @@
   <meta charset="UTF-8" />
   <title>Меню</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
   
+  <script>
+  // ЗАПЛАТКА: Игнорируем ошибку querySelector от внешних библиотек
+  (function() {
+      const originalQS = Document.prototype.querySelector;
+      Document.prototype.querySelector = function(selector) {
+        // Если кто-то сует document вместо строки — возвращаем null и не падаем
+        if (selector === document || typeof selector !== 'string') {
+            return null;
+        }
+        return originalQS.call(this, selector);
+      };
+  })();
+</script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
   
