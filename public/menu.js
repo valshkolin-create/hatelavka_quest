@@ -2,6 +2,8 @@
 // FINAL MENU.JS (OPTIMIZED STRUCTURE + RESTORED LOGIC)
 // ================================================================
 // --- ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА JS (СТРОКА 1) ---
+
+
 try {
     // Сообщаем телеграму, что приложение готово
     window.Telegram.WebApp.ready();
@@ -15,6 +17,47 @@ try {
 } catch (e) {
     console.log('Telegram WebApp is not available');
 }
+
+// ================================================================
+// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ И АВТОРИЗАЦИЯ (В САМЫЙ ВЕРХ!)
+// ================================================================
+const urlParams = new URLSearchParams(window.location.search);
+const isVk = urlParams.has('vk_user_id') || urlParams.has('sign');
+
+if (isVk) {
+    console.log("🚀 Запущено в VK");
+    // Инициализация VK Bridge
+    if (typeof vkBridge !== 'undefined') {
+        vkBridge.send('VKWebAppInit');
+    }
+} else {
+    console.log("✈️ Запущено в Telegram");
+    try {
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            setTimeout(() => window.Telegram.WebApp.expand(), 100);
+        }
+    } catch (e) {
+        console.log('Telegram WebApp init error', e);
+    }
+}
+
+// ГЛОБАЛЬНАЯ функция (должна быть доступна везде)
+function getAuthPayload() {
+    if (isVk) {
+        return {
+            initData: window.location.search.slice(1), 
+            platform: 'vk'
+        };
+    } else {
+        return {
+            initData: (window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initData : '') || '',
+            platform: 'tg'
+        };
+    }
+}
+// ================================================================
 const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
     loadingText: document.getElementById('loading-text'),
@@ -1992,39 +2035,6 @@ function setupEventListeners() {
             window.location.href = '/shop';
         };
     }
-
-    // --- УНИВЕРСАЛЬНАЯ АВТОРИЗАЦИЯ (VK + TG) ---
-const urlParams = new URLSearchParams(window.location.search);
-const isVk = urlParams.has('vk_user_id') || urlParams.has('sign');
-
-if (isVk) {
-    console.log("🚀 Запущено в VK");
-    // Инициализация VK Bridge
-    vkBridge.send('VKWebAppInit');
-} else {
-    console.log("✈️ Запущено в Telegram");
-    // Инициализация Telegram
-    if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-    }
-}
-
-// Функция-помощник: собирает данные для отправки на сервер
-function getAuthPayload() {
-    if (isVk) {
-        return {
-            initData: window.location.search.slice(1), // Строка параметров VK
-            platform: 'vk'
-        };
-    } else {
-        return {
-            initData: window.Telegram.WebApp.initData, // Строка параметров TG
-            platform: 'tg'
-        };
-    }
-}
-// ------------------------------------------
 
     // Еженедельные цели
     document.addEventListener('click', (e) => {
