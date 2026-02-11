@@ -1,60 +1,55 @@
 // ================================================================
-// 0. СОХРАНЕНИЕ ПАРАМЕТРОВ ЗАПУСКА VK (КРИТИЧНО ВАЖНО)
+// 0. СРОЧНОЕ СОХРАНЕНИЕ ПАРАМЕТРОВ VK (ДО ЛЮБОЙ ОЧИСТКИ URL)
 // ================================================================
-function saveVkParams() {
+(function saveVkParams() {
     try {
-        // VK передает параметры в search (после ?) или в hash (после #)
-        // Нам нужно сохранить оригинальную строку запуска СРАЗУ.
         const url = new URL(window.location.href);
-        
-        // 1. Приоритет: search params (стандарт VK Mini Apps)
+        // 1. Ищем параметры в search (?vk_...)
         let params = url.search.slice(1);
         
-        // 2. Если в search пусто, проверяем hash (иногда бывает при редиректах)
+        // 2. Если пусто, ищем в hash (#vk_...)
         if (!params && url.hash.includes('vk_')) {
              params = url.hash.slice(1); 
         }
-
-        // 3. Если всё еще пусто, но мы в iframe - пробуем достать из window.name 
-        // (некоторые версии VK Bridge туда пишут, но редко)
         
-        // Сохраняем глобально, чтобы getAuthPayload мог это забрать позже
-        window.vkParams = params;
-        
-        console.log("💾 [VK Init] Params saved:", window.vkParams ? "Yes" : "No", window.vkParams);
+        // 3. Сохраняем в глобальную переменную, если нашли параметры ВК
+        if (params.includes('vk_user_id') || params.includes('sign')) {
+            window.vkParams = params;
+            console.log("💾 [VK Init] Параметры сохранены:", window.vkParams);
+        }
     } catch (e) {
         console.error("Ошибка сохранения параметров VK:", e);
     }
 })();
 
 // ================================================================
-
-// ================================================================
 // 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ (HYBRID LAUNCH)
 // ================================================================
 
 function getSearchParam(name) {
-    const url = new URL(window.location.href);
-    return url.searchParams.get(name) || (url.hash.includes(name + '=') ? 'found_in_hash' : null);
+    try {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name) || (url.hash.includes(name + '=') ? 'found_in_hash' : null);
+    } catch(e) { return null; }
 }
 
-// 1. Сначала ищем явные признаки ВК в URL
-let isVk = !!(getSearchParam('vk_app_id') || getSearchParam('vk_user_id') || getSearchParam('sign'));
+// Определяем, ВК это или нет (используем сохраненные params или текущий URL)
+let isVk = !!(window.vkParams || getSearchParam('vk_app_id') || getSearchParam('vk_user_id') || getSearchParam('sign'));
 
-// 2. Если в URL пусто, но нет Telegram объекта - пробуем считать это ВК
+// Если явных параметров нет, но нет и Telegram — возможно мы в iframe ВК
 if (!isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
-    // Проверка на запуск внутри iframe (ВК всегда во фрейме)
     if (window.self !== window.top) {
-        console.log("⚠️ Нет параметров в URL, но мы в iframe. Пробуем режим VK.");
+        console.log("⚠️ Нет параметров, но мы в iframe. Включаем режим VK.");
         isVk = true;
     }
 }
 
-// Инициализация
+// Инициализация платформ
 if (isVk) {
     console.log("🚀 Запущено в VK (Hybrid Mode)");
+    // Пытаемся инициализировать мост ВК, если он подключен
     if (typeof vkBridge !== 'undefined') {
-        vkBridge.send('VKWebAppInit');
+        vkBridge.send('VKWebAppInit').catch(e => console.log('VK Bridge init err:', e));
     }
 } else {
     console.log("✈️ Запущено в Telegram");
@@ -62,25 +57,36 @@ if (isVk) {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
+            // Хак для Android (повторный expand)
+            setTimeout(() => window.Telegram.WebApp.expand(), 100);
+            setTimeout(() => window.Telegram.WebApp.expand(), 500);
         }
-    } catch (e) {}
+    } catch (e) {
+        console.log('Telegram WebApp error:', e);
+    }
 }
 
+// ================================================================
+// 2. ГЛАВНАЯ ФУНКЦИЯ АВТОРИЗАЦИИ (ИСПРАВЛЕННАЯ)
+// ================================================================
 function getAuthPayload() {
     if (isVk) {
-        // 1. Берем то, что сохранили при старте (самое надежное)
+        // 1. Приоритет: сохраненные при старте параметры (до очистки URL)
         let payload = window.vkParams;
 
-        // 2. Фолбек: если вдруг vkParams пуст, пробуем вычитать из текущего URL
+        // 2. Фолбек: если вдруг пусто, пробуем URL (на случай если очистка не сработала)
         if (!payload) {
              payload = window.location.search || window.location.hash || '';
              if (payload.startsWith('?') || payload.startsWith('#')) {
                 payload = payload.slice(1);
             }
         }
-
-        // Лог для отладки перед отправкой
-        // console.log("[Auth] Payload for Backend:", payload); 
+        
+        // 3. Последний шанс: выдрать из iframe src (через document.referrer или window.name иногда не работает, но пробуем)
+        if (!payload && window.location.href.includes('vk_')) {
+             const parts = window.location.href.split('?');
+             if(parts[1]) payload = parts[1];
+        }
 
         return { 
             initData: payload || '', 
@@ -93,21 +99,6 @@ function getAuthPayload() {
         };
     }
 }
-// --- ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА JS (СТРОКА 1) ---
-try {
-    // Сообщаем телеграму, что приложение готово
-    window.Telegram.WebApp.ready();
-    // Принудительно разворачиваем на весь экран МГНОВЕННО
-    window.Telegram.WebApp.expand();
-    
-    // Хак: повторяем expand через небольшие промежутки, 
-    // так как на некоторых Android он может не сработать с первого раза
-    setTimeout(() => window.Telegram.WebApp.expand(), 100);
-    setTimeout(() => window.Telegram.WebApp.expand(), 500);
-} catch (e) {
-    console.log('Telegram WebApp is not available');
-}
-
 // ================================================================
 const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
