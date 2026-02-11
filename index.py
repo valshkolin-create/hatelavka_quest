@@ -1066,6 +1066,7 @@ TWITCH_WEBHOOK_SECRET = os.getenv("TWITCH_WEBHOOK_SECRET")
 TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
 SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_that_should_be_changed") # Добавь эту переменную в Vercel для безопасности
 WIZEBOT_API_KEY = os.getenv("WIZEBOT_API_KEY")
+VK_APP_SECRET = os.getenv("VK_APP_SECRET")
 
 # --- Paths ---
 BASE_DIR = pathlib.Path(__file__).resolve().parent
@@ -1288,6 +1289,44 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
     except Exception as e:
         logging.error(f"Error checking hash: {e}")
         return None
+
+# --- 🔥 [ВСТАВИТЬ СЮДА] 2. Функция валидации VK ---
+def is_valid_vk_query(query_string: str, secret: str) -> dict | None:
+    """Проверяет подпись параметров запуска VK Mini Apps."""
+    if not secret:
+        logging.error("❌ VK_APP_SECRET не задан!")
+        return None
+    try:
+        from urllib.parse import parse_qsl
+        import base64
+        import hmac
+        import hashlib
+        
+        params = dict(parse_qsl(query_string, keep_blank_values=True))
+        vk_sign = params.pop("sign", None)
+        if not vk_sign: return None
+
+        vk_params = {k: v for k, v in params.items() if k.startswith("vk_")}
+        sorted_params = sorted(vk_params.items())
+        check_string = "&".join(f"{k}={v}" for k, v in sorted_params)
+        
+        # VK Sign calculation
+        secret_bytes = secret.encode("utf-8")
+        msg_bytes = check_string.encode("utf-8")
+        hash_digest = hmac.new(secret_bytes, msg_bytes, hashlib.sha256).digest()
+        calculated_sign = base64.urlsafe_b64encode(hash_digest).decode("utf-8").rstrip("=")
+        
+        if calculated_sign == vk_sign:
+            return {
+                "id": int(params.get("vk_user_id")),
+                "first_name": "VK User",
+                "platform": "vk"
+            }
+        return None
+    except Exception as e:
+        logging.error(f"VK Auth Error: {e}")
+        return None
+# --------------------------------------------------
         
 def create_twitch_state(init_data: str) -> str:
     return hmac.new(SECRET_KEY.encode(), init_data.encode(), hashlib.sha256).hexdigest()
@@ -1295,6 +1334,8 @@ def create_twitch_state(init_data: str) -> str:
 def validate_twitch_state(state: str, init_data: str) -> bool:
     expected_state = create_twitch_state(init_data)
     return hmac.compare_digest(expected_state, state)
+
+
 
 # --- WebSocket Endpoint ---
 # --- WebSocket Endpoint ---
@@ -1553,28 +1594,49 @@ async def bootstrap_app(
     """
     🚀 OPTIMIZED: Загружает ВСЕ данные + Статус P2P трейда.
     Автоматически регистрирует пользователя, если его нет в базе.
+    Поддерживает гибридную систему (Telegram + VK).
     """
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
+    user_info = None
+    telegram_id = None
+
+    # --- 1. АВТОРИЗАЦИЯ И ОПРЕДЕЛЕНИЕ ID ---
+    if request_data.platform == "vk":
+        # Ветка ВКонтакте: Проверяем подпись VK
+        user_info = is_valid_vk_query(request_data.initData, VK_APP_SECRET)
+        if user_info and "id" in user_info:
+            # Превращаем ID ВКонтакте в отрицательный (-123), чтобы писать в ту же базу
+            telegram_id = -1 * abs(user_info["id"])
+    else:
+        # Ветка Telegram: Стандартная проверка
+        user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+        if user_info and "id" in user_info:
+            telegram_id = user_info["id"]
+
+    # Если не прошли ни одну проверку
+    if not user_info or not telegram_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    telegram_id = user_info["id"]
-
    # --- 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА 🛡️ ---
+    # Проверяем админа (только если ID совпадает с ADMIN_IDS)
+    is_admin = telegram_id in ADMIN_IDS
+
     # Если режим включен и ты НЕ админ — отдаем 200 OK + maintenance: true
-    if sleep_cache["is_sleeping"] and telegram_id not in ADMIN_IDS:
+    if sleep_cache["is_sleeping"] and not is_admin:
         return JSONResponse(
             status_code=200, 
             content={"maintenance": True, "detail": "Maintenance Mode"}
         )
     
-    # --- 🔥 2. ОСТАВИЛИ ВАШ БЛОК ЗДЕСЬ 🔥 ---
+    # --- 🔥 2. ОСТАВИЛИ ВАШ БЛОК ЗДЕСЬ (с защитой для ВК) 🔥 ---
     # Запускаем проверку Twitch (ник, подписка) в фоне при каждом запуске приложения
-    background_tasks.add_task(silent_update_twitch_user, telegram_id)
+    # Запускаем ТОЛЬКО если это Telegram (у VK нет username в initData)
+    if request_data.platform != "vk":
+        background_tasks.add_task(silent_update_twitch_user, telegram_id)
     # --------------------------------------
     
     try:
         # 1. Запускаем все запросы ПАРАЛЛЕЛЬНО (Добавили Task I и J)
+        # telegram_id здесь уже правильный (положительный для ТГ, отрицательный для ВК)
         results = await asyncio.gather(
             # A. Настройки админа
             get_admin_settings_async_global(),
@@ -5179,7 +5241,9 @@ async def twitch_oauth_callback(
         return RedirectResponse(url=f"https://t.me/HATElavka_bot/profile?startapp=auth_error")
     
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
-class InitDataRequest(BaseModel): initData: str
+class InitDataRequest(BaseModel):
+    initData: str
+    platform: str = "tg" # По умолчанию 'tg', если фронт ничего не прислал
 class GrantCheckpointAccessRequest(BaseModel):
     initData: str
     user_id_to_grant: int
