@@ -77,6 +77,15 @@ if (!isVk && window.self !== window.top && !window.Telegram?.WebApp?.initData) {
 // Инициализация
 if (isVk) {
     console.log("🚀 Запуск VK. Параметры:", window.vkParams ? "ЕСТЬ" : "НЕТ");
+    // --- АДАПТАЦИЯ CSS: Добавляем класс только для VK ---
+
+if (isVk) {
+
+    document.documentElement.classList.add('vk-mode');
+
+    console.log("🎨 Включен режим верстки для VK");
+
+}
     if (typeof vkBridge !== 'undefined') {
         vkBridge.send('VKWebAppInit');
     }
