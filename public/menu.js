@@ -37,17 +37,34 @@ if (isVk) {
 
 function getAuthPayload() {
     if (isVk) {
-        // Пытаемся собрать всё что есть
-        let payload = window.location.search;
-        if (!payload && window.location.hash) payload = window.location.hash.slice(1);
-        if (payload && payload.startsWith('?')) payload = payload.slice(1);
+        // 1. Берем сохраненные параметры или текущие
+        let payload = window.vkParams || window.location.search || window.location.hash || '';
         
-        // Если payload пустой (совсем беда), пробуем взять search из родительского окна (если доступно)
-        if (!payload) {
-             try { payload = window.top.location.search.slice(1); } catch(e){}
+        // 2. Жесткая очистка: убираем '?' и '#' в начале
+        if (payload.startsWith('?') || payload.startsWith('#')) {
+            payload = payload.slice(1);
+        }
+        
+        // 3. Если всё еще пусто, пробуем выдрать из href (последний шанс)
+        if (!payload && window.location.href.includes('?')) {
+            payload = window.location.href.split('?')[1];
         }
 
-        return { initData: payload || '', platform: 'vk' };
+        // 4. Если всё еще пусто и есть родительское окно (мы в iframe)
+        if (!payload) {
+             try { 
+                 let parentSearch = window.top.location.search;
+                 if(parentSearch.startsWith('?')) parentSearch = parentSearch.slice(1);
+                 payload = parentSearch;
+             } catch(e){}
+        }
+
+        console.log("[Auth] Sending VK Payload:", payload); // Лог для отладки
+
+        return { 
+            initData: payload || '', 
+            platform: 'vk' 
+        };
     } else {
         return {
             initData: (window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initData : '') || '',
