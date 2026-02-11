@@ -1,4 +1,35 @@
 // ================================================================
+// 0. СОХРАНЕНИЕ ПАРАМЕТРОВ ЗАПУСКА VK (КРИТИЧНО ВАЖНО)
+// ================================================================
+function saveVkParams() {
+    try {
+        // VK передает параметры в search (после ?) или в hash (после #)
+        // Нам нужно сохранить оригинальную строку запуска СРАЗУ.
+        const url = new URL(window.location.href);
+        
+        // 1. Приоритет: search params (стандарт VK Mini Apps)
+        let params = url.search.slice(1);
+        
+        // 2. Если в search пусто, проверяем hash (иногда бывает при редиректах)
+        if (!params && url.hash.includes('vk_')) {
+             params = url.hash.slice(1); 
+        }
+
+        // 3. Если всё еще пусто, но мы в iframe - пробуем достать из window.name 
+        // (некоторые версии VK Bridge туда пишут, но редко)
+        
+        // Сохраняем глобально, чтобы getAuthPayload мог это забрать позже
+        window.vkParams = params;
+        
+        console.log("💾 [VK Init] Params saved:", window.vkParams ? "Yes" : "No", window.vkParams);
+    } catch (e) {
+        console.error("Ошибка сохранения параметров VK:", e);
+    }
+})();
+
+// ================================================================
+
+// ================================================================
 // 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ (HYBRID LAUNCH)
 // ================================================================
 
@@ -37,29 +68,19 @@ if (isVk) {
 
 function getAuthPayload() {
     if (isVk) {
-        // 1. Берем сохраненные параметры или текущие
-        let payload = window.vkParams || window.location.search || window.location.hash || '';
-        
-        // 2. Жесткая очистка: убираем '?' и '#' в начале
-        if (payload.startsWith('?') || payload.startsWith('#')) {
-            payload = payload.slice(1);
-        }
-        
-        // 3. Если всё еще пусто, пробуем выдрать из href (последний шанс)
-        if (!payload && window.location.href.includes('?')) {
-            payload = window.location.href.split('?')[1];
-        }
+        // 1. Берем то, что сохранили при старте (самое надежное)
+        let payload = window.vkParams;
 
-        // 4. Если всё еще пусто и есть родительское окно (мы в iframe)
+        // 2. Фолбек: если вдруг vkParams пуст, пробуем вычитать из текущего URL
         if (!payload) {
-             try { 
-                 let parentSearch = window.top.location.search;
-                 if(parentSearch.startsWith('?')) parentSearch = parentSearch.slice(1);
-                 payload = parentSearch;
-             } catch(e){}
+             payload = window.location.search || window.location.hash || '';
+             if (payload.startsWith('?') || payload.startsWith('#')) {
+                payload = payload.slice(1);
+            }
         }
 
-        console.log("[Auth] Sending VK Payload:", payload); // Лог для отладки
+        // Лог для отладки перед отправкой
+        // console.log("[Auth] Payload for Backend:", payload); 
 
         return { 
             initData: payload || '', 
