@@ -14571,6 +14571,19 @@ async def join_raffle(
         print(f"❌ Join Error: Нет Trade Link")
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
+    # --- ПРОВЕРКА СООБЩЕНИЙ (TWITCH) ---
+    min_msgs = int(settings.get('min_daily_messages', 0))
+    
+    # Берем именно daily_message_count (это твич, судя по JSON)
+    user_msgs = int(user_row.get('daily_message_count', 0))
+
+    if min_msgs > 0 and user_msgs < min_msgs:
+        print(f"❌ Join Error: Мало сообщений ({user_msgs} < {min_msgs})")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"⚠️ Мало актива на стриме! Нужно: {min_msgs} сообщ. за сегодня (у тебя: {user_msgs})"
+        )
+
     ticket_cost = int(settings.get('ticket_cost', 0))
     user_tickets = int(user_row.get('tickets') or 0)
     
@@ -14578,7 +14591,6 @@ async def join_raffle(
         print(f"❌ Join Error: Мало билетов ({user_tickets} < {ticket_cost})")
         raise HTTPException(status_code=400, detail=f"⚠️ Не хватает билетов! Нужно: {ticket_cost}")
 
-    # ... (Остальные проверки аналогично) ...
 
     # Если всё ок
     if ticket_cost > 0:
