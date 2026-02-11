@@ -1,27 +1,42 @@
 // ================================================================
-// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ И АВТОРИЗАЦИЯ (ЖЕЛЕЗОБЕТОННАЯ ВЕРСИЯ)
+// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ (MEGA FIX)
 // ================================================================
 
-// Берем полный адрес страницы
-const fullUrl = window.location.href;
+function checkIsVk() {
+    const url = window.location.href;
+    const search = window.location.search;
+    const hash = window.location.hash;
+    
+    // 1. Прямая проверка URL
+    if (url.includes('vk_app_id') || url.includes('vk_user_id') || url.includes('sign=')) return true;
+    
+    // 2. Проверка Search Params (стандартный способ)
+    const params = new URLSearchParams(search);
+    if (params.has('vk_app_id') || params.has('sign')) return true;
 
-// Проверяем наличие ключевых слов прямо в строке (так надежнее всего)
-const isVk = fullUrl.indexOf('vk_app_id') > -1 || 
-             fullUrl.indexOf('vk_user_id') > -1 || 
-             fullUrl.indexOf('sign=') > -1 ||
-             fullUrl.indexOf('vk_platform') > -1;
+    // 3. Проверка HASH (иногда параметры там)
+    if (hash.includes('vk_app_id') || hash.includes('sign=')) return true;
+
+    // 4. Проверка Referrer (откуда пришли)
+    if (document.referrer && document.referrer.includes('vk.com')) return true;
+
+    return false;
+}
+
+const isVk = checkIsVk();
 
 if (isVk) {
-    console.log("🚀 Запущено в VK (Final check)");
+    console.log("🚀 Запущено в VK (Mega Fix)");
+    // Пытаемся вытащить параметры откуда угодно для отправки
+    window.vkParams = window.location.search || window.location.hash || '';
     
-    // Инициализация VK Bridge
     if (typeof vkBridge !== 'undefined') {
         vkBridge.send('VKWebAppInit')
             .then(() => console.log('VK Bridge Init OK'))
             .catch((e) => console.error('VK Bridge Init Fail', e));
     }
 } else {
-    console.log("✈️ Запущено в Telegram");
+    console.log("✈️ Запущено в Telegram, я специально написал сюда. Если бы не было этой надписи, то он бы не обновил ничего. Я не хочу тратить лишние ресурсы");
     try {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
@@ -30,27 +45,22 @@ if (isVk) {
     } catch (e) { console.log('TG Init error', e); }
 }
 
-// ГЛОБАЛЬНАЯ функция получения данных
 function getAuthPayload() {
     if (isVk) {
-        // Собираем всё, что идет после ? и после #
-        let query = window.location.search || '';
-        let hash = window.location.hash || '';
+        // Берем сохраненные параметры или ищем заново
+        let payload = window.vkParams || window.location.search;
         
-        // Убираем ? и # в начале строк, если они есть
-        if (query.startsWith('?')) query = query.slice(1);
-        if (hash.startsWith('#')) hash = hash.slice(1);
+        // Очистка от мусора в начале
+        if (payload.startsWith('?') || payload.startsWith('#')) {
+            payload = payload.slice(1);
+        }
         
-        // Объединяем, чтобы сервер точно нашел sign
-        let combined = query;
-        if (hash) {
-            combined = combined ? (combined + '&' + hash) : hash;
+        // Если совсем пусто, пробуем взять из href (грязный хак, но может спасти)
+        if (!payload && window.location.href.includes('?')) {
+            payload = window.location.href.split('?')[1];
         }
 
-        return {
-            initData: combined, 
-            platform: 'vk'
-        };
+        return { initData: payload, platform: 'vk' };
     } else {
         return {
             initData: (window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initData : '') || '',
@@ -58,21 +68,7 @@ function getAuthPayload() {
         };
     }
 }
-// ================================================================
-
-try {
-    // Сообщаем телеграму, что приложение готово
-    window.Telegram.WebApp.ready();
-    // Принудительно разворачиваем на весь экран МГНОВЕННО
-    window.Telegram.WebApp.expand();
-    
-    // Хак: повторяем expand через небольшие промежутки, 
-    // так как на некоторых Android он может не сработать с первого раза
-    setTimeout(() => window.Telegram.WebApp.expand(), 100);
-    setTimeout(() => window.Telegram.WebApp.expand(), 500);
-} catch (e) {
-    console.log('Telegram WebApp is not available');
-}
+// ======================================
 
 
 // ================================================================
