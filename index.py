@@ -1146,6 +1146,7 @@ def clean_user_name_text(text: str) -> str:
 load_dotenv()
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 # Отключаем информационные логи от библиотек запросов, оставляем только предупреждения и ошибки
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -1414,39 +1415,58 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
 
 # --- 🔥 [ВСТАВИТЬ СЮДА] 2. Функция валидации VK ---
 def is_valid_vk_query(query_string: str, secret: str) -> dict | None:
-    """Проверяет подпись параметров запуска VK Mini Apps."""
+    """
+    Проверяет подпись VK с детальным логированием ошибок.
+    """
     if not secret:
-        logging.error("❌ VK_APP_SECRET не задан!")
+        logger.error("❌ CRITICAL: VK_APP_SECRET не задан в переменных окружения!")
         return None
-    try:
-        from urllib.parse import parse_qsl
-        import base64
-        import hmac
-        import hashlib
-        
-        params = dict(parse_qsl(query_string, keep_blank_values=True))
-        vk_sign = params.pop("sign", None)
-        if not vk_sign: return None
 
+    try:
+        # 1. Парсим строку запроса
+        # Важно: parse_qsl декодирует URL-encoded символы (например %20 -> пробел)
+        params = dict(parse_qsl(query_string, keep_blank_values=True))
+        
+        # 2. Извлекаем подпись
+        vk_sign = params.pop("sign", None)
+        if not vk_sign:
+            logger.warning(f"⚠️ VK Auth Fail: В параметрах нет 'sign'. Пришло: {query_string[:50]}...")
+            return None
+
+        # 3. Оставляем только параметры vk_
         vk_params = {k: v for k, v in params.items() if k.startswith("vk_")}
+        
+        # 4. Сортируем и собираем строку (VK требует сортировку по ключу)
         sorted_params = sorted(vk_params.items())
         check_string = "&".join(f"{k}={v}" for k, v in sorted_params)
         
-        # VK Sign calculation
+        # 5. Считаем хеш
         secret_bytes = secret.encode("utf-8")
         msg_bytes = check_string.encode("utf-8")
         hash_digest = hmac.new(secret_bytes, msg_bytes, hashlib.sha256).digest()
+        
+        # Важно: URL-safe base64 без padding (=)
         calculated_sign = base64.urlsafe_b64encode(hash_digest).decode("utf-8").rstrip("=")
         
+        # 6. Сравниваем
         if calculated_sign == vk_sign:
+            logger.info(f"✅ VK Auth Success: ID {params.get('vk_user_id')}")
             return {
                 "id": int(params.get("vk_user_id")),
                 "first_name": "VK User",
                 "platform": "vk"
             }
-        return None
+        else:
+            # 🔥 ВОТ ЭТО ПОКАЖЕТ ОШИБКУ В ЛОГАХ VERSEL 🔥
+            logger.error("❌ VK SIGNATURE MISMATCH")
+            logger.error(f"   Received Sign:   {vk_sign}")
+            logger.error(f"   Calculated Sign: {calculated_sign}")
+            logger.error(f"   Check String:    {check_string}")
+            logger.error(f"   Used Secret:     {secret[:4]}***{secret[-4:]} (Check this!)")
+            return None
+
     except Exception as e:
-        logging.error(f"VK Auth Error: {e}")
+        logger.error(f"❌ VK Auth Exception: {e}", exc_info=True)
         return None
 # --------------------------------------------------
         
