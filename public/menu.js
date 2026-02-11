@@ -2235,9 +2235,13 @@ function setupEventListeners() {
 
 // ЗАПУСК
 try {
-    checkMaintenance();
+    // 1. Настраиваем слушатели событий (кнопки, свайпы)
     setupEventListeners();
+    
+    // 2. Настраиваем "потяни, чтобы обновить"
     initPullToRefresh();
+    
+    // 3. Запускаем ГЛАВНУЮ логику (она сама получит ключи и проверит тех. режим)
     main();
 
     // СТАРТ УМНОГО HEARTBEAT (30 сек)
