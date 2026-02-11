@@ -2414,20 +2414,62 @@ html.vk-mode .app-footer {
     padding-bottom: 10px !important; /* Чуть больше отступ снизу */
 }
 
-/* 4. Центровка для ПК версии ВК (чтобы не было растянуто) */
+/* 4. АДАПТАЦИЯ ДЛЯ ПК (Широкий режим) */
 @media (min-width: 768px) {
+    /* Растягиваем основной контейнер на всю ширину */
     html.vk-mode .main-content {
-        max-width: 500px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        border-left: 1px solid rgba(255,255,255,0.1);
-        border-right: 1px solid rgba(255,255,255,0.1);
+        max-width: 100% !important; /* Было 500px, стало 100% */
+        left: 0 !important;
+        transform: none !important;
+        border: none !important;
+        
+        /* Добавляем отступы по бокам, чтобы контент не прилипал к краям */
+        padding-left: 20px !important;
+        padding-right: 20px !important;
     }
     
+    /* Растягиваем футер на всю ширину */
     html.vk-mode .app-footer {
-        max-width: 500px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        border-radius: 12px 12px 0 0;
+        max-width: 100% !important;
+        left: 0 !important;
+        transform: none !important;
+        border-radius: 0; /* Убираем скругление ушей, так как футер во всю ширину */
+    }
+
+    /* --- 🔥 УЛУЧШЕНИЕ ВНЕШНЕГО ВИДА (ЧТОБЫ БЫЛО СИМПАТИЧНО) --- */
+    /* Ограничиваем ширину САМИХ БЛОКОВ внутри, чтобы они не растягивались до бесконечности */
+    html.vk-mode .user-profile,
+    html.vk-mode .slider-container, 
+    html.vk-mode .weekly-goals-container,
+    html.vk-mode .metro-shortcuts-container,
+    html.vk-mode .quests-container {
+        max-width: 800px !important; /* Оптимальная ширина контента */
+        margin-left: auto !important; /* Центруем блоки */
+        margin-right: auto !important; /* Центруем блоки */
+        width: 100%;
+    }
+
+    /* Адаптируем сетку кнопок для широкого экрана */
+    html.vk-mode .metro-shortcuts-container {
+        /* Делаем так, чтобы кнопки не были гигантскими */
+        grid-template-columns: 1fr 1fr 1fr 1fr; /* Можно попробовать в 4 колонки если влезет */
+        gap: 15px !important;
+    }
+    
+    /* Делаем слайдер пониже на широких экранах, чтобы не занимал весь монитор */
+    html.vk-mode .slider-container {
+        max-height: 400px;
+    }
+    
+    /* Красивый скроллбар для ПК */
+    html.vk-mode .main-content::-webkit-scrollbar {
+        width: 8px;
+    }
+    html.vk-mode .main-content::-webkit-scrollbar-track {
+        background: #000;
+    }
+    html.vk-mode .main-content::-webkit-scrollbar-thumb {
+        background-color: #333;
+        border-radius: 4px;
     }
 }
