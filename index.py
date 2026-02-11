@@ -6185,38 +6185,60 @@ async def safe_update_last_active(telegram_id: int):
         # Логируем только если это что-то неожиданное (например, ошибка кода)
         logging.error(f"Background heartbeat write failed: {e}")
         
+# --- ИСПРАВЛЕННЫЙ HEARTBEAT (ПОДДЕРЖКА VK) ---
 @app.post("/api/v1/user/heartbeat")
 async def user_heartbeat(
-    request: Request, 
+    request: Request,
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info:
+    """
+    Фоновое обновление данных. Поддерживает и Telegram, и VK.
+    """
+    user_info = None
+    telegram_id = None
+
+    # 1. ГИБРИДНАЯ АВТОРИЗАЦИЯ
+    if request_data.platform == "vk":
+        user_info = is_valid_vk_query(request_data.initData, VK_APP_SECRET)
+        if user_info and "id" in user_info:
+            # Для ВК используем отрицательный ID
+            telegram_id = -1 * abs(user_info["id"])
+    else:
+        user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+        if user_info and "id" in user_info:
+            telegram_id = user_info["id"]
+
+    # Если авторизация не прошла, просто говорим фронтенду "не активен"
+    if not user_info or not telegram_id:
         return {"is_active": False}
-    
-    telegram_id = user_info["id"]
+
     now = time.time()
-    
+
     try:
-        # 1. ЧТЕНИЕ (Всегда быстро)
+        # 2. ЧТЕНИЕ (RPC)
+        # Передаем правильный (возможно отрицательный) ID в базу
         rpc_resp = await supabase.post("/rpc/get_user_heartbeat_data", json={"p_telegram_id": telegram_id})
+        
+        # Если база вернула ошибку 400 (например, неверный тип данных), логируем и выходим
+        if rpc_resp.status_code == 400:
+             logging.error(f"Heartbeat RPC Error 400: {rpc_resp.text}")
+             return {"is_active": False}
+
         rpc_resp.raise_for_status()
         data = rpc_resp.json()
 
-        # 2. ЗАПИСЬ (С защитой от ошибок)
+        # 3. ЗАПИСЬ ОНЛАЙНА (В фоне)
         last_write_time = HEARTBEAT_DB_CACHE.get(telegram_id, 0)
-        
         if now - last_write_time > DB_WRITE_INTERVAL:
-            # 🔥 ИСПОЛЬЗУЕМ ОБЕРТКУ В ФОНЕ
             asyncio.create_task(safe_update_last_active(telegram_id))
-            
             HEARTBEAT_DB_CACHE[telegram_id] = now
-
+            
         return data
-        
+
     except Exception as e:
-        logging.error(f"Heartbeat error: {e}")
+        # Логируем ошибку, но не роняем сервер
+        logging.error(f"Heartbeat execution error: {e}")
         return {"is_active": False}
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
