@@ -1,44 +1,69 @@
 // ================================================================
 // FINAL MENU.JS (OPTIMIZED STRUCTURE + RESTORED LOGIC)
 // ================================================================
-// --- ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА JS (СТРОКА 1) ---
+// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ И АВТОРИЗАЦИЯ (ФИНАЛЬНАЯ ВЕРСИЯ)
+// ================================================================
 
-// ================================================================
-// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ И АВТОРИЗАЦИЯ (В САМЫЙ ВЕРХ!)
-// ================================================================
-const urlParams = new URLSearchParams(window.location.search);
-// Проверяем наличие vk_user_id, vk_app_id или sign
-const isVk = urlParams.has('vk_user_id') || urlParams.has('vk_app_id') || urlParams.has('sign');
+// Функция для получения всех параметров из URL (включая search и hash)
+function getAllUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    
+    // Иногда ВК передает параметры после # (hash), проверяем и их
+    if (window.location.hash) {
+        const hash = window.location.hash.substring(1); // Убираем #
+        const hashParams = new URLSearchParams(hash);
+        for (const [key, value] of hashParams.entries()) {
+            params.append(key, value);
+        }
+    }
+    return params;
+}
+
+const allParams = getAllUrlParams();
+
+// Проверяем, есть ли хоть один параметр, начинающийся на vk_ или sign
+const isVk = Array.from(allParams.keys()).some(key => key.startsWith('vk_')) || allParams.has('sign');
 
 if (isVk) {
-    console.log("🚀 Запущено в VK");
-    console.log("Параметры запуска:", window.location.search); // Лог для отладки
+    console.log("🚀 Запущено в VK (Final check)");
+    console.log("Параметры:", window.location.href);
+
     // Инициализация VK Bridge
     if (typeof vkBridge !== 'undefined') {
-        vkBridge.send('VKWebAppInit');
+        vkBridge.send('VKWebAppInit')
+            .then(data => console.log('VK Init success', data))
+            .catch(error => console.error('VK Init error', error));
     }
 } else {
-    console.log("✈️ Запущено в Telegram");
+    console.log("✈️ Запущено в Telegram (check)");
     try {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
-            setTimeout(() => window.Telegram.WebApp.expand(), 100);
         }
-    } catch (e) {
-        console.log('Telegram WebApp init error', e);
-    }
+    } catch (e) { console.log('TG Init error', e); }
 }
 
-// ГЛОБАЛЬНАЯ функция (должна быть доступна везде)
+// ГЛОБАЛЬНАЯ функция получения данных
 function getAuthPayload() {
     if (isVk) {
-        // Отрезаем '?' в начале, если он есть
-        const search = window.location.search;
-        const initData = search.startsWith('?') ? search.slice(1) : search;
+        // Для ВК берем ВЕСЬ хвост URL (search + hash), так надежнее
+        // Сервер сам разберется и вытащит sign
+        let query = window.location.search;
+        if (query.startsWith('?')) query = query.slice(1);
         
+        // Если search пустой, берем hash (бывает и такое)
+        if (!query && window.location.hash) {
+            query = window.location.hash.slice(1);
+        }
+        
+        // Если и то и то есть, склеиваем (на всякий случай)
+        if (window.location.search && window.location.hash) {
+             query += '&' + window.location.hash.slice(1);
+        }
+
         return {
-            initData: initData, 
+            initData: query, 
             platform: 'vk'
         };
     } else {
@@ -48,6 +73,7 @@ function getAuthPayload() {
         };
     }
 }
+// ================================================================
 
 try {
     // Сообщаем телеграму, что приложение готово
