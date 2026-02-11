@@ -1,91 +1,136 @@
 // ================================================================
-// 0. СРОЧНОЕ СОХРАНЕНИЕ ПАРАМЕТРОВ (AGRESSIVE MODE)
+// 0. УМНЫЙ ПОИСК ПАРАМЕТРОВ VK
 // ================================================================
-// Сохраняем параметры сразу же, не дожидаясь ничего
-try {
-    window.vkParams = ""; 
-    
-    // 1. Пробуем стандартный search
-    let raw = window.location.search;
-    
-    // 2. Если пусто, пробуем выдрать "силой" из полной ссылки
-    // (помогает, если URL объект врет или search уже очищен)
-    if ((!raw || raw.length < 5) && window.location.href.includes('?')) {
-        raw = "?" + window.location.href.split('?')[1];
-    }
-    
-    // 3. Пробуем hash (иногда параметры там)
-    if ((!raw || raw.length < 5) && window.location.hash.includes('vk_')) {
-        raw = window.location.hash; // vk bridge иногда кидает в хеш
-    }
+(function initVkParams() {
+    window.vkParams = null; // Сбрасываем
 
-    // Чистим от ? и #
-    if (raw && (raw.startsWith('?') || raw.startsWith('#'))) {
-        raw = raw.slice(1);
-    }
+    // Функция проверки: строка похожа на параметры ВК?
+    const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
 
-    // Если нашли sign или vk_user_id — это оно, сохраняем!
-    if (raw && (raw.includes('vk_user_id') || raw.includes('sign'))) {
-        window.vkParams = raw;
-        console.log("✅ [Auth] Параметры VK успешно перехвачены:", window.vkParams.substring(0, 30) + "...");
-    } else {
-        console.log("⚠️ [Auth] Параметры VK не найдены при старте.");
-    }
+    try {
+        console.log("🔍 [VK Init] Начинаем поиск параметров...");
 
-} catch (e) {
-    console.error("Ошибка сохранения параметров:", e);
-}
+        // 1. Ищем в location.search (стандарт)
+        let s = window.location.search;
+        if (s.startsWith('?')) s = s.slice(1);
+        if (isValid(s)) {
+            window.vkParams = s;
+            console.log("✅ Нашли в search");
+            return;
+        }
+
+        // 2. Ищем в location.hash (часто бывает там)
+        let h = window.location.hash;
+        if (h.startsWith('#')) h = h.slice(1);
+        // Иногда хеш начинается с ?, убираем его тоже
+        if (h.startsWith('?')) h = h.slice(1);
+        
+        if (isValid(h)) {
+            window.vkParams = h;
+            console.log("✅ Нашли в hash");
+            return;
+        }
+
+        // 3. Ищем в window.name (хранилище iframe)
+        if (isValid(window.name)) {
+            window.vkParams = window.name;
+            console.log("✅ Нашли в window.name");
+            return;
+        }
+
+        // 4. Пытаемся выдрать из href (последний шанс)
+        // Ищем подстроку, начинающуюся с vk_user_id и до конца
+        const href = window.location.href;
+        const match = href.match(/(vk_user_id=[^#]*)/);
+        if (match && match[1] && match[1].includes('sign')) {
+             window.vkParams = match[1];
+             console.log("✅ Выдрали из href через Regex");
+             return;
+        }
+
+        console.warn("⚠️ Параметры VK не найдены в URL!");
+
+    } catch (e) {
+        console.error("VK Init Error:", e);
+    }
+})();
 
 // ================================================================
 // 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ
 // ================================================================
 
-// Определяем платформу: если нашли параметры VK — значит VK.
-let isVk = !!window.vkParams;
+function getSearchParam(name) {
+    try {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name);
+    } catch(e) { return null; }
+}
 
-// Если параметров нет, но мы внутри iframe — это точно VK, но без параметров (плохо, но пробуем)
-if (!isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
-    if (window.self !== window.top) {
-        console.log("⚠️ Нет параметров, но мы в iframe. Принудительный режим VK.");
-        isVk = true;
-    }
+let isVk = !!(window.vkParams || getSearchParam('vk_app_id'));
+
+// Принудительный режим для iframe
+if (!isVk && window.self !== window.top && !window.Telegram?.WebApp?.initData) {
+    console.log("⚠️ Iframe detected. Force VK mode.");
+    isVk = true;
 }
 
 // Инициализация
 if (isVk) {
-    console.log("🚀 Запущено в VK (Hybrid Mode)");
+    console.log("🚀 Запуск VK. Параметры:", window.vkParams ? "ЕСТЬ" : "НЕТ");
     if (typeof vkBridge !== 'undefined') {
-        vkBridge.send('VKWebAppInit').catch(err => console.log('Bridge Init Error:', err));
+        vkBridge.send('VKWebAppInit');
     }
 } else {
-    console.log("✈️ Запущено в Telegram");
+    console.log("✈️ Запуск Telegram");
     try {
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            setTimeout(() => window.Telegram.WebApp.expand(), 100);
-        }
-    } catch (e) { console.log('TG Init Error:', e); }
+        window.Telegram?.WebApp?.ready();
+        window.Telegram?.WebApp?.expand();
+        setTimeout(() => window.Telegram?.WebApp?.expand(), 500);
+    } catch (e) {}
 }
 
 // ================================================================
-// 2. ФУНКЦИЯ АВТОРИЗАЦИИ (Берет сохраненное)
+// 2. ФУНКЦИЯ АВТОРИЗАЦИИ (С ЗАПРОСОМ К BRIDGE)
 // ================================================================
 function getAuthPayload() {
     if (isVk) {
-        // Отправляем то, что перехватили в самом начале
-        // Если window.vkParams пустое, то бэкенд все равно вернет 401, 
-        // но теперь у нас максимальный шанс их поймать.
-        return { 
-            initData: window.vkParams || '', 
-            platform: 'vk' 
-        };
+        // Если параметры нашли при старте — отдаем их
+        if (window.vkParams) {
+            return { initData: window.vkParams, platform: 'vk' };
+        } 
+        
+        // 🔥 ЕСЛИ ПАРАМЕТРОВ НЕТ — ВОЗВРАЩАЕМ ПУСТОТУ (Бэкенд даст 401)
+        // Но! Мы сейчас добавим логику в main(), чтобы перезапросить их.
+        console.error("❌ [Critical] Отправляем пустой payload, так как params не найдены!");
+        return { initData: '', platform: 'vk' };
     } else {
         return {
-            initData: (window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initData : '') || '',
+            initData: window.Telegram?.WebApp?.initData || '',
             platform: 'tg'
         };
     }
+}
+
+// --- ВАЖНО: Добавляем функцию получения параметров через Bridge ---
+// Вставь это ПЕРЕД const dom = { ... }
+async function fetchVkParamsFromBridge() {
+    if (typeof vkBridge === 'undefined') return null;
+    try {
+        console.log("🔄 Запрашиваем параметры у VK Bridge...");
+        const data = await vkBridge.send('VKWebAppGetLaunchParams');
+        if (data && data.vk_user_id) {
+            // Собираем строку запуска вручную
+            const params = Object.keys(data)
+                .map(key => `${key}=${encodeURIComponent(data[key])}`)
+                .join('&');
+            console.log("✅ VK Bridge вернул параметры!");
+            window.vkParams = params;
+            return params;
+        }
+    } catch (e) {
+        console.error("Bridge GetParams Error:", e);
+    }
+    return null;
 }
 
 try {
@@ -1792,6 +1837,17 @@ function startSliderTick() {
 }
 
 async function main() {
+    // --- ВСТАВКА ДЛЯ VK: Если параметров нет, просим Bridge ---
+    if (isVk && !window.vkParams) {
+        console.log("⏳ Параметров нет. Ждем VK Bridge...");
+        // Эта функция fetchVkParamsFromBridge должна быть выше в коде
+        if (typeof fetchVkParamsFromBridge === 'function') {
+            await fetchVkParamsFromBridge();
+        }
+        if (!window.vkParams) console.error("💀 Не удалось получить параметры VK ниоткуда.");
+    }
+    // -----------------------------------------------------------
+
     // Хак для перенаправления с профиля
     if (window.location.pathname.includes('/profile') || window.location.href.includes('profile')) {
         window.history.replaceState({}, document.title, "/");
@@ -1800,7 +1856,8 @@ async function main() {
     }
 
     try {
-        if (window.Telegram && !Telegram.WebApp.initData) {
+        // 🔥 ФИКС: Добавил !isVk, чтобы эта проверка не убивала приложение в ВК
+        if (!isVk && window.Telegram && !Telegram.WebApp.initData) {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
         }
