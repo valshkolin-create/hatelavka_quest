@@ -1,66 +1,53 @@
 // ================================================================
-// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ (MEGA FIX)
+// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ (HYBRID LAUNCH)
 // ================================================================
 
-function checkIsVk() {
-    const url = window.location.href;
-    const search = window.location.search;
-    const hash = window.location.hash;
-    
-    // 1. Прямая проверка URL
-    if (url.includes('vk_app_id') || url.includes('vk_user_id') || url.includes('sign=')) return true;
-    
-    // 2. Проверка Search Params (стандартный способ)
-    const params = new URLSearchParams(search);
-    if (params.has('vk_app_id') || params.has('sign')) return true;
-
-    // 3. Проверка HASH (иногда параметры там)
-    if (hash.includes('vk_app_id') || hash.includes('sign=')) return true;
-
-    // 4. Проверка Referrer (откуда пришли)
-    if (document.referrer && document.referrer.includes('vk.com')) return true;
-
-    return false;
+function getSearchParam(name) {
+    const url = new URL(window.location.href);
+    return url.searchParams.get(name) || (url.hash.includes(name + '=') ? 'found_in_hash' : null);
 }
 
-const isVk = checkIsVk();
+// 1. Сначала ищем явные признаки ВК в URL
+let isVk = !!(getSearchParam('vk_app_id') || getSearchParam('vk_user_id') || getSearchParam('sign'));
 
+// 2. Если в URL пусто, но нет Telegram объекта - пробуем считать это ВК
+if (!isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
+    // Проверка на запуск внутри iframe (ВК всегда во фрейме)
+    if (window.self !== window.top) {
+        console.log("⚠️ Нет параметров в URL, но мы в iframe. Пробуем режим VK.");
+        isVk = true;
+    }
+}
+
+// Инициализация
 if (isVk) {
-    console.log("🚀 Запущено в VK (Mega Fix)");
-    // Пытаемся вытащить параметры откуда угодно для отправки
-    window.vkParams = window.location.search || window.location.hash || '';
-    
+    console.log("🚀 Запущено в VK (Hybrid Mode)");
     if (typeof vkBridge !== 'undefined') {
-        vkBridge.send('VKWebAppInit')
-            .then(() => console.log('VK Bridge Init OK'))
-            .catch((e) => console.error('VK Bridge Init Fail', e));
+        vkBridge.send('VKWebAppInit');
     }
 } else {
-    console.log("✈️ Запущено в Telegram, я специально написал сюда. Если бы не было этой надписи, то он бы не обновил ничего. Я не хочу тратить лишние ресурсы");
+    console.log("✈️ Запущено в Telegram");
     try {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
         }
-    } catch (e) { console.log('TG Init error', e); }
+    } catch (e) {}
 }
 
 function getAuthPayload() {
     if (isVk) {
-        // Берем сохраненные параметры или ищем заново
-        let payload = window.vkParams || window.location.search;
+        // Пытаемся собрать всё что есть
+        let payload = window.location.search;
+        if (!payload && window.location.hash) payload = window.location.hash.slice(1);
+        if (payload && payload.startsWith('?')) payload = payload.slice(1);
         
-        // Очистка от мусора в начале
-        if (payload.startsWith('?') || payload.startsWith('#')) {
-            payload = payload.slice(1);
-        }
-        
-        // Если совсем пусто, пробуем взять из href (грязный хак, но может спасти)
-        if (!payload && window.location.href.includes('?')) {
-            payload = window.location.href.split('?')[1];
+        // Если payload пустой (совсем беда), пробуем взять search из родительского окна (если доступно)
+        if (!payload) {
+             try { payload = window.top.location.search.slice(1); } catch(e){}
         }
 
-        return { initData: payload, platform: 'vk' };
+        return { initData: payload || '', platform: 'vk' };
     } else {
         return {
             initData: (window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initData : '') || '',
@@ -68,8 +55,20 @@ function getAuthPayload() {
         };
     }
 }
-// ======================================
-
+// --- ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА JS (СТРОКА 1) ---
+try {
+    // Сообщаем телеграму, что приложение готово
+    window.Telegram.WebApp.ready();
+    // Принудительно разворачиваем на весь экран МГНОВЕННО
+    window.Telegram.WebApp.expand();
+    
+    // Хак: повторяем expand через небольшие промежутки, 
+    // так как на некоторых Android он может не сработать с первого раза
+    setTimeout(() => window.Telegram.WebApp.expand(), 100);
+    setTimeout(() => window.Telegram.WebApp.expand(), 500);
+} catch (e) {
+    console.log('Telegram WebApp is not available');
+}
 
 // ================================================================
 const dom = {
