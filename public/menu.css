@@ -2415,61 +2415,79 @@ html.vk-mode .app-footer {
 }
 
 /* 4. АДАПТАЦИЯ ДЛЯ ПК (Широкий режим) */
+/* 4. АДАПТАЦИЯ ДЛЯ ПК (ВЕРСИЯ BIG & WIDE) */
 @media (min-width: 768px) {
-    /* Растягиваем основной контейнер на всю ширину */
+    
+    /* Растягиваем основной контейнер */
     html.vk-mode .main-content {
-        max-width: 100% !important; /* Было 500px, стало 100% */
+        max-width: 100% !important;
         left: 0 !important;
         transform: none !important;
         border: none !important;
-        
-        /* Добавляем отступы по бокам, чтобы контент не прилипал к краям */
-        padding-left: 20px !important;
-        padding-right: 20px !important;
+        /* Отступы по краям, чтобы не прилипало к рамке монитора */
+        padding-left: 40px !important; 
+        padding-right: 40px !important;
     }
     
-    /* Растягиваем футер на всю ширину */
+    /* Футер на всю ширину */
     html.vk-mode .app-footer {
         max-width: 100% !important;
         left: 0 !important;
         transform: none !important;
-        border-radius: 0; /* Убираем скругление ушей, так как футер во всю ширину */
+        border-radius: 0;
     }
 
-    /* --- 🔥 УЛУЧШЕНИЕ ВНЕШНЕГО ВИДА (ЧТОБЫ БЫЛО СИМПАТИЧНО) --- */
-    /* Ограничиваем ширину САМИХ БЛОКОВ внутри, чтобы они не растягивались до бесконечности */
+    /* === 🔥 ГЛАВНОЕ: УВЕЛИЧЕНИЕ РАЗМЕРОВ КОНТЕНТА === */
+    
+    /* 1. Делаем блоки ОЧЕНЬ широкими (до 1100px) */
     html.vk-mode .user-profile,
     html.vk-mode .slider-container, 
     html.vk-mode .weekly-goals-container,
+    html.vk-mode .weekly-banner-wrapper, /* Добавил баннер */
     html.vk-mode .metro-shortcuts-container,
     html.vk-mode .quests-container {
-        max-width: 800px !important; /* Оптимальная ширина контента */
-        margin-left: auto !important; /* Центруем блоки */
-        margin-right: auto !important; /* Центруем блоки */
+        max-width: 1100px !important; 
+        margin-left: auto !important; 
+        margin-right: auto !important; 
         width: 100%;
     }
 
-    /* Адаптируем сетку кнопок для широкого экрана */
-    html.vk-mode .metro-shortcuts-container {
-        /* Делаем так, чтобы кнопки не были гигантскими */
-        grid-template-columns: 1fr 1fr 1fr 1fr; /* Можно попробовать в 4 колонки если влезет */
-        gap: 15px !important;
-    }
-    
-    /* Делаем слайдер пониже на широких экранах, чтобы не занимал весь монитор */
+    /* 2. СЛАЙДЕР: Убираем лимит высоты, чтобы он рос пропорционально ширине */
     html.vk-mode .slider-container {
-        max-height: 400px;
+        height: auto !important; /* Авто-высота */
+        max-height: none !important; /* Убираем ограничение */
+        aspect-ratio: 2 / 1 !important; /* Держим прямоугольную форму (2:1) */
     }
-    
-    /* Красивый скроллбар для ПК */
-    html.vk-mode .main-content::-webkit-scrollbar {
-        width: 8px;
+
+    /* 3. МАГАЗИН И ПЛИТКИ: Делаем их высокими и массивными */
+    html.vk-mode .metro-shortcuts-container {
+        /* Возвращаем структуру 2 колонки (как на телефоне), но широкие */
+        grid-template-columns: 0.9fr 1.1fr !important; 
+        grid-template-rows: 1fr 1fr !important;
+        
+        /* 🔥 Задаем принудительную высоту блоку, чтобы плитки были большими */
+        height: 380px !important; 
+        gap: 20px !important; /* Больше воздуха между плитками */
     }
-    html.vk-mode .main-content::-webkit-scrollbar-track {
-        background: #000;
+
+    /* Увеличиваем шрифты и иконки внутри плиток для ПК */
+    html.vk-mode .metro-tile-large,
+    html.vk-mode .metro-tile-small {
+        padding: 25px !important; /* Больше отступы внутри */
     }
-    html.vk-mode .main-content::-webkit-scrollbar-thumb {
-        background-color: #333;
-        border-radius: 4px;
+    html.vk-mode .metro-icon-main { font-size: 32px !important; margin-bottom: 15px !important; }
+    html.vk-mode .metro-label { font-size: 22px !important; }
+    html.vk-mode .metro-sublabel { font-size: 14px !important; }
+    html.vk-mode .metro-tile-bg-icon { font-size: 120px !important; opacity: 0.15; } /* Огромная фоновая иконка */
+
+    /* 4. НЕДЕЛЬНЫЕ ИСПЫТАНИЯ */
+    html.vk-mode .weekly-banner-wrapper {
+        /* Картинка сама растянется по ширине, пропорции сохранятся */
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3); /* Тень побогаче */
     }
+
+    /* Красивый скроллбар */
+    html.vk-mode .main-content::-webkit-scrollbar { width: 10px; }
+    html.vk-mode .main-content::-webkit-scrollbar-track { background: #000; }
+    html.vk-mode .main-content::-webkit-scrollbar-thumb { background-color: #333; border-radius: 5px; border: 2px solid #000; }
 }
