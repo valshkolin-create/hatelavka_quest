@@ -3,29 +3,16 @@
 // ================================================================
 // --- ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА JS (СТРОКА 1) ---
 
-
-try {
-    // Сообщаем телеграму, что приложение готово
-    window.Telegram.WebApp.ready();
-    // Принудительно разворачиваем на весь экран МГНОВЕННО
-    window.Telegram.WebApp.expand();
-    
-    // Хак: повторяем expand через небольшие промежутки, 
-    // так как на некоторых Android он может не сработать с первого раза
-    setTimeout(() => window.Telegram.WebApp.expand(), 100);
-    setTimeout(() => window.Telegram.WebApp.expand(), 500);
-} catch (e) {
-    console.log('Telegram WebApp is not available');
-}
-
 // ================================================================
 // 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ И АВТОРИЗАЦИЯ (В САМЫЙ ВЕРХ!)
 // ================================================================
 const urlParams = new URLSearchParams(window.location.search);
-const isVk = urlParams.has('vk_user_id') || urlParams.has('sign');
+// Проверяем наличие vk_user_id, vk_app_id или sign
+const isVk = urlParams.has('vk_user_id') || urlParams.has('vk_app_id') || urlParams.has('sign');
 
 if (isVk) {
     console.log("🚀 Запущено в VK");
+    console.log("Параметры запуска:", window.location.search); // Лог для отладки
     // Инициализация VK Bridge
     if (typeof vkBridge !== 'undefined') {
         vkBridge.send('VKWebAppInit');
@@ -46,8 +33,12 @@ if (isVk) {
 // ГЛОБАЛЬНАЯ функция (должна быть доступна везде)
 function getAuthPayload() {
     if (isVk) {
+        // Отрезаем '?' в начале, если он есть
+        const search = window.location.search;
+        const initData = search.startsWith('?') ? search.slice(1) : search;
+        
         return {
-            initData: window.location.search.slice(1), 
+            initData: initData, 
             platform: 'vk'
         };
     } else {
@@ -57,6 +48,22 @@ function getAuthPayload() {
         };
     }
 }
+
+try {
+    // Сообщаем телеграму, что приложение готово
+    window.Telegram.WebApp.ready();
+    // Принудительно разворачиваем на весь экран МГНОВЕННО
+    window.Telegram.WebApp.expand();
+    
+    // Хак: повторяем expand через небольшие промежутки, 
+    // так как на некоторых Android он может не сработать с первого раза
+    setTimeout(() => window.Telegram.WebApp.expand(), 100);
+    setTimeout(() => window.Telegram.WebApp.expand(), 500);
+} catch (e) {
+    console.log('Telegram WebApp is not available');
+}
+
+
 // ================================================================
 const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
