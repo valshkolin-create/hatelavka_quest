@@ -147,7 +147,9 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         };
         
         if (method !== 'GET') {
-            options.body = JSON.stringify({ ...body, initData: Telegram.WebApp.initData });
+            // 👇 ИСПРАВЛЕНИЕ: Используем нашу универсальную функцию
+            const auth = getAuthPayload();
+            options.body = JSON.stringify({ ...body, ...auth }); 
         }
         
         const response = await fetch(url, options);
@@ -161,7 +163,14 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         return result;
     } catch (e) {
         if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
-        if (e.message !== 'Cooldown active' && !isSilent) Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
+        // В ВК нет Telegram.WebApp.showAlert, используем alert или консоль
+        if (e.message !== 'Cooldown active' && !isSilent) {
+             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showAlert) {
+                 Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
+             } else {
+                 alert(`Ошибка: ${e.message}`); // Фолбек для ВК
+             }
+        }
         throw e;
     } finally {
         if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
@@ -174,15 +183,20 @@ async function checkMaintenance() {
         const res = await fetch('/api/v1/bootstrap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: window.Telegram.WebApp.initData || '' })
+            // 👇 ГЛАВНОЕ ИЗМЕНЕНИЕ: Используем нашу умную функцию авторизации
+            body: JSON.stringify(getAuthPayload()) 
         });
 
         if (res.ok) {
             const data = await res.json();
+            
+            // Если включен тех. режим
             if (data.maintenance) {
                 window.location.href = '/'; 
                 return;
             }
+            
+            // Настройка отображения подарка
             if (dom.giftContainer && data.menu) {
                 if (data.menu.bonus_gift_enabled) {
                     dom.giftContainer.classList.remove('hidden');
@@ -1978,6 +1992,39 @@ function setupEventListeners() {
             window.location.href = '/shop';
         };
     }
+
+    // --- УНИВЕРСАЛЬНАЯ АВТОРИЗАЦИЯ (VK + TG) ---
+const urlParams = new URLSearchParams(window.location.search);
+const isVk = urlParams.has('vk_user_id') || urlParams.has('sign');
+
+if (isVk) {
+    console.log("🚀 Запущено в VK");
+    // Инициализация VK Bridge
+    vkBridge.send('VKWebAppInit');
+} else {
+    console.log("✈️ Запущено в Telegram");
+    // Инициализация Telegram
+    if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+    }
+}
+
+// Функция-помощник: собирает данные для отправки на сервер
+function getAuthPayload() {
+    if (isVk) {
+        return {
+            initData: window.location.search.slice(1), // Строка параметров VK
+            platform: 'vk'
+        };
+    } else {
+        return {
+            initData: window.Telegram.WebApp.initData, // Строка параметров TG
+            platform: 'tg'
+        };
+    }
+}
+// ------------------------------------------
 
     // Еженедельные цели
     document.addEventListener('click', (e) => {
