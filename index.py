@@ -190,64 +190,83 @@ async def get_roulette_strip(winner_item, count=30):
         return [winner_item] * count
 
 # --- Pydantic Models ---
+
+class BaseAuthRequest(BaseModel):
+    initData: str
+    platform: str = "tg" # По умолчанию Telegram
+# --------------------------------------------------------
+
 class InitDataRequest(BaseModel):
     initData: str
-    platform: str = "tg"  # <--- Добавь эту строку!
+    platform: str = "tg"  # <--- Добавлено!
 
 class ExchangeRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     cost: float
     tickets_reward: int
 
 class BuyItemRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     reward_value: int
 
 class SleepModeRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     minutes: Optional[int] = None # Сколько минут спать
 
 class QuestStartRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     quest_id: int
 
 class PromocodeClaimRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     quest_id: int
 
 class CategoryCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     name: str
 
 class CategoryUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     category_id: int
     name: str
 
 class CategoryDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     category_id: int
 
 class UserChallengesRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id: str
 
 class EventEnterRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     event_id: int
     tickets_to_spend: int # ИЗМЕНЕНИЕ: было tickets_cost
 
 class ParticipantsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     event_id: int
 
 class AuctionBidRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     auction_id: int
     bid_amount: int
 
 class EventParticipantsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     event_id: int
 
 class EventControlState(BaseModel):
@@ -257,6 +276,7 @@ class EventControlState(BaseModel):
 # --- Pydantic модели для Админки Аукциона ---
 class AuctionCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     title: str
     image_url: Optional[str] = None
     bid_cooldown_hours: Optional[int] = 4 
@@ -273,6 +293,7 @@ class AuctionCreateRequest(BaseModel):
 
 class AuctionUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     id: int
     title: Optional[str] = None 
     image_url: Optional[str] = None
@@ -290,65 +311,79 @@ class AuctionUpdateRequest(BaseModel):
 
 class AuctionDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     id: int
 # --- Конец Pydantic моделей для Админки Аукциона ---
 
 # --- NEW Pydantic Models for Sort Order Update ---
 class CategorySortOrderUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     category_id: int
     sort_order: Optional[int] = None # Optional to allow null/clearing
 
 class QuestSortOrderUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     quest_id: int
     sort_order: Optional[int] = None # Optional to allow null/clearing
 # --- End NEW Pydantic Models ---
 
 class PromocodeAdminListRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class PromocodeCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     codes: str
     reward_value: int
     description: str
 
 class EventClearRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     event_id: int
 
 class EventConfirmSentRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     event_id: int
 
 class TradeLinkUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     trade_link: str
     
 class AdminResetCooldownRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id_to_reset: int
 
 # --- МОДЕЛИ ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
 
 class CauldronUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     content: dict # Ожидаем JSON со всеми настройками ивента
 
 class CauldronContributeRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     amount: int # Сколько билетов пользователь хочет вложить
 
 # --- НОВЫЕ МОДЕЛИ ---
 class QuestCancelRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class FreeTicketClaimRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class GrantAccessRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id_to_grant: int
     
 class CheckpointReward(BaseModel):
@@ -367,49 +402,59 @@ class CheckpointContent(BaseModel):
 
 class CheckpointUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     content: CheckpointContent
 
 class CheckpointInfoUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     content: str # Это будет HTML-строка из редактора
 
 class CheckpointClaimRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     level: int
 
 class ManualRewardCompleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     reward_id: int
 
 class AdminGrantTicketsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id_to_grant: int
     amount: int
 
 class AdminGrantStarsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id_to_grant: int
     amount: int
 
 class AdminGrantCheckpointStarsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id_to_grant: int
     amount: int
 
 class AdminFreezeCheckpointStarsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id: int # <-- ИЗМЕНЕНО с user_id_to_freeze
     days: int
 
 class AdminFreezeStarsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id: int # <-- ИЗМЕНЕНО с user_id_to_freeze
     days: int
 
 class AdminAuctionFinishRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     id: int
-   
+    
 class AdminSettings(BaseModel):
     skin_race_enabled: bool = True
     slider_order: List[str] = Field(default_factory=lambda: ["skin_race", "cauldron", "auction", "checkpoint"])
@@ -434,16 +479,20 @@ class AdminSettings(BaseModel):
     
 class AdminSettingsUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     settings: AdminSettings
 
 class StatisticsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class PendingActionRequest(BaseModel): # Добавьте эту модель в начало файла, где все Pydantic модели
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class AdminCheckpointUserRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id: int
 
 class TwitchRewardInfo(BaseModel):
@@ -466,16 +515,19 @@ class TwitchReward(BaseModel):
 
 class TwitchRewardPurchaseCreate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     reward_id: int
     trade_link: str
 
 class WizebotCheckRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     twitch_username: str
     period: str = "session" # 'session', 'week', или 'month'
 
 class TwitchRewardUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     id: int
     is_active: Optional[bool] = None
     notify_admin: Optional[bool] = None
@@ -490,26 +542,32 @@ class TwitchRewardUpdateRequest(BaseModel):
 
 class TwitchRewardIssueRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     purchase_id: int
 
 class TwitchRewardIssueTicketsRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     purchase_id: int
 
 class TgEventCommitRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     amount: int  # Значение с ползунка
 
 class TwitchRewardDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     reward_id: int
 
 class TwitchPurchaseDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     purchase_id: int
 
 class RoulettePrizeCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     reward_title: str
     skin_name: str
     image_url: str
@@ -518,11 +576,13 @@ class RoulettePrizeCreateRequest(BaseModel):
 
 class RoulettePrizeDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     prize_id: int
 
 # <-- ДОБАВЛЕНА НОВАЯ МОДЕЛЬ -->
 class RoulettePrizeUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     prize_id: int
     reward_title: str # Добавляем все поля, чтобы их можно было редактировать
     skin_name: str
@@ -533,6 +593,7 @@ class RoulettePrizeUpdateRequest(BaseModel):
 # --- НОВАЯ Pydantic модель для создания ивента ---
 class EventCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     title: str
     description: Optional[str] = None
     image_url: Optional[str] = None
@@ -541,31 +602,38 @@ class EventCreateRequest(BaseModel):
 
 class TwitchPurchaseViewedRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     purchase_id: int
 
 class QuestCloseRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class TwitchRewardIdRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     reward_id: int
 
 class AdminUserSearchRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     search_term: str
 
 class AdminForceCompleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id: int
     entity_type: str # 'quest' или 'challenge'
     entity_id: int
 
 class AdminEntityListRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     entity_type: str # 'quest' или 'challenge'    
 
 class EventUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     event_id: int
     title: str
     description: Optional[str] = ""
@@ -576,15 +644,18 @@ class EventUpdateRequest(BaseModel):
 # Добавьте эту модель к другим моделям в начале файла
 class EventDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     event_id: int
 
 # --- 🔽 ВОТ СЮДА ВСТАВЬ НОВЫЕ МОДЕЛИ 🔽 ---
 class WeeklyGoalClaimTaskRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     goal_id: str # UUID задачи
 
 class WeeklyGoalClaimSuperPrizeRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 # --- Модели для Админки "Забега" (v3) ---
 class WeeklyGoalBase(BaseModel):
@@ -603,13 +674,16 @@ class WeeklyGoalBase(BaseModel):
 
 class WeeklyGoalCreateRequest(WeeklyGoalBase):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class WeeklyGoalUpdateRequest(WeeklyGoalBase):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     goal_id: str # UUID
 
 class WeeklyGoalDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     goal_id: str # UUID
 
 class WeeklyRunSettings(BaseModel):
@@ -620,21 +694,25 @@ class WeeklyRunSettings(BaseModel):
 
 class WeeklyRunSettingsUpdateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     # 🔽 v3: Модель настроек теперь отдельная 🔽
     settings: WeeklyRunSettings
 
 class GrantDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     id: int
 # --- 🔼 КОНЕЦ НОВЫХ МОДЕЛЕЙ 🔼 ---
 # --- Модели для настроек уведомлений ---
 class UserSettingsUpdate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     key: str    # например: notify_auction_start
     value: bool # true/false
 
 class TestNotificationRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     type: str   # какой тип уведомления тестируем
 
 class ConnectionManager:
@@ -654,11 +732,13 @@ class ConnectionManager:
 
 class EventsPageContentUpdate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     content: dict
 
 # Модели для запросов
 class ShopBuyRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     item_id: int
     price: int
     # 👇 Новые поля, чтобы сохранить красоту в админку
@@ -668,15 +748,18 @@ class ShopBuyRequest(BaseModel):
 # Для массового обновления настроек
 class UserSettingsBatch(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     updates: Dict[str, bool] # Словарь: {"настройка": true, "другая": false}
 
 # --- Pydantic модели (добавь в начало) ---
 class ReferralActivateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     referral_code: Optional[str] = None  # <--- ЭТО ВАЖНО
 
 class AdminShopCacheClearRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     password: str
 
 # --- SLAY Models ---
@@ -686,6 +769,7 @@ class AdminShopCacheClearRequest(BaseModel):
 # --- SLAY Models Update ---
 class SlayContentUpdate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     title: str
     description: str
     badge: Optional[str] = "Exclusive Event" 
@@ -693,6 +777,7 @@ class SlayContentUpdate(BaseModel):
 
 class SlayNominationUpdate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     id: int
     title: str
     image_url: Optional[str] = None
@@ -700,15 +785,18 @@ class SlayNominationUpdate(BaseModel):
 
 class SlayCandidateDelete(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     candidate_id: int
 
 class SlayVoteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     nomination_id: int
     candidate_id: int
 
 class SlayNominationCreate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     title: str
     description: Optional[str] = ""
     image_url: Optional[str] = None
@@ -722,27 +810,32 @@ class GrindSettings(BaseModel):
 
 class SlayCandidateAdd(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     nomination_id: int
     user_id: int
     custom_title: Optional[str] = None
 
 class SlayNominationFinish(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     nomination_id: int
 
 class AdminLinkTwitchManualRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id: int
     twitch_login: str
     twitch_id: str
 
 class CauldronRewardStatusRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     user_id: int
     is_sent: bool
 
 class AdventDayUpdate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     day_id: int
     task_type: str
     task_target: int
@@ -750,25 +843,30 @@ class AdventDayUpdate(BaseModel):
 
 class AdventLootItemCreate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     name: str
     image_url: str
     chance_weight: int
 
 class AdventLootItemDelete(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     item_id: int
 
 class AdventClaimRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     day_id: int
 
 class P2PCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     case_id: int
     quantity: int
 
 class P2PActionRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     trade_id: int
     trade_link: Optional[str] = None # Только для админа (approve)
     
@@ -777,51 +875,61 @@ class P2PActionRequest(BaseModel):
 # ==========================================
 class P2PCaseAddRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     case_name: str
     image_url: str
     price_in_coins: int
 
 class P2PCaseEditRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     case_id: int
     price_in_coins: int
     is_active: bool
 
 class P2PCaseDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     case_id: int
 # ==========================================
 # --- Модели для P2P ---
 # ==========================================
 class P2PApproveRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     trade_id: int
     trade_link: Optional[str] = None
 
 class P2PActionRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     trade_id: int
 
 class SettingsUpdateModel(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     settings: Dict[str, Any]
 # ==========================================
 # --- МОДЕЛИ ДЛЯ ПОДАРКОВ ---
 # ==========================================
 class GiftCheckRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class GiftClaimRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class GiftSkinCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     name: str
     image_url: str
     chance: int
 
 class GiftSkinDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     skin_id: int
 
 # ==========================================
@@ -873,6 +981,7 @@ class RaffleSettings(BaseModel):
 
 class RaffleCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     title: str
     type: str # 'inline_random', 'most_active', 'comments'
     end_time: Optional[str] = None # ISO формат даты
@@ -880,14 +989,17 @@ class RaffleCreateRequest(BaseModel):
 
 class RaffleJoinRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     raffle_id: int
 
 class RaffleDrawRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     raffle_id: int
 
 class RaffleDeleteRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     raffle_id: int
 
 # ==========================================
@@ -897,14 +1009,17 @@ class RaffleDeleteRequest(BaseModel):
 # --- Модели данных ---
 class CSRouletteSpinRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     code: str
 
 class CSCheckCodeRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     code: str
 
 class CSItemCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     name: str
     image_url: str
     rarity: str # blue, purple, pink, red, gold
@@ -915,21 +1030,25 @@ class CSItemCreateRequest(BaseModel):
 
 class CSCodeCreateRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     code: str
     max_uses: int
 
 # --- МОДЕЛИ ДЛЯ CHALLENGE SYSTEM 2.0 (КОНТРАКТЫ) ---
 class ChallengeStartRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     template_id: int
 
 class ChallengeClaimRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     template_id: int
 
 # --- МОДЕЛЬ ДЛЯ НАСТРОЕК ---
 class CSConfigUpdate(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     twitch_points: float
     tg_points: float
     name_points: float
@@ -937,11 +1056,13 @@ class CSConfigUpdate(BaseModel):
 class PromocodeCopyRequest(BaseModel):
     promocode_id: str | int  # <--- Разрешаем и строки, и числа
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
 
 class TgSliderCommitRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавлено!
     amount: int  # Сколько сообщений выбрал (10-500)
-
+    
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
 def get_notification_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
