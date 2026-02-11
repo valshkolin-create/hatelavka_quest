@@ -1,28 +1,37 @@
-/ ================================================================
-// 0. СОХРАНЕНИЕ ПАРАМЕТРОВ VK (ПРОСТОЙ СПОСОБ)
 // ================================================================
+// 0. СРОЧНОЕ СОХРАНЕНИЕ ПАРАМЕТРОВ (AGRESSIVE MODE)
+// ================================================================
+// Сохраняем параметры сразу же, не дожидаясь ничего
 try {
-    // Получаем текущие параметры из адресной строки
-    var rawSearch = window.location.search || '';
-    var rawHash = window.location.hash || '';
-    var paramsToSave = '';
-
-    // Очищаем от ? и #
-    if (rawSearch.startsWith('?')) rawSearch = rawSearch.slice(1);
-    if (rawHash.startsWith('#')) rawHash = rawHash.slice(1);
-
-    // Проверяем, где лежат параметры ВК (обычно в search, но бывает и в hash)
-    if (rawSearch.includes('vk_user_id') || rawSearch.includes('sign')) {
-        paramsToSave = rawSearch;
-    } else if (rawHash.includes('vk_user_id') || rawHash.includes('sign')) {
-        paramsToSave = rawHash;
+    window.vkParams = ""; 
+    
+    // 1. Пробуем стандартный search
+    let raw = window.location.search;
+    
+    // 2. Если пусто, пробуем выдрать "силой" из полной ссылки
+    // (помогает, если URL объект врет или search уже очищен)
+    if ((!raw || raw.length < 5) && window.location.href.includes('?')) {
+        raw = "?" + window.location.href.split('?')[1];
+    }
+    
+    // 3. Пробуем hash (иногда параметры там)
+    if ((!raw || raw.length < 5) && window.location.hash.includes('vk_')) {
+        raw = window.location.hash; // vk bridge иногда кидает в хеш
     }
 
-    // Сохраняем в глобальную переменную
-    if (paramsToSave) {
-        window.vkParams = paramsToSave;
-        console.log("💾 [VK Init] Параметры сохранены:", window.vkParams);
+    // Чистим от ? и #
+    if (raw && (raw.startsWith('?') || raw.startsWith('#'))) {
+        raw = raw.slice(1);
     }
+
+    // Если нашли sign или vk_user_id — это оно, сохраняем!
+    if (raw && (raw.includes('vk_user_id') || raw.includes('sign'))) {
+        window.vkParams = raw;
+        console.log("✅ [Auth] Параметры VK успешно перехвачены:", window.vkParams.substring(0, 30) + "...");
+    } else {
+        console.log("⚠️ [Auth] Параметры VK не найдены при старте.");
+    }
+
 } catch (e) {
     console.error("Ошибка сохранения параметров:", e);
 }
@@ -31,20 +40,13 @@ try {
 // 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ
 // ================================================================
 
-function getSearchParam(name) {
-    try {
-        const url = new URL(window.location.href);
-        return url.searchParams.get(name) || (url.hash.includes(name + '=') ? 'found_in_hash' : null);
-    } catch(e) { return null; }
-}
+// Определяем платформу: если нашли параметры VK — значит VK.
+let isVk = !!window.vkParams;
 
-// Определяем платформу
-let isVk = !!(window.vkParams || getSearchParam('vk_app_id') || getSearchParam('vk_user_id') || getSearchParam('sign'));
-
-// Если параметров нет, но мы внутри iframe — включаем режим ВК принудительно
+// Если параметров нет, но мы внутри iframe — это точно VK, но без параметров (плохо, но пробуем)
 if (!isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
     if (window.self !== window.top) {
-        console.log("⚠️ Iframe detected without params. Force VK mode.");
+        console.log("⚠️ Нет параметров, но мы в iframe. Принудительный режим VK.");
         isVk = true;
     }
 }
@@ -61,35 +63,21 @@ if (isVk) {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
-            // Хак для Android
             setTimeout(() => window.Telegram.WebApp.expand(), 100);
         }
     } catch (e) { console.log('TG Init Error:', e); }
 }
 
 // ================================================================
-// 2. ФУНКЦИЯ АВТОРИЗАЦИИ (ИСПРАВЛЕННАЯ)
+// 2. ФУНКЦИЯ АВТОРИЗАЦИИ (Берет сохраненное)
 // ================================================================
 function getAuthPayload() {
     if (isVk) {
-        // 1. Берем сохраненные при старте параметры (самое надежное)
-        let payload = window.vkParams;
-
-        // 2. Фолбек: если вдруг пусто, пробуем текущий URL
-        if (!payload) {
-             payload = window.location.search || window.location.hash || '';
-             if (payload.startsWith('?') || payload.startsWith('#')) {
-                payload = payload.slice(1);
-            }
-        }
-        
-        // 3. Последний шанс: если и это пусто, пробуем window.name (иногда там хранятся данные iframe)
-        if (!payload) {
-            try { payload = window.name; } catch(e){}
-        }
-
+        // Отправляем то, что перехватили в самом начале
+        // Если window.vkParams пустое, то бэкенд все равно вернет 401, 
+        // но теперь у нас максимальный шанс их поймать.
         return { 
-            initData: payload || '', 
+            initData: window.vkParams || '', 
             platform: 'vk' 
         };
     } else {
@@ -100,7 +88,6 @@ function getAuthPayload() {
     }
 }
 
-// --- ВСТАВИТЬ В САМОЕ НАЧАЛО ФАЙЛА JS (СТРОКА 1) ---
 try {
     // Сообщаем телеграму, что приложение готово
     window.Telegram.WebApp.ready();
