@@ -192,6 +192,7 @@ async def get_roulette_strip(winner_item, count=30):
 # --- Pydantic Models ---
 class InitDataRequest(BaseModel):
     initData: str
+    platform: str = "tg"  # <--- Добавь эту строку!
 
 class ExchangeRequest(BaseModel):
     initData: str
