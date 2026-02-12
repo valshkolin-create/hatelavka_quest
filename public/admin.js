@@ -5211,88 +5211,81 @@ if(dom.createRoulettePrizeForm) {
     } // <--- 🟢 ДОБАВЬ ВОТ ЭТУ СКОБКУ 🟢
 
     function renderShopPurchases(purchases, targetElement) {
-        if (!targetElement) return;
+    if (!targetElement) return;
 
-        const listContainer = targetElement.querySelector('.shop-list-container') || 
-                              targetElement.querySelector('.pending-actions-grid') || 
-                              targetElement;
-                              
-        listContainer.innerHTML = '';
+    // Твоя рабочая логика поиска контейнера
+    const listContainer = targetElement.querySelector('.shop-list-container') || 
+                          targetElement.querySelector('.pending-actions-grid') || 
+                          targetElement;
+                          
+    listContainer.innerHTML = '';
 
-        if (!purchases || purchases.length === 0) {
-            listContainer.innerHTML = '<p style="text-align: center; color: var(--text-color-muted); margin-top: 20px;">Нет новых покупок.</p>';
-            return;
+    if (!purchases || purchases.length === 0) {
+        listContainer.innerHTML = '<p style="text-align: center; color: var(--text-color-muted); margin-top: 20px;">Нет новых покупок.</p>';
+        return;
+    }
+
+    listContainer.innerHTML = purchases.map(p => {
+        const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
+        const linkHtml = hasLink 
+            ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
+            : '<span style="color: var(--warning-color);">Не указана</span>';
+
+        // --- ЛОГИКА ОПРЕДЕЛЕНИЯ ЧТО ПОКАЗЫВАТЬ (КЕЙС ИЛИ СКИН) ---
+        let displayTitle = p.title || 'Товар';
+        let displayImg = p.image_url || "https://placehold.co/60?text=Shop";
+        let subTitleHtml = ''; 
+        let cardStyle = '';
+
+        // Если это кейс и есть информация о выигрыше
+        if (p.won_skin_name) {
+            displayTitle = `🎁 ${p.won_skin_name}`; // Показываем имя скина
+            displayImg = p.won_skin_image || displayImg; // Показываем картинку скина
+            subTitleHtml = `<div style="font-size: 11px; color: #ffd700; margin-bottom: 4px;">
+                                <i class="fa-solid fa-box-open"></i> из: ${escapeHTML(p.title)}
+                            </div>`;
+            cardStyle = 'border: 1px solid rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05);';
         }
 
-        listContainer.innerHTML = purchases.map(p => {
-            const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
-            const linkHtml = hasLink 
-                ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
-                : '<span style="color: var(--warning-color);">Не указана</span>';
+        if (!displayImg.startsWith('http')) {
+            displayImg = "https://placehold.co/60?text=No+Img";
+        }
 
-            // --- 🔥 НОВАЯ ЛОГИКА ОТОБРАЖЕНИЯ ---
-            // По умолчанию берем данные товара
-            let displayTitle = p.title || 'Товар';
-            let displayImg = p.image_url || "https://placehold.co/60?text=Shop";
-            let subTitleHtml = ''; // Для подписи (например, название кейса)
-            let cardStyle = '';
+        // Твоя рабочая подготовка данных для кнопок
+        const safeTitle = (p.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const userId = p.user_id || 0; 
 
-            // Если пришла информация о выигранном скине (поля won_skin_name / won_skin_image)
-            if (p.won_skin_name) {
-                displayTitle = `🎁 ${p.won_skin_name}`; // Показываем название скина
-                if (p.won_skin_image) displayImg = p.won_skin_image; // Показываем картинку скина
-                
-                // Добавляем подпись, из какого кейса выпало
-                subTitleHtml = `<div style="font-size: 11px; color: #ffd700; margin-bottom: 4px;">
-                                    <i class="fa-solid fa-box-open"></i> из: ${escapeHTML(p.title)}
-                                </div>`;
-                
-                // Подсвечиваем карточку золотой рамкой
-                cardStyle = 'border: 1px solid rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05);';
-            }
-            // -------------------------------------
-
-            if (!displayImg.startsWith('http')) {
-                displayImg = "https://placehold.co/60?text=No+Img";
-            }
-
-            // Экранируем кавычки для JS-вызова
-            const safeTitle = (p.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            const userId = p.user_id || 0;
+        return `
+        <div class="shop-purchase-card" id="shop-card-${p.id}" style="${cardStyle}">
+            <div style="position: relative; width: 60px; height: 60px; flex-shrink: 0;">
+                <img src="${escapeHTML(displayImg)}" class="shop-item-thumb" alt="Item" 
+                     onerror="this.onerror=null; this.src='https://placehold.co/60?text=Error';">
+            </div>
             
-            return `
-            <div class="shop-purchase-card" id="shop-card-${p.id}" style="${cardStyle}">
-                <div style="position: relative; width: 60px; height: 60px; flex-shrink: 0;">
-                    <img src="${escapeHTML(displayImg)}" class="shop-item-thumb" alt="Item" 
-                         style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px;"
-                         onerror="this.onerror=null; this.src='https://placehold.co/60?text=Error';">
+            <div class="shop-item-info">
+                <h4 class="shop-item-title">${escapeHTML(displayTitle)}</h4>
+                ${subTitleHtml}
+                <p class="shop-user-info">
+                    Покупатель: <strong>${escapeHTML(p.user_full_name)}</strong>
+                    ${p.user_username ? `<br><span style="color:#888; font-size:11px;">@${escapeHTML(p.user_username)}</span>` : ''}
+                </p>
+                <div class="shop-trade-link-box">
+                    <span>Трейд:</span>
+                    ${linkHtml}
                 </div>
-                
-                <div class="shop-item-info">
-                    <h4 class="shop-item-title" style="margin-bottom: 2px;">${escapeHTML(displayTitle)}</h4>
-                    ${subTitleHtml}
-                    
-                    <p class="shop-user-info">
-                        Покупатель: <strong>${escapeHTML(p.user_full_name)}</strong>
-                        ${p.user_username ? `<br><span style="color:#888; font-size:11px;">@${escapeHTML(p.user_username)}</span>` : ''}
-                    </p>
-                    <div class="shop-trade-link-box">
-                        <span>Трейд:</span>
-                        ${linkHtml}
-                    </div>
-                </div>
+            </div>
 
-                <div class="shop-actions">
-                    <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve', '${safeTitle}', ${userId})" title="Подтвердить выдачу">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                    <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject', '${safeTitle}', ${userId})" title="Отклонить">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-            </div>`;
-        }).join('');
-    }
+            <div class="shop-actions">
+                <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve', '${safeTitle}', ${userId})" title="Подтвердить выдачу">
+                    <i class="fa-solid fa-check"></i>
+                </button>
+                <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject', '${safeTitle}', ${userId})" title="Отклонить">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
 
     // 2. ОБНОВЛЕННАЯ ГЛОБАЛЬНАЯ ФУНКЦИЯ ДЕЙСТВИЯ (С логикой билетов)
 window.handleShopAction = function(id, action, title = '', userId = 0) {
