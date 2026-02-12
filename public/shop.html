@@ -2270,14 +2270,11 @@ function preloadP2PState() {
             const container = document.getElementById('shop-grid');
             container.innerHTML = '';
 
-            // Если товаров нет
             if (!items || items.length === 0) {
                 container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
                 return;
             }
 
-            // 🔥 ОПТИМИЗАЦИЯ: Создаем фрагмент в памяти
-            // Мы сложим все товары сюда, а потом добавим на страницу 1 раз
             const fragment = document.createDocumentFragment();
 
             items.forEach(item => {
@@ -2289,56 +2286,49 @@ function preloadP2PState() {
                 let priceText = '';
                 let clickAction = '';
 
-                // --- [NEW] ДЕТЕКТОР КЕЙСА (ЮВЕЛИРНОЕ ДОБАВЛЕНИЕ) ---
-                // Проверяем, есть ли слово "КЕЙС" или "CASE" в названии товара
+                // ДЕТЕКТОР КЕЙСА
                 const isCase = item.name.toUpperCase().includes("КЕЙС") || item.name.toUpperCase().includes("CASE");
                 const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-                // --- ЛОГИКА: ЭТО ПАПКА? ---
                 if (item.is_folder) {
                     stockText = ''; 
-                    // Кнопка открытия папки
                     buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
                     clickAction = `openFolder(${item.id})`;
-                } 
-                // --- ЛОГИКА: ЭТО ТОВАР? ---
-                else {
+                } else {
                     priceText = `<div class="item-price">${item.price} 🟡️</div>`;
                     
                     let isOutOfStock = false;
-                    // Обработка количества
-                    if (item.count === null) {
-                        stockText = `<div class="item-stock">∞ шт.</div>`;
-                    } else if (item.count === 0) {
-                        isOutOfStock = true;
-                        stockText = `<div class="item-stock out">0 шт.</div>`;
+                    
+                    // ЛОГИКА ОТОБРАЖЕНИЯ КОЛИЧЕСТВА
+                    if (isCase) {
+                        // Если это кейс - количество НЕ ПОКАЗЫВАЕМ (бесконечные)
+                        stockText = ''; 
                     } else {
-                        stockText = `<div class="item-stock">${item.count} шт.</div>`;
+                        // Если обычный товар - показываем остаток
+                        if (item.count === null) {
+                            stockText = `<div class="item-stock">∞ шт.</div>`;
+                        } else if (item.count === 0) {
+                            isOutOfStock = true;
+                            stockText = `<div class="item-stock out">0 шт.</div>`;
+                        } else {
+                            stockText = `<div class="item-stock">${item.count} шт.</div>`;
+                        }
                     }
 
-                    // Кнопка покупки
                     if (isOutOfStock) {
                         buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
                     } else if (isCase) {
-                        // [NEW] Если это кейс — вызываем новую функцию открытия
-                        buttonHtml = `<button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Открыть</button>`;
+                        buttonHtml = `<button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">ОТКРЫТЬ</button>`;
                     } else {
-                        // Обычный товар
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${item.image_url}')">Купить</button>`;
                     }
                     
-                    // Клик по картинке
                     clickAction = `openImageModal('${item.image_url}')`;
                 }
 
-                // Форматируем имя (отделяем [RU] и прочее)
                 const displayNameHtml = formatItemName(item.name);
-                
-                // Заглушка
                 const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
 
-                // HTML карточки
-                // Важно: decoding="async" и loading="lazy" ускоряют отрисовку
                 el.innerHTML = `
                     <div class="item-image-wrapper" onclick="${clickAction}">
                         <img src="${imgUrl}" 
@@ -2357,12 +2347,8 @@ function preloadP2PState() {
                         ${buttonHtml}
                     </div>
                 `;
-                
-                // Добавляем во фрагмент (в память, не на экран)
                 fragment.appendChild(el);
             });
-
-            // 🔥 ФИНАЛ: Вставляем всё на страницу за ОДНУ операцию
             container.appendChild(fragment);
         }
         
@@ -2451,94 +2437,93 @@ function preloadP2PState() {
             const track = document.getElementById('r-track');
             const winScreen = document.getElementById('r-win');
             
+            // Сброс
             track.style.transition = 'none';
             track.style.transform = 'translateX(0)';
             track.innerHTML = '';
+            
             area.style.display = 'block';
-            winScreen.style.display = 'none'; // Скрываем итог в начале
+            winScreen.style.display = 'none';
+            // Включаем flex для центрирования содержимого модалки
+            winScreen.style.flexDirection = 'column'; 
+            winScreen.style.alignItems = 'center';
+            
             modal.style.display = 'flex';
 
-            const CARD_W = 148; // Ширина 140 + марджин 4+4
-            const WINNER_IDX = 60; 
+            const CARD_W = 148; // 140px ширина + 8px отступы
+            const WINNER_IDX = 60; // Индекс победной карточки
 
-            // 1. Формируем полную ленту (как в примере)
-            let fullList = [];
-            // Если пришло мало предметов, дублируем их пока не наберется 80
-            while(fullList.length < 80) {
+            // Заполняем ленту
+            let fullList = [...items];
+            while(fullList.length <= WINNER_IDX + 5) {
                 fullList = fullList.concat(items);
             }
-            // Ставим победителя строго на 60 место
-            fullList[WINNER_IDX] = winner;
+            fullList[WINNER_IDX] = winner; // Подмена на победителя
 
-            // 2. Рендерим HTML
+            // Рендер HTML
             track.innerHTML = fullList.map(item => {
-                let rClass = 'r-blue';
-                // Маппинг цветов как в примере
-                const r = (item.rarity || 'blue').toLowerCase();
-                if(r==='purple') rClass='r-purple'; 
-                if(r==='pink') rClass='r-pink';
-                if(r==='red') rClass='r-red'; 
-                if(r==='gold') rClass='r-gold';
+                let rClass = 'r-common'; // по дефолту серый
+                // Маппинг цветов с твоей БД на CSS классы
+                const r = (item.rarity || 'common').toLowerCase();
                 
-                // Защита от битых картинок
+                if (r.includes('blue') || r.includes('rare')) rClass = 'r-blue';
+                else if (r.includes('purple') || r.includes('mythical')) rClass = 'r-purple';
+                else if (r.includes('pink') || r.includes('legendary')) rClass = 'r-pink';
+                else if (r.includes('red') || r.includes('ancient')) rClass = 'r-red';
+                else if (r.includes('gold')) rClass = 'r-gold';
+
                 const img = item.image_url || 'https://placehold.co/100?text=Item';
-                
-                return `<div class="r-card ${rClass}"><img src="${img}"><div class="r-card-name">${item.name}</div></div>`
+                return `<div class="r-card ${rClass}"><img src="${img}"><div class="r-card-name">${item.name}</div></div>`;
             }).join('');
 
-            // 3. Запускаем анимацию
+            // Запуск анимации
             setTimeout(() => {
+                // МАТЕМАТИКА ОСТАНОВКИ (Исправлено)
                 const screenCenter = window.innerWidth / 2;
-                const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
-                // Рандомный разброс (overshoot) для реализма
-                const overshoot = -(winnerCenter - screenCenter + (Math.random() * 200 + 100)); 
-
-                // Разгон
-                track.style.transition = 'transform 8s cubic-bezier(0.15, 0, 0.10, 1)'; 
-                track.style.transform = `translateX(${overshoot}px)`;
                 
-                // Тиканье (Haptic)
-                let tickInterval = 100;
-                let ticker = setInterval(() => {
+                // Центр победной карточки в пикселях от начала ленты
+                const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
+                
+                // Небольшой рандом +/- 50px, чтобы стрелка не всегда была идеально по центру карточки
+                // Но этот рандом не должен выводить за пределы карточки
+                const randomOffset = (Math.random() * 100) - 50; 
+
+                // Финальная позиция ленты (сдвигаем влево на нужное расстояние)
+                const finalPosition = -(winnerCenter - screenCenter + randomOffset);
+
+                // Применяем анимацию (cubic-bezier для плавного торможения без отката назад)
+                track.style.transition = 'transform 8s cubic-bezier(0.1, 0, 0.2, 1)'; 
+                track.style.transform = `translateX(${finalPosition}px)`;
+                
+                // Звук трещотки (Haptic)
+                let tickInterval = 50;
+                let timer = 0;
+                
+                const ticker = () => {
+                    if (timer >= 7500) return; // Останавливаем звук чуть раньше конца анимации
                     haptic.selectionChanged();
-                    // Замедляем тиканье
-                    tickInterval += 20; 
-                }, tickInterval);
+                    timer += tickInterval;
+                    tickInterval += 5; // Замедляем тиканье
+                    setTimeout(ticker, tickInterval);
+                };
+                ticker();
 
-                // Остановка и доводка
+                // Финал через 8 секунд
                 setTimeout(() => {
-                    clearInterval(ticker);
-                    const finalOffset = -(winnerCenter - screenCenter); // Ровно по центру
-                    track.style.transition = 'transform 1s ease-out'; // Плавная доводка
-                    track.style.transform = `translateX(${finalOffset}px)`;
-                    
-                    haptic.impactOccurred('heavy');
+                    haptic.impactOccurred('heavy'); 
 
-                    // Показ победы
                     setTimeout(() => {
                         haptic.notificationOccurred('success');
-                        area.style.display = 'none'; // Скрываем рулетку
                         
+                        // Скрываем ленту, показываем победу
+                        area.style.display = 'none';
                         document.getElementById('r-win-img').src = winner.image_url;
                         document.getElementById('r-win-name').textContent = winner.name;
                         
-                        // Удаляем старые доп. сообщения если были
-                        const extra = document.querySelector('.extra-msg');
-                        if(extra) extra.remove();
-
-                        // Показываем бонусы если есть
-                        if (extraMessages && extraMessages.length > 0) {
-                            const msgDiv = document.createElement('div');
-                            msgDiv.className = 'extra-msg';
-                            msgDiv.style.marginTop = '10px';
-                            msgDiv.style.color = '#aaa';
-                            msgDiv.innerHTML = "БОНУСЫ:<br>" + extraMessages.join('<br>');
-                            winScreen.appendChild(msgDiv);
-                        }
+                        // [ИСПРАВЛЕНО] Блок с бонусами удален полностью, как просил
                         
-                        // Показываем экран победы (flex для центровки)
-                        winScreen.style.display = 'flex'; 
-                    }, 1000);
+                        winScreen.style.display = 'flex'; // Показываем окно победы
+                    }, 500); 
 
                 }, 8000); 
             }, 100);
@@ -2547,7 +2532,10 @@ function preloadP2PState() {
         // Закрытие рулетки
         function closeRoulette() {
             document.getElementById('r-modal').style.display = 'none';
-            // Перезагружаем категорию, чтобы обновить стоки визуально
+            // Обновляем баланс в шапке
+            checkBalance(true);
+            // Перезагружаем категорию, чтобы обновить данные (если нужно)
+            // Но так как у нас теперь кейсы бесконечные (без количества), это чисто для порядка
             loadCategory(currentCategoryId); 
         }
 
