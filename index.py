@@ -3537,30 +3537,53 @@ async def api_admin_mark_copied(
         
 # -------------------------------------------------------
 
-# --- 3. Админка: Добавить Скин ---
+# --- 3. Админка: Добавить Скин (ИСПРАВЛЕННЫЙ) ---
 @app.post("/api/admin/cs/item/add")
 async def add_cs_item(req: CSItemCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Проверка админа
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    if not user_info or user_info['id'] not in ADMIN_IDS:
+        raise HTTPException(403, detail="Доступ запрещен")
 
-    # 1. Проверяем, есть ли уже предмет с таким именем в базе
-    # Используем PostgREST синтаксис: ?name=eq.Значение
-    check_resp = await supabase.get("/cs_items", params={"name": f"eq.{req.name}", "select": "id"})
-    existing_items = check_resp.json()
+    # 2. Подготовка данных
+    # ВАЖНО: Исключаем 'platform', так как ее нет в таблице
+    payload = req.dict(exclude={"initData", "platform"})
 
-    # Подготавливаем данные (убираем initData)
-    payload = req.dict(exclude={"initData"})
+    # 3. Проверяем дубликат по имени
+    try:
+        check_resp = await supabase.get("/cs_items", params={"name": f"eq.{req.name}", "select": "id"})
+        check_resp.raise_for_status() # Вызовет ошибку, если Supabase ответил 4xx/5xx
+        existing_items = check_resp.json()
+    except Exception as e:
+        print(f"Ошибка чтения БД: {e}")
+        raise HTTPException(500, detail=f"Ошибка БД при проверке: {str(e)}")
 
-    if existing_items and len(existing_items) > 0:
-        # === ЕСЛИ НАШЛИ -> ОБНОВЛЯЕМ (PATCH) ===
-        target_id = existing_items[0]['id']
-        # Делаем PATCH запрос с условием id=eq.TARGET_ID
-        await supabase.patch("/cs_items", params={"id": f"eq.{target_id}"}, json=payload)
-        return {"message": f"Скин '{req.name}' обновлен"}
-    else:
-        # === ЕСЛИ НЕ НАШЛИ -> СОЗДАЕМ (POST) ===
-        await supabase.post("/cs_items", json=payload)
-        return {"message": f"Скин '{req.name}' добавлен"}
+    # 4. Логика Обновления или Создания
+    try:
+        if existing_items and len(existing_items) > 0:
+            # === UPDATE ===
+            target_id = existing_items[0]['id']
+            # Patch тоже может упасть из-за лишних полей, но мы их убрали выше
+            res = await supabase.patch("/cs_items", params={"id": f"eq.{target_id}"}, json=payload)
+            res.raise_for_status() # Проверяем на ошибки
+            return {"message": f"Скин '{req.name}' обновлен"}
+        else:
+            # === INSERT ===
+            res = await supabase.post("/cs_items", json=payload)
+            
+            # ВАЖНО: Если Supabase вернул ошибку, мы ее увидим здесь
+            if res.status_code >= 400:
+                error_detail = res.text
+                print(f"Ошибка Supabase Insert: {error_detail}")
+                raise HTTPException(status_code=400, detail=f"Ошибка добавления: {error_detail}")
+                
+            return {"message": f"Скин '{req.name}' добавлен"}
+            
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Неизвестная ошибка: {e}")
+        raise HTTPException(500, detail=f"Серверная ошибка: {str(e)}")
 
 # --- 1. ПОЛУЧИТЬ НАСТРОЙКИ (Для админки) ---
 @app.post("/api/admin/cs/config/get")
