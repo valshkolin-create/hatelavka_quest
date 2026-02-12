@@ -3870,6 +3870,63 @@ async def admin_p2p_approve(
 
 # --- ДОБАВИТЬ В index.py ---
 
+# 1. Эндпоинт для подтверждения выдачи скина из кейса
+@app.post("/api/v1/admin/cs_history/complete")
+async def complete_cs_history_reward(
+    request_data: dict, # Ожидаем {"reward_id": 123}
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Проверка админа (как в других функциях)
+    user_info = is_valid_init_data(request_data.get("initData"), ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    reward_id = request_data.get("reward_id")
+    if not reward_id:
+        raise HTTPException(status_code=400, detail="ID не передан")
+
+    # Обновляем статус в таблице cs_history
+    resp = await supabase.patch(
+        "/cs_history",
+        params={"id": f"eq.{reward_id}"},
+        json={"status": "completed"}
+    )
+    
+    if resp.status_code not in [200, 204]:
+        raise HTTPException(status_code=500, detail="Ошибка при обновлении БД")
+
+    return {"status": "ok", "message": "Скин помечен как выданный"}
+
+
+# 2. Эндпоинт для отклонения (удаления) записи о кейсе
+@app.post("/api/v1/admin/cs_history/reject")
+async def reject_cs_history_reward(
+    request_data: dict,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Проверка админа
+    user_info = is_valid_init_data(request_data.get("initData"), ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    reward_id = request_data.get("reward_id")
+    if not reward_id:
+        raise HTTPException(status_code=400, detail="ID не передан")
+
+    # Вариант А: Просто удаляем запись из истории
+    resp = await supabase.delete(
+        "/cs_history",
+        params={"id": f"eq.{reward_id}"}
+    )
+    
+    # Вариант Б (если хочешь хранить историю):
+    # resp = await supabase.patch("/cs_history", params={"id": f"eq.{reward_id}"}, json={"status": "rejected"})
+
+    if resp.status_code not in [200, 204]:
+        raise HTTPException(status_code=500, detail="Ошибка при удалении из БД")
+
+    return {"status": "ok", "message": "Запись удалена"}
+
 @app.post("/api/v1/admin/p2p/cancel")
 async def admin_p2p_cancel(
     request_data: P2PActionRequest, 
