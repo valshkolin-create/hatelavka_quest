@@ -12695,9 +12695,9 @@ async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ПОКУПКА v10 (HYBRID: CASE + BOTT) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v12 (HYBRID: BOT-T + ROULETTE) ==========")
     
-    # 0. Валидация
+    # 0. Валидация initData
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -12706,12 +12706,11 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
     
-    # Получаем название товара для проверки (приходит с фронта)
-    # Если в модели ShopBuyRequest нет поля title, добавь его, или используй getattr
+    # Получаем название и картинку с фронта (для логов и проверки на КЕЙС)
     item_title = getattr(request_data, 'title', "") or "Товар"
     item_image = getattr(request_data, 'image_url', "") or ""
 
-    # 1. Получаем данные пользователя из БД
+    # 1. Получаем данные юзера из БД
     try:
         user_db_resp = await supabase.get(
             "/users", 
@@ -12733,143 +12732,123 @@ async def buy_bott_item_proxy(
     bott_secret_key = user_record.get("bott_secret_key")
     current_balance_kopecks = user_record.get("bot_t_coins", 0)
 
-    # 2. Проверка баланса (Единая для всех)
+    if not bott_internal_id or not bott_secret_key:
+         raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
+
+    # 2. Проверка баланса
     if current_balance_kopecks < (price * 100):
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-    # =================================================================================
-    # ЛОГИКА 1: ЭТО КЕЙС? (Работаем с cs_items / cs_history)
-    # =================================================================================
-    if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
-        logging.info(f"[SHOP] Обнаружен КЕЙС: {item_title}. Запускаем рулетку.")
+    # 3. СОЗДАЕМ ЗАКАЗ В BOT-T (ТВОЕ ТРЕБОВАНИЕ: ЗАКАЗ ДОЛЖЕН БЫТЬ ВСЕГДА)
+    url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
+    payload = {
+        "bot_id": int(BOTT_BOT_ID), # Убедись, что переменная BOTT_BOT_ID доступна
+        "category_id": item_id,
+        "count": 1,
+        "user_id": int(bott_internal_id),
+        "secret_user_key": bott_secret_key
+    }
 
+    bott_order_id = 0
+    
+    async with httpx.AsyncClient(timeout=60.0) as client:
         try:
-            # А. Получаем список всех доступных скинов для дропа
-            items_resp = await supabase.get(
-                "/cs_items", 
-                params={"is_active": "eq.true", "select": "*"}
-            )
+            resp = await client.post(url, json=payload)
+            
+            # Если Bot-T вернул ошибку (например, товара нет) - прерываем всё
+            if resp.status_code != 200:
+                logging.error(f"[SHOP] Bot-T Error {resp.status_code}: {resp.text}")
+                raise HTTPException(status_code=500, detail="Ошибка магазина Bot-T")
+            
+            resp_json = resp.json()
+            if resp_json.get("result") is False:
+                err_msg = resp_json.get("message", "Ошибка покупки")
+                raise HTTPException(status_code=400, detail=f"Bot-T: {err_msg}")
+            
+            # Получаем ID заказа
+            bott_order_data = resp_json.get("data", {})
+            bott_order_id = bott_order_data.get("id", 0)
+            
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            logging.error(f"[SHOP] Critical Bot-T request fail: {e}")
+            raise HTTPException(status_code=500, detail="Сбой связи с магазином")
+
+    # 4. СПИСЫВАЕМ МОНЕТКИ (ЛОКАЛЬНО)
+    new_balance = current_balance_kopecks - (price * 100)
+    await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{telegram_id}"},
+        json={"bot_t_coins": new_balance} 
+    )
+
+    # =========================================================================
+    # ЛОГИКА РУЛЕТКИ (Если в названии есть "КЕЙС")
+    # =========================================================================
+    if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
+        logging.info(f"[SHOP] Это кейс: {item_title}. Запускаем выбор скина.")
+        
+        try:
+            # А. Берем скины из cs_items
+            items_resp = await supabase.get("/cs_items", params={"is_active": "eq.true"})
             all_items = items_resp.json()
             
             if not all_items:
-                raise HTTPException(status_code=500, detail="Ошибка: Кейс пуст (нет предметов в базе)")
+                logging.error("[SHOP] Таблица cs_items пуста!")
+                # Возвращаем успех покупки, но без рулетки (чтобы не крашить юзера)
+                return {"message": "Куплено, но база скинов пуста!"}
 
-            # Б. Выбираем победителя (с учетом chance_weight)
-            # Если chance_weight нет, считаем равным 10
-            total_weight = sum(i.get('chance_weight', 10) for i in all_items)
-            random_num = random.uniform(0, total_weight)
+            # Б. Выбираем победителя по весам (chance_weight)
+            # Если chance_weight нет, используем 10 по умолчанию
+            weights = [float(item.get('chance_weight', 10)) for item in all_items]
+            winner = random.choices(all_items, weights=weights, k=1)[0]
             
-            winner = None
-            current_weight = 0
-            for item in all_items:
-                current_weight += item.get('chance_weight', 10)
-                if current_weight >= random_num:
-                    winner = item
-                    break
-            
-            if not winner:
-                winner = all_items[0] # Фоллбэк на первый предмет
-
-            # В. Списываем баланс (Локально)
-            new_balance = current_balance_kopecks - (price * 100)
-            await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{telegram_id}"},
-                json={"bot_t_coins": new_balance} 
-            )
-
-            # Г. Записываем в историю (cs_history)
+            # В. Пишем в историю (cs_history)
             await supabase.post("/cs_history", json={
                 "user_id": telegram_id,
                 "item_id": winner['id'],
-                "code_used": "SHOP_CASE_OPEN", # Метка источника
-                "status": "pending" # Админ потом выдаст или бот обработает
+                "code_used": f"BOTT_ORDER_{bott_order_id}", # Связываем с заказом Bot-t
+                "status": "pending"
             })
 
-            # Д. Генерируем ленту для фронтенда (roulette_strip)
-            # Нам нужно 80 предметов для красоты. 60-й - это winner.
-            roulette_strip = []
-            for _ in range(80):
-                roulette_strip.append(random.choice(all_items))
-            
-            # Подменяем 60-й элемент на реального победителя (индекс 60)
-            roulette_strip[60] = winner
+            # Г. Генерируем ленту (80 предметов)
+            roulette_strip = random.choices(all_items, k=80)
+            roulette_strip[60] = winner # Подменяем 60-й элемент на победителя
 
-            # Е. Возвращаем JSON, который ждет фронтенд для запуска анимации
-            logging.info(f"[SHOP] Кейс открыт. Победитель: {winner['name']}")
+            # Д. ВОЗВРАЩАЕМ JSON ДЛЯ РУЛЕТКИ
             return {
                 "status": "ok",
-                "message": "Кейс открыт",
-                "winner": winner,            # Объект скина для остановки
-                "roulette_strip": roulette_strip, # Массив для анимации
-                "messages": [f"Выпал: {winner['name']}"] # Доп инфо
+                "message": "Кейс открыт успешно",
+                "winner": winner,            # JS возьмет картинку и имя отсюда
+                "roulette_strip": roulette_strip, # JS запустит крутилку с этим списком
+                "messages": [f"Выпал: {winner['name']}"]
             }
 
         except Exception as e:
-            logging.error(f"[SHOP] Ошибка открытия кейса: {e}")
-            raise HTTPException(status_code=500, detail="Ошибка при открытии кейса")
+            logging.error(f"[SHOP] Ошибка в логике кейса: {e}")
+            # Возвращаем обычный успех, чтобы деньги не пропали зря
+            return {"message": "Покупка успешна! (Ошибка выдачи скина)"}
 
-    # =================================================================================
-    # ЛОГИКА 2: ОБЫЧНЫЙ ТОВАР (Старая логика Bot-t)
-    # =================================================================================
+    # =========================================================================
+    # ЛОГИКА ОБЫЧНОГО ТОВАРА
+    # =========================================================================
     else:
-        logging.info(f"[SHOP] Обычный товар: {item_title}. Покупаем через Bot-t.")
+        # Просто логируем в manual_rewards для истории (опционально)
+        try:
+            safe_order_id = bott_order_id if bott_order_id else 0
+            source_desc = f"{item_title}|{item_image}|{safe_order_id}"
 
-        if not bott_internal_id or not bott_secret_key:
-             raise HTTPException(status_code=400, detail="Данные авторизации устарели. Перезайдите в Меню.")
+            await supabase.post("/manual_rewards", json={
+                "user_id": telegram_id,
+                "status": "pending",
+                "source_type": "shop",
+                "reward_details": item_title,
+                "source_description": source_desc
+            })
+        except Exception as e:
+            logging.error(f"Ошибка лога: {e}")
 
-        # 3. Создаем заказ в Bot-t
-        url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
-        payload = {
-            "bot_id": int(BOTT_BOT_ID), # Убедись что BOTT_BOT_ID импортирован
-            "category_id": item_id,
-            "count": 1,
-            "user_id": int(bott_internal_id),
-            "secret_user_key": bott_secret_key
-        }
-
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload)
-            
-            if resp.status_code != 200:
-                logging.error(f"[SHOP] Ошибка магазина {resp.status_code}: {resp.text}")
-                raise HTTPException(status_code=500, detail=f"Ошибка магазина: {resp.text}")
-
-            resp_json = resp.json()
-            
-            if resp_json.get("result") is False:
-                err_msg = resp_json.get("message", "Неизвестная ошибка")
-                raise HTTPException(status_code=400, detail=f"Магазин отклонил покупку: {err_msg}")
-
-            # Получаем ID заказа из ответа Bot-t
-            bott_order_data = resp_json.get("data", {})
-            bott_order_id = bott_order_data.get("id")
-
-            # 4. Обновляем баланс локально (списываем монеты)
-            new_balance = current_balance_kopecks - (price * 100)
-            await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{telegram_id}"},
-                json={"bot_t_coins": new_balance} 
-            )
-
-            # 5. Сохраняем лог покупки в админку
-            try:
-                safe_order_id = bott_order_id if bott_order_id else 0
-                source_desc = f"{item_title}|{item_image}|{safe_order_id}"
-
-                await supabase.post("/manual_rewards", json={
-                    "user_id": telegram_id,
-                    "status": "pending",
-                    "source_type": "shop",
-                    "reward_details": item_title,
-                    "source_description": source_desc
-                })
-                logging.info(f"[SHOP] Запись о покупке '{item_title}' сохранена.")
-            except Exception as e_log:
-                logging.error(f"[SHOP] Не удалось сохранить лог покупки: {e_log}")
-
-        # Возвращаем стандартный ответ для обычных товаров (без рулетки)
         return {"message": "Покупка успешна! Товар выдан."}
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
