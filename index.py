@@ -4766,13 +4766,13 @@ async def get_shop_purchases_details_for_admin(
     request_data: PendingActionRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Возвращает список покупок в магазине (source_type='shop')."""
+    """(Админ) Возвращает список покупок: и обычные товары (manual_rewards), и выпавшие скины (cs_history)."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     try:
-        # 1. Получаем награды типа 'shop'
+        # 1. Получаем обычные покупки (билеты и т.д.) из manual_rewards
         rewards_resp = await supabase.get(
             "/manual_rewards",
             params={
@@ -4781,58 +4781,92 @@ async def get_shop_purchases_details_for_admin(
                 "select": "id,user_id,reward_details,source_description,created_at"
             }
         )
-        rewards_resp.raise_for_status()
-        shop_rewards = rewards_resp.json()
+        shop_rewards = rewards_resp.json() if rewards_resp.status_code == 200 else []
 
-        if not shop_rewards:
-            return []
-
-        # 2. Собираем ID пользователей
-        user_ids = {r["user_id"] for r in shop_rewards}
-        users_resp = await supabase.get(
-            "/users",
+        # 2. ПОЛУЧАЕМ ВЫИГРЫШИ ИЗ КЕЙСОВ ИЗ cs_history (JOIN с cs_items)
+        # Нам нужны только те, что в статусе 'pending'
+        history_resp = await supabase.get(
+            "/cs_history",
             params={
-                "telegram_id": f"in.({','.join(map(str, user_ids))})",
-                "select": "telegram_id,full_name,trade_link,username"
+                "status": "eq.pending",
+                "select": "id,user_id,item_id,created_at,cs_items(name,image_url)" # Получаем данные скина через JOIN
             }
         )
-        users_data = {u["telegram_id"]: u for u in users_resp.json()}
+        case_purchases = history_resp.json() if history_resp.status_code == 200 else []
 
-        # 3. Формируем ответ
-        final_rewards = []
+        if not shop_rewards and not case_purchases:
+            return []
+
+        # 3. Собираем всех уникальных пользователей для одного запроса к /users
+        user_ids = {r["user_id"] for r in shop_rewards} | {c["user_id"] for c in case_purchases}
+        
+        users_data = {}
+        if user_ids:
+            users_resp = await supabase.get(
+                "/users",
+                params={
+                    "telegram_id": f"in.({','.join(map(str, user_ids))})",
+                    "select": "telegram_id,full_name,trade_link,username"
+                }
+            )
+            users_data = {u["telegram_id"]: u for u in users_resp.json()}
+
+        final_list = []
+
+        # 4. Обрабатываем обычные товары (manual_rewards)
         for reward in shop_rewards:
             user_details = users_data.get(reward["user_id"], {})
-            
-            # --- 👇 ИСПРАВЛЕНИЕ: Извлекаем картинку из source_description 👇 ---
             raw_desc = reward.get("source_description", "")
-            image_url = "https://placehold.co/100?text=Item" # Дефолт
             
-            # Формат в базе: "Название Товара|https://картинка..."
+            # Извлекаем картинку
+            image_url = "https://placehold.co/100?text=Item"
             if raw_desc and "|" in raw_desc:
                 parts = raw_desc.split("|")
-                # Проверяем, что вторая часть похожа на ссылку
                 if len(parts) > 1 and parts[1].strip().startswith("http"):
                     image_url = parts[1].strip()
-            # --- 👆 КОНЕЦ ИСПРАВЛЕНИЯ 👆 ---
-            
-            final_rewards.append({
-                "id": reward.get("id"),
-                "user_id": reward.get("user_id"),  # <--- 🔥 ДОБАВИТЬ ВОТ ЭТУ СТРОКУ 🔥
+
+            final_list.append({
+                "id": f"manual_{reward['id']}", # Префикс для уникальности ID на фронте
+                "real_id": reward["id"],
+                "type": "manual",
+                "user_id": reward.get("user_id"),
                 "title": reward.get("reward_details"), 
-                "description": raw_desc,
                 "user_full_name": user_details.get("full_name", "N/A"),
                 "user_username": user_details.get("username"),
                 "user_trade_link": user_details.get("trade_link"),
                 "created_at": reward.get("created_at"),
-                "image_url": image_url 
+                "image_url": image_url,
+                "won_skin_name": None # Поле пустое, т.к. это не кейс
             })
 
-        final_rewards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-        return final_rewards
+        # 5. Обрабатываем выпавшие скины (cs_history)
+        for case in case_purchases:
+            user_details = users_data.get(case["user_id"], {})
+            skin_data = case.get("cs_items", {}) # Данные из JOIN
+
+            final_list.append({
+                "id": f"case_{case['id']}", # Префикс
+                "real_id": case["id"],
+                "type": "case",
+                "user_id": case.get("user_id"),
+                "title": "Открытие кейса", # Технический заголовок
+                "user_full_name": user_details.get("full_name", "N/A"),
+                "user_username": user_details.get("username"),
+                "user_trade_link": user_details.get("trade_link"),
+                "created_at": case.get("created_at"),
+                # ВАЖНО: Передаем данные выигранного скина
+                "image_url": skin_data.get("image_url"), 
+                "won_skin_name": skin_data.get("name"),
+                "won_skin_image": skin_data.get("image_url")
+            })
+
+        # Сортируем всё вместе по дате
+        final_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return final_list
 
     except Exception as e:
         logging.error(f"Ошибка при получении покупок магазина: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось загрузить покупки.")
+        raise HTTPException(status_code=500, detail="Не удалось загрузить покупки")
 
 @app.post("/api/v1/admin/shop/reset_cache")
 async def admin_reset_shop_cache(
