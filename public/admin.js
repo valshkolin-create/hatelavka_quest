@@ -5288,7 +5288,7 @@ if(dom.createRoulettePrizeForm) {
     }).join('');
 }
 
-    // 2. ОБНОВЛЕННАЯ ГЛОБАЛЬНАЯ ФУНКЦИЯ ДЕЙСТВИЯ (С логикой билетов)
+  // 2. ОБНОВЛЕННАЯ ГЛОБАЛЬНАЯ ФУНКЦИЯ ДЕЙСТВИЯ (Исправлено извлечение ID)
 window.handleShopAction = function(id, action, title = '', userId = 0) {
     const isApprove = action === 'approve';
     let confirmMsg = isApprove ? 'Подтвердить выдачу товара?' : 'Отклонить покупку?';
@@ -5299,47 +5299,51 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
     let isTicketAuto = false;
     let ticketAmount = 0;
 
-    // Проверяем наличие слова "билет"
     if (isApprove && title && title.toLowerCase().includes('билет')) {
-        // Проверка на ошибку передачи данных (для отладки)
         if (!userId || userId === 0) {
-            alert("Ошибка JS: Не передан ID пользователя! Попробуйте обновить страницу (F5) или проверьте функцию renderShopPurchases.");
+            alert("Ошибка JS: Не передан ID пользователя!");
             return;
         }
-
         const numberMatch = title.match(/(\d+)/);
         ticketAmount = numberMatch ? parseInt(numberMatch[0], 10) : 1;
-
         confirmMsg = `Обнаружены билеты: <b>${ticketAmount} шт</b>.<br>Для пользователя ID: ${userId}<br>Выдать их автоматически и закрыть заявку?`;
         btnText = `Выдать ${ticketAmount} 🎟️`;
         isTicketAuto = true;
     }
-    // ----------------------------------
 
     showCustomConfirmHTML(confirmMsg, async (closeModal) => {
         showLoader();
 
         try {
+            // === ИСПРАВЛЕНИЕ: ПАРСИНГ ID И ВЫБОР ЭНДПОИНТА ===
+            const idString = String(id);
+            const isCase = idString.startsWith('case_');
+            // Извлекаем только цифры (из "case_76" получим 76)
+            const realNumericId = parseInt(idString.split('_')[1] || idString);
+
+            let endpoint = '';
+            if (isCase) {
+                // Для кейсов (таблица cs_history)
+                endpoint = isApprove ? '/api/v1/admin/cs_history/complete' : '/api/v1/admin/cs_history/reject';
+            } else {
+                // Для обычных наград (таблица manual_rewards)
+                endpoint = isApprove ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
+            }
+            // ===============================================
+
             if (isTicketAuto) {
-                // 1. ВЫДАЕМ БИЛЕТЫ (Строго по логике ручной выдачи)
-                // Endpoint: /grant-stars
-                // Параметр: user_id_to_grant
-                const grantResult = await makeApiRequest('/api/v1/admin/users/grant-stars', { 
-                    user_id_to_grant: userId, // Важно: числовой ID
+                await makeApiRequest('/api/v1/admin/users/grant-stars', { 
+                    user_id_to_grant: userId, 
                     amount: ticketAmount 
                 }, 'POST', true);
-                
-                console.log(`[Shop] Ответ сервера на выдачу:`, grantResult);
             }
 
-            // 2. ЗАКРЫВАЕМ ЗАЯВКУ В МАГАЗИНЕ
-            const endpoint = isApprove ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
-            await makeApiRequest(endpoint, { reward_id: id }, 'POST', true);
+            // Отправляем запрос с ЧИСЛОВЫМ ID (realNumericId)
+            await makeApiRequest(endpoint, { reward_id: realNumericId }, 'POST', true);
 
-            // 3. УДАЛЯЕМ ИЗ СПИСКА
+            // Удаляем карточку по СТРОКОВОМУ ID (как в HTML: "shop-card-case_76")
             document.getElementById(`shop-card-${id}`)?.remove();
             
-            // Обновляем бейдж
             const shopBadge = document.getElementById('shop-badge-main');
             if (shopBadge) {
                 let c = Math.max(0, (parseInt(shopBadge.textContent) || 0) - 1);
@@ -5357,6 +5361,7 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
 
         } catch (e) {
             hideLoader();
+            console.error("Shop Action Error:", e);
             tg.showAlert(`Ошибка: ${e.message}`);
         }
     }, btnText, btnColor);
