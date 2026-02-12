@@ -5210,10 +5210,9 @@ if(dom.createRoulettePrizeForm) {
         }
     } // <--- 🟢 ДОБАВЬ ВОТ ЭТУ СКОБКУ 🟢
 
-    function renderShopPurchases(purchases, targetElement) {
+   function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
 
-    // Твоя рабочая логика поиска контейнера
     const listContainer = targetElement.querySelector('.shop-list-container') || 
                           targetElement.querySelector('.pending-actions-grid') || 
                           targetElement;
@@ -5231,34 +5230,38 @@ if(dom.createRoulettePrizeForm) {
             ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
             : '<span style="color: var(--warning-color);">Не указана</span>';
 
-        // --- ЛОГИКА ОПРЕДЕЛЕНИЯ ЧТО ПОКАЗЫВАТЬ (КЕЙС ИЛИ СКИН) ---
-        let displayTitle = p.title || 'Товар';
-        let displayImg = p.image_url || "https://placehold.co/60?text=Shop";
-        let subTitleHtml = ''; 
-        let cardStyle = '';
+        // --- ЛОГИКА ОПРЕДЕЛЕНИЯ КОНТЕНТА ---
+        // Если won_skin_name есть — это раскрытый кейс, показываем скин.
+        // Если нет — показываем то, что купил юзер (кейс как товар или билет).
+        
+        const isOpenedCase = !!p.won_skin_name; 
+        
+        let displayTitle = isOpenedCase ? `🎁 ${p.won_skin_name}` : (p.title || 'Товар');
+        let displayImg = (isOpenedCase && p.won_skin_image) ? p.won_skin_image : (p.image_url || "https://placehold.co/60?text=Shop");
+        
+        let subTitleHtml = isOpenedCase 
+            ? `<div style="font-size: 11px; color: #ffd700; margin-bottom: 4px;">
+                    <i class="fa-solid fa-box-open"></i> из: ${escapeHTML(p.title)}
+               </div>` 
+            : '';
+            
+        let cardStyle = isOpenedCase 
+            ? 'border: 1px solid rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05);' 
+            : '';
 
-        // Если это кейс и есть информация о выигрыше
-        if (p.won_skin_name) {
-            displayTitle = `🎁 ${p.won_skin_name}`; // Показываем имя скина
-            displayImg = p.won_skin_image || displayImg; // Показываем картинку скина
-            subTitleHtml = `<div style="font-size: 11px; color: #ffd700; margin-bottom: 4px;">
-                                <i class="fa-solid fa-box-open"></i> из: ${escapeHTML(p.title)}
-                            </div>`;
-            cardStyle = 'border: 1px solid rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05);';
-        }
-
-        if (!displayImg.startsWith('http')) {
+        // Проверка корректности URL картинки
+        if (!displayImg || !displayImg.startsWith('http')) {
             displayImg = "https://placehold.co/60?text=No+Img";
         }
 
-        // Твоя рабочая подготовка данных для кнопок
         const safeTitle = (p.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const userId = p.user_id || 0; 
 
         return `
         <div class="shop-purchase-card" id="shop-card-${p.id}" style="${cardStyle}">
-            <div style="position: relative; width: 60px; height: 60px; flex-shrink: 0;">
+            <div style="position: relative; width: 60px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
                 <img src="${escapeHTML(displayImg)}" class="shop-item-thumb" alt="Item" 
+                     style="max-width: 100%; max-height: 100%; object-fit: contain;"
                      onerror="this.onerror=null; this.src='https://placehold.co/60?text=Error';">
             </div>
             
