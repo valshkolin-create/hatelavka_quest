@@ -5210,7 +5210,7 @@ if(dom.createRoulettePrizeForm) {
         }
     } // <--- 🟢 ДОБАВЬ ВОТ ЭТУ СКОБКУ 🟢
 
-   function renderShopPurchases(purchases, targetElement) {
+  function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
 
     const listContainer = targetElement.querySelector('.shop-list-container') || 
@@ -5230,10 +5230,7 @@ if(dom.createRoulettePrizeForm) {
             ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
             : '<span style="color: var(--warning-color);">Не указана</span>';
 
-        // --- ЛОГИКА ОПРЕДЕЛЕНИЯ КОНТЕНТА ---
-        // Если won_skin_name есть — это раскрытый кейс, показываем скин.
-        // Если нет — показываем то, что купил юзер (кейс как товар или билет).
-        
+        // --- ЛОГИКА ОПРЕДЕЛЕНИЯ КОНТЕНТА (Кейс или Товар) ---
         const isOpenedCase = !!p.won_skin_name; 
         
         let displayTitle = isOpenedCase ? `🎁 ${p.won_skin_name}` : (p.title || 'Товар');
@@ -5249,13 +5246,14 @@ if(dom.createRoulettePrizeForm) {
             ? 'border: 1px solid rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05);' 
             : '';
 
-        // Проверка корректности URL картинки
         if (!displayImg || !displayImg.startsWith('http')) {
             displayImg = "https://placehold.co/60?text=No+Img";
         }
 
+        // --- ПОДГОТОВКА ДАННЫХ ДЛЯ КНОПОК ---
         const safeTitle = (p.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const userId = p.user_id || 0; 
+        // Важно: p.id теперь может быть строкой 'case_1', поэтому оборачиваем в кавычки в onclick
 
         return `
         <div class="shop-purchase-card" id="shop-card-${p.id}" style="${cardStyle}">
@@ -5279,10 +5277,10 @@ if(dom.createRoulettePrizeForm) {
             </div>
 
             <div class="shop-actions">
-                <button class="admin-action-btn approve" onclick="handleShopAction(${p.id}, 'approve', '${safeTitle}', ${userId})" title="Подтвердить выдачу">
+                <button class="admin-action-btn approve" onclick="handleShopAction('${p.id}', 'approve', '${safeTitle}', ${userId})" title="Подтвердить выдачу">
                     <i class="fa-solid fa-check"></i>
                 </button>
-                <button class="admin-action-btn reject" onclick="handleShopAction(${p.id}, 'reject', '${safeTitle}', ${userId})" title="Отклонить">
+                <button class="admin-action-btn reject" onclick="handleShopAction('${p.id}', 'reject', '${safeTitle}', ${userId})" title="Отклонить">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
