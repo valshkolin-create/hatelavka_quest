@@ -533,6 +533,37 @@
             width: 32px; height: 32px; font-size: 14px;
             cursor: pointer; transition: background-color 0.2s ease;
         }
+        /* --- Стили для окна Trade Link --- */
+.popup-help {
+    margin-top: 5px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+.popup-help a {
+    color: var(--text-color-muted); /* Неброский серый */
+    text-decoration: none;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0.8;
+}
+.popup-help a i {
+    color: var(--primary-color); /* Зеленая иконка вопроса */
+}
+
+/* Фикс текста на кнопках в попапах */
+.popup-btn.primary {
+    background-color: var(--primary-color);
+    color: #000 !important; /* Всегда черный текст на зеленом фоне */
+    font-weight: 700;
+}
+
+/* Красная подсветка для неправильной ссылки */
+.error-input {
+    border-color: var(--danger-color) !important;
+    background-color: rgba(255, 59, 48, 0.05) !important;
+}
         
         /* Мета-инфо (дата) */
         .reward-card-meta {
@@ -1776,30 +1807,35 @@ window.confirmReceived = function(historyId) {
         }
     });
 
-    // Обработчики закрытия попапов
+    // --- Вспомогательная функция для КРАСИВЫХ алертов (в стиле документа) ---
+    function showCustomAlert(message, isError = false) {
+        const btnColor = isError ? "var(--danger-color)" : "var(--primary-color)";
+        showCustomConfirmHTML(message, (close) => close(), "ПОНЯТНО", btnColor);
+    }
+
     // --- Живая проверка ввода Trade Link ---
     if (dom.popupTradeLinkInput) {
         dom.popupTradeLinkInput.addEventListener('input', (e) => {
             const input = e.target;
             let value = input.value.trim();
             
-            // Если вставили текст с мусором вначале (н-р "вот ссылка https://..."), обрезаем лишнее
+            // 1. УМНАЯ ОБРЕЗКА: Если вставили текст с мусором (н-р "вот ссылка https://..."), оставляем только URL
             if (value.includes("https://") && !value.startsWith("https://")) {
                 value = value.substring(value.indexOf("https://"));
                 input.value = value;
             }
 
-            // Если введено много текста и это не Steam — красим в красный
+            // 2. ЖИВАЯ ВАЛИДАЦИЯ: Если введено много текста и это не Steam — красная рамка
             if (value.length > 20 && !value.startsWith("https://steamcommunity.com")) {
-                input.style.borderColor = "var(--danger-color)";
+                input.classList.add('error-input');
             } else {
-                input.style.borderColor = ""; // Сброс цвета
+                input.classList.remove('error-input');
             }
         });
     }
 
     dom.popupCancelBtn.onclick = () => {
-        dom.popupTradeLinkInput.style.borderColor = "";
+        dom.popupTradeLinkInput.classList.remove('error-input');
         dom.customPopupOverlay.classList.remove('visible');
     };
 
@@ -1807,11 +1843,11 @@ window.confirmReceived = function(historyId) {
         const v = dom.popupTradeLinkInput.value.trim();
         const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
 
-        // Проверка: ссылка должна быть полной и правильной
+        // СТРОГАЯ ПРОВЕРКА: ссылка должна быть полной
         if (!v.startsWith(requiredPrefix) || !v.includes("partner=") || !v.includes("token=")) {
-            // Подсвечиваем красным (класс .error-input у тебя в стилях уже есть)
             dom.popupTradeLinkInput.classList.add('error-input');
-            tg.showAlert("❌ Неверный формат ссылки!\n\nУбедитесь, что скопировали её целиком (включая partner и token) из настроек Steam.");
+            // ЗАМЕНА tg.showAlert на наше окно
+            showCustomAlert("<b>Неверный формат ссылки!</b><br><br>Убедитесь, что скопировали её целиком (включая partner и token) из настроек Steam.", true);
             return;
         }
 
@@ -1821,13 +1857,17 @@ window.confirmReceived = function(historyId) {
             await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: v });
             dom.customPopupOverlay.classList.remove('visible');
             
-            // Показываем уведомление об успехе
             showNotification("Trade Link сохранен!", "success");
             
-            // Перезагружаем для обновления данных (или вызови loadData(true))
-            window.location.reload(); 
+            // Обновляем текст в профиле сразу
+            const display = document.getElementById('trade-link-display');
+            if (display) display.textContent = v;
+            const btn = document.getElementById('edit-trade-link-btn');
+            if (btn) btn.textContent = 'Изменить';
+
+            // Если всё же хочешь перезагрузку: window.location.reload();
         } catch (e) {
-            tg.showAlert("Ошибка: " + e.message);
+            showCustomAlert("Ошибка сохранения:<br>" + e.message, true);
         } finally {
             hideLoader();
         }
