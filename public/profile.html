@@ -1271,14 +1271,25 @@
         });
     }
     // --- MAIN FUNCTION ---
-    // --- КАРТА РЕДКОСТЕЙ (Вставь перед renderInventory) ---
-const rarityNames = {
-    'common': 'Consumer Grade',
-    'blue': 'Industrial Grade',     // Синий
-    'purple': 'Restricted',         // Фиолетовый
-    'pink': 'Classified',           // Розовый
-    'red': 'Covert',                // Красный
-    'gold': 'Rare Special Item'     // Золотой
+// --- КАРТА РЕДКОСТЕЙ (RU) ---
+const rarityConfig = {
+    // Основные ключи (если в базе хранятся английские названия типов)
+    'consumer': { color: '#b0c3d9', name: 'Ширпотреб' },
+    'industrial': { color: '#5e98d9', name: 'Промышленное качество' }, 
+    'mil-spec': { color: '#4b69ff', name: 'Армейское качество' },     
+    'restricted': { color: '#8847ff', name: 'Запрещённое' },       
+    'classified': { color: '#d32ce6', name: 'Засекреченное' },       
+    'covert': { color: '#eb4b4b', name: 'Тайное' },               
+    'gold': { color: '#ffd700', name: 'Крайне редкий' },      
+    'contraband': { color: '#e4ae39', name: 'Контрабандное' },
+
+    // Фолбэки (если в базе хранятся названия цветов)
+    'common': { color: '#b0c3d9', name: 'Ширпотреб' },
+    'blue': { color: '#5e98d9', name: 'Промышленное качество' },      // Светло-синий
+    'dark_blue': { color: '#4b69ff', name: 'Армейское качество' },    // Тёмно-синий
+    'purple': { color: '#8847ff', name: 'Запрещённое' },
+    'pink': { color: '#d32ce6', name: 'Засекреченное' },
+    'red': { color: '#eb4b4b', name: 'Тайное' }
 };
 
 function renderInventory(items) {
@@ -1298,32 +1309,111 @@ function renderInventory(items) {
         return;
     }
 
+    // --- СОРТИРОВКА: Активные вверх, Архив вниз ---
+    const statusWeight = {
+        'sent': 1,        
+        'pending': 2,     
+        'processing': 3,  
+        'received': 4,    
+        'exchanged': 5    
+    };
+
+    items.sort((a, b) => {
+        const wA = statusWeight[a.status] || 99;
+        const wB = statusWeight[b.status] || 99;
+        return wA - wB; 
+    });
+
     items.forEach(item => {
-        // Определяем цвет и название
+        // Определяем редкость (приводим к нижнему регистру для поиска в конфиге)
         const rKey = (item.rarity || 'common').toLowerCase();
-        let borderCol = '#8E8E93'; 
-        let bgCol = 'rgba(255,255,255,0.05)';
         
-        // Красивое название качества
-        let qualityName = rarityNames[rKey] || item.rarity; 
-        // Если в rKey есть "stat", можно добавить (StatTrak™) в название, но пока просто маппинг:
-        if (rKey.includes('blue')) { borderCol = '#4b69ff'; qualityName = 'Industrial Grade'; }
-        else if (rKey.includes('purple')) { borderCol = '#8847ff'; qualityName = 'Restricted'; }
-        else if (rKey.includes('pink')) { borderCol = '#d32ce6'; qualityName = 'Classified'; }
-        else if (rKey.includes('red')) { borderCol = '#eb4b4b'; qualityName = 'Covert'; }
-        else if (rKey.includes('gold')) { borderCol = '#ffd700'; qualityName = 'Exceedingly Rare'; }
+        // Берем конфиг или дефолт (Ширпотреб)
+        const rData = rarityConfig[rKey] || rarityConfig['consumer'];
+        const borderCol = rData.color;
+        const rarityName = rData.name;
+        
+        const status = item.status;
+        const ticketVal = item.price || 0; 
+
+        let rightContentHtml = '';
+        let cardOpacity = '1';
+        let statusLabel = '';
+
+        // --- ЛОГИКА ОТОБРАЖЕНИЯ ПО СТАТУСАМ ---
+
+        if (status === 'processing') {
+            // 🟡 В ОБРАБОТКЕ
+            statusLabel = '<span style="color:#FFD700;"><i class="fa-solid fa-clock"></i> Ждем трейд</span>';
+            rightContentHtml = `
+                <div style="font-size: 10px; color: #FFD700; text-align: center; border: 1px dashed #FFD700; padding: 6px; border-radius: 6px;">
+                    ОЖИДАЙТЕ<br>ТРЕЙД
+                </div>
+            `;
+        } 
+        else if (status === 'sent') {
+            // 🟢 АДМИН ОТПРАВИЛ
+            statusLabel = '<span style="color:#34c759;"><i class="fa-solid fa-paper-plane"></i> Трейд отправлен!</span>';
+            rightContentHtml = `
+                <button onclick="confirmReceived(${item.history_id})" style="
+                    background: #34c759; color: #fff; border: none;
+                    font-size: 10px; font-weight: 800; padding: 10px 0; 
+                    border-radius: 6px; cursor: pointer; width: 100%;
+                    box-shadow: 0 0 10px rgba(52, 199, 89, 0.4); animation: pulse-green 2s infinite;">
+                    Я ПОЛУЧИЛ
+                </button>
+            `;
+        } 
+        else if (status === 'exchanged') {
+            // ⚪ АРХИВ (ОБМЕНЯНО)
+            cardOpacity = '0.5'; 
+            statusLabel = '<span style="color:#888;">Обменяно на билеты</span>';
+            rightContentHtml = `
+                <div style="font-size: 11px; color: #fff; text-align: right; font-weight: 700;">
+                    +${ticketVal} <i class="fa-solid fa-ticket" style="color:#aaa;"></i>
+                </div>
+            `;
+        } 
+        else if (status === 'received') {
+            // ⚪ АРХИВ (ПОЛУЧЕНО)
+            cardOpacity = '0.5'; 
+            statusLabel = '<span style="color:#888;">Получено в Steam</span>';
+            rightContentHtml = `
+                <div style="font-size: 11px; color: #34c759; text-align: right; font-weight: 700;">
+                    <i class="fa-solid fa-check"></i> DONE
+                </div>
+            `;
+        } 
+        else {
+            // 🔵 ОБЫЧНОЕ СОСТОЯНИЕ (PENDING)
+            statusLabel = '<span style="color:#fff;">Активно</span>';
+            rightContentHtml = `
+                <button onclick="withdrawItem(${item.history_id}, '${item.name}')" style="
+                    background: ${borderCol}; color: #000; border: none;
+                    font-size: 11px; font-weight: 800; padding: 8px 0; 
+                    border-radius: 6px; cursor: pointer; width: 100%; margin-bottom: 6px;">
+                    ЗАБРАТЬ
+                </button>
+
+                <button onclick="exchangeItem(${item.history_id}, ${ticketVal})" style="
+                    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); 
+                    color: #fff; font-size: 10px; padding: 6px 0; border-radius: 6px; 
+                    cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="fa-solid fa-ticket"></i> +${ticketVal}
+                </button>
+            `;
+        }
 
         const el = document.createElement('div');
         el.className = 'reward-card';
-        el.style.background = bgCol;
+        el.style.background = 'rgba(255,255,255,0.05)';
         el.style.border = `1px solid ${borderCol}`;
         el.style.display = 'flex';
         el.style.gap = '12px';
         el.style.alignItems = 'center';
-        el.style.padding = '10px'; 
-
-        // Расчет цены обмена (50%)
-        const sellPrice = Math.floor((item.price || 0) * 0.5); 
+        el.style.padding = '10px';
+        el.style.marginBottom = '8px';
+        el.style.opacity = cardOpacity; 
 
         el.innerHTML = `
             <div style="width: 70px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 8px;">
@@ -1335,71 +1425,19 @@ function renderInventory(items) {
                     ${item.name}
                 </div>
                 <div style="font-size: 10px; color: ${borderCol}; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
-                    ${qualityName}
+                    ${rarityName}
                 </div>
-                
-                <div style="font-size: 10px; color: #888; display: flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-check"></i> Доступно
+                <div style="font-size: 10px; display: flex; align-items: center; gap: 4px;">
+                    ${statusLabel}
                 </div>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 6px; width: 100px; flex-shrink: 0;">
-                <button onclick="withdrawItem(${item.history_id}, '${item.name}')" style="
-                    background: ${borderCol}; 
-                    color: #000; 
-                    border: none;
-                    font-size: 11px; 
-                    font-weight: 800;
-                    padding: 8px 0; 
-                    border-radius: 6px; 
-                    cursor: pointer;
-                    width: 100%;">
-                    ЗАБРАТЬ
-                </button>
-
-                <button onclick="exchangeItem(${item.history_id}, ${sellPrice})" style="
-                    background: rgba(255, 255, 255, 0.1); 
-                    border: 1px solid rgba(255, 255, 255, 0.2); 
-                    color: #fff; 
-                    font-size: 10px; 
-                    padding: 6px 0; 
-                    border-radius: 6px; 
-                    cursor: pointer;
-                    width: 100%;
-                    display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    <i class="fa-solid fa-ticket"></i> +${sellPrice}
-                </button>
+            <div style="display: flex; flex-direction: column; justify-content: center; width: 100px; flex-shrink: 0;">
+                ${rightContentHtml}
             </div>
         `;
         container.appendChild(el);
     });
-}
-
-// --- ФУНКЦИЯ "ЗАБРАТЬ" (WITHDRAW) ---
-window.withdrawItem = function(historyId, itemName) {
-    showCustomConfirmHTML(`Выводим "${itemName}"?`, async (close) => {
-        // Показываем лоадер (как при покупке)
-        showLoader(); 
-        
-        try {
-            // Отправляем запрос на вывод
-            const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true); // isSilent=true, т.к. мы сами управляем лоадером
-            
-            hideLoader();
-            
-            if (res && res.success) {
-                // Успех!
-                tg.showAlert(`✅ Заявка создана!\nОжидайте трейд-оффер в Steam в течение 24 часов.`);
-                // Обновляем список, чтобы предмет пропал или сменил статус
-                loadData(true);
-            }
-            close();
-        } catch (e) {
-            hideLoader();
-            tg.showAlert(e.message || "Ошибка соединения");
-            close();
-        }
-    }, "ВЫВЕСТИ", "#34c759");
 }
 
 // =========================================================
