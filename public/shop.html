@@ -410,16 +410,23 @@
         /* --- СТИЛЬ ТОЛЬКО ДЛЯ КЕЙСОВ (БОЛЬШАЯ КАРТИНКА) --- */
         /* Увеличенный стиль для кейсов */
 .item-image.case-zoom {
-    width: 100% !important;   /* Занимает всю ширину контейнера */
-    height: 100% !important;  /* Занимает всю высоту контейнера */
+    width: 100% !important;
+    height: 100% !important;
     top: 0 !important;
     left: 0 !important;
-    padding: 0 !important;    /* Убираем все внутренние отступы */
+    padding: 0 !important;
     border-radius: 12px;
-    object-fit: contain;      /* Картинка растянется до краев, сохраняя пропорции */
+    object-fit: contain;
     
-    /* Добавляем легкое свечение, чтобы кейс выглядел объемнее */
-    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.1));
+    /* --- ЛОГИКА УВЕЛИЧЕНИЯ --- */
+    transform: scale(1.2); /* Увеличиваем на 40%. Можешь поставить 1.3 или 1.5 */
+    transform-origin: top center; /* Масштабирование начинается от верхнего края (от текста) */
+    
+    /* Сдвиг чуть ниже, если нужно оставить микро-зазор от букв */
+    margin-top: 5px; 
+
+    filter: drop-shadow(0 0 15px rgba(255, 204, 0, 0.2));
+    transition: transform 0.3s ease; /* Плавность */
 }
         .item-info {
             padding: 10px;
