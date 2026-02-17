@@ -12826,7 +12826,7 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
     
-    # Получаем название и картинку с фронта (для логов и проверки на КЕЙС)
+    # Получаем название и картинку с фронта
     item_title = getattr(request_data, 'title', "") or "Товар"
     item_image = getattr(request_data, 'image_url', "") or ""
 
@@ -12859,10 +12859,10 @@ async def buy_bott_item_proxy(
     if current_balance_kopecks < (price * 100):
         raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-    # 3. СОЗДАЕМ ЗАКАЗ В BOT-T (ТВОЕ ТРЕБОВАНИЕ: ЗАКАЗ ДОЛЖЕН БЫТЬ ВСЕГДА)
+    # 3. СОЗДАЕМ ЗАКАЗ В BOT-T
     url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
     payload = {
-        "bot_id": int(BOTT_BOT_ID), # Убедись, что переменная BOTT_BOT_ID доступна
+        "bot_id": int(BOTT_BOT_ID),
         "category_id": item_id,
         "count": 1,
         "user_id": int(bott_internal_id),
@@ -12875,7 +12875,6 @@ async def buy_bott_item_proxy(
         try:
             resp = await client.post(url, json=payload)
             
-            # Если Bot-T вернул ошибку (например, товара нет) - прерываем всё
             if resp.status_code != 200:
                 logging.error(f"[SHOP] Bot-T Error {resp.status_code}: {resp.text}")
                 raise HTTPException(status_code=500, detail="Ошибка магазина Bot-T")
@@ -12885,7 +12884,6 @@ async def buy_bott_item_proxy(
                 err_msg = resp_json.get("message", "Ошибка покупки")
                 raise HTTPException(status_code=400, detail=f"Bot-T: {err_msg}")
             
-            # Получаем ID заказа
             bott_order_data = resp_json.get("data", {})
             bott_order_id = bott_order_data.get("id", 0)
             
@@ -12910,61 +12908,66 @@ async def buy_bott_item_proxy(
         logging.info(f"[SHOP] Это кейс: {item_title}. Запускаем выбор скина.")
         
         try:
-            # А. Берем скины из cs_items
+            # А. Берем скины
             items_resp = await supabase.get("/cs_items", params={"is_active": "eq.true"})
             all_items = items_resp.json()
             
             if not all_items:
                 logging.error("[SHOP] Таблица cs_items пуста!")
-                # Возвращаем успех покупки, но без рулетки (чтобы не крашить юзера)
                 return {"message": "Куплено, но база скинов пуста!"}
 
-            # Б. Выбираем победителя по весам (chance_weight)
-            # Если chance_weight нет, используем 10 по умолчанию
+            # Б. Выбираем победителя
             weights = [float(item.get('chance_weight', 10)) for item in all_items]
             winner = random.choices(all_items, weights=weights, k=1)[0]
             
-            # В. Пишем в историю (cs_history) И ПОЛУЧАЕМ ID
-            # ВАЖНО: Добавляем заголовок Prefer: return=representation, чтобы Supabase вернул созданную запись
+            # В. Пишем в историю И ЗАБИРАЕМ ID (ВАЖНО: headers return=representation)
             hist_resp = await supabase.post(
                 "/cs_history", 
                 json={
                     "user_id": telegram_id,
                     "item_id": winner['id'],
-                    "code_used": f"BOTT_ORDER_{bott_order_id}", # Связываем с заказом Bot-t
+                    "code_used": f"BOTT_ORDER_{bott_order_id}",
                     "status": "pending"
                 },
                 headers={"Prefer": "return=representation"} 
             )
             
-            # Парсим ответ Supabase, чтобы достать ID записи
+            # Получаем ID созданной записи (например, 130)
             hist_data = hist_resp.json()
-            history_id = hist_data[0]['id'] if hist_data and isinstance(hist_data, list) else 0
+            history_id = 0
+            if hist_data and isinstance(hist_data, list):
+                history_id = hist_data[0]['id']
+            
+            logging.info(f"[SHOP] Выигрыш: ItemID={winner['id']}, HistoryID={history_id}")
 
-            # Г. Генерируем ленту (80 предметов)
+            # Г. Генерируем ленту
             roulette_strip = random.choices(all_items, k=80)
-            roulette_strip[60] = winner # Подменяем 60-й элемент на победителя
+            roulette_strip[60] = winner 
+            
+            # Добавляем history_id внутрь объекта winner, на случай если фронт берет ID оттуда
+            winner_with_id = winner.copy()
+            winner_with_id['history_id'] = history_id
+            # winner_with_id['id'] = history_id # Раскомментировать, если фронт жестко берет .id и ломает продажу
 
-            # Д. ВОЗВРАЩАЕМ JSON ДЛЯ РУЛЕТКИ
+            # Д. ВОЗВРАЩАЕМ JSON
             return {
                 "status": "ok",
                 "message": "Кейс открыт успешно",
-                "winner": winner,            # JS возьмет картинку и имя отсюда
-                "roulette_strip": roulette_strip, # JS запустит крутилку с этим списком
+                "winner": winner_with_id,    # Обновленный winner
+                "roulette_strip": roulette_strip,
                 "messages": [f"Выпал: {winner['name']}"],
-                "history_id": history_id     # ОТДАЕМ ID НА ФРОНТ
+                "history_id": history_id,    # ID для продажи (130)
+                "id": history_id             # Дублируем как id для совместимости
             }
 
         except Exception as e:
             logging.error(f"[SHOP] Ошибка в логике кейса: {e}")
-            # Возвращаем обычный успех, чтобы деньги не пропали зря
             return {"message": "Покупка успешна! (Ошибка выдачи скина)"}
 
     # =========================================================================
     # ЛОГИКА ОБЫЧНОГО ТОВАРА
     # =========================================================================
     else:
-        # Просто логируем в manual_rewards для истории (опционально)
         try:
             safe_order_id = bott_order_id if bott_order_id else 0
             source_desc = f"{item_title}|{item_image}|{safe_order_id}"
