@@ -15244,6 +15244,60 @@ async def sell_inventory_item(
         "message": f"Предмет обменян! Получено {refund_amount} билетов.",
         "added_tickets": refund_amount
     }
+
+# 3. Вывести предмет (Заявка на вывод)
+@app.post("/api/v1/user/inventory/withdraw")
+async def withdraw_inventory_item(
+    req: InventorySellRequest, # Используем ту же модель {initData, history_id}
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Авторизация
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Auth failed")
+    
+    user_id = user_data['id']
+
+    # 2. Проверяем наличие Trade Link у пользователя
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+    if not user_res.json():
+        raise HTTPException(status_code=400, detail="User error")
+    
+    user_info = user_res.json()[0]
+    if not user_info.get('trade_link'):
+        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в настройках профиля!")
+
+    # 3. Проверяем статус предмета (должен быть pending)
+    check_resp = await supabase.get(
+        "/cs_history",
+        params={
+            "id": f"eq.{req.history_id}",
+            "user_id": f"eq.{user_id}",
+            "status": "eq.pending"
+        }
+    )
+    
+    if not check_resp.json():
+        raise HTTPException(status_code=404, detail="Предмет не доступен для вывода")
+
+    # 4. Меняем статус на 'processing' (или 'withdraw_req')
+    # Это сигнал админу, что нужно отправить трейд
+    upd_resp = await supabase.patch(
+        "/cs_history",
+        params={"id": f"eq.{req.history_id}"},
+        json={"status": "processing"} 
+    )
+
+    if upd_resp.status_code not in (200, 204):
+        raise HTTPException(status_code=500, detail="Ошибка обновления статуса")
+
+    # 5. (Опционально) Отправляем уведомление админу в ТГ
+    # await bot.send_message(ADMIN_ID, f"Новая заявка на вывод! ID: {req.history_id}")
+
+    return {
+        "success": True, 
+        "message": "Заявка на вывод создана"
+    }
     
 # ==========================================
 # ⚡ ТЕЛЕГРАМ ЗАДАНИЯ И РЕАКЦИИ
