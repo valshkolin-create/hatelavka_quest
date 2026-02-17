@@ -1019,9 +1019,6 @@ if (dom.popupTradeLinkInput) {
         overlay.className = 'custom-confirm-overlay';
         
         // --- ЛОГИКА ЦВЕТА ТЕКСТА ---
-        // Если цвет кнопки зеленый (основной), текст черный. Иначе — белый.
-        const isGreen = btnColor.includes('primary') || btnColor.includes('#34c759');
-        const textColor = isGreen ? '#000000' : '#ffffff';
 
         const box = document.createElement('div'); 
         box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
@@ -1032,7 +1029,7 @@ if (dom.popupTradeLinkInput) {
             <h3 style="margin: 0 0 20px; font-size: 17px; font-weight: 600; line-height: 1.4;">${text}</h3>
             <div style="display: flex; gap: 12px;">
                 ${cancelBtnHtml}
-                <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: ${textColor} !important; font-size: 16px; font-weight: 800; cursor: pointer;">${btnText}</button>
+                <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; font-size: 16px; font-weight: 800; cursor: pointer;">${btnText}</button>
             </div>`;
             
         overlay.appendChild(box); 
