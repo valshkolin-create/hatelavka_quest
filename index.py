@@ -15116,54 +15116,50 @@ async def debug_test_system(
 
 
 # ==========================================
-# 📦 INVENTORY SYSTEM (ИНВЕНТАРЬ CS)
+# 📦 INVENTORY SYSTEM (ПОЛНАЯ ИСТОРИЯ)
 # ==========================================
 
-# 1. Получить инвентарь пользователя
+# 1. Получить ВЕСЬ инвентарь (Активные + История)
 @app.post("/api/v1/user/inventory")
 async def get_user_inventory(
     req: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Авторизация
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data:
         raise HTTPException(status_code=401, detail="Auth failed")
     
     user_id = user_data['id']
 
-    # 2. Запрос в БД: берем историю + данные о предмете
-    # status 'pending' означает, что предмет у юзера и он его еще не вывел/не продал
+    # Берем ВСЕ предметы пользователя
     resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            # 👇 ИЗМЕНЕНИЕ: Берем и доступные (pending), и те, что на выводе (processing)
-            "status": "in.(pending,processing)", 
             "select": "id, status, created_at, item:cs_items(id, name, image_url, rarity, price)",
-            "order": "created_at.desc"
+            "order": "created_at.desc" # Сначала новые
         }
     )
 
     if resp.status_code != 200:
-        print(f"Inventory Error: {resp.text}")
         return []
 
-    data = resp.json()
     inventory = []
-
-    # 3. Преобразуем данные для фронтенда
-    for row in data:
+    for row in resp.json():
         item_data = row.get('item')
-        if not item_data: continue # Если ссылка на предмет битая, пропускаем
+        if not item_data: continue
+
+        # Цена из базы = Билеты
+        raw_price = item_data.get('price') or 0
+        ticket_val = int(float(raw_price))
 
         inventory.append({
-            "history_id": row['id'],        # ID записи в истории (важно для продажи!)
-            "item_id": item_data['id'],     # ID самого скина
+            "history_id": row['id'],
+            "item_id": item_data['id'],
             "name": item_data['name'],
             "image_url": item_data['image_url'],
             "rarity": item_data['rarity'],
-            "price": item_data['price'],
+            "price": ticket_val, 
             "status": row['status'],
             "received_at": row['created_at']
         })
@@ -15171,134 +15167,88 @@ async def get_user_inventory(
     return inventory
 
 
-# 2. Обменять (продать) скин на билеты
+# 2. Обменять скин на билеты (Статус -> exchanged)
 @app.post("/api/v1/user/inventory/sell")
 async def sell_inventory_item(
     req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Авторизация
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Auth failed")
-    
     user_id = user_data['id']
 
-    # 2. Проверяем, что предмет принадлежит юзеру и статус 'pending'
+    # Проверяем предмет (должен быть pending)
     check_resp = await supabase.get(
         "/cs_history",
-        params={
-            "id": f"eq.{req.history_id}",
-            "user_id": f"eq.{user_id}",
-            "status": "eq.pending",
-            "select": "id, item:cs_items(price, name)"
-        }
+        params={"id": f"eq.{req.history_id}", "user_id": f"eq.{user_id}", "status": "eq.pending", "select": "id, item:cs_items(price)"}
     )
-    
     rows = check_resp.json()
     if not rows:
-        raise HTTPException(status_code=404, detail="Предмет не найден или уже продан")
+        raise HTTPException(status_code=400, detail="Предмет недоступен для обмена")
     
-    item_record = rows[0]
-    # Получаем цену (если цены нет, ставим 0)
-    original_price = float(item_record['item'].get('price') or 0)
-    
-    # 3. Считаем сумму возврата (50% от стоимости)
-    # Можно настроить процент здесь
-    refund_amount = int(original_price * 0.5) 
+    # Считаем билеты (1 к 1 к цене)
+    item_price = float(rows[0]['item'].get('price') or 0)
+    tickets_amount = int(item_price)
 
-    if refund_amount < 1:
-        refund_amount = 1 # Минимум 1 билет
+    if tickets_amount < 1: tickets_amount = 1
 
-    # 4. Транзакция (Обновляем статус предмета + Начисляем билеты)
-    
-    # А. Помечаем предмет как 'exchanged' (обменян на билеты)
-    upd_resp = await supabase.patch(
-        "/cs_history",
-        params={"id": f"eq.{req.history_id}"},
-        json={"status": "exchanged"}
-    )
-    
-    if upd_resp.status_code not in (200, 204):
-        raise HTTPException(status_code=500, detail="Ошибка обновления статуса предмета")
+    # 1. Меняем статус на 'exchanged' (Архив)
+    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "exchanged"})
 
-    # Б. Начисляем билеты пользователю (используем RPC функцию, которая у тебя уже есть)
-    # Если функции increment_tickets нет, используй стандартный patch, но RPC надежнее
+    # 2. Начисляем билеты
     try:
-        await supabase.post(
-            "/rpc/increment_tickets", 
-            json={"p_user_id": user_id, "p_amount": refund_amount}
-        )
-    except Exception as e:
-        print(f"Sell Error RPC: {e}")
-        # Фолбэк: если RPC не сработал, пробуем обновить вручную (менее надежно при гонках)
-        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-        current_tickets = user_res.json()[0].get('tickets', 0)
-        await supabase.patch(
-            "/users", 
-            params={"telegram_id": f"eq.{user_id}"}, 
-            json={"tickets": current_tickets + refund_amount}
-        )
+        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": tickets_amount})
+    except:
+        # Фолбэк
+        u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+        curr = u_res.json()[0].get('tickets', 0)
+        await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": curr + tickets_amount})
 
-    return {
-        "success": True, 
-        "message": f"Предмет обменян! Получено {refund_amount} билетов.",
-        "added_tickets": refund_amount
-    }
+    return {"success": True, "message": f"Продано! +{tickets_amount} 🎫"}
 
-# 3. Вывести предмет (Заявка на вывод)
+
+# 3. Запросить вывод (Статус -> processing)
 @app.post("/api/v1/user/inventory/withdraw")
 async def withdraw_inventory_item(
-    req: InventorySellRequest, # Используем ту же модель {initData, history_id}
+    req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Авторизация
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Auth failed")
-    
     user_id = user_data['id']
 
-    # 2. Проверяем наличие Trade Link у пользователя
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-    if not user_res.json():
-        raise HTTPException(status_code=400, detail="User error")
-    
-    user_info = user_res.json()[0]
-    if not user_info.get('trade_link'):
-        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в настройках профиля!")
+    # Проверяем трейд-ссылку
+    u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+    if not u_res.json()[0].get('trade_link'):
+        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 3. Проверяем статус предмета (должен быть pending)
-    check_resp = await supabase.get(
+    # Меняем статус
+    res = await supabase.patch(
         "/cs_history",
-        params={
-            "id": f"eq.{req.history_id}",
-            "user_id": f"eq.{user_id}",
-            "status": "eq.pending"
-        }
+        params={"id": f"eq.{req.history_id}", "user_id": f"eq.{user_id}", "status": "eq.pending"},
+        json={"status": "processing"}
     )
     
-    if not check_resp.json():
-        raise HTTPException(status_code=404, detail="Предмет не доступен для вывода")
+    if res.status_code not in (200, 204):
+        raise HTTPException(status_code=400, detail="Ошибка смены статуса")
 
-    # 4. Меняем статус на 'processing' (или 'withdraw_req')
-    # Это сигнал админу, что нужно отправить трейд
-    upd_resp = await supabase.patch(
+    return {"success": True}
+
+
+# 4. Подтвердить получение (Статус -> received)
+@app.post("/api/v1/user/inventory/confirm")
+async def confirm_inventory_item(
+    req: InventorySellRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    
+    # Меняем статус только если он был 'sent' (админ отправил)
+    res = await supabase.patch(
         "/cs_history",
-        params={"id": f"eq.{req.history_id}"},
-        json={"status": "processing"} 
+        params={"id": f"eq.{req.history_id}", "user_id": f"eq.{user_data['id']}", "status": "eq.sent"},
+        json={"status": "received"}
     )
-
-    if upd_resp.status_code not in (200, 204):
-        raise HTTPException(status_code=500, detail="Ошибка обновления статуса")
-
-    # 5. (Опционально) Отправляем уведомление админу в ТГ
-    # await bot.send_message(ADMIN_ID, f"Новая заявка на вывод! ID: {req.history_id}")
-
-    return {
-        "success": True, 
-        "message": "Заявка на вывод создана"
-    }
+    
+    return {"success": True, "message": "Отлично! Скин получен."}
     
 # ==========================================
 # ⚡ ТЕЛЕГРАМ ЗАДАНИЯ И РЕАКЦИИ
