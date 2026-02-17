@@ -143,6 +143,32 @@
             line-height: 1.4;
         }
 
+        /* Плашка "Посмотреть дроп" поверх картинки кейса */
+.case-info-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.6); /* Полупрозрачный черный */
+    backdrop-filter: blur(2px);
+    color: var(--primary-color);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 6px 0;
+    z-index: 5;
+    pointer-events: none; /* Чтоб не мешала клику по родителю */
+    border-top: 1px solid rgba(255, 204, 0, 0.2);
+    letter-spacing: 0.5px;
+}
+
+/* Эффект при наведении/нажатии на карточку кейса */
+.shop-item:active .case-info-overlay {
+    background: rgba(255, 204, 0, 0.8);
+    color: #000;
+}
+
         /* --- ПАРТНЕРЫ (ОПТИМИЗИРОВАНО НА CSS) --- */
         .partners-wrapper {
             width: 100%;
@@ -2554,34 +2580,37 @@ function preloadP2PState() {
         let priceText = '';
         let clickAction = '';
 
-        // --- ДЕТЕКТОР КЕЙСА ---
+       // --- ДЕТЕКТОР КЕЙСА ---
         const upperName = (item.name || "").toUpperCase();
-        const isCase = upperName.includes("КЕЙС") || upperName.includes("CASE");
+        const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
         
         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeImg = item.image_url || "";
 
-        // --- [NEW] ГЕНЕРАЦИЯ КНОПКИ INFO ДЛЯ КЕЙСОВ ---
-        let infoBtnHtml = '';
-        if (isCase) {
-            // onclick="openCaseContents(event)" передает событие клика, 
-            // чтобы мы могли его остановить (stopPropagation)
-            infoBtnHtml = `
-                <div class="info-btn-case" onclick="openCaseContents(event)">
-                    <i class="fa-solid fa-info"></i>
+        // --- ЛОГИКА КЛИКА И ОВЕРЛЕЯ ---
+        let clickAction = '';
+        let caseOverlayHtml = '';
+
+        if (item.is_folder) {
+            clickAction = `openFolder(${item.id})`;
+        } else if (isCase) {
+            // Для кейса — клик открывает содержимое + добавляем плашку
+            clickAction = `openCaseContents(event)`;
+            caseOverlayHtml = `
+                <div class="case-info-overlay">
+                    <span>Посмотреть дроп</span>
                 </div>
             `;
+        } else {
+            // Для обычного товара — стандартный просмотр фото
+            clickAction = `openImageModal('${safeImg}')`;
         }
-        // ---------------------------------------------
 
-        // ЛОГИКА: ПАПКА
+        // ЛОГИКА: ТОВАР / КЕЙС (твоя оригинальная логика цен и кнопок)
         if (item.is_folder) {
             stockText = ''; 
             buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
-            clickAction = `openFolder(${item.id})`;
-        } 
-        // ЛОГИКА: ТОВАР / КЕЙС
-        else {
+        } else {
             priceText = `<div class="item-price">${item.price} 🟡️</div>`;
             
             let isOutOfStock = false;
@@ -2606,17 +2635,15 @@ function preloadP2PState() {
             } else {
                 buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">Купить</button>`;
             }
-            
-            clickAction = `openImageModal('${safeImg}')`;
         }
 
         const displayNameHtml = formatItemName(item.name);
         const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
 
-        // Вставляем infoBtnHtml внутрь item-image-wrapper
+        // Собираем финальный HTML
         el.innerHTML = `
             <div class="item-image-wrapper" onclick="${clickAction}">
-                ${infoBtnHtml}
+                ${caseOverlayHtml}
                 <img src="${imgUrl}" 
                      class="item-image ${isCase ? 'case-zoom' : ''}"  decoding="async" 
                      loading="lazy" 
@@ -3140,7 +3167,10 @@ function sellForTickets(itemId, price) {
 let cachedCaseContents = null; // Кэшируем, чтобы не грузить каждый раз
 
 async function openCaseContents(event) {
-    event.stopPropagation(); // Чтобы не сработало нажатие на саму картинку (открытие кейса)
+    // Если событие передано (клик по картинке или кнопке) - останавливаем всплытие
+    if (event && event.stopPropagation) {
+        event.stopPropagation();
+    }
     
     const modal = document.getElementById('case-contents-modal');
     const list = document.getElementById('case-items-list');
