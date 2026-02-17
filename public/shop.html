@@ -691,98 +691,49 @@
         }
 
         /* --- НОВЫЕ КНОПКИ ДЛЯ КЕЙСОВ --- */
-/* --- СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ (АБСОЛЮТНАЯ КАРТИНКА) --- */
-        /* --- СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ (АБСОЛЮТНАЯ КАРТИНКА) --- */
-        .shop-item.case-card {
-            min-height: 240px; /* Фиксируем высоту */
-            justify-content: space-between;
-            overflow: visible; /* ВАЖНО: Разрешаем контенту вылезать за пределы */
-            position: relative; /* Нужно для z-index */
-            z-index: 1; /* Базовый слой */
-        }
-
+/* --- СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ --- */
         .case-top-title {
-            padding: 10px 10px 0 10px;
+            padding: 12px 10px 0 10px; /* Отступ только сверху */
             font-size: 13px;
             font-weight: 800;
             color: #fff;
             text-align: center;
             text-transform: uppercase;
+            min-height: auto; /* Убираем лишнюю высоту */
             line-height: 1.1;
-            position: relative;
-            z-index: 4; /* Текст поверх всего */
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
 
         .case-top-title .item-subtitle {
             font-size: 11px;
-            color: var(--primary-color);
+            color: var(--primary-color); /* Сделаем приписку ярче */
             font-weight: 700;
             margin-top: 4px;
         }
 
-        /* Контейнер картинки: начинается строго под текстом и уходит вниз */
-        .case-img-bg {
-            position: absolute;
-            top: 40px; /* Порог до текста */
-            /* Убираем bottom: 0, чтобы высота зависела от контента */
-            left: 0;
-            right: 0;
-            /* Высота картинки будет больше высоты карточки */
-            height: 280px; 
-            z-index: 2; /* Слой между фоном и кнопками */
-            cursor: pointer;
-            /* Убрали фон, чтобы не было видно границ контейнера */
-        }
-
-        .case-img-bg img.case-zoom {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            object-position: top center; 
-            /* Уменьшили масштаб, так как теперь контейнер и так высокий */
-            transform: scale(1.1); 
-            transform-origin: top center; 
-            filter: drop-shadow(0 0 20px rgba(255, 204, 0, 0.3)); /* Усилили тень */
+        .case-img-wrap {
+            padding-top: 80%; /* Сжимаем высоту картинки, чтобы кнопки поднялись выше */
+            background: radial-gradient(circle at center, rgba(255, 204, 0, 0.05) 0%, transparent 70%); /* Красивое легкое свечение вместо серого квадрата */
         }
 
         .case-buttons-wrapper {
-            padding: 0 10px 10px 10px;
+            padding: 0 10px 12px 10px; /* Отступы для кнопок (снизу больше) */
             display: flex;
             flex-direction: column;
-            margin-top: auto; /* Прижимаем к низу карточки */
-            position: relative;
-            z-index: 3; /* Кнопки поверх картинки */
+            margin-top: auto;
         }
 
         .case-buttons-container {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 6px; /* Равномерный отступ между кнопками */
             width: 100%;
         }
 
-        .case-overlay-new {
-            background: rgba(0, 0, 0, 0.7); /* Чуть темнее */
-            backdrop-filter: blur(4px);
-            color: var(--primary-color);
-            font-size: 9px;
-            font-weight: 800;
-            text-transform: uppercase;
-            text-align: center;
-            padding: 6px 0;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            letter-spacing: 0.5px;
-            border: 1px solid rgba(255, 204, 0, 0.3);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .shop-item:active .case-overlay-new,
-        .case-overlay-new:active {
-            background: rgba(255, 204, 0, 0.9);
-            color: #000;
+        .btn-buy-tickets {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2);
+            /* margin-top убрали, так как теперь работает gap */
         }
 
         /* --- НОВЫЕ СТИЛИ ДЛЯ WIN SCREEN --- */
@@ -2715,7 +2666,6 @@ function preloadP2PState() {
         }
 
         // --- ОПТИМИЗИРОВАННЫЙ РЕНДЕР (DocumentFragment) ---
-// --- ОПТИМИЗИРОВАННЫЙ РЕНДЕР (DocumentFragment) ---
         function renderItems(items) {
             const container = document.getElementById('shop-grid');
             container.innerHTML = '';
@@ -2750,9 +2700,13 @@ function preloadP2PState() {
                 if (item.is_folder) {
                     clickAction = `openFolder(${item.id})`;
                 } else if (isCase) {
-                    // Если кейс — клик открывает содержимое
+                    // Если кейс — клик открывает содержимое + добавляем плашку
                     clickAction = `openCaseContents(event)`;
-                    // Заметь: caseOverlayHtml тут не генерируем, он будет добавлен в новом шаблоне как кнопка
+                    caseOverlayHtml = `
+                        <div class="case-info-overlay">
+                            <span>Посмотреть дроп</span>
+                        </div>
+                    `;
                 } else {
                     // Для обычного товара — стандартный просмотр фото
                     clickAction = `openImageModal('${safeImg}')`;
@@ -2802,16 +2756,14 @@ function preloadP2PState() {
                 const displayNameHtml = formatItemName(item.name);
                 const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
 
-                // --- ФИНАЛЬНАЯ СБОРКА HTML ---
+                // Собираем финальный HTML (Уникальный дизайн для кейсов)
                 if (isCase) {
-                    // ДОБАВЛЯЕМ КЛАСС ДЛЯ КЕЙСА
-                    el.classList.add('case-card'); 
-                    
-                    // НОВЫЙ ДИЗАЙН КЕЙСА: Текст сверху, Абсолютная картинка, Кнопки внизу
+                    // Дизайн Кейса: Заголовок -> Картинка -> Кнопки
                     el.innerHTML = `
-                        <div class="item-title case-top-title" onclick="${clickAction}" style="cursor: pointer;">${displayNameHtml}</div>
+                        <div class="item-title case-top-title">${displayNameHtml}</div>
                         
-                        <div class="case-img-bg" onclick="${clickAction}">
+                        <div class="item-image-wrapper case-img-wrap" onclick="${clickAction}">
+                            ${caseOverlayHtml}
                             <img src="${imgUrl}" 
                                  class="item-image case-zoom" decoding="async" 
                                  loading="lazy" 
@@ -2820,12 +2772,11 @@ function preloadP2PState() {
                         </div>
                         
                         <div class="case-buttons-wrapper">
-                            <div class="case-overlay-new" onclick="${clickAction}">Посмотреть дроп</div>
                             ${buttonHtml}
                         </div>
                     `;
                 } else {
-                    // СТАРЫЙ ДИЗАЙН ОБЫЧНОГО ТОВАРА
+                    // Дизайн Обычного товара: Картинка -> Заголовок -> Цена -> Кнопка
                     el.innerHTML = `
                         <div class="item-image-wrapper" onclick="${clickAction}">
                             <img src="${imgUrl}" 
