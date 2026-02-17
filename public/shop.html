@@ -2561,108 +2561,108 @@ function preloadP2PState() {
 
         // --- ОПТИМИЗИРОВАННЫЙ РЕНДЕР (DocumentFragment) ---
         function renderItems(items) {
-    const container = document.getElementById('shop-grid');
-    container.innerHTML = '';
+            const container = document.getElementById('shop-grid');
+            container.innerHTML = '';
 
-    if (!items || items.length === 0) {
-        container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
-        return;
-    }
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
+                return;
+            }
 
-    const fragment = document.createDocumentFragment();
+            const fragment = document.createDocumentFragment();
 
-    items.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'shop-item';
-        
-        let buttonHtml = '';
-        let stockText = '';
-        let priceText = '';
-        let clickAction = '';
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'shop-item';
+                
+                let buttonHtml = '';
+                let stockText = '';
+                let priceText = '';
+                
+                // ОБЪЯВЛЯЕМ ПЕРЕМЕННЫЕ ОДИН РАЗ
+                let clickAction = '';
+                let caseOverlayHtml = '';
 
-       // --- ДЕТЕКТОР КЕЙСА ---
-        const upperName = (item.name || "").toUpperCase();
-        const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
-        
-        const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const safeImg = item.image_url || "";
+                // --- ДЕТЕКТОР КЕЙСА ---
+                const upperName = (item.name || "").toUpperCase();
+                const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
+                
+                const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const safeImg = item.image_url || "";
 
-        // --- ЛОГИКА КЛИКА И ОВЕРЛЕЯ ---
-        let clickAction = '';
-        let caseOverlayHtml = '';
-
-        if (item.is_folder) {
-            clickAction = `openFolder(${item.id})`;
-        } else if (isCase) {
-            // Для кейса — клик открывает содержимое + добавляем плашку
-            clickAction = `openCaseContents(event)`;
-            caseOverlayHtml = `
-                <div class="case-info-overlay">
-                    <span>Посмотреть дроп</span>
-                </div>
-            `;
-        } else {
-            // Для обычного товара — стандартный просмотр фото
-            clickAction = `openImageModal('${safeImg}')`;
-        }
-
-        // ЛОГИКА: ТОВАР / КЕЙС (твоя оригинальная логика цен и кнопок)
-        if (item.is_folder) {
-            stockText = ''; 
-            buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
-        } else {
-            priceText = `<div class="item-price">${item.price} 🟡️</div>`;
-            
-            let isOutOfStock = false;
-            
-            if (isCase) {
-                stockText = ''; 
-            } else {
-                if (item.count === null) {
-                    stockText = `<div class="item-stock">∞ шт.</div>`;
-                } else if (item.count === 0) {
-                    isOutOfStock = true;
-                    stockText = `<div class="item-stock out">0 шт.</div>`;
+                // --- ЛОГИКА КЛИКА ПО КАРТИНКЕ ---
+                if (item.is_folder) {
+                    clickAction = `openFolder(${item.id})`;
+                } else if (isCase) {
+                    // Если кейс — клик открывает содержимое + добавляем плашку
+                    clickAction = `openCaseContents(event)`;
+                    caseOverlayHtml = `
+                        <div class="case-info-overlay">
+                            <span>Посмотреть дроп</span>
+                        </div>
+                    `;
                 } else {
-                    stockText = `<div class="item-stock">${item.count} шт.</div>`;
+                    // Для обычного товара — стандартный просмотр фото
+                    clickAction = `openImageModal('${safeImg}')`;
                 }
-            }
 
-            if (isOutOfStock) {
-                buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
-            } else if (isCase) {
-                buttonHtml = `<button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">ОТКРЫТЬ</button>`;
-            } else {
-                buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">Купить</button>`;
-            }
+                // --- ЛОГИКА ТЕКСТОВ И КНОПОК ---
+                if (item.is_folder) {
+                    stockText = ''; 
+                    buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
+                } else {
+                    priceText = `<div class="item-price">${item.price} 🟡️</div>`;
+                    
+                    let isOutOfStock = false;
+                    
+                    if (isCase) {
+                        stockText = ''; 
+                    } else {
+                        if (item.count === null) {
+                            stockText = `<div class="item-stock">∞ шт.</div>`;
+                        } else if (item.count === 0) {
+                            isOutOfStock = true;
+                            stockText = `<div class="item-stock out">0 шт.</div>`;
+                        } else {
+                            stockText = `<div class="item-stock">${item.count} шт.</div>`;
+                        }
+                    }
+
+                    if (isOutOfStock) {
+                        buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
+                    } else if (isCase) {
+                        buttonHtml = `<button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">ОТКРЫТЬ</button>`;
+                    } else {
+                        buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">Купить</button>`;
+                    }
+                }
+
+                const displayNameHtml = formatItemName(item.name);
+                const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
+
+                // Собираем финальный HTML
+                el.innerHTML = `
+                    <div class="item-image-wrapper" onclick="${clickAction}">
+                        ${caseOverlayHtml}
+                        <img src="${imgUrl}" 
+                             class="item-image ${isCase ? 'case-zoom' : ''}"  decoding="async" 
+                             loading="lazy" 
+                             onload="this.classList.add('loaded')" 
+                             alt="${escapeHtml(item.name)}">
+                    </div>
+                    <div class="item-info">
+                        <div class="item-title">${displayNameHtml}</div>
+                        <div class="item-meta">
+                            ${stockText}
+                            ${priceText}
+                        </div>
+                        ${buttonHtml}
+                    </div>
+                `;
+                fragment.appendChild(el);
+            });
+            container.appendChild(fragment);
         }
-
-        const displayNameHtml = formatItemName(item.name);
-        const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
-
-        // Собираем финальный HTML
-        el.innerHTML = `
-            <div class="item-image-wrapper" onclick="${clickAction}">
-                ${caseOverlayHtml}
-                <img src="${imgUrl}" 
-                     class="item-image ${isCase ? 'case-zoom' : ''}"  decoding="async" 
-                     loading="lazy" 
-                     onload="this.classList.add('loaded')" 
-                     alt="${escapeHtml(item.name)}">
-            </div>
-            <div class="item-info">
-                <div class="item-title">${displayNameHtml}</div>
-                <div class="item-meta">
-                    ${stockText}
-                    ${priceText}
-                </div>
-                ${buttonHtml}
-            </div>
-        `;
-        fragment.appendChild(el);
-    });
-    container.appendChild(fragment);
-}
         
         // --- [NEW] ФУНКЦИЯ ОТКРЫТИЯ КЕЙСА (ЮВЕЛИРНОЕ ДОБАВЛЕНИЕ) ---
         // Использует существующий API списания, но меняет визуальный результат
