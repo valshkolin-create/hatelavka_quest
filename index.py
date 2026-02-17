@@ -12690,6 +12690,7 @@ async def background_bott_sync_task(telegram_id: int, init_data: str):
 
 
 # --- 2. УМНЫЙ ЭНДПОИНТ ДЛЯ МАГАЗИНА ---
+# --- 2. УМНЫЙ ЭНДПОИНТ ДЛЯ МАГАЗИНА ---
 @app.post("/api/v1/shop/smart_balance")
 async def get_shop_smart_balance(
     request_data: InitDataRequest,
@@ -12707,15 +12708,16 @@ async def get_shop_smart_balance(
     
     telegram_id = user_info["id"]
 
-    # 1. Быстро читаем текущее состояние из базы
+    # 1. Быстро читаем текущее состояние из базы (добавили tickets в select)
     user_resp = await supabase.get(
         "/users", 
-        params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync"}
+        params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync, tickets"} # <--- ТУТ
     )
     # Если юзера нет в базе, вернем 0, но фоновая задача его создаст/обновит позже
     user_data = user_resp.json()[0] if user_resp.json() else {}
     
     current_coins = user_data.get("bot_t_coins", 0)
+    current_tickets = user_data.get("tickets", 0) # <--- ТУТ
     last_sync = user_data.get("last_balance_sync")
 
     # 2. Решаем, нужно ли обновлять (кэш 10 секунд)
@@ -12733,8 +12735,11 @@ async def get_shop_smart_balance(
     if should_sync:
         background_tasks.add_task(background_bott_sync_task, telegram_id, request_data.initData)
 
-    # 4. Сразу возвращаем то, что есть сейчас
-    return {"balance": current_coins}
+    # 4. Сразу возвращаем то, что есть сейчас (отдаем оба баланса)
+    return {
+        "balance": current_coins, 
+        "tickets": current_tickets # <--- ТУТ
+    }
 
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
 @app.post("/api/v1/user/sync_referral")
