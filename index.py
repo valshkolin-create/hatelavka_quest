@@ -15167,46 +15167,81 @@ async def get_user_inventory(
     return inventory
 
 
-# 2. Обменять скин на билеты (Статус -> exchanged)
+# ==========================================
+# 📦 INVENTORY ACTIONS
+# ==========================================
+
+# Переменная для уведомлений
+ADMIN_NOTIFY_CHAT_ID = os.getenv("ADMIN_NOTIFY_CHAT_ID")
+
+# 2. Обменять скин на билеты (FIX 400 ERROR)
 @app.post("/api/v1/user/inventory/sell")
 async def sell_inventory_item(
     req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    user_id = user_data['id']
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Auth failed")
 
-    # Проверяем предмет (должен быть pending)
+    user_id = user_data['id']
+    
+    print(f"[SELL] Запрос обмена: User={user_id}, HistoryID={req.history_id}")
+
+    # 1. Проверяем предмет (Берем item_id, чтобы потом получить цену)
+    # Важно: статус должен быть 'pending'. Если 'processing' или 'exchanged' - вернет 400.
     check_resp = await supabase.get(
         "/cs_history",
-        params={"id": f"eq.{req.history_id}", "user_id": f"eq.{user_id}", "status": "eq.pending", "select": "id, item:cs_items(price)"}
+        params={
+            "id": f"eq.{req.history_id}", 
+            "user_id": f"eq.{user_id}", 
+            "status": "eq.pending", 
+            "select": "id, item:cs_items(price)"
+        }
     )
-    rows = check_resp.json()
-    if not rows:
-        raise HTTPException(status_code=400, detail="Предмет недоступен для обмена")
     
-    # Считаем билеты (1 к 1 к цене)
-    item_price = float(rows[0]['item'].get('price') or 0)
-    tickets_amount = int(item_price)
+    rows = check_resp.json()
+    
+    # ЛОГИ ДЛЯ ОТЛАДКИ (Смотри в Vercel Logs)
+    if not rows:
+        print(f"[SELL] ОШИБКА: Предмет не найден или статус не pending. Ответ БД: {check_resp.text}")
+        raise HTTPException(status_code=400, detail="Предмет недоступен для обмена (возможно, уже продан)")
+    
+    # 2. Считаем билеты
+    try:
+        item_data = rows[0].get('item', {})
+        raw_price = item_data.get('price', 0)
+        # Превращаем "100" -> 100.0 -> 100
+        tickets_amount = int(float(raw_price))
+    except Exception as e:
+        print(f"[SELL] Ошибка парсинга цены: {e}")
+        tickets_amount = 0
 
-    if tickets_amount < 1: tickets_amount = 1
+    if tickets_amount < 1: 
+        tickets_amount = 1 # Минимум 1 билет
 
-    # 1. Меняем статус на 'exchanged' (Архив)
+    print(f"[SELL] Начисляем {tickets_amount} билетов")
+
+    # 3. Меняем статус на 'exchanged'
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "exchanged"})
 
-    # 2. Начисляем билеты
+    # 4. Начисляем билеты юзеру
     try:
         await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": tickets_amount})
-    except:
+    except Exception as e:
+        print(f"[SELL] Ошибка RPC, пробуем патч. {e}")
         # Фолбэк
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-        curr = u_res.json()[0].get('tickets', 0)
-        await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": curr + tickets_amount})
+        if u_res.json():
+            curr = u_res.json()[0].get('tickets', 0)
+            # Защита от Null
+            safe_curr = int(curr) if curr else 0
+            await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": safe_curr + tickets_amount})
 
-    return {"success": True, "message": f"Продано! +{tickets_amount} 🎫"}
+    return {"success": True, "message": f"Обменяно на {tickets_amount} билетов!"}
 
 
-# 3. Запросить вывод (Статус -> processing)
+# 3. Запросить вывод (С КНОПКОЙ ДЛЯ АДМИНА)
 @app.post("/api/v1/user/inventory/withdraw")
 async def withdraw_inventory_item(
     req: InventorySellRequest,
@@ -15215,23 +15250,72 @@ async def withdraw_inventory_item(
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     user_id = user_data['id']
 
-    # Проверяем трейд-ссылку
-    u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-    if not u_res.json()[0].get('trade_link'):
+    # 1. Получаем данные юзера
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+    if not user_res.json():
+        raise HTTPException(status_code=400, detail="User error")
+    
+    user_info = user_res.json()[0]
+    trade_link = user_info.get('trade_link')
+    full_name = user_info.get('full_name', 'User')
+    username = user_info.get('username')
+    username_txt = f"@{username}" if username else "Без юзернейма"
+
+    if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # Меняем статус
-    res = await supabase.patch(
+    # 2. Получаем предмет
+    check_resp = await supabase.get(
         "/cs_history",
-        params={"id": f"eq.{req.history_id}", "user_id": f"eq.{user_id}", "status": "eq.pending"},
-        json={"status": "processing"}
+        params={
+            "id": f"eq.{req.history_id}",
+            "user_id": f"eq.{user_id}",
+            "status": "eq.pending",
+            "select": "id, item:cs_items(name, price, rarity)"
+        }
     )
     
-    if res.status_code not in (200, 204):
-        raise HTTPException(status_code=400, detail="Ошибка смены статуса")
+    rows = check_resp.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Предмет не найден или уже в обработке")
 
-    return {"success": True}
+    item_name = rows[0]['item']['name']
+    item_price = rows[0]['item']['price']
+    item_rarity = rows[0]['item']['rarity']
 
+    # 3. Меняем статус
+    upd_resp = await supabase.patch(
+        "/cs_history",
+        params={"id": f"eq.{req.history_id}"},
+        json={"status": "processing"} 
+    )
+
+    # 4. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
+    if ADMIN_NOTIFY_CHAT_ID:
+        try:
+            log_text = (
+                f"📦 <b>ЗАЯВКА НА ВЫВОД!</b>\n\n"
+                f"👤 {full_name} ({username_txt})\n"
+                f"🔫 <b>{item_name}</b> ({item_rarity})\n"
+                f"💰 {item_price} (цена базы)\n\n"
+                f"🔗 <a href='{trade_link}'>Ссылка на обмен</a>"
+            )
+            
+            # Ссылка ведет в бота, открывает приложение с параметром admin_orders
+            # Бот должен поддерживать Deep Linking для Web App (обычно это стандартно)
+            # URL: https://t.me/BOT_USERNAME/app?startapp=admin_orders
+            
+           admin_url = "https://hatelavka-quest.vercel.app/admin.html"
+
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="👨‍💻 Открыть заявки", web_app=WebAppInfo(url=admin_url))]
+            ])
+            
+            await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=log_text, reply_markup=kb, parse_mode="HTML")
+        except Exception as e:
+            print(f"⚠️ Ошибка отправки лога: {e}")
+
+    return {"success": True, "message": "Заявка принята!"}
 
 # 4. Подтвердить получение (Статус -> received)
 @app.post("/api/v1/user/inventory/confirm")
