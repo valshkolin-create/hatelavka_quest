@@ -589,6 +589,11 @@
     70% { box-shadow: 0 0 0 6px rgba(255, 59, 48, 0); }
     100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
 }
+/* Красная подсветка для неправильной ссылки */
+.error-input {
+    border-color: var(--danger-color) !important;
+    box-shadow: 0 0 10px rgba(255, 59, 48, 0.3);
+}
     </style>
 </head>
 <body>
@@ -875,6 +880,29 @@
         shareRefLinkBtn: document.getElementById('share-ref-link-btn')
     };
 
+    // Проверка Steam Trade ссылки в реальном времени
+// Проверка Steam Trade ссылки в реальном времени
+if (dom.popupTradeLinkInput) {
+    dom.popupTradeLinkInput.addEventListener('input', (e) => {
+        const input = e.target;
+        let value = input.value.trim();
+        const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
+
+        // 1. Если вставили текст с мусором вначале, обрезаем всё до https://
+        if (value.includes("https://") && !value.startsWith("https://")) {
+            value = value.substring(value.indexOf("https://"));
+            input.value = value;
+        }
+
+        // 2. Если введено больше 10 символов и это не Steam - подсвечиваем красным
+        if (value.length > 20 && !value.startsWith("https://steamcommunity.com")) {
+            input.classList.add('error-input');
+        } else {
+            input.classList.remove('error-input');
+        }
+    });
+}
+
     // --- HELPER FUNCTIONS ---
     const showLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden'); };
     const hideLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); };
@@ -946,26 +974,24 @@
     }
 
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
-    const overlay = document.createElement('div'); 
-    overlay.className = 'custom-confirm-overlay';
-    const box = document.createElement('div'); 
-    box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
-    
-    // В строке ниже изменено color: #000 для кнопки подтверждения
-    box.innerHTML = `
-        <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3>
-        <div style="display: flex; gap: 12px;">
-            <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button>
-            <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: #000; font-size: 16px; font-weight: 700; cursor: pointer;">${btnText}</button>
-        </div>`;
+        const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+        const box = document.createElement('div'); 
+        box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
         
-    overlay.appendChild(box); 
-    document.body.appendChild(overlay);
-    const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
-    overlay.querySelector('#custom-cancel-btn').onclick = close;
-    overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
-    overlay.onclick = (e) => { if(e.target === overlay) close(); };
-}
+        // В строке ниже я установил color: #000 для кнопки подтверждения
+        box.innerHTML = `
+            <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3>
+            <div style="display: flex; gap: 12px;">
+                <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button>
+                <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: #000; font-size: 16px; font-weight: 700; cursor: pointer;">${btnText}</button>
+            </div>`;
+            
+        overlay.appendChild(box); document.body.appendChild(overlay);
+        const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
+        overlay.querySelector('#custom-cancel-btn').onclick = close;
+        overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
+        overlay.onclick = (e) => { if(e.target === overlay) close(); };
+    }
 
     // --- ФУНКЦИЯ КОПИРОВАНИЯ (ТЕПЕРЬ ГЛОБАЛЬНАЯ) ---
     async function copyPromocode(code, id) {
@@ -1751,13 +1777,62 @@ window.confirmReceived = function(historyId) {
     });
 
     // Обработчики закрытия попапов
-    dom.popupCancelBtn.onclick = () => dom.customPopupOverlay.classList.remove('visible');
+    // --- Живая проверка ввода Trade Link ---
+    if (dom.popupTradeLinkInput) {
+        dom.popupTradeLinkInput.addEventListener('input', (e) => {
+            const input = e.target;
+            let value = input.value.trim();
+            
+            // Если вставили текст с мусором вначале (н-р "вот ссылка https://..."), обрезаем лишнее
+            if (value.includes("https://") && !value.startsWith("https://")) {
+                value = value.substring(value.indexOf("https://"));
+                input.value = value;
+            }
+
+            // Если введено много текста и это не Steam — красим в красный
+            if (value.length > 20 && !value.startsWith("https://steamcommunity.com")) {
+                input.style.borderColor = "var(--danger-color)";
+            } else {
+                input.style.borderColor = ""; // Сброс цвета
+            }
+        });
+    }
+
+    dom.popupCancelBtn.onclick = () => {
+        dom.popupTradeLinkInput.style.borderColor = "";
+        dom.customPopupOverlay.classList.remove('visible');
+    };
+
     dom.popupSaveBtn.onclick = async () => {
         const v = dom.popupTradeLinkInput.value.trim();
-        dom.customPopupOverlay.classList.remove('visible');
-        await makeApiRequest('/api/v1/user/trade_link/save', {trade_link:v});
-        window.location.reload(); 
+        const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
+
+        // Проверка: ссылка должна быть полной и правильной
+        if (!v.startsWith(requiredPrefix) || !v.includes("partner=") || !v.includes("token=")) {
+            // Подсвечиваем красным (класс .error-input у тебя в стилях уже есть)
+            dom.popupTradeLinkInput.classList.add('error-input');
+            tg.showAlert("❌ Неверный формат ссылки!\n\nУбедитесь, что скопировали её целиком (включая partner и token) из настроек Steam.");
+            return;
+        }
+
+        try {
+            showLoader();
+            dom.popupTradeLinkInput.classList.remove('error-input');
+            await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: v });
+            dom.customPopupOverlay.classList.remove('visible');
+            
+            // Показываем уведомление об успехе
+            showNotification("Trade Link сохранен!", "success");
+            
+            // Перезагружаем для обновления данных (или вызови loadData(true))
+            window.location.reload(); 
+        } catch (e) {
+            tg.showAlert("Ошибка: " + e.message);
+        } finally {
+            hideLoader();
+        }
     };
+
     if(dom.notifyCloseBtn) dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
     document.getElementById('how-to-use-close').onclick = () => document.getElementById('how-to-use-popup').classList.remove('visible');
     document.getElementById('twitch-trust-close').onclick = () => document.getElementById('twitch-trust-popup').classList.remove('visible');
