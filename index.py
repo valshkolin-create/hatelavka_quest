@@ -744,7 +744,8 @@ class ShopBuyRequest(BaseModel):
     # 👇 Новые поля, чтобы сохранить красоту в админку
     title: Optional[str] = "Товар магазина"
     image_url: Optional[str] = None
-
+    currency: str = "coins" # <--- НОВОЕ: Теперь FastAPI "видит" валюту!
+    
 # Для массового обновления настроек
 class UserSettingsBatch(BaseModel):
     initData: str
