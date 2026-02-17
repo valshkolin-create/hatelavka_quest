@@ -12903,7 +12903,7 @@ async def buy_bott_item_proxy(
         json={"bot_t_coins": new_balance} 
     )
 
-    # =========================================================================
+   # =========================================================================
     # ЛОГИКА РУЛЕТКИ (Если в названии есть "КЕЙС")
     # =========================================================================
     if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
@@ -12916,38 +12916,55 @@ async def buy_bott_item_proxy(
             
             if not all_items:
                 logging.error("[SHOP] Таблица cs_items пуста!")
-                # Возвращаем успех покупки, но без рулетки (чтобы не крашить юзера)
                 return {"message": "Куплено, но база скинов пуста!"}
 
-            # Б. Выбираем победителя по весам (chance_weight)
-            # Если chance_weight нет, используем 10 по умолчанию
+            # Б. Выбираем победителя
             weights = [float(item.get('chance_weight', 10)) for item in all_items]
             winner = random.choices(all_items, weights=weights, k=1)[0]
             
-            # В. Пишем в историю (cs_history)
-            await supabase.post("/cs_history", json={
+            # -----------------------------------------------------------
+            # В. Пишем в историю (cs_history) И ЗАБИРАЕМ ОТВЕТ
+            # -----------------------------------------------------------
+            history_payload = {
                 "user_id": telegram_id,
                 "item_id": winner['id'],
-                "code_used": f"BOTT_ORDER_{bott_order_id}", # Связываем с заказом Bot-t
+                "code_used": f"BOTT_ORDER_{bott_order_id}", 
                 "status": "pending"
-            })
+            }
+            
+            # ВАЖНО: Добавляем select=*, чтобы Supabase точно вернул созданную строку
+            hist_resp = await supabase.post(
+                "/cs_history", 
+                json=history_payload,
+                params={"select": "*"} 
+            )
+            hist_data = hist_resp.json()
+            
+            # Supabase обычно возвращает список [ {record} ]
+            history_id = None
+            if hist_data and isinstance(hist_data, list):
+                history_id = hist_data[0].get('id') # Тот самый 127
+            
+            # -----------------------------------------------------------
 
             # Г. Генерируем ленту (80 предметов)
             roulette_strip = random.choices(all_items, k=80)
-            roulette_strip[60] = winner # Подменяем 60-й элемент на победителя
+            roulette_strip[60] = winner 
 
             # Д. ВОЗВРАЩАЕМ JSON ДЛЯ РУЛЕТКИ
             return {
                 "status": "ok",
                 "message": "Кейс открыт успешно",
-                "winner": winner,            # JS возьмет картинку и имя отсюда
-                "roulette_strip": roulette_strip, # JS запустит крутилку с этим списком
-                "messages": [f"Выпал: {winner['name']}"]
+                "winner": winner,            
+                "roulette_strip": roulette_strip,
+                "messages": [f"Выпал: {winner['name']}"],
+                # Добавляем ID истории, чтобы фронт знал ID выигрыша
+                "history_id": history_id, 
+                "server_log": hist_data[0] if history_id else {} # Для отладки (тот JSON что ты скинул)
             }
 
         except Exception as e:
             logging.error(f"[SHOP] Ошибка в логике кейса: {e}")
-            # Возвращаем обычный успех, чтобы деньги не пропали зря
             return {"message": "Покупка успешна! (Ошибка выдачи скина)"}
 
     # =========================================================================
