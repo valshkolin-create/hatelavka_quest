@@ -3211,6 +3211,28 @@ async def make_auction_bid(
 
 # --- P2P SYSTEM ---
 
+@app.get("/api/v1/shop/case_contents")
+async def get_case_contents(
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        # Берем все активные скины, сортируем по редкости (опционально)
+        # Можно сортировать на фронте, но если база большая, лучше тут
+        response = await supabase.get(
+            "/cs_items", 
+            params={
+                "is_active": "eq.true",
+                "select": "id,name,image_url,rarity,condition",
+                "order": "rarity.asc" # Сортировка: от простых к редким (или desc)
+            }
+        )
+        items = response.json()
+        return items
+    except Exception as e:
+        logging.error(f"[SHOP] Error getting case contents: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка загрузки содержимого")
+
+
 @app.get("/api/v1/telegram/tasks")
 async def get_telegram_tasks(
     request: Request,
@@ -3262,6 +3284,8 @@ async def get_telegram_tasks(
     except Exception as e:
         print(f"Error fetching tasks: {e}")
         return JSONResponse({"success": False, "error": str(e)})
+
+
 
 # --- 1. Публичный API: Получить список предметов (для прокрутки) ---
 @app.get("/api/cs/items")
