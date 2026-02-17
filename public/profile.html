@@ -1417,7 +1417,7 @@ function renderInventory(items) {
         else if (status === 'sent' || status === 'received') {
             // ФИНАЛЬНЫЙ СТАТУС (ПОЛУЧЕНО)
             cardOpacity = '0.5';
-            statusLabel = '<span style="color:#34c759; font-size:9px;">ВЫПОЛНЕНО</span>';
+            statusLabel = '<span style="color:#34c759; font-size:9px;">ВЫДАНО</span>';
             rightContentHtml = `
                 <div style="text-align: right; color: #34c759; font-weight: 800; font-size: 11px;">
                     <i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО
@@ -1490,15 +1490,22 @@ window.withdrawItem = function(historyId, itemName) {
     showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (close) => {
         showLoader(); 
         try {
-            const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
-            if (res) {
-                tg.showAlert(`✅ Заявка создана!\nСкин появится в Steam в течение 24ч.`);
-                await loadData(true); // Мгновенное обновление инвентаря
-            }
+            // Убрали проверку const res = await..., так как при ошибке код уйдет в catch, 
+            // а если ошибки нет — значит запрос успешен (даже если вернулся 204 статус)
+            await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
+            
+            // Сначала закрываем текущее окно подтверждения
             close();
+            
+            // Мгновенно обновляем данные (карточка скина перерисуется со статусом "В ОБРАБОТКЕ")
+            await loadData(true); 
+            
+            // Показываем новое красивое окно об успехе вместо системного tg.showAlert
+            showCustomAlert(`✅ <b>Заявка создана!</b><br><br>Скин появится в Steam в течение 24 часов.`, false);
+            
         } catch (e) {
-            tg.showAlert(e.message || "Ошибка соединения");
             close();
+            showCustomAlert("Ошибка:<br>" + (e.message || "Соединение прервано"), true);
         } finally {
             hideLoader();
         }
