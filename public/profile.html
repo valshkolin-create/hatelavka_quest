@@ -946,16 +946,26 @@
     }
 
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
-        const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
-        const box = document.createElement('div'); 
-        box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
-        box.innerHTML = `<h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3><div style="display: flex; gap: 12px;"><button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button><button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: white; font-size: 16px; font-weight: 600; cursor: pointer;">${btnText}</button></div>`;
-        overlay.appendChild(box); document.body.appendChild(overlay);
-        const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
-        overlay.querySelector('#custom-cancel-btn').onclick = close;
-        overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
-        overlay.onclick = (e) => { if(e.target === overlay) close(); };
-    }
+    const overlay = document.createElement('div'); 
+    overlay.className = 'custom-confirm-overlay';
+    const box = document.createElement('div'); 
+    box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+    
+    // В строке ниже изменено color: #000 для кнопки подтверждения
+    box.innerHTML = `
+        <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3>
+        <div style="display: flex; gap: 12px;">
+            <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button>
+            <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: #000; font-size: 16px; font-weight: 700; cursor: pointer;">${btnText}</button>
+        </div>`;
+        
+    overlay.appendChild(box); 
+    document.body.appendChild(overlay);
+    const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
+    overlay.querySelector('#custom-cancel-btn').onclick = close;
+    overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
+    overlay.onclick = (e) => { if(e.target === overlay) close(); };
+}
 
     // --- ФУНКЦИЯ КОПИРОВАНИЯ (ТЕПЕРЬ ГЛОБАЛЬНАЯ) ---
     async function copyPromocode(code, id) {
