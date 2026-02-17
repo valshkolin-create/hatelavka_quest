@@ -629,6 +629,52 @@
             opacity: 0.8;
             transition: transform 0.5s ease;
         }
+
+        /* --- НОВЫЕ СТИЛИ ДЛЯ WIN SCREEN --- */
+
+/* Кнопка продажи (фиолетовая/синяя) */
+.btn-sell-tickets {
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(37, 117, 252, 0.3);
+    margin-top: 10px; /* Отступ от кнопки Забрать */
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Контейнер для нижнего ряда кнопок */
+.win-actions-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 280px; /* Ограничиваем ширину */
+    margin-top: 15px;
+    justify-content: space-between;
+}
+
+/* Маленькие кнопки (Профиль / Закрыть) */
+.btn-secondary-action {
+    flex: 1; /* Растягиваются равномерно */
+    background: rgba(255, 255, 255, 0.08);
+    color: #8E8E93;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    height: 36px; /* Чуть меньше основных */
+    font-size: 11px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-secondary-action:active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    transform: scale(0.96);
+}
+
+/* Иконка билета */
+.ticket-icon {
+    color: #bdecff; /* Светло-голубой для билета */
+    margin-left: 4px;
+}
         
         .refresh-icon.spinning {
             animation: spin 1s linear infinite;
@@ -1399,11 +1445,7 @@
             <div class="r-track" id="r-track"></div>
         </div>
         <div id="r-win" class="win-screen">
-            <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО ИЗ КЕЙСА!</h2>
-            <img id="r-win-img" src="" class="win-img">
-            <h3 id="r-win-name" style="color:#fff; margin-top:15px; font-weight: 700;"></h3>
-            <button class="action-btn btn-buy" style="margin-top:25px; width: 200px; height: 44px; font-size: 14px;" onclick="closeRoulette()">ЗАБРАТЬ</button>
-        </div>
+    </div>
     </div>
 
     <div class="shop-header">
@@ -2464,113 +2506,136 @@ function preloadP2PState() {
 
         // --- [NEW] ЛОГИКА РУЛЕТКИ (ЮВЕЛИРНОЕ ДОБАВЛЕНИЕ) ---
         function launchRoulette(items, winner, extraMessages) {
-            const modal = document.getElementById('r-modal');
-            const area = document.getElementById('r-area');
-            const track = document.getElementById('r-track');
-            const winScreen = document.getElementById('r-win');
-            
-            // Сброс
-            track.style.transition = 'none';
-            track.style.transform = 'translateX(0)';
-            track.innerHTML = '';
-            
-            area.style.display = 'block';
-            winScreen.style.display = 'none';
-            // Flex для центрирования кнопки "Забрать"
-            winScreen.style.flexDirection = 'column'; 
-            winScreen.style.alignItems = 'center';
-            
-            modal.style.display = 'flex';
+    const modal = document.getElementById('r-modal');
+    const area = document.getElementById('r-area');
+    const track = document.getElementById('r-track');
+    const winScreen = document.getElementById('r-win');
+    
+    // Сброс
+    track.style.transition = 'none';
+    track.style.transform = 'translateX(0)';
+    track.innerHTML = '';
+    
+    area.style.display = 'block';
+    winScreen.style.display = 'none';
+    // Flex для центрирования
+    winScreen.style.flexDirection = 'column'; 
+    winScreen.style.alignItems = 'center';
+    
+    modal.style.display = 'flex';
 
-            const CARD_W = 148; // 140px + отступы
-            const WINNER_IDX = 80; // Сдвинули победителя дальше (на 80-е место), чтобы крутилось дольше
-            const ANIMATION_TIME = 11000; // 11 секунд (было 8)
+    const CARD_W = 148; // 140px + отступы
+    const WINNER_IDX = 80; 
+    const ANIMATION_TIME = 11000; 
 
-            // Заполняем ленту (делаем её длинной)
-            let fullList = [...items];
-            // Дублируем массив пока он не станет достаточно длинным (минимум 100 элементов)
-            while(fullList.length <= WINNER_IDX + 10) {
-                fullList = fullList.concat(items);
+    // Заполняем ленту
+    let fullList = [...items];
+    while(fullList.length <= WINNER_IDX + 10) {
+        fullList = fullList.concat(items);
+    }
+    
+    // Жестко ставим победителя
+    fullList[WINNER_IDX] = winner; 
+
+    // Рендер HTML ленты
+    track.innerHTML = fullList.map(item => {
+        let rClass = 'r-common'; 
+        const r = (item.rarity || 'common').toLowerCase();
+        
+        if (r.includes('blue') || r.includes('rare')) rClass = 'r-blue';
+        else if (r.includes('purple') || r.includes('mythical')) rClass = 'r-purple';
+        else if (r.includes('pink') || r.includes('legendary')) rClass = 'r-pink';
+        else if (r.includes('red') || r.includes('ancient')) rClass = 'r-red';
+        else if (r.includes('gold')) rClass = 'r-gold';
+
+        const img = item.image_url || 'https://placehold.co/100?text=Item';
+        return `<div class="r-card ${rClass}"><img src="${img}"><div class="r-card-name">${item.name}</div></div>`;
+    }).join('');
+
+    // Запуск анимации
+    setTimeout(() => {
+        // МАТЕМАТИКА ОСТАНОВКИ
+        const screenCenter = window.innerWidth / 2;
+        const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
+        
+        // Рандомный сдвиг +/- 45px
+        const randomOffset = (Math.random() * 90) - 45; 
+
+        const finalPosition = -(winnerCenter - screenCenter + randomOffset);
+
+        // --- НАСТРОЙКА ФИЗИКИ ---
+        track.style.transition = `transform ${ANIMATION_TIME}ms cubic-bezier(0.12, 0, 0.00, 1)`; 
+        track.style.transform = `translateX(${finalPosition}px)`;
+        
+        // Звук трещотки (Haptic)
+        let tickInterval = 40; 
+        let timer = 0;
+        
+        const ticker = () => {
+            if (timer >= ANIMATION_TIME - 500) return; 
+            
+            haptic.selectionChanged();
+            
+            timer += tickInterval;
+            // Прогрессивное замедление тиков
+            if (timer < ANIMATION_TIME * 0.7) {
+                tickInterval += 2; 
+            } else {
+                tickInterval += 15; 
             }
             
-            // Жестко ставим победителя на нужную позицию
-            fullList[WINNER_IDX] = winner; 
+            setTimeout(ticker, tickInterval);
+        };
+        ticker();
 
-            // Рендер HTML
-            track.innerHTML = fullList.map(item => {
-                let rClass = 'r-common'; 
-                const r = (item.rarity || 'common').toLowerCase();
-                
-                if (r.includes('blue') || r.includes('rare')) rClass = 'r-blue';
-                else if (r.includes('purple') || r.includes('mythical')) rClass = 'r-purple';
-                else if (r.includes('pink') || r.includes('legendary')) rClass = 'r-pink';
-                else if (r.includes('red') || r.includes('ancient')) rClass = 'r-red';
-                else if (r.includes('gold')) rClass = 'r-gold';
+        // Финал
+        setTimeout(() => {
+            haptic.impactOccurred('heavy'); 
 
-                const img = item.image_url || 'https://placehold.co/100?text=Item';
-                return `<div class="r-card ${rClass}"><img src="${img}"><div class="r-card-name">${item.name}</div></div>`;
-            }).join('');
-
-            // Запуск анимации
             setTimeout(() => {
-                // МАТЕМАТИКА ОСТАНОВКИ
-                const screenCenter = window.innerWidth / 2;
-                const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
+                haptic.notificationOccurred('success');
                 
-                // Рандомный сдвиг внутри карточки (чтобы не всегда по центру)
-                // +/- 45px (карточка 140px, так что это безопасно)
-                const randomOffset = (Math.random() * 90) - 45; 
-
-                const finalPosition = -(winnerCenter - screenCenter + randomOffset);
-
-                // --- НАСТРОЙКА ФИЗИКИ ---
-                // cubic-bezier(0.12, 0, 0.00, 1) -> Очень резкий старт и очень плавное, долгое торможение в конце
-                track.style.transition = `transform ${ANIMATION_TIME}ms cubic-bezier(0.12, 0, 0.00, 1)`; 
-                track.style.transform = `translateX(${finalPosition}px)`;
+                area.style.display = 'none'; // Скрываем ленту
                 
-                // Звук трещотки (Haptic)
-                let tickInterval = 40; // Старт очень быстрый
-                let timer = 0;
+                // --- [UPDATE] ГЕНЕРАЦИЯ ЭКРАНА ПОБЕДЫ С НОВЫМИ КНОПКАМИ ---
+                const ticketPrice = winner.price || 0; 
+                const itemId = winner.id; 
+
+                // Полная перерисовка содержимого Win Screen
+                winScreen.innerHTML = `
+                    <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО ИЗ КЕЙСА!</h2>
+                    
+                    <img src="${winner.image_url}" class="win-img">
+                    
+                    <h3 style="color:#fff; margin-top:15px; margin-bottom: 20px; font-weight: 700; max-width: 90%; line-height: 1.4; text-align: center;">${winner.name}</h3>
+                    
+                    <button class="action-btn btn-buy" style="width: 220px; height: 48px; font-size: 14px;" 
+                        onclick="claimItem(${itemId})">
+                        ЗАБРАТЬ
+                    </button>
+
+                    <button class="action-btn btn-sell-tickets" style="width: 220px; height: 44px; font-size: 13px;" 
+                        onclick="sellForTickets(${itemId}, ${ticketPrice})">
+                        ПРОДАТЬ ЗА ${ticketPrice} <i class="fa-solid fa-ticket ticket-icon"></i>
+                    </button>
+
+                    <div class="win-actions-row">
+                        <button class="action-btn btn-secondary-action" onclick="goToProfile()">
+                            <i class="fa-solid fa-user" style="margin-right:4px;"></i> Профиль
+                        </button>
+                        <div style="width: 1px; background: rgba(255,255,255,0.1);"></div>
+                        <button class="action-btn btn-secondary-action" onclick="closeRoulette()">
+                            <i class="fa-solid fa-xmark" style="margin-right:4px;"></i> Закрыть
+                        </button>
+                    </div>
+                `;
                 
-                const ticker = () => {
-                    // Останавливаем тиканье за 500мс до конца визуальной остановки
-                    if (timer >= ANIMATION_TIME - 500) return; 
-                    
-                    haptic.selectionChanged();
-                    
-                    timer += tickInterval;
-                    // Прогрессивное замедление тиков
-                    if (timer < ANIMATION_TIME * 0.7) {
-                        tickInterval += 2; // Медленное нарастание интервала
-                    } else {
-                        tickInterval += 15; // Резкое замедление тиков в конце
-                    }
-                    
-                    setTimeout(ticker, tickInterval);
-                };
-                ticker();
+                winScreen.style.display = 'flex'; // Показываем экран
+            }, 800); // Пауза перед показом приза
 
-                // Финал
-                setTimeout(() => {
-                    haptic.impactOccurred('heavy'); 
-
-                    setTimeout(() => {
-                        haptic.notificationOccurred('success');
-                        
-                        area.style.display = 'none'; // Скрываем ленту
-                        document.getElementById('r-win-img').src = winner.image_url;
-                        document.getElementById('r-win-name').textContent = winner.name;
-                        
-                        // Удаляем лишние блоки (бонусы и прочее), оставляем только кнопку
-                        const extra = document.querySelector('.extra-msg');
-                        if(extra) extra.remove();
-                        
-                        winScreen.style.display = 'flex'; // Показываем победу
-                    }, 800); // Пауза перед показом приза
-
-                }, ANIMATION_TIME); 
-            }, 100);
-        }
+        }, ANIMATION_TIME); 
+    }, 100);
+}
         
         // Закрытие рулетки
         function closeRoulette() {
@@ -2735,6 +2800,72 @@ function preloadP2PState() {
                 }
             });
         }
+
+        // --- [NEW] ФУНКЦИИ ДЛЯ ЭКРАНА ПОБЕДЫ ---
+
+// 1. ЗАБРАТЬ (Создает запись в магазине/инвентаре)
+async function claimItem(itemId) {
+    if(!itemId) return Telegram.WebApp.showAlert("Ошибка ID предмета");
+
+    // Показываем лоадер
+    const btn = document.querySelector('#r-win .btn-buy');
+    const originalText = btn.innerText;
+    btn.innerText = "Обработка...";
+    btn.disabled = true;
+
+    try {
+        // Эндпоинт, который ты должен реализовать на бэке
+        await makeApiRequest('/api/v1/inventory/claim', 'POST', {
+            item_id: itemId
+        });
+
+        Telegram.WebApp.showAlert("✅ Предмет успешно добавлен в инвентарь! Ожидайте трейд.");
+        closeRoulette();
+        
+    } catch (e) {
+        Telegram.WebApp.showAlert("Ошибка: " + e.message);
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
+
+// 2. ПРОДАТЬ ЗА БИЛЕТЫ
+function sellForTickets(itemId, price) {
+    if(!itemId) return Telegram.WebApp.showAlert("Ошибка ID предмета");
+
+    Telegram.WebApp.showConfirm(`Продать этот предмет за ${price} билетов?`, async (ok) => {
+        if (!ok) return;
+
+        const btn = document.querySelector('#r-win .btn-sell-tickets');
+        btn.innerText = "Продажа...";
+        
+        try {
+            // Эндпоинт продажи
+            const res = await makeApiRequest('/api/v1/inventory/sell', 'POST', {
+                item_id: itemId
+            });
+            
+            Telegram.WebApp.showAlert(`💰 Успешно! Получено ${price} билетов.`);
+            
+            // Если нужно обновить баланс билетов на экране - добавь эту логику сюда
+            // updateTicketBalance(res.new_ticket_balance); 
+            
+            closeRoulette();
+
+        } catch (e) {
+            Telegram.WebApp.showAlert("Не удалось продать: " + e.message);
+            btn.innerHTML = `ПРОДАТЬ ЗА ${price} <i class="fa-solid fa-ticket ticket-icon"></i>`;
+        }
+    });
+}
+
+// 3. ПЕРЕЙТИ В ПРОФИЛЬ
+function goToProfile() {
+    // Закрываем рулетку, чтобы она не висела поверх
+    document.getElementById('r-modal').style.display = 'none';
+    // Переход
+    window.location.href = "profile.html";
+}
 
         function escapeHtml(text) {
             if (!text) return "";
