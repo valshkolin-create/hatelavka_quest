@@ -15138,7 +15138,8 @@ async def get_user_inventory(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "status": "eq.pending", 
+            # 👇 ИЗМЕНЕНИЕ: Берем и доступные (pending), и те, что на выводе (processing)
+            "status": "in.(pending,processing)", 
             "select": "id, status, created_at, item:cs_items(id, name, image_url, rarity, price)",
             "order": "created_at.desc"
         }
