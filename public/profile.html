@@ -1490,18 +1490,17 @@ window.withdrawItem = function(historyId, itemName) {
     showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (close) => {
         showLoader(); 
         try {
-            // Убрали проверку const res = await..., так как при ошибке код уйдет в catch, 
-            // а если ошибки нет — значит запрос успешен (даже если вернулся 204 статус)
+            // 1. Отправляем запрос на вывод
             await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
             
-            // Сначала закрываем текущее окно подтверждения
+            // 2. Закрываем окно подтверждения
             close();
             
-            // Мгновенно обновляем данные (карточка скина перерисуется со статусом "В ОБРАБОТКЕ")
-            await loadData(true); 
-            
-            // Показываем новое красивое окно об успехе вместо системного tg.showAlert
+            // 3. СРАЗУ показываем успешное окно (без ожидания загрузки других данных)
             showCustomAlert(`✅ <b>Заявка создана!</b><br><br>Скин появится в Steam в течение 24 часов.`, false);
+            
+            // 4. Запускаем обновление инвентаря в фоне (ОБЯЗАТЕЛЬНО БЕЗ await)
+            loadData(true); 
             
         } catch (e) {
             close();
