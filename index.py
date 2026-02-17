@@ -3898,13 +3898,12 @@ async def admin_p2p_approve(
 
 # --- ДОБАВИТЬ В index.py ---
 
-# 1. Эндпоинт для подтверждения выдачи скина из кейса
+# 1. Эндпоинт для ПОДТВЕРЖДЕНИЯ отправки скина (Админ нажал "Одобрить")
 @app.post("/api/v1/admin/cs_history/complete")
 async def complete_cs_history_reward(
-    request_data: dict, # Ожидаем {"reward_id": 123}
+    request_data: dict, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Проверка админа (как в других функциях)
     user_info = is_valid_init_data(request_data.get("initData"), ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
@@ -3913,26 +3912,27 @@ async def complete_cs_history_reward(
     if not reward_id:
         raise HTTPException(status_code=400, detail="ID не передан")
 
-    # Обновляем статус в таблице cs_history
+    # 🔥 ЛОГИКА: Ставим статус 'sent'. 
+    # Это значит: админ отправил трейд, теперь ждем подтверждения от юзера в профиле.
     resp = await supabase.patch(
         "/cs_history",
         params={"id": f"eq.{reward_id}"},
-        json={"status": "completed"}
+        json={"status": "sent"} 
     )
     
     if resp.status_code not in [200, 204]:
+        logging.error(f"Ошибка БД при одобрении кейса {reward_id}: {resp.text}")
         raise HTTPException(status_code=500, detail="Ошибка при обновлении БД")
 
-    return {"status": "ok", "message": "Скин помечен как выданный"}
+    return {"status": "ok", "message": "Скин помечен как отправленный. Юзер должен подтвердить получение."}
 
 
-# 2. Эндпоинт для отклонения (удаления) записи о кейсе
+# 2. Эндпоинт для ОТКЛОНЕНИЯ заявки (Админ нажал "Отклонить")
 @app.post("/api/v1/admin/cs_history/reject")
 async def reject_cs_history_reward(
     request_data: dict,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Проверка админа
     user_info = is_valid_init_data(request_data.get("initData"), ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
@@ -3941,20 +3941,21 @@ async def reject_cs_history_reward(
     if not reward_id:
         raise HTTPException(status_code=400, detail="ID не передан")
 
-    # Вариант А: Просто удаляем запись из истории
-    resp = await supabase.delete(
+    # 🔥 ЛОГИКА: Возвращаем статус 'pending'.
+    # Это значит: скин не удаляется, а просто возвращается в инвентарь юзера как "новый".
+    # Юзер снова увидит кнопки "Забрать" и "Обменять".
+    resp = await supabase.patch(
         "/cs_history",
-        params={"id": f"eq.{reward_id}"}
+        params={"id": f"eq.{reward_id}"},
+        json={"status": "pending"}
     )
-    
-    # Вариант Б (если хочешь хранить историю):
-    # resp = await supabase.patch("/cs_history", params={"id": f"eq.{reward_id}"}, json={"status": "rejected"})
 
     if resp.status_code not in [200, 204]:
-        raise HTTPException(status_code=500, detail="Ошибка при удалении из БД")
+        logging.error(f"Ошибка БД при отклонении кейса {reward_id}: {resp.text}")
+        raise HTTPException(status_code=500, detail="Ошибка при обновлении БД")
 
-    return {"status": "ok", "message": "Запись удалена"}
-
+    return {"status": "ok", "message": "Заявка отклонена, скин возвращен в инвентарь пользователя"}
+    
 @app.post("/api/v1/admin/p2p/cancel")
 async def admin_p2p_cancel(
     request_data: P2PActionRequest, 
