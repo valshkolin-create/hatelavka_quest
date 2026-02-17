@@ -2790,22 +2790,23 @@ function preloadP2PState() {
 
                // Собираем финальный HTML (Уникальный дизайн для кейсов)
                 if (isCase) {
-                    // [NEW] Очищаем название от "Кейс |" или "Case |" (независимо от регистра)
+                    // Очищаем название от "Кейс |" или "Case |"
                     let cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '');
                     
-                    // Форматируем уже чистое название (чтобы остались скобки/субтитры, если есть)
                     const caseTitleHtml = formatItemName(cleanName);
 
-                    // Дизайн Кейса: Заголовок -> Картинка -> Кнопки
                     el.classList.add('case-card');
 
-                    // [FIX] Делаем фон всей карточки абсолютно черным
-                    el.style.background = '#000000'; 
+                    // [CHANGE] Делаем фон всей карточки прозрачным
+                    el.style.background = 'transparent'; 
+                    // Убираем тень и границы, чтобы карточка не выделялась на общем фоне
+                    el.style.boxShadow = 'none';
+                    el.style.border = 'none';
                     
                     el.innerHTML = `
                         <div class="item-title case-top-title">${caseTitleHtml}</div>
                         
-                        <div class="item-image-wrapper case-img-wrap" onclick="${clickAction}">
+                        <div class="item-image-wrapper case-img-wrap" style="background: transparent;">
                             ${caseOverlayHtml}
                             <img src="${imgUrl}" 
                                  class="item-image case-zoom" decoding="async" 
