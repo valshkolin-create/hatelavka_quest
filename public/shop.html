@@ -691,19 +691,50 @@
         }
 
         /* --- НОВЫЕ КНОПКИ ДЛЯ КЕЙСОВ --- */
-.btn-buy-tickets {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); /* Фиолетовый градиент как у Trade-in */
-    color: #fff;
-    box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2);
-    margin-top: 4px; /* Отступ между кнопками */
-}
+/* --- СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ --- */
+        .case-top-title {
+            padding: 12px 10px 0 10px; /* Отступ только сверху */
+            font-size: 13px;
+            font-weight: 800;
+            color: #fff;
+            text-align: center;
+            text-transform: uppercase;
+            min-height: auto; /* Убираем лишнюю высоту */
+            line-height: 1.1;
+        }
 
-.case-buttons-container {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    margin-top: auto;
-}
+        .case-top-title .item-subtitle {
+            font-size: 11px;
+            color: var(--primary-color); /* Сделаем приписку ярче */
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .case-img-wrap {
+            padding-top: 80%; /* Сжимаем высоту картинки, чтобы кнопки поднялись выше */
+            background: radial-gradient(circle at center, rgba(255, 204, 0, 0.05) 0%, transparent 70%); /* Красивое легкое свечение вместо серого квадрата */
+        }
+
+        .case-buttons-wrapper {
+            padding: 0 10px 12px 10px; /* Отступы для кнопок (снизу больше) */
+            display: flex;
+            flex-direction: column;
+            margin-top: auto;
+        }
+
+        .case-buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px; /* Равномерный отступ между кнопками */
+            width: 100%;
+        }
+
+        .btn-buy-tickets {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2);
+            /* margin-top убрали, так как теперь работает gap */
+        }
 
         /* --- НОВЫЕ СТИЛИ ДЛЯ WIN SCREEN --- */
 
@@ -2725,25 +2756,46 @@ function preloadP2PState() {
                 const displayNameHtml = formatItemName(item.name);
                 const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
 
-                // Собираем финальный HTML
-                el.innerHTML = `
-                    <div class="item-image-wrapper" onclick="${clickAction}">
-                        ${caseOverlayHtml}
-                        <img src="${imgUrl}" 
-                             class="item-image ${isCase ? 'case-zoom' : ''}"  decoding="async" 
-                             loading="lazy" 
-                             onload="this.classList.add('loaded')" 
-                             alt="${escapeHtml(item.name)}">
-                    </div>
-                    <div class="item-info">
-                        <div class="item-title">${displayNameHtml}</div>
-                        <div class="item-meta">
-                            ${stockText}
-                            ${priceText}
+                // Собираем финальный HTML (Уникальный дизайн для кейсов)
+                if (isCase) {
+                    // Дизайн Кейса: Заголовок -> Картинка -> Кнопки
+                    el.innerHTML = `
+                        <div class="item-title case-top-title">${displayNameHtml}</div>
+                        
+                        <div class="item-image-wrapper case-img-wrap" onclick="${clickAction}">
+                            ${caseOverlayHtml}
+                            <img src="${imgUrl}" 
+                                 class="item-image case-zoom" decoding="async" 
+                                 loading="lazy" 
+                                 onload="this.classList.add('loaded')" 
+                                 alt="${escapeHtml(item.name)}">
                         </div>
-                        ${buttonHtml}
-                    </div>
-                `;
+                        
+                        <div class="case-buttons-wrapper">
+                            ${buttonHtml}
+                        </div>
+                    `;
+                } else {
+                    // Дизайн Обычного товара: Картинка -> Заголовок -> Цена -> Кнопка
+                    el.innerHTML = `
+                        <div class="item-image-wrapper" onclick="${clickAction}">
+                            <img src="${imgUrl}" 
+                                 class="item-image" decoding="async" 
+                                 loading="lazy" 
+                                 onload="this.classList.add('loaded')" 
+                                 alt="${escapeHtml(item.name)}">
+                        </div>
+                        <div class="item-info">
+                            <div class="item-title">${displayNameHtml}</div>
+                            <div class="item-meta">
+                                ${stockText}
+                                ${priceText}
+                            </div>
+                            ${buttonHtml}
+                        </div>
+                    `;
+                }
+                
                 fragment.appendChild(el);
             });
             container.appendChild(fragment);
