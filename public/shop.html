@@ -1429,6 +1429,24 @@
         
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- СТИЛИ ДЛЯ КРАСИВОГО ПОДТВЕРЖДЕНИЯ (ИЗ PROFILE) --- */
+.custom-confirm-overlay { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 20000 !important; /* Поверх всего, даже рулетки */
+    background: rgba(0,0,0,0.6); 
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); 
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* Цвета кнопок в окне подтверждения */
+#custom-confirm-btn[style*="#34c759"] { color: #000 !important; }
+#custom-confirm-btn[style*="#ff3b30"] { color: #fff !important; }
+        
     </style>
 </head>
 <body>
@@ -2804,59 +2822,105 @@ function preloadP2PState() {
         // --- [NEW] ФУНКЦИИ ДЛЯ ЭКРАНА ПОБЕДЫ ---
 
 // 1. ЗАБРАТЬ (Создает запись в магазине/инвентаре)
-async function claimItem(itemId) {
-    if(!itemId) return Telegram.WebApp.showAlert("Ошибка ID предмета");
-
-    // Показываем лоадер
-    const btn = document.querySelector('#r-win .btn-buy');
-    const originalText = btn.innerText;
-    btn.innerText = "Обработка...";
-    btn.disabled = true;
-
-    try {
-        // Эндпоинт, который ты должен реализовать на бэке
-        await makeApiRequest('/api/v1/inventory/claim', 'POST', {
-            item_id: itemId
-        });
-
-        Telegram.WebApp.showAlert("✅ Предмет успешно добавлен в инвентарь! Ожидайте трейд.");
-        closeRoulette();
+// --- 1. ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ОКНА ПОДТВЕРЖДЕНИЯ (ИЗ PROFILE) ---
+function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#ff3b30') {
+    const overlay = document.createElement('div'); 
+    overlay.className = 'custom-confirm-overlay';
+    
+    const box = document.createElement('div'); 
+    box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+    
+    box.innerHTML = `
+        <h3 style="margin: 0 0 20px; font-size: 17px; font-weight: 600; line-height: 1.4;">${text}</h3>
+        <div style="display: flex; gap: 12px;">
+            <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 14px; font-weight: 600; cursor: pointer;">Отмена</button>
+            <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; font-size: 14px; font-weight: 800; cursor: pointer;">${btnText}</button>
+        </div>`;
         
-    } catch (e) {
-        Telegram.WebApp.showAlert("Ошибка: " + e.message);
-        btn.innerText = originalText;
-        btn.disabled = false;
-    }
+    overlay.appendChild(box); 
+    document.body.appendChild(overlay);
+    
+    const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
+    
+    overlay.querySelector('#custom-cancel-btn').onclick = close;
+    overlay.querySelector('#custom-confirm-btn').onclick = () => { 
+        onConfirmCallback(close); 
+    };
+    overlay.onclick = (e) => { if(e.target === overlay) close(); };
 }
 
-// 2. ПРОДАТЬ ЗА БИЛЕТЫ
+// --- 2. ЛОГИКА КНОПКИ "ЗАБРАТЬ" (КАК ТЫ ПРОСИЛ) ---
+async function claimItem(itemId) {
+    // 1. Красивое окно подтверждения
+    showCustomConfirmHTML(
+        "Вывести этот предмет в Steam?<br><span style='font-size:12px; color:#aaa'>Заявка будет создана, ожидайте трейд.</span>",
+        async (closeModal) => {
+            
+            // Включаем лоадер (он у тебя есть в shop.html)
+            const loader = document.getElementById('purchase-loader');
+            if (loader) {
+                loader.classList.add('active');
+                loader.querySelector('.loader-text').innerText = "Создаем заявку...";
+            }
+
+            try {
+                // ИСПОЛЬЗУЕМ ЭНДПОИНТ ИЗ PROFILE
+                // history_id берем из itemId (который вернула рулетка)
+                await makeApiRequest('/api/v1/user/inventory/withdraw', { 
+                    history_id: itemId 
+                }, 'POST');
+
+                // Успех
+                Telegram.WebApp.showAlert("✅ Заявка создана!\nСкин придет в Steam в течение 24 часов.");
+                
+                closeModal();      // Закрываем диалог
+                closeRoulette();   // Закрываем рулетку
+                
+            } catch (e) {
+                Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
+                closeModal();
+            } finally {
+                if (loader) loader.classList.remove('active');
+            }
+        },
+        "ЗАБРАТЬ", 
+        "#34c759" // Зеленая кнопка
+    );
+}
+
+// --- 3. ЛОГИКА КНОПКИ "ПРОДАТЬ ЗА БИЛЕТЫ" ---
 function sellForTickets(itemId, price) {
-    if(!itemId) return Telegram.WebApp.showAlert("Ошибка ID предмета");
-
-    Telegram.WebApp.showConfirm(`Продать этот предмет за ${price} билетов?`, async (ok) => {
-        if (!ok) return;
-
-        const btn = document.querySelector('#r-win .btn-sell-tickets');
-        btn.innerText = "Продажа...";
-        
-        try {
-            // Эндпоинт продажи
-            const res = await makeApiRequest('/api/v1/inventory/sell', 'POST', {
-                item_id: itemId
-            });
+    showCustomConfirmHTML(
+        `Продать скин за <b>${price}</b> <i class="fa-solid fa-ticket" style="color:#bdecff"></i>?`,
+        async (closeModal) => {
             
-            Telegram.WebApp.showAlert(`💰 Успешно! Получено ${price} билетов.`);
-            
-            // Если нужно обновить баланс билетов на экране - добавь эту логику сюда
-            // updateTicketBalance(res.new_ticket_balance); 
-            
-            closeRoulette();
+            const loader = document.getElementById('purchase-loader');
+            if (loader) {
+                loader.classList.add('active');
+                loader.querySelector('.loader-text').innerText = "Продаем...";
+            }
 
-        } catch (e) {
-            Telegram.WebApp.showAlert("Не удалось продать: " + e.message);
-            btn.innerHTML = `ПРОДАТЬ ЗА ${price} <i class="fa-solid fa-ticket ticket-icon"></i>`;
-        }
-    });
+            try {
+                // ИСПОЛЬЗУЕМ ЭНДПОИНТ ИЗ PROFILE
+                await makeApiRequest('/api/v1/user/inventory/sell', { 
+                    history_id: itemId 
+                }, 'POST');
+
+                Telegram.WebApp.showAlert(`Успешно! +${price} билетов начислено.`);
+                
+                closeModal();      // Закрываем диалог
+                closeRoulette();   // Закрываем рулетку
+
+            } catch (e) {
+                Telegram.WebApp.showAlert(e.message || "Ошибка обмена");
+                closeModal();
+            } finally {
+                if (loader) loader.classList.remove('active');
+            }
+        },
+        "ПРОДАТЬ", 
+        "#a855f7" // Фиолетовая кнопка
+    );
 }
 
 // 3. ПЕРЕЙТИ В ПРОФИЛЬ
