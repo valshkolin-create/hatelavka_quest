@@ -12855,9 +12855,10 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
     
-    # Получаем название и картинку с фронта
+    # Получаем название, картинку и ВАЛЮТУ с фронта
     item_title = getattr(request_data, 'title', "") or "Товар"
     item_image = getattr(request_data, 'image_url', "") or ""
+    currency = getattr(request_data, 'currency', 'coins') # <--- НОВОЕ: Получаем тип валюты
 
     # 1. Получаем данные юзера из БД
     try:
@@ -12865,7 +12866,7 @@ async def buy_bott_item_proxy(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}",
-                "select": "bot_t_coins,bott_internal_id,bott_secret_key"
+                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets" # <--- НОВОЕ: Добавили tickets в запрос
             }
         )
         user_data_list = user_db_resp.json()
@@ -12880,55 +12881,74 @@ async def buy_bott_item_proxy(
     bott_internal_id = user_record.get("bott_internal_id")
     bott_secret_key = user_record.get("bott_secret_key")
     current_balance_kopecks = user_record.get("bot_t_coins", 0)
+    current_tickets = user_record.get("tickets", 0) # <--- НОВОЕ: Достаем билеты
 
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
 
-    # 2. Проверка баланса
-    if current_balance_kopecks < (price * 100):
-        raise HTTPException(status_code=400, detail="Недостаточно средств!")
-
-    # 3. СОЗДАЕМ ЗАКАЗ В BOT-T
-    url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
-    payload = {
-        "bot_id": int(BOTT_BOT_ID),
-        "category_id": item_id,
-        "count": 1,
-        "user_id": int(bott_internal_id),
-        "secret_user_key": bott_secret_key
-    }
-
     bott_order_id = 0
-    
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            resp = await client.post(url, json=payload)
-            
-            if resp.status_code != 200:
-                logging.error(f"[SHOP] Bot-T Error {resp.status_code}: {resp.text}")
-                raise HTTPException(status_code=500, detail="Ошибка магазина Bot-T")
-            
-            resp_json = resp.json()
-            if resp_json.get("result") is False:
-                err_msg = resp_json.get("message", "Ошибка покупки")
-                raise HTTPException(status_code=400, detail=f"Bot-T: {err_msg}")
-            
-            bott_order_data = resp_json.get("data", {})
-            bott_order_id = bott_order_data.get("id", 0)
-            
-        except HTTPException as he:
-            raise he
-        except Exception as e:
-            logging.error(f"[SHOP] Critical Bot-T request fail: {e}")
-            raise HTTPException(status_code=500, detail="Сбой связи с магазином")
 
-    # 4. СПИСЫВАЕМ МОНЕТКИ (ЛОКАЛЬНО)
-    new_balance = current_balance_kopecks - (price * 100)
-    await supabase.patch(
-        "/users",
-        params={"telegram_id": f"eq.{telegram_id}"},
-        json={"bot_t_coins": new_balance} 
-    )
+    # =========================================================================
+    # 2 & 3. НОВОЕ: ПРОВЕРКА БАЛАНСА И СПИСАНИЕ В ЗАВИСИМОСТИ ОТ ВАЛЮТЫ
+    # =========================================================================
+    if currency == 'tickets':
+        # ПРОДАЖА ЗА БИЛЕТЫ (без обращения к Bot-T, чисто внутренняя экономика)
+        if current_tickets < price:
+            raise HTTPException(status_code=400, detail="Недостаточно билетов!")
+            
+        new_tickets = current_tickets - price
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json={"tickets": new_tickets} 
+        )
+        logging.info(f"[SHOP] Списаны билеты. Было: {current_tickets}, Стало: {new_tickets}")
+
+    else:
+        # ПРОДАЖА ЗА МОНЕТЫ (старая логика с Bot-T)
+        if current_balance_kopecks < (price * 100):
+            raise HTTPException(status_code=400, detail="Недостаточно средств!")
+
+        # 3. СОЗДАЕМ ЗАКАЗ В BOT-T
+        url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
+        payload = {
+            "bot_id": int(BOTT_BOT_ID),
+            "category_id": item_id,
+            "count": 1,
+            "user_id": int(bott_internal_id),
+            "secret_user_key": bott_secret_key
+        }
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                resp = await client.post(url, json=payload)
+                
+                if resp.status_code != 200:
+                    logging.error(f"[SHOP] Bot-T Error {resp.status_code}: {resp.text}")
+                    raise HTTPException(status_code=500, detail="Ошибка магазина Bot-T")
+                
+                resp_json = resp.json()
+                if resp_json.get("result") is False:
+                    err_msg = resp_json.get("message", "Ошибка покупки")
+                    raise HTTPException(status_code=400, detail=f"Bot-T: {err_msg}")
+                
+                bott_order_data = resp_json.get("data", {})
+                bott_order_id = bott_order_data.get("id", 0)
+                
+            except HTTPException as he:
+                raise he
+            except Exception as e:
+                logging.error(f"[SHOP] Critical Bot-T request fail: {e}")
+                raise HTTPException(status_code=500, detail="Сбой связи с магазином")
+
+        # 4. СПИСЫВАЕМ МОНЕТКИ (ЛОКАЛЬНО)
+        new_balance = current_balance_kopecks - (price * 100)
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json={"bot_t_coins": new_balance} 
+        )
+    # =========================================================================
 
     # =========================================================================
     # ЛОГИКА РУЛЕТКИ (Если в названии есть "КЕЙС")
@@ -12955,7 +12975,7 @@ async def buy_bott_item_proxy(
                 json={
                     "user_id": telegram_id,
                     "item_id": winner['id'],
-                    "code_used": f"BOTT_ORDER_{bott_order_id}",
+                    "code_used": f"BOTT_ORDER_{bott_order_id}" if currency == 'coins' else f"TICKET_PURCHASE_{item_id}",
                     "status": "pending"
                 },
                 headers={"Prefer": "return=representation"} 
