@@ -617,11 +617,12 @@
                 <div class="info" id="promo-btn-info">Загрузка...</div>
             </div>
 
-            <div class="dash-btn" id="btn-open-secret">
-                <i class="fa-solid fa-user-secret"></i>
-                <div class="title">SECRET PROMOCODE</div>
-                <div class="info">Промокоды для секретного меню</div>
-            </div>
+            <div class="dash-btn" id="btn-open-inventory">
+    <i class="fa-solid fa-box-open" style="color: #007aff;"></i>
+    <div class="title">Мои Скины</div>
+    <div class="info">Инвентарь и вывод</div>
+    <div class="info" id="inventory-btn-info">Загрузка...</div>
+</div>
         </div>
     </main>
 
@@ -642,30 +643,32 @@
         </div>
     </div>
 
-    <div class="custom-modal" id="modal-secret">
-        <div class="modal-card">
-            <div class="modal-header">
-                <div class="modal-title"><i class="fa-solid fa-user-secret"></i> SECRET MENU</div>
-                <button class="modal-close" id="close-modal-secret"><i class="fa-solid fa-xmark"></i></button>
+    <div class="custom-modal" id="modal-inventory">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i class="fa-solid fa-box-open" style="color: #007aff;"></i> Инвентарь
             </div>
-            
-            <div class="modal-body">
-                <div id="secret-list-container" style="width: 100%;">
-                    <div class="empty-state" style="text-align:center; padding-top: 50px;">
-                        <i class="fa-solid fa-mask" style="font-size: 32px; margin-bottom: 15px; opacity: 0.5; color: var(--text-color-muted);"></i>
-                        <p style="font-size: 14px; margin-bottom: 5px;">Секретные промокоды отсутствуют</p>
-                        <div style="font-size: 11px; color: #555;">Скоро..</div>
-                    </div>
+            <button class="modal-close" id="close-modal-inventory">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body">
+            <div style="background: rgba(0, 122, 255, 0.15); border: 1px solid rgba(0, 122, 255, 0.3); border-radius: 12px; padding: 12px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-clock" style="color: #007aff; font-size: 20px;"></i>
+                <div style="font-size: 12px; color: #fff; line-height: 1.3;">
+                    <b>Вывод скинов:</b> Обработка занимает до 24 часов.<br>
+                    <span style="opacity: 0.7;">Не хотите ждать? Обменяйте скин на билеты.</span>
                 </div>
+            </div>
 
-                <div style="margin-top: 20px; text-align: center; padding-bottom: 20px;">
-                    <button id="btn-clear-all-secret" style="background: transparent; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer;">
-                        <i class="fa-solid fa-trash"></i> Удалить историю
-                    </button>
-                </div>
+            <div id="inventory-list-container" style="width: 100%; padding-bottom: 20px;">
+                <div style="text-align: center; color: #888; margin-top: 20px;">Загрузка инвентаря...</div>
             </div>
         </div>
     </div>
+</div>
 
     <div id="custom-popup-overlay" class="custom-popup-overlay">
         <div class="custom-popup">
@@ -864,6 +867,11 @@
         refBonusDisplay: document.getElementById('ref-bonus-display'),
         closeRefModalBtn: document.getElementById('close-ref-modal-btn'),
         copyRefBtn: document.getElementById('copy-ref-btn'),
+        modalInventory: document.getElementById('modal-inventory'),
+        btnOpenInventory: document.getElementById('btn-open-inventory'),
+        btnCloseInventory: document.getElementById('close-modal-inventory'),
+        inventoryList: document.getElementById('inventory-list-container'),
+        inventoryInfoBadge: document.getElementById('inventory-btn-info'),
         shareRefLinkBtn: document.getElementById('share-ref-link-btn')
     };
 
@@ -1263,6 +1271,118 @@
         });
     }
     // --- MAIN FUNCTION ---
+    function renderInventory(items) {
+    const container = dom.inventoryList;
+    const infoBadge = dom.inventoryInfoBadge;
+    container.innerHTML = '';
+    
+    // Обновляем счетчик на главной кнопке
+    if (infoBadge) infoBadge.textContent = items && items.length > 0 ? `${items.length} предм.` : 'Пусто';
+
+    if (!items || items.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="text-align:center; padding-top: 50px;">
+                <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 15px; opacity: 0.5; color: var(--text-color-muted);"></i>
+                <p style="font-size: 14px; margin-bottom: 5px;">Инвентарь пуст</p>
+                <div style="font-size: 11px; color: #555;">Открывайте кейсы в Магазине!</div>
+            </div>`;
+        return;
+    }
+
+    items.forEach(item => {
+        // Определяем цвет редкости (как в рулетке)
+        const r = (item.rarity || 'common').toLowerCase();
+        let borderCol = '#8E8E93'; // серый
+        let bgCol = 'rgba(255,255,255,0.05)';
+        
+        if (r.includes('blue') || r.includes('rare')) { borderCol = '#4b69ff'; bgCol = 'rgba(75,105,255,0.1)'; }
+        else if (r.includes('purple') || r.includes('mythical')) { borderCol = '#8847ff'; bgCol = 'rgba(136,71,255,0.1)'; }
+        else if (r.includes('pink') || r.includes('legendary')) { borderCol = '#d32ce6'; bgCol = 'rgba(211,44,230,0.1)'; }
+        else if (r.includes('red') || r.includes('ancient')) { borderCol = '#eb4b4b'; bgCol = 'rgba(235,75,75,0.1)'; }
+        else if (r.includes('gold')) { borderCol = '#ffd700'; bgCol = 'rgba(255,215,0,0.1)'; }
+
+        // Карточка
+        const el = document.createElement('div');
+        el.className = 'reward-card';
+        el.style.background = bgCol;
+        el.style.border = `1px solid ${borderCol}`;
+        el.style.display = 'flex';
+        el.style.gap = '15px';
+        el.style.alignItems = 'center';
+
+        // Кнопка обмена (логика продажи)
+        // Представим, что цена продажи - это 50% от цены покупки или фиксированная
+        const sellPrice = Math.floor((item.price || 0) * 0.5); // Например
+
+        el.innerHTML = `
+            <div style="width: 80px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                <img src="${item.image_url}" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 5px ${borderCol});">
+            </div>
+
+            <div style="flex-grow: 1; min-width: 0;">
+                <div style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    ${item.name}
+                </div>
+                <div style="font-size: 11px; color: ${borderCol}; text-transform: uppercase; font-weight: 600; margin-bottom: 6px;">
+                    ${item.rarity}
+                </div>
+                
+                <div style="font-size: 10px; color: #aaa; display: flex; align-items: center; gap: 4px;">
+                    <i class="fa-regular fa-clock"></i> Вывод: ~24ч
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 6px; width: 90px;">
+                <button onclick="exchangeItem(${item.history_id}, ${sellPrice})" style="
+                    background: rgba(255, 255, 255, 0.1); 
+                    border: 1px solid rgba(255, 255, 255, 0.2); 
+                    color: #fff; 
+                    font-size: 10px; 
+                    padding: 6px; 
+                    border-radius: 6px; 
+                    cursor: pointer;
+                    display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <i class="fa-solid fa-ticket"></i> Обменять
+                </button>
+                
+                <button onclick="tg.showAlert('Ожидайте трейд-оффер в Steam в течение 24 часов.')" style="
+                    background: ${borderCol}; 
+                    color: #000; 
+                    border: none;
+                    font-size: 10px; 
+                    font-weight: 700;
+                    padding: 6px; 
+                    border-radius: 6px; 
+                    cursor: pointer;">
+                    ЗАБРАТЬ
+                </button>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
+
+// Функция обмена предмета на билеты/валюту
+window.exchangeItem = function(historyId, amount) {
+    showCustomConfirmHTML(`Обменять скин на билеты?`, async (close) => {
+        try {
+            await makeApiRequest('/api/v1/user/inventory/sell', { history_id: historyId });
+            
+            tg.showAlert(`Успешно! Билеты начислены.`);
+            
+            // Перезагружаем данные
+            loadData(true); 
+            close();
+        } catch (e) {
+            tg.showAlert(e.message || "Ошибка обмена");
+            close();
+        }
+    }, "Обменять", "#34c759");
+}
+
+// =========================================================
+// 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
+// =========================================================
     // --- MAIN FUNCTION ---
     async function main() {
         // 1. Проверка: запущено ли в Telegram
@@ -1314,37 +1434,38 @@
 
     // Функция загрузки данных
     async function loadData(isSilent = false) {
-        if (!isSilent) showLoader();
-        try {
-            const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
-            
-            // 1. Обычные награды
-            const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
-            
-            // 2. 🔥 ЗАГРУЖАЕМ СЕКРЕТНЫЕ КОДЫ 🔥
-            const secretCodes = await makeApiRequest("/api/v1/user/secret_codes", {}, 'POST', isSilent);
+    if (!isSilent) showLoader();
+    try {
+        const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
+        
+        // 1. Обычные награды
+        const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
+        
+        // 🔥 2. ЗАГРУЖАЕМ ИНВЕНТАРЬ (Вместо секреток) 🔥
+        // Бэкенд должен вернуть массив объектов из cs_history c данными items
+        const inventory = await makeApiRequest("/api/v1/user/inventory", {}, 'POST', isSilent);
 
-            if (!isSilent) {
-                makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
-                makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
-            }
-
-            const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
-            const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
-
-            if (dom.profileName) dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
-            
-            // Рендер
-            renderSettingsList(fullUserData); 
-            renderRewards(rewards);
-            renderSecretCodes(secretCodes); // <--- ВЫЗЫВАЕМ НОВЫЙ РЕНДЕР
-
-        } catch (e) {
-            console.error(e);
-        } finally {
-            if (!isSilent) hideLoader();
+        if (!isSilent) {
+            makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
+            makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
         }
+
+        const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
+        const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
+
+        if (dom.profileName) dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+        
+        // Рендер
+        renderSettingsList(fullUserData); 
+        renderRewards(rewards);
+        renderInventory(inventory); // <--- ВЫЗЫВАЕМ НОВЫЙ РЕНДЕР ИНВЕНТАРЯ
+
+    } catch (e) {
+        console.error(e);
+    } finally {
+        if (!isSilent) hideLoader();
     }
+}
     // Функция отрисовки настроек (сокращена для краткости, берется из старого кода)
     function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
@@ -1557,6 +1678,32 @@
     document.getElementById('twitch-trust-close').onclick = () => document.getElementById('twitch-trust-popup').classList.remove('visible');
     document.getElementById('steam-trust-close').onclick = () => document.getElementById('steam-trust-popup').classList.remove('visible');
     if(document.getElementById('twitch-help-close')) document.getElementById('twitch-help-close').onclick = () => document.getElementById('twitch-help-popup').classList.remove('visible');
+
+    // =========================================================
+    // 👇👇👇 ВСТАВЛЯЕМ СЮДА (ЛОГИКА ИНВЕНТАРЯ) 👇👇👇
+    // =========================================================
+
+    if (dom.btnOpenInventory) {
+        dom.btnOpenInventory.onclick = () => {
+            dom.modalInventory.classList.add('visible');
+            // Показываем кнопку "Назад" в самом Телеграме
+            if (tg.BackButton) {
+                 tg.BackButton.show();
+                 tg.BackButton.onClick(() => { 
+                     dom.modalInventory.classList.remove('visible'); 
+                     tg.BackButton.hide(); 
+                 });
+            }
+        };
+    }
+
+    if (dom.btnCloseInventory) {
+        dom.btnCloseInventory.onclick = () => {
+            dom.modalInventory.classList.remove('visible');
+            // Скрываем нативную кнопку назад при закрытии крестиком
+            if (tg.BackButton) tg.BackButton.hide();
+        };
+    }
 
     if (dom.deleteAllRewardsBtn) {
         dom.deleteAllRewardsBtn.onclick = () => {
