@@ -2791,6 +2791,7 @@ function preloadP2PState() {
                 // Собираем финальный HTML (Уникальный дизайн для кейсов)
                 if (isCase) {
                     // Дизайн Кейса: Заголовок -> Картинка -> Кнопки
+                    el.classList.add('case-card');
                     el.innerHTML = `
                         <div class="item-title case-top-title">${displayNameHtml}</div>
                         
@@ -2803,7 +2804,7 @@ function preloadP2PState() {
                                  alt="${escapeHtml(item.name)}">
                         </div>
                         
-                        <div class="case-buttons-wrapper">
+                        <div class="item-info" style="padding: 0 10px 10px 10px; flex-grow: 0;">
                             ${buttonHtml}
                         </div>
                     `;
@@ -2830,7 +2831,18 @@ function preloadP2PState() {
                 
                 fragment.appendChild(el);
             });
+            
             container.appendChild(fragment);
+
+            // --- ЛОГИКА АВТО-УМЕНЬШЕНИЯ ШРИФТА ДЛЯ ЗАГОЛОВКОВ КЕЙСОВ ---
+            container.querySelectorAll('.case-top-title').forEach(title => {
+                let fontSize = 13; // Стартовый размер из CSS
+                // Пока текст шире контейнера, уменьшаем шрифт (минимум до 7px)
+                while (title.scrollWidth > title.offsetWidth && fontSize > 7) {
+                    fontSize -= 0.5;
+                    title.style.fontSize = fontSize + 'px';
+                }
+            });
         }
         
         // --- [NEW] ФУНКЦИЯ ОТКРЫТИЯ КЕЙСА (ЮВЕЛИРНОЕ ДОБАВЛЕНИЕ) ---
