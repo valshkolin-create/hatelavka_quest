@@ -206,8 +206,6 @@
         
 /* Эффект при наведении/нажатии на карточку кейса */
 .shop-item:active .case-info-overlay {
-    background: rgba(255, 204, 0, 0.8);
-    color: #000;
 }
 
         /* --- ПАРТНЕРЫ (ОПТИМИЗИРОВАНО НА CSS) --- */
@@ -720,16 +718,23 @@
         /* --- НОВЫЕ КНОПКИ ДЛЯ КЕЙСОВ --- */
 /* --- СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ --- */
         .case-top-title {
-            padding: 12px 10px 0 10px; /* Отступ только сверху */
-            font-size: 13px;
+            padding: 10px 5px 0 5px;
+            font-size: 13px; /* Стартовый размер шрифта */
             font-weight: 800;
             color: #fff;
             text-align: center;
             text-transform: uppercase;
-            min-height: auto; /* Убираем лишнюю высоту */
             line-height: 1.1;
-        }
+            position: relative;
+            z-index: 4;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 
+            /* --- МАГИЯ ОДНОЙ СТРОКИ --- */
+            white-space: nowrap; 
+            overflow: visible; /* Текст не прячется, скрипт его уменьшит */
+            display: block;
+        }
+        
         .case-top-title .item-subtitle {
             font-size: 11px;
             color: var(--primary-color); /* Сделаем приписку ярче */
