@@ -416,7 +416,7 @@
         .custom-popup-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.7);
-            z-index: 99999;
+            z-index: 10000;
             display: flex; align-items: center; justify-content: center;
             padding: 15px; box-sizing: border-box; /* Важно для мобилок */
             opacity: 0; visibility: hidden;
@@ -492,6 +492,7 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .custom-confirm-overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 20000 !important;
             background: rgba(0,0,0,0.6); z-index: 10000;
             display: flex; align-items: center; justify-content: center;
             backdrop-filter: blur(4px); animation: fadeIn 0.2s;
@@ -539,8 +540,9 @@
     margin-bottom: 15px;
     text-align: center;
 }
+/* Ссылка "Где найти" */
 .popup-help a {
-    color: var(--text-color-muted); /* Неброский серый */
+    color: var(--text-color-muted) !important;
     text-decoration: none;
     font-size: 12px;
     display: inline-flex;
@@ -549,17 +551,24 @@
     opacity: 0.8;
 }
 .popup-help a i {
-    color: var(--primary-color); /* Зеленая иконка вопроса */
+    color: var(--primary-color);
 }
 
-/* Фикс текста на кнопках в попапах */
-.popup-btn.primary {
-    background-color: var(--primary-color);
-    color: #000 !important; /* Всегда черный текст на зеленом фоне */
+/* Цвета текста на кнопках подтверждения */
+#custom-confirm-btn {
     font-weight: 700;
 }
+/* Если кнопка зеленая — текст черный, если красная — белый */
+#custom-confirm-btn[style*="var(--primary-color)"], 
+#custom-confirm-btn[style*="#34c759"] {
+    color: #000 !important;
+}
+#custom-confirm-btn[style*="var(--danger-color)"], 
+#custom-confirm-btn[style*="#ff3b30"] {
+    color: #fff !important;
+}
 
-/* Красная подсветка для неправильной ссылки */
+/* Инпут с ошибкой */
 .error-input {
     border-color: var(--danger-color) !important;
     background-color: rgba(255, 59, 48, 0.05) !important;
@@ -1004,23 +1013,33 @@ if (dom.popupTradeLinkInput) {
         }
     }
 
-    function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
-        const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+    // --- УНИВЕРСАЛЬНОЕ ОКНО (с поддержкой одной кнопки) ---
+    function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30', showCancel = true) {
+        const overlay = document.createElement('div'); 
+        overlay.className = 'custom-confirm-overlay';
         const box = document.createElement('div'); 
         box.style.cssText = `background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.95); animation: popIn 0.2s forwards;`;
         
-        // В строке ниже я установил color: #000 для кнопки подтверждения
+        const cancelBtnHtml = showCancel ? `<button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button>` : '';
+
         box.innerHTML = `
-            <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 600; line-height: 1.4;">${text}</h3>
+            <h3 style="margin: 0 0 20px; font-size: 17px; font-weight: 600; line-height: 1.4;">${text}</h3>
             <div style="display: flex; gap: 12px;">
-                <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; font-weight: 500; cursor: pointer;">Отмена</button>
-                <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; color: #000; font-size: 16px; font-weight: 700; cursor: pointer;">${btnText}</button>
+                ${cancelBtnHtml}
+                <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 10px; background: ${btnColor}; font-size: 16px; cursor: pointer;">${btnText}</button>
             </div>`;
             
-        overlay.appendChild(box); document.body.appendChild(overlay);
+        overlay.appendChild(box); 
+        document.body.appendChild(overlay);
+        
         const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 200); };
-        overlay.querySelector('#custom-cancel-btn').onclick = close;
-        overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); };
+        
+        if (showCancel) overlay.querySelector('#custom-cancel-btn').onclick = close;
+        
+        overlay.querySelector('#custom-confirm-btn').onclick = () => { 
+            onConfirmCallback(close); 
+            close(); 
+        };
         overlay.onclick = (e) => { if(e.target === overlay) close(); };
     }
 
@@ -1807,32 +1826,41 @@ window.confirmReceived = function(historyId) {
         }
     });
 
-    // --- Вспомогательная функция для КРАСИВЫХ алертов (в стиле документа) ---
+    // Функция для КРАСИВЫХ алертов (без кнопки отмены)
     function showCustomAlert(message, isError = false) {
         const btnColor = isError ? "var(--danger-color)" : "var(--primary-color)";
-        showCustomConfirmHTML(message, (close) => close(), "ПОНЯТНО", btnColor);
+        showCustomConfirmHTML(message, () => {}, "ПОНЯТНО", btnColor, false);
     }
 
-    // --- Живая проверка ввода Trade Link ---
-    if (dom.popupTradeLinkInput) {
-        dom.popupTradeLinkInput.addEventListener('input', (e) => {
-            const input = e.target;
-            let value = input.value.trim();
+    // --- Обработчик сохранения ссылки ---
+    dom.popupSaveBtn.onclick = async () => {
+        const v = dom.popupTradeLinkInput.value.trim();
+        const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
+
+        if (!v.startsWith(requiredPrefix) || !v.includes("partner=") || !v.includes("token=")) {
+            dom.popupTradeLinkInput.classList.add('error-input');
+            showCustomAlert("<b>Неверный формат ссылки!</b><br><br>Скопируйте ссылку целиком из настроек Steam (должны быть partner и token).", true);
+            return;
+        }
+
+        try {
+            showLoader();
+            dom.popupTradeLinkInput.classList.remove('error-input');
+            await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: v });
+            dom.customPopupOverlay.classList.remove('visible');
+            showNotification("Trade Link сохранен!", "success");
             
-            // 1. УМНАЯ ОБРЕЗКА: Если вставили текст с мусором (н-р "вот ссылка https://..."), оставляем только URL
-            if (value.includes("https://") && !value.startsWith("https://")) {
-                value = value.substring(value.indexOf("https://"));
-                input.value = value;
-            }
-
-            // 2. ЖИВАЯ ВАЛИДАЦИЯ: Если введено много текста и это не Steam — красная рамка
-            if (value.length > 20 && !value.startsWith("https://steamcommunity.com")) {
-                input.classList.add('error-input');
-            } else {
-                input.classList.remove('error-input');
-            }
-        });
-    }
+            // Обновляем текст на странице
+            const display = document.getElementById('trade-link-display');
+            if (display) display.textContent = v;
+            
+            setTimeout(() => loadData(true), 500); 
+        } catch (e) {
+            showCustomAlert("Ошибка сохранения:<br>" + e.message, true);
+        } finally {
+            hideLoader();
+        }
+    };
 
     dom.popupCancelBtn.onclick = () => {
         dom.popupTradeLinkInput.classList.remove('error-input');
