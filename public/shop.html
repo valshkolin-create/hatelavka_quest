@@ -692,9 +692,13 @@
 
         /* --- НОВЫЕ КНОПКИ ДЛЯ КЕЙСОВ --- */
 /* --- СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ (АБСОЛЮТНАЯ КАРТИНКА) --- */
+        /* --- СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ (АБСОЛЮТНАЯ КАРТИНКА) --- */
         .shop-item.case-card {
-            min-height: 240px; /* Фиксируем высоту, чтобы вместить массивную картинку */
+            min-height: 240px; /* Фиксируем высоту */
             justify-content: space-between;
+            overflow: visible; /* ВАЖНО: Разрешаем контенту вылезать за пределы */
+            position: relative; /* Нужно для z-index */
+            z-index: 1; /* Базовый слой */
         }
 
         .case-top-title {
@@ -706,7 +710,7 @@
             text-transform: uppercase;
             line-height: 1.1;
             position: relative;
-            z-index: 3; /* Оставляем текст всегда поверх всего */
+            z-index: 4; /* Текст поверх всего */
             text-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
 
@@ -717,40 +721,38 @@
             margin-top: 4px;
         }
 
-        /* Контейнер картинки: начинается строго под текстом и уходит в самый низ */
+        /* Контейнер картинки: начинается строго под текстом и уходит вниз */
         .case-img-bg {
             position: absolute;
             top: 40px; /* Порог до текста */
-            bottom: 0; /* До самого низа карточки */
+            /* Убираем bottom: 0, чтобы высота зависела от контента */
             left: 0;
             right: 0;
-            z-index: 1; /* Прячем ПОД кнопками */
+            /* Высота картинки будет больше высоты карточки */
+            height: 280px; 
+            z-index: 2; /* Слой между фоном и кнопками */
             cursor: pointer;
-            background: radial-gradient(circle at top center, rgba(255, 204, 0, 0.15) 0%, transparent 70%);
+            /* Убрали фон, чтобы не было видно границ контейнера */
         }
 
         .case-img-bg img.case-zoom {
             width: 100%;
             height: 100%;
             object-fit: contain;
-            object-position: top center; /* Прижимаем верх картинки к верху контейнера (к тексту) */
-            transform: scale(1.35); /* Увеличиваем на 35%, как ты просил */
-            transform-origin: top center; /* Магия: картинка растет только вниз и в стороны, не залезая на текст */
-            filter: drop-shadow(0 0 15px rgba(255, 204, 0, 0.2));
+            object-position: top center; 
+            /* Уменьшили масштаб, так как теперь контейнер и так высокий */
+            transform: scale(1.1); 
+            transform-origin: top center; 
+            filter: drop-shadow(0 0 20px rgba(255, 204, 0, 0.3)); /* Усилили тень */
         }
 
         .case-buttons-wrapper {
             padding: 0 10px 10px 10px;
             display: flex;
             flex-direction: column;
-            margin-top: auto;
+            margin-top: auto; /* Прижимаем к низу карточки */
             position: relative;
-            z-index: 3; /* Выводим кнопки поверх нижней части картинки */
-            pointer-events: none; /* Пропускаем клики сквозь пустые места к картинке */
-        }
-
-        .case-buttons-wrapper > * {
-            pointer-events: auto; /* Возвращаем кликабельность самим кнопкам */
+            z-index: 3; /* Кнопки поверх картинки */
         }
 
         .case-buttons-container {
@@ -760,9 +762,8 @@
             width: 100%;
         }
 
-        /* Новая плашка "Посмотреть дроп", встроенная аккуратно над кнопками */
         .case-overlay-new {
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.7); /* Чуть темнее */
             backdrop-filter: blur(4px);
             color: var(--primary-color);
             font-size: 9px;
@@ -770,17 +771,17 @@
             text-transform: uppercase;
             text-align: center;
             padding: 6px 0;
-            margin-bottom: 8px; /* Отступ до кнопок */
+            margin-bottom: 8px;
             border-radius: 6px;
             letter-spacing: 0.5px;
-            border: 1px solid rgba(255, 204, 0, 0.2);
+            border: 1px solid rgba(255, 204, 0, 0.3);
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .shop-item:active .case-overlay-new,
         .case-overlay-new:active {
-            background: rgba(255, 204, 0, 0.8);
+            background: rgba(255, 204, 0, 0.9);
             color: #000;
         }
 
