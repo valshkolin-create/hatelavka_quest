@@ -15301,11 +15301,8 @@ async def withdraw_inventory_item(
                 f"🔗 <a href='{trade_link}'>Ссылка на обмен</a>"
             )
             
-            # Ссылка ведет в бота, открывает приложение с параметром admin_orders
-            # Бот должен поддерживать Deep Linking для Web App (обычно это стандартно)
-            # URL: https://t.me/BOT_USERNAME/app?startapp=admin_orders
-            
-           admin_url = "https://hatelavka-quest.vercel.app/admin.html"
+            # Убедитесь, что эта строка стоит ровно под log_text (8 пробелов от края файла)
+            admin_url = "https://hatelavka-quest.vercel.app/admin.html?tab=shop"
 
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="👨‍💻 Открыть заявки", web_app=WebAppInfo(url=admin_url))]
@@ -15316,7 +15313,7 @@ async def withdraw_inventory_item(
             print(f"⚠️ Ошибка отправки лога: {e}")
 
     return {"success": True, "message": "Заявка принята!"}
-
+    
 # 4. Подтвердить получение (Статус -> received)
 @app.post("/api/v1/user/inventory/confirm")
 async def confirm_inventory_item(
