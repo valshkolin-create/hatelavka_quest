@@ -15291,7 +15291,7 @@ async def withdraw_inventory_item(
         json={"status": "processing"} 
     )
 
-    # 4. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
+   # 4. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
     if ADMIN_NOTIFY_CHAT_ID:
         try:
             log_text = (
@@ -15302,18 +15302,25 @@ async def withdraw_inventory_item(
                 f"🔗 <a href='{trade_link}'>Ссылка на обмен</a>"
             )
             
-            # Убедитесь, что эта строка стоит ровно под log_text (8 пробелов от края файла)
-            admin_url = "https://hatelavka-quest.vercel.app/admin.html?tab=shop"
+            # Вместо прямой ссылки на html используем ссылку через бота, 
+            # чтобы открылось именно как Web App, а не просто в браузере.
+            # Замените HATElavka_bot на юзернейм вашего бота без @
+            app_url = "https://t.me/HATElavka_bot/app?startapp=admin_orders"
 
+            # Используем обычную кнопку url вместо web_app
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="👨‍💻 Открыть заявки", web_app=WebAppInfo(url=admin_url))]
+                [InlineKeyboardButton(text="👨‍💻 Открыть заявки", url=app_url)]
             ])
             
-            await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=log_text, reply_markup=kb, parse_mode="HTML")
+            await bot.send_message(
+                chat_id=ADMIN_NOTIFY_CHAT_ID, 
+                text=log_text, 
+                reply_markup=kb, 
+                parse_mode="HTML",
+                disable_web_page_preview=True # Чтобы не раздувать лог превьюхой трейд-ссылки
+            )
         except Exception as e:
             print(f"⚠️ Ошибка отправки лога: {e}")
-
-    return {"success": True, "message": "Заявка принята!"}
     
 # 4. Подтвердить получение (Статус -> received)
 @app.post("/api/v1/user/inventory/confirm")
