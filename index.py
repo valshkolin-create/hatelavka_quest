@@ -12932,32 +12932,34 @@ async def buy_bott_item_proxy(
                 headers={"Prefer": "return=representation"} 
             )
             
-            # Получаем ID созданной записи (например, 130)
+            # Получаем ID созданной записи (это и есть ID сделки, например 131)
             hist_data = hist_resp.json()
             history_id = 0
             if hist_data and isinstance(hist_data, list):
                 history_id = hist_data[0]['id']
             
-            logging.info(f"[SHOP] Выигрыш: ItemID={winner['id']}, HistoryID={history_id}")
+            logging.info(f"[SHOP] Выигрыш: ItemID={winner['id']} -> HistoryID={history_id}")
 
             # Г. Генерируем ленту
             roulette_strip = random.choices(all_items, k=80)
             roulette_strip[60] = winner 
             
-            # Добавляем history_id внутрь объекта winner, на случай если фронт берет ID оттуда
-            winner_with_id = winner.copy()
-            winner_with_id['history_id'] = history_id
-            # winner_with_id['id'] = history_id # Раскомментировать, если фронт жестко берет .id и ломает продажу
+            # --- ФИКС ДЛЯ ПРОДАЖИ ---
+            # Создаем копию победителя для фронта и подменяем ID
+            # Фронтенд думает, что это ID товара, но на самом деле это ID истории (сделки)
+            winner_for_frontend = winner.copy()
+            winner_for_frontend['id'] = history_id       # Теперь здесь 131, а не 69
+            winner_for_frontend['real_item_id'] = winner['id'] # Сохраняем оригинал на всякий случай
 
             # Д. ВОЗВРАЩАЕМ JSON
             return {
                 "status": "ok",
                 "message": "Кейс открыт успешно",
-                "winner": winner_with_id,    # Обновленный winner
+                "winner": winner_for_frontend,  # Отдаем объект с подмененным ID
                 "roulette_strip": roulette_strip,
                 "messages": [f"Выпал: {winner['name']}"],
-                "history_id": history_id,    # ID для продажи (130)
-                "id": history_id             # Дублируем как id для совместимости
+                "history_id": history_id,
+                "id": history_id 
             }
 
         except Exception as e:
