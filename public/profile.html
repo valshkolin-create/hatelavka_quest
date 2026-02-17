@@ -1272,8 +1272,8 @@
     }
     // --- MAIN FUNCTION ---
 // --- КАРТА РЕДКОСТЕЙ (RU) ---
+// --- КАРТА РЕДКОСТЕЙ ---
 const rarityConfig = {
-    // Основные ключи (если в базе хранятся английские названия типов)
     'consumer': { color: '#b0c3d9', name: 'Ширпотреб' },
     'industrial': { color: '#5e98d9', name: 'Промышленное качество' }, 
     'mil-spec': { color: '#4b69ff', name: 'Армейское качество' },     
@@ -1282,14 +1282,7 @@ const rarityConfig = {
     'covert': { color: '#eb4b4b', name: 'Тайное' },               
     'gold': { color: '#ffd700', name: 'Крайне редкий' },      
     'contraband': { color: '#e4ae39', name: 'Контрабандное' },
-
-    // Фолбэки (если в базе хранятся названия цветов)
-    'common': { color: '#b0c3d9', name: 'Ширпотреб' },
-    'blue': { color: '#5e98d9', name: 'Промышленное качество' },      // Светло-синий
-    'dark_blue': { color: '#4b69ff', name: 'Армейское качество' },    // Тёмно-синий
-    'purple': { color: '#8847ff', name: 'Запрещённое' },
-    'pink': { color: '#d32ce6', name: 'Засекреченное' },
-    'red': { color: '#eb4b4b', name: 'Тайное' }
+    'common': { color: '#b0c3d9', name: 'Ширпотреб' }
 };
 
 function renderInventory(items) {
@@ -1302,115 +1295,100 @@ function renderInventory(items) {
     if (!items || items.length === 0) {
         container.innerHTML = `
             <div class="empty-state" style="text-align:center; padding-top: 50px;">
-                <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 15px; opacity: 0.5; color: var(--text-color-muted);"></i>
-                <p style="font-size: 14px; margin-bottom: 5px;">Инвентарь пуст</p>
-                <div style="font-size: 11px; color: #555;">Открывайте кейсы в Магазине!</div>
+                <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 15px; opacity: 0.3; color: #fff;"></i>
+                <p style="font-size: 14px; color: #888;">Инвентарь пуст</p>
             </div>`;
         return;
     }
 
-    // Сортировка: Активные вверх
-    const statusWeight = { 'sent': 1, 'pending': 2, 'processing': 3, 'received': 4, 'exchanged': 5 };
+    // Сортировка: Сначала новые (pending), потом те что в работе (processing), архив внизу
+    const statusWeight = { 'pending': 1, 'processing': 2, 'sent': 3, 'received': 3, 'exchanged': 4 };
     items.sort((a, b) => (statusWeight[a.status] || 99) - (statusWeight[b.status] || 99));
 
     items.forEach(item => {
-        // Получаем цвет для ТЕКСТА
-        const rKey = (item.rarity || 'consumer').toLowerCase();
+        const status = (item.status || 'pending').toLowerCase();
+        const rKey = (item.rarity || 'common').toLowerCase();
         const rData = rarityConfig[rKey] || rarityConfig['consumer'];
-        const rarityColor = rData.color; // Цвет только для текста
-        
-        const status = item.status;
         const ticketVal = item.price || 0; 
 
         let rightContentHtml = '';
         let cardOpacity = '1';
-        let statusLabel = '<span style="color:#fff;">Активно</span>';
+        let statusLabel = '';
 
-        // --- ЛОГИКА СТАТУСОВ ---
+        // --- ЛОГИКА СТАТУСОВ И КНОПОК ---
+
         if (status === 'processing') {
-            statusLabel = '<span style="color:#FFD700;"><i class="fa-solid fa-clock"></i> Ждем трейд</span>';
+            // ЖЕЛТАЯ ПЛАШКА ОЖИДАНИЯ (БЕЗ ПУНКТИРА)
+            statusLabel = '<span style="color:#FFD700; font-size:9px;">В ОБРАБОТКЕ</span>';
             rightContentHtml = `
-                <div style="font-size: 10px; color: #FFD700; text-align: center; border: 1px dashed #FFD700; padding: 6px; border-radius: 6px;">
+                <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
                     ОЖИДАЙТЕ<br>ТРЕЙД
                 </div>`;
         } 
-        else if (status === 'sent') {
-            statusLabel = '<span style="color:#34c759;"><i class="fa-solid fa-paper-plane"></i> Трейд отправлен!</span>';
+        else if (status === 'sent' || status === 'received') {
+            // ФИНАЛЬНЫЙ СТАТУС (ПОЛУЧЕНО)
+            cardOpacity = '0.5';
+            statusLabel = '<span style="color:#34c759; font-size:9px;">ВЫПОЛНЕНО</span>';
             rightContentHtml = `
-                <button onclick="confirmReceived(${item.history_id})" style="
-                    background: #34c759; color: #fff; border: none;
-                    font-size: 10px; font-weight: 800; padding: 10px 0; 
-                    border-radius: 6px; cursor: pointer; width: 100%;
-                    box-shadow: 0 0 10px rgba(52, 199, 89, 0.4); animation: pulse-green 2s infinite;">
-                    Я ПОЛУЧИЛ
-                </button>`;
-        } 
+                <div style="text-align: right; color: #34c759; font-weight: 800; font-size: 11px;">
+                    <i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО
+                </div>`;
+        }
         else if (status === 'exchanged') {
-            cardOpacity = '0.5'; 
-            statusLabel = '<span style="color:#888;">Обменяно на билеты</span>';
+            // АРХИВ (ОБМЕНЯНО)
+            cardOpacity = '0.5';
+            statusLabel = '<span style="color:#888; font-size:9px;">ОБМЕН</span>';
             rightContentHtml = `
-                <div style="font-size: 11px; color: #fff; text-align: right; font-weight: 700;">
-                    +${ticketVal} <i class="fa-solid fa-ticket" style="color:#aaa;"></i>
+                <div style="text-align: right; color: #fff; font-size: 11px; font-weight: 700;">
+                    +${ticketVal} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i>
                 </div>`;
-        } 
-        else if (status === 'received') {
-            cardOpacity = '0.5'; 
-            statusLabel = '<span style="color:#888;">Получено в Steam</span>';
-            rightContentHtml = `
-                <div style="font-size: 11px; color: #34c759; text-align: right; font-weight: 700;">
-                    <i class="fa-solid fa-check"></i> DONE
-                </div>`;
-        } 
+        }
         else {
-            // Кнопки для активного скина (НЕЙТРАЛЬНЫЙ СТИЛЬ)
-            // Убрал background: borderCol, поставил rgba(255,255,255,0.1)
+            // АКТИВНЫЙ СКИН (ЗЕЛЕНАЯ ПРЕМИУМ КНОПКА)
+            statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО</span>';
             rightContentHtml = `
                 <button onclick="withdrawItem(${item.history_id}, '${item.name.replace(/'/g, "\\'")}')" style="
-                    background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.1);
-                    font-size: 11px; font-weight: 600; padding: 8px 0; 
-                    border-radius: 6px; cursor: pointer; width: 100%; margin-bottom: 6px;">
+                    background: #34c759; color: #000; border: none;
+                    font-size: 11px; font-weight: 800; padding: 10px 0; 
+                    border-radius: 8px; cursor: pointer; width: 100%;
+                    box-shadow: 0 0 15px rgba(52, 199, 89, 0.4); margin-bottom: 8px;">
                     ЗАБРАТЬ
                 </button>
 
                 <button onclick="exchangeItem(${item.history_id}, ${ticketVal})" style="
                     background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); 
-                    color: #aaa; font-size: 10px; padding: 6px 0; border-radius: 6px; 
+                    color: #ccc; font-size: 10px; padding: 6px 0; border-radius: 6px; 
                     cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    <i class="fa-solid fa-ticket"></i> +${ticketVal}
-                </button>
-            `;
+                    ПРОДАТЬ ЗА 🎟️
+                </button>`;
         }
 
         const el = document.createElement('div');
         el.className = 'reward-card';
-        // 🔥 ЕДИНЫЙ СТИЛЬ: Всегда серая прозрачная рамка
-        el.style.background = 'rgba(255,255,255,0.05)';
-        el.style.border = '1px solid rgba(255, 255, 255, 0.1)'; 
-        el.style.display = 'flex';
-        el.style.gap = '12px';
-        el.style.alignItems = 'center';
-        el.style.padding = '10px';
-        el.style.marginBottom = '8px';
-        el.style.opacity = cardOpacity; 
+        el.style.cssText = `
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            display: flex; gap: 12px; align-items: center; 
+            padding: 12px; margin-bottom: 10px; border-radius: 14px;
+            opacity: ${cardOpacity}; transition: 0.3s;
+        `;
 
         el.innerHTML = `
-            <div style="width: 70px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                <img src="${item.image_url}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+            <div style="width: 70px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <img src="${item.image_url}" style="max-width: 90%; max-height: 90%; object-fit: contain;">
             </div>
 
-            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
-                <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; line-height: 1.2; word-wrap: break-word;">
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+                <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; line-height: 1.2;">
                     ${item.name}
                 </div>
-                <div style="font-size: 10px; color: ${rarityColor}; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
+                <div style="font-size: 10px; color: ${rData.color}; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; letter-spacing: 0.3px;">
                     ${rData.name}
                 </div>
-                <div style="font-size: 10px; display: flex; align-items: center; gap: 4px;">
-                    ${statusLabel}
-                </div>
+                <div>${statusLabel}</div>
             </div>
 
-            <div style="display: flex; flex-direction: column; justify-content: center; width: 100px; flex-shrink: 0;">
+            <div style="width: 105px; flex-shrink: 0;">
                 ${rightContentHtml}
             </div>
         `;
@@ -1418,44 +1396,42 @@ function renderInventory(items) {
     });
 }
 
-// --- ФУНКЦИЯ ОБМЕНА (БЫЛА ПРОПУЩЕНА) ---
+// --- ФУНКЦИЯ "ЗАБРАТЬ" (С авто-обновлением) ---
+window.withdrawItem = function(historyId, itemName) {
+    showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (close) => {
+        showLoader(); 
+        try {
+            const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
+            if (res) {
+                tg.showAlert(`✅ Заявка создана!\nСкин появится в Steam в течение 24ч.`);
+                await loadData(true); // Мгновенное обновление инвентаря
+            }
+            close();
+        } catch (e) {
+            tg.showAlert(e.message || "Ошибка соединения");
+            close();
+        } finally {
+            hideLoader();
+        }
+    }, "ВЫВЕСТИ", "#34c759");
+}
+
+// --- ФУНКЦИЯ ОБМЕНА (С авто-обновлением) ---
 window.exchangeItem = function(historyId, amount) {
-    showCustomConfirmHTML(`Обменять скин на билеты?`, async (close) => {
+    showCustomConfirmHTML(`Продать скин за ${amount} 🎟️?`, async (close) => {
+        showLoader();
         try {
             await makeApiRequest('/api/v1/user/inventory/sell', { history_id: historyId });
-            tg.showAlert(`Успешно! Билеты начислены.`);
-            loadData(true); 
+            tg.showAlert(`Успешно! +${amount} билетов начислено.`);
+            await loadData(true); // Мгновенное обновление
             close();
         } catch (e) {
             tg.showAlert(e.message || "Ошибка обмена");
             close();
-        }
-    }, "Обменять", "#34c759");
-}
-// --- ФУНКЦИЯ "ЗАБРАТЬ" (Отправляет заявку на вывод) ---
-window.withdrawItem = function(historyId, itemName) {
-    showCustomConfirmHTML(`Выводим "${itemName}"?`, async (close) => {
-        // Показываем лоадер
-        showLoader(); 
-        
-        try {
-            // Отправляем запрос на вывод (статус станет processing)
-            const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
-            
+        } finally {
             hideLoader();
-            
-            if (res && res.success) {
-                tg.showAlert(`✅ Заявка создана!\nОжидайте трейд-оффер в Steam.`);
-                // Обновляем список: скин должен поменять статус и вид
-                loadData(true);
-            }
-            close();
-        } catch (e) {
-            hideLoader();
-            tg.showAlert(e.message || "Ошибка соединения");
-            close();
         }
-    }, "ВЫВЕСТИ", "#34c759");
+    }, "ПРОДАТЬ", "#34c759");
 }
 
 // --- ФУНКЦИЯ "Я ПОЛУЧИЛ" (Подтверждает получение в Steam) ---
