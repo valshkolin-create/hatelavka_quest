@@ -2412,52 +2412,65 @@ function preloadP2PState() {
 
         // Добавили аргумент updateUI (по умолчанию true)
         // Если false -> запрос идет, сервер обновляется, но цифры на экране не скачут
-        function checkBalance(updateUI = true) {
-    // 1. ВАЖНО: Возвращаем промис, если загрузка уже идет, чтобы initShop не завис
-    if (isBalanceLoading) return Promise.resolve();
-    
-    isBalanceLoading = true;
-    
-    // Запускаем анимацию кручения
-    const icon = document.getElementById('refresh-icon');
-    if (icon) icon.classList.add('spinning');
+        // --- ОБНОВЛЕНИЕ БАЛАНСА ---
+        let isBalanceLoading = false;
 
-    // 2. ВАЖНО: Добавили return перед fetch, чтобы initShop ждал этот запрос
-    return fetch('/api/v1/shop/smart_balance', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ initData: Telegram.WebApp.initData })
-    })
-    .then(r => r.json())
-    .then(data => {
-        // Обновляем интерфейс ТОЛЬКО если updateUI === true
-        if (updateUI) {
-            // Сервер вернул {"balance": 12345} (в копейках)
-            let coins = data.balance || 0; 
-            let displayBalance = (coins / 100).toFixed(0); // Переводим в рубли/целые
+        function checkBalance(updateUI = true) {
+            if (isBalanceLoading) return Promise.resolve();
             
-            const balanceEl = document.getElementById('user-balance');
-            if (balanceEl) {
-                // Эффект обновления цифры (ТВОЙ КОД ОСТАЛСЯ)
-                balanceEl.style.opacity = '0.5';
+            isBalanceLoading = true;
+            
+            // Крутим обе иконки
+            const iconCoins = document.getElementById('refresh-icon');
+            const iconTickets = document.getElementById('refresh-icon-tickets'); // Добавили иконку билетов
+            if (iconCoins) iconCoins.classList.add('spinning');
+            if (iconTickets) iconTickets.classList.add('spinning');
+
+            return fetch('/api/v1/shop/smart_balance', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ initData: Telegram.WebApp.initData })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (updateUI) {
+                    // 1. Обновляем монеты
+                    let coins = data.balance || 0; 
+                    let displayBalance = (coins / 100).toFixed(0); 
+                    
+                    const balanceEl = document.getElementById('user-balance');
+                    if (balanceEl) {
+                        balanceEl.style.opacity = '0.5';
+                        setTimeout(() => {
+                            balanceEl.textContent = displayBalance;
+                            balanceEl.style.opacity = '1';
+                        }, 150);
+                    }
+
+                    // 2. ОБНОВЛЯЕМ БИЛЕТЫ (Этого блока у тебя не было!)
+                    let tickets = data.tickets || 0; // Берем билеты из ответа сервера
+                    const ticketsEl = document.getElementById('user-tickets');
+                    if (ticketsEl) {
+                        ticketsEl.style.opacity = '0.5';
+                        setTimeout(() => {
+                            ticketsEl.textContent = tickets;
+                            ticketsEl.style.opacity = '1';
+                        }, 150);
+                    }
+                }
+            })
+            .catch(err => {
+                console.warn("Ошибка обновления баланса:", err);
+            })
+            .finally(() => {
+                // Останавливаем анимацию
                 setTimeout(() => {
-                    balanceEl.textContent = displayBalance;
-                    balanceEl.style.opacity = '1';
-                }, 150);
-            }
+                    isBalanceLoading = false;
+                    if (iconCoins) iconCoins.classList.remove('spinning');
+                    if (iconTickets) iconTickets.classList.remove('spinning');
+                }, 500);
+            });
         }
-    })
-    .catch(err => {
-        console.warn("Ошибка обновления баланса:", err);
-    })
-    .finally(() => {
-        // Останавливаем анимацию через 500мс (для красоты)
-        setTimeout(() => {
-            isBalanceLoading = false;
-            if (icon) icon.classList.remove('spinning');
-        }, 500);
-    });
-}
 
         async function initShop() {
     // 1. Сначала статика
