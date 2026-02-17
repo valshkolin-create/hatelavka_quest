@@ -1390,8 +1390,8 @@ function renderInventory(items) {
         return;
     }
 
-    // Сортировка: Сначала новые (pending), потом те что в работе (processing), архив внизу
-    const statusWeight = { 'pending': 1, 'processing': 2, 'sent': 3, 'received': 3, 'exchanged': 4 };
+    // Сортировка: Сначала в работе (processing), потом новые (pending), архив внизу
+   const statusWeight = { 'processing': 1, 'pending': 2, 'sent': 3, 'received': 3, 'exchanged': 4 };
     items.sort((a, b) => (statusWeight[a.status] || 99) - (statusWeight[b.status] || 99));
 
     items.forEach(item => {
