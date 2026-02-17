@@ -159,7 +159,6 @@
     padding: 6px 0;
     z-index: 5;
     pointer-events: none; /* Чтоб не мешала клику по родителю */
-    border-top: 1px solid rgba(255, 204, 0, 0.2);
     letter-spacing: 0.5px;
 }
 
@@ -1577,10 +1576,18 @@
 /* --- МОДАЛКА СОДЕРЖИМОГО КЕЙСА --- */
 .case-contents-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* 3 в ряд для мобилок, 4 для пошире */
-    gap: 8px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
     padding: 10px 0;
+    
+    /* ФИКСЫ СВАЙПА: */
+    overflow-y: auto;      /* Разрешаем вертикальный скролл */
+    overflow-x: hidden;    /* Полностью блокируем горизонтальный скролл */
+    touch-action: pan-y;   /* Разрешаем только вертикальные жесты (палец вверх/вниз) */
+    
+    padding-bottom: 20px;
     width: 100%;
+    box-sizing: border-box; /* Чтобы отступы не распирали ширину */
 }
 
 /* Адаптив: на экранах пошире делаем 4 в ряд */
