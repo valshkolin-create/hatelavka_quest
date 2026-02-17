@@ -743,9 +743,10 @@
         }
 
         .case-img-wrap {
-            padding-top: 80%; /* Сжимаем высоту картинки, чтобы кнопки поднялись выше */
-            background: radial-gradient(circle at center, rgba(255, 204, 0, 0.05) 0%, transparent 70%); /* Красивое легкое свечение вместо серого квадрата */
-        }
+    padding-top: 80%;
+    /* Убираем градиент, ставим прозрачный фон (будет виден темный цвет самой карточки) */
+    background: transparent; 
+}
 
         .case-buttons-wrapper {
             padding: 0 10px 12px 10px; /* Отступы для кнопок (снизу больше) */
@@ -2790,10 +2791,17 @@ function preloadP2PState() {
 
                 // Собираем финальный HTML (Уникальный дизайн для кейсов)
                 if (isCase) {
+                    // [NEW] Очищаем название от "Кейс |" или "Case |" (независимо от регистра)
+                    // Регулярное выражение удаляет префикс и оставляет только само название (например, "Revolution")
+                    let cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '');
+                    
+                    // Форматируем уже чистое название (чтобы остались скобки/субтитры, если есть)
+                    const caseTitleHtml = formatItemName(cleanName);
+
                     // Дизайн Кейса: Заголовок -> Картинка -> Кнопки
                     el.classList.add('case-card');
                     el.innerHTML = `
-                        <div class="item-title case-top-title">${displayNameHtml}</div>
+                        <div class="item-title case-top-title">${caseTitleHtml}</div>
                         
                         <div class="item-image-wrapper case-img-wrap" onclick="${clickAction}">
                             ${caseOverlayHtml}
