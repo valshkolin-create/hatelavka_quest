@@ -2960,19 +2960,22 @@ async function claimItem(itemId) {
             }
 
             try {
-                // ИСПРАВЛЕННЫЙ ВЫЗОВ API (URL, METHOD, BODY)
+                // ИСПРАВЛЕННЫЙ ВЫЗОВ API
                 const res = await makeApiRequest('/api/v1/user/inventory/withdraw', 'POST', { 
                     history_id: itemId 
                 });
 
                 if (res) {
-                    Telegram.WebApp.showAlert(`✅ Заявка создана!\nСкин придет в Steam в течение 24 часов.`);
-                    closeModal();      // Закрываем диалог
+                    // 1. СНАЧАЛА ЗАКРЫВАЕМ ВСЕ ОКНА (Фикс бага)
+                    closeModal();      // Закрываем диалог подтверждения
                     closeRoulette();   // Закрываем рулетку
+
+                    // 2. И ТОЛЬКО ПОТОМ ПОКАЗЫВАЕМ СООБЩЕНИЕ (Текст изменен)
+                    Telegram.WebApp.showAlert(`✅ Успешно!\n\nОжидайте трейд по указанной Вами ссылке в течение 24 часов.`);
                 }
             } catch (e) {
                 Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
-                closeModal();
+                closeModal(); // При ошибке тоже закрываем модалку подтверждения
             } finally {
                 if (loader) loader.classList.remove('active');
             }
