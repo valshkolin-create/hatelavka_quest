@@ -3178,27 +3178,71 @@ function renderContentsList(items) {
     const list = document.getElementById('case-items-list');
     
     if (!items || items.length === 0) {
-        list.innerHTML = '<div style="text-align:center; grid-column:1/-1; color:#888;">Пусто</div>';
+        list.innerHTML = '<div style="text-align:center; color:#888; grid-column:1/-1;">Пусто</div>';
         return;
     }
 
-    list.innerHTML = items.map(item => {
-        // Определяем цвет рамки
-        let rarityClass = 'common';
-        const r = (item.rarity || '').toLowerCase();
-        if (r.includes('blue')) rarityClass = 'blue';
-        else if (r.includes('purple')) rarityClass = 'purple';
-        else if (r.includes('pink')) rarityClass = 'pink';
-        else if (r.includes('red')) rarityClass = 'red';
-        else if (r.includes('gold')) rarityClass = 'gold';
+    // --- ЛОГИКА СОРТИРОВКИ (САМОЕ ВАЖНОЕ) ---
+    // Задаем "вес" каждой редкости. Чем больше цифра, тем выше будет предмет.
+    const rarityWeight = {
+        'gold': 100,      // Золотое (Нож/Перчатки) - ТОП
+        'red': 80,        // Тайное (Красное)
+        'pink': 60,       // Засекреченное (Розовое)
+        'purple': 40,     // Запрещенное (Фиолетовое)
+        'blue': 20,       // Армейское (Синее)
+        'common': 0       // Ширпотреб
+    };
 
-        // Название без лишнего (если нужно)
-        const name = item.name.split('|').pop().trim() || item.name;
+    // Сортируем список
+    items.sort((a, b) => {
+        // Получаем редкость (защита от null)
+        const rA = (a.rarity || 'common').toLowerCase();
+        const rB = (b.rarity || 'common').toLowerCase();
+
+        // 1. Ищем вес редкости (если редкость нестандартная, считаем как common)
+        // Используем частичное совпадение (includes), т.к. может быть "ancient (red)"
+        let weightA = 0;
+        let weightB = 0;
+
+        // Определяем вес A
+        if (rA.includes('gold')) weightA = 100;
+        else if (rA.includes('red') || rA.includes('ancient')) weightA = 80;
+        else if (rA.includes('pink') || rA.includes('legendary')) weightA = 60;
+        else if (rA.includes('purple') || rA.includes('mythical')) weightA = 40;
+        else if (rA.includes('blue') || rA.includes('rare')) weightA = 20;
+
+        // Определяем вес B
+        if (rB.includes('gold')) weightB = 100;
+        else if (rB.includes('red') || rB.includes('ancient')) weightB = 80;
+        else if (rB.includes('pink') || rB.includes('legendary')) weightB = 60;
+        else if (rB.includes('purple') || rB.includes('mythical')) weightB = 40;
+        else if (rB.includes('blue') || rB.includes('rare')) weightB = 20;
+
+        // Сортировка: сначала по весу (убывание), потом по цене (убывание)
+        if (weightB !== weightA) {
+            return weightB - weightA; // Кто "тяжелее" (редче), тот выше
+        }
+        // Если редкость одинаковая — сортируем по цене (дорогие выше)
+        return (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0);
+    });
+    // ----------------------------------------
+
+    // Рендер (остался прежним, но теперь список отсортирован)
+    list.innerHTML = items.map(item => {
+        let rClass = 'blue'; 
+        const r = (item.rarity || '').toLowerCase();
+        
+        if (r.includes('purple') || r.includes('mythical')) rClass = 'purple';
+        else if (r.includes('pink') || r.includes('legendary')) rClass = 'pink';
+        else if (r.includes('red') || r.includes('ancient')) rClass = 'red';
+        else if (r.includes('gold')) rClass = 'gold';
+
+        const shortName = item.name.split('|').pop().trim(); 
 
         return `
-            <div class="content-item ${rarityClass}">
+            <div class="content-item ${rClass}">
                 <img src="${item.image_url}" loading="lazy">
-                <div class="content-name">${name}</div>
+                <div class="content-name">${shortName}</div>
                 <div class="content-quality">${item.condition || 'Factory New'}</div>
             </div>
         `;
