@@ -698,7 +698,7 @@
             height: 100%;
             background: rgba(0, 0, 0, 0.7); /* Темный фон */
             backdrop-filter: blur(5px);      /* Размытие фона */
-            z-index: 10000;                 /* Поверх всего */
+            z-index: 21000;                 /* Поверх всего */
             display: none;                  /* Скрыто по умолчанию */
             flex-direction: column;
             align-items: center;
@@ -2942,6 +2942,7 @@ function showShopModal({ title, subtitle, confirmText, confirmClass, onConfirm }
 }
 
 // --- 2. ЛОГИКА "ЗАБРАТЬ" (Желтая кнопка, API исправлен) ---
+// --- 2. ЛОГИКА "ЗАБРАТЬ" (Желтая кнопка) ---
 async function claimItem(itemId) {
     if (!itemId) return Telegram.WebApp.showAlert("Ошибка: ID предмета не найден.");
 
@@ -2949,7 +2950,7 @@ async function claimItem(itemId) {
         title: "Вывести этот предмет в Steam?",
         subtitle: "Заявка будет создана. Ожидайте трейд в течение 24 часов.",
         confirmText: "ЗАБРАТЬ",
-        confirmClass: "btn-yellow-modal", // Желтая кнопка
+        confirmClass: "btn-yellow-modal", 
         onConfirm: async (closeModal) => {
             
             // Включаем лоадер
@@ -2960,29 +2961,36 @@ async function claimItem(itemId) {
             }
 
             try {
-                // ИСПРАВЛЕННЫЙ ВЫЗОВ API
+                // Запрос к API
                 const res = await makeApiRequest('/api/v1/user/inventory/withdraw', 'POST', { 
                     history_id: itemId 
                 });
 
-                if (res) {
-                    // 1. СНАЧАЛА ЗАКРЫВАЕМ ВСЕ ОКНА (Фикс бага)
-                    closeModal();      // Закрываем диалог подтверждения
-                    closeRoulette();   // Закрываем рулетку
+                // Если код дошел сюда, значит 200 OK
+                // 1. СНАЧАЛА ЗАКРЫВАЕМ ВСЕ ОКНА
+                closeModal();      // Закрываем диалог подтверждения
+                closeRoulette();   // Закрываем саму рулетку
 
-                    // 2. И ТОЛЬКО ПОТОМ ПОКАЗЫВАЕМ СООБЩЕНИЕ (Текст изменен)
-                    Telegram.WebApp.showAlert(`✅ Успешно!\n\nОжидайте трейд по указанной Вами ссылке в течение 24 часов.`);
-                }
+                // 2. Делаем паузу 100мс, чтобы окна визуально исчезли
+                setTimeout(() => {
+                     Telegram.WebApp.showAlert(`✅ Успешно!\n\nЗаявка создана. Ожидайте трейд по указанной Вами ссылке в течение 24 часов.`);
+                }, 100);
+
             } catch (e) {
-                Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
-                closeModal(); // При ошибке тоже закрываем модалку подтверждения
+                // Даже если ошибка (например 404), сначала закрываем окно подтверждения!
+                closeModal(); 
+                
+                // И через мгновение показываем ошибку
+                setTimeout(() => {
+                    Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
+                }, 100);
             } finally {
+                // Выключаем лоадер в самом конце
                 if (loader) loader.classList.remove('active');
             }
         }
     });
 }
-
 // --- 3. ЛОГИКА "ПРОДАТЬ ЗА БИЛЕТЫ" (Фиолетовая кнопка, API исправлен) ---
 function sellForTickets(itemId, price) {
     showShopModal({
