@@ -85,18 +85,53 @@
             font-size: 12px; 
         }
 
-        .balance-display {
-            background: rgba(255, 204, 0, 0.1);
-            border: 1px solid rgba(255, 204, 0, 0.3);
-            color: var(--primary-color);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 14px;
+        /* --- НОВЫЕ СТИЛИ БАЛАНСОВ (КАПСУЛЫ) --- */
+        .balances-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .balance-pill {
             display: flex;
             align-items: center;
             gap: 6px;
-            box-shadow: 0 0 10px rgba(255, 204, 0, 0.1);
+            padding: 4px 12px;
+            background-color: #0A0A0A; /* Темный фон как на скрине */
+            border-radius: 999px; /* Форма капсулы */
+            font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+            font-weight: 800; /* Жирные цифры */
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s ease, background 0.2s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .balance-pill:active {
+            transform: scale(0.95);
+        }
+
+        /* Цвета для монет (желтые) */
+        .balance-pill.coins {
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        .balance-pill.coins:active { background: rgba(255, 204, 0, 0.15); }
+
+        /* Цвета для билетов (голубые, взял из твоих стилей) */
+        .balance-pill.tickets {
+            border: 1px solid #bdecff;
+            color: #bdecff;
+        }
+        .balance-pill.tickets:active { background: rgba(189, 236, 255, 0.15); }
+
+        /* Иконка обновления внутри плашки */
+        .balance-pill .refresh-icon {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-left: 2px;
+            transition: transform 0.5s ease;
         }
 
         /* --- ИНФО БАННЕР --- */
@@ -654,6 +689,21 @@
             opacity: 0.8;
             transition: transform 0.5s ease;
         }
+
+        /* --- НОВЫЕ КНОПКИ ДЛЯ КЕЙСОВ --- */
+.btn-buy-tickets {
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); /* Фиолетовый градиент как у Trade-in */
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2);
+    margin-top: 4px; /* Отступ между кнопками */
+}
+
+.case-buttons-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin-top: auto;
+}
 
         /* --- НОВЫЕ СТИЛИ ДЛЯ WIN SCREEN --- */
 
@@ -1671,38 +1721,45 @@
         <i class="fa-solid fa-chevron-left"></i> <span id="nav-title">Назад</span>
     </a>
         
-       <div class="balance-display" onclick="checkBalance(true)">
+    <div class="balances-wrapper">
+        <div class="balance-pill coins" onclick="checkBalance(true)">
             <span id="user-balance">...</span> 
             <i class="fa-solid fa-coins"></i>
-            <i class="fa-solid fa-rotate refresh-icon" id="refresh-icon" style="margin-left: 6px;"></i>
+            <i class="fa-solid fa-rotate refresh-icon" id="refresh-icon" style="margin-left: 2px;"></i>
         </div>
-        </div>
-
-    <div class="info-banner">
-        <div class="info-icon">
-            <i class="fa-solid fa-gem"></i>
-        </div>
-        <div class="info-text">
-            <h3>Магазин Наград</h3>
-            <p>Зарабатывай монеты в челленджах и обменивай их на крутые товары.</p>
+        <div class="balance-pill tickets" onclick="checkBalance(true)">
+            <span id="user-tickets">0</span> 
+            <i class="fa-solid fa-ticket"></i>
+            <i class="fa-solid fa-rotate refresh-icon" id="refresh-icon-tickets" style="margin-left: 2px;"></i>
         </div>
     </div>
+</div>
 
-    <div class="partners-wrapper">
-        <div class="partners-track" id="partners-track">
-            <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
-                <div class="partner-icon">
-                    <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" loading="eager" alt="Topskin" class="partner-logo-img">
+<div class="info-banner">
+    <div class="info-icon">
+        <i class="fa-solid fa-gem"></i>
+    </div>
+    <div class="info-text">
+        <h3>Магазин Наград</h3>
+        <p>Зарабатывай монеты в челленджах и обменивай их на крутые товары.</p>
+    </div>
+</div>
+
+<div class="partners-wrapper">
+    <div class="partners-track" id="partners-track">
+        <a href="#" onclick="openPartnerLink('https://topskin.run')" class="partner-card topskin">
+            <div class="partner-icon">
+                <img src="https://i.postimg.cc/mZJjxLFf/FASTCUP-Top-Skin-Cup-allmode.png" loading="eager" alt="Topskin" class="partner-logo-img">
+            </div>
+            <div class="partner-info">
+                <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
+                <div class="partner-desc">
+                    Код: <span class="partner-highlight">HATElove</span>
+                    <button class="copy-btn" onclick="copyCode(event, 'HATElove')"><i class="fa-regular fa-copy"></i></button>
+                    <br>Получи кэшбек в ручных заданиях!
                 </div>
-                <div class="partner-info">
-                    <div class="partner-title">Topskin <span class="hot-badge">Promo</span></div>
-                    <div class="partner-desc">
-                        Код: <span class="partner-highlight">HATElove</span>
-                        <button class="copy-btn" onclick="copyCode(event, 'HATElove')"><i class="fa-regular fa-copy"></i></button>
-                        <br>Получи кэшбек в ручных заданиях!
-                    </div>
-                </div>
-            </a>
+            </div>
+        </a>
             
             
             <a href="#" onclick="openPartnerLink('https://xplay.gg/ref/hatelove')" class="partner-card xplay">
@@ -2618,13 +2675,13 @@ function preloadP2PState() {
                     stockText = ''; 
                     buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
                 } else {
-                    priceText = `<div class="item-price">${item.price} 🟡️</div>`;
-                    
                     let isOutOfStock = false;
                     
                     if (isCase) {
                         stockText = ''; 
+                        priceText = ''; // Убираем классическое отображение цены для кейсов
                     } else {
+                        priceText = `<div class="item-price">${item.price} 🟡️</div>`;
                         if (item.count === null) {
                             stockText = `<div class="item-stock">∞ шт.</div>`;
                         } else if (item.count === 0) {
@@ -2638,7 +2695,17 @@ function preloadP2PState() {
                     if (isOutOfStock) {
                         buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
                     } else if (isCase) {
-                        buttonHtml = `<button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">ОТКРЫТЬ</button>`;
+                        // Делаем контейнер с двумя кнопками (цена внутри кнопок, билеты х2)
+                        buttonHtml = `
+                            <div class="case-buttons-container">
+                                <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')">
+                                    Открыть за ${item.price} 🟡
+                                </button>
+                                <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')">
+                                    Открыть за ${item.price * 2} 🎟️
+                                </button>
+                            </div>
+                        `;
                     } else {
                         buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">Купить</button>`;
                     }
@@ -2673,8 +2740,9 @@ function preloadP2PState() {
         
         // --- [NEW] ФУНКЦИЯ ОТКРЫТИЯ КЕЙСА (ЮВЕЛИРНОЕ ДОБАВЛЕНИЕ) ---
         // Использует существующий API списания, но меняет визуальный результат
-        window.openCase = async function(id, price, name, imageUrl) {
-            Telegram.WebApp.showConfirm(`Открыть "${name}" за ${price} 🟡?`, async (ok) => {
+        window.openCase = async function(id, price, name, imageUrl, currency = 'coins') {
+            const currencyIcon = currency === 'coins' ? '🟡' : '🎟️';
+            Telegram.WebApp.showConfirm(`Открыть "${name}" за ${price} ${currencyIcon}?`, async (ok) => {
                 if (!ok) return;
 
                 const loader = document.getElementById('purchase-loader');
@@ -2690,7 +2758,8 @@ function preloadP2PState() {
                             item_id: id,
                             price: price,
                             title: name,
-                            image_url: imageUrl
+                            image_url: imageUrl,
+                            currency: currency // Отправляем на бэкенд инфу о валюте ('coins' или 'tickets')
                         })
                     });
 
