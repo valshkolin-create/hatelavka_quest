@@ -1271,13 +1271,22 @@
         });
     }
     // --- MAIN FUNCTION ---
-    function renderInventory(items) {
+    // --- КАРТА РЕДКОСТЕЙ (Вставь перед renderInventory) ---
+const rarityNames = {
+    'common': 'Consumer Grade',
+    'blue': 'Industrial Grade',     // Синий
+    'purple': 'Restricted',         // Фиолетовый
+    'pink': 'Classified',           // Розовый
+    'red': 'Covert',                // Красный
+    'gold': 'Rare Special Item'     // Золотой
+};
+
+function renderInventory(items) {
     const container = dom.inventoryList;
     const infoBadge = dom.inventoryInfoBadge;
     container.innerHTML = '';
     
-    // Обновляем счетчик на главной кнопке
-    if (infoBadge) infoBadge.textContent = items && items.length > 0 ? `${items.length} предм.` : 'Пусто';
+    if (infoBadge) infoBadge.textContent = items && items.length > 0 ? `${items.length} шт.` : 'Пусто';
 
     if (!items || items.length === 0) {
         container.innerHTML = `
@@ -1290,71 +1299,75 @@
     }
 
     items.forEach(item => {
-        // Определяем цвет редкости (как в рулетке)
-        const r = (item.rarity || 'common').toLowerCase();
-        let borderCol = '#8E8E93'; // серый
+        // Определяем цвет и название
+        const rKey = (item.rarity || 'common').toLowerCase();
+        let borderCol = '#8E8E93'; 
         let bgCol = 'rgba(255,255,255,0.05)';
         
-        if (r.includes('blue') || r.includes('rare')) { borderCol = '#4b69ff'; bgCol = 'rgba(75,105,255,0.1)'; }
-        else if (r.includes('purple') || r.includes('mythical')) { borderCol = '#8847ff'; bgCol = 'rgba(136,71,255,0.1)'; }
-        else if (r.includes('pink') || r.includes('legendary')) { borderCol = '#d32ce6'; bgCol = 'rgba(211,44,230,0.1)'; }
-        else if (r.includes('red') || r.includes('ancient')) { borderCol = '#eb4b4b'; bgCol = 'rgba(235,75,75,0.1)'; }
-        else if (r.includes('gold')) { borderCol = '#ffd700'; bgCol = 'rgba(255,215,0,0.1)'; }
+        // Красивое название качества
+        let qualityName = rarityNames[rKey] || item.rarity; 
+        // Если в rKey есть "stat", можно добавить (StatTrak™) в название, но пока просто маппинг:
+        if (rKey.includes('blue')) { borderCol = '#4b69ff'; qualityName = 'Industrial Grade'; }
+        else if (rKey.includes('purple')) { borderCol = '#8847ff'; qualityName = 'Restricted'; }
+        else if (rKey.includes('pink')) { borderCol = '#d32ce6'; qualityName = 'Classified'; }
+        else if (rKey.includes('red')) { borderCol = '#eb4b4b'; qualityName = 'Covert'; }
+        else if (rKey.includes('gold')) { borderCol = '#ffd700'; qualityName = 'Exceedingly Rare'; }
 
-        // Карточка
         const el = document.createElement('div');
         el.className = 'reward-card';
         el.style.background = bgCol;
         el.style.border = `1px solid ${borderCol}`;
         el.style.display = 'flex';
-        el.style.gap = '15px';
+        el.style.gap = '12px';
         el.style.alignItems = 'center';
+        el.style.padding = '10px'; 
 
-        // Кнопка обмена (логика продажи)
-        // Представим, что цена продажи - это 50% от цены покупки или фиксированная
-        const sellPrice = Math.floor((item.price || 0) * 0.5); // Например
+        // Расчет цены обмена (50%)
+        const sellPrice = Math.floor((item.price || 0) * 0.5); 
 
         el.innerHTML = `
-            <div style="width: 80px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                <img src="${item.image_url}" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 5px ${borderCol});">
+            <div style="width: 70px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <img src="${item.image_url}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
             </div>
 
-            <div style="flex-grow: 1; min-width: 0;">
-                <div style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
+                <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; line-height: 1.2; word-wrap: break-word;">
                     ${item.name}
                 </div>
-                <div style="font-size: 11px; color: ${borderCol}; text-transform: uppercase; font-weight: 600; margin-bottom: 6px;">
-                    ${item.rarity}
+                <div style="font-size: 10px; color: ${borderCol}; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
+                    ${qualityName}
                 </div>
                 
-                <div style="font-size: 10px; color: #aaa; display: flex; align-items: center; gap: 4px;">
-                    <i class="fa-regular fa-clock"></i> Вывод: ~24ч
+                <div style="font-size: 10px; color: #888; display: flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-check"></i> Доступно
                 </div>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 6px; width: 90px;">
+            <div style="display: flex; flex-direction: column; gap: 6px; width: 100px; flex-shrink: 0;">
+                <button onclick="withdrawItem(${item.history_id}, '${item.name}')" style="
+                    background: ${borderCol}; 
+                    color: #000; 
+                    border: none;
+                    font-size: 11px; 
+                    font-weight: 800;
+                    padding: 8px 0; 
+                    border-radius: 6px; 
+                    cursor: pointer;
+                    width: 100%;">
+                    ЗАБРАТЬ
+                </button>
+
                 <button onclick="exchangeItem(${item.history_id}, ${sellPrice})" style="
                     background: rgba(255, 255, 255, 0.1); 
                     border: 1px solid rgba(255, 255, 255, 0.2); 
                     color: #fff; 
                     font-size: 10px; 
-                    padding: 6px; 
+                    padding: 6px 0; 
                     border-radius: 6px; 
                     cursor: pointer;
+                    width: 100%;
                     display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    <i class="fa-solid fa-ticket"></i> Обменять
-                </button>
-                
-                <button onclick="tg.showAlert('Ожидайте трейд-оффер в Steam в течение 24 часов.')" style="
-                    background: ${borderCol}; 
-                    color: #000; 
-                    border: none;
-                    font-size: 10px; 
-                    font-weight: 700;
-                    padding: 6px; 
-                    border-radius: 6px; 
-                    cursor: pointer;">
-                    ЗАБРАТЬ
+                    <i class="fa-solid fa-ticket"></i> +${sellPrice}
                 </button>
             </div>
         `;
@@ -1362,22 +1375,31 @@
     });
 }
 
-// Функция обмена предмета на билеты/валюту
-window.exchangeItem = function(historyId, amount) {
-    showCustomConfirmHTML(`Обменять скин на билеты?`, async (close) => {
+// --- ФУНКЦИЯ "ЗАБРАТЬ" (WITHDRAW) ---
+window.withdrawItem = function(historyId, itemName) {
+    showCustomConfirmHTML(`Выводим "${itemName}"?`, async (close) => {
+        // Показываем лоадер (как при покупке)
+        showLoader(); 
+        
         try {
-            await makeApiRequest('/api/v1/user/inventory/sell', { history_id: historyId });
+            // Отправляем запрос на вывод
+            const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true); // isSilent=true, т.к. мы сами управляем лоадером
             
-            tg.showAlert(`Успешно! Билеты начислены.`);
+            hideLoader();
             
-            // Перезагружаем данные
-            loadData(true); 
+            if (res && res.success) {
+                // Успех!
+                tg.showAlert(`✅ Заявка создана!\nОжидайте трейд-оффер в Steam в течение 24 часов.`);
+                // Обновляем список, чтобы предмет пропал или сменил статус
+                loadData(true);
+            }
             close();
         } catch (e) {
-            tg.showAlert(e.message || "Ошибка обмена");
+            hideLoader();
+            tg.showAlert(e.message || "Ошибка соединения");
             close();
         }
-    }, "Обменять", "#34c759");
+    }, "ВЫВЕСТИ", "#34c759");
 }
 
 // =========================================================
