@@ -4851,13 +4851,14 @@ async def get_shop_purchases_details_for_admin(
     request_data: PendingActionRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Возвращает список покупок: и обычные товары (manual_rewards), и выпавшие скины (cs_history)."""
+    """(Админ) Возвращает список: обычные покупки и ЗАЯВКИ НА ВЫВОД скинов."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     try:
         # 1. Получаем обычные покупки (билеты и т.д.) из manual_rewards
+        # Тут оставляем pending, так как это покупки за баллы
         rewards_resp = await supabase.get(
             "/manual_rewards",
             params={
@@ -4868,13 +4869,13 @@ async def get_shop_purchases_details_for_admin(
         )
         shop_rewards = rewards_resp.json() if rewards_resp.status_code == 200 else []
 
-        # 2. ПОЛУЧАЕМ ВЫИГРЫШИ ИЗ КЕЙСОВ ИЗ cs_history (JOIN с cs_items)
-        # Нам нужны только те, что в статусе 'pending'
+        # 2. ПОЛУЧАЕМ ЗАЯВКИ НА ВЫВОД ИЗ cs_history
+        # 🔥 ИЗМЕНЕНИЕ: Ищем статус 'processing' (это те, кто нажал "Забрать")
         history_resp = await supabase.get(
             "/cs_history",
             params={
-                "status": "eq.pending",
-                "select": "id,user_id,item_id,created_at,cs_items(name,image_url)" # Получаем данные скина через JOIN
+                "status": "eq.processing",  # <--- БЫЛО pending, СТАЛО processing
+                "select": "id,user_id,item_id,created_at,cs_items(name,image_url)" 
             }
         )
         case_purchases = history_resp.json() if history_resp.status_code == 200 else []
@@ -4882,7 +4883,7 @@ async def get_shop_purchases_details_for_admin(
         if not shop_rewards and not case_purchases:
             return []
 
-        # 3. Собираем всех уникальных пользователей для одного запроса к /users
+        # 3. Собираем всех уникальных пользователей
         user_ids = {r["user_id"] for r in shop_rewards} | {c["user_id"] for c in case_purchases}
         
         users_data = {}
@@ -4898,12 +4899,11 @@ async def get_shop_purchases_details_for_admin(
 
         final_list = []
 
-        # 4. Обрабатываем обычные товары (manual_rewards)
+        # 4. Обрабатываем обычные товары
         for reward in shop_rewards:
             user_details = users_data.get(reward["user_id"], {})
             raw_desc = reward.get("source_description", "")
             
-            # Извлекаем картинку
             image_url = "https://placehold.co/100?text=Item"
             if raw_desc and "|" in raw_desc:
                 parts = raw_desc.split("|")
@@ -4911,7 +4911,7 @@ async def get_shop_purchases_details_for_admin(
                     image_url = parts[1].strip()
 
             final_list.append({
-                "id": f"manual_{reward['id']}", # Префикс для уникальности ID на фронте
+                "id": f"manual_{reward['id']}", 
                 "real_id": reward["id"],
                 "type": "manual",
                 "user_id": reward.get("user_id"),
@@ -4921,31 +4921,31 @@ async def get_shop_purchases_details_for_admin(
                 "user_trade_link": user_details.get("trade_link"),
                 "created_at": reward.get("created_at"),
                 "image_url": image_url,
-                "won_skin_name": None # Поле пустое, т.к. это не кейс
+                "won_skin_name": None
             })
 
-        # 5. Обрабатываем выпавшие скины (cs_history)
+        # 5. Обрабатываем заявки на вывод скинов
         for case in case_purchases:
             user_details = users_data.get(case["user_id"], {})
-            skin_data = case.get("cs_items", {}) # Данные из JOIN
+            skin_data = case.get("cs_items", {}) 
 
             final_list.append({
-                "id": f"case_{case['id']}", # Префикс
+                "id": f"case_{case['id']}", 
                 "real_id": case["id"],
-                "type": "case",
+                "type": "case", # Фронтенд админки должен понимать этот тип
                 "user_id": case.get("user_id"),
-                "title": "Открытие кейса", # Технический заголовок
+                # 🔥 Меняем заголовок, чтобы админ понимал, что это вывод
+                "title": "ЗАЯВКА НА ВЫВОД 📤", 
                 "user_full_name": user_details.get("full_name", "N/A"),
                 "user_username": user_details.get("username"),
                 "user_trade_link": user_details.get("trade_link"),
                 "created_at": case.get("created_at"),
-                # ВАЖНО: Передаем данные выигранного скина
                 "image_url": skin_data.get("image_url"), 
                 "won_skin_name": skin_data.get("name"),
                 "won_skin_image": skin_data.get("image_url")
             })
 
-        # Сортируем всё вместе по дате
+        # Сортируем всё вместе по дате (новые сверху)
         final_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         return final_list
 
