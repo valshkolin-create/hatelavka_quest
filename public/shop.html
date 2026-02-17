@@ -2797,16 +2797,15 @@ function preloadP2PState() {
 
                     el.classList.add('case-card');
 
-                    // [CHANGE] Делаем фон всей карточки прозрачным
+                    // Делаем фон всей карточки прозрачным
                     el.style.background = 'transparent'; 
-                    // Убираем тень и границы, чтобы карточка не выделялась на общем фоне
                     el.style.boxShadow = 'none';
                     el.style.border = 'none';
                     
                     el.innerHTML = `
                         <div class="item-title case-top-title">${caseTitleHtml}</div>
                         
-                        <div class="item-image-wrapper case-img-wrap" style="background: transparent;">
+                        <div class="item-image-wrapper case-img-wrap" onclick="${clickAction}" style="background: transparent;">
                             ${caseOverlayHtml}
                             <img src="${imgUrl}" 
                                  class="item-image case-zoom" decoding="async" 
