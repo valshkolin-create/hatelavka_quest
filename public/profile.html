@@ -1309,50 +1309,32 @@ function renderInventory(items) {
         return;
     }
 
-    // --- СОРТИРОВКА: Активные вверх, Архив вниз ---
-    const statusWeight = {
-        'sent': 1,        
-        'pending': 2,     
-        'processing': 3,  
-        'received': 4,    
-        'exchanged': 5    
-    };
-
-    items.sort((a, b) => {
-        const wA = statusWeight[a.status] || 99;
-        const wB = statusWeight[b.status] || 99;
-        return wA - wB; 
-    });
+    // Сортировка: Активные вверх
+    const statusWeight = { 'sent': 1, 'pending': 2, 'processing': 3, 'received': 4, 'exchanged': 5 };
+    items.sort((a, b) => (statusWeight[a.status] || 99) - (statusWeight[b.status] || 99));
 
     items.forEach(item => {
-        // Определяем редкость (приводим к нижнему регистру для поиска в конфиге)
-        const rKey = (item.rarity || 'common').toLowerCase();
-        
-        // Берем конфиг или дефолт (Ширпотреб)
+        // Получаем цвет для ТЕКСТА
+        const rKey = (item.rarity || 'consumer').toLowerCase();
         const rData = rarityConfig[rKey] || rarityConfig['consumer'];
-        const borderCol = rData.color;
-        const rarityName = rData.name;
+        const rarityColor = rData.color; // Цвет только для текста
         
         const status = item.status;
         const ticketVal = item.price || 0; 
 
         let rightContentHtml = '';
         let cardOpacity = '1';
-        let statusLabel = '';
+        let statusLabel = '<span style="color:#fff;">Активно</span>';
 
-        // --- ЛОГИКА ОТОБРАЖЕНИЯ ПО СТАТУСАМ ---
-
+        // --- ЛОГИКА СТАТУСОВ ---
         if (status === 'processing') {
-            // 🟡 В ОБРАБОТКЕ
             statusLabel = '<span style="color:#FFD700;"><i class="fa-solid fa-clock"></i> Ждем трейд</span>';
             rightContentHtml = `
                 <div style="font-size: 10px; color: #FFD700; text-align: center; border: 1px dashed #FFD700; padding: 6px; border-radius: 6px;">
                     ОЖИДАЙТЕ<br>ТРЕЙД
-                </div>
-            `;
+                </div>`;
         } 
         else if (status === 'sent') {
-            // 🟢 АДМИН ОТПРАВИЛ
             statusLabel = '<span style="color:#34c759;"><i class="fa-solid fa-paper-plane"></i> Трейд отправлен!</span>';
             rightContentHtml = `
                 <button onclick="confirmReceived(${item.history_id})" style="
@@ -1361,43 +1343,38 @@ function renderInventory(items) {
                     border-radius: 6px; cursor: pointer; width: 100%;
                     box-shadow: 0 0 10px rgba(52, 199, 89, 0.4); animation: pulse-green 2s infinite;">
                     Я ПОЛУЧИЛ
-                </button>
-            `;
+                </button>`;
         } 
         else if (status === 'exchanged') {
-            // ⚪ АРХИВ (ОБМЕНЯНО)
             cardOpacity = '0.5'; 
             statusLabel = '<span style="color:#888;">Обменяно на билеты</span>';
             rightContentHtml = `
                 <div style="font-size: 11px; color: #fff; text-align: right; font-weight: 700;">
                     +${ticketVal} <i class="fa-solid fa-ticket" style="color:#aaa;"></i>
-                </div>
-            `;
+                </div>`;
         } 
         else if (status === 'received') {
-            // ⚪ АРХИВ (ПОЛУЧЕНО)
             cardOpacity = '0.5'; 
             statusLabel = '<span style="color:#888;">Получено в Steam</span>';
             rightContentHtml = `
                 <div style="font-size: 11px; color: #34c759; text-align: right; font-weight: 700;">
                     <i class="fa-solid fa-check"></i> DONE
-                </div>
-            `;
+                </div>`;
         } 
         else {
-            // 🔵 ОБЫЧНОЕ СОСТОЯНИЕ (PENDING)
-            statusLabel = '<span style="color:#fff;">Активно</span>';
+            // Кнопки для активного скина (НЕЙТРАЛЬНЫЙ СТИЛЬ)
+            // Убрал background: borderCol, поставил rgba(255,255,255,0.1)
             rightContentHtml = `
-                <button onclick="withdrawItem(${item.history_id}, '${item.name}')" style="
-                    background: ${borderCol}; color: #000; border: none;
-                    font-size: 11px; font-weight: 800; padding: 8px 0; 
+                <button onclick="withdrawItem(${item.history_id}, '${item.name.replace(/'/g, "\\'")}')" style="
+                    background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.1);
+                    font-size: 11px; font-weight: 600; padding: 8px 0; 
                     border-radius: 6px; cursor: pointer; width: 100%; margin-bottom: 6px;">
                     ЗАБРАТЬ
                 </button>
 
                 <button onclick="exchangeItem(${item.history_id}, ${ticketVal})" style="
-                    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); 
-                    color: #fff; font-size: 10px; padding: 6px 0; border-radius: 6px; 
+                    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); 
+                    color: #aaa; font-size: 10px; padding: 6px 0; border-radius: 6px; 
                     cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;">
                     <i class="fa-solid fa-ticket"></i> +${ticketVal}
                 </button>
@@ -1406,8 +1383,9 @@ function renderInventory(items) {
 
         const el = document.createElement('div');
         el.className = 'reward-card';
+        // 🔥 ЕДИНЫЙ СТИЛЬ: Всегда серая прозрачная рамка
         el.style.background = 'rgba(255,255,255,0.05)';
-        el.style.border = `1px solid ${borderCol}`;
+        el.style.border = '1px solid rgba(255, 255, 255, 0.1)'; 
         el.style.display = 'flex';
         el.style.gap = '12px';
         el.style.alignItems = 'center';
@@ -1424,8 +1402,8 @@ function renderInventory(items) {
                 <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; line-height: 1.2; word-wrap: break-word;">
                     ${item.name}
                 </div>
-                <div style="font-size: 10px; color: ${borderCol}; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
-                    ${rarityName}
+                <div style="font-size: 10px; color: ${rarityColor}; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">
+                    ${rData.name}
                 </div>
                 <div style="font-size: 10px; display: flex; align-items: center; gap: 4px;">
                     ${statusLabel}
@@ -1440,6 +1418,67 @@ function renderInventory(items) {
     });
 }
 
+// --- ФУНКЦИЯ ОБМЕНА (БЫЛА ПРОПУЩЕНА) ---
+window.exchangeItem = function(historyId, amount) {
+    showCustomConfirmHTML(`Обменять скин на билеты?`, async (close) => {
+        try {
+            await makeApiRequest('/api/v1/user/inventory/sell', { history_id: historyId });
+            tg.showAlert(`Успешно! Билеты начислены.`);
+            loadData(true); 
+            close();
+        } catch (e) {
+            tg.showAlert(e.message || "Ошибка обмена");
+            close();
+        }
+    }, "Обменять", "#34c759");
+}
+// --- ФУНКЦИЯ "ЗАБРАТЬ" (Отправляет заявку на вывод) ---
+window.withdrawItem = function(historyId, itemName) {
+    showCustomConfirmHTML(`Выводим "${itemName}"?`, async (close) => {
+        // Показываем лоадер
+        showLoader(); 
+        
+        try {
+            // Отправляем запрос на вывод (статус станет processing)
+            const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
+            
+            hideLoader();
+            
+            if (res && res.success) {
+                tg.showAlert(`✅ Заявка создана!\nОжидайте трейд-оффер в Steam.`);
+                // Обновляем список: скин должен поменять статус и вид
+                loadData(true);
+            }
+            close();
+        } catch (e) {
+            hideLoader();
+            tg.showAlert(e.message || "Ошибка соединения");
+            close();
+        }
+    }, "ВЫВЕСТИ", "#34c759");
+}
+
+// --- ФУНКЦИЯ "Я ПОЛУЧИЛ" (Подтверждает получение в Steam) ---
+window.confirmReceived = function(historyId) {
+    showCustomConfirmHTML(`Подтверждаешь, что скин пришел в Steam?`, async (close) => {
+        showLoader();
+        try {
+            // Отправляем подтверждение (статус станет received)
+            await makeApiRequest('/api/v1/user/inventory/confirm', { history_id: historyId }, 'POST', true);
+            
+            hideLoader();
+            tg.showAlert("Отлично! Скин сохранен в истории.");
+            
+            // Обновляем список: скин упадет вниз в архив
+            loadData(true); 
+            close();
+        } catch (e) {
+            hideLoader();
+            tg.showAlert("Ошибка: " + e.message);
+            close();
+        }
+    }, "ДА, ПРИШЕЛ", "#34c759");
+}
 // =========================================================
 // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
 // =========================================================
