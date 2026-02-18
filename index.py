@@ -15665,50 +15665,61 @@ async def cancel_tg_challenge_paid(request: Request):
 # 5. Поиск предметов по всей базе (для добавления существующих)
 @app.post("/api/v1/admin/cases/search_items")
 async def admin_search_case_items(request: Request):
-    body = await request.json()
-    query = body.get("query", "").strip()
-    
-    # Ищем по имени, возвращаем уникальные (чтобы не видеть 10 одинаковых азимовов)
-    # Или просто возвращаем топ-20 совпадений
-    if not query:
-        return []
+    try:
+        body = await request.json()
+        query = body.get("query", "").strip()
         
-    res = supabase.table("cs_items")\
-        .select("*")\
-        .ilike("name", f"%{query}%")\
-        .limit(20)\
-        .execute()
+        # Строим запрос
+        query_builder = supabase.table("cs_items").select("*")
         
-    return res.data
+        if query:
+            # Если что-то ввели - ищем по имени (без учета регистра)
+            query_builder = query_builder.ilike("name", f"%{query}%")
+        else:
+            # Если пусто - показываем последние 50 добавленных предметов
+            # Это решает проблему "показывать список без поиска"
+            query_builder = query_builder.order("id", desc=True)
 
-# 6. Клонирование предмета в текущий кейс
+        # ОБЯЗАТЕЛЬНО лимит, чтобы не положить базу и не получить ошибку 500
+        res = query_builder.limit(50).execute()
+        
+        return res.data
+    except Exception as e:
+        print(f"Search Error: {e}")
+        # Возвращаем пустой список, чтобы фронт не ломался
+        return []
+
 @app.post("/api/v1/admin/cases/clone_item")
 async def admin_clone_case_item(request: Request):
-    body = await request.json()
-    origin_id = body.get("origin_id")
-    target_case = body.get("target_case") # Тег кейса, куда копируем
-    
-    # 1. Берем оригинал
-    original = supabase.table("cs_items").select("*").eq("id", origin_id).single().execute()
-    item_data = original.data
-    
-    if not item_data:
-        raise HTTPException(status_code=404, detail="Item not found")
+    try:
+        body = await request.json()
+        origin_id = body.get("origin_id")
+        target_case = body.get("target_case") 
         
-    # 2. Создаем копию
-    new_payload = {
-        "name": item_data["name"],
-        "image_url": item_data["image_url"],
-        "price": item_data["price"],
-        "rarity": item_data["rarity"],
-        "condition": item_data["condition"],
-        "chance_weight": item_data["chance_weight"],
-        "case_tag": target_case, # ВАЖНО: Ставим новый тег
-        "is_active": True
-    }
-    
-    res = supabase.table("cs_items").insert(new_payload).execute()
-    return {"status": "ok", "data": res.data}
+        # 1. Берем оригинал
+        original = supabase.table("cs_items").select("*").eq("id", origin_id).single().execute()
+        item_data = original.data
+        
+        if not item_data:
+            raise HTTPException(status_code=404, detail="Item not found")
+            
+        # 2. Создаем копию с новым тегом кейса
+        new_payload = {
+            "name": item_data["name"],
+            "image_url": item_data["image_url"],
+            "price": item_data["price"],
+            "rarity": item_data["rarity"],
+            "condition": item_data["condition"],
+            "chance_weight": item_data["chance_weight"],
+            "case_tag": target_case, 
+            "is_active": True
+        }
+        
+        res = supabase.table("cs_items").insert(new_payload).execute()
+        return {"status": "ok", "data": res.data}
+    except Exception as e:
+        print(f"Clone Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # 1. Получить список всех существующих кейсов (группировка)
 @app.post("/api/v1/admin/cases/list_tags")
