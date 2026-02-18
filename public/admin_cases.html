@@ -30,15 +30,20 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0; padding: 20px; padding-bottom: 100px;
             -webkit-tap-highlight-color: transparent;
-            user-select: none; /* Глобально запрещаем выделение интерфейса */
+            user-select: none; /* Глобально запрещаем выделение, но разрешим в инпутах */
         }
 
         /* HEADER */
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-        .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; }
+        .back-btn { 
+            background: none; border: none; color: var(--text-sec); font-size: 16px; 
+            cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; 
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .back-btn.visible { opacity: 1; pointer-events: auto; }
         .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
 
-        /* VIEW CONTAINERS (Для переключения между папками и предметами) */
+        /* VIEW CONTAINERS */
         .view-section { display: none; animation: fadeIn 0.2s ease; }
         .view-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -101,7 +106,7 @@
 
         .form-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; }
         
-        /* Исправленные инпуты (разрешаем ввод) */
+        /* 🔥 ФИКС ИНПУТОВ: Разрешаем ввод текста */
         .form-input, .form-select { 
             width: 100%; background: #252525; border: 1px solid var(--card-border);
             color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; box-sizing: border-box;
@@ -242,6 +247,7 @@
 
             <form id="edit-form" class="admin-form" onsubmit="event.preventDefault(); saveItem();">
                 <input type="hidden" name="id">
+                <input type="hidden" name="link_id"> 
                 
                 <label class="form-label">Картинка</label>
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -308,7 +314,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let currentCase = null; // Если null, мы в меню выбора. Если строка - внутри кейса.
+        let currentCase = null; // Если null, мы в меню выбора
         let searchTimeout = null;
 
         // --- INIT ---
@@ -317,17 +323,16 @@
         // Навигация (Назад)
         function handleBack() {
             if (currentCase) {
-                // Если мы внутри кейса - выходим в меню
+                // Выход из кейса в меню
                 currentCase = null;
                 document.getElementById('view-items').classList.remove('active');
                 document.getElementById('view-cases').classList.add('active');
                 document.getElementById('page-title').innerText = 'Кейсы';
+                document.getElementById('nav-back-btn').classList.remove('visible'); // Скрываем кнопку
                 document.getElementById('fabMenu').classList.remove('show');
                 
-                // Перезагрузим список кейсов, чтобы обновить счетчики
-                loadCases();
+                loadCases(); // Обновить данные
             } else {
-                // Если мы в меню - выходим в главную админку
                 window.location.href = '/admin';
             }
         }
@@ -336,6 +341,12 @@
         async function loadCases() {
             const grid = document.getElementById('cases-grid');
             grid.innerHTML = '<div style="text-align:center; color:#555; grid-column:1/-1;">Загрузка...</div>';
+            document.getElementById('nav-back-btn').classList.add('visible'); // Показываем кнопку в любом случае, но логику меняем
+
+            // Если мы в корне, кнопка ведет в админку
+            if (!currentCase) {
+                document.getElementById('nav-back-btn').onclick = () => window.location.href = '/admin';
+            }
 
             try {
                 const res = await fetch('/api/v1/admin/cases/list_tags', {
@@ -347,7 +358,7 @@
                 
                 grid.innerHTML = '';
                 
-                // 1. Кнопка создания нового (как папка)
+                // 1. Кнопка создания
                 const addDiv = document.createElement('div');
                 addDiv.className = 'case-folder create-new';
                 addDiv.onclick = createNewCase;
@@ -357,10 +368,10 @@
                 `;
                 grid.appendChild(addDiv);
 
-                // 2. Существующие кейсы
+                // 2. Кейсы
                 data.forEach(t => {
                     if (!t.name) return;
-                    // Удаляем "КЕЙС | " для красоты
+                    // 🔥 Очистка названия от префикса
                     let displayName = t.name;
                     while (/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i.test(displayName)) {
                         displayName = displayName.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '');
@@ -384,22 +395,26 @@
         function openCaseView(tagName) {
             currentCase = tagName;
             
+            // Очистка названия для заголовка
             let displayName = tagName;
             while (/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i.test(displayName)) {
                 displayName = displayName.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '');
             }
             
-            // UI Switch
             document.getElementById('page-title').innerText = displayName;
             document.getElementById('view-cases').classList.remove('active');
             document.getElementById('view-items').classList.add('active');
             
-            // Show FAB
+            // Настройка кнопки назад
+            const backBtn = document.getElementById('nav-back-btn');
+            backBtn.classList.add('visible');
+            backBtn.onclick = handleBack;
+            
+            // Показать FAB
             document.getElementById('fabMenu').classList.add('show');
-            document.getElementById('fabMenu').classList.remove('fab-menu-open'); // reset state
+            document.getElementById('fabMenu').classList.remove('fab-menu-open');
             document.querySelector('.fab-main').classList.remove('rotate');
 
-            // Load Items
             loadItems(tagName);
         }
 
@@ -407,11 +422,11 @@
             let name = prompt("Название нового кейса (например: Зимний):");
             if (!name) return;
             
-            // Удаляем "Кейс" если пользователь сам написал
+            // Убираем ручной ввод "Кейс" если был
             name = name.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '').trim();
-            const fullTag = "Кейс | " + name;
+            const fullTag = "Кейс | " + name; // 🔥 Стандартный префикс
             
-            openCaseView(fullTag); // Сразу проваливаемся внутрь
+            openCaseView(fullTag);
             document.getElementById('itemsContainer').innerHTML = 
                 `<div style="text-align:center; padding:40px; color:var(--text-sec);">
                     Кейс "${name}" создан.<br>Добавьте первый предмет через плюс.
@@ -454,20 +469,18 @@
             } catch (e) { cont.innerHTML = 'Ошибка'; }
         }
 
-        // --- ЛОГИКА FAB МЕНЮ ---
+        // --- FAB MENU ---
         function toggleFab() {
             document.getElementById('fabMenu').classList.toggle('fab-menu-open');
             document.querySelector('.fab-main').classList.toggle('rotate');
         }
 
-        // 4. БИБЛИОТЕКА (ПОИСК)
+        // 4. БИБЛИОТЕКА
         function openLibrarySearch() {
             toggleFab();
             document.getElementById('modal-library').classList.add('modal-active');
             document.getElementById('lib-search-inp').value = '';
-            
-            // 🔥 СРАЗУ ГРУЗИМ ПОСЛЕДНИЕ
-            doSearch();
+            doSearch(); // Грузим список сразу
         }
 
         function debounceSearch() {
@@ -499,7 +512,7 @@
                         <img src="${item.image_url}" class="search-img">
                         <div class="search-info">
                             <div style="font-weight:700; font-size:13px;">${item.name}</div>
-                            <div style="font-size:11px; color:var(--text-sec);">${item.price} 🟡 | ${item.case_tag || 'Base'}</div>
+                            <div style="font-size:11px; color:var(--text-sec);">${item.price} 🟡</div>
                         </div>
                         <button class="search-btn" onclick="cloneItem(${item.id})">ДОБАВИТЬ</button>
                     </div>`;
@@ -518,6 +531,7 @@
                     tg.HapticFeedback.notificationOccurred('success');
                     closeModal('modal-library');
                     loadItems(currentCase);
+                    loadCases(); // Обновить счетчики
                 } else alert("Ошибка");
             } catch(e) { alert("Сбой"); }
         }
@@ -532,6 +546,8 @@
             if (jsonStr) {
                 const item = JSON.parse(decodeURIComponent(jsonStr));
                 form.id.value = item.id;
+                form.link_id.value = item.link_id || ''; // 🔥 ID связи для удаления
+                
                 form.name.value = item.name;
                 form.image_url.value = item.image_url;
                 form.price.value = item.price;
@@ -539,14 +555,16 @@
                 form.rarity.value = item.rarity;
                 form.condition.value = item.condition || 'FN';
                 form.case_tag.value = item.case_tag;
-                delBtn.style.display = 'flex'; // Показываем кнопку удаления
+                delBtn.style.display = 'flex';
+                delBtn.innerText = "УБРАТЬ ИЗ КЕЙСА";
             } else {
                 form.reset();
                 form.id.value = '';
+                form.link_id.value = '';
                 form.case_tag.value = currentCase;
                 form.rarity.value = 'blue';
                 form.chance_weight.value = 10;
-                delBtn.style.display = 'none'; // Скрываем кнопку удаления
+                delBtn.style.display = 'none';
             }
             updatePreview();
             modal.classList.add('modal-active');
@@ -582,21 +600,29 @@
                 if (res.ok) {
                     closeModal('modal-editor');
                     loadItems(currentCase);
+                    loadCases(); 
                     tg.HapticFeedback.notificationOccurred('success');
                 } else alert("Ошибка");
             } catch(e) { alert("Сбой"); }
         }
 
         async function deleteItem() {
-            const id = document.querySelector('input[name="id"]').value;
-            if(!confirm("Удалить?")) return;
+            const linkId = document.querySelector('input[name="link_id"]').value;
+            // Если это новый предмет (нет link_id), но есть id, используем id (фолбэк)
+            const itemId = document.querySelector('input[name="id"]').value;
+            
+            if(!confirm("Убрать скин?")) return;
+            
+            const payload = linkId ? {link_id: linkId} : {id: itemId};
+
             try {
                 await fetch('/api/v1/admin/cases/delete_item', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({id: id})
+                    body: JSON.stringify(payload)
                 });
                 closeModal('modal-editor');
                 loadItems(currentCase);
+                loadCases();
             } catch(e) { alert("Ошибка"); }
         }
 
