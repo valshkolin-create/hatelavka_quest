@@ -14954,11 +14954,13 @@ async def finalize_raffle_webhook(
         # 1. Ставим статус completed, но winner_id остается NULL (розыгрыш не состоялся)
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": None})
         
+        # Получаем стоимость билета для проверок
+        ticket_cost = int(s.get('ticket_cost', 0))
+        
         # 2. ВОЗВРАТ БИЛЕТОВ (Refund Logic)
-        if s.get('is_refund_enabled') and s.get('ticket_cost', 0) > 0:
-            cost = int(s.get('ticket_cost', 0))
+        if s.get('is_refund_enabled') and ticket_cost > 0:
             refund_pct = int(s.get('refund_percent', 100))
-            amount = int(cost * (refund_pct / 100))
+            amount = int(ticket_cost * (refund_pct / 100))
             
             if amount > 0:
                 for p in participants:
@@ -14976,7 +14978,11 @@ async def finalize_raffle_webhook(
             try:
                 prize = s.get('prize_name', 'Приз')
                 txt = f"⚠️ <b>Розыгрыш «{prize}» отменен.</b>\n\nНе набрано участников ({count}/{min_parts})."
-                if s.get('is_refund_enabled'): txt += f"\n💸 Билеты возвращены на баланс."
+                
+                # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+                # Пишем про возврат ТОЛЬКО если он включен И билеты стоили больше 0
+                if s.get('is_refund_enabled') and ticket_cost > 0:
+                    txt += f"\n💸 Билеты возвращены на баланс."
                 
                 if reply_to_id:
                     await bot.send_message(chat_id=channel_id, text=txt, reply_to_message_id=reply_to_id, parse_mode="HTML")
@@ -14985,7 +14991,7 @@ async def finalize_raffle_webhook(
             except: pass
             
         return {"status": "cancelled_low_participants"}
-
+        
     # 4. ЕСЛИ ЛЮДЕЙ ХВАТАЕТ -> ВЫБОР ПОБЕДИТЕЛЯ
     winner_id = None
     winner_data = None 
