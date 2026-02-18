@@ -15669,24 +15669,25 @@ async def admin_search_case_items(request: Request):
         body = await request.json()
         query = body.get("query", "").strip()
         
-        # Строим запрос
+        # Начинаем строить запрос
         query_builder = supabase.table("cs_items").select("*")
         
         if query:
-            # Если что-то ввели - ищем по имени (без учета регистра)
+            # Ищем по частичному совпадению (AK, MP9 и т.д.)
+            # ilike делает поиск нечувствительным к регистру
             query_builder = query_builder.ilike("name", f"%{query}%")
         else:
-            # Если пусто - показываем последние 50 добавленных предметов
-            # Это решает проблему "показывать список без поиска"
+            # Если запрос пустой — возвращаем последние добавленные предметы
+            # Это позволяет увидеть "библиотеку" сразу при открытии
             query_builder = query_builder.order("id", desc=True)
 
-        # ОБЯЗАТЕЛЬНО лимит, чтобы не положить базу и не получить ошибку 500
+        # ВАЖНО: Ограничиваем выдачу 50 предметами, чтобы не было ошибки 500
         res = query_builder.limit(50).execute()
         
         return res.data
     except Exception as e:
         print(f"Search Error: {e}")
-        # Возвращаем пустой список, чтобы фронт не ломался
+        # Возвращаем пустой список вместо падения сервера
         return []
 
 @app.post("/api/v1/admin/cases/clone_item")
