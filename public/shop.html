@@ -2948,33 +2948,36 @@ function preloadP2PState() {
     const track = document.getElementById('r-track');
     const winScreen = document.getElementById('r-win');
     
-    // Сброс
+    // 1. Сброс состояния перед запуском
     track.style.transition = 'none';
     track.style.transform = 'translateX(0)';
     track.innerHTML = '';
     
     area.style.display = 'block';
     winScreen.style.display = 'none';
-    // Flex для центрирования
     winScreen.style.flexDirection = 'column'; 
     winScreen.style.alignItems = 'center';
     
     modal.style.display = 'flex';
 
-    const CARD_W = 148; // 140px + отступы
-    const WINNER_IDX = 80; 
-    const ANIMATION_TIME = 11000; 
+    // Константы анимации
+    const CARD_W = 148;       // Ширина карточки (140px + margin)
+    const WINNER_IDX = 80;    // Индекс карточки-победителя на ленте
+    const ANIMATION_TIME = 11000; // 11 секунд прокрутки
 
-    // Заполняем ленту
-    let fullList = [...items];
-    while(fullList.length <= WINNER_IDX + 10) {
-        fullList = fullList.concat(items);
+    // 2. Генерируем длинную ленту для прокрутки
+    // Заполняем ленту случайными предметами из тех, что могут выпасть в этом кейсе
+    let fullList = [];
+    while (fullList.length < WINNER_IDX + 20) {
+        // Перемешиваем массив предметов для разнообразия на ленте
+        const shuffled = [...items].sort(() => 0.5 - Math.random());
+        fullList = fullList.concat(shuffled);
     }
     
-    // Жестко ставим победителя
+    // 3. Жестко ставим реального победителя на нужную позицию
     fullList[WINNER_IDX] = winner; 
 
-    // Рендер HTML ленты
+    // 4. Рендер карточек на ленту
     track.innerHTML = fullList.map(item => {
         let rClass = 'r-common'; 
         const r = (item.rarity || 'common').toLowerCase();
@@ -2986,65 +2989,79 @@ function preloadP2PState() {
         else if (r.includes('gold')) rClass = 'r-gold';
 
         const img = item.image_url || 'https://placehold.co/100?text=Item';
-        return `<div class="r-card ${rClass}"><img src="${img}"><div class="r-card-name">${item.name}</div></div>`;
+        // Убираем техническую часть названия для ленты
+        const displayName = item.name.split('|').pop().trim();
+        
+        return `
+            <div class="r-card ${rClass}">
+                <img src="${img}">
+                <div class="r-card-name">${displayName}</div>
+            </div>
+        `;
     }).join('');
 
-    // Запуск анимации
+    // 5. Запуск анимации прокрутки
     setTimeout(() => {
-        // МАТЕМАТИКА ОСТАНОВКИ
         const screenCenter = window.innerWidth / 2;
         const winnerCenter = (WINNER_IDX * CARD_W) + (CARD_W / 2);
         
-        // Рандомный сдвиг +/- 45px
-        const randomOffset = (Math.random() * 90) - 45; 
+        // Рандомный сдвиг внутри карточки, чтобы не останавливалось всегда строго по центру
+        const randomOffset = (Math.random() * 100) - 50; 
 
         const finalPosition = -(winnerCenter - screenCenter + randomOffset);
 
-        // --- НАСТРОЙКА ФИЗИКИ ---
-        track.style.transition = `transform ${ANIMATION_TIME}ms cubic-bezier(0.12, 0, 0.00, 1)`; 
+        // Настройка физики (плавное замедление к концу)
+        track.style.transition = `transform ${ANIMATION_TIME}ms cubic-bezier(0.15, 0, 0.05, 1)`; 
         track.style.transform = `translateX(${finalPosition}px)`;
         
-        // Звук трещотки (Haptic)
-        let tickInterval = 40; 
+        // 6. Имитация звука трещотки через Haptic Feedback
+        let tickInterval = 50; 
         let timer = 0;
         
         const ticker = () => {
-            if (timer >= ANIMATION_TIME - 500) return; 
+            if (timer >= ANIMATION_TIME - 300) return; 
             
+            // Легкая вибрация при прохождении каждой карточки
             haptic.selectionChanged();
             
             timer += tickInterval;
-            // Прогрессивное замедление тиков
-            if (timer < ANIMATION_TIME * 0.7) {
-                tickInterval += 2; 
+            // Замедляем частоту вибрации вместе с лентой
+            if (timer < ANIMATION_TIME * 0.6) {
+                tickInterval = 50; 
+            } else if (timer < ANIMATION_TIME * 0.8) {
+                tickInterval = 120; 
             } else {
-                tickInterval += 15; 
+                tickInterval += 50; 
             }
             
             setTimeout(ticker, tickInterval);
         };
         ticker();
 
-        // Финал
+        // 7. Финал: Показ экрана победы
         setTimeout(() => {
+            // Сильный удар в конце
             haptic.impactOccurred('heavy'); 
 
             setTimeout(() => {
                 haptic.notificationOccurred('success');
                 
-                area.style.display = 'none'; // Скрываем ленту
+                area.style.display = 'none'; // Убираем рулетку
                 
-                // --- [UPDATE] ГЕНЕРАЦИЯ ЭКРАНА ПОБЕДЫ С НОВЫМИ КНОПКАМИ ---
-                const ticketPrice = winner.price || 0; 
+                // Данные для кнопок (ID истории и цена продажи)
                 const itemId = winner.id; 
+                const ticketPrice = winner.price || 0; 
+                const cleanWinnerName = winner.name;
 
-                // Полная перерисовка содержимого Win Screen
+                // Генерация экрана победы
                 winScreen.innerHTML = `
                     <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО ИЗ КЕЙСА!</h2>
                     
                     <img src="${winner.image_url}" class="win-img">
                     
-                    <h3 style="color:#fff; margin-top:15px; margin-bottom: 20px; font-weight: 700; max-width: 90%; line-height: 1.4; text-align: center;">${winner.name}</h3>
+                    <h3 style="color:#fff; margin-top:15px; margin-bottom: 20px; font-weight: 700; max-width: 90%; line-height: 1.4; text-align: center;">
+                        ${cleanWinnerName}
+                    </h3>
                     
                     <button class="action-btn btn-buy" style="width: 220px; height: 48px; font-size: 14px;" 
                         onclick="claimItem(${itemId})">
@@ -3067,8 +3084,8 @@ function preloadP2PState() {
                     </div>
                 `;
                 
-                winScreen.style.display = 'flex'; // Показываем экран
-            }, 800); // Пауза перед показом приза
+                winScreen.style.display = 'flex'; 
+            }, 800);
 
         }, ANIMATION_TIME); 
     }, 100);
