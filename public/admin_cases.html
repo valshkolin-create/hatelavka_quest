@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Cases</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #ffd700;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+            --text-sec: #aaaaaa;
+            
+            /* Rarity Colors */
+            --r-blue: #4b69ff;
+            --r-purple: #8847ff;
+            --r-pink: #d32ce6;
+            --r-red: #eb4b4b;
+            --r-gold: #ffd700;
+        }
+
+        body {
+            background-color: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px; padding-bottom: 100px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- Header & Tabs --- */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; }
+        .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); }
+        
+        /* Горизонтальный скролл для кейсов */
+        .cases-nav {
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px;
+            scrollbar-width: none;
+        }
+        .cases-nav::-webkit-scrollbar { display: none; }
+        
+        .case-chip {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
+            padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+            color: var(--text-sec); white-space: nowrap; cursor: pointer; transition: 0.2s;
+        }
+        .case-chip.active { background: var(--primary); color: #000; border-color: var(--primary); }
+        .case-chip.add-new { border-style: dashed; border-color: var(--text-sec); color: var(--text); }
+
+        /* --- Grid & Cards --- */
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+        
+        .item-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 12px; padding: 10px; position: relative; overflow: hidden;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        .item-card:active { transform: scale(0.98); }
+        
+        /* Rarity Indicator */
+        .item-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #555; }
+        .item-card[data-rarity="blue"]::after { background: var(--r-blue); }
+        .item-card[data-rarity="purple"]::after { background: var(--r-purple); }
+        .item-card[data-rarity="pink"]::after { background: var(--r-pink); }
+        .item-card[data-rarity="red"]::after { background: var(--r-red); }
+        .item-card[data-rarity="gold"]::after { background: var(--r-gold); }
+
+        .card-img { width: 100%; height: 80px; object-fit: contain; margin-bottom: 8px; }
+        .card-name { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .card-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-sec); }
+        .card-price { color: var(--primary); font-weight: 700; }
+
+        /* --- Modal Editor --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; backdrop-filter: blur(5px); }
+        .modal-active { display: flex; }
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+
+        .form-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; }
+        .form-input, .form-select { 
+            width: 100%; background: #252525; border: 1px solid var(--card-border);
+            color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; box-sizing: border-box;
+        }
+        .form-row { display: flex; gap: 10px; }
+        
+        .preview-box {
+            background: #000; border-radius: 12px; padding: 15px; text-align: center;
+            border: 1px solid var(--card-border); margin-bottom: 10px;
+        }
+        .prev-img { width: 100px; height: 80px; object-fit: contain; margin-bottom: 5px; }
+        .prev-name { font-size: 12px; font-weight: 700; }
+        .prev-price { color: var(--primary); font-size: 13px; font-weight: 700; }
+
+        .btn-save { background: var(--primary); color: #000; border: none; padding: 14px; border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer; margin-top: 10px; }
+        .btn-delete { background: rgba(255, 77, 77, 0.1); color: var(--danger); border: 1px solid var(--danger); padding: 14px; border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer; margin-top: 10px; }
+        
+        .icon-btn { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.1); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* Add Button */
+        .fab-add {
+            position: fixed; bottom: 30px; right: 20px; width: 56px; height: 56px;
+            background: var(--primary); color: #000; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 24px;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4); cursor: pointer; z-index: 90;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <button onclick="window.location.href='/admin'" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
+        <h1 class="page-title">Лут и Кейсы</h1>
+        <div style="width: 20px;"></div> </div>
+
+    <div class="cases-nav" id="casesNav">
+        </div>
+
+    <div id="itemsContainer">
+        <div style="text-align:center; padding:40px; color:#555;">Выберите кейс...</div>
+    </div>
+
+    <div class="fab-add" onclick="openEditor(null)">
+        <i class="fa-solid fa-plus"></i>
+    </div>
+
+    <div id="modal-editor" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="bottom-sheet">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0">Редактор Скина</h3>
+                <button onclick="closeModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="preview-box">
+                <div style="font-size:10px; color:#555; margin-bottom:5px;">PREVIEW</div>
+                <img src="" id="p-img" class="prev-img">
+                <div id="p-name" class="prev-name">Название</div>
+                <div id="p-price" class="prev-price">0 🟡</div>
+            </div>
+
+            <form id="edit-form" onsubmit="event.preventDefault(); saveItem();">
+                <input type="hidden" name="id">
+                
+                <label class="form-label">Картинка (URL или Файл)</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" name="image_url" id="inp-img" class="form-input" placeholder="https://..." oninput="updatePreview()">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload').click()">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+                    <input type="file" id="file-upload" hidden accept="image/*" onchange="uploadImage(this)">
+                </div>
+
+                <label class="form-label" style="margin-top:10px;">Название</label>
+                <input type="text" name="name" id="inp-name" class="form-input" placeholder="AK-47 | Asiimov" required oninput="updatePreview()">
+
+                <div class="form-row" style="margin-top:10px;">
+                    <div style="flex:1">
+                        <label class="form-label">Цена</label>
+                        <input type="number" name="price" id="inp-price" class="form-input" value="0" oninput="updatePreview()">
+                    </div>
+                    <div style="flex:1">
+                        <label class="form-label">Шанс (Weight)</label>
+                        <input type="number" name="chance_weight" class="form-input" value="10">
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top:10px;">
+                    <div style="flex:1">
+                        <label class="form-label">Редкость</label>
+                        <select name="rarity" class="form-select">
+                            <option value="blue">Blue (Армейское)</option>
+                            <option value="purple">Purple (Запрещенное)</option>
+                            <option value="pink">Pink (Засекреченное)</option>
+                            <option value="red">Red (Тайное)</option>
+                            <option value="gold">Gold (Нож/Перчатки)</option>
+                        </select>
+                    </div>
+                    <div style="flex:1">
+                        <label class="form-label">Качество</label>
+                        <select name="condition" class="form-select">
+                            <option value="FN">Factory New</option>
+                            <option value="MW">Minimal Wear</option>
+                            <option value="FT">Field-Tested</option>
+                            <option value="WW">Well-Worn</option>
+                            <option value="BS">Battle-Scarred</option>
+                        </select>
+                    </div>
+                </div>
+
+                <label class="form-label" style="margin-top:10px;">Кейс (Тех. название)</label>
+                <input type="text" name="case_tag" id="inp-tag" class="form-input" readonly style="opacity:0.6;">
+
+                <button type="submit" class="btn-save">СОХРАНИТЬ</button>
+                <button type="button" id="btn-delete" class="btn-delete" onclick="deleteItem()">УДАЛИТЬ</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let currentCase = ''; // Например "КЕЙС | Зимний"
+        let allTags = [];
+
+        // --- INIT ---
+        loadTags();
+
+        // 1. Загрузка списка кейсов
+        async function loadTags() {
+            const nav = document.getElementById('casesNav');
+            nav.innerHTML = '<div style="color:#555; font-size:12px;">Загрузка...</div>';
+
+            try {
+                const res = await fetch('/api/v1/admin/cases/list_tags', {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({initData: tg.initData}) // Для безопасности (если есть проверка)
+                });
+                const data = await res.json();
+                allTags = data;
+                renderTags();
+            } catch (e) {
+                nav.innerHTML = 'Ошибка';
+                console.error(e);
+            }
+        }
+
+        function renderTags() {
+            const nav = document.getElementById('casesNav');
+            nav.innerHTML = '';
+
+            // Кнопка создания нового
+            const addBtn = document.createElement('div');
+            addBtn.className = 'case-chip add-new';
+            addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Новый';
+            addBtn.onclick = createNewCase;
+            nav.appendChild(addBtn);
+
+            allTags.forEach(t => {
+                const name = t.name.replace(/^(КЕЙС|CASE)\s*\|\s*/i, ''); // Убираем префикс для красоты
+                const chip = document.createElement('div');
+                chip.className = `case-chip ${currentCase === t.name ? 'active' : ''}`;
+                chip.innerText = `${name} (${t.count})`;
+                chip.onclick = () => selectCase(t.name);
+                nav.appendChild(chip);
+            });
+
+            // Если ничего не выбрано, выберем первый
+            if (!currentCase && allTags.length > 0) {
+                selectCase(allTags[0].name);
+            }
+        }
+
+        function selectCase(tag) {
+            currentCase = tag;
+            renderTags(); // Обновить active класс
+            loadItems(tag);
+        }
+
+        function createNewCase() {
+            const name = prompt("Введите название нового кейса (без слова 'Кейс'):");
+            if (!name) return;
+            const fullTag = "КЕЙС | " + name.trim();
+            
+            // Временно ставим его текущим, items пока пуст
+            currentCase = fullTag;
+            renderTags(); // Сбросит active у других
+            
+            document.getElementById('itemsContainer').innerHTML = `
+                <div style="text-align:center; padding:40px; color:#555;">
+                    Кейс "${name}" создан (визуально).<br>Добавьте первый предмет, чтобы он появился в базе.
+                </div>`;
+            
+            openEditor(null); // Сразу открываем создание предмета
+        }
+
+        // 2. Загрузка предметов
+        async function loadItems(tag) {
+            const cont = document.getElementById('itemsContainer');
+            cont.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+
+            try {
+                const res = await fetch('/api/v1/admin/cases/get_items', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({case_tag: tag})
+                });
+                const items = await res.json();
+                
+                if (items.length === 0) {
+                    cont.innerHTML = '<div style="text-align:center; padding:40px; color:#555;">В этом кейсе пусто</div>';
+                    return;
+                }
+
+                let html = '<div class="items-grid">';
+                items.forEach(item => {
+                    const safeJson = encodeURIComponent(JSON.stringify(item));
+                    html += `
+                    <div class="item-card" data-rarity="${item.rarity}" onclick="openEditor('${safeJson}')">
+                        <img src="${item.image_url}" class="card-img">
+                        <div class="card-name">${item.name}</div>
+                        <div class="card-meta">
+                            <span>w: ${item.chance_weight}</span>
+                            <span class="card-price">${item.price} 🟡</span>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+                cont.innerHTML = html;
+
+            } catch (e) {
+                cont.innerHTML = 'Ошибка загрузки';
+            }
+        }
+
+        // 3. Редактор (Модалка)
+        function openEditor(jsonStr) {
+            const modal = document.getElementById('modal-editor');
+            const form = document.getElementById('edit-form');
+            const delBtn = document.getElementById('btn-delete');
+
+            if (jsonStr) {
+                // Редактирование
+                const item = JSON.parse(decodeURIComponent(jsonStr));
+                form.id.value = item.id;
+                form.name.value = item.name;
+                form.image_url.value = item.image_url;
+                form.price.value = item.price;
+                form.chance_weight.value = item.chance_weight;
+                form.rarity.value = item.rarity;
+                form.condition.value = item.condition || 'FN';
+                form.case_tag.value = item.case_tag;
+                delBtn.style.display = 'block';
+            } else {
+                // Создание
+                if (!currentCase) { alert("Сначала выберите кейс!"); return; }
+                form.reset();
+                form.id.value = ''; // Важно очистить ID
+                form.case_tag.value = currentCase; // Авто-тег
+                form.rarity.value = 'blue';
+                form.chance_weight.value = 10;
+                delBtn.style.display = 'none';
+            }
+            
+            updatePreview();
+            modal.classList.add('modal-active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-editor').classList.remove('modal-active');
+        }
+
+        function updatePreview() {
+            const img = document.getElementById('inp-img').value || 'https://placehold.co/100';
+            const name = document.getElementById('inp-name').value || 'Название';
+            const price = document.getElementById('inp-price').value || 0;
+
+            document.getElementById('p-img').src = img;
+            document.getElementById('p-name').innerText = name;
+            document.getElementById('p-price').innerText = price + ' 🟡';
+        }
+
+        // 4. Сохранение
+        async function saveItem() {
+            const form = document.getElementById('edit-form');
+            const data = {
+                id: form.id.value || null,
+                name: form.name.value,
+                image_url: form.image_url.value,
+                price: parseFloat(form.price.value),
+                chance_weight: parseFloat(form.chance_weight.value),
+                rarity: form.rarity.value,
+                condition: form.condition.value,
+                case_tag: form.case_tag.value
+            };
+
+            tg.MainButton.showProgress();
+            try {
+                const res = await fetch('/api/v1/admin/cases/save_item', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    closeModal();
+                    loadTags(); // Обновить счетчики в табах
+                    loadItems(currentCase); // Обновить сетку
+                    tg.HapticFeedback.notificationOccurred('success');
+                } else {
+                    alert("Ошибка сохранения");
+                }
+            } catch (e) {
+                alert("Сбой сети");
+            }
+            tg.MainButton.hideProgress();
+        }
+
+        // 5. Удаление
+        async function deleteItem() {
+            const id = document.querySelector('input[name="id"]').value;
+            if(!confirm("Удалить предмет?")) return;
+
+            try {
+                await fetch('/api/v1/admin/cases/delete_item', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: id})
+                });
+                closeModal();
+                loadTags();
+                loadItems(currentCase);
+            } catch(e) { alert("Ошибка"); }
+        }
+
+        // 6. Загрузка картинки (копипаст из raffles)
+        async function uploadImage(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const btn = input.previousElementSibling;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/v1/upload', { method: 'POST', body: formData });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('inp-img').value = data.url;
+                    updatePreview();
+                } else { alert("Ошибка загрузки"); }
+            } catch (e) { alert("Сбой"); }
+            
+            btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i>';
+            input.value = '';
+        }
+
+    </script>
+</body>
+</html>
