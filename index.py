@@ -12976,13 +12976,13 @@ async def buy_bott_item_proxy(
     # =========================================================================
 
     # =========================================================================
-    # ЛОГИКА РУЛЕТКИ (ОТКРЫТИЕ КЕЙСА)
+    # 🎰 ЛОГИКА РУЛЕТКИ (ОБНОВЛЕННАЯ: С КОЛОНКОЙ КЕЙСА)
     # =========================================================================
     if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
-        logging.info(f"[SHOP] Начало процесса открытия кейса: {item_title}")
+        logging.info(f"[SHOP] Открытие кейса: {item_title} для юзера {telegram_id}")
         
         try:
-            # А. Получаем содержимое кейса из таблицы связей
+            # А. Получаем скины из таблицы связей
             contents_resp = await supabase.get(
                 "/cs_case_contents", 
                 params={
@@ -12992,9 +12992,9 @@ async def buy_bott_item_proxy(
             )
             rows = contents_resp.json()
             
-            if not rows:
-                logging.error(f"[SHOP] ОШИБКА: Кейс '{item_title}' не найден в cs_case_contents или пуст!")
-                raise HTTPException(status_code=500, detail="Кейс не настроен в базе (проверьте таблицу связей)")
+            if not rows or not isinstance(rows, list):
+                logging.error(f"[SHOP] ОШИБКА: Кейс '{item_title}' не настроен в cs_case_contents!")
+                raise HTTPException(status_code=500, detail="Кейс не настроен в базе связей.")
 
             all_items = []
             weights = []
@@ -13003,77 +13003,84 @@ async def buy_bott_item_proxy(
                 skin = row.get('item')
                 if skin and skin.get('is_active', True):
                     all_items.append(skin)
-                    # Берем вес именно из таблицы связей
                     weights.append(float(row.get('chance_weight', 10)))
 
             if not all_items:
-                raise HTTPException(status_code=500, detail="В кейсе нет доступных предметов")
+                raise HTTPException(status_code=500, detail="В кейсе нет активных скинов.")
 
-            # Б. Генерируем победителя
+            # Б. Выбираем победителя
             winner = random.choices(all_items, weights=weights, k=1)[0]
             
-            # В. ПИШЕМ В ИСТОРИЮ (Самый важный этап)
+            # В. ЗАПИСЬ В ИСТОРИЮ (Добавляем новую колонку case_name)
+            # Принудительно превращаем всё в нужные типы данных
             hist_payload = {
-                "user_id": telegram_id,
-                "item_id": winner['id'],
-                # Сохраняем информацию о валюте и заказе
-                "code_used": f"BOTT_ORDER_{bott_order_id}" if currency == 'coins' else f"TICKET_OPEN_{int(time.time())}",
-                "status": "pending",
-                "price": 0 # Выигрыш бесплатный
+                "user_id": int(telegram_id), 
+                "item_id": int(winner['id']),
+                "case_name": str(item_title), # Новая колонка
+                "code_used": f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}",
+                "status": "pending"
             }
             
-            # Делаем вставку и ПРИНУДИТЕЛЬНО запрашиваем возврат созданной строки
+            logging.info(f"[SHOP] Попытка вставки в cs_history: {hist_payload}")
+
+            # Делаем вставку
             hist_insert_resp = await supabase.post(
                 "/cs_history", 
                 json=hist_payload,
                 headers={"Prefer": "return=representation"} 
             )
             
+            # ВАЖНО: Если статус не 200/201, значит база ОТКЛОНИЛА запись
+            if hist_insert_resp.status_code not in [200, 201]:
+                logging.error(f"[SHOP] БАЗА ОТКЛОНИЛА ЗАПИСЬ: {hist_insert_resp.text}")
+                raise Exception(f"Database error: {hist_insert_resp.text}")
+
             hist_result = hist_insert_resp.json()
             history_id = 0
 
-            # Логика извлечения ID (поддержка списка и объекта)
+            # Достаем ID из ответа
             if isinstance(hist_result, list) and len(hist_result) > 0:
                 history_id = hist_result[0].get('id')
             elif isinstance(hist_result, dict):
                 history_id = hist_result.get('id')
 
-            # --- РЕЗЕРВНЫЙ ПОИСК ID (если база не вернула его сразу) ---
-            if not history_id or history_id == 0:
-                logging.warning(f"[SHOP] Повторный запрос ID истории для юзера {telegram_id}")
-                backup_res = await supabase.get("/cs_history", params={
+            # --- РЕЗЕРВНЫЙ ПОИСК (если Prefer не сработал) ---
+            if not history_id:
+                logging.warning("[SHOP] ID не вернулся в ответе, ищем последнюю запись...")
+                backup_check = await supabase.get("/cs_history", params={
                     "user_id": f"eq.{telegram_id}",
                     "order": "id.desc",
-                    "limit": "1",
-                    "select": "id"
+                    "limit": "1"
                 })
-                backup_data = backup_res.json()
-                if backup_data:
+                backup_data = backup_check.json()
+                if backup_data and len(backup_data) > 0:
                     history_id = backup_data[0].get('id')
 
-            logging.info(f"[SHOP] Успешно! Скин: {winner['name']}, HistoryID: {history_id}")
+            if not history_id:
+                logging.error("[SHOP] КРИТИЧЕСКАЯ ОШИБКА: Запись не найдена даже после поиска!")
+                raise Exception("Не удалось создать запись в истории.")
 
-            # Г. Готовим ленту для рулетки (80 предметов)
+            logging.info(f"[SHOP] Успешно! HistoryID: {history_id}")
+
+            # Г. Готовим ответ для фронтенда
             roulette_strip = random.choices(all_items, weights=weights, k=80)
-            roulette_strip[60] = winner # На 60-й позиции наш победитель
-
-            # Д. Формируем объект победителя для фронтенда
-            # Нам нужно, чтобы winner.id был равен history_id для кнопок "Забрать/Продать"
+            roulette_strip[60] = winner 
+            
             winner_output = winner.copy()
             winner_output['id'] = history_id 
-            winner_output['real_item_id'] = winner['id'] # Сохраняем оригинальный ID скина на всякий случай
+            winner_output['real_item_id'] = winner['id'] 
 
             return {
                 "status": "ok",
                 "winner": winner_output,
                 "roulette_strip": roulette_strip,
                 "history_id": history_id,
-                "id": history_id, # Дублируем для разных версий фронта
+                "id": history_id,
                 "messages": [f"Выпало: {winner['name']}"]
             }
 
         except Exception as e:
-            logging.error(f"[SHOP] Критическая ошибка открытия кейса: {e}")
+            logging.error(f"[SHOP] Критическая ошибка в логике кейса: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
     # =========================================================================
     # ЛОГИКА ОБЫЧНОГО ТОВАРА
