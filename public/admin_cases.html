@@ -400,7 +400,7 @@
         function createNewCase() {
             const name = prompt("Название нового кейса:");
             if (!name) return;
-            const fullTag = "КЕЙС | " + name.trim();
+            const fullTag = "Кейс | " + name.trim();
             
             openCaseView(fullTag); // Сразу проваливаемся внутрь
             document.getElementById('itemsContainer').innerHTML = 
