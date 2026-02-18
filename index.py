@@ -12976,38 +12976,54 @@ async def buy_bott_item_proxy(
     # =========================================================================
     # ЛОГИКА РУЛЕТКИ (С разделением по кейсам)
     # =========================================================================
-    if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
+   if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
         logging.info(f"[SHOP] Открытие кейса: {item_title}")
         
         try:
-            # А. Берем скины ТОЛЬКО для этого конкретного кейса
-            # Мы фильтруем по колонке case_tag, она должна быть равна названию товара (item_title)
-            items_resp = await supabase.get(
-                "/cs_items", 
+            # А. Берем скины из НОВОЙ ТАБЛИЦЫ СВЯЗЕЙ (cs_case_contents)
+            # Фильтруем по case_tag и подтягиваем данные скина из cs_items
+            contents_resp = await supabase.get(
+                "/cs_case_contents", 
                 params={
-                    "is_active": "eq.true",
-                    "case_tag": f"eq.{item_title}" # <--- ВОТ ГЛАВНОЕ ИЗМЕНЕНИЕ
+                    "case_tag": f"eq.{item_title}",
+                    "select": "chance_weight, item:cs_items(*)"
                 }
             )
-            all_items = items_resp.json()
+            rows = contents_resp.json()
             
-            # Если база вернула пустой список, значит мы забыли прописать теги
-            if not all_items:
-                logging.error(f"[SHOP] ОШИБКА: Для кейса '{item_title}' нет скинов в базе (проверь case_tag)!")
-                raise Exception(f"Кейс '{item_title}' пуст или не настроен.")
+            # Если пусто — значит кейс не настроен или название не совпадает
+            if not rows:
+                logging.error(f"[SHOP] ОШИБКА: Кейс '{item_title}' пуст (нет связей в cs_case_contents)!")
+                raise HTTPException(status_code=500, detail="Этот кейс пока пуст или не настроен.")
 
-            # Б. Выбираем победителя (Веса теперь считаются только среди скинов этого кейса)
-            weights = [float(item.get('chance_weight', 10)) for item in all_items]
+            # Б. Собираем пул предметов и весов
+            all_items = []
+            weights = []
+
+            for row in rows:
+                skin = row.get('item')
+                # Проверяем, что скин существует и активен
+                if skin and skin.get('is_active', True):
+                    all_items.append(skin)
+                    # ВАЖНО: Вес берем из связи (row['chance_weight']), а не из скина
+                    weights.append(float(row['chance_weight']))
+
+            if not all_items:
+                raise HTTPException(status_code=500, detail="В кейсе нет активных предметов.")
+
+            # В. Выбираем победителя (с учетом весов из таблицы связей)
             winner = random.choices(all_items, weights=weights, k=1)[0]
             
-            # В. Пишем в историю И ЗАБИРАЕМ ID (ВАЖНО: headers return=representation)
+            # Г. Пишем в историю И ЗАБИРАЕМ ID (headers return=representation)
             hist_resp = await supabase.post(
                 "/cs_history", 
                 json={
                     "user_id": telegram_id,
                     "item_id": winner['id'],
-                    "code_used": f"BOTT_ORDER_{bott_order_id}" if currency == 'coins' else f"TICKET_PURCHASE_{item_id}",
-                    "status": "pending"
+                    # Используем ID транзакции BOTT или заглушку для билетов
+                    "code_used": f"BOTT_ORDER_{bott_order_id}" if currency == 'coins' else f"TICKET_PURCHASE_{item_id}_{int(time.time())}",
+                    "status": "pending",
+                    "price": 0 # Цена получения 0, так как выигран
                 },
                 headers={"Prefer": "return=representation"} 
             )
@@ -13020,17 +13036,17 @@ async def buy_bott_item_proxy(
             
             logging.info(f"[SHOP] Выигрыш: {winner['name']} (RealID={winner['id']} -> HistID={history_id})")
 
-            # Г. Генерируем ленту (теперь в ленте только скины из ЭТОГО кейса)
-            roulette_strip = random.choices(all_items, k=80)
+            # Д. Генерируем ленту (из предметов ЭТОГО кейса)
+            # Используем те же веса, чтобы лента выглядела правдоподобно
+            roulette_strip = random.choices(all_items, weights=weights, k=80)
             roulette_strip[60] = winner 
             
-            # --- ФИКС ДЛЯ ПРОДАЖИ ---
-            # Подменяем ID для фронтенда
+            # Е. Подменяем ID для фронтенда (чтобы работала продажа)
             winner_for_frontend = winner.copy()
             winner_for_frontend['id'] = history_id        
             winner_for_frontend['real_item_id'] = winner['id'] 
 
-            # Д. ВОЗВРАЩАЕМ JSON
+            # Ж. ВОЗВРАЩАЕМ JSON
             return {
                 "status": "ok",
                 "message": "Кейс открыт успешно",
@@ -13043,8 +13059,7 @@ async def buy_bott_item_proxy(
 
         except Exception as e:
             logging.error(f"[SHOP] Ошибка в логике кейса: {e}")
-            # Возвращаем статус ошибки, чтобы фронтенд мог показать алерт
-            raise HTTPException(status_code=500, detail=f"Ошибка открытия кейса: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Ошибка открытия: {str(e)}")
 
     # =========================================================================
     # ЛОГИКА ОБЫЧНОГО ТОВАРА
