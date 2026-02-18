@@ -12976,13 +12976,13 @@ async def buy_bott_item_proxy(
     # =========================================================================
 
     # =========================================================================
-    # ЛОГИКА РУЛЕТКИ (С разделением по кейсам)
+    # ЛОГИКА РУЛЕТКИ (С поддержкой CS_CASE_CONTENTS) 
     # =========================================================================
     if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
         logging.info(f"[SHOP] Открытие кейса: {item_title}")
         
         try:
-            # А. Берем скины из НОВОЙ ТАБЛИЦЫ СВЯЗЕЙ (cs_case_contents)
+            # А. Берем скины из НОВОЙ ТАБЛИЦЫ СВЯЗЕЙ
             contents_resp = await supabase.get(
                 "/cs_case_contents", 
                 params={
@@ -12992,68 +12992,65 @@ async def buy_bott_item_proxy(
             )
             rows = contents_resp.json()
             
-            # Если пусто — значит кейс не настроен или название не совпадает
             if not rows:
-                logging.error(f"[SHOP] ОШИБКА: Кейс '{item_title}' пуст (нет связей в cs_case_contents)!")
-                raise HTTPException(status_code=500, detail="Этот кейс пока пуст или не настроен.")
+                logging.error(f"[SHOP] ОШИБКА: Кейс '{item_title}' пуст!")
+                raise HTTPException(status_code=500, detail="Кейс не настроен.")
 
-            # Б. Собираем пул предметов и весов
             all_items = []
             weights = []
 
             for row in rows:
                 skin = row.get('item')
-                # Проверяем, что скин существует и активен
                 if skin and skin.get('is_active', True):
                     all_items.append(skin)
-                    # ВАЖНО: Вес берем из связи (row['chance_weight']), а не из скина
                     weights.append(float(row['chance_weight']))
 
             if not all_items:
-                raise HTTPException(status_code=500, detail="В кейсе нет активных предметов.")
+                raise HTTPException(status_code=500, detail="Нет активных предметов.")
 
-            # В. Выбираем победителя (с учетом весов из таблицы связей)
+            # В. Выбираем победителя
             winner = random.choices(all_items, weights=weights, k=1)[0]
             
-            # Г. Пишем в историю И ЗАБИРАЕМ ID (headers return=representation)
+            # Г. Пишем в историю И ЗАБИРАЕМ ID (ВАЖНО!)
+            hist_payload = {
+                "user_id": telegram_id,
+                "item_id": winner['id'],
+                "code_used": f"BOTT_ORDER_{bott_order_id}" if currency == 'coins' else f"TICKET_PURCHASE_{item_id}_{int(time.time())}",
+                "status": "pending",
+                "price": 0
+            }
+            
             hist_resp = await supabase.post(
                 "/cs_history", 
-                json={
-                    "user_id": telegram_id,
-                    "item_id": winner['id'],
-                    # Используем ID транзакции BOTT или заглушку для билетов
-                    "code_used": f"BOTT_ORDER_{bott_order_id}" if currency == 'coins' else f"TICKET_PURCHASE_{item_id}_{int(time.time())}",
-                    "status": "pending",
-                    "price": 0 # Цена получения 0, так как выигран
-                },
+                json=hist_payload,
                 headers={"Prefer": "return=representation"} 
             )
             
-            # Получаем ID созданной записи
             hist_data = hist_resp.json()
             history_id = 0
-            if hist_data and isinstance(hist_data, list):
-                history_id = hist_data[0]['id']
+            # Вытягиваем ID из ответа Supabase
+            if isinstance(hist_data, list) and len(hist_data) > 0:
+                history_id = hist_data[0].get('id', 0)
+            elif isinstance(hist_data, dict):
+                history_id = hist_data.get('id', 0)
             
-            logging.info(f"[SHOP] Выигрыш: {winner['name']} (RealID={winner['id']} -> HistID={history_id})")
+            if history_id == 0:
+                logging.error(f"[SHOP] Не удалось получить HistoryID. Ответ БД: {hist_data}")
 
-            # Д. Генерируем ленту (из предметов ЭТОГО кейса)
-            # Используем те же веса, чтобы лента выглядела правдоподобно
+            # Д. Генерируем ленту
             roulette_strip = random.choices(all_items, weights=weights, k=80)
             roulette_strip[60] = winner 
             
-            # Е. Подменяем ID для фронтенда (чтобы работала продажа)
+            # Е. Подменяем ID для фронтенда (чтобы работала продажа/вывод)
             winner_for_frontend = winner.copy()
-            winner_for_frontend['id'] = history_id        
+            winner_for_frontend['id'] = history_id # Это наш HistoryID       
             winner_for_frontend['real_item_id'] = winner['id'] 
 
-            # Ж. ВОЗВРАЩАЕМ JSON
             return {
                 "status": "ok",
                 "message": "Кейс открыт успешно",
                 "winner": winner_for_frontend,  
                 "roulette_strip": roulette_strip,
-                "messages": [f"Выпал: {winner['name']}"],
                 "history_id": history_id,
                 "id": history_id 
             }
@@ -13061,7 +13058,6 @@ async def buy_bott_item_proxy(
         except Exception as e:
             logging.error(f"[SHOP] Ошибка в логике кейса: {e}")
             raise HTTPException(status_code=500, detail=f"Ошибка открытия: {str(e)}")
-
     # =========================================================================
     # ЛОГИКА ОБЫЧНОГО ТОВАРА
     # =========================================================================
@@ -15287,7 +15283,7 @@ async def get_user_inventory(
 
 
 # ==========================================
-# 📦 INVENTORY ACTIONS
+# 📦 INVENTORY ACTIONS (RELATIONAL UPDATE)
 # ==========================================
 
 # Переменная для уведомлений
@@ -15307,27 +15303,28 @@ async def sell_inventory_item(
     
     print(f"[SELL] Запрос обмена: User={user_id}, HistoryID={req.history_id}")
 
-    # 1. Проверяем предмет (Берем item_id, чтобы потом получить цену)
-    # Важно: статус должен быть 'pending'. Если 'processing' или 'exchanged' - вернет 400.
+    # 1. Проверяем предмет через JOIN с библиотекой предметов
+    # Мы берем запись из истории и "подтягиваем" цену из cs_items
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "id": f"eq.{req.history_id}", 
             "user_id": f"eq.{user_id}", 
             "status": "eq.pending", 
-            "select": "id, item:cs_items(price)"
+            "select": "id, item:cs_items(price)" # Берем цену из связанной таблицы cs_items
         }
     )
     
     rows = check_resp.json()
     
-    # ЛОГИ ДЛЯ ОТЛАДКИ (Смотри в Vercel Logs)
+    # ЛОГИ ДЛЯ ОТЛАДКИ
     if not rows:
         print(f"[SELL] ОШИБКА: Предмет не найден или статус не pending. Ответ БД: {check_resp.text}")
         raise HTTPException(status_code=400, detail="Предмет недоступен для обмена (возможно, уже продан)")
     
-    # 2. Считаем билеты
+    # 2. Считаем билеты (берем цену из присоединенного объекта 'item')
     try:
+        # В новой схеме данные предмета лежат в ключе 'item'
         item_data = rows[0].get('item', {})
         raw_price = item_data.get('price', 0)
         # Превращаем "100" -> 100.0 -> 100
@@ -15341,7 +15338,7 @@ async def sell_inventory_item(
 
     print(f"[SELL] Начисляем {tickets_amount} билетов")
 
-    # 3. Меняем статус на 'exchanged'
+    # 3. Меняем статус на 'exchanged' (предмет продан системе)
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "exchanged"})
 
     # 4. Начисляем билеты юзеру
@@ -15349,11 +15346,10 @@ async def sell_inventory_item(
         await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": tickets_amount})
     except Exception as e:
         print(f"[SELL] Ошибка RPC, пробуем патч. {e}")
-        # Фолбэк
+        # Фолбэк (ручное обновление баланса билетов)
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
         if u_res.json():
             curr = u_res.json()[0].get('tickets', 0)
-            # Защита от Null
             safe_curr = int(curr) if curr else 0
             await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": safe_curr + tickets_amount})
 
@@ -15367,6 +15363,9 @@ async def withdraw_inventory_item(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Auth failed")
+        
     user_id = user_data['id']
 
     # 1. Получаем данные юзера
@@ -15383,7 +15382,7 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет
+    # 2. Получаем предмет (подтягиваем данные из библиотеки cs_items)
     check_resp = await supabase.get(
         "/cs_history",
         params={
@@ -15398,18 +15397,20 @@ async def withdraw_inventory_item(
     if not rows:
         raise HTTPException(status_code=404, detail="Предмет не найден или уже в обработке")
 
-    item_name = rows[0]['item']['name']
-    item_price = rows[0]['item']['price']
-    item_rarity = rows[0]['item']['rarity']
+    # Данные берем из вложенного объекта 'item'
+    item_info = rows[0].get('item', {})
+    item_name = item_info.get('name', 'Неизвестный предмет')
+    item_price = item_info.get('price', 0)
+    item_rarity = item_info.get('rarity', 'common')
 
-    # 3. Меняем статус
+    # 3. Меняем статус на 'processing' (админ видит заявку)
     upd_resp = await supabase.patch(
         "/cs_history",
         params={"id": f"eq.{req.history_id}"},
         json={"status": "processing"} 
     )
 
-   # 4. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
+    # 4. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
     if ADMIN_NOTIFY_CHAT_ID:
         try:
             log_text = (
@@ -15420,12 +15421,9 @@ async def withdraw_inventory_item(
                 f"🔗 <a href='{trade_link}'>Ссылка на обмен</a>"
             )
             
-            # Вместо прямой ссылки на html используем ссылку через бота, 
-            # чтобы открылось именно как Web App, а не просто в браузере.
-            # Замените HATElavka_bot на юзернейм вашего бота без @
             app_url = "https://t.me/HATElavka_bot/app?startapp=admin_orders"
 
-            # Используем обычную кнопку url вместо web_app
+            # Используем обычную кнопку url
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="👨‍💻 Открыть заявки", url=app_url)]
             ])
@@ -15435,11 +15433,13 @@ async def withdraw_inventory_item(
                 text=log_text, 
                 reply_markup=kb, 
                 parse_mode="HTML",
-                disable_web_page_preview=True # Чтобы не раздувать лог превьюхой трейд-ссылки
+                disable_web_page_preview=True
             )
         except Exception as e:
             print(f"⚠️ Ошибка отправки лога: {e}")
-    
+            
+    return {"success": True, "message": "Заявка на вывод создана!"}
+
 # 4. Подтвердить получение (Статус -> received)
 @app.post("/api/v1/user/inventory/confirm")
 async def confirm_inventory_item(
@@ -15447,11 +15447,17 @@ async def confirm_inventory_item(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Auth failed")
     
-    # Меняем статус только если он был 'sent' (админ отправил)
+    # Меняем статус только если он был 'sent' (админ отправил скин)
     res = await supabase.patch(
         "/cs_history",
-        params={"id": f"eq.{req.history_id}", "user_id": f"eq.{user_data['id']}", "status": "eq.sent"},
+        params={
+            "id": f"eq.{req.history_id}", 
+            "user_id": f"eq.{user_data['id']}", 
+            "status": "eq.sent"
+        },
         json={"status": "received"}
     )
     
