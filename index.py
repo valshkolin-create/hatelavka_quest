@@ -15657,6 +15657,81 @@ async def cancel_tg_challenge_paid(request: Request):
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Вставь это в api/index.py ---
+
+# 1. Получить список всех существующих кейсов (группировка)
+@app.post("/api/v1/admin/cases/list_tags")
+async def admin_get_case_tags(request: Request):
+    # Тут по хорошему надо проверять initData на админа, как в raffles
+    try:
+        # Получаем уникальные теги. Supabase JS умеет .rpc, но через python проще вытянуть все и сгруппировать, 
+        # либо использовать raw sql, если включен.
+        # Самый простой способ для items:
+        res = supabase.table("cs_items").select("case_tag").execute()
+        
+        tags = {}
+        for item in res.data:
+            tag = item.get("case_tag")
+            if tag:
+                tags[tag] = tags.get(tag, 0) + 1
+        
+        # Превращаем в список
+        result = [{"name": k, "count": v} for k, v in tags.items()]
+        return result
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 2. Получить предметы конкретного кейса
+@app.post("/api/v1/admin/cases/get_items")
+async def admin_get_case_items(request: Request):
+    body = await request.json()
+    case_tag = body.get("case_tag")
+    
+    res = supabase.table("cs_items").select("*").eq("case_tag", case_tag).order("price", desc=False).execute()
+    return res.data
+
+# 3. Сохранить предмет (Создать или Обновить)
+@app.post("/api/v1/admin/cases/save_item")
+async def admin_save_case_item(request: Request):
+    data = await request.json()
+    
+    item_id = data.get("id")
+    # Формируем объект для записи
+    payload = {
+        "name": data["name"],
+        "image_url": data["image_url"],
+        "price": data["price"],
+        "rarity": data["rarity"],
+        "condition": data.get("condition", "FN"),
+        "chance_weight": data["chance_weight"],
+        "case_tag": data["case_tag"], # Ожидаем уже полный тег "КЕЙС | ..."
+        "is_active": True
+    }
+
+    try:
+        if item_id:
+            # Обновление
+            res = supabase.table("cs_items").update(payload).eq("id", item_id).execute()
+        else:
+            # Создание
+            res = supabase.table("cs_items").insert(payload).execute()
+        return {"status": "ok", "data": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 4. Удалить предмет
+@app.post("/api/v1/admin/cases/delete_item")
+async def admin_delete_case_item(request: Request):
+    body = await request.json()
+    item_id = body.get("id")
+    
+    try:
+        supabase.table("cs_items").delete().eq("id", item_id).execute()
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
         
 @app.post("/api/v1/tg/challenge/status")
 async def get_tg_slider_status(
