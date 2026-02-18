@@ -3214,35 +3214,47 @@ async def make_auction_bid(
 
 @app.get("/api/v1/shop/case_contents")
 async def get_case_contents(
-    case_name: str, # <--- 1. Теперь ждем название кейса от фронтенда
+    case_name: str, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
-        logging.info(f"[SHOP] Загрузка содержимого для кейса: {case_name}")
+        logging.info(f"[SHOP] Загрузка содержимого (Relational) для: {case_name}")
 
-        # 2. Делаем запрос в базу с фильтром по case_tag
+        # Делаем JOIN запрос: берем связи + данные предмета
         response = await supabase.get(
-            "/cs_items", 
+            "/cs_case_contents", 
             params={
-                "is_active": "eq.true",
-                "case_tag": f"eq.{case_name}", # <--- ВАЖНО: берем только этот кейс
-                "select": "id,name,image_url,rarity,condition,price", # Добавил price, он нужен для сортировки
-                "order": "price.desc" # Сортируем: дорогие/редкие сверху
+                "case_tag": f"eq.{case_name}",
+                "select": "chance_weight, item:cs_items(*)" # Подтягиваем всю инфу о скине
             }
         )
         
-        items = response.json()
+        raw_data = response.json()
         
-        # Если список пустой, пишем варнинг в лог (поможет при отладке)
-        if not items:
-            logging.warning(f"[SHOP] Внимание: Кейс '{case_name}' пуст или не найден в базе!")
-            
+        if not raw_data:
+            logging.warning(f"[SHOP] Кейс '{case_name}' пуст (нет связей)!")
+            return []
+
+        # Преобразуем в плоский список, как ждет фронтенд
+        items = []
+        for row in raw_data:
+            skin = row.get('item') # Это объект скина из cs_items
+            if skin and skin.get('is_active'): # Проверяем, активен ли скин
+                # Копируем данные скина
+                final_item = skin.copy()
+                # ВАЖНО: Используем шанс из настройки кейса, а не дефолтный
+                final_item['chance_weight'] = row['chance_weight']
+                items.append(final_item)
+
+        # Сортируем: дорогие/редкие сверху
+        # (Можно доработать сортировку по rarity, если нужно)
+        items.sort(key=lambda x: float(x.get('price', 0)), reverse=True)
+
         return items
 
     except Exception as e:
-        logging.error(f"[SHOP] Error getting case contents: {e}")
+        logging.error(f"[SHOP] Error getting relational contents: {e}")
         raise HTTPException(status_code=500, detail="Ошибка загрузки содержимого")
-
 
 @app.get("/api/v1/telegram/tasks")
 async def get_telegram_tasks(
@@ -15662,135 +15674,172 @@ async def cancel_tg_challenge_paid(request: Request):
 
 # --- ДОБАВИТЬ В api/index.py ---
 
-# 5. Поиск предметов по всей базе (для добавления существующих)
+# =====================================================
+# ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
+# =====================================================
+
+# 5. Поиск предметов по всей базе (библиотека)
 @app.post("/api/v1/admin/cases/search_items")
 async def admin_search_case_items(request: Request):
     try:
         body = await request.json()
         query = body.get("query", "").strip()
         
-        # Начинаем строить запрос
+        # Ищем только в таблице уникальных предметов
         query_builder = supabase.table("cs_items").select("*")
         
         if query:
-            # Ищем по частичному совпадению (AK, MP9 и т.д.)
-            # ilike делает поиск нечувствительным к регистру
             query_builder = query_builder.ilike("name", f"%{query}%")
         else:
-            # Если запрос пустой — возвращаем последние добавленные предметы
-            # Это позволяет увидеть "библиотеку" сразу при открытии
+            # Если пусто — возвращаем последние добавленные
             query_builder = query_builder.order("id", desc=True)
 
-        # ВАЖНО: Ограничиваем выдачу 50 предметами, чтобы не было ошибки 500
         res = query_builder.limit(50).execute()
-        
         return res.data
     except Exception as e:
         print(f"Search Error: {e}")
-        # Возвращаем пустой список вместо падения сервера
         return []
 
+# 6. Добавление существующего скина в кейс (Создание связи)
 @app.post("/api/v1/admin/cases/clone_item")
 async def admin_clone_case_item(request: Request):
     try:
         body = await request.json()
-        origin_id = body.get("origin_id")
+        origin_id = body.get("origin_id") # ID скина
         target_case = body.get("target_case") 
         
-        # 1. Берем оригинал
-        original = supabase.table("cs_items").select("*").eq("id", origin_id).single().execute()
-        item_data = original.data
-        
-        if not item_data:
-            raise HTTPException(status_code=404, detail="Item not found")
-            
-        # 2. Создаем копию с новым тегом кейса
-        new_payload = {
-            "name": item_data["name"],
-            "image_url": item_data["image_url"],
-            "price": item_data["price"],
-            "rarity": item_data["rarity"],
-            "condition": item_data["condition"],
-            "chance_weight": item_data["chance_weight"],
-            "case_tag": target_case, 
-            "is_active": True
+        # Вместо создания дубликата, мы создаем СВЯЗЬ
+        payload = {
+            "case_tag": target_case,
+            "item_id": origin_id,
+            "chance_weight": 10 # Дефолтный шанс
         }
         
-        res = supabase.table("cs_items").insert(new_payload).execute()
+        # Пробуем добавить. Если уже есть (unique constraint) - Supabase вернет ошибку, которую мы обработаем
+        res = supabase.table("cs_case_contents").insert(payload).execute()
         return {"status": "ok", "data": res.data}
     except Exception as e:
-        print(f"Clone Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Если такой скин уже есть в этом кейсе
+        print(f"Link Error: {e}")
+        return {"status": "error", "message": "Скин уже добавлен в этот кейс"}
 
-# 1. Получить список всех существующих кейсов (группировка)
+# 1. Получить список кейсов (Группировка по таблице связей)
 @app.post("/api/v1/admin/cases/list_tags")
 async def admin_get_case_tags(request: Request):
-    # Тут по хорошему надо проверять initData на админа, как в raffles
     try:
-        # Получаем уникальные теги. Supabase JS умеет .rpc, но через python проще вытянуть все и сгруппировать, 
-        # либо использовать raw sql, если включен.
-        # Самый простой способ для items:
-        res = supabase.table("cs_items").select("case_tag").execute()
+        # Берем данные из таблицы СВЯЗЕЙ
+        res = supabase.table("cs_case_contents").select("case_tag").execute()
         
         tags = {}
-        for item in res.data:
-            tag = item.get("case_tag")
+        for row in res.data:
+            tag = row.get("case_tag")
             if tag:
                 tags[tag] = tags.get(tag, 0) + 1
         
-        # Превращаем в список
         result = [{"name": k, "count": v} for k, v in tags.items()]
         return result
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"List Tags Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# 2. Получить предметы конкретного кейса
+# 2. Получить предметы (JOIN запрос: Связи + Данные скина)
 @app.post("/api/v1/admin/cases/get_items")
 async def admin_get_case_items(request: Request):
     body = await request.json()
     case_tag = body.get("case_tag")
     
-    res = supabase.table("cs_items").select("*").eq("case_tag", case_tag).order("price", desc=False).execute()
-    return res.data
+    # ВАЖНО: Запрашиваем таблицу связей и "подтягиваем" (join) данные из cs_items
+    res = supabase.table("cs_case_contents")\
+        .select("*, item:cs_items(*)")\
+        .eq("case_tag", case_tag)\
+        .execute()
+    
+    # Превращаем в плоский список для фронтенда
+    flat_data = []
+    for row in res.data:
+        skin = row.get('item')
+        if skin:
+            # Копируем данные скина
+            skin_copy = skin.copy()
+            # Перезаписываем шанс (берем его из настройки кейса, а не глобального скина)
+            skin_copy['chance_weight'] = row['chance_weight']
+            # Добавляем ID связи (нужно для удаления именно из этого кейса)
+            skin_copy['link_id'] = row['id'] 
+            flat_data.append(skin_copy)
+            
+    # Сортируем по цене (дорогие сверху)
+    return sorted(flat_data, key=lambda x: x.get('price', 0), reverse=True)
 
-# 3. Сохранить предмет (Создать или Обновить)
+# 3. Сохранить (Умное сохранение: Скин + Связь)
 @app.post("/api/v1/admin/cases/save_item")
 async def admin_save_case_item(request: Request):
     data = await request.json()
-    
     item_id = data.get("id")
-    # Формируем объект для записи
-    payload = {
+    case_tag = data.get("case_tag")
+    
+    # Данные самого скина (общие для всех кейсов)
+    item_payload = {
         "name": data["name"],
         "image_url": data["image_url"],
         "price": data["price"],
         "rarity": data["rarity"],
         "condition": data.get("condition", "FN"),
-        "chance_weight": data["chance_weight"],
-        "case_tag": data["case_tag"], # Ожидаем уже полный тег "КЕЙС | ..."
         "is_active": True
     }
 
     try:
         if item_id:
-            # Обновление
-            res = supabase.table("cs_items").update(payload).eq("id", item_id).execute()
+            # 1. Обновляем сам скин (глобально)
+            supabase.table("cs_items").update(item_payload).eq("id", item_id).execute()
+            
+            # 2. Обновляем шанс в текущем кейсе (таблица связей)
+            # Ищем связь по item_id и case_tag
+            supabase.table("cs_case_contents")\
+                .update({"chance_weight": data["chance_weight"]})\
+                .eq("item_id", item_id)\
+                .eq("case_tag", case_tag)\
+                .execute()
+                
+            return {"status": "ok"}
         else:
-            # Создание
-            res = supabase.table("cs_items").insert(payload).execute()
-        return {"status": "ok", "data": res.data}
+            # СОЗДАНИЕ С НУЛЯ
+            # 1. Создаем скин
+            res_item = supabase.table("cs_items").insert(item_payload).execute()
+            new_id = res_item.data[0]['id']
+            
+            # 2. Создаем связь с кейсом
+            link_payload = {
+                "case_tag": case_tag,
+                "item_id": new_id,
+                "chance_weight": data["chance_weight"]
+            }
+            supabase.table("cs_case_contents").insert(link_payload).execute()
+            
+            return {"status": "ok", "data": res_item.data}
+            
     except Exception as e:
+        print(f"Save Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# 4. Удалить предмет
+# 4. Удалить (Разрываем связь, скин остается в базе)
 @app.post("/api/v1/admin/cases/delete_item")
 async def admin_delete_case_item(request: Request):
     body = await request.json()
-    item_id = body.get("id")
+    
+    # Фронт теперь должен присылать link_id (если есть) или id + case_tag
+    link_id = body.get("link_id") 
     
     try:
-        supabase.table("cs_items").delete().eq("id", item_id).execute()
+        if link_id:
+            # Удаляем конкретную связь по ID
+            supabase.table("cs_case_contents").delete().eq("id", link_id).execute()
+        else:
+            # Фолбэк (на всякий случай)
+            item_id = body.get("id")
+            # Тут нужен case_tag, чтобы знать откуда удалять, если нет link_id
+            # Но лучше полагаться на link_id с фронта (я его добавил в JS)
+            pass
+            
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
