@@ -15660,6 +15660,56 @@ async def cancel_tg_challenge_paid(request: Request):
 
 # --- Вставь это в api/index.py ---
 
+# --- ДОБАВИТЬ В api/index.py ---
+
+# 5. Поиск предметов по всей базе (для добавления существующих)
+@app.post("/api/v1/admin/cases/search_items")
+async def admin_search_case_items(request: Request):
+    body = await request.json()
+    query = body.get("query", "").strip()
+    
+    # Ищем по имени, возвращаем уникальные (чтобы не видеть 10 одинаковых азимовов)
+    # Или просто возвращаем топ-20 совпадений
+    if not query:
+        return []
+        
+    res = supabase.table("cs_items")\
+        .select("*")\
+        .ilike("name", f"%{query}%")\
+        .limit(20)\
+        .execute()
+        
+    return res.data
+
+# 6. Клонирование предмета в текущий кейс
+@app.post("/api/v1/admin/cases/clone_item")
+async def admin_clone_case_item(request: Request):
+    body = await request.json()
+    origin_id = body.get("origin_id")
+    target_case = body.get("target_case") # Тег кейса, куда копируем
+    
+    # 1. Берем оригинал
+    original = supabase.table("cs_items").select("*").eq("id", origin_id).single().execute()
+    item_data = original.data
+    
+    if not item_data:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    # 2. Создаем копию
+    new_payload = {
+        "name": item_data["name"],
+        "image_url": item_data["image_url"],
+        "price": item_data["price"],
+        "rarity": item_data["rarity"],
+        "condition": item_data["condition"],
+        "chance_weight": item_data["chance_weight"],
+        "case_tag": target_case, # ВАЖНО: Ставим новый тег
+        "is_active": True
+    }
+    
+    res = supabase.table("cs_items").insert(new_payload).execute()
+    return {"status": "ok", "data": res.data}
+
 # 1. Получить список всех существующих кейсов (группировка)
 @app.post("/api/v1/admin/cases/list_tags")
 async def admin_get_case_tags(request: Request):
