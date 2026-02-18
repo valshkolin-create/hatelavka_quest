@@ -12976,12 +12976,11 @@ async def buy_bott_item_proxy(
     # =========================================================================
     # ЛОГИКА РУЛЕТКИ (С разделением по кейсам)
     # =========================================================================
-   if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
+        if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
         logging.info(f"[SHOP] Открытие кейса: {item_title}")
         
         try:
             # А. Берем скины из НОВОЙ ТАБЛИЦЫ СВЯЗЕЙ (cs_case_contents)
-            # Фильтруем по case_tag и подтягиваем данные скина из cs_items
             contents_resp = await supabase.get(
                 "/cs_case_contents", 
                 params={
