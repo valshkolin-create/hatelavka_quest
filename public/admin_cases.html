@@ -30,30 +30,49 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0; padding: 20px; padding-bottom: 100px;
             -webkit-tap-highlight-color: transparent;
+            user-select: none; /* Чтобы интерфейс не выделялся, но инпуты починим ниже */
         }
 
         /* HEADER */
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
         .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; }
-        .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); }
+        .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
 
-        /* CASE TABS (Horizontal Scroll) */
-        .cases-nav {
-            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px;
-            scrollbar-width: none;
+        /* VIEW CONTAINERS */
+        .view-section { display: none; animation: fadeIn 0.2s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- CASES GRID (FOLDERS) --- */
+        .cases-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 4 в ряд как просил */
+            gap: 12px; 
         }
-        .cases-nav::-webkit-scrollbar { display: none; }
         
-        .case-chip {
-            background: rgba(255,255,255,0.05); border: 1px solid var(--card-border);
-            padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
-            color: var(--text-sec); white-space: nowrap; cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; gap: 6px;
+        /* Адаптив для телефонов */
+        @media (max-width: 600px) {
+            .cases-grid { grid-template-columns: repeat(2, 1fr); }
         }
-        .case-chip.active { background: var(--primary); color: #000; border-color: var(--primary); }
-        .case-chip.add-new { border-style: dashed; border-color: var(--text-sec); color: var(--text); }
 
-        /* ITEMS GRID */
+        .case-folder {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 15px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            aspect-ratio: 1 / 1; transition: transform 0.1s, background 0.2s;
+            text-align: center;
+        }
+        .case-folder:active { transform: scale(0.96); background: rgba(255,255,255,0.05); }
+        
+        .folder-icon { font-size: 32px; color: var(--primary); margin-bottom: 10px; }
+        .folder-name { font-size: 12px; font-weight: 700; color: #fff; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .folder-count { font-size: 10px; color: var(--text-sec); margin-top: 4px; }
+
+        /* Специальная карточка создания */
+        .case-folder.create-new { border: 1px dashed var(--text-sec); background: rgba(255,255,255,0.02); }
+        .case-folder.create-new .folder-icon { color: var(--text-sec); }
+
+        /* --- ITEMS GRID (INSIDE CASE) --- */
         .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
         
         .item-card {
@@ -82,10 +101,15 @@
         .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
 
         .form-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; }
+        
+        /* Исправленные инпуты */
         .form-input, .form-select { 
             width: 100%; background: #252525; border: 1px solid var(--card-border);
             color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; box-sizing: border-box;
+            user-select: text !important; /* ВАЖНО: Разрешает выделение и ввод текста */
+            -webkit-user-select: text !important;
         }
+        .form-input:focus { border-color: var(--primary); }
         .form-row { display: flex; gap: 10px; }
         
         /* PREVIEW */
@@ -98,29 +122,53 @@
         .prev-price { color: var(--primary); font-size: 13px; font-weight: 700; }
 
         /* BUTTONS */
-        .btn-main { background: var(--primary); color: #000; border: none; padding: 14px; border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer; }
-        .btn-danger { background: rgba(255, 77, 77, 0.1); color: var(--danger); border: 1px solid var(--danger); padding: 14px; border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer; margin-top: 10px; }
-        .icon-btn { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.1); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .btn-action-row {
+            display: flex; gap: 10px; margin-top: 15px;
+        }
+        
+        .admin-action-btn {
+            border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+            transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        
+        .btn-save { 
+            background: linear-gradient(135deg, #ffd700, #ffaa00); 
+            color: #000; 
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        .btn-save:active { transform: scale(0.98); opacity: 0.9; }
 
-        /* ADD MENU FAB */
-        .fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 90; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+        .btn-delete { 
+            background: rgba(255, 59, 48, 0.15); 
+            color: #ff3b30; 
+            border: 1px solid rgba(255, 59, 48, 0.3);
+        }
+        .btn-delete:active { background: rgba(255, 59, 48, 0.25); }
+
+        .icon-btn { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,0.1); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+
+        /* FAB (Кнопка +) */
+        .fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 90; display: none; flex-direction: column; gap: 10px; align-items: flex-end; }
+        .fab-container.show { display: flex; } /* Показываем только внутри кейса */
+
         .fab-main {
-            width: 56px; height: 56px; background: var(--primary); color: #000; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; font-size: 24px;
+            width: 60px; height: 60px; background: var(--primary); color: #000; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 26px;
             box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4); cursor: pointer; transition: transform 0.2s;
         }
         .fab-main.rotate { transform: rotate(45deg); background: #fff; }
         
         .fab-option {
             background: #2c2c2e; border: 1px solid var(--card-border); color: #fff;
-            padding: 10px 15px; border-radius: 12px; font-size: 14px; font-weight: 600;
+            padding: 12px 20px; border-radius: 14px; font-size: 14px; font-weight: 600;
             display: flex; align-items: center; gap: 10px; cursor: pointer;
             transform: translateY(20px); opacity: 0; pointer-events: none; transition: 0.2s;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         .fab-menu-open .fab-option { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
-        /* SEARCH LIBRARY LIST */
+        /* SEARCH LIST */
         .search-item {
             display: flex; align-items: center; gap: 10px; padding: 10px;
             background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px;
@@ -134,16 +182,20 @@
 <body>
 
     <div class="page-header">
-        <a href="/admin" class="back-btn"><i class="fa-solid fa-chevron-left"></i> Назад</a>
-        <h1 class="page-title">Кейсы</h1>
+        <button id="nav-back-btn" class="back-btn" onclick="handleBack()"><i class="fa-solid fa-chevron-left"></i> Назад</button>
+        <h1 class="page-title" id="page-title">Кейсы</h1>
         <div style="width: 20px;"></div> 
     </div>
 
-    <div class="cases-nav" id="casesNav">
-        </div>
+    <div id="view-cases" class="view-section active">
+        <div id="cases-grid" class="cases-grid">
+            </div>
+    </div>
 
-    <div id="itemsContainer">
-        <div style="text-align:center; padding:40px; color:var(--text-sec);">Загрузка...</div>
+    <div id="view-items" class="view-section">
+        <div id="itemsContainer">
+            <div style="text-align:center; padding:40px; color:var(--text-sec);">Загрузка...</div>
+        </div>
     </div>
 
     <div class="fab-container" id="fabMenu">
@@ -159,13 +211,13 @@
     </div>
 
     <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
-        <div class="bottom-sheet" style="height: 80vh;">
+        <div class="bottom-sheet" style="height: 85vh;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h3 style="margin:0">Библиотека Скинов</h3>
                 <button onclick="closeModal('modal-library')" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <div class="admin-form">
+            <div class="admin-form" style="margin-top: 15px;">
                 <input type="text" id="lib-search-inp" class="form-input" placeholder="Введите название (например AK)..." oninput="debounceSearch()">
             </div>
 
@@ -192,32 +244,36 @@
             <form id="edit-form" class="admin-form" onsubmit="event.preventDefault(); saveItem();">
                 <input type="hidden" name="id">
                 
-                <label>Картинка</label>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" name="image_url" id="inp-img" class="form-input" placeholder="https://..." oninput="updatePreview()">
-                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload').click()">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </button>
-                    <input type="file" id="file-upload" hidden accept="image/*" onchange="uploadImage(this)">
+                <label class="form-label">Картинка</label>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <input type="text" name="image_url" id="inp-img" class="form-input" placeholder="https://..." oninput="updatePreview()">
+                    </div>
+                    <div style="display:flex; align-items:flex-end;">
+                        <input type="file" id="file-upload" hidden accept="image/*" onchange="uploadImage(this)">
+                        <button type="button" class="icon-btn" onclick="document.getElementById('file-upload').click()">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <label>Название</label>
+                <label class="form-label">Название</label>
                 <input type="text" name="name" id="inp-name" class="form-input" placeholder="AK-47 | Asiimov" required oninput="updatePreview()">
 
-                <div class="form-row">
+                <div class="form-row" style="margin-top:10px;">
                     <div style="flex:1">
-                        <label>Цена</label>
+                        <label class="form-label">Цена</label>
                         <input type="number" name="price" id="inp-price" class="form-input" value="0" oninput="updatePreview()">
                     </div>
                     <div style="flex:1">
-                        <label>Шанс (Weight)</label>
+                        <label class="form-label">Шанс (Weight)</label>
                         <input type="number" name="chance_weight" class="form-input" value="10">
                     </div>
                 </div>
 
-                <div class="form-row">
+                <div class="form-row" style="margin-top:10px;">
                     <div style="flex:1">
-                        <label>Редкость</label>
+                        <label class="form-label">Редкость</label>
                         <select name="rarity" class="form-select">
                             <option value="common">White (Ширп)</option>
                             <option value="blue">Blue (Армейское)</option>
@@ -228,7 +284,7 @@
                         </select>
                     </div>
                     <div style="flex:1">
-                        <label>Качество</label>
+                        <label class="form-label">Качество</label>
                         <select name="condition" class="form-select">
                             <option value="FN">FN</option>
                             <option value="MW">MW</option>
@@ -241,8 +297,10 @@
 
                 <input type="hidden" name="case_tag">
 
-                <button type="submit" class="admin-action-btn btn-save">СОХРАНИТЬ</button>
-                <button type="button" id="btn-delete" class="admin-action-btn btn-delete" onclick="deleteItem()">УДАЛИТЬ</button>
+                <div class="btn-action-row">
+                    <button type="button" id="btn-delete" class="admin-action-btn btn-delete" onclick="deleteItem()">УДАЛИТЬ</button>
+                    <button type="submit" class="admin-action-btn btn-save">СОХРАНИТЬ</button>
+                </div>
             </form>
         </div>
     </div>
@@ -251,20 +309,35 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let currentCase = '';
+        let currentCase = null; // Если null, мы в меню выбора. Если строка - внутри кейса.
         let searchTimeout = null;
 
         // --- INIT ---
-        loadTags();
+        loadCases();
 
-        function toggleFab() {
-            document.getElementById('fabMenu').classList.toggle('fab-menu-open');
-            document.querySelector('.fab-main').classList.toggle('rotate');
+        // Навигация (Назад)
+        function handleBack() {
+            if (currentCase) {
+                // Если мы внутри кейса - выходим в меню
+                currentCase = null;
+                document.getElementById('view-items').classList.remove('active');
+                document.getElementById('view-cases').classList.add('active');
+                document.getElementById('page-title').innerText = 'Кейсы';
+                document.getElementById('fabMenu').classList.remove('show');
+                
+                // Перезагрузим список кейсов, чтобы обновить счетчики
+                loadCases();
+            } else {
+                // Если мы в меню - выходим в главную админку
+                window.location.href = '/admin';
+            }
         }
 
-        // 1. ЗАГРУЗКА СПИСКА КЕЙСОВ
-        async function loadTags() {
-            const nav = document.getElementById('casesNav');
+        // 1. ЗАГРУЗКА СПИСКА ПАПОК (КЕЙСОВ)
+        async function loadCases() {
+            const grid = document.getElementById('cases-grid');
+            grid.innerHTML = '<div style="text-align:center; color:#555; grid-column:1/-1;">Загрузка...</div>';
+
             try {
                 const res = await fetch('/api/v1/admin/cases/list_tags', {
                     method: 'POST', 
@@ -273,54 +346,70 @@
                 });
                 const data = await res.json();
                 
-                nav.innerHTML = '';
+                grid.innerHTML = '';
                 
-                // Кнопка "Новый кейс"
-                const addBtn = document.createElement('div');
-                addBtn.className = 'case-chip add-new';
-                addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Новый';
-                addBtn.onclick = createNewCase;
-                nav.appendChild(addBtn);
+                // 1. Кнопка создания нового (как папка)
+                const addDiv = document.createElement('div');
+                addDiv.className = 'case-folder create-new';
+                addDiv.onclick = createNewCase;
+                addDiv.innerHTML = `
+                    <div class="folder-icon"><i class="fa-solid fa-plus"></i></div>
+                    <div class="folder-name">Создать</div>
+                `;
+                grid.appendChild(addDiv);
 
+                // 2. Существующие кейсы
                 data.forEach(t => {
                     if (!t.name) return;
+                    // Убираем "КЕЙС | " для красоты
                     const name = t.name.replace(/^(КЕЙС|CASE)\s*\|\s*/i, '');
-                    const chip = document.createElement('div');
-                    chip.className = `case-chip ${currentCase === t.name ? 'active' : ''}`;
-                    chip.innerText = `${name} (${t.count})`;
-                    chip.onclick = () => { currentCase = t.name; renderTags(data); loadItems(t.name); };
-                    nav.appendChild(chip);
+                    
+                    const div = document.createElement('div');
+                    div.className = 'case-folder';
+                    div.onclick = () => openCaseView(t.name);
+                    div.innerHTML = `
+                        <div class="folder-icon"><i class="fa-solid fa-briefcase"></i></div>
+                        <div class="folder-name">${name}</div>
+                        <div class="folder-count">${t.count} скинов</div>
+                    `;
+                    grid.appendChild(div);
                 });
 
-                // Выбираем первый, если не выбран
-                if (!currentCase && data.length > 0) {
-                    currentCase = data[0].name;
-                    renderTags(data);
-                    loadItems(currentCase);
-                }
             } catch(e) { console.error(e); }
         }
 
-        function renderTags(data) {
-            const chips = document.querySelectorAll('.case-chip');
-            loadTags();
+        // 2. ВХОД В КЕЙС
+        function openCaseView(tagName) {
+            currentCase = tagName;
+            const displayName = tagName.replace(/^(КЕЙС|CASE)\s*\|\s*/i, '');
+            
+            // UI Switch
+            document.getElementById('page-title').innerText = displayName;
+            document.getElementById('view-cases').classList.remove('active');
+            document.getElementById('view-items').classList.add('active');
+            
+            // Show FAB
+            document.getElementById('fabMenu').classList.add('show');
+            document.getElementById('fabMenu').classList.remove('fab-menu-open'); // reset state
+            document.querySelector('.fab-main').classList.remove('rotate');
+
+            // Load Items
+            loadItems(tagName);
         }
 
         function createNewCase() {
             const name = prompt("Название нового кейса:");
             if (!name) return;
             const fullTag = "КЕЙС | " + name.trim();
-            currentCase = fullTag;
             
+            openCaseView(fullTag); // Сразу проваливаемся внутрь
             document.getElementById('itemsContainer').innerHTML = 
                 `<div style="text-align:center; padding:40px; color:var(--text-sec);">
-                    Кейс "${name}" создан.<br>Добавьте первый предмет.
+                    Кейс "${name}" создан.<br>Добавьте первый предмет через плюс.
                 </div>`;
-            
-            loadTags(); // Обновить шапку
         }
 
-        // 2. ЗАГРУЗКА ПРЕДМЕТОВ КЕЙСА
+        // 3. ЗАГРУЗКА ПРЕДМЕТОВ
         async function loadItems(tag) {
             const cont = document.getElementById('itemsContainer');
             cont.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
@@ -334,7 +423,7 @@
                 const items = await res.json();
                 
                 if (items.length === 0) {
-                    cont.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-sec);">Пусто</div>';
+                    cont.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-sec);">В кейсе пока пусто</div>';
                     return;
                 }
 
@@ -356,14 +445,19 @@
             } catch (e) { cont.innerHTML = 'Ошибка'; }
         }
 
-        // 3. БИБЛИОТЕКА (ПОИСК)
+        // --- ЛОГИКА FAB МЕНЮ ---
+        function toggleFab() {
+            document.getElementById('fabMenu').classList.toggle('fab-menu-open');
+            document.querySelector('.fab-main').classList.toggle('rotate');
+        }
+
+        // 4. БИБЛИОТЕКА (ПОИСК)
         function openLibrarySearch() {
             toggleFab();
-            if (!currentCase) { alert("Выберите кейс!"); return; }
             document.getElementById('modal-library').classList.add('modal-active');
             document.getElementById('lib-search-inp').value = '';
             
-            // 🔥 СРАЗУ ГРУЗИМ ВСЕ (пустой запрос)
+            // 🔥 СРАЗУ ГРУЗИМ ПОСЛЕДНИЕ
             doSearch();
         }
 
@@ -415,12 +509,11 @@
                     tg.HapticFeedback.notificationOccurred('success');
                     closeModal('modal-library');
                     loadItems(currentCase);
-                    loadTags();
                 } else alert("Ошибка");
             } catch(e) { alert("Сбой"); }
         }
 
-        // 4. РЕДАКТОР
+        // 5. РЕДАКТОР
         function openEditor(jsonStr) {
             toggleFab();
             const modal = document.getElementById('modal-editor');
@@ -439,7 +532,6 @@
                 form.case_tag.value = item.case_tag;
                 delBtn.style.display = 'flex';
             } else {
-                if (!currentCase) { alert("Выберите кейс!"); return; }
                 form.reset();
                 form.id.value = '';
                 form.case_tag.value = currentCase;
@@ -481,7 +573,6 @@
                 if (res.ok) {
                     closeModal('modal-editor');
                     loadItems(currentCase);
-                    loadTags(); 
                     tg.HapticFeedback.notificationOccurred('success');
                 } else alert("Ошибка");
             } catch(e) { alert("Сбой"); }
@@ -497,7 +588,6 @@
                 });
                 closeModal('modal-editor');
                 loadItems(currentCase);
-                loadTags();
             } catch(e) { alert("Ошибка"); }
         }
 
