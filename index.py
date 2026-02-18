@@ -12862,6 +12862,8 @@ async def sync_user_referral(
         
     return {"status": "no_change"}
         
+# --- ЭТОТ БЛОК ЗАМЕНЯЕТ ТВОЙ ТЕКУЩИЙ API ENDPOINT ---
+
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
@@ -12976,7 +12978,7 @@ async def buy_bott_item_proxy(
     # =========================================================================
     # ЛОГИКА РУЛЕТКИ (С разделением по кейсам)
     # =========================================================================
-        if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
+    if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
         logging.info(f"[SHOP] Открытие кейса: {item_title}")
         
         try:
