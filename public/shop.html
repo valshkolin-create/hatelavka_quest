@@ -1868,7 +1868,7 @@
                 <div class="r-progress-dot"></div>
                 <div class="r-progress-dot"></div> 
             </div>
-            <div class="r-progress-label">До гарантированного приза выше стоимости кейса</div>
+            <div class="r-progress-label" id="r-progress-text">До гарантированного приза</div>
         </div>
 
         <div id="r-win" class="win-screen"></div>
@@ -3056,23 +3056,38 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
     caseNameEl.innerText = cleanName;
     
     // 2. Настраиваем прогресс-бар
+    // 2. Настраиваем прогресс-бар и текст
     let currentLacky = lacky || 1; 
+    const progressTextEl = document.getElementById('r-progress-text'); // Нашли наш текст
+
     dots.forEach((dot, index) => {
-        // Сброс классов (чтобы убрать старые active/guaranteed)
         dot.className = 'r-progress-dot'; 
 
-        // Если индекс точки меньше текущего lacky, она активна (пройдена)
         if (index < currentLacky) {
             dot.classList.add('active');
 
-            // ТУТ ВАЖНЫЙ МОМЕНТ:
-            // Если это последняя точка (индекс 4) И текущий lacky равен 5, делаем её "гарантированной"
             if (index === 4 && currentLacky === 5) {
                  dot.classList.add('guaranteed');
             }
         }
     });
+
+    // --- ЛОГИКА ТЕКСТА (ОСТАЛОСЬ Х КЕЙСОВ) ---
+    const remaining = 5 - currentLacky;
     
+    if (currentLacky === 5) {
+        // Если это финальная крутка
+        progressTextEl.innerHTML = '<span style="color: #ffcc00; font-size: 11px; text-shadow: 0 0 10px rgba(255,204,0,0.5);">🔥 ГАРАНТИРОВАННЫЙ ОКУП АКТИВЕН 🔥</span>';
+    } else {
+        // Склоняем слово "кейс"
+        let word = "кейсов";
+        if (remaining === 1) word = "кейс";
+        else if (remaining >= 2 && remaining <= 4) word = "кейса";
+        
+        progressTextEl.innerHTML = `Осталось <span style="color: #fff; font-weight: 800;">${remaining} ${word}</span> до гарантированнонго окупа кейса`;
+    }
+    // ------------------------------------------
+
     // 3. Показываем интерфейс
     topHeader.style.display = 'flex';
     bottomProgress.style.display = 'flex';
