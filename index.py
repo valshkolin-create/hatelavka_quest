@@ -12975,14 +12975,38 @@ async def buy_bott_item_proxy(
         )
     # =========================================================================
 
-    # =========================================================================
-    # 🎰 ЛОГИКА РУЛЕТКИ (ОБНОВЛЕННАЯ: С КОЛОНКОЙ КЕЙСА)
+# =========================================================================
+    # 🎰 ЛОГИКА РУЛЕТКИ (ИНДИВИДУАЛЬНЫЙ СЧЕТЧИК LACKY ДЛЯ КЕЙСА)
     # =========================================================================
     if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
         logging.info(f"[SHOP] Открытие кейса: {item_title} для юзера {telegram_id}")
         
         try:
-            # А. Получаем скины из таблицы связей
+            # --- 1. ДОСТАЕМ ПОСЛЕДНИЙ LACKY ДЛЯ ЭТОГО ЮЗЕРА И ЭТОГО КЕЙСА ---
+            last_spin_resp = await supabase.get(
+                "/cs_history",
+                params={
+                    "user_id": f"eq.{telegram_id}",
+                    "case_name": f"eq.{item_title}",
+                    "order": "created_at.desc",
+                    "limit": "1",
+                    "select": "lacky"
+                }
+            )
+            last_spin_data = last_spin_resp.json()
+            
+            last_lacky = 0
+            if isinstance(last_spin_data, list) and len(last_spin_data) > 0:
+                last_lacky = int(last_spin_data[0].get("lacky", 0))
+
+            # Определяем текущий шаг
+            current_lacky = last_lacky + 1
+            if current_lacky > 5:
+                current_lacky = 1 # Сброс цикла после пятой крутки
+                
+            logging.info(f"[SHOP] Юзер {telegram_id} | Кейс '{item_title}' | Крутка: {current_lacky}/5")
+
+            # --- 2. Получаем скины из таблицы связей ---
             contents_resp = await supabase.get(
                 "/cs_case_contents", 
                 params={
@@ -13008,29 +13032,53 @@ async def buy_bott_item_proxy(
             if not all_items:
                 raise HTTPException(status_code=500, detail="В кейсе нет активных скинов.")
 
-            # Б. Выбираем победителя
+            # --- 3. ЛОГИКА ГАРАНТА (ФОРМУЛА ОКУПАЕМОСТИ НА ШАГЕ 5) ---
+            if current_lacky == 5:
+                # Если покупка за монеты (30 монет = 20 билетов), берем коэффициент 0.66
+                # Если покупка за билеты, то 1 к 1
+                target_value = float(price) * 0.66 if currency == 'coins' else float(price)
+                
+                logging.info(f"[SHOP] ШАГ 5! Включаем ГАРАНТ. Ищем скины >= {target_value} билетов.")
+                
+                guaranteed_items = []
+                guaranteed_weights = []
+                
+                for skin, w in zip(all_items, weights):
+                    # Берем цену скина (она хранится как строка, переводим во float)
+                    skin_price = float(skin.get('price', 0))
+                    
+                    if skin_price >= target_value:
+                        guaranteed_items.append(skin)
+                        guaranteed_weights.append(w)
+                
+                # Подменяем пул, если есть подходящие дорогие предметы
+                if guaranteed_items:
+                    all_items = guaranteed_items
+                    weights = guaranteed_weights
+                else:
+                    logging.warning(f"[SHOP] В кейсе '{item_title}' нет скинов дороже {target_value}! Гарант пропущен.")
+
+            # --- 4. Выбираем победителя ---
             winner = random.choices(all_items, weights=weights, k=1)[0]
             
-            # В. ЗАПИСЬ В ИСТОРИЮ (Добавляем новую колонку case_name)
-            # Принудительно превращаем всё в нужные типы данных
+            # --- 5. ЗАПИСЬ В ИСТОРИЮ (Добавили lacky) ---
             hist_payload = {
                 "user_id": int(telegram_id), 
                 "item_id": int(winner['id']),
-                "case_name": str(item_title), # Новая колонка
+                "case_name": str(item_title),
                 "code_used": f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}",
-                "status": "pending"
+                "status": "pending",
+                "lacky": current_lacky # <--- Записываем текущий шаг
             }
             
             logging.info(f"[SHOP] Попытка вставки в cs_history: {hist_payload}")
 
-            # Делаем вставку
             hist_insert_resp = await supabase.post(
                 "/cs_history", 
                 json=hist_payload,
                 headers={"Prefer": "return=representation"} 
             )
             
-            # ВАЖНО: Если статус не 200/201, значит база ОТКЛОНИЛА запись
             if hist_insert_resp.status_code not in [200, 201]:
                 logging.error(f"[SHOP] БАЗА ОТКЛОНИЛА ЗАПИСЬ: {hist_insert_resp.text}")
                 raise Exception(f"Database error: {hist_insert_resp.text}")
@@ -13038,15 +13086,13 @@ async def buy_bott_item_proxy(
             hist_result = hist_insert_resp.json()
             history_id = 0
 
-            # Достаем ID из ответа
             if isinstance(hist_result, list) and len(hist_result) > 0:
                 history_id = hist_result[0].get('id')
             elif isinstance(hist_result, dict):
                 history_id = hist_result.get('id')
 
-            # --- РЕЗЕРВНЫЙ ПОИСК (если Prefer не сработал) ---
             if not history_id:
-                logging.warning("[SHOP] ID не вернулся в ответе, ищем последнюю запись...")
+                # Резервный поиск
                 backup_check = await supabase.get("/cs_history", params={
                     "user_id": f"eq.{telegram_id}",
                     "order": "id.desc",
@@ -13060,9 +13106,9 @@ async def buy_bott_item_proxy(
                 logging.error("[SHOP] КРИТИЧЕСКАЯ ОШИБКА: Запись не найдена даже после поиска!")
                 raise Exception("Не удалось создать запись в истории.")
 
-            logging.info(f"[SHOP] Успешно! HistoryID: {history_id}")
+            logging.info(f"[SHOP] Успешно! HistoryID: {history_id}, Lacky: {current_lacky}")
 
-            # Г. Готовим ответ для фронтенда
+            # --- 6. Готовим ответ для фронтенда ---
             roulette_strip = random.choices(all_items, weights=weights, k=80)
             roulette_strip[60] = winner 
             
@@ -13076,6 +13122,7 @@ async def buy_bott_item_proxy(
                 "roulette_strip": roulette_strip,
                 "history_id": history_id,
                 "id": history_id,
+                "lacky": current_lacky, # <--- Отдаем на фронт для прогресс-бара
                 "messages": [f"Выпало: {winner['name']}"]
             }
 
