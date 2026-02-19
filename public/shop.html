@@ -3072,19 +3072,26 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
         }
     });
 
-    // --- ЛОГИКА ТЕКСТА (ОСТАЛОСЬ Х КЕЙСОВ) ---
+   // --- ЛОГИКА ТЕКСТА (С ПРАВИЛЬНЫМ СКЛОНЕНИЕМ) ---
     const remaining = 5 - currentLacky;
     
     if (currentLacky === 5) {
         // Если это финальная крутка
         progressTextEl.innerHTML = '<span style="color: #ffcc00; font-size: 11px; text-shadow: 0 0 10px rgba(255,204,0,0.5);">🔥 ГАРАНТИРОВАННЫЙ ОКУП АКТИВЕН 🔥</span>';
     } else {
-        // Склоняем слово "кейс"
+        // Склоняем слова "остаться" и "кейс"
         let word = "кейсов";
-        if (remaining === 1) word = "кейс";
-        else if (remaining >= 2 && remaining <= 4) word = "кейса";
+        let verb = "Осталось";
+
+        if (remaining === 1) {
+            word = "кейс";
+            verb = "Остался";
+        } else if (remaining >= 2 && remaining <= 4) {
+            word = "кейса";
+            verb = "Осталось";
+        }
         
-        progressTextEl.innerHTML = `Осталось <span style="color: #fff; font-weight: 800;">${remaining} ${word}</span> до гарантированнонго окупа с кейса`;
+        progressTextEl.innerHTML = `${verb} <span style="color: #fff; font-weight: 800;">${remaining} ${word}</span> до гаранта`;
     }
     // ------------------------------------------
 
