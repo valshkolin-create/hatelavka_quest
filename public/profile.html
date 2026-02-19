@@ -1360,19 +1360,36 @@ if (dom.popupTradeLinkInput) {
         });
     }
     // --- MAIN FUNCTION ---
-// --- КАРТА РЕДКОСТЕЙ (RU) ---
+
 // --- КАРТА РЕДКОСТЕЙ ---
-const rarityConfig = {
-    'consumer': { color: '#b0c3d9', name: 'Ширпотреб' },
-    'industrial': { color: '#5e98d9', name: 'Промышленное качество' }, 
-    'mil-spec': { color: '#4b69ff', name: 'Армейское качество' },     
-    'restricted': { color: '#8847ff', name: 'Запрещённое' },       
-    'classified': { color: '#d32ce6', name: 'Засекреченное' },       
-    'covert': { color: '#eb4b4b', name: 'Тайное' },               
-    'gold': { color: '#ffd700', name: 'Крайне редкий' },      
-    'contraband': { color: '#e4ae39', name: 'Контрабандное' },
-    'common': { color: '#b0c3d9', name: 'Ширпотреб' }
-};
+// --- УМНАЯ ЛОГИКА РЕДКОСТЕЙ ---
+function getRarityData(rarity) {
+    const r = (rarity || '').toLowerCase();
+    
+    if (r.includes('gold') || r.includes('крайне') || r.includes('knife')) 
+        return { color: '#ffd700', name: 'Крайне редкий' };
+        
+    if (r.includes('red') || r.includes('covert') || r.includes('ancient') || r.includes('тайное')) 
+        return { color: '#eb4b4b', name: 'Тайное' };
+        
+    if (r.includes('pink') || r.includes('classified') || r.includes('legendary') || r.includes('засекреченное')) 
+        return { color: '#d32ce6', name: 'Засекреченное' };
+        
+    if (r.includes('purple') || r.includes('restricted') || r.includes('mythical') || r.includes('запрещенное')) 
+        return { color: '#8847ff', name: 'Запрещённое' };
+        
+    if (r.includes('blue') || r.includes('mil-spec') || r.includes('rare') || r.includes('армейское')) 
+        return { color: '#4b69ff', name: 'Армейское качество' };
+        
+    if (r.includes('industrial') || r.includes('light_blue') || r.includes('промышленное')) 
+        return { color: '#5e98d9', name: 'Промышленное качество' };
+        
+    if (r.includes('contraband') || r.includes('контрабандное')) 
+        return { color: '#e4ae39', name: 'Контрабандное' };
+
+    // Если ничего не совпало
+    return { color: '#b0c3d9', name: 'Ширпотреб' };
+}
 
 function renderInventory(items) {
     const container = dom.inventoryList;
@@ -1396,9 +1413,8 @@ function renderInventory(items) {
 
     items.forEach(item => {
         const status = (item.status || 'pending').toLowerCase();
-        const rKey = (item.rarity || 'common').toLowerCase();
-        const rData = rarityConfig[rKey] || rarityConfig['consumer'];
-        const ticketVal = item.price || 0; 
+        const rData = getRarityData(item.rarity); // <-- Вызываем умную функцию
+        const ticketVal = item.price || 0;
 
         let rightContentHtml = '';
         let cardOpacity = '1';
