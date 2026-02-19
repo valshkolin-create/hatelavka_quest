@@ -561,7 +561,10 @@
                 form.chance_weight.value = item.chance_weight;
                 form.rarity.value = item.rarity;
                 form.condition.value = item.condition || 'FN';
-                form.case_tag.value = item.case_tag;
+                
+                // 🔥 ГЛАВНЫЙ ФИКС: Всегда берем открытый кейс (currentCase), а не item.case_tag
+                form.case_tag.value = currentCase; 
+                
                 delBtn.style.display = 'flex';
                 delBtn.innerText = "УБРАТЬ ИЗ КЕЙСА";
             } else {
@@ -588,12 +591,17 @@
 
         async function saveItem() {
             const form = document.getElementById('edit-form');
+            
+            // 🔥 ФИКС ЗАПЯТЫХ: Меняем запятые на точки, чтобы JS не ломался при вводе 0,1 с телефона
+            const priceVal = form.price.value.toString().replace(',', '.');
+            const weightVal = form.chance_weight.value.toString().replace(',', '.');
+
             const data = {
                 id: form.id.value || null,
                 name: form.name.value,
                 image_url: form.image_url.value,
-                price: parseFloat(form.price.value),
-                chance_weight: parseFloat(form.chance_weight.value),
+                price: parseFloat(priceVal) || 0,
+                chance_weight: parseFloat(weightVal) || 0,
                 rarity: form.rarity.value,
                 condition: form.condition.value,
                 case_tag: form.case_tag.value
@@ -609,15 +617,19 @@
                     loadItems(currentCase);
                     loadCases(); 
                     tg.HapticFeedback.notificationOccurred('success');
-                } else alert("Ошибка");
-            } catch(e) { alert("Сбой"); }
+                } else {
+                    tg.showAlert("Ошибка при сохранении");
+                }
+            } catch(e) { 
+                tg.showAlert("Сбой сервера"); 
+            }
         }
 
         function deleteItem() {
             const linkId = document.querySelector('input[name="link_id"]').value;
             const itemId = document.querySelector('input[name="id"]').value;
             
-            // Используем нативное окно Telegram вместо браузерного confirm()
+            // 🔥 ФИКС КЛАВИАТУРЫ: Используем нативное окно Telegram вместо браузерного confirm()
             tg.showConfirm("Убрать скин?", async (ok) => {
                 if (!ok) return; // Если нажали "Отмена"
                 
@@ -650,7 +662,9 @@
                     document.getElementById('inp-img').value = d.url;
                     updatePreview();
                 }
-            } catch(e) { alert('Ошибка загрузки'); }
+            } catch(e) { 
+                tg.showAlert('Ошибка загрузки'); 
+            }
             btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i>';
         }
     </script>
