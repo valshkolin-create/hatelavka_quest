@@ -916,7 +916,7 @@ function updateShopTile(status) {
             <div class="metro-content">
                 <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
                 <span class="metro-label">Магазин</span>
-                <span class="metro-sublabel">Скины и предметы</span>
+                <span class="metro-sublabel">Кейсы, уселения</span>
             </div>
         `;
         // Убираем пульсацию, если она была
