@@ -1761,45 +1761,83 @@
 #custom-confirm-btn[style*="#ff3b30"] { color: #fff !important; }
 
    /* --- ПРОГРЕСС-БАР И НАЗВАНИЕ КЕЙСА (НОВОЕ) --- */
-        #r-header {
-            display: none;
+       /* --- [NEW] СТИЛИ ДЛЯ РУЛЕТКИ (ЗАГОЛОВОК СВЕРХУ, БАР СНИЗУ) --- */
+        
+        /* Верхний контейнер для названия */
+        #r-top-header {
+            display: none; /* Скрыт по умолчанию */
+            width: 100%;
+            justify-content: center;
+            margin-bottom: 5px; /* Небольшой отступ до рулетки */
+            z-index: 10;
+        }
+        
+        .r-case-title {
+            color: #fff;
+            font-size: 16px; /* Чуть крупнее */
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 15px rgba(0,0,0,0.9);
+            margin: 0;
+        }
+
+        /* Нижний контейнер для прогресс-бара и текста */
+        #r-bottom-progress {
+            display: none; /* Скрыт по умолчанию */
             width: 100%;
             flex-direction: column;
             align-items: center;
-            margin-bottom: 15px;
+            margin-top: 15px; /* Отступ от рулетки вниз */
             z-index: 10;
         }
-        .r-case-title {
-            color: #fff;
-            font-size: 15px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
-        }
+
         .r-progress-bar {
             display: flex;
-            gap: 6px;
+            gap: 8px; /* Чуть больше расстояние между точками */
             justify-content: center;
             align-items: center;
         }
+
         .r-progress-dot {
-            width: 35px;
+            width: 32px; /* Чуть меньше ширина */
             height: 4px;
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 2px;
-            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1); /* Более тусклый неактивный цвет */
+            border-radius: 4px;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
+
+        /* Активная точка (пройденный этап) */
         .r-progress-dot.active {
             background: var(--primary-color);
-            box-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+            box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
         }
-        /* Особое свечение для 5-й финальной крутки */
+
+        /* ФИНАЛЬНАЯ 5-я точка (Гарант) - Огненная */
         .r-progress-dot.guaranteed {
-            background: linear-gradient(90deg, #ffcc00, #ff5722);
-            box-shadow: 0 0 12px rgba(255, 87, 34, 0.8);
-        }     
+            background: linear-gradient(90deg, #ffcc00, #ff3b30);
+            box-shadow: 0 0 15px rgba(255, 59, 48, 0.7);
+             /* Легкая пульсация для 5-го шага */
+            animation: pulse-guarantee 2s infinite;
+        }
+
+        @keyframes pulse-guarantee {
+            0% { box-shadow: 0 0 15px rgba(255, 59, 48, 0.7); }
+            50% { box-shadow: 0 0 25px rgba(255, 59, 48, 0.9); }
+            100% { box-shadow: 0 0 15px rgba(255, 59, 48, 0.7); }
+        }
+
+        /* Текст-подсказка под баром */
+        .r-progress-label {
+            margin-top: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #8E8E93; /* Вторичный цвет текста */
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+            opacity: 0.8;
+        }
         
     </style>
 </head>
@@ -1812,21 +1850,27 @@
     </div>
 
     <div id="r-modal" class="r-modal-overlay">
-        <div id="r-header">
+        
+        <div id="r-top-header">
             <div id="r-case-name" class="r-case-title">КЕЙС</div>
-            <div class="r-progress-bar" id="r-progress-bar">
-                <div class="r-progress-dot"></div>
-                <div class="r-progress-dot"></div>
-                <div class="r-progress-dot"></div>
-                <div class="r-progress-dot"></div>
-                <div class="r-progress-dot"></div>
-            </div>
         </div>
 
         <div id="r-area" class="r-game-area">
             <div class="r-marker"></div>
             <div class="r-track" id="r-track"></div>
         </div>
+
+        <div id="r-bottom-progress">
+            <div class="r-progress-bar" id="r-progress-bar-container">
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div> 
+            </div>
+            <div class="r-progress-label">До гарантированного приза выше стоимости кейса</div>
+        </div>
+
         <div id="r-win" class="win-screen"></div>
     </div>
 
@@ -2993,51 +3037,61 @@ function preloadP2PState() {
         
 
         // --- [NEW] ЛОГИКА РУЛЕТКИ (ЮВЕЛИРНОЕ ДОБАВЛЕНИЕ) ---
-    function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
-        const modal = document.getElementById('r-modal');
-        const area = document.getElementById('r-area');
-        const track = document.getElementById('r-track');
-        const winScreen = document.getElementById('r-win');
-        
-        // --- НОВОЕ: UI ПРОГРЕСС-БАРА И НАЗВАНИЯ ---
-        const rHeader = document.getElementById('r-header');
-        const caseNameEl = document.getElementById('r-case-name');
-        const dots = document.querySelectorAll('#r-progress-bar .r-progress-dot');
-        
-        // Очищаем название от "Кейс |", "Case |", "Cays |"
-        let cleanName = (rawCaseName || "").replace(/^(Кейс|Case|Cays)\s*\|\s*/i, '').trim();
-        caseNameEl.innerText = cleanName;
-        
-        // Обновляем прогресс-бар
-        let currentLacky = lacky || 1; // Если lacky не пришел, ставим 1
-        dots.forEach((dot, index) => {
-            dot.className = 'r-progress-dot'; // Сброс классов
-            if (index < currentLacky) {
-                dot.classList.add('active'); // Закрашиваем линию
-            }
-            // Если это 5-я крутка, делаем последнюю линию огненной
-            if (currentLacky === 5 && index === 4) {
-                dot.classList.add('guaranteed');
-            }
-        });
-        
-        rHeader.style.display = 'flex'; // Показываем шапку
-        // ----------------------------------------
+    // --- [NEW] ФУНКЦИЯ ЗАПУСКА РУЛЕТКИ (С РАЗДЕЛЕННЫМ ИНТЕРФЕЙСОМ) ---
+function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
+    const modal = document.getElementById('r-modal');
+    const area = document.getElementById('r-area');
+    const track = document.getElementById('r-track');
+    const winScreen = document.getElementById('r-win');
     
-        // 1. Сброс состояния перед запуском
-        track.style.transition = 'none';
-        track.style.transform = 'translateX(0)';
-        track.innerHTML = '';
-        
-        area.style.display = 'block';
-        winScreen.style.display = 'none';
-        winScreen.style.flexDirection = 'column'; 
-        winScreen.style.alignItems = 'center';
-        
-        modal.style.display = 'flex';
+    // --- НОВЫЕ СЕЛЕКТОРЫ ДЛЯ ВЕРХА И НИЗА ---
+    const topHeader = document.getElementById('r-top-header');
+    const bottomProgress = document.getElementById('r-bottom-progress');
+    const caseNameEl = document.getElementById('r-case-name');
+    // Ищем точки именно внутри нижнего контейнера
+    const dots = document.querySelectorAll('#r-bottom-progress .r-progress-dot');
 
-        // Константы анимации (ОСТАВЛЯЕМ КАК БЫЛО)
-        const CARD_W = 148;       // Ширина карточки (140px + margin)
+    // 1. Настраиваем заголовок (очищаем имя)
+    let cleanName = (rawCaseName || "").replace(/^(Кейс|Case|Cays)\s*\|\s*/i, '').trim();
+    caseNameEl.innerText = cleanName;
+    
+    // 2. Настраиваем прогресс-бар
+    let currentLacky = lacky || 1; 
+    dots.forEach((dot, index) => {
+        // Сброс классов (чтобы убрать старые active/guaranteed)
+        dot.className = 'r-progress-dot'; 
+
+        // Если индекс точки меньше текущего lacky, она активна (пройдена)
+        if (index < currentLacky) {
+            dot.classList.add('active');
+
+            // ТУТ ВАЖНЫЙ МОМЕНТ:
+            // Если это последняя точка (индекс 4) И текущий lacky равен 5, делаем её "гарантированной"
+            if (index === 4 && currentLacky === 5) {
+                 dot.classList.add('guaranteed');
+            }
+        }
+    });
+    
+    // 3. Показываем интерфейс
+    topHeader.style.display = 'flex';
+    bottomProgress.style.display = 'flex';
+    // ----------------------------------------
+
+    // Сброс состояния рулетки перед запуском
+    track.style.transition = 'none';
+    track.style.transform = 'translateX(0)';
+    track.innerHTML = '';
+    
+    area.style.display = 'block';
+    winScreen.style.display = 'none';
+    winScreen.style.flexDirection = 'column'; 
+    winScreen.style.alignItems = 'center';
+    
+    modal.style.display = 'flex';
+
+    // Константы анимации
+    const CARD_W = 148;
     const WINNER_IDX = 80;    // Индекс карточки-победителя на ленте
     const ANIMATION_TIME = 11000; // 11 секунд прокрутки
 
@@ -3169,12 +3223,14 @@ function preloadP2PState() {
         
         // Закрытие рулетки
         function closeRoulette() {
-            document.getElementById('r-modal').style.display = 'none';
-            document.getElementById('r-header').style.display = 'none'; // Прячем заголовок
-            checkBalance(true);
-            loadCategory(currentCategoryId); 
-        }
-
+    document.getElementById('r-modal').style.display = 'none';
+    // Скрываем верхний и нижний блоки
+    document.getElementById('r-top-header').style.display = 'none';
+    document.getElementById('r-bottom-progress').style.display = 'none';
+    
+    checkBalance(true);
+    loadCategory(currentCategoryId); 
+}
         function openImageModal(imageUrl) {
             const modal = document.getElementById('image-modal');
             const img = document.getElementById('full-image');
