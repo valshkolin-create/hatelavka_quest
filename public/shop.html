@@ -1759,6 +1759,47 @@
 /* Цвета кнопок в окне подтверждения */
 #custom-confirm-btn[style*="#34c759"] { color: #000 !important; }
 #custom-confirm-btn[style*="#ff3b30"] { color: #fff !important; }
+
+   /* --- ПРОГРЕСС-БАР И НАЗВАНИЕ КЕЙСА (НОВОЕ) --- */
+        #r-header {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+            z-index: 10;
+        }
+        .r-case-title {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+        }
+        .r-progress-bar {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            align-items: center;
+        }
+        .r-progress-dot {
+            width: 35px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        .r-progress-dot.active {
+            background: var(--primary-color);
+            box-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+        }
+        /* Особое свечение для 5-й финальной крутки */
+        .r-progress-dot.guaranteed {
+            background: linear-gradient(90deg, #ffcc00, #ff5722);
+            box-shadow: 0 0 12px rgba(255, 87, 34, 0.8);
+        }     
         
     </style>
 </head>
@@ -1771,12 +1812,22 @@
     </div>
 
     <div id="r-modal" class="r-modal-overlay">
+        <div id="r-header">
+            <div id="r-case-name" class="r-case-title">КЕЙС</div>
+            <div class="r-progress-bar" id="r-progress-bar">
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div>
+            </div>
+        </div>
+
         <div id="r-area" class="r-game-area">
             <div class="r-marker"></div>
             <div class="r-track" id="r-track"></div>
         </div>
-        <div id="r-win" class="win-screen">
-    </div>
+        <div id="r-win" class="win-screen"></div>
     </div>
 
     <div class="shop-header">
@@ -2924,7 +2975,7 @@ function preloadP2PState() {
                         // чтобы не палить победителя заранее (хотя он уже определен)
                         
                         // Запускаем
-                        launchRoulette(strip, winner, resData.messages || []);
+                        launchRoulette(strip, winner, resData.messages || [], resData.lacky, name);
                         
                         // Обновляем баланс
                         checkBalance(true);
@@ -2942,26 +2993,51 @@ function preloadP2PState() {
         
 
         // --- [NEW] ЛОГИКА РУЛЕТКИ (ЮВЕЛИРНОЕ ДОБАВЛЕНИЕ) ---
-    function launchRoulette(items, winner, extraMessages) {
-    const modal = document.getElementById('r-modal');
-    const area = document.getElementById('r-area');
-    const track = document.getElementById('r-track');
-    const winScreen = document.getElementById('r-win');
+    function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
+        const modal = document.getElementById('r-modal');
+        const area = document.getElementById('r-area');
+        const track = document.getElementById('r-track');
+        const winScreen = document.getElementById('r-win');
+        
+        // --- НОВОЕ: UI ПРОГРЕСС-БАРА И НАЗВАНИЯ ---
+        const rHeader = document.getElementById('r-header');
+        const caseNameEl = document.getElementById('r-case-name');
+        const dots = document.querySelectorAll('#r-progress-bar .r-progress-dot');
+        
+        // Очищаем название от "Кейс |", "Case |", "Cays |"
+        let cleanName = (rawCaseName || "").replace(/^(Кейс|Case|Cays)\s*\|\s*/i, '').trim();
+        caseNameEl.innerText = cleanName;
+        
+        // Обновляем прогресс-бар
+        let currentLacky = lacky || 1; // Если lacky не пришел, ставим 1
+        dots.forEach((dot, index) => {
+            dot.className = 'r-progress-dot'; // Сброс классов
+            if (index < currentLacky) {
+                dot.classList.add('active'); // Закрашиваем линию
+            }
+            // Если это 5-я крутка, делаем последнюю линию огненной
+            if (currentLacky === 5 && index === 4) {
+                dot.classList.add('guaranteed');
+            }
+        });
+        
+        rHeader.style.display = 'flex'; // Показываем шапку
+        // ----------------------------------------
     
-    // 1. Сброс состояния перед запуском
-    track.style.transition = 'none';
-    track.style.transform = 'translateX(0)';
-    track.innerHTML = '';
-    
-    area.style.display = 'block';
-    winScreen.style.display = 'none';
-    winScreen.style.flexDirection = 'column'; 
-    winScreen.style.alignItems = 'center';
-    
-    modal.style.display = 'flex';
+        // 1. Сброс состояния перед запуском
+        track.style.transition = 'none';
+        track.style.transform = 'translateX(0)';
+        track.innerHTML = '';
+        
+        area.style.display = 'block';
+        winScreen.style.display = 'none';
+        winScreen.style.flexDirection = 'column'; 
+        winScreen.style.alignItems = 'center';
+        
+        modal.style.display = 'flex';
 
-    // Константы анимации
-    const CARD_W = 148;       // Ширина карточки (140px + margin)
+        // Константы анимации (ОСТАВЛЯЕМ КАК БЫЛО)
+        const CARD_W = 148;       // Ширина карточки (140px + margin)
     const WINNER_IDX = 80;    // Индекс карточки-победителя на ленте
     const ANIMATION_TIME = 11000; // 11 секунд прокрутки
 
@@ -3094,10 +3170,8 @@ function preloadP2PState() {
         // Закрытие рулетки
         function closeRoulette() {
             document.getElementById('r-modal').style.display = 'none';
-            // Обновляем баланс в шапке
+            document.getElementById('r-header').style.display = 'none'; // Прячем заголовок
             checkBalance(true);
-            // Перезагружаем категорию, чтобы обновить данные (если нужно)
-            // Но так как у нас теперь кейсы бесконечные (без количества), это чисто для порядка
             loadCategory(currentCategoryId); 
         }
 
