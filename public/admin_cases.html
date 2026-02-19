@@ -268,11 +268,11 @@
                 <div class="form-row" style="margin-top:10px;">
                     <div style="flex:1">
                         <label class="form-label">Цена</label>
-                        <input type="number" name="price" id="inp-price" class="form-input" value="0" oninput="updatePreview()">
+                        <input type="number" name="price" id="inp-price" class="form-input" value="0" step="any" inputmode="decimal" oninput="updatePreview()">
                     </div>
                     <div style="flex:1">
                         <label class="form-label">Шанс (Weight)</label>
-                        <input type="number" name="chance_weight" class="form-input" value="10">
+                       <input type="number" name="chance_weight" class="form-input" value="10" step="any" inputmode="decimal">
                     </div>
                 </div>
 
@@ -520,22 +520,29 @@
             } catch(e) { console.error(e); }
         }
 
-        async function cloneItem(id) {
-            if (!confirm("Добавить в текущий кейс?")) return;
-            try {
-                const res = await fetch('/api/v1/admin/cases/clone_item', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({origin_id: id, target_case: currentCase})
-                });
-                if (res.ok) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                    closeModal('modal-library');
-                    loadItems(currentCase);
-                    loadCases(); // Обновить счетчики
-                } else alert("Ошибка");
-            } catch(e) { alert("Сбой"); }
-        }
+        function cloneItem(id) {
+            tg.showConfirm("Добавить в текущий кейс?", async (ok) => {
+                if (!ok) return;
 
+                try {
+                    const res = await fetch('/api/v1/admin/cases/clone_item', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({origin_id: id, target_case: currentCase})
+                    });
+                    if (res.ok) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        closeModal('modal-library');
+                        loadItems(currentCase);
+                        loadCases(); 
+                    } else {
+                        tg.showAlert("Ошибка добавления");
+                    }
+                } catch(e) { 
+                    tg.showAlert("Сбой сервера"); 
+                }
+            });
+        }
+        
         // 5. РЕДАКТОР
         function openEditor(jsonStr) {
             toggleFab();
@@ -606,24 +613,28 @@
             } catch(e) { alert("Сбой"); }
         }
 
-        async function deleteItem() {
+        function deleteItem() {
             const linkId = document.querySelector('input[name="link_id"]').value;
-            // Если это новый предмет (нет link_id), но есть id, используем id (фолбэк)
             const itemId = document.querySelector('input[name="id"]').value;
             
-            if(!confirm("Убрать скин?")) return;
-            
-            const payload = linkId ? {link_id: linkId} : {id: itemId};
+            // Используем нативное окно Telegram вместо браузерного confirm()
+            tg.showConfirm("Убрать скин?", async (ok) => {
+                if (!ok) return; // Если нажали "Отмена"
+                
+                const payload = linkId ? {link_id: linkId} : {id: itemId};
 
-            try {
-                await fetch('/api/v1/admin/cases/delete_item', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-                closeModal('modal-editor');
-                loadItems(currentCase);
-                loadCases();
-            } catch(e) { alert("Ошибка"); }
+                try {
+                    await fetch('/api/v1/admin/cases/delete_item', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    closeModal('modal-editor');
+                    loadItems(currentCase);
+                    loadCases();
+                } catch(e) { 
+                    tg.showAlert("Ошибка при удалении"); 
+                }
+            });
         }
 
         async function uploadImage(input) {
