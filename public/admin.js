@@ -307,8 +307,8 @@ function generateOptionsHtml(options, selectedValue) {
         // Добавляем в самое начало
         recents.unshift({ viewId, title, iconHtml, iconColor, borderColor, isLink });
         
-        // Оставляем только 4 ярлыка (можешь изменить цифру, если нужно больше)
-        if (recents.length > 4) recents = recents.slice(0, 4);
+        // Оставляем только 5 ярлыка (можешь изменить цифру, если нужно больше)
+        if (recents.length > 5) recents = recents.slice(0, 4);
         
         localStorage.setItem('admin_recent_views', JSON.stringify(recents));
         renderRecentViews(); // Обновляем сетку
