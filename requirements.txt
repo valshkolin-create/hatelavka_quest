@@ -14,3 +14,6 @@ pydantic==2.7.1
 # 2. Закрепляем supabase на стабильной v2, которая использует gotrue (вместо supabase-auth)
 supabase[asyncio]==2.4.4
 # --- КОНЕЦ ИСПРАВЛЕНИЙ ---
+
+# --- STEAM AUTO-DELIVERY ---
+steampy
