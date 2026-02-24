@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление Steam Ботами</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #ffd700;
+            --action: #28a745;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+            --text-sec: #aaaaaa;
+        }
+
+        body {
+            background-color: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px; padding-bottom: 100px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* HEADER */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .back-btn { 
+            background: none; border: none; color: var(--text-sec); font-size: 16px; 
+            cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; 
+        }
+        .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
+
+        /* BOTS GRID */
+        .bots-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 12px; 
+        }
+
+        .bot-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 15px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            aspect-ratio: 1 / 1; transition: transform 0.1s, background 0.2s;
+            text-align: center; position: relative;
+        }
+        .bot-card:active { transform: scale(0.96); background: rgba(255,255,255,0.05); }
+        
+        .bot-icon { font-size: 40px; color: #fff; margin-bottom: 10px; opacity: 0.8; }
+        .bot-name { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+        
+        .status-badge {
+            font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 8px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .status-active { background: rgba(40, 167, 69, 0.2); color: var(--action); border: 1px solid rgba(40, 167, 69, 0.4); }
+        .status-error { background: rgba(255, 77, 77, 0.2); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.4); }
+
+        /* MODALS (BottomSheet) */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; backdrop-filter: blur(5px); }
+        .modal-active { display: flex; }
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; box-sizing: border-box; }
+
+        .form-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; margin-top: 15px; }
+        .form-input { 
+            width: 100%; background: #252525; border: 1px solid var(--card-border);
+            color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; box-sizing: border-box;
+            user-select: text !important; -webkit-user-select: text !important;
+        }
+        .form-input:focus { border-color: var(--primary); }
+
+        .btn-save { 
+            background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; 
+            border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer;
+            width: 100%; margin-top: 20px; text-transform: uppercase; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        .btn-save:active { transform: scale(0.98); }
+        
+        .info-text { font-size: 11px; color: var(--text-sec); margin-top: 10px; text-align: center; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <button class="back-btn" onclick="window.location.href='/admin'"><i class="fa-solid fa-chevron-left"></i> Назад</button>
+        <h1 class="page-title">Steam Боты</h1>
+        <div style="width: 20px;"></div> 
+    </div>
+
+    <div id="bots-grid" class="bots-grid">
+        <div style="text-align:center; color:#555; grid-column:1/-1;">Загрузка аккаунтов...</div>
+    </div>
+
+    <div id="modal-auth" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="bottom-sheet">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0" id="auth-title">Авторизация Бота</h3>
+                <button onclick="closeModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <p class="info-text" style="text-align: left; margin-top: 5px;">Введите данные для получения API сессии. Пароли не хранятся в открытом виде.</p>
+
+            <form id="auth-form" onsubmit="event.preventDefault(); submitAuth();">
+                <input type="hidden" id="bot-id">
+                
+                <label class="form-label">Логин (Username)</label>
+                <input type="text" id="inp-login" class="form-input" placeholder="steam_login123" required>
+
+                <label class="form-label">Пароль</label>
+                <input type="password" id="inp-pass" class="form-input" placeholder="••••••••••••" required>
+
+                <label class="form-label">Shared Secret (maFile) <span style="color: var(--primary);">*Опционально</span></label>
+                <input type="text" id="inp-secret" class="form-input" placeholder="A1b2C3d4E5f6G7h8I9j0=">
+                <div class="info-text">Если оставите пустым, бот попросит 5-значный код Steam Guard из письма/телефона.</div>
+
+                <button type="submit" class="btn-save">ВОЙТИ В STEAM</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Тестовые данные (пока нет реального API)
+        const mockBots = [
+            { id: 1, name: "Бот #1 (Основа)", status: "active" },
+            { id: 2, name: "Бот #2 (Склад)", status: "requires_auth" },
+            { id: 3, name: "Бот #3 (Склад)", status: "requires_auth" }
+        ];
+
+        // Загрузка ботов (позже заменим на реальный fetch)
+        function loadBots() {
+            const grid = document.getElementById('bots-grid');
+            grid.innerHTML = '';
+
+            mockBots.forEach(bot => {
+                const isActive = bot.status === 'active';
+                const statusClass = isActive ? 'status-active' : 'status-error';
+                const statusText = isActive ? '🟢 Работает' : '🔴 Нужен вход';
+                const iconColor = isActive ? 'var(--primary)' : 'var(--text-sec)';
+
+                const div = document.createElement('div');
+                div.className = 'bot-card';
+                div.onclick = () => openAuthModal(bot.id, bot.name);
+                div.innerHTML = `
+                    <div class="bot-icon" style="color: ${iconColor};"><i class="fa-brands fa-steam"></i></div>
+                    <div class="bot-name">${bot.name}</div>
+                    <div class="status-badge ${statusClass}">${statusText}</div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function openAuthModal(id, name) {
+            document.getElementById('bot-id').value = id;
+            document.getElementById('auth-title').innerText = "Вход: " + name;
+            
+            // Сбрасываем форму
+            document.getElementById('auth-form').reset();
+            
+            document.getElementById('modal-auth').classList.add('modal-active');
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-auth').classList.remove('modal-active');
+        }
+
+        function submitAuth() {
+            const login = document.getElementById('inp-login').value;
+            tg.showConfirm(`Попытаться авторизовать аккаунт ${login}?`, (ok) => {
+                if(ok) {
+                    // Здесь позже мы добавим реальный fetch-запрос к твоему API FastAPI
+                    tg.showAlert("Данные отправлены на сервер. Проверьте статус через пару секунд.");
+                    closeModal();
+                }
+            });
+        }
+
+        // Инициализация
+        loadBots();
+    </script>
+</body>
+</html>
