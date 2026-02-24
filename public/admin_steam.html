@@ -126,33 +126,50 @@
         tg.expand();
 
         // Тестовые данные (пока нет реального API)
-        const mockBots = [
-            { id: 1, name: "Бот #1 (Основа)", status: "active" },
-            { id: 2, name: "Бот #2 (Склад)", status: "requires_auth" },
-            { id: 3, name: "Бот #3 (Склад)", status: "requires_auth" }
-        ];
-
-        // Загрузка ботов (позже заменим на реальный fetch)
-        function loadBots() {
+        // 🚀 Реальная загрузка ботов с бэкенда
+        async function loadBots() {
             const grid = document.getElementById('bots-grid');
-            grid.innerHTML = '';
+            grid.innerHTML = '<div style="text-align:center; color:#555; grid-column:1/-1;"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка аккаунтов...</div>';
 
-            mockBots.forEach(bot => {
-                const isActive = bot.status === 'active';
-                const statusClass = isActive ? 'status-active' : 'status-error';
-                const statusText = isActive ? '🟢 Работает' : '🔴 Нужен вход';
-                const iconColor = isActive ? 'var(--primary)' : 'var(--text-sec)';
+            try {
+                const res = await fetch('/api/v1/admin/steam/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                
+                if (!res.ok) throw new Error("Ошибка загрузки");
+                
+                const bots = await res.json();
+                grid.innerHTML = '';
+                
+                if (bots.length === 0) {
+                    grid.innerHTML = '<div style="text-align:center; color:#555; grid-column:1/-1;">Ботов пока нет</div>';
+                    return;
+                }
 
-                const div = document.createElement('div');
-                div.className = 'bot-card';
-                div.onclick = () => openAuthModal(bot.id, bot.name);
-                div.innerHTML = `
-                    <div class="bot-icon" style="color: ${iconColor};"><i class="fa-brands fa-steam"></i></div>
-                    <div class="bot-name">${bot.name}</div>
-                    <div class="status-badge ${statusClass}">${statusText}</div>
-                `;
-                grid.appendChild(div);
-            });
+                bots.forEach(bot => {
+                    // Проверяем статус из базы
+                    const isActive = bot.status === 'active';
+                    const statusClass = isActive ? 'status-active' : 'status-error';
+                    const statusText = isActive ? '🟢 Работает' : '🔴 Нужен вход';
+                    const iconColor = isActive ? 'var(--primary)' : 'var(--text-sec)';
+
+                    const div = document.createElement('div');
+                    div.className = 'bot-card';
+                    // Передаем id и username в модалку
+                    div.onclick = () => openAuthModal(bot.id, bot.username);
+                    div.innerHTML = `
+                        <div class="bot-icon" style="color: ${iconColor};"><i class="fa-brands fa-steam"></i></div>
+                        <div class="bot-name">${bot.username}</div>
+                        <div class="status-badge ${statusClass}">${statusText}</div>
+                    `;
+                    grid.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = '<div style="text-align:center; color:var(--danger); grid-column:1/-1;">Ошибка соединения с сервером</div>';
+            }
         }
 
         function openAuthModal(id, name) {
