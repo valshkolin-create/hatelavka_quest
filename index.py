@@ -42,6 +42,7 @@ from contextlib import asynccontextmanager
 from aiogram.utils.markdown import html_decoration
 from dateutil import parser
 from steampy.client import SteamClient
+import builtins
 
 sleep_cache = {
     "is_sleeping": False,
@@ -1079,7 +1080,7 @@ class SteamAuthRequest(BaseModel):
     bot_id: int
     login: str
     password: str
-    shared_secret: str
+    steam_guard_code: str # Теперь тут 5-значный код с телефона
     
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -2101,46 +2102,49 @@ async def auth_steam_bot(
     request: SteamAuthRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Проверка на админа
     user_info = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    try:
-        # Инициализируем клиент Steam (API ключ для логина не нужен)
-        client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
-        
-        # МАГИЯ: steampy сам сгенерит код из shared_secret и войдет в аккаунт
-        client.login(request.login, request.password, request.shared_secret)
+    client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
+    
+    # 🔥 ЖЕСТКИЙ ХАК ДЛЯ VERCEL 🔥
+    # Подменяем системную функцию input(). 
+    # Когда steampy попросит "Enter Steam Guard code:", скрипт молча отдаст ему код из формы.
+    original_input = builtins.input
+    builtins.input = lambda prompt: request.steam_guard_code
 
-        # Если мы тут, значит логин прошел успешно! Забираем куки:
+    try:
+        # Передаем None вместо файла, чтобы steampy запросил код
+        client.login(request.login, request.password, None)
+        
+        # Если код подошел, забираем куки
         session_cookies = client.get_web_session().cookies.get_dict()
 
-        # Пакуем все нужные данные для крона
         session_data = {
             "cookies": session_cookies,
-            "shared_secret": request.shared_secret,
             "login": request.login,
-            "password": request.password # По-хорошему пароль надо шифровать, но для старта оставим так
+            "password": request.password
         }
 
-        # Обновляем бота в БД: меняем статус на active и сохраняем сессию
+        # Сохраняем в БД
         await supabase.patch(
             f"/steam_accounts?id=eq.{request.bot_id}",
             json={
                 "status": "active",
                 "session_data": session_data,
-                "username": request.login  # Меняем "Бот #1" на реальный логин
+                "username": request.login
             }
         )
-
         return {"success": True, "message": f"Бот {request.login} успешно подключен!"}
 
     except Exception as e:
         print(f"Ошибка входа Steam: {e}")
-        # Если пароль неверный или secret кривой — выдаст ошибку
-        raise HTTPException(status_code=400, detail=f"Ошибка входа: {str(e)}")
-
+        raise HTTPException(status_code=400, detail="Неверный пароль или код Steam Guard устарел")
+    finally:
+        # Обязательно возвращаем input() в нормальное состояние
+        builtins.input = original_input
+        
 @app.post("/api/v1/admin/events/cauldron/reward_status")
 async def update_cauldron_reward_status(
     request_data: CauldronRewardStatusRequest,
