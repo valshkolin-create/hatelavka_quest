@@ -4161,7 +4161,7 @@ if (dom.settingQuestScheduleOverride) {
             // 👇👇👇 ВСТАВКА: СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ 👇👇👇
             const clickedMenuButton = target.closest('.admin-icon-button');
             if (clickedMenuButton) {
-                const titleSpan = clickedMenuButton.querySelector('span');
+                const titleSpan = clickedMenuButton.querySelector('span:not(.notification-badge)');
                 const iconWrapper = clickedMenuButton.querySelector('.icon-wrapper');
                 
                 if (titleSpan && iconWrapper) {
