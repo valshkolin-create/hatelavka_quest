@@ -1770,15 +1770,18 @@ input:checked + .slider:before {
 /* 1. Делаем компактную сетку */
 #admin-recent-grid {
     display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 5px !important; /* Минимальный отступ между карточками */
+    flex-wrap: nowrap !important; /* СТРОГО ЗАПРЕЩАЕМ ПЕРЕНОС */
+    gap: 5px !important; 
     margin-bottom: 5px !important;
 }
 
 /* 2. Сужаем сами карточки */
 #admin-recent-grid .admin-icon-button {
-    width: 60px !important; /* Было 65px, делаем 60px, чтобы 5 штук точно влезли */
-    padding: 6px 2px !important;
+    flex: 1 1 0 !important; /* Равномерно сжимаются и растягиваются */
+    width: auto !important; /* Убираем жесткую ширину */
+    max-width: 65px !important; /* На ПК не будут слишком большими */
+    min-width: 0 !important; /* ВАЖНО: позволяет им сжиматься на узких экранах */
+    padding: 6px 2px !important; 
     min-height: unset !important;
     border-radius: 10px !important;
     justify-content: flex-start !important;
