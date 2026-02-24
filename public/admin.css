@@ -1777,13 +1777,12 @@ input:checked + .slider:before {
 
 /* 2. Сужаем сами карточки */
 #admin-recent-grid .admin-icon-button {
-    width: 65px !important; /* Жестко ограничиваем ширину */
-    padding: 6px 2px !important; /* Минимальные внутренние поля */
+    width: 60px !important; /* Было 65px, делаем 60px, чтобы 5 штук точно влезли */
+    padding: 6px 2px !important;
     min-height: unset !important;
     border-radius: 10px !important;
     justify-content: flex-start !important;
 }
-
 /* 3. Уменьшаем кружок с иконкой */
 #admin-recent-grid .admin-icon-button .icon-wrapper {
     width: 28px !important; 
