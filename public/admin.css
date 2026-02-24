@@ -1767,37 +1767,42 @@ input:checked + .slider:before {
 
 /* --- СТИЛИ ДЛЯ КОМПАКТНОГО БЛОКА "НЕДАВНО ОТКРЫТЫЕ" --- */
 
-/* 1. Уменьшаем отступы в сетке */
+/* 1. Делаем компактную сетку */
 #admin-recent-grid {
-    gap: 8px !important; /* Было скорее всего 15px или 20px */
-    margin-bottom: 5px;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 5px !important; /* Минимальный отступ между карточками */
+    margin-bottom: 5px !important;
 }
 
-/* 2. Делаем саму кнопку (карточку) меньше */
+/* 2. Сужаем сами карточки */
 #admin-recent-grid .admin-icon-button {
-    padding: 8px 4px !important; /* Уменьшаем внутренние поля */
-    min-height: unset !important; /* Убираем минимальную высоту */
-    border-radius: 12px !important;
+    width: 65px !important; /* Жестко ограничиваем ширину */
+    padding: 6px 2px !important; /* Минимальные внутренние поля */
+    min-height: unset !important;
+    border-radius: 10px !important;
+    justify-content: flex-start !important;
 }
 
-/* 3. Уменьшаем кружок/квадрат с иконкой (раза в 2-3) */
+/* 3. Уменьшаем кружок с иконкой */
 #admin-recent-grid .admin-icon-button .icon-wrapper {
-    width: 32px !important;  /* Ширина кружка */
-    height: 32px !important; /* Высота кружка */
-    font-size: 14px !important; /* Размер самой иконки */
-    margin-bottom: 6px !important; /* Отступ до текста */
-    border-radius: 8px !important; /* Чуть меньше скругление */
+    width: 28px !important; 
+    height: 28px !important;
+    font-size: 13px !important;
+    margin-bottom: 3px !important; /* Отступ до текста практически убран */
+    border-radius: 6px !important;
 }
 
-/* 4. Если внутри картинка (например, Twitch), тоже сжимаем */
+/* 4. Для картинок (Twitch и т.д.) */
 #admin-recent-grid .admin-icon-button .icon-wrapper img {
-    width: 18px !important;
-    height: 18px !important;
+    width: 16px !important;
+    height: 16px !important;
 }
 
-/* 5. Уменьшаем текст под иконкой */
+/* 5. Настраиваем текст и межстрочный интервал */
 #admin-recent-grid .admin-icon-button span {
-    font-size: 10px !important; /* Маленький шрифт */
-    line-height: 1.1 !important;
+    font-size: 9px !important; /* Крошечный шрифт */
+    line-height: 1 !important; /* Межстрочный интервал равен высоте шрифта */
     white-space: normal !important;
+    word-break: break-word !important; /* Безопасный перенос длинных слов */
 }
