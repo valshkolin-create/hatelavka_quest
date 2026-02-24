@@ -34,7 +34,7 @@ from fastapi.responses import JSONResponse, FileResponse, Response, RedirectResp
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import BackgroundTasks
-from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File # Добавили UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File, Header
 import uuid # Для уникальных имен файлов
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field 
@@ -1731,6 +1731,23 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
     except Exception as e:
         logging.error(f"(Global) Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
         return 1
+
+# =======================================================
+# 🔥 НОВЫЙ БЛОК: СЕКРЕТНЫЙ КРОН ДЛЯ АВТОВЫДАЧИ STEAM 🔥
+# =======================================================
+@app.get("/api/cron/steam_sync")
+async def sync_steam_inventory(cron_secret: str = Header(None)):
+    # Защита от левых запросов
+    if cron_secret != "TVOY_SUPER_SECRET_CRON_CODE":
+        raise HTTPException(status_code=403, detail="Доступа нет, пацаны")
+    
+    # --- Сюда мы позже вставим логику ---
+    # 1. Взять куки из БД
+    # 2. Спарисить 1 аккаунт
+    # 3. Обновить цены в таблице steam_inventory_cache
+    # ------------------------------------
+    
+    return {"status": "ok", "message": "Синхронизация инвентаря запущена!"}
 
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
