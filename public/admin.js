@@ -262,6 +262,73 @@ function generateOptionsHtml(options, selectedValue) {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
     }
+Отлично! Раз HTML уже на месте, осталось только добавить логику в твой admin.js.
+
+Я проанализировал твой код и подготовил точные вставки, которые будут учитывать и обычные вкладки (div), и ссылки (a), а также корректно сохранять цвета иконок.
+
+Выполни эти 3 простых шага в файле admin.js:
+
+Шаг 1: Добавляем функции сохранения и отрисовки
+Найди в самом начале файла функцию escapeHTML (строка ~58) и сразу ПОСЛЕ неё вставь этот блок кода:
+
+JavaScript
+
+    function escapeHTML(str) {
+        if (typeof str !== 'string') return str;
+        return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
+    }
+
+    // 👇👇👇 НАЧАЛО: ЛОГИКА "НЕДАВНО ИСПОЛЬЗОВАННЫЕ" 👇👇👇
+    function renderRecentViews() {
+        const container = document.getElementById('admin-recent-grid');
+        const wrapper = document.getElementById('admin-recent-wrapper');
+        if (!container || !wrapper) return;
+
+        let recents = JSON.parse(localStorage.getItem('admin_recent_views') || '[]');
+
+        if (recents.length === 0) {
+            wrapper.style.display = 'none';
+            return;
+        }
+
+        wrapper.style.display = 'block';
+        container.innerHTML = recents.map(item => {
+            const styleAttr = `color: ${item.iconColor || 'inherit'}; border-color: ${item.borderColor || 'transparent'};`;
+            
+            // Если это ссылка (<a>)
+            if (item.isLink) {
+                return `
+                <a href="${escapeHTML(item.viewId)}" class="admin-icon-button" style="text-decoration: none;">
+                    <div class="icon-wrapper" style="${styleAttr}">${item.iconHtml}</div>
+                    <span>${escapeHTML(item.title)}</span>
+                </a>`;
+            }
+            // Если это обычная вкладка (<div>)
+            return `
+            <div class="admin-icon-button" data-view="${escapeHTML(item.viewId)}">
+                <div class="icon-wrapper" style="${styleAttr}">${item.iconHtml}</div>
+                <span>${escapeHTML(item.title)}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function saveRecentView(viewId, title, iconHtml, iconColor, borderColor, isLink = false) {
+        if (!viewId || !title || !iconHtml || viewId === 'view-admin-main') return;
+        
+        let recents = JSON.parse(localStorage.getItem('admin_recent_views') || '[]');
+        
+        // Удаляем этот вид, если он уже есть (чтобы переместить на 1 место)
+        recents = recents.filter(item => item.viewId !== viewId);
+        
+        // Добавляем в самое начало
+        recents.unshift({ viewId, title, iconHtml, iconColor, borderColor, isLink });
+        
+        // Оставляем только 4 ярлыка (можешь изменить цифру, если нужно больше)
+        if (recents.length > 4) recents = recents.slice(0, 4);
+        
+        localStorage.setItem('admin_recent_views', JSON.stringify(recents));
+        renderRecentViews(); // Обновляем сетку
+    }
     // 👇 ВСТАВИТЬ СЮДА 👇
     function formatDateToInput(date) {
         if (!date) return '';
@@ -4101,12 +4168,41 @@ if (dom.settingQuestScheduleOverride) {
                     });
                 });
             });
-        }
-        
+        }            
 
         // --- 🔥 ОБНОВЛЕННЫЙ ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ (OPTIMISTIC UI) 🔥 ---
         document.body.addEventListener('click', async (event) => {
             const target = event.target;
+
+            // 👇👇👇 ВСТАВКА: СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ 👇👇👇
+            const clickedMenuButton = target.closest('.admin-icon-button');
+            if (clickedMenuButton) {
+                const titleSpan = clickedMenuButton.querySelector('span');
+                const iconWrapper = clickedMenuButton.querySelector('.icon-wrapper');
+                
+                if (titleSpan && iconWrapper) {
+                    const title = titleSpan.textContent.trim();
+                    // Берем саму иконку, игнорируя красные кружочки с цифрами
+                    const iconElement = iconWrapper.querySelector('i, img');
+                    const iconHtml = iconElement ? iconElement.outerHTML : '';
+                    
+                    const iconColor = iconWrapper.style.color || '';
+                    const borderColor = iconWrapper.style.borderColor || '';
+                    
+                    let viewId = clickedMenuButton.dataset.view;
+                    let isLink = false;
+                    
+                    // Если это ссылка (href)
+                    if (!viewId && clickedMenuButton.tagName.toLowerCase() === 'a') {
+                        viewId = clickedMenuButton.getAttribute('href');
+                        isLink = true;
+                    }
+
+                    if (viewId) {
+                        saveRecentView(viewId, title, iconHtml, iconColor, borderColor, isLink);
+                    }
+                }
+            }
 
             // 1. Кнопка "Связаться" (Копирование)
             const contactBtn = target.closest('.admin-contact-btn');
@@ -5462,6 +5558,7 @@ async function main() {
                 // openAdminOrders(); 
             }
             // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
+            renderRecentViews();
 
         } catch (e) {
             // --- ЛОГ 5: Фиксируем ошибку в блоке catch ---
