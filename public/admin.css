@@ -1808,3 +1808,21 @@ input:checked + .slider:before {
     white-space: normal !important;
     word-break: break-word !important; /* Безопасный перенос длинных слов */
 }
+
+/* --- СТИЛИ ДЛЯ ЗАГОЛОВКА "НЕДАВНО ОТКРЫТЫЕ" --- */
+
+#admin-recent-wrapper h3 {
+    font-size: 11px !important; /* Уменьшаем сам текст (было 14px) */
+    margin-bottom: 6px !important; /* Уменьшаем отступ от текста до карточек */
+    padding-bottom: 4px !important; /* Делаем полоску под текстом ближе */
+    font-weight: 500 !important; /* Делаем шрифт чуть менее жирным */
+}
+
+/* Уменьшаем иконку часиков рядом с текстом */
+#admin-recent-wrapper h3 i {
+    font-size: 11px !important; 
+    margin-right: 3px !important;
+}
+#admin-recent-wrapper {
+    margin-bottom: 14px !important; /* Меняй цифру: больше — отступ шире, меньше — ближе */
+}
