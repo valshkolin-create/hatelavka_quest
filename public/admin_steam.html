@@ -191,24 +191,18 @@
             const botId = document.getElementById('bot-id').value;
             const login = document.getElementById('inp-login').value.trim();
             const pass = document.getElementById('inp-pass').value.trim();
-            const secret = document.getElementById('inp-secret').value.trim();
+            const guardCode = document.getElementById('inp-guard').value.trim().toUpperCase();
 
-            if (!login || !pass) {
-                tg.showAlert("Введи логин и пароль!");
+            if (!login || !pass || !guardCode) {
+                tg.showAlert("Заполни все поля, включая код с телефона!");
                 return;
             }
 
-            // Убрали жесткий блок! Теперь пускает без секрета.
-            if (!secret) {
-                // Просто предупреждаем, но даем нажать "ОК"
-                tg.showAlert("⚠️ Без Shared Secret сервер Vercel может зависнуть, ожидая код Steam Guard!");
-            }
-
-            tg.showConfirm(`Попытаться авторизовать аккаунт ${login}?`, async (ok) => {
+            tg.showConfirm(`Авторизовать аккаунт ${login}?`, async (ok) => {
                 if (ok) {
                     const btn = document.querySelector('#auth-form .btn-save');
                     const originalText = btn.innerHTML;
-                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> АВТОРИЗАЦИЯ...';
+                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ВХОДИМ В STEAM...';
                     btn.disabled = true;
 
                     try {
@@ -220,7 +214,7 @@
                                 bot_id: parseInt(botId),
                                 login: login,
                                 password: pass,
-                                shared_secret: secret || "" // Передаем пустую строку
+                                steam_guard_code: guardCode // Отправляем 5-значный код
                             })
                         });
 
@@ -233,10 +227,10 @@
                             loadBots();   
                         } else {
                             tg.HapticFeedback.notificationOccurred('error');
-                            tg.showAlert("❌ Ошибка: " + (data.detail || "Неверные данные / Нужен Steam Guard"));
+                            tg.showAlert("❌ Ошибка: " + (data.detail || "Неверные данные"));
                         }
                     } catch(e) {
-                        tg.showAlert("Сбой сервера. Возможно, Vercel ушел в таймаут из-за Steam Guard.");
+                        tg.showAlert("Сбой сервера при авторизации.");
                     } finally {
                         btn.innerHTML = originalText;
                         btn.disabled = false;
