@@ -187,17 +187,66 @@
             document.getElementById('modal-auth').classList.remove('modal-active');
         }
 
-        function submitAuth() {
-            const login = document.getElementById('inp-login').value;
-            tg.showConfirm(`Попытаться авторизовать аккаунт ${login}?`, (ok) => {
-                if(ok) {
-                    // Здесь позже мы добавим реальный fetch-запрос к твоему API FastAPI
-                    tg.showAlert("Данные отправлены на сервер. Проверьте статус через пару секунд.");
-                    closeModal();
+        async function submitAuth() {
+            const botId = document.getElementById('bot-id').value;
+            const login = document.getElementById('inp-login').value.trim();
+            const pass = document.getElementById('inp-pass').value.trim();
+            const secret = document.getElementById('inp-secret').value.trim();
+
+            // Базовые проверки, чтобы не слать пустые запросы
+            if (!login || !pass) {
+                tg.showAlert("Бро, введи логин и пароль!");
+                return;
+            }
+            if (!secret) {
+                tg.showAlert("Для автоматики обязательно нужен Shared Secret (maFile)!");
+                return;
+            }
+
+            // Окно подтверждения (как ты и просил)
+            tg.showConfirm(`Попытаться авторизовать аккаунт ${login}?`, async (ok) => {
+                if (ok) {
+                    // Блокируем кнопку и показываем анимацию загрузки
+                    const btn = document.querySelector('#auth-form .btn-save');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> АВТОРИЗАЦИЯ...';
+                    btn.disabled = true;
+
+                    try {
+                        // Отправляем реальный запрос на твой FastAPI
+                        const res = await fetch('/api/v1/admin/steam/auth', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                initData: tg.initData,
+                                bot_id: parseInt(botId),
+                                login: login,
+                                password: pass,
+                                shared_secret: secret
+                            })
+                        });
+
+                        const data = await res.json();
+                        
+                        if (res.ok) {
+                            tg.HapticFeedback.notificationOccurred('success');
+                            tg.showAlert("✅ " + data.message);
+                            closeModal(); // Закрываем шторку
+                            loadBots();   // Обновляем список ботов, чтобы загорелся 🟢 статус
+                        } else {
+                            tg.HapticFeedback.notificationOccurred('error');
+                            tg.showAlert("❌ Ошибка: " + (data.detail || "Неверные данные"));
+                        }
+                    } catch(e) {
+                        tg.showAlert("Сбой сервера при авторизации. Попробуй позже.");
+                    } finally {
+                        // Возвращаем кнопку в исходное состояние
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }
                 }
             });
         }
-
         // Инициализация
         loadBots();
     </script>
