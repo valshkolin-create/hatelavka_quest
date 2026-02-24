@@ -1764,3 +1764,40 @@ input:checked + .slider:before {
 .slider.round:before {
     border-radius: 50%;
 }
+
+/* --- СТИЛИ ДЛЯ КОМПАКТНОГО БЛОКА "НЕДАВНО ОТКРЫТЫЕ" --- */
+
+/* 1. Уменьшаем отступы в сетке */
+#admin-recent-grid {
+    gap: 8px !important; /* Было скорее всего 15px или 20px */
+    margin-bottom: 5px;
+}
+
+/* 2. Делаем саму кнопку (карточку) меньше */
+#admin-recent-grid .admin-icon-button {
+    padding: 8px 4px !important; /* Уменьшаем внутренние поля */
+    min-height: unset !important; /* Убираем минимальную высоту */
+    border-radius: 12px !important;
+}
+
+/* 3. Уменьшаем кружок/квадрат с иконкой (раза в 2-3) */
+#admin-recent-grid .admin-icon-button .icon-wrapper {
+    width: 32px !important;  /* Ширина кружка */
+    height: 32px !important; /* Высота кружка */
+    font-size: 14px !important; /* Размер самой иконки */
+    margin-bottom: 6px !important; /* Отступ до текста */
+    border-radius: 8px !important; /* Чуть меньше скругление */
+}
+
+/* 4. Если внутри картинка (например, Twitch), тоже сжимаем */
+#admin-recent-grid .admin-icon-button .icon-wrapper img {
+    width: 18px !important;
+    height: 18px !important;
+}
+
+/* 5. Уменьшаем текст под иконкой */
+#admin-recent-grid .admin-icon-button span {
+    font-size: 10px !important; /* Маленький шрифт */
+    line-height: 1.1 !important;
+    white-space: normal !important;
+}
