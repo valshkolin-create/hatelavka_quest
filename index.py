@@ -1805,17 +1805,19 @@ async def sync_steam_inventory(
             url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
             url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
             
-            # Стреляем двумя запросами (EN и RU) одновременно!
-            resp_en, resp_ru = await asyncio.gather(
-                client.get(url_en, cookies=cookies, timeout=20.0),
-                client.get(url_ru, cookies=cookies, timeout=20.0),
-                return_exceptions=True
-            )
+            # Делаем запросы ПО ОЧЕРЕДИ с паузой, чтобы Steam не дал бан по IP (429)
+            try:
+                resp_en = await client.get(url_en, cookies=cookies, timeout=20.0)
+                await asyncio.sleep(1.5) # Пауза полторы секунды!
+                resp_ru = await client.get(url_ru, cookies=cookies, timeout=20.0)
+            except Exception as e:
+                return {"bot_id": bot_id, "error": f"Сетевая ошибка: {str(e)}", "items": []}
 
-            if isinstance(resp_en, Exception) or resp_en.status_code != 200:
-                return {"bot_id": bot_id, "error": "Steam EN Error", "items": []}
-            if isinstance(resp_ru, Exception) or resp_ru.status_code != 200:
-                return {"bot_id": bot_id, "error": "Steam RU Error", "items": []}
+            # Теперь выводим точный код ошибки, если Стим все-таки ругается
+            if resp_en.status_code != 200:
+                return {"bot_id": bot_id, "error": f"Steam EN Error: {resp_en.status_code}", "items": []}
+            if resp_ru.status_code != 200:
+                return {"bot_id": bot_id, "error": f"Steam RU Error: {resp_ru.status_code}", "items": []}
 
             # Собираем английские названия
             en_desc_map = {}
