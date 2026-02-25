@@ -1407,8 +1407,8 @@ function renderInventory(items) {
         return;
     }
 
-    // Сортировка: Сначала в работе (processing), потом новые (pending), архив внизу
-   const statusWeight = { 'processing': 1, 'pending': 2, 'sent': 3, 'received': 3, 'exchanged': 4 };
+    // Сортировка: Сначала автовыдача, потом в работе, потом новые, архив внизу
+    const statusWeight = { 'auto_queued': 1, 'processing': 2, 'pending': 3, 'sent': 4, 'received': 4, 'exchanged': 5, 'failed': 6, 'canceled': 6 };
     items.sort((a, b) => (statusWeight[a.status] || 99) - (statusWeight[b.status] || 99));
 
     items.forEach(item => {
@@ -1422,9 +1422,17 @@ function renderInventory(items) {
 
         // --- ЛОГИКА СТАТУСОВ И КНОПОК ---
 
-        if (status === 'processing') {
+        if (status === 'auto_queued') {
+            // АВТОВЫДАЧА
+            statusLabel = '<span style="color:#00c0e3; font-size:9px;">АВТОВЫДАЧА В ОЧЕРЕДИ</span>';
+            rightContentHtml = `
+                <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
+                    ОЖИДАЙТЕ<br>ТРЕЙД
+                </div>`;
+        }
+        else if (status === 'processing') {
             // ЖЕЛТАЯ ПЛАШКА ОЖИДАНИЯ (БЕЗ ПУНКТИРА)
-            statusLabel = '<span style="color:#FFD700; font-size:9px;">В ОБРАБОТКЕ</span>';
+            statusLabel = '<span style="color:#FFD700; font-size:9px;">ОЖИДАЕТ АДМИНА</span>';
             rightContentHtml = `
                 <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
                     ОЖИДАЙТЕ<br>ТРЕЙД
@@ -1433,24 +1441,33 @@ function renderInventory(items) {
         else if (status === 'sent' || status === 'received') {
             // ФИНАЛЬНЫЙ СТАТУС (ПОЛУЧЕНО)
             cardOpacity = '0.5';
-            statusLabel = '<span style="color:#34c759; font-size:9px;">ВЫДАНО</span>';
+            statusLabel = '<span style="color:#34c759; font-size:9px;">ВЫДАНО В STEAM</span>';
             rightContentHtml = `
                 <div style="text-align: right; color: #34c759; font-weight: 800; font-size: 11px;">
                     <i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО
                 </div>`;
-        }
+        } 
         else if (status === 'exchanged') {
             // АРХИВ (ОБМЕНЯНО)
             cardOpacity = '0.5';
-            statusLabel = '<span style="color:#888; font-size:9px;">ОБМЕН</span>';
+            statusLabel = '<span style="color:#888; font-size:9px;">ПРОДАНО ЗА БИЛЕТЫ</span>';
             rightContentHtml = `
                 <div style="text-align: right; color: #fff; font-size: 11px; font-weight: 700;">
                     +${ticketVal} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i>
                 </div>`;
         }
+        else if (status === 'failed' || status === 'canceled') {
+            // НЕДОСТУПЕН
+            cardOpacity = '0.5';
+            statusLabel = '<span style="color:#ff3b30; font-size:9px;">ВЫВОД ОТМЕНЕН</span>';
+            rightContentHtml = `
+                <div style="text-align: right; color: #ff3b30; font-weight: 800; font-size: 11px;">
+                    <i class="fa-solid fa-ban"></i> ОТМЕНА
+                </div>`;
+        }
         else {
             // АКТИВНЫЙ СКИН (ЗЕЛЕНАЯ ПРЕМИУМ КНОПКА)
-            statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО</span>';
+            statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДЛЯ ВЫВОДА</span>';
             rightContentHtml = `
                 <button onclick="withdrawItem(${item.history_id}, '${item.name.replace(/'/g, "\\'")}')" style="
                     background: #34c759; color: #000; border: none;
