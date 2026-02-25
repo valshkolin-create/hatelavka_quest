@@ -5290,7 +5290,7 @@ if(dom.createRoulettePrizeForm) {
         }
     } // <--- 🟢 ДОБАВЬ ВОТ ЭТУ СКОБКУ 🟢
 
- function renderShopPurchases(purchases, targetElement) {
+function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
 
     const listContainer = targetElement.querySelector('.shop-list-container') || 
@@ -5299,34 +5299,34 @@ if(dom.createRoulettePrizeForm) {
                           
     listContainer.innerHTML = '';
 
-    // --- 👇 ДОБАВЛЯЕМ КНОПКУ МАССОВОЙ АВТОВЫДАЧИ 👇 ---
-    if (purchases && purchases.length > 0) {
-        // Проверяем, есть ли хотя бы одна заявка на скин (где won_skin_name не пустое)
-        const hasSkinsToDeliver = purchases.some(p => !!p.won_skin_name);
-        
-        if (hasSkinsToDeliver) {
-            const massActionHtml = `
-                <div style="margin-bottom: 15px; padding: 12px; background: rgba(0, 192, 227, 0.1); border: 1px solid rgba(0, 192, 227, 0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-weight: bold; color: #00c0e3; font-size: 14px;">Автовыдача скинов</div>
-                        <div style="font-size: 11px; color: #aaa;">Бот сам подберет и отправит доступные предметы.</div>
-                    </div>
-                    <button onclick="triggerMassSteamDelivery()" style="background: #00c0e3; color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">
-                        <i class="fa-solid fa-robot"></i> ЗАПУСТИТЬ
-                    </button>
-                </div>
-            `;
-            listContainer.insertAdjacentHTML('beforeend', massActionHtml);
-        }
-    }
-    // --- 👆 КОНЕЦ ВСТАВКИ КНОПКИ 👆 ---
-
     if (!purchases || purchases.length === 0) {
         listContainer.innerHTML = '<p style="text-align: center; color: var(--text-color-muted); margin-top: 20px;">Нет новых покупок.</p>';
         return;
     }
 
-    listContainer.innerHTML = purchases.map(p => {
+    // --- 👇 ДОБАВЛЯЕМ КНОПКУ МАССОВОЙ АВТОВЫДАЧИ 👇 ---
+    // Проверяем, есть ли хотя бы одна заявка на скин (где won_skin_name не пустое)
+    const hasSkinsToDeliver = purchases.some(p => !!p.won_skin_name);
+    
+    if (hasSkinsToDeliver) {
+        const massActionHtml = `
+            <div style="margin-bottom: 15px; padding: 12px; background: rgba(0, 192, 227, 0.1); border: 1px solid rgba(0, 192, 227, 0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: bold; color: #00c0e3; font-size: 14px;">Автовыдача скинов</div>
+                    <div style="font-size: 11px; color: #aaa;">Бот тихо отправит всё, что есть на складе.</div>
+                </div>
+                <button onclick="triggerMassSteamDelivery()" style="background: #00c0e3; color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">
+                    <i class="fa-solid fa-robot"></i> ЗАПУСТИТЬ
+                </button>
+            </div>
+        `;
+        // Вставляем кнопку
+        listContainer.insertAdjacentHTML('beforeend', massActionHtml);
+    }
+    // --- 👆 КОНЕЦ ВСТАВКИ КНОПКИ 👆 ---
+
+    // Формируем HTML карточек (ИСПРАВЛЕНО: теперь мы собираем строку, а не перезаписываем innerHTML)
+    const cardsHtml = purchases.map(p => {
         const hasLink = p.user_trade_link && p.user_trade_link.startsWith('http');
         const linkHtml = hasLink 
             ? `<a href="${escapeHTML(p.user_trade_link)}" target="_blank"><i class="fa-solid fa-up-right-from-square"></i> Открыть</a>`
@@ -5355,7 +5355,6 @@ if(dom.createRoulettePrizeForm) {
         // --- ПОДГОТОВКА ДАННЫХ ДЛЯ КНОПОК ---
         const safeTitle = (p.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const userId = p.user_id || 0; 
-        // Важно: p.id теперь может быть строкой 'case_1', поэтому оборачиваем в кавычки в onclick
 
         return `
         <div class="shop-purchase-card" id="shop-card-${p.id}" style="${cardStyle}">
@@ -5388,7 +5387,38 @@ if(dom.createRoulettePrizeForm) {
             </div>
         </div>`;
     }).join('');
+
+    // ИСПРАВЛЕНИЕ: Аккуратно добавляем карточки ПОСЛЕ кнопки, не стирая саму кнопку!
+    listContainer.insertAdjacentHTML('beforeend', cardsHtml);
 }
+
+// --- ФУНКЦИЯ ЗАПУСКА МАССОВОЙ АВТОВЫДАЧИ ---
+window.triggerMassSteamDelivery = function() {
+    showCustomConfirmHTML(
+        `Запустить бота-кладовщика?<br><span style="font-size:12px; color:#aaa; font-weight:normal;">Бот тихо проверит все заявки и отправит скины. В случае нехватки предметов заявки просто останутся висеть.<br><br>Отчет придет вам в Telegram.</span>`,
+        async (closeModal) => {
+            showLoader();
+            try {
+                // Вызываем наш новый эндпоинт
+                const result = await makeApiRequest('/api/v1/admin/steam/mass_send', {}, 'POST', true);
+                
+                tg.showPopup({ 
+                    title: 'Запущено!', 
+                    message: 'Бот начал рассылку трейдов. Ожидайте отчет в админ-чат.' 
+                });
+                
+                closeModal();
+            } catch (e) {
+                hideLoader();
+                tg.showAlert(`Ошибка запуска: ${e.message}`);
+            } finally {
+                hideLoader();
+            }
+        }, 
+        'Запустить', 
+        '#00c0e3'
+    );
+};
 
   // 2. ОБНОВЛЕННАЯ ГЛОБАЛЬНАЯ ФУНКЦИЯ ДЕЙСТВИЯ (Исправлено извлечение ID)
 window.handleShopAction = function(id, action, title = '', userId = 0) {
@@ -5469,34 +5499,6 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
     }, btnText, btnColor);
 };
 
-// --- ФУНКЦИЯ ЗАПУСКА МАССОВОЙ АВТОВЫДАЧИ ---
-window.triggerMassSteamDelivery = function() {
-    showCustomConfirmHTML(
-        `Запустить бота-кладовщика?<br><span style="font-size:12px; color:#aaa; font-weight:normal;">Бот попытается выдать все скины из заявок.<br>Отчет придет вам в Telegram.</span>`,
-        async (closeModal) => {
-            showLoader();
-            try {
-                // Вызываем наш новый эндпоинт
-                const result = await makeApiRequest('/api/v1/admin/steam/mass_send', {}, 'POST', true);
-                
-                tg.showPopup({ 
-                    title: 'Запущено!', 
-                    message: 'Бот начал рассылку трейдов. Ожидайте отчет в админ-чат.' 
-                });
-                
-                closeModal();
-            } catch (e) {
-                hideLoader();
-                tg.showAlert(`Ошибка запуска: ${e.message}`);
-            } finally {
-                hideLoader();
-            }
-        }, 
-        'Запустить', 
-        '#00c0e3'
-    );
-};
-    
 async function main() {
         try {
             tg.expand();
