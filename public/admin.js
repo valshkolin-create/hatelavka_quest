@@ -5290,7 +5290,7 @@ if(dom.createRoulettePrizeForm) {
         }
     } // <--- 🟢 ДОБАВЬ ВОТ ЭТУ СКОБКУ 🟢
 
-  function renderShopPurchases(purchases, targetElement) {
+ function renderShopPurchases(purchases, targetElement) {
     if (!targetElement) return;
 
     const listContainer = targetElement.querySelector('.shop-list-container') || 
@@ -5298,6 +5298,28 @@ if(dom.createRoulettePrizeForm) {
                           targetElement;
                           
     listContainer.innerHTML = '';
+
+    // --- 👇 ДОБАВЛЯЕМ КНОПКУ МАССОВОЙ АВТОВЫДАЧИ 👇 ---
+    if (purchases && purchases.length > 0) {
+        // Проверяем, есть ли хотя бы одна заявка на скин (где won_skin_name не пустое)
+        const hasSkinsToDeliver = purchases.some(p => !!p.won_skin_name);
+        
+        if (hasSkinsToDeliver) {
+            const massActionHtml = `
+                <div style="margin-bottom: 15px; padding: 12px; background: rgba(0, 192, 227, 0.1); border: 1px solid rgba(0, 192, 227, 0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: bold; color: #00c0e3; font-size: 14px;">Автовыдача скинов</div>
+                        <div style="font-size: 11px; color: #aaa;">Бот сам подберет и отправит доступные предметы.</div>
+                    </div>
+                    <button onclick="triggerMassSteamDelivery()" style="background: #00c0e3; color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">
+                        <i class="fa-solid fa-robot"></i> ЗАПУСТИТЬ
+                    </button>
+                </div>
+            `;
+            listContainer.insertAdjacentHTML('beforeend', massActionHtml);
+        }
+    }
+    // --- 👆 КОНЕЦ ВСТАВКИ КНОПКИ 👆 ---
 
     if (!purchases || purchases.length === 0) {
         listContainer.innerHTML = '<p style="text-align: center; color: var(--text-color-muted); margin-top: 20px;">Нет новых покупок.</p>';
@@ -5445,6 +5467,34 @@ window.handleShopAction = function(id, action, title = '', userId = 0) {
             tg.showAlert(`Ошибка: ${e.message}`);
         }
     }, btnText, btnColor);
+};
+
+// --- ФУНКЦИЯ ЗАПУСКА МАССОВОЙ АВТОВЫДАЧИ ---
+window.triggerMassSteamDelivery = function() {
+    showCustomConfirmHTML(
+        `Запустить бота-кладовщика?<br><span style="font-size:12px; color:#aaa; font-weight:normal;">Бот попытается выдать все скины из заявок.<br>Отчет придет вам в Telegram.</span>`,
+        async (closeModal) => {
+            showLoader();
+            try {
+                // Вызываем наш новый эндпоинт
+                const result = await makeApiRequest('/api/v1/admin/steam/mass_send', {}, 'POST', true);
+                
+                tg.showPopup({ 
+                    title: 'Запущено!', 
+                    message: 'Бот начал рассылку трейдов. Ожидайте отчет в админ-чат.' 
+                });
+                
+                closeModal();
+            } catch (e) {
+                hideLoader();
+                tg.showAlert(`Ошибка запуска: ${e.message}`);
+            } finally {
+                hideLoader();
+            }
+        }, 
+        'Запустить', 
+        '#00c0e3'
+    );
 };
     
 async function main() {
