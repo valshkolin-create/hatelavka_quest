@@ -13291,7 +13291,8 @@ async def buy_bott_item_proxy(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}",
-                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets" # <--- НОВОЕ: Добавили tickets в запрос
+                # 👇 ВОТ ТУТ ОШИБКА НА 99%: забыл дописать ,trade_link
+                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link" 
             }
         )
         user_data_list = user_db_resp.json()
@@ -13308,6 +13309,7 @@ async def buy_bott_item_proxy(
     bott_secret_key = user_record.get("bott_secret_key")
     current_balance_kopecks = user_record.get("bot_t_coins", 0)
     current_tickets = user_record.get("tickets", 0) # <--- НОВОЕ: Достаем билеты
+    user_trade_link = user_record.get("trade_link")
 
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
