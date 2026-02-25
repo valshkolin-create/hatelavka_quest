@@ -1760,13 +1760,12 @@ async def sync_steam_inventory(
 ):
     import urllib.parse
     import httpx
-    import re
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Достаем активного бота
+        # 1. Получаем активного бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
@@ -1779,10 +1778,10 @@ async def sync_steam_inventory(
         
         if not steam_id: return {"success": False, "message": "SteamID не найден"}
 
-        # 2. Парсим Стим (l=russian критичен для качества!)
+        # 2. Запрашиваем инвентарь Steam (l=russian для русского качества)
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
-            resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25.0)
+            resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0)
             if resp.status_code != 200:
                 return {"success": False, "message": f"Steam Error: {resp.status_code}"}
             
@@ -1790,103 +1789,67 @@ async def sync_steam_inventory(
             assets = data.get("assets", [])
             descriptions = data.get("descriptions", [])
             
-            desc_info = {}
-            needed_names = set() 
-
+            # Справочник описаний
+            desc_map = {}
             for desc in descriptions:
+                # Нам нужны только передаваемые предметы
                 if desc.get("tradable") == 1:
-                    key = f"{desc['classid']}_{desc['instanceid']}"
-                    mhn = desc.get("market_hash_name", "") # Английское имя
-                    name_ru = desc.get("market_name", desc.get("name", "")) # Русское имя
+                    classid = desc.get("classid")
+                    instanceid = desc.get("instanceid")
+                    key = f"{classid}_{instanceid}"
                     
-                    # --- ГАРАНТИРОВАННЫЙ ПОИСК КАЧЕСТВА ---
-                    ext = "Без качества"
-                    # Способ 1: Ищем в официальных тегах
-                    for tag in desc.get("tags", []):
+                    # --- ИЩЕМ КАЧЕСТВО В ТЕГАХ ---
+                    exterior = "Не указано"
+                    tags = desc.get("tags", [])
+                    for tag in tags:
                         if tag.get("category") == "Exterior":
-                            ext = tag.get("localized_tag_name", tag.get("name"))
-                            break
+                            exterior = tag.get("localized_tag_name", tag.get("name"))
+                            break # Нашли качество - выходим из цикла тегов
                     
-                    # Способ 2: Если тегов нет, ищем в поле 'type' (там часто пишут качество)
-                    if ext == "Без качества":
-                        type_str = desc.get("type", "")
-                        if "(" in type_str: # Например "Засекреченное оружие (После полевых)"
-                            match_type = re.search(r'\(([^)]+)\)', type_str)
-                            if match_type: ext = match_type.group(1)
-                    
-                    # Способ 3: Парсим из самого названия в скобках
-                    if ext == "Без качества" and "(" in name_ru:
-                        match_name = re.search(r'\(([^)]+)\)', name_ru)
-                        if match_name: ext = match_name.group(1)
-
-                    # --- РАБОЧИЙ URL ИКОНКИ ---
+                    # --- СТРОИМ ПРЯМУЮ ССЫЛКУ НА КАРТИНКУ ---
+                    # Если есть большая картинка - берем её, если нет - обычную
                     img_hash = desc.get("icon_url_large") or desc.get("icon_url")
-                    full_url = ""
+                    icon_full_url = ""
                     if img_hash:
-                        # Используем четкий формат 512x512
-                        full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f"
+                        # Формируем готовую ссылку для тега <img>
+                        icon_full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f"
 
-                    desc_info[key] = {
-                        "mhn": mhn,
-                        "name_ru": name_ru,
-                        "exterior": ext,
-                        "icon_url": full_url
+                    desc_map[key] = {
+                        "name": desc.get("market_name", desc.get("name", "Неизвестно")),
+                        "exterior": exterior,
+                        "icon_url": icon_full_url
                     }
-                    needed_names.add(mhn)
 
-        # 3. ПАРСИМ ЦЕНЫ LIS-SKINS (В ДОЛЛАРАХ)
-        prices_dict = {}
-        lis_url = "https://lis-skins.com/market_export_json/api_csgo_unlocked.json"
-        
-        async with httpx.AsyncClient(follow_redirects=True) as lis_client:
-            async with lis_client.stream("GET", lis_url, timeout=60.0) as r:
-                pattern = re.compile(r'"name"\s*:\s*"([^"]+)"\s*,\s*"price"\s*:\s*([\d\.]+)')
-                buffer = "" 
-                async for chunk in r.aiter_text():
-                    buffer += chunk
-                    matches = list(pattern.finditer(buffer))
-                    for m in matches:
-                        name_api, p_usd = m.groups()
-                        if name_api in needed_names:
-                            prices_dict[name_api] = float(p_usd)
-                    
-                    if matches:
-                        buffer = buffer[matches[-1].end():]
-                    if len(buffer) > 10000: buffer = buffer[-1000:]
-
-        # 4. СОБИРАЕМ И ПИШЕМ
-        to_db = []
+        # 3. Собираем инвентарь для базы
+        inventory_to_db = []
         for asset in assets:
-            k = f"{asset['classid']}_{asset['instanceid']}"
-            if k in desc_info:
-                info = desc_info[k]
-                name_ru = info["name_ru"]
-                
-                price_val = prices_dict.get(info["mhn"])
-                if price_val is None:
-                    # Логика для наклеек/сувениров (0.02 USD)
-                    price_val = 0.02 if any(x in name_ru for x in ["Наклейка", "Сувенирный"]) else 0.0
-
-                to_db.append({
+            key = f"{asset['classid']}_{asset['instanceid']}"
+            if key in desc_map:
+                info = desc_map[key]
+                inventory_to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
-                    "market_hash_name": name_ru,
-                    "price_usd": round(price_val, 2),
+                    "market_hash_name": info["name"],
+                    "price_usd": 0.0, # Цены временно обнуляем
                     "exterior": info["exterior"],
                     "icon_url": info["icon_url"],
                     "is_reserved": False
                 })
 
-        # 5. ОЧИСТКА И ОБНОВЛЕНИЕ
+        # 4. Обновляем Supabase
+        # Удаляем старый кэш
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
-        if to_db:
-            for i in range(0, len(to_db), 50):
-                await supabase.post("/steam_inventory_cache", json=to_db[i:i+50])
+        
+        # Записываем новый
+        if inventory_to_db:
+            # Чанки по 50, чтобы не перегружать Vercel
+            for i in range(0, len(inventory_to_db), 50):
+                await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+50])
 
         return {
             "success": True, 
-            "synced": len(to_db),
-            "sample": to_db[0] if to_db else "empty"
+            "items_synced": len(inventory_to_db),
+            "debug": inventory_to_db[0] if inventory_to_db else "No items"
         }
 
     except Exception as e:
