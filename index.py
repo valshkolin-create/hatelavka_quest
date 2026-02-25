@@ -273,6 +273,7 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
     Берет куки бота из БД и отправляет предмет по Trade URL.
     """
     import logging
+    import json
     from steampy.client import SteamClient
     from steampy.models import Asset, GameOptions
     from fastapi.concurrency import run_in_threadpool
@@ -283,25 +284,35 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
     if not acc_data:
         return {"success": False, "error": "bot_not_found"}
     
-    session_data = acc_data[0].get('session_data', {})
-    sessionid = session_data.get('sessionid')
-    steamLoginSecure = session_data.get('steamLoginSecure')
+    raw_session_data = acc_data[0].get('session_data', {})
+    
+    # Если Supabase вернул строку (а не готовый словарь), парсим её
+    if isinstance(raw_session_data, str):
+        try:
+            session_data = json.loads(raw_session_data)
+        except json.JSONDecodeError:
+            session_data = {}
+    else:
+        session_data = raw_session_data
+    
+    # Вытаскиваем куки из вложенного объекта 'cookies'
+    cookies = session_data.get('cookies', {})
+    sessionid = cookies.get('sessionid')
+    steamLoginSecure = cookies.get('steamLoginSecure')
     
     if not sessionid or not steamLoginSecure:
+        logging.error(f"[COURIER] Куки не найдены в session_data: {session_data}")
         return {"success": False, "error": "bot_not_logged_in"}
 
-    # 2. Синхронная функция для Steampy (запускаем в отдельном потоке, чтобы не вешать сервер)
+    # 2. Синхронная функция для Steampy (остальное без изменений)
     def _send_offer():
-        # Инициализируем клиента без API-ключа (для оффера по ссылке он не обязателен)
         client = SteamClient('DUMMY_API_KEY')
         client._session.cookies.set('sessionid', sessionid, domain='steamcommunity.com')
         client._session.cookies.set('steamLoginSecure', steamLoginSecure, domain='steamcommunity.com')
-        client.was_login_executed = True # Говорим библиотеке, что мы уже залогинены
+        client.was_login_executed = True 
         
-        # Создаем объект предмета (Игра: CS:GO)
         asset = Asset(assetid, GameOptions.CS)
         
-        # Отправляем!
         return client.make_offer_with_url(
             items_from_me=[asset], 
             items_from_them=[], 
@@ -309,7 +320,7 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
             message="Твой выигрыш от HATElavka! 🐸"
         )
 
-    # 3. Пытаемся отправить и ловим ошибки Steam
+    # 3. Пытаемся отправить
     try:
         logging.info(f"[COURIER] Попытка отправки AssetID {assetid} с бота #{account_id}...")
         resp = await run_in_threadpool(_send_offer)
