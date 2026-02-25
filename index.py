@@ -8390,6 +8390,8 @@ async def sync_leaderboard_to_supabase(
     logging.info("🎉 Синхронизация статистики Twitch завершена.")
     return {"message": "Leaderboard sync completed."}
 
+
+
 async def background_challenge_bonuses(user_id: int):
     """
     Начисляет бонусы (звезды, билеты, таймер) в фоне.
@@ -14498,6 +14500,96 @@ async def claim_gift(
         "subscription_required": False,
         "claimed_at": claim_time_str  # <--- ВОТ ЭТО ПОЛЕ НУЖНО ДОБАВИТЬ
     }
+
+# =======================================================
+# 🚀 МАССОВАЯ АВТОВЫДАЧА (ФОНОВАЯ ЗАДАЧА)
+# =======================================================
+async def background_mass_delivery():
+    """Фоновая задача: ищет заявки со статусом processing/auto_queued и пытается их отправить"""
+    import logging
+    client = await get_background_client()
+    
+    # 1. Берем все заявки, которые ждут ручной или автовыдачи
+    resp = await client.get("/cs_history", params={
+        "status": "in.(processing,auto_queued)",
+        "select": "id, user_id, status, item:cs_items(name, price)"
+    })
+    items = resp.json()
+    
+    if not items:
+        logging.info("[MASS_DELIVERY] Нет активных заявок для отправки.")
+        return
+
+    success_count = 0
+    error_count = 0
+
+    for row in items:
+        history_id = row['id']
+        user_id = row['user_id']
+        item_data = row.get('item', {})
+        target_name = item_data.get('name')
+        target_price = item_data.get('price', 0)
+        
+        # Получаем Trade Link юзера
+        u_resp = await client.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "trade_link"})
+        u_data = u_resp.json()
+        if not u_data or not u_data[0].get("trade_link"):
+            error_count += 1
+            continue
+            
+        trade_url = u_data[0]["trade_link"]
+
+        # Пытаемся выдать предмет
+        delivery_res = await fulfill_item_delivery(
+            user_id=user_id,
+            target_name=target_name,
+            target_price_rub=float(target_price),
+            trade_url=trade_url,
+            supabase=client
+        )
+
+        if delivery_res.get("success"):
+            real_skin = delivery_res.get("real_skin")
+            # Отправляем трейд!
+            trade_res = await send_steam_trade_offer(
+                account_id=real_skin["account_id"],
+                assetid=real_skin["assetid"],
+                trade_url=trade_url,
+                supabase=client
+            )
+            
+            if trade_res.get("success"):
+                success_count += 1
+                await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "sent"})
+            else:
+                error_count += 1
+                await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
+        else:
+            error_count += 1
+            await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
+
+    # Отчет админу
+    if ADMIN_NOTIFY_CHAT_ID:
+        msg = f"🤖 <b>Массовая отправка завершена!</b>\n\n✅ Успешно отправлено: <b>{success_count}</b>\n❌ Ошибок/Нет в наличии: <b>{error_count}</b>"
+        try:
+            await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=msg, parse_mode="HTML")
+        except Exception:
+            pass
+
+# Эндпоинт для запуска из админки
+@app.post("/api/v1/admin/steam/mass_send")
+async def trigger_mass_send(
+    req: BaseAuthRequest,
+    background_tasks: BackgroundTasks,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Добавляем задачу в фон
+    background_tasks.add_task(background_mass_delivery)
+    return {"success": True, "message": "Массовая отправка запущена! Результат придет в чат."}
 
 @app.post("/api/v1/admin/gift/skins/list")
 async def list_gift_skins(
