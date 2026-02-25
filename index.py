@@ -1767,6 +1767,29 @@ RARITY_COLOR_MAP = {
     "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
 
+# =======================================================
+# 🔥 КРОН: МУЛЬТИ-АККАУНТ (V9.0 - FINAL STAGE 4) 🔥
+# =======================================================
+
+# Секретный токен и курс (вынеси в переменные окружения Vercel для безопасности)
+CRON_SECRET = "my_super_secret_cron_token_123" 
+EXCHANGE_RATE = 76.5  
+
+# Маппинг качества скинов
+CONDITION_MAP = {
+    "Прямо с завода": "FN", "Factory New": "FN",
+    "Немного поношенное": "MW", "Minimal Wear": "MW",
+    "После полевых испытаний": "FT", "Field-Tested": "FT",
+    "Поношенное": "WW", "Well-Worn": "WW",
+    "Закаленное в боях": "BS", "Battle-Scarred": "BS"
+}
+
+# Маппинг редкости по цветам Steam
+RARITY_COLOR_MAP = {
+    "b0c3d9": "grey", "5e98d9": "light_blue", "4b69ff": "blue",        
+    "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
+}
+
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
     token: str,
@@ -1781,10 +1804,11 @@ async def sync_steam_inventory(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем ВСЕХ активных ботов
+        # 1. Получаем ВСЕХ активных ботов из базы
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
-        if not bots: return {"success": False, "message": "Нет активных ботов"}
+        if not bots: 
+            return {"success": False, "message": "Нет активных ботов для синхронизации"}
 
         # Функция для параллельного сбора инвентаря ОДНОГО бота
         async def fetch_bot_inventory(client, bot):
@@ -1794,23 +1818,25 @@ async def sync_steam_inventory(
             steam_id = steam_login.split('||')[0] if '||' in steam_login else None
             
             if not steam_id:
-                return {"bot_id": bot_id, "error": "SteamID не найден", "items": []}
+                return {"bot_id": bot_id, "error": "SteamID не найден в куках", "items": []}
 
+            # Ссылки на инвентарь (EN для ключей цен, RU для названий в боте)
             url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
             url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
             
-            # --- БРОНЯ ОТ ОШИБОК 500 И 429 ---
+            # --- БРОНЯ ОТ ОШИБОК 500 И 429 (Retry Logic) ---
             async def safe_get(url):
                 last_resp = None
                 for attempt in range(3):
                     try:
-                        resp = await client.get(url, cookies=cookies, timeout=20.0)
+                        resp = await client.get(url, cookies=cookies, timeout=25.0)
                         if resp.status_code == 200:
                             return resp
                         last_resp = resp
-                        await asyncio.sleep(2 * (attempt + 1)) 
+                        # Экспоненциальная задержка перед повтором
+                        await asyncio.sleep(3 * (attempt + 1)) 
                     except Exception:
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(3)
                 return last_resp
 
             resp_en = await safe_get(url_en)
@@ -1818,6 +1844,7 @@ async def sync_steam_inventory(
                 err_code = resp_en.status_code if resp_en else "Network Error"
                 return {"bot_id": bot_id, "error": f"Steam EN Error: {err_code}", "items": []}
 
+            # Пауза между запросами, чтобы Стим не ругался
             await asyncio.sleep(2.5) 
 
             resp_ru = await safe_get(url_ru)
@@ -1825,14 +1852,14 @@ async def sync_steam_inventory(
                 err_code = resp_ru.status_code if resp_ru else "Network Error"
                 return {"bot_id": bot_id, "error": f"Steam RU Error: {err_code}", "items": []}
 
-            # Собираем английские названия
+            # Собираем английские названия (они нужны как ключи для API цен)
             en_desc_map = {}
             for desc in resp_en.json().get("descriptions", []):
                 if desc.get("tradable") == 1:
                     key = f"{desc.get('classid')}_{desc.get('instanceid')}"
                     en_desc_map[key] = desc.get("market_hash_name", "")
 
-            # Собираем данные
+            # Парсим русские данные
             data_ru = resp_ru.json()
             assets = data_ru.get("assets", [])
             bot_items = []
@@ -1843,6 +1870,8 @@ async def sync_steam_inventory(
                     key = f"{desc.get('classid')}_{desc.get('instanceid')}"
                     raw_cond = "-"
                     rarity_col = "default"
+                    
+                    # Извлекаем качество и редкость из тегов
                     for tag in desc.get("tags", []):
                         if tag.get("category") == "Exterior":
                             raw_cond = tag.get("localized_tag_name", tag.get("name"))
@@ -1874,30 +1903,24 @@ async def sync_steam_inventory(
             
             return {"bot_id": bot_id, "error": None, "items": bot_items}
 
-        # ==========================================
-        # 2. ЗАПУСКАЕМ СБОР СО ВСЕХ БОТОВ РАЗОМ
-        # ==========================================
+        # --- 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР СО ВСЕХ БОТОВ ---
         async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
             tasks = [fetch_bot_inventory(client, bot) for bot in bots]
             bot_results = await asyncio.gather(*tasks)
 
-        # ==========================================
-        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (СРАЗУ В РУБЛЯХ!)
-        # ==========================================
+        # --- 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (СРАЗУ В РУБЛЯХ) ---
         market_prices_rub = {}
         try:
             async with httpx.AsyncClient() as client:
-                price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=20.0)
+                price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=30.0)
                 if price_resp.status_code == 200:
                     market_data = price_resp.json()
                     for item in market_data.get("items", []):
                         market_prices_rub[item["market_hash_name"]] = float(item["price"])
         except Exception as e:
-            print(f"ОШИБКА CS:GO MARKET: {e}")
+            print(f"Критическая ошибка загрузки цен: {e}")
 
-        # ==========================================
-        # 4. РАСПРЕДЕЛЯЕМ ЦЕНЫ С ФИЛЬТРАМИ И ПИШЕМ В БД
-        # ==========================================
+        # --- 4. РАСПРЕДЕЛЯЕМ ЦЕНЫ И СОХРАНЯЕМ В БД ---
         total_synced = 0
         bot_stats = {}
 
@@ -1909,23 +1932,23 @@ async def sync_steam_inventory(
                 
             bot_inventory = []
             for item in res_data["items"]:
+                # Достаем английское имя для поиска цены
                 hash_en = item.pop("hash_name_en") 
                 
-                # Ищем цену в базе CS:GO Market для ВСЕХ предметов (включая наклейки)
+                # Ищем цену в рублях
                 p_rub = market_prices_rub.get(hash_en, 0.0)
                 
+                # Логика: если цены нет (новый предмет), ставим заглушку $0.02
                 if p_rub == 0.0:
-                    # Если предмета вообще нет на площадке, ставим заглушку
                     p_rub = round(0.02 * EXCHANGE_RATE, 2)
                 elif p_rub > 2000.0:
-                    # ЛИМИТ: режем сверхдорогие вещи до 2000 рублей
-                    p_rub = 2000.0
+                    p_rub = 2000.0 # Ограничиваем стоимость для системы замены
                 
-                # Переводим в доллары для базы
+                # Сохраняем и рубли, и доллары (для совместимости)
                 p_usd = round(p_rub / EXCHANGE_RATE, 2)
                 
-                # Билеты: 1 билет за каждые 3 рубля. Минимум 1 билет.
-                tickets_count = max(1, int(p_rub / 3.0)) if p_rub >= 5 else 1
+                # Рассчитываем билеты (1 билет за каждые 3 рубля)
+                tickets_count = max(1, int(p_rub / 3.0)) if p_rub >= 3 else 1
                 
                 item["price_usd"] = p_usd
                 item["price_rub"] = p_rub
@@ -1933,27 +1956,33 @@ async def sync_steam_inventory(
                 
                 bot_inventory.append(item)
 
-            # Запись в БД чанками
+            # Перезаписываем инвентарь в базе (Удаляем старое -> Пишем новое)
             if bot_inventory:
                 await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+                # Пишем пачками по 50 записей, чтобы не "повесить" Vercel
                 for i in range(0, len(bot_inventory), 50):
                     chunk = bot_inventory[i:i+50]
                     await supabase.post("/steam_inventory_cache", json=chunk)
                 
                 total_synced += len(bot_inventory)
-                bot_stats[bot_id] = f"Успешно: {len(bot_inventory)} шт."
+                bot_stats[bot_id] = f"Успешно: {len(bot_inventory)} предметов."
             else:
-                bot_stats[bot_id] = "Пустой инвентарь или нет трейдабельных шмоток"
+                bot_stats[bot_id] = "Инвентарь пуст."
 
         return {
             "success": True, 
             "total_items_synced": total_synced,
             "market_prices_loaded": len(market_prices_rub),
-            "bot_details": bot_stats
+            "bot_details": bot_stats,
+            "sync_interval": "24h"
         }
 
     except Exception as e:
-        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+        return {
+            "success": False, 
+            "error": str(e), 
+            "traceback": traceback.format_exc()
+        }
         
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
