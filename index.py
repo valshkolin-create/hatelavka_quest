@@ -16489,37 +16489,56 @@ async def cancel_tg_challenge_paid(request: Request):
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
 # =====================================================
 
+class SearchCacheRequest(BaseModel):
+    query: str
+
 @app.post("/api/v1/admin/cases/search_cache")
-async def admin_cases_search_cache(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # Новый поиск: ищет напрямую на складе ботов
-    data = await request.json()
-    query = data.get("query", "").strip()
+async def admin_cases_search_cache(
+    req: SearchCacheRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    query = req.query.strip()
     if not query or len(query) < 2:
         return []
+
+    try:
+        # Убрали пробелы в select, теперь Supabase не будет ругаться
+        res = await supabase.get("/steam_inventory_cache", params={
+            "market_hash_name": f"ilike.%{query}%",
+            "select": "market_hash_name,icon_url,price_rub,condition",
+            "limit": 50
+        })
         
-    res = await supabase.get("/steam_inventory_cache", params={
-        "market_hash_name": f"ilike.%{query}%",
-        "select": "market_hash_name, icon_url, price_rub, condition",
-        "limit": 50
-    })
-    
-    items = res.json()
-    
-    # Убираем дубликаты (если на боте лежит 10 одинаковых калашей, покажем 1)
-    seen = set()
-    unique_items = []
-    for it in items:
-        name = it.get("market_hash_name", "")
-        if name not in seen:
-            seen.add(name)
-            unique_items.append({
-                "market_hash_name": name,
-                "image_url": it.get("icon_url"),
-                "price_rub": it.get("price_rub", 0),
-                "condition": it.get("condition")
-            })
+        # Если Supabase вернул ошибку - просто отдаем пустой список, а не крашим сервак
+        if res.status_code != 200:
+            print(f"⚠️ Ошибка поиска в Supabase: {res.text}")
+            return []
             
-    return unique_items
+        items = res.json()
+        
+        # На всякий случай проверяем, что пришел именно список скинов
+        if not isinstance(items, list):
+            return []
+
+        # Группируем дубликаты
+        seen = set()
+        unique_items = []
+        for it in items:
+            name = it.get("market_hash_name", "")
+            if name and name not in seen:
+                seen.add(name)
+                unique_items.append({
+                    "market_hash_name": name,
+                    "image_url": it.get("icon_url", ""),
+                    "price_rub": it.get("price_rub", 0),
+                    "condition": it.get("condition", "")
+                })
+                
+        return unique_items
+
+    except Exception as e:
+        print(f"⚠️ Критическая ошибка в search_cache: {e}")
+        return [] # Возвращаем пустоту, чтобы фронтенд не ловил 500 ошибку
 
 # 5. Поиск предметов по всей базе (библиотека)
 @app.post("/api/v1/admin/cases/search_items")
