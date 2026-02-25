@@ -193,24 +193,34 @@ async def get_roulette_strip(winner_item, count=30):
         logging.error(f"Error generating strip: {e}")
         return [winner_item] * count
 
-async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase):
+async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, target_condition: str = None):
     """
     Ищет предмет на складе (или замену), бронирует его и ставит в очередь на отправку.
     """
+    import re
+    import logging
+
     # 1. Проверка адреса доставки (Trade URL)
     trade_pattern = r"partner=(\d+)&token=([a-zA-Z0-9_-]+)"
     if not re.search(trade_pattern, trade_url):
         logging.error(f"[STOREKEEPER] Ошибка: Неверный Trade URL у юзера {user_id}")
         return {"success": False, "error": "invalid_url", "message": "Неверная ссылка на обмен"}
 
-    logging.info(f"[STOREKEEPER] Заказ принят: {target_name} (Бюджет: {target_price_rub} руб.)")
+    cond_text = f" (Качество: {target_condition})" if target_condition else ""
+    logging.info(f"[STOREKEEPER] Заказ принят: {target_name}{cond_text} (Бюджет: {target_price_rub} руб.)")
 
     # 2. Поиск оригинала на полках
-    stock_res = await supabase.get("/steam_inventory_cache", params={
-        "market_hash_name": f"eq.{target_name}",
+    search_params = {
+        "market_hash_name": f"ilike.%{target_name}%", # <--- ТЕПЕРЬ ОН НАЙДЕТ CZ75 ДАЖЕ С ПРИПИСКОЙ КАЧЕСТВА
         "is_reserved": "eq.false",
         "limit": 1
-    })
+    }
+    
+    # Добавляем строгое требование по качеству, если оно есть в БД рулетки
+    if target_condition:
+        search_params["condition"] = f"eq.{target_condition}"
+
+    stock_res = await supabase.get("/steam_inventory_cache", params=search_params)
     
     real_skin = None
     stock_data = stock_res.json()
@@ -331,7 +341,7 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
         "sessionid": sessionid,
         "serverid": "1",
         "partner": str(steam64id),
-        "tradeoffermessage": "Твой выигрыш от HATElavka! 🐸",
+        "tradeoffermessage": "Твой выигрыш от стримера HATElove_ttv! 🐸",
         "json_tradeoffer": json.dumps(json_tradeoffer),
         "captcha": "",
         "trade_offer_create_params": json.dumps({"trade_offer_access_token": token})
@@ -16121,14 +16131,14 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет
+    # 2. Получаем предмет (ДОБАВЛЕНЫ price_rub И condition В SELECT)
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "id": f"eq.{req.history_id}",
             "user_id": f"eq.{user_id}",
             "status": "eq.pending",
-            "select": "id, item:cs_items(name, price, rarity)"
+            "select": "id, item:cs_items(name, price, rarity, condition, price_rub)"
         }
     )
     
@@ -16138,8 +16148,10 @@ async def withdraw_inventory_item(
 
     item_info = rows[0].get('item', {})
     item_name = item_info.get('name', 'Неизвестный предмет')
-    item_price = item_info.get('price', 0)
+    item_price = item_info.get('price', 0)          # Это билеты
+    item_price_rub = item_info.get('price_rub', 0)  # Это реальные рубли для бота
     item_rarity = item_info.get('rarity', 'common')
+    item_condition = item_info.get('condition')     # Это качество (MW, FT и т.д.)
 
     # ==========================================
     # 📦 3. АВТОВЫДАЧА (КЛАДОВЩИК + КУРЬЕР)
@@ -16147,9 +16159,10 @@ async def withdraw_inventory_item(
     delivery_res = await fulfill_item_delivery(
         user_id=user_id,
         target_name=item_name,
-        target_price_rub=float(item_price),
+        target_price_rub=float(item_price_rub), # ПЕРЕДАЕМ РУБЛИ, А НЕ БИЛЕТЫ!
         trade_url=trade_link,
-        supabase=supabase
+        supabase=supabase,
+        target_condition=item_condition         # ПЕРЕДАЕМ КАЧЕСТВО ДЛЯ ТОЧНОГО ПОИСКА!
     )
 
     if delivery_res.get("success"):
