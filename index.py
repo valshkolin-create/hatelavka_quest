@@ -2111,20 +2111,28 @@ async def auth_steam_bot(
 
     client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
     
-    # 🔥 Создаем фейковый файл Steam Guard во временной папке Vercel
+    # 🔥 Делаем ИДЕАЛЬНЫЙ фейковый файл, чтобы steampy прошла все свои внутренние проверки
     dummy_guard_path = "/tmp/dummy_guard.json"
     with open(dummy_guard_path, "w") as f:
-        json.dump({"shared_secret": "dummy", "identity_secret": "dummy"}, f)
+        json.dump({
+            "steamid": "0",
+            "shared_secret": "dummy",
+            "identity_secret": "dummy",
+            "client_id": "0",
+            "device_id": "android:12345678-1234-1234-1234-123456789012",
+            "refresh_token": "",
+            "access_token": ""
+        }, f)
     
     # 🔥 ХАК ДЛЯ ОБХОДА ЗАЩИТЫ STEAMPY С АЙФОНА 🔥
     original_generate = steampy.guard.generate_one_time_code
     steampy.guard.generate_one_time_code = lambda shared_secret, timestamp=None: request.steam_guard_code
 
     try:
-        # Кормим библиотеку ПУТЕМ К ФАЙЛУ, как она и хочет
+        # Кормим библиотеку полным фейковым файлом
         client.login(request.login, request.password, dummy_guard_path)
         
-        # Если код с айфона подошел, забираем куки
+        # Если Стим принял наш пароль и код, забираем куки
         session_cookies = client.get_web_session().cookies.get_dict()
 
         session_data = {
@@ -2146,16 +2154,14 @@ async def auth_steam_bot(
 
     except Exception as e:
         print(f"Ошибка входа Steam: {e}")
-        raise HTTPException(status_code=400, detail="Неверный пароль или код Steam Guard устарел")
+        # Если Стим отшил (например, код устарел), выдаем понятную ошибку
+        raise HTTPException(status_code=400, detail="Ошибка входа. Возможно, код Steam Guard устарел (он живет всего 30 сек)!")
     finally:
-        # Возвращаем системную функцию на место
+        # Возвращаем всё на место и убираем за собой мусор
         steampy.guard.generate_one_time_code = original_generate
-        # Удаляем фейковый файл за собой
         if os.path.exists(dummy_guard_path):
             os.remove(dummy_guard_path)
-        
-
-        
+         
 @app.post("/api/v1/admin/events/cauldron/reward_status")
 async def update_cauldron_reward_status(
     request_data: CauldronRewardStatusRequest,
