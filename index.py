@@ -268,25 +268,38 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
 # =======================================================
 # 🚀 БЛОК 6: ОТПРАВКА ТРЕЙДА ЧЕРЕЗ STEAM (КУРЬЕР)
 # =======================================================
+# =======================================================
+# 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
+# =======================================================
 async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
     """
-    Берет куки бота из БД и отправляет предмет по Trade URL.
+    Прямой запрос к Steam API без сторонних библиотек.
     """
-    import logging
     import json
-    from steampy.client import SteamClient
-    from steampy.models import Asset, GameOptions
-    from fastapi.concurrency import run_in_threadpool
+    import re
+    import httpx
+    import logging
 
-    # 1. Получаем сессию бота
+    # 1. Достаем ключи из ссылки юзера
+    match = re.search(r'partner=(\d+)&token=([a-zA-Z0-9_-]+)', trade_url)
+    if not match:
+        return {"success": False, "error": "Неверный формат трейд-ссылки"}
+    
+    partner_id = match.group(1)
+    token = match.group(2)
+    
+    # Steam API требует конвертации короткого partner_id в длинный steam64id
+    steam64id = int(partner_id) + 76561197960265728
+
+    # 2. Достаем куки бота из базы
     acc_res = await supabase.get("/steam_accounts", params={"id": f"eq.{account_id}"})
     acc_data = acc_res.json()
     if not acc_data:
-        return {"success": False, "error": "bot_not_found"}
+        return {"success": False, "error": "Бот не найден в базе"}
     
     raw_session_data = acc_data[0].get('session_data', {})
     
-    # Если Supabase вернул строку (а не готовый словарь), парсим её
+    # Парсим JSON, если Supabase вернул его строкой
     if isinstance(raw_session_data, str):
         try:
             session_data = json.loads(raw_session_data)
@@ -294,47 +307,78 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
             session_data = {}
     else:
         session_data = raw_session_data
-    
-    # Вытаскиваем куки из вложенного объекта 'cookies'
-    cookies = session_data.get('cookies', {})
-    sessionid = cookies.get('sessionid')
-    steamLoginSecure = cookies.get('steamLoginSecure')
+        
+    cookies_dict = session_data.get('cookies', {})
+    sessionid = cookies_dict.get('sessionid')
+    steamLoginSecure = cookies_dict.get('steamLoginSecure')
     
     if not sessionid or not steamLoginSecure:
-        logging.error(f"[COURIER] Куки не найдены в session_data: {session_data}")
-        return {"success": False, "error": "bot_not_logged_in"}
+        return {"success": False, "error": "Куки бота не найдены (Нужна авторизация)"}
 
-    # 2. Синхронная функция для Steampy (остальное без изменений)
-    def _send_offer():
-        client = SteamClient('DUMMY_API_KEY')
-        client._session.cookies.set('sessionid', sessionid, domain='steamcommunity.com')
-        client._session.cookies.set('steamLoginSecure', steamLoginSecure, domain='steamcommunity.com')
-        client.was_login_executed = True 
-        
-        asset = Asset(assetid, GameOptions.CS)
-        
-        return client.make_offer_with_url(
-            items_from_me=[asset], 
-            items_from_them=[], 
-            trade_offer_url=trade_url, 
-            message="Твой выигрыш от HATElavka! 🐸"
-        )
+    # 3. Собираем посылку для Steam API
+    json_tradeoffer = {
+        "newversion": True,
+        "version": 2,
+        "me": {
+            "assets": [{"appid": 730, "contextid": "2", "amount": 1, "assetid": str(assetid)}],
+            "currency": [],
+            "ready": False
+        },
+        "them": {"assets": [], "currency": [], "ready": False}
+    }
 
-    # 3. Пытаемся отправить
+    payload = {
+        "sessionid": sessionid,
+        "serverid": "1",
+        "partner": str(steam64id),
+        "tradeoffermessage": "Твой выигрыш от HATElavka! 🐸",
+        "json_tradeoffer": json.dumps(json_tradeoffer),
+        "captcha": "",
+        "trade_offer_create_params": json.dumps({"trade_offer_access_token": token})
+    }
+
+    headers = {
+        "Referer": trade_url,
+        "Origin": "https://steamcommunity.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+
+    cookies = {
+        "sessionid": sessionid,
+        "steamLoginSecure": steamLoginSecure
+    }
+
+    url = "https://steamcommunity.com/tradeoffer/new/send"
+
+    # 4. Отправляем оффер!
     try:
-        logging.info(f"[COURIER] Попытка отправки AssetID {assetid} с бота #{account_id}...")
-        resp = await run_in_threadpool(_send_offer)
+        logging.info(f"[COURIER] Отправка... Бот #{account_id}, Предмет: {assetid}, Кому: {partner_id}")
         
-        if resp and resp.get('tradeofferid'):
-            logging.info(f"[COURIER] Успех! TradeID: {resp['tradeofferid']}")
-            return {"success": True, "tradeofferid": resp['tradeofferid']}
-        else:
-            logging.error(f"[COURIER] Ошибка Steam: {resp}")
-            return {"success": False, "error": f"steam_error: {resp}"}
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, data=payload, headers=headers, cookies=cookies)
             
+            # Если слетели куки, Steam может кинуть редирект на страницу входа
+            if resp.status_code == 302 or "login" in str(resp.url):
+                return {"success": False, "error": "Сессия бота устарела. Нужно обновить куки."}
+            
+            try:
+                resp_json = resp.json()
+            except Exception:
+                return {"success": False, "error": f"Стим вернул не JSON (Код {resp.status_code})"}
+            
+            # Проверяем успешность
+            if "tradeofferid" in resp_json:
+                logging.info(f"[COURIER] Успех! TradeID: {resp_json['tradeofferid']}")
+                return {"success": True, "tradeofferid": resp_json['tradeofferid']}
+            else:
+                # Достаем реальную ошибку Стима
+                err_msg = resp_json.get("strError", "Неизвестная ошибка Steam")
+                logging.error(f"[COURIER] Стим отклонил трейд: {err_msg}")
+                return {"success": False, "error": err_msg}
+
     except Exception as e:
-        logging.error(f"[COURIER] Критический сбой отправки: {str(e)}")
-        return {"success": False, "error": str(e)}
+        logging.error(f"[COURIER] Сбой соединения: {str(e)}")
+        return {"success": False, "error": "Сбой соединения со Steam"}
 
 # --- Pydantic Models ---
 
