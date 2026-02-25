@@ -1748,10 +1748,11 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (FIX DB + IMAGE STATS) 🔥
+# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (USD + RUB + LIS-SKINS API) 🔥
 # =======================================================
 
-CRON_SECRET = "my_super_secret_cron_token_123"
+CRON_SECRET = "my_super_secret_cron_token_123" 
+EXCHANGE_RATE = 76.5  # Курс доллара к рублю для конвертации
 
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
@@ -1778,7 +1779,7 @@ async def sync_steam_inventory(
         
         if not steam_id: return {"success": False, "message": "SteamID не найден"}
 
-        # 2. Запрашиваем инвентарь Steam (l=russian для русского качества)
+        # 2. Запрашиваем инвентарь Steam
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0)
@@ -1789,28 +1790,22 @@ async def sync_steam_inventory(
             assets = data.get("assets", [])
             descriptions = data.get("descriptions", [])
             
-            # Справочник описаний
             desc_map = {}
             for desc in descriptions:
-                # Нам нужны только передаваемые предметы
                 if desc.get("tradable") == 1:
                     classid = desc.get("classid")
                     instanceid = desc.get("instanceid")
                     key = f"{classid}_{instanceid}"
                     
-                    # --- ИЩЕМ КАЧЕСТВО В ТЕГАХ ---
                     exterior = "Не указано"
                     tags = desc.get("tags", [])
                     for tag in tags:
                         if tag.get("category") == "Exterior":
                             exterior = tag.get("localized_tag_name", tag.get("name"))
-                            break # Нашли качество - выходим из цикла тегов
+                            break
                     
-                    # --- СТРОИМ ПРЯМУЮ ССЫЛКУ НА КАРТИНКУ ---
                     img_hash = desc.get("icon_url_large") or desc.get("icon_url")
-                    icon_full_url = ""
-                    if img_hash:
-                        icon_full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f"
+                    icon_full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f" if img_hash else ""
 
                     desc_map[key] = {
                         "name": desc.get("market_name", desc.get("name", "Неизвестно")),
@@ -1818,73 +1813,84 @@ async def sync_steam_inventory(
                         "icon_url": icon_full_url
                     }
 
-        # 3. Собираем инвентарь для базы и считаем статистику картинок
+        # ==========================================
+        # 2.5 ОПТИМИЗАЦИЯ: ЗАГРУЖАЕМ ЦЕНЫ LIS-SKINS ОДНИМ ЗАПРОСОМ
+        # ==========================================
+        lis_prices_rub = {}
+        try:
+            async with httpx.AsyncClient() as client:
+                # ВСТАВЬ СЮДА ПРАВИЛЬНЫЙ URL ИЗ ДОКУМЕНТАЦИИ LIS-SKINS (и токен, если нужен)
+                lis_resp = await client.get("https://lis-skins.ru/api/v1/prices", timeout=15.0)
+                if lis_resp.status_code == 200:
+                    lis_data = lis_resp.json()
+                    
+                    # Адаптируй этот цикл под формат ответа Lis-Skins. 
+                    # Обычно это массив словарей, где есть 'name' и 'price'
+                    items_list = lis_data.get("items", []) 
+                    for item in items_list:
+                        item_name = item.get("name")
+                        item_price = float(item.get("price", 0.0))
+                        if item_name:
+                            lis_prices_rub[item_name] = item_price
+        except Exception as e:
+            print(f"ОШИБКА LIS-SKINS: {e}") # В логи Vercel упадет ошибка, если API недоступно
+
+        # 3. Собираем инвентарь для базы
         inventory_to_db = []
         images_found = 0
-        images_missing = 0
-
+        
         for asset in assets:
             key = f"{asset['classid']}_{asset['instanceid']}"
             if key in desc_map:
                 info = desc_map[key]
+                market_name = info["name"]
                 
-                # Считаем статистику по картинкам
-                if info["icon_url"]:
-                    images_found += 1
-                else:
-                    images_missing += 1
+                if info["icon_url"]: images_found += 1
+
+                # --- РАСЧЕТ ЦЕН ---
+                p_rub = lis_prices_rub.get(market_name, 0.0)
+                p_usd = round(p_rub / EXCHANGE_RATE, 2) if p_rub > 0 else 0.0
+                
+                # --- ЛОГИКА ДЛЯ НАКЛЕЕК И СУВЕНИРОВ ---
+                if p_usd == 0.0:
+                    name_lower = market_name.lower()
+                    if "наклейка" in name_lower or "сувенир" in name_lower or "sticker" in name_lower or "souvenir" in name_lower:
+                        p_usd = 0.02
+                        p_rub = round(0.02 * EXCHANGE_RATE, 2) # Автоматически считаем рубли от 0.02$
 
                 inventory_to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
-                    "market_hash_name": info["name"],
-                    # "price_usd": 0.0,  <--- УДАЛЕНО: больше не будет вызывать ошибку БД
+                    "market_hash_name": market_name,
+                    "price_usd": p_usd,
+                    "price_rub": p_rub,
                     "exterior": info["exterior"],
                     "icon_url": info["icon_url"],
                     "is_reserved": False
                 })
 
         # 4. Обновляем Supabase
-        # Удаляем старый кэш
         del_res = await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
         if del_res.status_code not in (200, 204):
              return {"success": False, "error": "Ошибка удаления старого кэша", "details": del_res.text}
         
-        # Записываем новый
         if inventory_to_db:
-            # Чанки по 50, чтобы не перегружать Vercel
             for i in range(0, len(inventory_to_db), 50):
                 chunk = inventory_to_db[i:i+50]
                 insert_res = await supabase.post("/steam_inventory_cache", json=chunk)
-                
-                # ПРОВЕРКА ОШИБОК БД: Если Supabase ругается, выводим ответ прямо в браузер
                 if insert_res.status_code not in (200, 201):
-                    return {
-                        "success": False, 
-                        "error": "Ошибка записи в Supabase", 
-                        "status_code": insert_res.status_code,
-                        "details": insert_res.text
-                    }
+                    return {"success": False, "error": "Ошибка БД", "details": insert_res.text}
 
-        # Успешный ответ с полной статистикой
         return {
             "success": True, 
             "items_synced": len(inventory_to_db),
-            "stats": {
-                "images_found": images_found,
-                "images_missing": images_missing
-            },
+            "stats": {"images_found": images_found},
             "debug_first_item": inventory_to_db[0] if inventory_to_db else "No items"
         }
 
     except Exception as e:
         import traceback
-        return {
-            "success": False, 
-            "error": "Внутренняя ошибка сервера", 
-            "details": str(e),
-            "traceback": traceback.format_exc()
-        }
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
         
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
