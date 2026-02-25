@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 CRON ЗАДАЧА: ПОЛНАЯ СИНХРОНИЗАЦИЯ (БЛОК 4) 🔥
+# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (ФИКС: ЦЕНЫ, ИКОНКИ, КАЧЕСТВО) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1766,131 +1766,125 @@ async def sync_steam_inventory(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем активного бота
+        # 1. Получаем бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
 
         bot = bots[0]
         bot_id = bot['id']
-        session_data = bot.get('session_data', {})
-        cookies = session_data.get('cookies', {})
-        
+        cookies = bot.get('session_data', {}).get('cookies', {})
         steam_login_secure = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
         steam_id = steam_login_secure.split('||')[0] if '||' in steam_login_secure else None
         
         if not steam_id: return {"success": False, "message": "SteamID не найден"}
 
-        # 2. Запрашиваем инвентарь Steam (l=russian для русского языка)
+        # 2. Парсим инвентарь Steam (обязательно l=russian)
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25.0)
             if resp.status_code != 200:
-                return {"success": False, "message": f"Steam API Error: {resp.status_code}"}
+                return {"success": False, "message": f"Steam Error: {resp.status_code}"}
             
-            steam_data = resp.json()
-            assets = steam_data.get("assets", [])
-            descriptions = steam_data.get("descriptions", [])
+            data = resp.json()
+            assets = data.get("assets", [])
+            descriptions = data.get("descriptions", [])
             
-            # Собираем инфу о предметах
             desc_info = {}
             needed_names = set() 
 
             for desc in descriptions:
                 if desc.get("tradable") == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
-                    mhn = desc.get("market_hash_name", "")
+                    mhn = desc.get("market_hash_name", "") # Английское имя для цен
+                    name_ru = desc.get("market_name", desc.get("name", "")) # Русское имя
                     
-                    # --- ИЩЕМ КАЧЕСТВО (EXTERIOR) ---
-                    item_exterior = "Без качества"
-                    tags = desc.get("tags", [])
-                    for tag in tags:
+                    # --- КАЧЕСТВО (EXTERIOR) ---
+                    ext = "Без качества"
+                    for tag in desc.get("tags", []):
                         if tag.get("category") == "Exterior":
-                            item_exterior = tag.get("localized_tag_name", tag.get("name", "Без качества"))
+                            ext = tag.get("localized_tag_name", tag.get("name"))
+                    
+                    if ext == "Без качества" and "(" in name_ru:
+                        match = re.search(r'\(([^)]+)\)', name_ru)
+                        if match: ext = match.group(1)
 
-                    # --- СТРОИМ ССЫЛКУ НА КАРТИНКУ ---
-                    # Используем большой вариант иконки, если он есть
-                    icon_hash = desc.get("icon_url_large") or desc.get("icon_url")
-                    full_icon_url = ""
-                    if icon_hash:
-                        full_icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{icon_hash}/330x192"
+                    # --- ИКОНКА (ICON_URL) ---
+                    # Важно: берем хеш и добавляем префикс
+                    img_hash = desc.get("icon_url_large") or desc.get("icon_url")
+                    img_url = ""
+                    if img_hash:
+                        img_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/330x192"
 
                     desc_info[key] = {
                         "mhn": mhn,
-                        "name_ru": desc.get("market_name", desc.get("name", "")),
-                        "exterior": item_exterior,
-                        "icon_url": full_icon_url
+                        "name_ru": name_ru,
+                        "exterior": ext,
+                        "icon_url": img_url
                     }
                     needed_names.add(mhn)
 
-        # 3. ПАРСИМ ЦЕНЫ LIS-SKINS (Memory-Safe Streaming)
+        # 3. ПАРСИМ ЦЕНЫ LIS-SKINS (КУРС 76.63)
         prices_dict = {}
-        # 🔥 УСТАНОВЛЕН КУРС: 76.63
-        usd_to_rub = 76.63
+        RATE = 76.63
         lis_url = "https://lis-skins.com/market_export_json/api_csgo_unlocked.json"
         
         async with httpx.AsyncClient(follow_redirects=True) as lis_client:
             async with lis_client.stream("GET", lis_url, timeout=60.0) as r:
-                pattern = re.compile(r'"name":"([^"]+)","price":([\d\.]+)')
+                # Регулярка теперь ищет весь блок объекта, чтобы не пропустить цену
+                pattern = re.compile(r'\{[^{]*"name"\s*:\s*"([^"]+)"[^{]*"price"\s*:\s*([\d\.]+)[^{]*\}')
                 buffer = "" 
                 async for chunk in r.aiter_text():
                     buffer += chunk
                     matches = list(pattern.finditer(buffer))
-                    for match in matches:
-                        name, price = match.groups()
-                        if name in needed_names:
-                            # Умножаем цену в долларах на твой курс
-                            prices_dict[name] = float(price) * usd_to_rub
+                    for m in matches:
+                        name_api, p_usd = m.groups()
+                        if name_api in needed_names:
+                            prices_dict[name_api] = float(p_usd) * RATE
                     
-                    # Чтобы не потерять данные между чанками текста
                     if matches:
                         buffer = buffer[matches[-1].end():]
-                    if len(buffer) > 5000:
-                        buffer = buffer[-500:]
+                    if len(buffer) > 15000: buffer = buffer[-2000:]
 
-        # 4. ФОРМИРУЕМ ФИНАЛЬНЫЙ СПИСОК
-        inventory_to_db = []
+        # 4. СОБИРАЕМ ДАННЫЕ
+        to_db = []
         for asset in assets:
-            key = f"{asset['classid']}_{asset['instanceid']}"
-            if key in desc_info:
-                info = desc_info[key]
+            k = f"{asset['classid']}_{asset['instanceid']}"
+            if k in desc_info:
+                info = desc_info[k]
                 mhn_eng = info["mhn"]
                 name_ru = info["name_ru"]
                 
-                # Логика цен
-                price_from_api = prices_dict.get(mhn_eng)
+                # Поиск цены в рублях
+                p_rub = prices_dict.get(mhn_eng)
                 
-                if price_from_api is not None:
-                    final_price = round(price_from_api, 2)
+                if p_rub is not None:
+                    final_p = round(p_rub, 2)
+                elif any(x in name_ru for x in ["Наклейка", "Сувенирный"]):
+                    final_p = 2.0
                 else:
-                    # Если цены в базе нет, проверяем наклейки/сувениры
-                    if "Наклейка" in name_ru or "Сувенирный" in name_ru:
-                        final_price = 2.0
-                    else:
-                        # Ставим цену, которая в будущем позволит опознать пропуски (0.0)
-                        final_price = 0.0
+                    final_p = 0.0
 
-                inventory_to_db.append({
+                to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
                     "market_hash_name": name_ru,
-                    "price_usd": final_price, # Здесь теперь рубли по курсу 76.63
+                    "price_usd": final_p, # Сохраняем рубли
                     "exterior": info["exterior"],
                     "icon_url": info["icon_url"],
-                    "is_reserved": False,
-                    "float_value": None # Стандартный Стим не отдает флоат без спец-запросов
+                    "is_reserved": False
                 })
 
         # 5. ОБНОВЛЯЕМ БАЗУ
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
-        if inventory_to_db:
-            for i in range(0, len(inventory_to_db), 50):
-                await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+50])
+        if to_db:
+            for i in range(0, len(to_db), 50):
+                await supabase.post("/steam_inventory_cache", json=to_db[i:i+50])
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} обновлен. Записано {len(inventory_to_db)} предметов.",
-            "debug_sample": inventory_to_db[0] if inventory_to_db else "Нет данных"
+            "items_synced": len(to_db),
+            "check": to_db[0] if to_db else "No items"
         }
 
     except Exception as e:
