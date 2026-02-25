@@ -1748,13 +1748,12 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (MEMORY OPTIMIZED) 🔥
+# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (ULTIMATE MEMORY FIX) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
 EXCHANGE_RATE = 76.5  
 
-# Словари для сокращений
 CONDITION_MAP = {
     "Прямо с завода": "FN", "Factory New": "FN",
     "Немного поношенное": "MW", "Minimal Wear": "MW",
@@ -1776,13 +1775,18 @@ async def sync_steam_inventory(
     import urllib.parse
     import httpx
     import traceback
-    import gc  # Импортируем сборщик мусора для ручной очистки памяти!
+    import os
+    
+    # Защита от забытого requirements.txt
+    try:
+        import ijson
+    except ImportError:
+        return {"success": False, "error": "Библиотека ijson не установлена. Добавь 'ijson' в файл requirements.txt"}
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем активного бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
@@ -1795,7 +1799,6 @@ async def sync_steam_inventory(
         
         if not steam_id: return {"success": False, "message": "SteamID не найден"}
 
-        # 2. Запрашиваем инвентарь Steam
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0)
@@ -1816,61 +1819,54 @@ async def sync_steam_inventory(
                     raw_condition = "-"
                     rarity_color = "default"
                     
-                    tags = desc.get("tags", [])
-                    for tag in tags:
+                    for tag in desc.get("tags", []):
                         if tag.get("category") == "Exterior":
                             raw_condition = tag.get("localized_tag_name", tag.get("name"))
                         elif tag.get("category") == "Rarity":
                             rarity_color = tag.get("color", "").lower()
                     
-                    short_condition = CONDITION_MAP.get(raw_condition, "-")
-                    final_rarity = RARITY_COLOR_MAP.get(rarity_color, "common")
-                    
-                    img_hash = desc.get("icon_url_large") or desc.get("icon_url")
-                    icon_full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f" if img_hash else ""
-
                     desc_map[key] = {
                         "name_ru": desc.get("market_name", desc.get("name", "Неизвестно")),
                         "hash_name_en": desc.get("market_hash_name", ""),
-                        "condition": short_condition,
-                        "rarity": final_rarity,
-                        "icon_url": icon_full_url
+                        "condition": CONDITION_MAP.get(raw_condition, "-"),
+                        "rarity": RARITY_COLOR_MAP.get(rarity_color, "common"),
+                        "icon_url": f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url_large') or desc.get('icon_url')}/512fx512f" if (desc.get("icon_url_large") or desc.get("icon_url")) else ""
                     }
 
-        # ==========================================
-        # 2.5 ОПТИМИЗАЦИЯ ПАМЯТИ: ФИЛЬТРАЦИЯ И ОЧИСТКА
-        # ==========================================
-        
-        # Создаем SET (множество) названий ТОЛЬКО НАШИХ предметов. Поиск по set в 100 раз быстрее!
+        # Множество названий для сверхбыстрого поиска
         needed_skins = {info["hash_name_en"] for info in desc_map.values() if info["hash_name_en"]}
         lis_prices_usd = {}
         
+        # ==========================================
+        # 🚀 ПОТОКОВОЕ ЧТЕНИЕ (ОБХОДИМ ЛИМИТЫ ПАМЯТИ)
+        # ==========================================
         try:
             async with httpx.AsyncClient() as client:
-                # Увеличиваем таймаут, так как файл большой
-                lis_resp = await client.get("https://lis-skins.com/market_export_json/api_csgo_full.json", timeout=30.0)
-                
-                if lis_resp.status_code == 200:
-                    lis_data = lis_resp.json()
-                    
-                    # Проходим по гигантскому JSON
-                    for item in lis_data.get("items", []):
-                        item_name = item.get("name")
+                # Скачиваем файл как стрим (по частям)
+                async with client.stream("GET", "https://lis-skins.com/market_export_json/api_csgo_full.json", timeout=60.0) as lis_resp:
+                    if lis_resp.status_code == 200:
+                        temp_path = "/tmp/lis_prices.json"
                         
-                        # БЕРЕМ ЦЕНУ ТОЛЬКО ЕСЛИ СКИН ЕСТЬ В НАШЕМ ИНВЕНТАРЕ
-                        if item_name in needed_skins:
-                            item_price = float(item.get("price", 0.0))
-                            if item_price > 0:
-                                if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
-                                    lis_prices_usd[item_name] = item_price
-                    
-                    # ЖЕСТКАЯ ОЧИСТКА ПАМЯТИ: удаляем огромные переменные из RAM
-                    del lis_data
-                    del lis_resp
-                    gc.collect() # Принудительно заставляем сервер очистить ОЗУ прямо сейчас
-                    
+                        # 1. Записываем на временный диск Vercel напрямую, минуя ОЗУ
+                        with open(temp_path, "wb") as f:
+                            async for chunk in lis_resp.aiter_bytes():
+                                f.write(chunk)
+                        
+                        # 2. Читаем файл потоково через ijson (выдает по 1 предмету, память свободна)
+                        with open(temp_path, "rb") as f:
+                            for item in ijson.items(f, "items.item"):
+                                item_name = item.get("name")
+                                if item_name in needed_skins:
+                                    item_price = float(item.get("price", 0.0))
+                                    if item_price > 0:
+                                        if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
+                                            lis_prices_usd[item_name] = item_price
+                        
+                        # 3. Убираем за собой
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
         except Exception as e:
-            print(f"ОШИБКА LIS-SKINS: {e}")
+            print(f"ОШИБКА LIS-SKINS STREAMING: {e}")
 
         # 3. Собираем инвентарь для базы
         inventory_to_db = []
@@ -1882,7 +1878,6 @@ async def sync_steam_inventory(
                 market_name_ru = info["name_ru"]
                 hash_name_en = info["hash_name_en"]
 
-                # --- РАСЧЕТ ЦЕН ---
                 p_usd = lis_prices_usd.get(hash_name_en, 0.0)
                 
                 if p_usd == 0.0:
@@ -1891,11 +1886,7 @@ async def sync_steam_inventory(
                         p_usd = 0.02
                 
                 p_rub = round(p_usd * EXCHANGE_RATE, 2)
-
-                # --- РАСЧЕТ БИЛЕТОВ ---
-                tickets_count = 0
-                if p_rub > 0:
-                    tickets_count = max(1, int(p_rub / 3.0)) 
+                tickets_count = max(1, int(p_rub / 3.0)) if p_rub > 0 else 0
 
                 inventory_to_db.append({
                     "assetid": asset["assetid"],
@@ -1923,6 +1914,7 @@ async def sync_steam_inventory(
         return {
             "success": True, 
             "items_synced": len(inventory_to_db),
+            "prices_found": len(lis_prices_usd),
             "debug_first_item": inventory_to_db[0] if inventory_to_db else "No items"
         }
 
