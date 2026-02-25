@@ -13528,8 +13528,8 @@ async def buy_bott_item_proxy(
                 "item_id": int(winner['id']),
                 "case_name": str(item_title),
                 "code_used": f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}",
-                "status": delivery_status,
-                "lacky": current_lacky # <--- Записываем текущий шаг
+                "status": "pending", # <-- Снова ставим просто pending
+                "lacky": current_lacky 
             }
             
             logging.info(f"[SHOP] Попытка вставки в cs_history: {hist_payload}")
@@ -15935,18 +15935,36 @@ async def withdraw_inventory_item(
     item_price = item_info.get('price', 0)
     item_rarity = item_info.get('rarity', 'common')
 
-    # 3. Меняем статус на 'processing' (админ видит заявку)
+    # 3. Пробуем зарезервировать предмет на ботах (Автовыдача)
+    delivery_res = await fulfill_item_delivery(
+        user_id=user_id,
+        target_name=item_name,
+        target_price_rub=float(item_price),
+        trade_url=trade_link,
+        supabase=supabase
+    )
+
+    if delivery_res.get("success"):
+        new_status = "auto_queued"
+        log_header = "⚙️ <b>АВТОВЫДАЧА (В ОЧЕРЕДИ)</b>\n<i>Предмет зарезервирован на боте.</i>\n\n"
+        response_msg = "Предмет зарезервирован! Ожидайте трейд в Steam."
+    else:
+        new_status = "processing"
+        log_header = "📦 <b>ЗАЯВКА НА ВЫВОД!</b>\n<i>⚠️ Нет на ботах. Нужна ручная выдача.</i>\n\n"
+        response_msg = "Заявка на вывод создана! Ожидайте выдачи администратором."
+
+    # 4. Меняем статус (auto_queued или processing)
     upd_resp = await supabase.patch(
         "/cs_history",
         params={"id": f"eq.{req.history_id}"},
-        json={"status": "processing"} 
+        json={"status": new_status} 
     )
 
-    # 4. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
+    # 5. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
     if ADMIN_NOTIFY_CHAT_ID:
         try:
             log_text = (
-                f"📦 <b>ЗАЯВКА НА ВЫВОД!</b>\n\n"
+                f"{log_header}"
                 f"👤 {full_name} ({username_txt})\n"
                 f"🔫 <b>{item_name}</b> ({item_rarity})\n"
                 f"💰 {item_price} (цена базы)\n\n"
@@ -15970,8 +15988,8 @@ async def withdraw_inventory_item(
         except Exception as e:
             print(f"⚠️ Ошибка отправки лога: {e}")
             
-    return {"success": True, "message": "Заявка на вывод создана!"}
-
+    return {"success": True, "message": response_msg}
+    
 # 4. Подтвердить получение (Статус -> received)
 @app.post("/api/v1/user/inventory/confirm")
 async def confirm_inventory_item(
