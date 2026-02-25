@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 CRON ЗАДАЧА: ПАРСИНГ ИНВЕНТАРЯ И ЦЕН (БЛОК 4) 🔥
+# 🔥 CRON ЗАДАЧА: ПАРСИНГ ИНВЕНТАРЯ И ЦЕН (LIS-SKINS) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1765,7 +1765,7 @@ async def sync_steam_inventory(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Берем активного бота
+        # 1. Берем активного бота из базы
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
@@ -1774,85 +1774,97 @@ async def sync_steam_inventory(
         bot_id = bot['id']
         session_data = bot.get('session_data', {})
         cookies = session_data.get('cookies', {})
+        
+        # Вытаскиваем SteamID из кук
         steam_login_secure = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
         steam_id = steam_login_secure.split('||')[0] if '||' in steam_login_secure else None
+        if not steam_id: return {"success": False, "message": "SteamID не найден в куках"}
 
-        if not steam_id: return {"success": False, "message": "SteamID не определен"}
-
-        # 2. Парсим инвентарь Steam (как и раньше, это работает четко)
+        # 2. ПАРСИМ ИНВЕНТАРЬ STEAM
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
+        steam_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        
         async with httpx.AsyncClient(cookies=cookies) as client:
-            resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15.0)
-            if resp.status_code != 200: return {"success": False, "message": f"Steam Error {resp.status_code}"}
+            resp = await client.get(inventory_url, headers=steam_headers, timeout=15.0)
+            if resp.status_code != 200:
+                return {"success": False, "message": f"Steam Error {resp.status_code}"}
             
             data = resp.json()
             assets = data.get("assets", [])
             descriptions = data.get("descriptions", [])
             
-            desc_map_eng, desc_map_ru = {}, {}
+            # Мапим названия: Английское (для поиска цены) и Русское (для базы)
+            desc_map_eng = {}
+            desc_map_ru = {}
             for desc in descriptions:
                 if desc.get("tradable") == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
                     desc_map_eng[key] = desc.get("market_hash_name", "")
                     desc_map_ru[key] = desc.get("market_name", desc.get("name", ""))
 
-        # 🔥 3. ПАРСИМ ЦЕНЫ ЧЕРЕЗ CSGOTRADER (БЕЗБЛОКИРОВОЧНЫЙ ВАРИАНТ)
+        # 🚀 3. ПАРСИМ ЦЕНЫ LIS-SKINS (API ЧЕРЕЗ JSON LIST)
         prices_dict = {}
         try:
-            # Этот файл обновляется раз в час и содержит все цены мира
-            price_url = "https://prices.csgotrader.app/latest/prices_v6.json"
-            async with httpx.AsyncClient(follow_redirects=True) as price_client:
-                # Ставим большой таймаут, так как файл весит около 5-10 МБ
-                price_resp = await price_client.get(price_url, timeout=30.0)
+            # Ссылка из документации, которую ты скинул
+            lis_url = "https://lis-skins.com/market_export_json/api_csgo_full.json"
+            
+            async with httpx.AsyncClient(follow_redirects=True) as lis_client:
+                # Файл тяжелый, даем 30 секунд на скачивание
+                lis_resp = await lis_client.get(lis_url, timeout=30.0)
                 
-                if price_resp.status_code == 200:
-                    raw_prices = price_resp.json()
-                    # Курс доллара к рублю (можешь поправить, если хочешь точнее)
-                    usd_to_rub = 92.5 
+                if lis_resp.status_code == 200:
+                    lis_data = lis_resp.json()
+                    # Курс доллара к рублю (можешь менять тут)
+                    usd_to_rub = 95.0 
                     
-                    for mhn, info in raw_prices.items():
-                        # Берем среднюю цену Steam (в долларах) и переводим в рубли
-                        price_usd = info.get("steam", {}).get("last_7d") or info.get("steam", {}).get("last_30d") or 0
-                        if price_usd:
-                            prices_dict[mhn] = float(price_usd) * usd_to_rub
+                    # Проходим по списку items из ответа LIS-SKINS
+                    for item in lis_data.get("items", []):
+                        name = item.get("name") # Это market_hash_name (англ)
+                        price_usd = item.get("price")
+                        if name and price_usd:
+                            # Сохраняем цену в рублях
+                            prices_dict[name] = float(price_usd) * usd_to_rub
                 else:
-                    print(f"Price API Error: {price_resp.status_code}")
+                    print(f"LIS-SKINS API Error: {lis_resp.status_code}")
         except Exception as pe:
-            print(f"Ошибка загрузки цен: {pe}")
+            print(f"Ошибка парсинга LIS-SKINS: {pe}")
 
-        # 4. Собираем список для БД
+        # 4. СОБИРАЕМ ДАННЫЕ ДЛЯ ТАБЛИЦЫ
         inventory_to_db = []
         for asset in assets:
             key = f"{asset['classid']}_{asset['instanceid']}"
             if key in desc_map_eng:
                 mhn_eng = desc_map_eng[key]
                 mhn_ru = desc_map_ru[key]
-                # Получаем цену в рублях из нашего словаря
+                # Ищем цену по английскому названию в базе Лискинса
                 price_rub = prices_dict.get(mhn_eng, 0.0)
                 
                 inventory_to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
-                    "market_hash_name": mhn_ru,
-                    "price_usd": round(price_rub, 2), # Округляем до копеек
+                    "market_hash_name": mhn_ru, # В базу пишем красиво на русском
+                    "price_usd": round(price_rub, 2), # В колонку price_usd пишем рубли
                     "is_reserved": False
                 })
 
-        # 5. Сохраняем в Supabase
+        # 5. ОБНОВЛЯЕМ SUPABASE
+        # Удаляем старое
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+        
+        # Записываем новое пачками по 100 штук
         if inventory_to_db:
-            # Разбиваем на пачки по 100, чтобы не перегружать память Vercel
             for i in range(0, len(inventory_to_db), 100):
-                await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+100])
+                chunk = inventory_to_db[i:i+100]
+                await supabase.post("/steam_inventory_cache", json=chunk)
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} готов! Найдено предметов: {len(inventory_to_db)}.",
-            "items_count": len(inventory_to_db)
+            "message": f"Бот {bot['username']} синхронизирован через LIS-SKINS!",
+            "items_saved": len(inventory_to_db)
         }
 
     except Exception as e:
-        print(f"Глобальная ошибка крона: {e}")
+        print(f"Глобальная ошибка синхронизации: {e}")
         raise HTTPException(status_code=500, detail=str(e))
         
 # Новый эндпоинт для быстрой загрузки всего сразу
