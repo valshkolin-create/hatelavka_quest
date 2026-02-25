@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (NETWORK STREAMING FIX) 🔥
+# 🔥 КРОН: МУЛЬТИ-АККАУНТНАЯ АСИНХРОННАЯ ПУШКА (V4) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1776,75 +1776,122 @@ async def sync_steam_inventory(
     import httpx
     import traceback
     import urllib.request
+    import asyncio
     
     try:
         import ijson
     except ImportError:
-        return {"success": False, "error": "Библиотека ijson не установлена. Добавь 'ijson' в файл requirements.txt"}
+        return {"success": False, "error": "Библиотека ijson не установлена!"}
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
+        # 1. Получаем ВСЕХ активных ботов
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
 
-        bot = bots[0]
-        bot_id = bot['id']
-        cookies = bot.get('session_data', {}).get('cookies', {})
-        steam_login_secure = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
-        steam_id = steam_login_secure.split('||')[0] if '||' in steam_login_secure else None
-        
-        if not steam_id: return {"success": False, "message": "SteamID не найден"}
+        # Функция для параллельного сбора инвентаря ОДНОГО бота
+        async def fetch_bot_inventory(client, bot):
+            bot_id = bot['id']
+            cookies = bot.get('session_data', {}).get('cookies', {})
+            steam_login = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
+            steam_id = steam_login.split('||')[0] if '||' in steam_login else None
+            
+            if not steam_id:
+                return {"bot_id": bot_id, "error": "SteamID не найден", "items": []}
 
-        inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
-        async with httpx.AsyncClient(cookies=cookies) as client:
-            resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0)
-            if resp.status_code != 200:
-                return {"success": False, "message": f"Steam Error: {resp.status_code}", "details": resp.text}
+            url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
+            url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
             
-            data = resp.json()
-            assets = data.get("assets", [])
-            descriptions = data.get("descriptions", [])
-            
-            desc_map = {}
-            for desc in descriptions:
+            # Стреляем двумя запросами (EN и RU) одновременно!
+            resp_en, resp_ru = await asyncio.gather(
+                client.get(url_en, cookies=cookies, timeout=20.0),
+                client.get(url_ru, cookies=cookies, timeout=20.0),
+                return_exceptions=True
+            )
+
+            if isinstance(resp_en, Exception) or resp_en.status_code != 200:
+                return {"bot_id": bot_id, "error": "Steam EN Error", "items": []}
+            if isinstance(resp_ru, Exception) or resp_ru.status_code != 200:
+                return {"bot_id": bot_id, "error": "Steam RU Error", "items": []}
+
+            # Собираем английские названия
+            en_desc_map = {}
+            for desc in resp_en.json().get("descriptions", []):
                 if desc.get("tradable") == 1:
-                    classid = desc.get("classid")
-                    instanceid = desc.get("instanceid")
-                    key = f"{classid}_{instanceid}"
-                    
-                    raw_condition = "-"
-                    rarity_color = "default"
-                    
+                    key = f"{desc.get('classid')}_{desc.get('instanceid')}"
+                    en_desc_map[key] = desc.get("market_hash_name", "")
+
+            # Собираем русские данные
+            data_ru = resp_ru.json()
+            assets = data_ru.get("assets", [])
+            bot_items = []
+
+            desc_map = {}
+            for desc in data_ru.get("descriptions", []):
+                if desc.get("tradable") == 1:
+                    key = f"{desc.get('classid')}_{desc.get('instanceid')}"
+                    raw_cond = "-"
+                    rarity_col = "default"
                     for tag in desc.get("tags", []):
                         if tag.get("category") == "Exterior":
-                            raw_condition = tag.get("localized_tag_name", tag.get("name"))
+                            raw_cond = tag.get("localized_tag_name", tag.get("name"))
                         elif tag.get("category") == "Rarity":
-                            rarity_color = tag.get("color", "").lower()
+                            rarity_col = tag.get("color", "").lower()
                     
                     desc_map[key] = {
                         "name_ru": desc.get("market_name", desc.get("name", "Неизвестно")),
-                        "hash_name_en": desc.get("market_hash_name", ""),
-                        "condition": CONDITION_MAP.get(raw_condition, "-"),
-                        "rarity": RARITY_COLOR_MAP.get(rarity_color, "common"),
+                        "hash_name_en": en_desc_map.get(key, desc.get("market_hash_name", "")),
+                        "condition": CONDITION_MAP.get(raw_cond, "-"),
+                        "rarity": RARITY_COLOR_MAP.get(rarity_col, "common"),
                         "icon_url": f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url_large') or desc.get('icon_url')}/512fx512f" if (desc.get("icon_url_large") or desc.get("icon_url")) else ""
                     }
 
-        needed_skins = {info["hash_name_en"] for info in desc_map.values() if info["hash_name_en"]}
-        lis_prices_usd = {}
+            for asset in assets:
+                key = f"{asset['classid']}_{asset['instanceid']}"
+                if key in desc_map:
+                    info = desc_map[key]
+                    bot_items.append({
+                        "assetid": asset["assetid"],
+                        "account_id": bot_id,
+                        "market_hash_name": info["name_ru"],
+                        "hash_name_en": info["hash_name_en"], # Временно для поиска цены
+                        "condition": info["condition"],
+                        "rarity": info["rarity"],
+                        "icon_url": info["icon_url"],
+                        "is_reserved": False
+                    })
+            
+            return {"bot_id": bot_id, "error": None, "items": bot_items}
+
+        # ==========================================
+        # 2. ЗАПУСКАЕМ СБОР СО ВСЕХ БОТОВ РАЗОМ
+        # ==========================================
+        async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
+            tasks = [fetch_bot_inventory(client, bot) for bot in bots]
+            bot_results = await asyncio.gather(*tasks)
+
+        # Собираем глобальный список всех нужных скинов со всех ботов
+        global_needed_skins = set()
+        all_items_to_db = []
         
+        for res_data in bot_results:
+            for item in res_data["items"]:
+                if item["hash_name_en"]:
+                    global_needed_skins.add(item["hash_name_en"])
+
         # ==========================================
-        # 🚀 СЕТЕВОЕ ПОТОКОВОЕ ЧТЕНИЕ (БЕЗ ДИСКА И ОЗУ)
+        # 3. ЕДИНЫЙ ПОТОК ЦЕН (ОДИН РАЗ ДЛЯ ВСЕХ БОТОВ)
         # ==========================================
+        lis_prices_usd = {}
         try:
             req = urllib.request.Request("https://lis-skins.com/market_export_json/api_csgo_full.json", headers={'User-Agent': 'Mozilla/5.0'})
-            # Делаем прямое подключение и читаем данные "на лету" прямо из сетевого сокета
             with urllib.request.urlopen(req, timeout=60.0) as network_stream:
                 for item in ijson.items(network_stream, "items.item"):
                     item_name = item.get("name")
-                    if item_name in needed_skins:
+                    if item_name in global_needed_skins:
                         item_price = float(item.get("price", 0.0))
                         if item_price > 0:
                             if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
@@ -1852,54 +1899,52 @@ async def sync_steam_inventory(
         except Exception as e:
             print(f"ОШИБКА LIS-SKINS STREAMING: {e}")
 
-        # 3. Собираем инвентарь для базы
-        inventory_to_db = []
-        
-        for asset in assets:
-            key = f"{asset['classid']}_{asset['instanceid']}"
-            if key in desc_map:
-                info = desc_map[key]
-                market_name_ru = info["name_ru"]
-                hash_name_en = info["hash_name_en"]
+        # ==========================================
+        # 4. РАСПРЕДЕЛЯЕМ ЦЕНЫ И ПИШЕМ В БД
+        # ==========================================
+        total_synced = 0
+        bot_stats = {}
 
-                p_usd = lis_prices_usd.get(hash_name_en, 0.0)
+        for res_data in bot_results:
+            bot_id = res_data["bot_id"]
+            if res_data["error"]:
+                bot_stats[bot_id] = res_data["error"]
+                continue
                 
+            bot_inventory = []
+            for item in res_data["items"]:
+                hash_en = item.pop("hash_name_en") # Удаляем, в БД оно не нужно
+                
+                p_usd = lis_prices_usd.get(hash_en, 0.0)
                 if p_usd == 0.0:
-                    name_lower = hash_name_en.lower()
+                    name_lower = hash_en.lower()
                     if any(word in name_lower for word in ["sticker", "souvenir", "patch", "graffiti", "key", "case"]):
                         p_usd = 0.02
                 
                 p_rub = round(p_usd * EXCHANGE_RATE, 2)
-                tickets_count = max(1, int(p_rub / 3.0)) if p_rub > 0 else 0
+                item["price_usd"] = p_usd
+                item["price_rub"] = p_rub
+                item["tickets"] = max(1, int(p_rub / 3.0)) if p_rub > 0 else 0
+                
+                bot_inventory.append(item)
 
-                inventory_to_db.append({
-                    "assetid": asset["assetid"],
-                    "account_id": bot_id,
-                    "market_hash_name": market_name_ru,
-                    "price_usd": p_usd,
-                    "price_rub": p_rub,
-                    "tickets": tickets_count,
-                    "condition": info["condition"],
-                    "rarity": info["rarity"],
-                    "icon_url": info["icon_url"],
-                    "is_reserved": False
-                })
-
-        # 4. Обновляем Supabase
-        del_res = await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
-        
-        if inventory_to_db:
-            for i in range(0, len(inventory_to_db), 50):
-                chunk = inventory_to_db[i:i+50]
-                insert_res = await supabase.post("/steam_inventory_cache", json=chunk)
-                if insert_res.status_code not in (200, 201):
-                    return {"success": False, "error": "Ошибка БД", "details": insert_res.text}
+            # Обновляем БД для конкретного бота
+            if bot_inventory:
+                await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+                for i in range(0, len(bot_inventory), 50):
+                    chunk = bot_inventory[i:i+50]
+                    await supabase.post("/steam_inventory_cache", json=chunk)
+                
+                total_synced += len(bot_inventory)
+                bot_stats[bot_id] = f"Успешно: {len(bot_inventory)} шт."
+            else:
+                bot_stats[bot_id] = "Пустой инвентарь или нет трейдабельных шмоток"
 
         return {
             "success": True, 
-            "items_synced": len(inventory_to_db),
+            "total_items_synced": total_synced,
             "prices_found": len(lis_prices_usd),
-            "debug_first_item": inventory_to_db[0] if inventory_to_db else "No items"
+            "bot_details": bot_stats
         }
 
     except Exception as e:
