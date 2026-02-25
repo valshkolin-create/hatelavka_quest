@@ -3203,17 +3203,30 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         }
     )
     user_data = user_resp.json()
-    user_record = user_data[0] if user_data else None
+    user_record = user_data[0] if user_data and isinstance(user_data, list) else None
     user_id = user_record.get("telegram_id") if user_record else None
     user_display_name = user_record.get("full_name") if user_record else twitch_login
 
-    # 🔥 [АВТОВЫДАЧА] ИЩЕМ ТРЕЙД-ССЫЛКУ (в базе или вытаскиваем из текста) 🔥
+    # 🔥 [АВТОВЫДАЧА] ПУЛЕНЕПРОБИВАЕМЫЙ ПОИСК ТРЕЙД-ССЫЛКИ 🔥
     import re
     trade_link = user_record.get("trade_link") if user_record else None
+    
+    # Защита от пустых строк ("") в базе
+    if not trade_link or len(trade_link) < 10:
+        trade_link = None
+
+    # Если в базе ссылки нет (или юзер не привязан), ищем её в тексте сообщения Twitch
     if not trade_link and user_input:
-        match = re.search(r"(https?://steamcommunity\.com/tradeoffer/new/\?partner=\d+&token=[a-zA-Z0-9_-]+)", user_input)
+        # Ищем просто partner и token, даже если юзер скопировал без http://
+        match = re.search(r"partner=(\d+)&token=([a-zA-Z0-9_-]+)", user_input)
         if match:
-            trade_link = match.group(1)
+            # Идеально собираем ссылку заново
+            trade_link = f"https://steamcommunity.com/tradeoffer/new/?partner={match.group(1)}&token={match.group(2)}"
+
+    # СУПЕР-ЛОГ: Покажет нам, нашел ли бот юзера в БД и нашел ли ссылку
+    logging.info(f"🔍 [АВТОВЫДАЧА] Твич: {twitch_login} | Нашел в БД: {bool(user_record)} | Ссылка: {trade_link} | Текст юзера: {user_input}")
+
+    # --- 4. ЛОГИКА ОБРАБОТКИ (С ИСПОЛЬЗОВАНИЕМ КЭША) ---
 
     # --- 4. ЛОГИКА ОБРАБОТКИ (С ИСПОЛЬЗОВАНИЕМ КЭША) ---
 
