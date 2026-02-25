@@ -240,7 +240,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                 "is_reserved": "eq.false",
                 "price_rub": f"gte.{min_p}",
                 "price_rub": f"lte.{max_p}",
-                "order": "price_rub.desc", # Берем тот, что подороже в этом диапазоне (приятно юзеру)
+                "order": "price_rub.asc", # <--- ТЕПЕРЬ БЕРЕТ САМОЕ ДЕШЕВОЕ В ДИАПАЗОНЕ
                 "limit": 1
             })
             
