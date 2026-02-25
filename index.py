@@ -16652,19 +16652,20 @@ async def admin_save_case_item(request: Request):
     item_payload = {
         "name": data["name"],
         "image_url": data["image_url"],
-        "price": data["price"],
+        "price": data["price"], # Это билеты
+        "price_rub": data.get("price_rub", 0), # <--- ВОТ ЭТА МАГИЧЕСКАЯ СТРОЧКА! Теперь рубли сохранятся.
         "rarity": data["rarity"],
         "condition": data.get("condition", "FN"),
         "is_active": True
     }
 
     try:
+        # Мы используем библиотеку supabase-py, тут синтаксис через .table()...
         if item_id:
             # 1. Обновляем сам скин (глобально)
             supabase.table("cs_items").update(item_payload).eq("id", item_id).execute()
             
             # 2. Обновляем шанс в текущем кейсе (таблица связей)
-            # Ищем связь по item_id и case_tag
             supabase.table("cs_case_contents")\
                 .update({"chance_weight": data["chance_weight"]})\
                 .eq("item_id", item_id)\
@@ -16676,6 +16677,11 @@ async def admin_save_case_item(request: Request):
             # СОЗДАНИЕ С НУЛЯ
             # 1. Создаем скин
             res_item = supabase.table("cs_items").insert(item_payload).execute()
+            
+            # Проверяем, что данные пришли успешно
+            if not res_item.data:
+                raise Exception("Ошибка при создании записи в cs_items")
+                
             new_id = res_item.data[0]['id']
             
             # 2. Создаем связь с кейсом
@@ -16690,6 +16696,7 @@ async def admin_save_case_item(request: Request):
             
     except Exception as e:
         print(f"Save Error: {e}")
+        # Выводим подробную ошибку в консоль, чтобы знать если колонка не найдена
         raise HTTPException(status_code=500, detail=str(e))
 
 # 4. Удалить (Разрываем связь, скин остается в базе)
