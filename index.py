@@ -16497,26 +16497,25 @@ async def admin_cases_search_cache(
     req: SearchCacheRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Чистим запрос от символов, которые могут сломать URL или Worker
+    # 1. Чистим запрос
     query = req.query.strip().replace("%", "").replace("?", "").replace("&", "")
     
     if not query or len(query) < 2:
         return []
 
     try:
-        # Используем '*' вместо '%' — это родной формат для Supabase API (PostgREST)
-        # Формат: ilike.*слово*
-        search_val = f"ilike.*{query}*"
-        
-        res = await supabase.get("/steam_inventory_cache", params={
-            "market_hash_name": search_val,
+        # Формируем параметры запроса
+        params = {
+            "market_hash_name": f"ilike.*{query}*",
             "select": "market_hash_name,icon_url,price_rub,condition",
-            "limit": 50
-        })
+            "order": "price_rub.desc", # <--- ВОТ ОНА, МАГИЯ СОРТИРОВКИ! (Дорогое сверху)
+            "limit": 100 # Увеличил лимит, чтобы было из чего выбирать
+        }
         
-        # Если пришел HTML (ошибка Cloudflare), а не JSON
+        res = await supabase.get("/steam_inventory_cache", params=params)
+        
         if "text/html" in res.headers.get("Content-Type", ""):
-            print(f"🚨 Supabase/Cloudflare вернул HTML вместо данных. Запрос: {query}")
+            print(f"🚨 Supabase вернул HTML. Запрос: {query}")
             return []
 
         if res.status_code != 200:
@@ -16531,21 +16530,23 @@ async def admin_cases_search_cache(
         unique_items = []
         for it in items:
             name = it.get("market_hash_name", "")
-            # Группируем по имени + качеству, чтобы видеть разные износы
-            key = f"{name}_{it.get('condition', '')}"
+            cond = it.get("condition", "")
+            # Создаем ключ Имя + Качество, чтобы видеть, например, и FN и FT версию скина
+            key = f"{name}_{cond}"
+            
             if name and key not in seen:
                 seen.add(key)
                 unique_items.append({
                     "market_hash_name": name,
                     "image_url": it.get("icon_url", ""),
                     "price_rub": it.get("price_rub", 0),
-                    "condition": it.get("condition", "")
+                    "condition": cond
                 })
                 
         return unique_items
 
     except Exception as e:
-        print(f"⚠️ Критическая ошибка в search_cache: {e}")
+        print(f"⚠️ Ошибка в search_cache: {e}")
         return []
 
 # 5. Поиск предметов по всей базе (библиотека)
