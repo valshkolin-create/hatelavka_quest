@@ -17,3 +17,4 @@ supabase[asyncio]==2.4.4
 
 # --- STEAM AUTO-DELIVERY ---
 steampy
+ijson
