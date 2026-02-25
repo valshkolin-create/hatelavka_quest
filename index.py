@@ -1812,35 +1812,28 @@ async def sync_steam_inventory(
                     desc_map_eng[key] = desc.get("market_hash_name", "")
                     desc_map_ru[key] = desc.get("market_name", desc.get("name", "Неизвестный предмет"))
 
-        # 🔥 2. КАЧАЕМ ЦЕНЫ (РАЗРЕШАЕМ РЕДИРЕКТЫ 301/302) 🔥
+        # 🔥 2. КАЧАЕМ ЦЕНЫ (SKINPORT API - ОТКРЫТО ДЛЯ БОТОВ) 🔥
         prices_dict = {}
         try:
-            # follow_redirects=True - теперь скрипт сам перейдет по правильной ссылке
-            async with httpx.AsyncClient(follow_redirects=True) as clean_client:
-                price_headers = {
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-                    "Accept": "application/json"
-                }
-                # Убрали лишний слэш перед ?currency
+            async with httpx.AsyncClient() as clean_client:
+                # Сразу просим цены в рублях (currency=RUB)
                 price_resp = await clean_client.get(
-                    "https://csgobackpack.net/api/GetItemsList/v2?currency=RUB&no_details=true", 
-                    headers=price_headers, 
+                    "https://api.skinport.com/v1/items?app_id=730&currency=RUB",
                     timeout=15.0
                 )
                 
                 if price_resp.status_code == 200:
                     price_data = price_resp.json()
-                    items_list = price_data.get("items_list", {})
                     
-                    for mhn, info in items_list.items():
-                        if not isinstance(info, dict): continue
-                        price_info = info.get("price", {})
-                        if "7_days" in price_info:
-                            prices_dict[mhn] = float(price_info["7_days"].get("average", 0))
-                        elif "30_days" in price_info:
-                            prices_dict[mhn] = float(price_info["30_days"].get("average", 0))
+                    # Skinport отдает список, превращаем его в удобный словарь
+                    for item in price_data:
+                        mhn = item.get("market_hash_name")
+                        # Берем рекомендованную цену Steam, если её нет - берем минимальную на площадке
+                        price = item.get("suggested_price") or item.get("min_price") or 0.0
+                        if mhn:
+                            prices_dict[mhn] = float(price)
                 else:
-                    print(f"CSGOBackpack вернул странный код: {price_resp.status_code}")
+                    print(f"Skinport вернул код: {price_resp.status_code}")
 
         except Exception as e:
             print(f"Ошибка загрузки цен: {e}")
@@ -1872,7 +1865,7 @@ async def sync_steam_inventory(
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} спарсен! Записано {items_count} предметов (на русском, цены в ₽).", 
+            "message": f"Бот {bot['username']} спарсен! Записано {items_count} предметов (Skinport, цены в ₽).", 
             "items_saved": items_count
         }
 
