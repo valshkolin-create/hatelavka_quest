@@ -1812,17 +1812,18 @@ async def sync_steam_inventory(
                     desc_map_eng[key] = desc.get("market_hash_name", "")
                     desc_map_ru[key] = desc.get("market_name", desc.get("name", "Неизвестный предмет"))
 
-        # 🔥 2. КАЧАЕМ ЦЕНЫ (ЧИСТЫЙ ЗАПРОС БЕЗ КУК) 🔥
+        # 🔥 2. КАЧАЕМ ЦЕНЫ (РАЗРЕШАЕМ РЕДИРЕКТЫ 301/302) 🔥
         prices_dict = {}
         try:
-            # Открываем абсолютно новый клиент без привязки к Steam
-            async with httpx.AsyncClient() as clean_client:
+            # follow_redirects=True - теперь скрипт сам перейдет по правильной ссылке
+            async with httpx.AsyncClient(follow_redirects=True) as clean_client:
                 price_headers = {
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                     "Accept": "application/json"
                 }
+                # Убрали лишний слэш перед ?currency
                 price_resp = await clean_client.get(
-                    "https://csgobackpack.net/api/GetItemsList/v2/?currency=RUB&no_details=true", 
+                    "https://csgobackpack.net/api/GetItemsList/v2?currency=RUB&no_details=true", 
                     headers=price_headers, 
                     timeout=15.0
                 )
@@ -1832,14 +1833,14 @@ async def sync_steam_inventory(
                     items_list = price_data.get("items_list", {})
                     
                     for mhn, info in items_list.items():
-                        if not isinstance(info, dict): continue # Защита от кривых данных API
+                        if not isinstance(info, dict): continue
                         price_info = info.get("price", {})
                         if "7_days" in price_info:
                             prices_dict[mhn] = float(price_info["7_days"].get("average", 0))
                         elif "30_days" in price_info:
                             prices_dict[mhn] = float(price_info["30_days"].get("average", 0))
                 else:
-                    print(f"CSGOBackpack заблокировал запрос. Код: {price_resp.status_code}")
+                    print(f"CSGOBackpack вернул странный код: {price_resp.status_code}")
 
         except Exception as e:
             print(f"Ошибка загрузки цен: {e}")
@@ -1865,7 +1866,6 @@ async def sync_steam_inventory(
         items_count = len(inventory_to_db)
 
         # 4. Перезаписываем инвентарь в базе
-        # Удалил старые данные и записал новые
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
         if inventory_to_db:
             await supabase.post("/steam_inventory_cache", json=inventory_to_db)
@@ -1880,23 +1880,6 @@ async def sync_steam_inventory(
         print(f"Ошибка крона: {e}")
         raise HTTPException(status_code=500, detail=f"Критическая ошибка: {str(e)}")
         
-# =======================================================
-# 🔥 НОВЫЙ БЛОК: СЕКРЕТНЫЙ КРОН ДЛЯ АВТОВЫДАЧИ STEAM 🔥
-# =======================================================
-@app.get("/api/cron/steam_sync")
-async def sync_steam_inventory(cron_secret: str = Header(None)):
-    # Защита от левых запросов
-    if cron_secret != "TVOY_SUPER_SECRET_CRON_CODE":
-        raise HTTPException(status_code=403, detail="Доступа нет, пацаны")
-    
-    # --- Сюда мы позже вставим логику ---
-    # 1. Взять куки из БД
-    # 2. Спарисить 1 аккаунт
-    # 3. Обновить цены в таблице steam_inventory_cache
-    # ------------------------------------
-    
-    return {"status": "ok", "message": "Синхронизация инвентаря запущена!"}
-
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
 async def bootstrap_app(
