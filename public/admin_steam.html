@@ -112,9 +112,9 @@
                 <label class="form-label">Пароль</label>
                 <input type="password" id="inp-pass" class="form-input" placeholder="••••••••••••" required>
 
-                <label class="form-label">Shared Secret (maFile) <span style="color: var(--primary);">*Опционально</span></label>
-                <input type="text" id="inp-secret" class="form-input" placeholder="A1b2C3d4E5f6G7h8I9j0=">
-                <div class="info-text">Если оставите пустым, бот попросит 5-значный код Steam Guard из письма/телефона.</div>
+                <label class="form-label">Код Steam Guard (с телефона)</label>
+                <input type="text" id="inp-guard" class="form-input" placeholder="ABC12" required maxlength="5" style="text-transform: uppercase;">
+                <div class="info-text">Открой Steam на iPhone, посмотри свежий 5-значный код и введи сюда.</div>
 
                 <button type="submit" class="btn-save">ВОЙТИ В STEAM</button>
             </form>
@@ -188,13 +188,22 @@
         }
 
         async function submitAuth() {
+            // Ищем поля строго по тем же ID, что и в форме выше
             const botId = document.getElementById('bot-id').value;
             const login = document.getElementById('inp-login').value.trim();
             const pass = document.getElementById('inp-pass').value.trim();
-            const guardCode = document.getElementById('inp-guard').value.trim().toUpperCase();
+            const guardInput = document.getElementById('inp-guard');
+
+            // Защита от той самой ошибки (если вдруг поля нет)
+            if (!guardInput) {
+                tg.showAlert("Ошибка интерфейса: не найдено поле Steam Guard!");
+                return;
+            }
+
+            const guardCode = guardInput.value.trim().toUpperCase();
 
             if (!login || !pass || !guardCode) {
-                tg.showAlert("Заполни все поля, включая код с телефона!");
+                tg.showAlert("Бро, заполни все поля, включая код с телефона!");
                 return;
             }
 
@@ -214,7 +223,7 @@
                                 bot_id: parseInt(botId),
                                 login: login,
                                 password: pass,
-                                steam_guard_code: guardCode // Отправляем 5-значный код
+                                steam_guard_code: guardCode // Летит наш 5-значный код
                             })
                         });
 
@@ -230,7 +239,7 @@
                             tg.showAlert("❌ Ошибка: " + (data.detail || "Неверные данные"));
                         }
                     } catch(e) {
-                        tg.showAlert("Сбой сервера при авторизации.");
+                        tg.showAlert("Сбой сервера при авторизации. Проверь логи Vercel.");
                     } finally {
                         btn.innerHTML = originalText;
                         btn.disabled = false;
