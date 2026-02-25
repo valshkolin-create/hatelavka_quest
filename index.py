@@ -1782,15 +1782,15 @@ async def sync_steam_inventory(
         steam_login_secure = urllib.parse.unquote(cookies['steamLoginSecure'])
         steam_id = steam_login_secure.split('||')[0]
 
-        # 1. Запрашиваем инвентарь у Steam (с параметром l=russian)
+        # 1. Запрашиваем инвентарь у Steam
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
-        headers = {
+        steam_headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": f"https://steamcommunity.com/profiles/{steam_id}/inventory/"
         }
 
         async with httpx.AsyncClient(cookies=cookies) as client:
-            resp = await client.get(inventory_url, headers=headers)
+            resp = await client.get(inventory_url, headers=steam_headers)
             
             if resp.status_code == 429:
                 return {"success": False, "message": "Steam Rate Limit. Ждем."}
@@ -1803,66 +1803,78 @@ async def sync_steam_inventory(
             assets = data.get("assets", [])
             descriptions = data.get("descriptions", [])
             
-            # 🔥 РАЗДЕЛЯЕМ НАЗВАНИЯ: Английское для цен, Русское для базы
             desc_map_eng = {}
             desc_map_ru = {}
             
             for desc in descriptions:
                 if desc.get("tradable", 0) == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
-                    # Английское название всегда лежит в market_hash_name
                     desc_map_eng[key] = desc.get("market_hash_name", "")
-                    # Русское название Стим отдает в market_name (т.к. мы просили l=russian)
                     desc_map_ru[key] = desc.get("market_name", desc.get("name", "Неизвестный предмет"))
 
-            # 🔥 2. КАЧАЕМ ЦЕНЫ В РУБЛЯХ (Добавили currency=RUB) 🔥
-            prices_dict = {}
-            try:
-                price_resp = await client.get("https://csgobackpack.net/api/GetItemsList/v2/?currency=RUB&no_details=true", timeout=15.0)
-                price_data = price_resp.json()
-                items_list = price_data.get("items_list", {})
+        # 🔥 2. КАЧАЕМ ЦЕНЫ (ЧИСТЫЙ ЗАПРОС БЕЗ КУК) 🔥
+        prices_dict = {}
+        try:
+            # Открываем абсолютно новый клиент без привязки к Steam
+            async with httpx.AsyncClient() as clean_client:
+                price_headers = {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "application/json"
+                }
+                price_resp = await clean_client.get(
+                    "https://csgobackpack.net/api/GetItemsList/v2/?currency=RUB&no_details=true", 
+                    headers=price_headers, 
+                    timeout=15.0
+                )
                 
-                for mhn, info in items_list.items():
-                    price_info = info.get("price", {})
-                    # Берем среднюю цену за 7 дней
-                    if "7_days" in price_info:
-                        prices_dict[mhn] = float(price_info["7_days"].get("average", 0))
-                    elif "30_days" in price_info:
-                        prices_dict[mhn] = float(price_info["30_days"].get("average", 0))
-            except Exception as e:
-                print(f"Ошибка загрузки цен: {e}")
-
-            # 3. Собираем финальный список (Русское название + Рублевая цена)
-            inventory_to_db = []
-            for asset in assets:
-                key = f"{asset['classid']}_{asset['instanceid']}"
-                if key in desc_map_eng:
-                    mhn_eng = desc_map_eng[key]
-                    mhn_ru = desc_map_ru[key]
+                if price_resp.status_code == 200:
+                    price_data = price_resp.json()
+                    items_list = price_data.get("items_list", {})
                     
-                    # Ищем цену по английскому названию
-                    item_price_rub = prices_dict.get(mhn_eng, 0.0) 
-                    
-                    inventory_to_db.append({
-                        "assetid": asset["assetid"],
-                        "account_id": bot_id,
-                        "market_hash_name": mhn_ru, # Сохраняем на русском!
-                        "price_usd": item_price_rub, # Записываем рубли (несмотря на название колонки)
-                        "is_reserved": False
-                    })
+                    for mhn, info in items_list.items():
+                        if not isinstance(info, dict): continue # Защита от кривых данных API
+                        price_info = info.get("price", {})
+                        if "7_days" in price_info:
+                            prices_dict[mhn] = float(price_info["7_days"].get("average", 0))
+                        elif "30_days" in price_info:
+                            prices_dict[mhn] = float(price_info["30_days"].get("average", 0))
+                else:
+                    print(f"CSGOBackpack заблокировал запрос. Код: {price_resp.status_code}")
 
-            items_count = len(inventory_to_db)
+        except Exception as e:
+            print(f"Ошибка загрузки цен: {e}")
 
-            # 4. Перезаписываем инвентарь в базе
-            await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
-            if inventory_to_db:
-                await supabase.post("/steam_inventory_cache", json=inventory_to_db)
+        # 3. Собираем финальный список (Русское название + Рублевая цена)
+        inventory_to_db = []
+        for asset in assets:
+            key = f"{asset['classid']}_{asset['instanceid']}"
+            if key in desc_map_eng:
+                mhn_eng = desc_map_eng[key]
+                mhn_ru = desc_map_ru[key]
+                
+                item_price_rub = prices_dict.get(mhn_eng, 0.0) 
+                
+                inventory_to_db.append({
+                    "assetid": asset["assetid"],
+                    "account_id": bot_id,
+                    "market_hash_name": mhn_ru, 
+                    "price_usd": item_price_rub, 
+                    "is_reserved": False
+                })
 
-            return {
-                "success": True, 
-                "message": f"Бот {bot['username']} спарсен! Записано {items_count} предметов (на русском, цены в ₽).", 
-                "items_saved": items_count
-            }
+        items_count = len(inventory_to_db)
+
+        # 4. Перезаписываем инвентарь в базе
+        # Удалил старые данные и записал новые
+        await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+        if inventory_to_db:
+            await supabase.post("/steam_inventory_cache", json=inventory_to_db)
+
+        return {
+            "success": True, 
+            "message": f"Бот {bot['username']} спарсен! Записано {items_count} предметов (на русском, цены в ₽).", 
+            "items_saved": items_count
+        }
 
     except Exception as e:
         print(f"Ошибка крона: {e}")
