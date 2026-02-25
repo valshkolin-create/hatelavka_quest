@@ -1791,61 +1791,57 @@ async def sync_steam_inventory(
 
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers=steam_headers)
-            
             if resp.status_code == 429:
-                return {"success": False, "message": "Steam Rate Limit. Ждем."}
-            
+                return {"success": False, "message": "Steam Rate Limit (429)."}
             data = resp.json()
-
             if data.get("success") != 1:
                 return {"success": False, "message": f"Отказ Steam: {data.get('error', 'Скрыт')}"}
 
             assets = data.get("assets", [])
             descriptions = data.get("descriptions", [])
-            
-            desc_map_eng = {}
-            desc_map_ru = {}
-            
+            desc_map_eng, desc_map_ru = {}, {}
             for desc in descriptions:
                 if desc.get("tradable", 0) == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
                     desc_map_eng[key] = desc.get("market_hash_name", "")
-                    desc_map_ru[key] = desc.get("market_name", desc.get("name", "Неизвестный предмет"))
+                    desc_map_ru[key] = desc.get("market_name", desc.get("name", "Неизвестный"))
 
-        # 🔥 2. КАЧАЕМ ЦЕНЫ (SKINPORT API - ОТКРЫТО ДЛЯ БОТОВ) 🔥
+        # 🔥 2. КАЧАЕМ ЦЕНЫ (ИСПРАВЛЯЕМ ОШИБКУ 406) 🔥
         prices_dict = {}
         try:
             async with httpx.AsyncClient() as clean_client:
-                # Сразу просим цены в рублях (currency=RUB)
+                # Добавляем Accept и Accept-Encoding, чтобы Skinport был доволен
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip, deflate, br"
+                }
                 price_resp = await clean_client.get(
                     "https://api.skinport.com/v1/items?app_id=730&currency=RUB",
-                    timeout=15.0
+                    headers=headers,
+                    timeout=20.0 # Даем больше времени на скачивание тяжелого файла
                 )
                 
                 if price_resp.status_code == 200:
                     price_data = price_resp.json()
-                    
-                    # Skinport отдает список, превращаем его в удобный словарь
                     for item in price_data:
                         mhn = item.get("market_hash_name")
-                        # Берем рекомендованную цену Steam, если её нет - берем минимальную на площадке
                         price = item.get("suggested_price") or item.get("min_price") or 0.0
                         if mhn:
                             prices_dict[mhn] = float(price)
                 else:
-                    print(f"Skinport вернул код: {price_resp.status_code}")
+                    print(f"Skinport Error: {price_resp.status_code}")
 
         except Exception as e:
             print(f"Ошибка загрузки цен: {e}")
 
-        # 3. Собираем финальный список (Русское название + Рублевая цена)
+        # 3. Собираем финальный список
         inventory_to_db = []
         for asset in assets:
             key = f"{asset['classid']}_{asset['instanceid']}"
             if key in desc_map_eng:
                 mhn_eng = desc_map_eng[key]
                 mhn_ru = desc_map_ru[key]
-                
                 item_price_rub = prices_dict.get(mhn_eng, 0.0) 
                 
                 inventory_to_db.append({
@@ -1856,17 +1852,15 @@ async def sync_steam_inventory(
                     "is_reserved": False
                 })
 
-        items_count = len(inventory_to_db)
-
-        # 4. Перезаписываем инвентарь в базе
+        # 4. Перезаписываем в базе
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
         if inventory_to_db:
             await supabase.post("/steam_inventory_cache", json=inventory_to_db)
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} спарсен! Записано {items_count} предметов (Skinport, цены в ₽).", 
-            "items_saved": items_count
+            "message": f"Бот {bot['username']} спарсен! Цены обновлены через Skinport.", 
+            "items_saved": len(inventory_to_db)
         }
 
     except Exception as e:
