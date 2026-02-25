@@ -16497,36 +16497,44 @@ async def admin_cases_search_cache(
     req: SearchCacheRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    query = req.query.strip()
+    # 1. Чистим запрос от символов, которые могут сломать URL или Worker
+    query = req.query.strip().replace("%", "").replace("?", "").replace("&", "")
+    
     if not query or len(query) < 2:
         return []
 
     try:
-        # Убрали пробелы в select, теперь Supabase не будет ругаться
+        # Используем '*' вместо '%' — это родной формат для Supabase API (PostgREST)
+        # Формат: ilike.*слово*
+        search_val = f"ilike.*{query}*"
+        
         res = await supabase.get("/steam_inventory_cache", params={
-            "market_hash_name": f"ilike.%{query}%",
+            "market_hash_name": search_val,
             "select": "market_hash_name,icon_url,price_rub,condition",
             "limit": 50
         })
         
-        # Если Supabase вернул ошибку - просто отдаем пустой список, а не крашим сервак
+        # Если пришел HTML (ошибка Cloudflare), а не JSON
+        if "text/html" in res.headers.get("Content-Type", ""):
+            print(f"🚨 Supabase/Cloudflare вернул HTML вместо данных. Запрос: {query}")
+            return []
+
         if res.status_code != 200:
-            print(f"⚠️ Ошибка поиска в Supabase: {res.text}")
+            print(f"⚠️ Ошибка Supabase ({res.status_code}): {res.text}")
             return []
             
         items = res.json()
-        
-        # На всякий случай проверяем, что пришел именно список скинов
         if not isinstance(items, list):
             return []
 
-        # Группируем дубликаты
         seen = set()
         unique_items = []
         for it in items:
             name = it.get("market_hash_name", "")
-            if name and name not in seen:
-                seen.add(name)
+            # Группируем по имени + качеству, чтобы видеть разные износы
+            key = f"{name}_{it.get('condition', '')}"
+            if name and key not in seen:
+                seen.add(key)
                 unique_items.append({
                     "market_hash_name": name,
                     "image_url": it.get("icon_url", ""),
@@ -16538,7 +16546,7 @@ async def admin_cases_search_cache(
 
     except Exception as e:
         print(f"⚠️ Критическая ошибка в search_cache: {e}")
-        return [] # Возвращаем пустоту, чтобы фронтенд не ловил 500 ошибку
+        return []
 
 # 5. Поиск предметов по всей базе (библиотека)
 @app.post("/api/v1/admin/cases/search_items")
