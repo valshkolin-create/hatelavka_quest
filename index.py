@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 CRON ЗАДАЧА: ПАРСИНГ ИНВЕНТАРЯ (БЛОК 4) 🔥
+# 🔥 CRON ЗАДАЧА: ПАРСИНГ ИНВЕНТАРЯ И ЦЕН (БЛОК 4) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1782,8 +1782,8 @@ async def sync_steam_inventory(
         steam_login_secure = urllib.parse.unquote(cookies['steamLoginSecure'])
         steam_id = steam_login_secure.split('||')[0]
 
+        # 1. Запрашиваем инвентарь у Steam (с параметром l=russian)
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
-        
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": f"https://steamcommunity.com/profiles/{steam_id}/inventory/"
@@ -1798,54 +1798,76 @@ async def sync_steam_inventory(
             data = resp.json()
 
             if data.get("success") != 1:
-                error_msg = data.get("error", "Инвентарь скрыт или недоступен")
-                return {"success": False, "message": f"Отказ Steam: {error_msg}"}
+                return {"success": False, "message": f"Отказ Steam: {data.get('error', 'Скрыт')}"}
 
             assets = data.get("assets", [])
             descriptions = data.get("descriptions", [])
             
-            # 1. Создаем удобный справочник названий (classid_instanceid -> market_hash_name)
-            desc_map = {}
+            # 🔥 РАЗДЕЛЯЕМ НАЗВАНИЯ: Английское для цен, Русское для базы
+            desc_map_eng = {}
+            desc_map_ru = {}
+            
             for desc in descriptions:
-                # Берем только предметы, которые можно передавать
                 if desc.get("tradable", 0) == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
-                    desc_map[key] = desc.get("market_hash_name", "Неизвестный предмет")
+                    # Английское название всегда лежит в market_hash_name
+                    desc_map_eng[key] = desc.get("market_hash_name", "")
+                    # Русское название Стим отдает в market_name (т.к. мы просили l=russian)
+                    desc_map_ru[key] = desc.get("market_name", desc.get("name", "Неизвестный предмет"))
 
-            # 2. Собираем финальный список для вставки в БД
+            # 🔥 2. КАЧАЕМ ЦЕНЫ В РУБЛЯХ (Добавили currency=RUB) 🔥
+            prices_dict = {}
+            try:
+                price_resp = await client.get("https://csgobackpack.net/api/GetItemsList/v2/?currency=RUB&no_details=true", timeout=15.0)
+                price_data = price_resp.json()
+                items_list = price_data.get("items_list", {})
+                
+                for mhn, info in items_list.items():
+                    price_info = info.get("price", {})
+                    # Берем среднюю цену за 7 дней
+                    if "7_days" in price_info:
+                        prices_dict[mhn] = float(price_info["7_days"].get("average", 0))
+                    elif "30_days" in price_info:
+                        prices_dict[mhn] = float(price_info["30_days"].get("average", 0))
+            except Exception as e:
+                print(f"Ошибка загрузки цен: {e}")
+
+            # 3. Собираем финальный список (Русское название + Рублевая цена)
             inventory_to_db = []
             for asset in assets:
                 key = f"{asset['classid']}_{asset['instanceid']}"
-                # Если предмет есть в справочнике (значит он tradable)
-                if key in desc_map:
+                if key in desc_map_eng:
+                    mhn_eng = desc_map_eng[key]
+                    mhn_ru = desc_map_ru[key]
+                    
+                    # Ищем цену по английскому названию
+                    item_price_rub = prices_dict.get(mhn_eng, 0.0) 
+                    
                     inventory_to_db.append({
                         "assetid": asset["assetid"],
                         "account_id": bot_id,
-                        "market_hash_name": desc_map[key],
-                        "price_usd": 0, # Цены добавим в следующем шаге
+                        "market_hash_name": mhn_ru, # Сохраняем на русском!
+                        "price_usd": item_price_rub, # Записываем рубли (несмотря на название колонки)
                         "is_reserved": False
                     })
 
             items_count = len(inventory_to_db)
 
-            # 3. Очищаем старый инвентарь этого бота в базе (чтобы удалить проданные скины)
+            # 4. Перезаписываем инвентарь в базе
             await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
-
-            # 4. Записываем свежие предметы, если они есть
             if inventory_to_db:
-                # Разбиваем на чанки по 1000, хотя у нас 383 (на будущее, если будет больше)
                 await supabase.post("/steam_inventory_cache", json=inventory_to_db)
 
             return {
                 "success": True, 
-                "message": f"Бот {bot['username']} спарсен! Сохранено {items_count} трейдабельных скинов в БД.", 
+                "message": f"Бот {bot['username']} спарсен! Записано {items_count} предметов (на русском, цены в ₽).", 
                 "items_saved": items_count
             }
 
     except Exception as e:
         print(f"Ошибка крона: {e}")
         raise HTTPException(status_code=500, detail=f"Критическая ошибка: {str(e)}")
-
+        
 # =======================================================
 # 🔥 НОВЫЙ БЛОК: СЕКРЕТНЫЙ КРОН ДЛЯ АВТОВЫДАЧИ STEAM 🔥
 # =======================================================
