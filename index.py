@@ -2102,25 +2102,29 @@ async def auth_steam_bot(
     request: SteamAuthRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    import os
+    import json
+    
     user_info = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
     
-    # 🔥 ХАК ДЛЯ ОБХОДА ЗАЩИТЫ STEAMPY 🔥
-    # Подменяем внутреннюю функцию генерации кода библиотеки steampy.
-    # Теперь, когда она попытается сгенерить код, мы подсунем ей твой с айфона.
+    # 🔥 Создаем фейковый файл Steam Guard во временной папке Vercel
+    dummy_guard_path = "/tmp/dummy_guard.json"
+    with open(dummy_guard_path, "w") as f:
+        json.dump({"shared_secret": "dummy", "identity_secret": "dummy"}, f)
+    
+    # 🔥 ХАК ДЛЯ ОБХОДА ЗАЩИТЫ STEAMPY С АЙФОНА 🔥
     original_generate = steampy.guard.generate_one_time_code
     steampy.guard.generate_one_time_code = lambda shared_secret, timestamp=None: request.steam_guard_code
 
     try:
-        # Кормим библиотеку "фейковым" секретом, чтобы она пропустила нас дальше.
-        # Она возьмет этот 'dummy', пойдет генерить код и наткнется на наш хак выше.
-        dummy_guard = {'shared_secret': 'dummy_secret'}
-        client.login(request.login, request.password, dummy_guard)
+        # Кормим библиотеку ПУТЕМ К ФАЙЛУ, как она и хочет
+        client.login(request.login, request.password, dummy_guard_path)
         
-        # Если твой код с айфона подошел, забираем куки
+        # Если код с айфона подошел, забираем куки
         session_cookies = client.get_web_session().cookies.get_dict()
 
         session_data = {
@@ -2129,7 +2133,7 @@ async def auth_steam_bot(
             "password": request.password
         }
 
-        # Сохраняем в БД
+        # Сохраняем сессию в БД
         await supabase.patch(
             f"/steam_accounts?id=eq.{request.bot_id}",
             json={
@@ -2144,8 +2148,11 @@ async def auth_steam_bot(
         print(f"Ошибка входа Steam: {e}")
         raise HTTPException(status_code=400, detail="Неверный пароль или код Steam Guard устарел")
     finally:
-        # ОБЯЗАТЕЛЬНО возвращаем функцию на место, чтобы не сломать ничего другого
+        # Возвращаем системную функцию на место
         steampy.guard.generate_one_time_code = original_generate
+        # Удаляем фейковый файл за собой
+        if os.path.exists(dummy_guard_path):
+            os.remove(dummy_guard_path)
         
 
         
