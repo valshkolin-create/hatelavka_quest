@@ -16489,6 +16489,38 @@ async def cancel_tg_challenge_paid(request: Request):
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
 # =====================================================
 
+@app.post("/api/v1/admin/cases/search_cache")
+async def admin_cases_search_cache(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Новый поиск: ищет напрямую на складе ботов
+    data = await request.json()
+    query = data.get("query", "").strip()
+    if not query or len(query) < 2:
+        return []
+        
+    res = await supabase.get("/steam_inventory_cache", params={
+        "market_hash_name": f"ilike.%{query}%",
+        "select": "market_hash_name, icon_url, price_rub, condition",
+        "limit": 50
+    })
+    
+    items = res.json()
+    
+    # Убираем дубликаты (если на боте лежит 10 одинаковых калашей, покажем 1)
+    seen = set()
+    unique_items = []
+    for it in items:
+        name = it.get("market_hash_name", "")
+        if name not in seen:
+            seen.add(name)
+            unique_items.append({
+                "market_hash_name": name,
+                "image_url": it.get("icon_url"),
+                "price_rub": it.get("price_rub", 0),
+                "condition": it.get("condition")
+            })
+            
+    return unique_items
+
 # 5. Поиск предметов по всей базе (библиотека)
 @app.post("/api/v1/admin/cases/search_items")
 async def admin_search_case_items(request: Request):
