@@ -9,7 +9,7 @@
       "src": "index.py",
       "use": "@vercel/python",
       "config": {
-        "maxDuration": 30,
+        "maxDuration": 60,
         "memory": 1024
       }
     }
