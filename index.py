@@ -1751,7 +1751,6 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 # 🔥 CRON ЗАДАЧА: ПАРСИНГ ИНВЕНТАРЯ (БЛОК 4) 🔥
 # =======================================================
 
-# Придумай свой сложный пароль, чтобы хакеры не могли дергать этот эндпоинт
 CRON_SECRET = "my_super_secret_cron_token_123" 
 
 @app.get("/api/cron/steam_sync")
@@ -1760,12 +1759,10 @@ async def sync_steam_inventory(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     import urllib.parse
-    import requests
-    from steampy.client import SteamClient
-    from steampy.models import GameOptions
+    import httpx
 
     if token != CRON_SECRET:
-        raise HTTPException(status_code=403, detail="Доступ запрещен. Неверный токен.")
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
@@ -1775,39 +1772,54 @@ async def sync_steam_inventory(
             return {"success": False, "message": "Нет активных ботов для парсинга"}
 
         bot = bots[0]
-        # Безопасно достаем куки
         session_data = bot.get('session_data') or {}
         cookies = session_data.get('cookies', {})
 
         if 'sessionid' not in cookies or 'steamLoginSecure' not in cookies:
             return {"success": False, "message": f"У бота {bot['username']} отсутствуют куки"}
 
-        # 🔥 ГЕНИАЛЬНЫЙ ХАК: Вытаскиваем SteamID прямо из куки steamLoginSecure
+        # Достаем SteamID
         steam_login_secure = urllib.parse.unquote(cookies['steamLoginSecure'])
         steam_id = steam_login_secure.split('||')[0]
 
-        client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
-        client._session = requests.Session()
-        client._session.cookies.set('sessionid', cookies['sessionid'], domain='steamcommunity.com')
-        client._session.cookies.set('steamLoginSecure', cookies['steamLoginSecure'], domain='steamcommunity.com')
+        # 🔥 ДЕЛАЕМ ПРЯМОЙ ЗАПРОС К STEAM API (БЕЗ STEAMPY) 🔥
+        # 730 = CS:GO, 2 = Контекст инвентаря
+        inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         
-        # Подсовываем библиотеке steamid, чтобы она могла собрать ссылку на инвентарь
-        client.steam_guard = {"steamid": steam_id}
-        client.was_login_executed = True 
-
-        # Стучимся в Steam и забираем инвентарь CS:GO
-        inventory = client.get_my_inventory(game=GameOptions.CS, merge=True)
-        items_count = len(inventory) if inventory else 0
-
-        return {
-            "success": True, 
-            "message": f"Бот {bot['username']} (SteamID: {steam_id}) успешно спарсен!", 
-            "items_found": items_count
+        # Притворяемся обычным браузером Chrome
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": f"https://steamcommunity.com/profiles/{steam_id}/inventory/"
         }
 
+        # Отправляем запрос с нашими куками
+        async with httpx.AsyncClient(cookies=cookies) as client:
+            resp = await client.get(inventory_url, headers=headers)
+            
+            # Если Стим заблокировал IP Vercel (429 Too Many Requests)
+            if resp.status_code == 429:
+                return {"success": False, "message": "Steam временно заблокировал запросы (Rate Limit). Нужно подождать."}
+            
+            data = resp.json()
+
+            # Если Стим вернул success: 0, читаем реальную причину!
+            if data.get("success") != 1:
+                error_msg = data.get("error", "Неизвестная ошибка Steam (возможно инвентарь скрыт)")
+                return {"success": False, "message": f"Отказ от Steam: {error_msg}"}
+
+            # Считаем количество предметов (массив assets)
+            items = data.get("assets", [])
+            items_count = len(items)
+
+            return {
+                "success": True, 
+                "message": f"Бот {bot['username']} (SteamID: {steam_id}) успешно спарсен!", 
+                "items_found": items_count
+            }
+
     except Exception as e:
-        print(f"Ошибка парсинга инвентаря: {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка крона: {str(e)}")
+        print(f"Ошибка крона: {e}")
+        raise HTTPException(status_code=500, detail=f"Критическая ошибка: {str(e)}")
 
 # =======================================================
 # 🔥 НОВЫЙ БЛОК: СЕКРЕТНЫЙ КРОН ДЛЯ АВТОВЫДАЧИ STEAM 🔥
