@@ -3165,7 +3165,6 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     # 2. ОПТИМИЗАЦИЯ: Обновляем и читаем кэш
     await ensure_twitch_cache(supabase)
     
-    # 👇👇👇 ИСПРАВЛЕНИЕ: Сдвигаем этот блок ВЛЕВО (на один уровень с await выше) 👇👇👇
     event_data = data.get("event", {})
     reward_title = event_data.get("reward", {}).get("title", "Unknown")
     
@@ -3217,16 +3216,46 @@ async def process_twitch_notification_background(data: dict, message_id: str):
 
     # Если в базе ссылки нет (или юзер не привязан), ищем её в тексте сообщения Twitch
     if not trade_link and user_input:
-        # Ищем просто partner и token, даже если юзер скопировал без http://
         match = re.search(r"partner=(\d+)&token=([a-zA-Z0-9_-]+)", user_input)
         if match:
-            # Идеально собираем ссылку заново
             trade_link = f"https://steamcommunity.com/tradeoffer/new/?partner={match.group(1)}&token={match.group(2)}"
 
-    # СУПЕР-ЛОГ: Покажет нам, нашел ли бот юзера в БД и нашел ли ссылку
     logging.info(f"🔍 [АВТОВЫДАЧА] Твич: {twitch_login} | Нашел в БД: {bool(user_record)} | Ссылка: {trade_link} | Текст юзера: {user_input}")
 
-    # --- 4. ЛОГИКА ОБРАБОТКИ (С ИСПОЛЬЗОВАНИЕМ КЭША) ---
+    # =================================================================
+    # 🔥 [НОВОЕ] ЗАЩИТА ОТ АБУЗА (ОДНОРАЗОВЫЕ НАГРАДЫ) 🔥
+    # =================================================================
+    reward_lower = reward_title.lower()
+    if "follow" in reward_lower or "фоллоу" in reward_lower or "одноразов" in reward_lower:
+        logging.info(f"🛡️ Проверка на абуз одноразовой награды: {reward_title}")
+        
+        # Получаем ID награды
+        r_id = None
+        if cached_reward:
+            r_id = cached_reward.get("id")
+        else:
+            r_resp = await supabase.get("/twitch_rewards", params={"title": f"eq.{reward_title}", "select": "id"})
+            r_data = r_resp.json()
+            if r_data and isinstance(r_data, list):
+                r_id = r_data[0]["id"]
+
+        if r_id:
+            # Ищем прошлые покупки этого юзера для этой конкретной награды
+            past_purchases = await supabase.get("/twitch_reward_purchases", params={
+                "twitch_login": f"ilike.{twitch_login}",
+                "reward_id": f"eq.{r_id}",
+                "limit": 1
+            })
+            
+            if past_purchases.json():
+                logging.warning(f"⛔ АБУЗ ПРЕСЕЧЕН: {twitch_login} уже открывал '{reward_title}'. Блокируем выдачу.")
+                if ADMIN_NOTIFY_CHAT_ID:
+                    await safe_send_message(
+                        ADMIN_NOTIFY_CHAT_ID, 
+                        f"⚠️ <b>Абуз пресечен!</b>\nПользователь <code>{twitch_login}</code> попытался второй раз открыть одноразовую награду «{reward_title}».\n<i>Рулетка отменена, выдача заблокирована.</i>"
+                    )
+                return # 🛑 Полностью останавливаем выполнение (ни рулетки, ни выдачи)
+    # =================================================================
 
     # --- 4. ЛОГИКА ОБРАБОТКИ (С ИСПОЛЬЗОВАНИЕМ КЭША) ---
 
