@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 CRON ЗАДАЧА: ПАРСИНГ (MEMORY-SAFE VERSION) 🔥
+# 🔥 CRON ЗАДАЧА: ПОЛНАЯ СИНХРОНИЗАЦИЯ (БЛОК 4) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1760,92 +1760,127 @@ async def sync_steam_inventory(
 ):
     import urllib.parse
     import httpx
-    import re # Используем регулярки для экономии памяти
+    import re
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем бота
+        # 1. Получаем активного бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
 
         bot = bots[0]
         bot_id = bot['id']
-        cookies = bot.get('session_data', {}).get('cookies', {})
+        session_data = bot.get('session_data', {})
+        cookies = session_data.get('cookies', {})
+        
         steam_login_secure = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
         steam_id = steam_login_secure.split('||')[0] if '||' in steam_login_secure else None
+        
+        if not steam_id: return {"success": False, "message": "SteamID не найден"}
 
-        # 2. Парсим инвентарь Steam
+        # 2. Запрашиваем инвентарь Steam (l=russian для русского качества)
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
-            resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15.0)
-            steam_data = resp.json()
+            resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0)
+            if resp.status_code != 200:
+                return {"success": False, "message": f"Steam API Error: {resp.status_code}"}
             
+            steam_data = resp.json()
             assets = steam_data.get("assets", [])
             descriptions = steam_data.get("descriptions", [])
             
-            desc_map_eng = {}
-            desc_map_ru = {}
+            # Справочники данных
+            desc_info = {}
             needed_names = set() 
 
             for desc in descriptions:
                 if desc.get("tradable") == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
                     mhn = desc.get("market_hash_name", "")
-                    desc_map_eng[key] = mhn
-                    desc_map_ru[key] = desc.get("market_name", desc.get("name", ""))
+                    
+                    # Извлекаем качество из тегов (Exterior)
+                    exterior = "Без качества"
+                    tags = desc.get("tags", [])
+                    for tag in tags:
+                        if tag.get("category") == "Exterior":
+                            exterior = tag.get("localized_tag_name", tag.get("name"))
+                    
+                    # Формируем полную ссылку на картинку
+                    icon_url = ""
+                    if desc.get("icon_url"):
+                        icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url')}/330x192"
+
+                    desc_info[key] = {
+                        "mhn": mhn,
+                        "name_ru": desc.get("market_name", desc.get("name", "")),
+                        "exterior": exterior,
+                        "icon_url": icon_url
+                    }
                     needed_names.add(mhn)
 
-        # 🔥 3. ПАРСИМ ЦЕНЫ LIS-SKINS ЧЕРЕЗ СТРИМИНГ (БЕЗОПАСНО ДЛЯ ПАМЯТИ)
+        # 3. Парсим цены LIS-SKINS (Memory-Safe Streaming)
         prices_dict = {}
         usd_to_rub = 95.0
-        
         lis_url = "https://lis-skins.com/market_export_json/api_csgo_unlocked.json"
         
-        # Мы не качаем файл целиком, а читаем его поток (stream)
         async with httpx.AsyncClient(follow_redirects=True) as lis_client:
             async with lis_client.stream("GET", lis_url, timeout=60.0) as r:
-                # Паттерн ищет "name":"название","price":цена
-                # Это позволяет вытащить данные из сырого текста, не превращая его в JSON-объект
                 pattern = re.compile(r'"name":"([^"]+)","price":([\d\.]+)')
-                
                 async for chunk in r.aiter_text():
                     for match in pattern.finditer(chunk):
                         name, price = match.groups()
                         if name in needed_names:
                             prices_dict[name] = float(price) * usd_to_rub
 
-        # 4. Собираем инвентарь для БД
+        # 4. Формируем финальный список для записи в БД
         inventory_to_db = []
         for asset in assets:
             key = f"{asset['classid']}_{asset['instanceid']}"
-            if key in desc_map_eng:
-                mhn_eng = desc_map_eng[key]
+            if key in desc_info:
+                info = desc_info[key]
+                mhn_eng = info["mhn"]
+                name_ru = info["name_ru"]
+                
+                # Логика цены
+                price_final = prices_dict.get(mhn_eng)
+                
+                if price_final is None:
+                    # Если цены нет, проверяем на наклейку или сувенир
+                    if "Наклейка" in name_ru or "Сувенирный" in name_ru:
+                        price_final = 2.0
+                    else:
+                        price_final = 0.0 # Оставляем 0, чтобы не затронуло замены
+
                 inventory_to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
-                    "market_hash_name": desc_map_ru[key],
-                    "price_usd": round(prices_dict.get(mhn_eng, 0.0), 2),
-                    "is_reserved": False
+                    "market_hash_name": name_ru,
+                    "price_usd": round(price_final, 2), # Это наши рубли
+                    "exterior": info["exterior"],
+                    "icon_url": info["icon_url"],
+                    "is_reserved": False,
+                    "float_value": None # Для будущего расширения (нужен парсер ссылок осмотра)
                 })
 
-        # 5. Обновляем базу
+        # 5. Обновляем базу данных (Supabase)
+        # Удаляем старый кэш этого бота
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+        
+        # Загружаем новый инвентарь чанками
         if inventory_to_db:
-            # Чанки по 50 (еще меньше, чтобы точно влезть в память Vercel)
             for i in range(0, len(inventory_to_db), 50):
                 await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+50])
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} синхронизирован! Память спасена.",
+            "message": f"Бот {bot['username']} полностью синхронизирован!",
             "items_saved": len(inventory_to_db)
         }
 
     except Exception as e:
-        # Если всё равно упадет — мы хотя бы увидим где
         return {"success": False, "error": str(e)}
         
 # Новый эндпоинт для быстрой загрузки всего сразу
