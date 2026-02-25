@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (RARITY + CONDITION + TICKETS) 🔥
+# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (MEMORY OPTIMIZED) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1763,15 +1763,9 @@ CONDITION_MAP = {
     "Закаленное в боях": "BS", "Battle-Scarred": "BS"
 }
 
-# Маппинг цветов Steam в рарность
 RARITY_COLOR_MAP = {
-    "b0c3d9": "grey",        # Ширпотреб / Consumer Grade
-    "5e98d9": "light_blue",  # Промышленное / Industrial Grade
-    "4b69ff": "blue",        # Армейское / Mil-Spec
-    "8847ff": "purple",      # Запрещенное / Restricted
-    "d32ce6": "pink",        # Засекреченное / Classified
-    "eb4b4b": "red",         # Тайное / Covert
-    "e4ae39": "gold"         # Контрабанда / Ножи / Перчатки
+    "b0c3d9": "grey", "5e98d9": "light_blue", "4b69ff": "blue",        
+    "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
 
 @app.get("/api/cron/steam_sync")
@@ -1782,11 +1776,13 @@ async def sync_steam_inventory(
     import urllib.parse
     import httpx
     import traceback
+    import gc  # Импортируем сборщик мусора для ручной очистки памяти!
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
+        # 1. Получаем активного бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
@@ -1799,6 +1795,7 @@ async def sync_steam_inventory(
         
         if not steam_id: return {"success": False, "message": "SteamID не найден"}
 
+        # 2. Запрашиваем инвентарь Steam
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0)
@@ -1819,18 +1816,15 @@ async def sync_steam_inventory(
                     raw_condition = "-"
                     rarity_color = "default"
                     
-                    # --- ИЩЕМ РАРНОСТЬ И ИЗНОС ---
                     tags = desc.get("tags", [])
                     for tag in tags:
                         if tag.get("category") == "Exterior":
                             raw_condition = tag.get("localized_tag_name", tag.get("name"))
                         elif tag.get("category") == "Rarity":
-                            # Берем hex цвет тега рарности из стима
                             rarity_color = tag.get("color", "").lower()
                     
-                    # Применяем сокращения
                     short_condition = CONDITION_MAP.get(raw_condition, "-")
-                    final_rarity = RARITY_COLOR_MAP.get(rarity_color, "common") # common по умолчанию
+                    final_rarity = RARITY_COLOR_MAP.get(rarity_color, "common")
                     
                     img_hash = desc.get("icon_url_large") or desc.get("icon_url")
                     icon_full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f" if img_hash else ""
@@ -1843,18 +1837,38 @@ async def sync_steam_inventory(
                         "icon_url": icon_full_url
                     }
 
-        # --- ЗАГРУЖАЕМ ЦЕНЫ LIS-SKINS ---
+        # ==========================================
+        # 2.5 ОПТИМИЗАЦИЯ ПАМЯТИ: ФИЛЬТРАЦИЯ И ОЧИСТКА
+        # ==========================================
+        
+        # Создаем SET (множество) названий ТОЛЬКО НАШИХ предметов. Поиск по set в 100 раз быстрее!
+        needed_skins = {info["hash_name_en"] for info in desc_map.values() if info["hash_name_en"]}
         lis_prices_usd = {}
+        
         try:
             async with httpx.AsyncClient() as client:
-                lis_resp = await client.get("https://lis-skins.com/market_export_json/api_csgo_full.json", timeout=15.0)
+                # Увеличиваем таймаут, так как файл большой
+                lis_resp = await client.get("https://lis-skins.com/market_export_json/api_csgo_full.json", timeout=30.0)
+                
                 if lis_resp.status_code == 200:
-                    for item in lis_resp.json().get("items", []):
+                    lis_data = lis_resp.json()
+                    
+                    # Проходим по гигантскому JSON
+                    for item in lis_data.get("items", []):
                         item_name = item.get("name")
-                        item_price = float(item.get("price", 0.0))
-                        if item_name and item_price > 0:
-                            if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
-                                lis_prices_usd[item_name] = item_price
+                        
+                        # БЕРЕМ ЦЕНУ ТОЛЬКО ЕСЛИ СКИН ЕСТЬ В НАШЕМ ИНВЕНТАРЕ
+                        if item_name in needed_skins:
+                            item_price = float(item.get("price", 0.0))
+                            if item_price > 0:
+                                if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
+                                    lis_prices_usd[item_name] = item_price
+                    
+                    # ЖЕСТКАЯ ОЧИСТКА ПАМЯТИ: удаляем огромные переменные из RAM
+                    del lis_data
+                    del lis_resp
+                    gc.collect() # Принудительно заставляем сервер очистить ОЗУ прямо сейчас
+                    
         except Exception as e:
             print(f"ОШИБКА LIS-SKINS: {e}")
 
@@ -1871,7 +1885,6 @@ async def sync_steam_inventory(
                 # --- РАСЧЕТ ЦЕН ---
                 p_usd = lis_prices_usd.get(hash_name_en, 0.0)
                 
-                # Логика для наклеек/сувениров
                 if p_usd == 0.0:
                     name_lower = hash_name_en.lower()
                     if any(word in name_lower for word in ["sticker", "souvenir", "patch", "graffiti", "key"]):
@@ -1880,7 +1893,6 @@ async def sync_steam_inventory(
                 p_rub = round(p_usd * EXCHANGE_RATE, 2)
 
                 # --- РАСЧЕТ БИЛЕТОВ ---
-                # Формула: 1 билет за каждые 3 рубля. Если цена больше 0, минимум 1 билет.
                 tickets_count = 0
                 if p_rub > 0:
                     tickets_count = max(1, int(p_rub / 3.0)) 
@@ -1891,9 +1903,9 @@ async def sync_steam_inventory(
                     "market_hash_name": market_name_ru,
                     "price_usd": p_usd,
                     "price_rub": p_rub,
-                    "tickets": tickets_count,         # <--- Новое поле
-                    "condition": info["condition"],   # <--- Новое поле
-                    "rarity": info["rarity"],         # <--- Новое поле
+                    "tickets": tickets_count,
+                    "condition": info["condition"],
+                    "rarity": info["rarity"],
                     "icon_url": info["icon_url"],
                     "is_reserved": False
                 })
