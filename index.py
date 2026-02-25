@@ -2058,6 +2058,44 @@ async def bootstrap_app(
  
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 
+@app.post("/api/v1/admin/steam/list")
+async def get_steam_bots(
+    request: SteamInitRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Здесь мы проверяем, что запрос делает админ (initData)
+    user_info = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ только для админов")
+
+    try:
+        # Дергаем таблицу steam_accounts, которую мы создали в Блоке 1
+        res = await supabase.get("/steam_accounts", params={"order": "id.asc"})
+        if res.status_code != 200:
+            return []
+        
+        bots = res.json()
+        
+        # Если база пустая, создадим 3 заглушки для начала
+        if not bots:
+            default_bots = [
+                {"username": "Бот #1", "status": "requires_auth"},
+                {"username": "Бот #2", "status": "requires_auth"},
+                {"username": "Бот #3", "status": "requires_auth"}
+            ]
+            for bot in default_bots:
+                await supabase.post("/steam_accounts", json=bot)
+            
+            # Запрашиваем снова
+            res = await supabase.get("/steam_accounts", params={"order": "id.asc"})
+            bots = res.json()
+
+        return bots
+
+    except Exception as e:
+        print(f"Ошибка загрузки ботов: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка сервера")
+
 # 1. Получить список ботов
 @app.post("/api/v1/admin/steam/auth")
 async def auth_steam_bot(
@@ -2109,54 +2147,7 @@ async def auth_steam_bot(
         # ОБЯЗАТЕЛЬНО возвращаем функцию на место, чтобы не сломать ничего другого
         steampy.guard.generate_one_time_code = original_generate
         
-# 2. Авторизация Steam-бота
-@app.post("/api/v1/admin/steam/auth")
-async def auth_steam_bot(
-    request: SteamAuthRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user_info = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
-    
-    # 🔥 ЖЕСТКИЙ ХАК ДЛЯ VERCEL 🔥
-    # Подменяем системную функцию input(). 
-    # Когда steampy попросит "Enter Steam Guard code:", скрипт молча отдаст ему код из формы.
-    original_input = builtins.input
-    builtins.input = lambda prompt: request.steam_guard_code
-
-    try:
-        # Передаем None вместо файла, чтобы steampy запросил код
-        client.login(request.login, request.password, None)
-        
-        # Если код подошел, забираем куки
-        session_cookies = client.get_web_session().cookies.get_dict()
-
-        session_data = {
-            "cookies": session_cookies,
-            "login": request.login,
-            "password": request.password
-        }
-
-        # Сохраняем в БД
-        await supabase.patch(
-            f"/steam_accounts?id=eq.{request.bot_id}",
-            json={
-                "status": "active",
-                "session_data": session_data,
-                "username": request.login
-            }
-        )
-        return {"success": True, "message": f"Бот {request.login} успешно подключен!"}
-
-    except Exception as e:
-        print(f"Ошибка входа Steam: {e}")
-        raise HTTPException(status_code=400, detail="Неверный пароль или код Steam Guard устарел")
-    finally:
-        # Обязательно возвращаем input() в нормальное состояние
-        builtins.input = original_input
         
 @app.post("/api/v1/admin/events/cauldron/reward_status")
 async def update_cauldron_reward_status(
