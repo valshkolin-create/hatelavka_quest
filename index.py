@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 CRON ЗАДАЧА: ПАРСИНГ (ОПТИМИЗАЦИЯ ПАМЯТИ) 🔥
+# 🔥 CRON ЗАДАЧА: ПАРСИНГ (MEMORY-SAFE VERSION) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1760,7 +1760,7 @@ async def sync_steam_inventory(
 ):
     import urllib.parse
     import httpx
-    import gc # Сборщик мусора для очистки памяти
+    import re # Используем регулярки для экономии памяти
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -1777,7 +1777,7 @@ async def sync_steam_inventory(
         steam_login_secure = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
         steam_id = steam_login_secure.split('||')[0] if '||' in steam_login_secure else None
 
-        # 2. Парсим инвентарь Steam (создаем список нужных нам имен)
+        # 2. Парсим инвентарь Steam
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15.0)
@@ -1788,7 +1788,7 @@ async def sync_steam_inventory(
             
             desc_map_eng = {}
             desc_map_ru = {}
-            needed_names = set() # Множество имен, для которых нам нужны цены
+            needed_names = set() 
 
             for desc in descriptions:
                 if desc.get("tradable") == 1:
@@ -1798,29 +1798,24 @@ async def sync_steam_inventory(
                     desc_map_ru[key] = desc.get("market_name", desc.get("name", ""))
                     needed_names.add(mhn)
 
-        # 🔥 3. ПАРСИМ ЦЕНЫ LIS-SKINS (ВЫБОРОЧНО)
+        # 🔥 3. ПАРСИМ ЦЕНЫ LIS-SKINS ЧЕРЕЗ СТРИМИНГ (БЕЗОПАСНО ДЛЯ ПАМЯТИ)
         prices_dict = {}
-        try:
-            # Используем "unlocked" версию - она легче, чем "full"
-            lis_url = "https://lis-skins.com/market_export_json/api_csgo_unlocked.json"
-            async with httpx.AsyncClient(follow_redirects=True) as lis_client:
-                # Скачиваем файл
-                lis_resp = await lis_client.get(lis_url, timeout=40.0)
-                if lis_resp.status_code == 200:
-                    lis_data = lis_resp.json()
-                    usd_to_rub = 95.0
-                    
-                    for item in lis_data.get("items", []):
-                        name = item.get("name")
-                        # СОХРАНЯЕМ ЦЕНУ ТОЛЬКО ЕСЛИ СКИН ЕСТЬ У НАС
+        usd_to_rub = 95.0
+        
+        lis_url = "https://lis-skins.com/market_export_json/api_csgo_unlocked.json"
+        
+        # Мы не качаем файл целиком, а читаем его поток (stream)
+        async with httpx.AsyncClient(follow_redirects=True) as lis_client:
+            async with lis_client.stream("GET", lis_url, timeout=60.0) as r:
+                # Паттерн ищет "name":"название","price":цена
+                # Это позволяет вытащить данные из сырого текста, не превращая его в JSON-объект
+                pattern = re.compile(r'"name":"([^"]+)","price":([\d\.]+)')
+                
+                async for chunk in r.aiter_text():
+                    for match in pattern.finditer(chunk):
+                        name, price = match.groups()
                         if name in needed_names:
-                            prices_dict[name] = float(item.get("price", 0)) * usd_to_rub
-                    
-                    # ОЧИЩАЕМ ТЯЖЕЛЫЕ ДАННЫЕ ИЗ ПАМЯТИ СРАЗУ
-                    del lis_data
-                    gc.collect() 
-        except Exception as pe:
-            print(f"Ошибка цен: {pe}")
+                            prices_dict[name] = float(price) * usd_to_rub
 
         # 4. Собираем инвентарь для БД
         inventory_to_db = []
@@ -1839,17 +1834,19 @@ async def sync_steam_inventory(
         # 5. Обновляем базу
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
         if inventory_to_db:
-            for i in range(0, len(inventory_to_db), 100):
-                await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+100])
+            # Чанки по 50 (еще меньше, чтобы точно влезть в память Vercel)
+            for i in range(0, len(inventory_to_db), 50):
+                await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+50])
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} синхронизирован! Память в норме.",
+            "message": f"Бот {bot['username']} синхронизирован! Память спасена.",
             "items_saved": len(inventory_to_db)
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Runtime Error: {str(e)}")
+        # Если всё равно упадет — мы хотя бы увидим где
+        return {"success": False, "error": str(e)}
         
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
