@@ -193,6 +193,78 @@ async def get_roulette_strip(winner_item, count=30):
         logging.error(f"Error generating strip: {e}")
         return [winner_item] * count
 
+async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase):
+    """
+    Ищет предмет на складе (или замену), бронирует его и ставит в очередь на отправку.
+    """
+    # 1. Проверка адреса доставки (Trade URL)
+    trade_pattern = r"partner=(\d+)&token=([a-zA-Z0-9_-]+)"
+    if not re.search(trade_pattern, trade_url):
+        logging.error(f"[STOREKEEPER] Ошибка: Неверный Trade URL у юзера {user_id}")
+        return {"success": False, "error": "invalid_url", "message": "Неверная ссылка на обмен"}
+
+    logging.info(f"[STOREKEEPER] Заказ принят: {target_name} (Бюджет: {target_price_rub} руб.)")
+
+    # 2. Поиск оригинала на полках
+    stock_res = await supabase.get("/steam_inventory_cache", params={
+        "market_hash_name": f"eq.{target_name}",
+        "is_reserved": "eq.false",
+        "limit": 1
+    })
+    
+    real_skin = None
+    stock_data = stock_res.json()
+
+    if stock_data and len(stock_data) > 0:
+        real_skin = stock_data[0]
+        logging.info(f"[STOREKEEPER] Найден оригинал! AssetID: {real_skin['assetid']}")
+    else:
+        # 3. План "Б": Умная замена (±7% от цены)
+        if target_price_rub > 0:
+            min_p = target_price_rub * 0.93
+            max_p = target_price_rub * 1.07
+            
+            logging.info(f"[STOREKEEPER] Оригинала нет. Ищем замену от {min_p:.2f} до {max_p:.2f} руб.")
+            
+            alt_res = await supabase.get("/steam_inventory_cache", params={
+                "is_reserved": "eq.false",
+                "price_rub": f"gte.{min_p}",
+                "price_rub": f"lte.{max_p}",
+                "order": "price_rub.desc", # Берем тот, что подороже в этом диапазоне (приятно юзеру)
+                "limit": 1
+            })
+            
+            alts = alt_res.json()
+            if alts and len(alts) > 0:
+                real_skin = alts[0]
+                logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']} ({real_skin['price_rub']} руб.)")
+
+    # Если склад пуст и замены нет
+    if not real_skin:
+        logging.warning(f"[STOREKEEPER] Склад пуст. Нет подходящих предметов для {user_id}.")
+        return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
+
+    # 4. Наклеиваем стикер "ПРОДАНО" (Резерв)
+    await supabase.patch("/steam_inventory_cache", 
+        params={"assetid": f"eq.{real_skin['assetid']}"}, 
+        json={"is_reserved": True}
+    )
+
+    # 5. Передача заказа курьеру (Очередь в user_winnings)
+    delivery_payload = {
+        "user_id": user_id,
+        "assetid": real_skin["assetid"],
+        "account_id": real_skin["account_id"],
+        "trade_url": trade_url,
+        "trade_status": "pending",
+        "market_hash_name": real_skin["market_hash_name"]
+    }
+    
+    # Отправляем в таблицу очереди выигрышей
+    await supabase.post("/user_winnings", json=delivery_payload)
+
+    return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован и готов к отправке"}
+
 # --- Pydantic Models ---
 
 class BaseAuthRequest(BaseModel):
@@ -13231,6 +13303,7 @@ async def buy_bott_item_proxy(
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
         
     user_record = user_data_list[0]
+    user_trade_link = user_record.get("trade_link")
     bott_internal_id = user_record.get("bott_internal_id")
     bott_secret_key = user_record.get("bott_secret_key")
     current_balance_kopecks = user_record.get("bot_t_coins", 0)
@@ -13422,13 +13495,37 @@ async def buy_bott_item_proxy(
             # --- 4. Выбираем победителя по новым умным весам ---
             winner = random.choices(final_items, weights=final_weights, k=1)[0]
             
+            # ==========================================
+            # 📦 ВЫЗОВ КЛАДОВЩИКА (БЛОК 5)
+            # ==========================================
+            delivery_status = "pending" # Статус по умолчанию (ручная выдача)
+            
+            if user_trade_link:
+                # Отправляем кладовщика на склад
+                delivery_res = await fulfill_item_delivery(
+                    user_id=int(telegram_id),
+                    virtual_item=winner, # Это то, что выпало
+                    trade_url=user_trade_link,
+                    supabase=supabase
+                )
+                
+                if delivery_res.get("success"):
+                    # Кладовщик нашел скин и забронировал его!
+                    delivery_status = "auto_queued" # Меняем статус на "В очереди автовыдачи"
+                    logging.info(f"[SHOP] Автовыдача: предмет {winner['name']} зарезервирован!")
+                else:
+                    logging.warning(f"[SHOP] Автовыдача не удалась ({delivery_res.get('error')}). Переход в ручной режим.")
+            else:
+                logging.warning(f"[SHOP] У юзера {telegram_id} нет трейд-ссылки. Ручная выдача.")
+            # ==========================================
+            
             # --- 5. ЗАПИСЬ В ИСТОРИЮ (Добавили lacky) ---
             hist_payload = {
                 "user_id": int(telegram_id), 
                 "item_id": int(winner['id']),
                 "case_name": str(item_title),
                 "code_used": f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}",
-                "status": "pending",
+                "status": delivery_status,
                 "lacky": current_lacky # <--- Записываем текущий шаг
             }
             
