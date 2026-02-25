@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (ULTIMATE MEMORY FIX) 🔥
+# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (NETWORK STREAMING FIX) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1775,9 +1775,8 @@ async def sync_steam_inventory(
     import urllib.parse
     import httpx
     import traceback
-    import os
+    import urllib.request
     
-    # Защита от забытого requirements.txt
     try:
         import ijson
     except ImportError:
@@ -1833,38 +1832,23 @@ async def sync_steam_inventory(
                         "icon_url": f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url_large') or desc.get('icon_url')}/512fx512f" if (desc.get("icon_url_large") or desc.get("icon_url")) else ""
                     }
 
-        # Множество названий для сверхбыстрого поиска
         needed_skins = {info["hash_name_en"] for info in desc_map.values() if info["hash_name_en"]}
         lis_prices_usd = {}
         
         # ==========================================
-        # 🚀 ПОТОКОВОЕ ЧТЕНИЕ (ОБХОДИМ ЛИМИТЫ ПАМЯТИ)
+        # 🚀 СЕТЕВОЕ ПОТОКОВОЕ ЧТЕНИЕ (БЕЗ ДИСКА И ОЗУ)
         # ==========================================
         try:
-            async with httpx.AsyncClient() as client:
-                # Скачиваем файл как стрим (по частям)
-                async with client.stream("GET", "https://lis-skins.com/market_export_json/api_csgo_full.json", timeout=60.0) as lis_resp:
-                    if lis_resp.status_code == 200:
-                        temp_path = "/tmp/lis_prices.json"
-                        
-                        # 1. Записываем на временный диск Vercel напрямую, минуя ОЗУ
-                        with open(temp_path, "wb") as f:
-                            async for chunk in lis_resp.aiter_bytes():
-                                f.write(chunk)
-                        
-                        # 2. Читаем файл потоково через ijson (выдает по 1 предмету, память свободна)
-                        with open(temp_path, "rb") as f:
-                            for item in ijson.items(f, "items.item"):
-                                item_name = item.get("name")
-                                if item_name in needed_skins:
-                                    item_price = float(item.get("price", 0.0))
-                                    if item_price > 0:
-                                        if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
-                                            lis_prices_usd[item_name] = item_price
-                        
-                        # 3. Убираем за собой
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
+            req = urllib.request.Request("https://lis-skins.com/market_export_json/api_csgo_full.json", headers={'User-Agent': 'Mozilla/5.0'})
+            # Делаем прямое подключение и читаем данные "на лету" прямо из сетевого сокета
+            with urllib.request.urlopen(req, timeout=60.0) as network_stream:
+                for item in ijson.items(network_stream, "items.item"):
+                    item_name = item.get("name")
+                    if item_name in needed_skins:
+                        item_price = float(item.get("price", 0.0))
+                        if item_price > 0:
+                            if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
+                                lis_prices_usd[item_name] = item_price
         except Exception as e:
             print(f"ОШИБКА LIS-SKINS STREAMING: {e}")
 
@@ -1882,7 +1866,7 @@ async def sync_steam_inventory(
                 
                 if p_usd == 0.0:
                     name_lower = hash_name_en.lower()
-                    if any(word in name_lower for word in ["sticker", "souvenir", "patch", "graffiti", "key"]):
+                    if any(word in name_lower for word in ["sticker", "souvenir", "patch", "graffiti", "key", "case"]):
                         p_usd = 0.02
                 
                 p_rub = round(p_usd * EXCHANGE_RATE, 2)
