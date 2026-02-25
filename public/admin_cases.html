@@ -30,7 +30,6 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0; padding: 20px; padding-bottom: 100px;
             -webkit-tap-highlight-color: transparent;
-            /*user-select: none; /* Глобально запрещаем выделение, но разрешим в инпутах */
         }
 
         /* HEADER */
@@ -51,11 +50,10 @@
         /* --- CASES GRID (FOLDERS) --- */
         .cases-grid { 
             display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 4 в ряд */
+            grid-template-columns: repeat(4, 1fr); 
             gap: 12px; 
         }
         
-        /* Адаптив */
         @media (max-width: 600px) {
             .cases-grid { grid-template-columns: repeat(2, 1fr); }
         }
@@ -86,7 +84,6 @@
         }
         .item-card:active { transform: scale(0.98); }
         
-        /* Rarity Strip */
         .item-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: #555; }
         .item-card[data-rarity="blue"]::after { background: var(--r-blue); }
         .item-card[data-rarity="purple"]::after { background: var(--r-purple); }
@@ -106,7 +103,6 @@
 
         .form-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; }
         
-        /* 🔥 ФИКС ИНПУТОВ: Разрешаем ввод текста */
         .form-input, .form-select { 
             width: 100%; background: #252525; border: 1px solid var(--card-border);
             color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; box-sizing: border-box;
@@ -152,7 +148,7 @@
 
         .icon-btn { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,0.1); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 
-        /* FAB (Кнопка +) */
+        /* FAB */
         .fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 90; display: none; flex-direction: column; gap: 10px; align-items: flex-end; }
         .fab-container.show { display: flex; } 
 
@@ -179,7 +175,7 @@
         }
         .search-img { width: 40px; height: 30px; object-fit: contain; }
         .search-info { flex: 1; min-width: 0; }
-        .search-btn { background: var(--action); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+        .search-btn { background: var(--action); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
 
     </style>
 </head>
@@ -204,10 +200,10 @@
 
     <div class="fab-container" id="fabMenu">
         <div class="fab-option" onclick="openLibrarySearch()">
-            <span>Найти в базе</span> <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Найти на складе</span> <i class="fa-solid fa-box-open"></i>
         </div>
         <div class="fab-option" onclick="openEditor(null)">
-            <span>Создать новый</span> <i class="fa-solid fa-pen"></i>
+            <span>Создать пустой</span> <i class="fa-solid fa-pen"></i>
         </div>
         <div class="fab-main" onclick="toggleFab()">
             <i class="fa-solid fa-plus"></i>
@@ -217,16 +213,16 @@
     <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
         <div class="bottom-sheet" style="height: 85vh;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0">Библиотека Скинов</h3>
-                <button onclick="closeModal('modal-library')" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
+                <h3 style="margin:0">Склад ботов</h3>
+                <button onclick="closeModal('modal-library')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="admin-form" style="margin-top: 15px;">
-                <input type="text" id="lib-search-inp" class="form-input" placeholder="Введите название (например AK)..." oninput="debounceSearch()">
+                <input type="text" id="lib-search-inp" class="form-input" placeholder="Введите название (например AK-47)..." oninput="debounceSearch()">
             </div>
 
             <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;">
-                <div style="text-align:center; color:var(--text-sec); padding:20px;">Загрузка списка...</div>
+                <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните вводить название...</div>
             </div>
         </div>
     </div>
@@ -235,7 +231,7 @@
         <div class="bottom-sheet">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h3 style="margin:0">Редактор Скина</h3>
-                <button onclick="closeModal('modal-editor')" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="closeModal('modal-editor')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
             <div class="preview-box">
@@ -262,23 +258,27 @@
                     </div>
                 </div>
 
-                <label class="form-label">Название</label>
+                <label class="form-label">Название (чистое)</label>
                 <input type="text" name="name" id="inp-name" class="form-input" placeholder="AK-47 | Asiimov" required oninput="updatePreview()">
 
                 <div class="form-row" style="margin-top:10px;">
                     <div style="flex:1">
-                        <label class="form-label">Цена</label>
+                        <label class="form-label">Цена (Билеты) 🟡</label>
                         <input type="number" name="price" id="inp-price" class="form-input" value="0" step="any" inputmode="decimal" oninput="updatePreview()">
                     </div>
                     <div style="flex:1">
-                        <label class="form-label">Шанс (Weight)</label>
-                       <input type="number" name="chance_weight" class="form-input" value="10" step="any" inputmode="decimal">
+                        <label class="form-label" style="color:var(--danger)">Реал. цена (Руб) 💵</label>
+                        <input type="number" name="price_rub" id="inp-price-rub" class="form-input" value="0" step="any" inputmode="decimal">
                     </div>
                 </div>
 
                 <div class="form-row" style="margin-top:10px;">
                     <div style="flex:1">
-                        <label class="form-label">Редкость</label>
+                        <label class="form-label">Шанс (Weight)</label>
+                       <input type="number" name="chance_weight" class="form-input" value="10" step="any" inputmode="decimal">
+                    </div>
+                    <div style="flex:1">
+                        <label class="form-label">Редкость (Свечение)</label>
                         <select name="rarity" class="form-select">
                             <option value="common">White (Ширп)</option>
                             <option value="blue">Blue (Армейское)</option>
@@ -289,13 +289,14 @@
                         </select>
                     </div>
                     <div style="flex:1">
-                        <label class="form-label">Качество</label>
+                        <label class="form-label">Износ (Поиск)</label>
                         <select name="condition" class="form-select">
-                            <option value="FN">FN</option>
-                            <option value="MW">MW</option>
-                            <option value="FT">FT</option>
-                            <option value="WW">WW</option>
-                            <option value="BS">BS</option>
+                            <option value="">Нет (Наклейка)</option>
+                            <option value="FN">FN (Прямо с завода)</option>
+                            <option value="MW">MW (Немного поношенное)</option>
+                            <option value="FT">FT (После полевых)</option>
+                            <option value="WW">WW (Поношенное)</option>
+                            <option value="BS">BS (Закаленное в боях)</option>
                         </select>
                     </div>
                 </div>
@@ -314,36 +315,31 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let currentCase = null; // Если null, мы в меню выбора
+        let currentCase = null; 
         let searchTimeout = null;
 
-        // --- INIT ---
         loadCases();
 
-        // Навигация (Назад)
         function handleBack() {
             if (currentCase) {
-                // Выход из кейса в меню
                 currentCase = null;
                 document.getElementById('view-items').classList.remove('active');
                 document.getElementById('view-cases').classList.add('active');
                 document.getElementById('page-title').innerText = 'Кейсы';
-                document.getElementById('nav-back-btn').classList.remove('visible'); // Скрываем кнопку
+                document.getElementById('nav-back-btn').classList.remove('visible'); 
                 document.getElementById('fabMenu').classList.remove('show');
                 
-                loadCases(); // Обновить данные
+                loadCases(); 
             } else {
                 window.location.href = '/admin';
             }
         }
 
-        // 1. ЗАГРУЗКА СПИСКА ПАПОК (КЕЙСОВ)
         async function loadCases() {
             const grid = document.getElementById('cases-grid');
             grid.innerHTML = '<div style="text-align:center; color:#555; grid-column:1/-1;">Загрузка...</div>';
-            document.getElementById('nav-back-btn').classList.add('visible'); // Показываем кнопку в любом случае, но логику меняем
+            document.getElementById('nav-back-btn').classList.add('visible'); 
 
-            // Если мы в корне, кнопка ведет в админку
             if (!currentCase) {
                 document.getElementById('nav-back-btn').onclick = () => window.location.href = '/admin';
             }
@@ -358,7 +354,6 @@
                 
                 grid.innerHTML = '';
                 
-                // 1. Кнопка создания
                 const addDiv = document.createElement('div');
                 addDiv.className = 'case-folder create-new';
                 addDiv.onclick = createNewCase;
@@ -368,10 +363,8 @@
                 `;
                 grid.appendChild(addDiv);
 
-                // 2. Кейсы
                 data.forEach(t => {
                     if (!t.name) return;
-                    // 🔥 Очистка названия от префикса
                     let displayName = t.name;
                     while (/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i.test(displayName)) {
                         displayName = displayName.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '');
@@ -391,11 +384,9 @@
             } catch(e) { console.error(e); }
         }
 
-        // 2. ВХОД В КЕЙС
         function openCaseView(tagName) {
             currentCase = tagName;
             
-            // Очистка названия для заголовка
             let displayName = tagName;
             while (/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i.test(displayName)) {
                 displayName = displayName.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '');
@@ -405,12 +396,10 @@
             document.getElementById('view-cases').classList.remove('active');
             document.getElementById('view-items').classList.add('active');
             
-            // Настройка кнопки назад
             const backBtn = document.getElementById('nav-back-btn');
             backBtn.classList.add('visible');
             backBtn.onclick = handleBack;
             
-            // Показать FAB
             document.getElementById('fabMenu').classList.add('show');
             document.getElementById('fabMenu').classList.remove('fab-menu-open');
             document.querySelector('.fab-main').classList.remove('rotate');
@@ -422,9 +411,8 @@
             let name = prompt("Название нового кейса (например: Зимний):");
             if (!name) return;
             
-            // Убираем ручной ввод "Кейс" если был
             name = name.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '').trim();
-            const fullTag = "Кейс | " + name; // 🔥 Стандартный префикс
+            const fullTag = "Кейс | " + name; 
             
             openCaseView(fullTag);
             document.getElementById('itemsContainer').innerHTML = 
@@ -433,7 +421,6 @@
                 </div>`;
         }
 
-        // 3. ЗАГРУЗКА ПРЕДМЕТОВ
         async function loadItems(tag) {
             const cont = document.getElementById('itemsContainer');
             cont.innerHTML = '<div style="text-align:center; padding:40px;"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
@@ -469,18 +456,17 @@
             } catch (e) { cont.innerHTML = 'Ошибка'; }
         }
 
-        // --- FAB MENU ---
         function toggleFab() {
             document.getElementById('fabMenu').classList.toggle('fab-menu-open');
             document.querySelector('.fab-main').classList.toggle('rotate');
         }
 
-        // 4. БИБЛИОТЕКА
+        // --- МАГИЯ ПОИСКА ПО СКЛАДУ ---
         function openLibrarySearch() {
             toggleFab();
             document.getElementById('modal-library').classList.add('modal-active');
             document.getElementById('lib-search-inp').value = '';
-            doSearch(); // Грузим список сразу
+            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните вводить название...</div>';
         }
 
         function debounceSearch() {
@@ -489,12 +475,19 @@
         }
 
         async function doSearch() {
-            const q = document.getElementById('lib-search-inp').value;
+            const q = document.getElementById('lib-search-inp').value.trim();
             const cont = document.getElementById('lib-results');
-            cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Загрузка...</div>';
+            
+            if (q.length < 2) {
+                cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Введите минимум 2 символа...</div>';
+                return;
+            }
+            
+            cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем на складе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
 
             try {
-                const res = await fetch('/api/v1/admin/cases/search_items', {
+                // Идем в наш новый эндпоинт, который ищет по steam_inventory_cache
+                const res = await fetch('/api/v1/admin/cases/search_cache', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({query: q})
                 });
@@ -502,48 +495,60 @@
                 
                 cont.innerHTML = '';
                 if (!items || items.length === 0) {
-                    cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено</div>';
+                    cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">На ботах ничего не найдено 😔</div>';
                     return;
                 }
 
                 items.forEach(item => {
+                    const safeJson = encodeURIComponent(JSON.stringify(item));
+                    const condText = item.condition ? ` (${item.condition})` : '';
                     cont.innerHTML += `
                     <div class="search-item">
-                        <img src="${item.image_url}" class="search-img">
+                        <img src="${item.image_url}" class="search-img" onerror="this.src='https://placehold.co/40'">
                         <div class="search-info">
-                            <div style="font-weight:700; font-size:13px;">${item.name}</div>
-                            <div style="font-size:11px; color:var(--text-sec);">${item.price} 🟡</div>
+                            <div style="font-weight:700; font-size:12px;">${item.market_hash_name}</div>
+                            <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
                         </div>
-                        <button class="search-btn" onclick="cloneItem(${item.id})">ДОБАВИТЬ</button>
+                        <button class="search-btn" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
                     </div>`;
                 });
-            } catch(e) { console.error(e); }
+            } catch(e) { 
+                console.error(e); 
+                cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
+            }
         }
 
-        function cloneItem(id) {
-            tg.showConfirm("Добавить в текущий кейс?", async (ok) => {
-                if (!ok) return;
-
-                try {
-                    const res = await fetch('/api/v1/admin/cases/clone_item', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({origin_id: id, target_case: currentCase})
-                    });
-                    if (res.ok) {
-                        tg.HapticFeedback.notificationOccurred('success');
-                        closeModal('modal-library');
-                        loadItems(currentCase);
-                        loadCases(); 
-                    } else {
-                        tg.showAlert("Ошибка добавления");
-                    }
-                } catch(e) { 
-                    tg.showAlert("Сбой сервера"); 
-                }
-            });
+        // --- АВТОЗАПОЛНЕНИЕ ФОРМЫ ---
+        function selectFromCache(jsonStr) {
+            const item = JSON.parse(decodeURIComponent(jsonStr));
+            
+            closeModal('modal-library');
+            openEditor(null); // Открываем пустую форму редактора
+            
+            const form = document.getElementById('edit-form');
+            
+            // 1. Очищаем название от приписки (После полевых испытаний) и т.д.
+            let cleanName = item.market_hash_name;
+            const conditionMatch = cleanName.match(/(.*?)\s+\([^)]+\)$/);
+            if (conditionMatch) {
+                cleanName = conditionMatch[1]; // Берем всё до скобок
+            }
+            
+            // 2. Заполняем поля
+            form.name.value = cleanName;
+            form.image_url.value = item.image_url || '';
+            form.price_rub.value = item.price_rub || 0;
+            
+            // 3. Билеты = Рублям (округляем до целых, чтобы не было копеек в билетах)
+            form.price.value = Math.ceil(item.price_rub || 0);
+            
+            // 4. Проставляем износ (если он есть) или пустоту для наклеек
+            form.condition.value = item.condition || '';
+            
+            updatePreview();
+            tg.HapticFeedback.notificationOccurred('success');
         }
-        
-        // 5. РЕДАКТОР
+
         function openEditor(jsonStr) {
             toggleFab();
             const modal = document.getElementById('modal-editor');
@@ -553,16 +558,16 @@
             if (jsonStr) {
                 const item = JSON.parse(decodeURIComponent(jsonStr));
                 form.id.value = item.id;
-                form.link_id.value = item.link_id || ''; // 🔥 ID связи для удаления
+                form.link_id.value = item.link_id || ''; 
                 
                 form.name.value = item.name;
                 form.image_url.value = item.image_url;
                 form.price.value = item.price;
+                form.price_rub.value = item.price_rub || 0; // Загружаем рубли
                 form.chance_weight.value = item.chance_weight;
                 form.rarity.value = item.rarity;
-                form.condition.value = item.condition || 'FN';
+                form.condition.value = item.condition || ''; // Учитываем пустой condition
                 
-                // 🔥 ГЛАВНЫЙ ФИКС: Всегда берем открытый кейс (currentCase), а не item.case_tag
                 form.case_tag.value = currentCase; 
                 
                 delBtn.style.display = 'flex';
@@ -573,6 +578,7 @@
                 form.link_id.value = '';
                 form.case_tag.value = currentCase;
                 form.rarity.value = 'blue';
+                form.condition.value = 'FT'; // По умолчанию ставим FT для новых
                 form.chance_weight.value = 10;
                 delBtn.style.display = 'none';
             }
@@ -592,8 +598,8 @@
         async function saveItem() {
             const form = document.getElementById('edit-form');
             
-            // 🔥 ФИКС ЗАПЯТЫХ: Меняем запятые на точки, чтобы JS не ломался при вводе 0,1 с телефона
             const priceVal = form.price.value.toString().replace(',', '.');
+            const priceRubVal = form.price_rub.value.toString().replace(',', '.');
             const weightVal = form.chance_weight.value.toString().replace(',', '.');
 
             const data = {
@@ -601,9 +607,10 @@
                 name: form.name.value,
                 image_url: form.image_url.value,
                 price: parseFloat(priceVal) || 0,
+                price_rub: parseFloat(priceRubVal) || 0, // Отправляем рубли на бэк
                 chance_weight: parseFloat(weightVal) || 0,
                 rarity: form.rarity.value,
-                condition: form.condition.value,
+                condition: form.condition.value || null, // Если пусто — шлем null
                 case_tag: form.case_tag.value
             };
 
@@ -629,9 +636,8 @@
             const linkId = document.querySelector('input[name="link_id"]').value;
             const itemId = document.querySelector('input[name="id"]').value;
             
-            // 🔥 ФИКС КЛАВИАТУРЫ: Используем нативное окно Telegram вместо браузерного confirm()
             tg.showConfirm("Убрать скин?", async (ok) => {
-                if (!ok) return; // Если нажали "Отмена"
+                if (!ok) return; 
                 
                 const payload = linkId ? {link_id: linkId} : {id: itemId};
 
