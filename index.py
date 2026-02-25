@@ -13506,7 +13506,8 @@ async def buy_bott_item_proxy(
                 # Отправляем кладовщика на склад
                 delivery_res = await fulfill_item_delivery(
                     user_id=int(telegram_id),
-                    virtual_item=winner, # Это то, что выпало
+                    target_name=winner['name'], # <-- Передаем конкретное имя
+                    target_price_rub=float(winner.get('price', 0)), # <-- Передаем цену
                     trade_url=user_trade_link,
                     supabase=supabase
                 )
