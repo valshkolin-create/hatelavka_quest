@@ -5392,24 +5392,60 @@ function renderShopPurchases(purchases, targetElement) {
     listContainer.insertAdjacentHTML('beforeend', cardsHtml);
 }
 
-// --- ФУНКЦИЯ ЗАПУСКА МАССОВОЙ АВТОВЫДАЧИ ---
+// --- ФУНКЦИЯ ЗАПУСКА МАССОВОЙ АВТОВЫДАЧИ (С АВТООБНОВЛЕНИЕМ) ---
 window.triggerMassSteamDelivery = function() {
     showCustomConfirmHTML(
         `Запустить бота-кладовщика?<br><span style="font-size:12px; color:#aaa; font-weight:normal;">Бот тихо проверит все заявки и отправит скины. В случае нехватки предметов заявки просто останутся висеть.<br><br>Отчет придет вам в Telegram.</span>`,
         async (closeModal) => {
             showLoader();
             try {
-                // Вызываем наш новый эндпоинт
-                const result = await makeApiRequest('/api/v1/admin/steam/mass_send', {}, 'POST', true);
+                // 1. Даем команду бэкенду начать рассылку (фоновая задача)
+                await makeApiRequest('/api/v1/admin/steam/mass_send', {}, 'POST', true);
                 
                 tg.showPopup({ 
                     title: 'Запущено!', 
-                    message: 'Бот начал рассылку трейдов. Ожидайте отчет в админ-чат.' 
+                    message: 'Бот начал рассылку. Список будет обновляться автоматически на ваших глазах.' 
                 });
                 
                 closeModal();
+
+                // 2. Включаем "Радар" — тихо обновляем список каждые 3 секунды
+                let polls = 0;
+                const pollInterval = setInterval(async () => {
+                    polls++;
+                    try {
+                        // Тихо (без крутилки) запрашиваем свежий список из БД
+                        const purchases = await makeApiRequest('/api/v1/admin/shop_purchases/details', {}, 'POST', true);
+                        
+                        // Перерисовываем список на экране
+                        const container = document.getElementById('shop-purchases-list');
+                        if (container) {
+                            renderShopPurchases(purchases, container);
+                        }
+
+                        // Обновляем красный кружочек (счетчик) в главном меню админки
+                        const shopBadge = document.getElementById('shop-badge-main');
+                        if (shopBadge) {
+                            const count = purchases ? purchases.length : 0;
+                            shopBadge.textContent = count;
+                            shopBadge.classList.toggle('hidden', count === 0);
+                        }
+                        
+                        // Проверяем: остались ли еще скины на выдачу?
+                        const stillHasSkins = purchases && purchases.some(p => !!p.won_skin_name);
+                        
+                        // Если скинов не осталось ИЛИ мы проверили уже 6 раз (18 секунд прошло), 
+                        // выключаем радар, чтобы не спамить сервер.
+                        if (!stillHasSkins || polls >= 6) {
+                            clearInterval(pollInterval);
+                        }
+                    } catch (err) {
+                        console.error("Ошибка автообновления списка:", err);
+                        clearInterval(pollInterval);
+                    }
+                }, 3000); // 3000 миллисекунд = 3 секунды
+
             } catch (e) {
-                hideLoader();
                 tg.showAlert(`Ошибка запуска: ${e.message}`);
             } finally {
                 hideLoader();
