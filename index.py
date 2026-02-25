@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: МУЛЬТИ-АККАУНТНАЯ АСИНХРОННАЯ ПУШКА (V4) 🔥
+# 🔥 КРОН: МУЛЬТИ-АККАУНТ (V8 - CS:GO MARKET FULL PRICES) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1766,12 +1766,6 @@ RARITY_COLOR_MAP = {
     "b0c3d9": "grey", "5e98d9": "light_blue", "4b69ff": "blue",        
     "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
-
-# ЖЕСТКИЙ ФИЛЬТР: слова, при которых цена всегда будет минимальной
-IGNORE_KEYWORDS = [
-    "sticker", "souvenir", "patch", "graffiti", "key", "case", "pin", "music kit",
-    "наклейка", "сувенир", "нашивка", "граффити", "ключ", "кейс", "ящик", "капсула", "значок", "набор музыки", "charm", "брелок"
-]
 
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
@@ -1893,7 +1887,6 @@ async def sync_steam_inventory(
         market_prices_rub = {}
         try:
             async with httpx.AsyncClient() as client:
-                # Запрашиваем файл в RUB
                 price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=20.0)
                 if price_resp.status_code == 200:
                     market_data = price_resp.json()
@@ -1917,29 +1910,18 @@ async def sync_steam_inventory(
             bot_inventory = []
             for item in res_data["items"]:
                 hash_en = item.pop("hash_name_en") 
-                name_ru = item["market_hash_name"]
                 
-                # Проверка на наклейки/сувениры
-                full_name_check = (hash_en + " " + name_ru).lower()
-                is_cheap_junk = any(word in full_name_check for word in IGNORE_KEYWORDS)
+                # Ищем цену в базе CS:GO Market для ВСЕХ предметов (включая наклейки)
+                p_rub = market_prices_rub.get(hash_en, 0.0)
                 
-                p_rub = 0.0
+                if p_rub == 0.0:
+                    # Если предмета вообще нет на площадке, ставим заглушку
+                    p_rub = round(0.02 * EXCHANGE_RATE, 2)
+                elif p_rub > 2000.0:
+                    # ЛИМИТ: режем сверхдорогие вещи до 2000 рублей
+                    p_rub = 2000.0
                 
-                if is_cheap_junk:
-                    # Жестко 1.53 рубля (эквивалент 0.02$) для мусора
-                    p_rub = round(0.02 * EXCHANGE_RATE, 2) 
-                else:
-                    # Ищем цену в нашей загруженной базе
-                    p_rub = market_prices_rub.get(hash_en, 0.0)
-                    
-                    if p_rub == 0.0:
-                        # Если совсем не нашли, ставим минималку
-                        p_rub = round(0.02 * EXCHANGE_RATE, 2)
-                    elif p_rub > 2000.0:
-                        # ЛИМИТ: режем дорогие вещи до 2000 рублей
-                        p_rub = 2000.0
-                
-                # Переводим в доллары для базы (просто чтобы было красиво)
+                # Переводим в доллары для базы
                 p_usd = round(p_rub / EXCHANGE_RATE, 2)
                 
                 # Билеты: 1 билет за каждые 3 рубля. Минимум 1 билет.
