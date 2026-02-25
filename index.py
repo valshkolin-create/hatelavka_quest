@@ -1751,7 +1751,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 # 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (FIX DB + IMAGE STATS) 🔥
 # =======================================================
 
-CRON_SECRET = "my_super_secret_cron_token_123" 
+CRON_SECRET = "my_super_secret_cron_token_123"
 
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
