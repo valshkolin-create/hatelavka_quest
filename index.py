@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (ФИКС: ЦЕНЫ, ИКОНКИ, КАЧЕСТВО) 🔥
+# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (USD + FIX QUALITY & ICONS) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1766,7 +1766,7 @@ async def sync_steam_inventory(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем бота
+        # 1. Достаем активного бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
@@ -1779,7 +1779,7 @@ async def sync_steam_inventory(
         
         if not steam_id: return {"success": False, "message": "SteamID не найден"}
 
-        # 2. Парсим инвентарь Steam (обязательно l=russian)
+        # 2. Парсим Стим (l=russian критичен для качества!)
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25.0)
@@ -1796,43 +1796,51 @@ async def sync_steam_inventory(
             for desc in descriptions:
                 if desc.get("tradable") == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
-                    mhn = desc.get("market_hash_name", "") # Английское имя для цен
+                    mhn = desc.get("market_hash_name", "") # Английское имя
                     name_ru = desc.get("market_name", desc.get("name", "")) # Русское имя
                     
-                    # --- КАЧЕСТВО (EXTERIOR) ---
+                    # --- ГАРАНТИРОВАННЫЙ ПОИСК КАЧЕСТВА ---
                     ext = "Без качества"
+                    # Способ 1: Ищем в официальных тегах
                     for tag in desc.get("tags", []):
                         if tag.get("category") == "Exterior":
                             ext = tag.get("localized_tag_name", tag.get("name"))
+                            break
                     
+                    # Способ 2: Если тегов нет, ищем в поле 'type' (там часто пишут качество)
+                    if ext == "Без качества":
+                        type_str = desc.get("type", "")
+                        if "(" in type_str: # Например "Засекреченное оружие (После полевых)"
+                            match_type = re.search(r'\(([^)]+)\)', type_str)
+                            if match_type: ext = match_type.group(1)
+                    
+                    # Способ 3: Парсим из самого названия в скобках
                     if ext == "Без качества" and "(" in name_ru:
-                        match = re.search(r'\(([^)]+)\)', name_ru)
-                        if match: ext = match.group(1)
+                        match_name = re.search(r'\(([^)]+)\)', name_ru)
+                        if match_name: ext = match_name.group(1)
 
-                    # --- ИКОНКА (ICON_URL) ---
-                    # Важно: берем хеш и добавляем префикс
+                    # --- РАБОЧИЙ URL ИКОНКИ ---
                     img_hash = desc.get("icon_url_large") or desc.get("icon_url")
-                    img_url = ""
+                    full_url = ""
                     if img_hash:
-                        img_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/330x192"
+                        # Используем четкий формат 512x512
+                        full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f"
 
                     desc_info[key] = {
                         "mhn": mhn,
                         "name_ru": name_ru,
                         "exterior": ext,
-                        "icon_url": img_url
+                        "icon_url": full_url
                     }
                     needed_names.add(mhn)
 
-        # 3. ПАРСИМ ЦЕНЫ LIS-SKINS (КУРС 76.63)
+        # 3. ПАРСИМ ЦЕНЫ LIS-SKINS (В ДОЛЛАРАХ)
         prices_dict = {}
-        RATE = 76.63
         lis_url = "https://lis-skins.com/market_export_json/api_csgo_unlocked.json"
         
         async with httpx.AsyncClient(follow_redirects=True) as lis_client:
             async with lis_client.stream("GET", lis_url, timeout=60.0) as r:
-                # Регулярка теперь ищет весь блок объекта, чтобы не пропустить цену
-                pattern = re.compile(r'\{[^{]*"name"\s*:\s*"([^"]+)"[^{]*"price"\s*:\s*([\d\.]+)[^{]*\}')
+                pattern = re.compile(r'"name"\s*:\s*"([^"]+)"\s*,\s*"price"\s*:\s*([\d\.]+)')
                 buffer = "" 
                 async for chunk in r.aiter_text():
                     buffer += chunk
@@ -1840,42 +1848,36 @@ async def sync_steam_inventory(
                     for m in matches:
                         name_api, p_usd = m.groups()
                         if name_api in needed_names:
-                            prices_dict[name_api] = float(p_usd) * RATE
+                            prices_dict[name_api] = float(p_usd)
                     
                     if matches:
                         buffer = buffer[matches[-1].end():]
-                    if len(buffer) > 15000: buffer = buffer[-2000:]
+                    if len(buffer) > 10000: buffer = buffer[-1000:]
 
-        # 4. СОБИРАЕМ ДАННЫЕ
+        # 4. СОБИРАЕМ И ПИШЕМ
         to_db = []
         for asset in assets:
             k = f"{asset['classid']}_{asset['instanceid']}"
             if k in desc_info:
                 info = desc_info[k]
-                mhn_eng = info["mhn"]
                 name_ru = info["name_ru"]
                 
-                # Поиск цены в рублях
-                p_rub = prices_dict.get(mhn_eng)
-                
-                if p_rub is not None:
-                    final_p = round(p_rub, 2)
-                elif any(x in name_ru for x in ["Наклейка", "Сувенирный"]):
-                    final_p = 2.0
-                else:
-                    final_p = 0.0
+                price_val = prices_dict.get(info["mhn"])
+                if price_val is None:
+                    # Логика для наклеек/сувениров (0.02 USD)
+                    price_val = 0.02 if any(x in name_ru for x in ["Наклейка", "Сувенирный"]) else 0.0
 
                 to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
                     "market_hash_name": name_ru,
-                    "price_usd": final_p, # Сохраняем рубли
+                    "price_usd": round(price_val, 2),
                     "exterior": info["exterior"],
                     "icon_url": info["icon_url"],
                     "is_reserved": False
                 })
 
-        # 5. ОБНОВЛЯЕМ БАЗУ
+        # 5. ОЧИСТКА И ОБНОВЛЕНИЕ
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
         if to_db:
             for i in range(0, len(to_db), 50):
@@ -1883,8 +1885,8 @@ async def sync_steam_inventory(
 
         return {
             "success": True, 
-            "items_synced": len(to_db),
-            "check": to_db[0] if to_db else "No items"
+            "synced": len(to_db),
+            "sample": to_db[0] if to_db else "empty"
         }
 
     except Exception as e:
