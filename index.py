@@ -1759,49 +1759,54 @@ async def sync_steam_inventory(
     token: str,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Защита от чужих: пускаем только если токен совпадает
+    import urllib.parse
+    import requests
+    from steampy.client import SteamClient
+    from steampy.models import GameOptions
+
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен. Неверный токен.")
 
     try:
-        # 2. Достаем всех активных ботов из базы
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         
         if not bots:
             return {"success": False, "message": "Нет активных ботов для парсинга"}
 
-        # ПОКА ЧТО берем первого попавшегося активного бота (логику очереди сделаем чуть позже)
         bot = bots[0]
-        bot_id = bot['id']
-        cookies = bot['session_data'].get('cookies', {})
+        # Безопасно достаем куки
+        session_data = bot.get('session_data') or {}
+        cookies = session_data.get('cookies', {})
 
         if 'sessionid' not in cookies or 'steamLoginSecure' not in cookies:
             return {"success": False, "message": f"У бота {bot['username']} отсутствуют куки"}
 
-        # 3. Инициализируем steampy и ВЖИВЛЯЕМ ему наши куки (без ввода пароля!)
+        # 🔥 ГЕНИАЛЬНЫЙ ХАК: Вытаскиваем SteamID прямо из куки steamLoginSecure
+        steam_login_secure = urllib.parse.unquote(cookies['steamLoginSecure'])
+        steam_id = steam_login_secure.split('||')[0]
+
         client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
         client._session = requests.Session()
         client._session.cookies.set('sessionid', cookies['sessionid'], domain='steamcommunity.com')
         client._session.cookies.set('steamLoginSecure', cookies['steamLoginSecure'], domain='steamcommunity.com')
-        client.was_login_executed = True # Хак: говорим библиотеке, что мы уже успешно вошли
-
-        # 4. Стучимся в Steam и забираем инвентарь CS:GO (AppID 730)
-        inventory = client.get_my_inventory(game=GameOptions.CS, merge=True)
         
-        # Считаем, сколько предметов нашли
+        # Подсовываем библиотеке steamid, чтобы она могла собрать ссылку на инвентарь
+        client.steam_guard = {"steamid": steam_id}
+        client.was_login_executed = True 
+
+        # Стучимся в Steam и забираем инвентарь CS:GO
+        inventory = client.get_my_inventory(game=GameOptions.CS, merge=True)
         items_count = len(inventory) if inventory else 0
 
-        # В следующем шаге мы напишем логику сохранения этих предметов в БД
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} успешно спарсен!", 
+            "message": f"Бот {bot['username']} (SteamID: {steam_id}) успешно спарсен!", 
             "items_found": items_count
         }
 
     except Exception as e:
         print(f"Ошибка парсинга инвентаря: {e}")
-        # Если Стим откинул куки (протухли) — можно будет менять статус бота на error
         raise HTTPException(status_code=500, detail=f"Ошибка крона: {str(e)}")
 
 # =======================================================
