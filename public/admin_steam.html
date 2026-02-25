@@ -106,17 +106,24 @@
             <form id="auth-form" onsubmit="event.preventDefault(); submitAuth();">
                 <input type="hidden" id="bot-id">
                 
-                <label class="form-label">Логин (Username)</label>
-                <input type="text" id="inp-login" class="form-input" placeholder="steam_login123" required>
+                <label class="form-label">Имя бота (для удобства)</label>
+                <input type="text" id="inp-login" class="form-input" placeholder="Например: Бот-Склад 1" required>
 
-                <label class="form-label">Пароль</label>
-                <input type="password" id="inp-pass" class="form-input" placeholder="••••••••••••" required>
+                <label class="form-label">Куки: sessionid</label>
+                <input type="text" id="inp-sessionid" class="form-input" placeholder="Например: 1234567890abcdef12345678" required>
 
-                <label class="form-label">Код Steam Guard (с телефона)</label>
-                <input type="text" id="inp-guard" class="form-input" placeholder="ABC12" required maxlength="5" style="text-transform: uppercase;">
-                <div class="info-text">Открой Steam на iPhone, посмотри свежий 5-значный код и введи сюда.</div>
+                <label class="form-label">Куки: steamLoginSecure</label>
+                <input type="text" id="inp-secure" class="form-input" placeholder="Например: 76561198...||..." required>
 
-                <button type="submit" class="btn-save">ВОЙТИ В STEAM</button>
+                <div class="info-text" style="margin-top: 15px; text-align: left;">
+                    <b>Как получить куки:</b><br>
+                    1. Зайди в Steam через браузер (Chrome/Safari).<br>
+                    2. Авторизуйся в аккаунте бота.<br>
+                    3. Для ПК: нажми F12 -> Application -> Cookies -> steamcommunity.com.<br>
+                    4. Скопируй значения <code>sessionid</code> и <code>steamLoginSecure</code>.
+                </div>
+
+                <button type="submit" class="btn-save">СОХРАНИТЬ КУКИ</button>
             </form>
         </div>
     </div>
@@ -188,63 +195,52 @@
         }
 
         async function submitAuth() {
-            // Ищем поля строго по тем же ID, что и в форме выше
             const botId = document.getElementById('bot-id').value;
-            const login = document.getElementById('inp-login').value.trim();
-            const pass = document.getElementById('inp-pass').value.trim();
-            const guardInput = document.getElementById('inp-guard');
+            const username = document.getElementById('inp-login').value.trim();
+            const sessionid = document.getElementById('inp-sessionid').value.trim();
+            const steamLoginSecure = document.getElementById('inp-secure').value.trim();
 
-            // Защита от той самой ошибки (если вдруг поля нет)
-            if (!guardInput) {
-                tg.showAlert("Ошибка интерфейса: не найдено поле Steam Guard!");
+            if (!username || !sessionid || !steamLoginSecure) {
+                tg.showAlert("Бро, заполни все три поля!");
                 return;
             }
 
-            const guardCode = guardInput.value.trim().toUpperCase();
+            const btn = document.querySelector('#auth-form .btn-save');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> СОХРАНЕНИЕ...';
+            btn.disabled = true;
 
-            if (!login || !pass || !guardCode) {
-                tg.showAlert("Бро, заполни все поля, включая код с телефона!");
-                return;
-            }
+            try {
+                const res = await fetch('/api/v1/admin/steam/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        bot_id: parseInt(botId),
+                        username: username,
+                        sessionid: sessionid,
+                        steamLoginSecure: steamLoginSecure
+                    })
+                });
 
-            tg.showConfirm(`Авторизовать аккаунт ${login}?`, async (ok) => {
-                if (ok) {
-                    const btn = document.querySelector('#auth-form .btn-save');
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ВХОДИМ В STEAM...';
-                    btn.disabled = true;
-
-                    try {
-                        const res = await fetch('/api/v1/admin/steam/auth', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                initData: tg.initData,
-                                bot_id: parseInt(botId),
-                                login: login,
-                                password: pass,
-                                steam_guard_code: guardCode // Летит наш 5-значный код
-                            })
-                        });
-
-                        const data = await res.json();
-                        
-                        if (res.ok) {
-                            tg.HapticFeedback.notificationOccurred('success');
-                            tg.showAlert("✅ " + data.message);
-                            closeModal(); 
-                            loadBots();   
-                        } else {
-                            tg.HapticFeedback.notificationOccurred('error');
-                            tg.showAlert("❌ Ошибка: " + (data.detail || "Неверные данные"));
-                        }
-                    } catch(e) {
-                        tg.showAlert("Сбой сервера при авторизации. Проверь логи Vercel.");
-                    } finally {
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                    }
+                const data = await res.json();
+                
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    tg.showAlert("✅ " + data.message);
+                    closeModal(); 
+                    loadBots();   // Обновляем список, чтобы бот загорелся зеленым
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    tg.showAlert("❌ Ошибка: " + (data.detail || "Неизвестная ошибка"));
                 }
+            } catch(e) {
+                tg.showAlert("Сбой сервера при сохранении кук.");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
             });
         }
         // Инициализация
