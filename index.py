@@ -1767,6 +1767,12 @@ RARITY_COLOR_MAP = {
     "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
 
+# ЖЕСТКИЙ ФИЛЬТР: слова, при которых цена всегда будет минимальной
+IGNORE_KEYWORDS = [
+    "sticker", "souvenir", "patch", "graffiti", "key", "case", "pin", "music kit",
+    "наклейка", "сувенир", "нашивка", "граффити", "ключ", "кейс", "ящик", "капсула", "значок", "набор музыки", "charm", "брелок"
+]
+
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
     token: str,
@@ -1775,13 +1781,7 @@ async def sync_steam_inventory(
     import urllib.parse
     import httpx
     import traceback
-    import urllib.request
     import asyncio
-    
-    try:
-        import ijson
-    except ImportError:
-        return {"success": False, "error": "Библиотека ijson не установлена!"}
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -1805,19 +1805,31 @@ async def sync_steam_inventory(
             url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
             url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
             
-            # Делаем запросы ПО ОЧЕРЕДИ с паузой, чтобы Steam не дал бан по IP (429)
-            try:
-                resp_en = await client.get(url_en, cookies=cookies, timeout=20.0)
-                await asyncio.sleep(1.5) # Пауза полторы секунды!
-                resp_ru = await client.get(url_ru, cookies=cookies, timeout=20.0)
-            except Exception as e:
-                return {"bot_id": bot_id, "error": f"Сетевая ошибка: {str(e)}", "items": []}
+            # --- БРОНЯ ОТ ОШИБОК 500 И 429 ---
+            async def safe_get(url):
+                last_resp = None
+                for attempt in range(3):
+                    try:
+                        resp = await client.get(url, cookies=cookies, timeout=20.0)
+                        if resp.status_code == 200:
+                            return resp
+                        last_resp = resp
+                        await asyncio.sleep(2 * (attempt + 1)) 
+                    except Exception:
+                        await asyncio.sleep(2)
+                return last_resp
 
-            # Теперь выводим точный код ошибки, если Стим все-таки ругается
-            if resp_en.status_code != 200:
-                return {"bot_id": bot_id, "error": f"Steam EN Error: {resp_en.status_code}", "items": []}
-            if resp_ru.status_code != 200:
-                return {"bot_id": bot_id, "error": f"Steam RU Error: {resp_ru.status_code}", "items": []}
+            resp_en = await safe_get(url_en)
+            if not resp_en or resp_en.status_code != 200:
+                err_code = resp_en.status_code if resp_en else "Network Error"
+                return {"bot_id": bot_id, "error": f"Steam EN Error: {err_code}", "items": []}
+
+            await asyncio.sleep(2.5) 
+
+            resp_ru = await safe_get(url_ru)
+            if not resp_ru or resp_ru.status_code != 200:
+                err_code = resp_ru.status_code if resp_ru else "Network Error"
+                return {"bot_id": bot_id, "error": f"Steam RU Error: {err_code}", "items": []}
 
             # Собираем английские названия
             en_desc_map = {}
@@ -1826,7 +1838,7 @@ async def sync_steam_inventory(
                     key = f"{desc.get('classid')}_{desc.get('instanceid')}"
                     en_desc_map[key] = desc.get("market_hash_name", "")
 
-            # Собираем русские данные
+            # Собираем данные
             data_ru = resp_ru.json()
             assets = data_ru.get("assets", [])
             bot_items = []
@@ -1859,7 +1871,7 @@ async def sync_steam_inventory(
                         "assetid": asset["assetid"],
                         "account_id": bot_id,
                         "market_hash_name": info["name_ru"],
-                        "hash_name_en": info["hash_name_en"], # Временно для поиска цены
+                        "hash_name_en": info["hash_name_en"],
                         "condition": info["condition"],
                         "rarity": info["rarity"],
                         "icon_url": info["icon_url"],
@@ -1875,34 +1887,23 @@ async def sync_steam_inventory(
             tasks = [fetch_bot_inventory(client, bot) for bot in bots]
             bot_results = await asyncio.gather(*tasks)
 
-        # Собираем глобальный список всех нужных скинов со всех ботов
-        global_needed_skins = set()
-        all_items_to_db = []
-        
-        for res_data in bot_results:
-            for item in res_data["items"]:
-                if item["hash_name_en"]:
-                    global_needed_skins.add(item["hash_name_en"])
-
         # ==========================================
-        # 3. ЕДИНЫЙ ПОТОК ЦЕН (ОДИН РАЗ ДЛЯ ВСЕХ БОТОВ)
+        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (СРАЗУ В РУБЛЯХ!)
         # ==========================================
-        lis_prices_usd = {}
+        market_prices_rub = {}
         try:
-            req = urllib.request.Request("https://lis-skins.com/market_export_json/api_csgo_full.json", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=60.0) as network_stream:
-                for item in ijson.items(network_stream, "items.item"):
-                    item_name = item.get("name")
-                    if item_name in global_needed_skins:
-                        item_price = float(item.get("price", 0.0))
-                        if item_price > 0:
-                            if item_name not in lis_prices_usd or item_price < lis_prices_usd[item_name]:
-                                lis_prices_usd[item_name] = item_price
+            async with httpx.AsyncClient() as client:
+                # Запрашиваем файл в RUB
+                price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=20.0)
+                if price_resp.status_code == 200:
+                    market_data = price_resp.json()
+                    for item in market_data.get("items", []):
+                        market_prices_rub[item["market_hash_name"]] = float(item["price"])
         except Exception as e:
-            print(f"ОШИБКА LIS-SKINS STREAMING: {e}")
+            print(f"ОШИБКА CS:GO MARKET: {e}")
 
         # ==========================================
-        # 4. РАСПРЕДЕЛЯЕМ ЦЕНЫ И ПИШЕМ В БД
+        # 4. РАСПРЕДЕЛЯЕМ ЦЕНЫ С ФИЛЬТРАМИ И ПИШЕМ В БД
         # ==========================================
         total_synced = 0
         bot_stats = {}
@@ -1915,22 +1916,42 @@ async def sync_steam_inventory(
                 
             bot_inventory = []
             for item in res_data["items"]:
-                hash_en = item.pop("hash_name_en") # Удаляем, в БД оно не нужно
+                hash_en = item.pop("hash_name_en") 
+                name_ru = item["market_hash_name"]
                 
-                p_usd = lis_prices_usd.get(hash_en, 0.0)
-                if p_usd == 0.0:
-                    name_lower = hash_en.lower()
-                    if any(word in name_lower for word in ["sticker", "souvenir", "patch", "graffiti", "key", "case"]):
-                        p_usd = 0.02
+                # Проверка на наклейки/сувениры
+                full_name_check = (hash_en + " " + name_ru).lower()
+                is_cheap_junk = any(word in full_name_check for word in IGNORE_KEYWORDS)
                 
-                p_rub = round(p_usd * EXCHANGE_RATE, 2)
+                p_rub = 0.0
+                
+                if is_cheap_junk:
+                    # Жестко 1.53 рубля (эквивалент 0.02$) для мусора
+                    p_rub = round(0.02 * EXCHANGE_RATE, 2) 
+                else:
+                    # Ищем цену в нашей загруженной базе
+                    p_rub = market_prices_rub.get(hash_en, 0.0)
+                    
+                    if p_rub == 0.0:
+                        # Если совсем не нашли, ставим минималку
+                        p_rub = round(0.02 * EXCHANGE_RATE, 2)
+                    elif p_rub > 2000.0:
+                        # ЛИМИТ: режем дорогие вещи до 2000 рублей
+                        p_rub = 2000.0
+                
+                # Переводим в доллары для базы (просто чтобы было красиво)
+                p_usd = round(p_rub / EXCHANGE_RATE, 2)
+                
+                # Билеты: 1 билет за каждые 3 рубля. Минимум 1 билет.
+                tickets_count = max(1, int(p_rub / 3.0)) if p_rub >= 5 else 1
+                
                 item["price_usd"] = p_usd
                 item["price_rub"] = p_rub
-                item["tickets"] = max(1, int(p_rub / 3.0)) if p_rub > 0 else 0
+                item["tickets"] = tickets_count
                 
                 bot_inventory.append(item)
 
-            # Обновляем БД для конкретного бота
+            # Запись в БД чанками
             if bot_inventory:
                 await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
                 for i in range(0, len(bot_inventory), 50):
@@ -1945,7 +1966,7 @@ async def sync_steam_inventory(
         return {
             "success": True, 
             "total_items_synced": total_synced,
-            "prices_found": len(lis_prices_usd),
+            "market_prices_loaded": len(market_prices_rub),
             "bot_details": bot_stats
         }
 
