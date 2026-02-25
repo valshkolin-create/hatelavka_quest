@@ -1748,7 +1748,7 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
         return 1
 
 # =======================================================
-# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (USD + FIX QUALITY & ICONS) 🔥
+# 🔥 КРОН: ГИПЕР-СИНХРОНИЗАЦИЯ (FIX DB + IMAGE STATS) 🔥
 # =======================================================
 
 CRON_SECRET = "my_super_secret_cron_token_123" 
@@ -1783,7 +1783,7 @@ async def sync_steam_inventory(
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0)
             if resp.status_code != 200:
-                return {"success": False, "message": f"Steam Error: {resp.status_code}"}
+                return {"success": False, "message": f"Steam Error: {resp.status_code}", "details": resp.text}
             
             data = resp.json()
             assets = data.get("assets", [])
@@ -1807,11 +1807,9 @@ async def sync_steam_inventory(
                             break # Нашли качество - выходим из цикла тегов
                     
                     # --- СТРОИМ ПРЯМУЮ ССЫЛКУ НА КАРТИНКУ ---
-                    # Если есть большая картинка - берем её, если нет - обычную
                     img_hash = desc.get("icon_url_large") or desc.get("icon_url")
                     icon_full_url = ""
                     if img_hash:
-                        # Формируем готовую ссылку для тега <img>
                         icon_full_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/512fx512f"
 
                     desc_map[key] = {
@@ -1820,17 +1818,27 @@ async def sync_steam_inventory(
                         "icon_url": icon_full_url
                     }
 
-        # 3. Собираем инвентарь для базы
+        # 3. Собираем инвентарь для базы и считаем статистику картинок
         inventory_to_db = []
+        images_found = 0
+        images_missing = 0
+
         for asset in assets:
             key = f"{asset['classid']}_{asset['instanceid']}"
             if key in desc_map:
                 info = desc_map[key]
+                
+                # Считаем статистику по картинкам
+                if info["icon_url"]:
+                    images_found += 1
+                else:
+                    images_missing += 1
+
                 inventory_to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
                     "market_hash_name": info["name"],
-                    "price_usd": 0.0, # Цены временно обнуляем
+                    # "price_usd": 0.0,  <--- УДАЛЕНО: больше не будет вызывать ошибку БД
                     "exterior": info["exterior"],
                     "icon_url": info["icon_url"],
                     "is_reserved": False
@@ -1838,22 +1846,45 @@ async def sync_steam_inventory(
 
         # 4. Обновляем Supabase
         # Удаляем старый кэш
-        await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+        del_res = await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+        if del_res.status_code not in (200, 204):
+             return {"success": False, "error": "Ошибка удаления старого кэша", "details": del_res.text}
         
         # Записываем новый
         if inventory_to_db:
             # Чанки по 50, чтобы не перегружать Vercel
             for i in range(0, len(inventory_to_db), 50):
-                await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+50])
+                chunk = inventory_to_db[i:i+50]
+                insert_res = await supabase.post("/steam_inventory_cache", json=chunk)
+                
+                # ПРОВЕРКА ОШИБОК БД: Если Supabase ругается, выводим ответ прямо в браузер
+                if insert_res.status_code not in (200, 201):
+                    return {
+                        "success": False, 
+                        "error": "Ошибка записи в Supabase", 
+                        "status_code": insert_res.status_code,
+                        "details": insert_res.text
+                    }
 
+        # Успешный ответ с полной статистикой
         return {
             "success": True, 
             "items_synced": len(inventory_to_db),
-            "debug": inventory_to_db[0] if inventory_to_db else "No items"
+            "stats": {
+                "images_found": images_found,
+                "images_missing": images_missing
+            },
+            "debug_first_item": inventory_to_db[0] if inventory_to_db else "No items"
         }
 
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        import traceback
+        return {
+            "success": False, 
+            "error": "Внутренняя ошибка сервера", 
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }
         
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
