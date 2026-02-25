@@ -1765,107 +1765,103 @@ async def sync_steam_inventory(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
+        # 1. Достаем бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
-        
-        if not bots:
-            return {"success": False, "message": "Нет активных ботов для парсинга"}
+        if not bots: return {"success": False, "message": "Нет активных ботов"}
 
         bot = bots[0]
         bot_id = bot['id']
-        session_data = bot.get('session_data') or {}
+        session_data = bot.get('session_data', {})
         cookies = session_data.get('cookies', {})
 
         if 'sessionid' not in cookies or 'steamLoginSecure' not in cookies:
-            return {"success": False, "message": f"У бота {bot['username']} отсутствуют куки"}
+            return {"success": False, "message": "Куки не найдены"}
 
         steam_login_secure = urllib.parse.unquote(cookies['steamLoginSecure'])
         steam_id = steam_login_secure.split('||')[0]
 
-        # 1. Запрашиваем инвентарь у Steam
+        # 2. Парсим инвентарь Steam
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
-        steam_headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": f"https://steamcommunity.com/profiles/{steam_id}/inventory/"
-        }
+        steam_headers = {"User-Agent": "Mozilla/5.0"}
 
         async with httpx.AsyncClient(cookies=cookies) as client:
             resp = await client.get(inventory_url, headers=steam_headers)
-            if resp.status_code == 429:
-                return {"success": False, "message": "Steam Rate Limit (429)."}
+            if resp.status_code != 200:
+                return {"success": False, "message": f"Steam Error {resp.status_code}"}
+            
             data = resp.json()
-            if data.get("success") != 1:
-                return {"success": False, "message": f"Отказ Steam: {data.get('error', 'Скрыт')}"}
-
             assets = data.get("assets", [])
             descriptions = data.get("descriptions", [])
+            
             desc_map_eng, desc_map_ru = {}, {}
             for desc in descriptions:
-                if desc.get("tradable", 0) == 1:
+                if desc.get("tradable") == 1:
                     key = f"{desc['classid']}_{desc['instanceid']}"
                     desc_map_eng[key] = desc.get("market_hash_name", "")
-                    desc_map_ru[key] = desc.get("market_name", desc.get("name", "Неизвестный"))
+                    desc_map_ru[key] = desc.get("market_name", desc.get("name", ""))
 
-        # 🔥 2. КАЧАЕМ ЦЕНЫ (ИСПРАВЛЯЕМ ОШИБКУ 406) 🔥
+        # 🔥 3. ПАРСИМ ЦЕНЫ SKINPORT (БЕЗ КОНФЛИКТОВ КОДИРОВКИ)
         prices_dict = {}
         try:
-            async with httpx.AsyncClient() as clean_client:
-                # Добавляем Accept и Accept-Encoding, чтобы Skinport был доволен
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                    "Accept": "application/json",
-                    "Accept-Encoding": "gzip, deflate, br"
-                }
-                price_resp = await clean_client.get(
+            # Убираем ручной Accept-Encoding, httpx сделает всё сама!
+            price_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Accept": "application/json"
+            }
+            async with httpx.AsyncClient(follow_redirects=True) as price_client:
+                price_resp = await price_client.get(
                     "https://api.skinport.com/v1/items?app_id=730&currency=RUB",
-                    headers=headers,
-                    timeout=20.0 # Даем больше времени на скачивание тяжелого файла
+                    headers=price_headers,
+                    timeout=30.0
                 )
-                
                 if price_resp.status_code == 200:
+                    # Метод .json() автоматически распакует GZIP
                     price_data = price_resp.json()
                     for item in price_data:
                         mhn = item.get("market_hash_name")
-                        price = item.get("suggested_price") or item.get("min_price") or 0.0
-                        if mhn:
-                            prices_dict[mhn] = float(price)
+                        price = item.get("suggested_price") or item.get("min_price") or 0
+                        if mhn: prices_dict[mhn] = float(price)
                 else:
-                    print(f"Skinport Error: {price_resp.status_code}")
+                    print(f"Skinport status: {price_resp.status_code}")
+        except Exception as pe:
+            print(f"Ошибка цен: {pe}")
 
-        except Exception as e:
-            print(f"Ошибка загрузки цен: {e}")
-
-        # 3. Собираем финальный список
+        # 4. Собираем инвентарь для БД
         inventory_to_db = []
         for asset in assets:
             key = f"{asset['classid']}_{asset['instanceid']}"
             if key in desc_map_eng:
                 mhn_eng = desc_map_eng[key]
                 mhn_ru = desc_map_ru[key]
-                item_price_rub = prices_dict.get(mhn_eng, 0.0) 
+                # Получаем цену (в рублях)
+                price_rub = prices_dict.get(mhn_eng, 0.0)
                 
                 inventory_to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
-                    "market_hash_name": mhn_ru, 
-                    "price_usd": item_price_rub, 
+                    "market_hash_name": mhn_ru,
+                    "price_usd": price_rub, # Это наши рубли
                     "is_reserved": False
                 })
 
-        # 4. Перезаписываем в базе
+        # 5. Обновляем базу (Удаляем старое -> Пишем новое)
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
         if inventory_to_db:
-            await supabase.post("/steam_inventory_cache", json=inventory_to_db)
+            # Делим на куски по 200 штук, чтобы база не подавилась
+            for i in range(0, len(inventory_to_db), 200):
+                chunk = inventory_to_db[i:i+200]
+                await supabase.post("/steam_inventory_cache", json=chunk)
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} спарсен! Цены обновлены через Skinport.", 
-            "items_saved": len(inventory_to_db)
+            "message": f"Бот {bot['username']} готов! {len(inventory_to_db)} предметов в базе (₽).",
+            "items_count": len(inventory_to_db)
         }
 
     except Exception as e:
-        print(f"Ошибка крона: {e}")
-        raise HTTPException(status_code=500, detail=f"Критическая ошибка: {str(e)}")
+        print(f"Глобальная ошибка крона: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
         
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
