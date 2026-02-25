@@ -209,45 +209,80 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     cond_text = f" (Качество: {target_condition})" if target_condition else ""
     logging.info(f"[STOREKEEPER] Заказ принят: {target_name}{cond_text} (Бюджет: {target_price_rub} руб.)")
 
-    # 2. Поиск оригинала на полках
-    search_params = {
-        "market_hash_name": f"ilike.%{target_name}%", # <--- ТЕПЕРЬ ОН НАЙДЕТ CZ75 ДАЖЕ С ПРИПИСКОЙ КАЧЕСТВА
-        "is_reserved": "eq.false",
-        "limit": 1
-    }
-    
-    # Добавляем строгое требование по качеству, если оно есть в БД рулетки
-    if target_condition:
-        search_params["condition"] = f"eq.{target_condition}"
-
-    stock_res = await supabase.get("/steam_inventory_cache", params=search_params)
-    
     real_skin = None
-    stock_data = stock_res.json()
+    target_lower = target_name.lower()
 
-    if stock_data and len(stock_data) > 0:
-        real_skin = stock_data[0]
-        logging.info(f"[STOREKEEPER] Найден оригинал! AssetID: {real_skin['assetid']}")
-    else:
-        # 3. План "Б": Умная замена (±7% от цены)
-        if target_price_rub > 0:
-            min_p = target_price_rub * 0.93
-            max_p = target_price_rub * 1.07
-            
-            logging.info(f"[STOREKEEPER] Оригинала нет. Ищем замену от {min_p:.2f} до {max_p:.2f} руб.")
-            
-            alt_res = await supabase.get("/steam_inventory_cache", params={
-                "is_reserved": "eq.false",
-                "price_rub": f"gte.{min_p}",
-                "price_rub": f"lte.{max_p}",
-                "order": "price_rub.asc", # <--- ТЕПЕРЬ БЕРЕТ САМОЕ ДЕШЕВОЕ В ДИАПАЗОНЕ
-                "limit": 1
-            })
-            
-            alts = alt_res.json()
-            if alts and len(alts) > 0:
-                real_skin = alts[0]
-                logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']} ({real_skin['price_rub']} руб.)")
+    # ==========================================
+    # 🔥 СПЕЦНАЗ: РАНДОМНЫЙ ДЕШЕВЫЙ ЛУТ 🔥
+    # ==========================================
+    if "1 наклейка" in target_lower or "рандомная наклейка" in target_lower:
+        logging.info("[STOREKEEPER] Ищем самую дешевую наклейку...")
+        stock_res = await supabase.get("/steam_inventory_cache", params={
+            "market_hash_name": "ilike.%Наклейка %",
+            "is_reserved": "eq.false",
+            "order": "price_rub.asc", # <--- БЕРЕМ САМУЮ ДЕШЕВУЮ
+            "limit": 1
+        })
+        stock_data = stock_res.json()
+        if stock_data and len(stock_data) > 0:
+            real_skin = stock_data[0]
+            logging.info(f"[STOREKEEPER] Нашли рандомную наклейку: {real_skin['market_hash_name']}")
+
+    elif "сувенирный ширп" in target_lower:
+        logging.info("[STOREKEEPER] Ищем самый дешевый сувенир...")
+        stock_res = await supabase.get("/steam_inventory_cache", params={
+            "market_hash_name": "ilike.%Сувенирный %",
+            "is_reserved": "eq.false",
+            "order": "price_rub.asc", # <--- БЕРЕМ САМЫЙ ДЕШЕВЫЙ СУВЕНИР
+            "limit": 1
+        })
+        stock_data = stock_res.json()
+        if stock_data and len(stock_data) > 0:
+            real_skin = stock_data[0]
+            logging.info(f"[STOREKEEPER] Нашли рандомный сувенир: {real_skin['market_hash_name']}")
+
+    # ==========================================
+    # 📦 ОБЫЧНЫЙ ПОИСК (План А и План Б)
+    # ==========================================
+    if not real_skin:
+        # 2. Поиск оригинала на полках
+        search_params = {
+            "market_hash_name": f"ilike.%{target_name}%", # <--- ТЕПЕРЬ ОН НАЙДЕТ CZ75 ДАЖЕ С ПРИПИСКОЙ КАЧЕСТВА
+            "is_reserved": "eq.false",
+            "limit": 1
+        }
+        
+        # Добавляем строгое требование по качеству, если оно есть в БД рулетки
+        if target_condition:
+            search_params["condition"] = f"eq.{target_condition}"
+
+        stock_res = await supabase.get("/steam_inventory_cache", params=search_params)
+        
+        stock_data = stock_res.json()
+
+        if stock_data and len(stock_data) > 0:
+            real_skin = stock_data[0]
+            logging.info(f"[STOREKEEPER] Найден оригинал! AssetID: {real_skin['assetid']}")
+        else:
+            # 3. План "Б": Умная замена (±7% от цены)
+            if target_price_rub > 0:
+                min_p = target_price_rub * 0.93
+                max_p = target_price_rub * 1.07
+                
+                logging.info(f"[STOREKEEPER] Оригинала нет. Ищем замену от {min_p:.2f} до {max_p:.2f} руб.")
+                
+                alt_res = await supabase.get("/steam_inventory_cache", params={
+                    "is_reserved": "eq.false",
+                    "price_rub": f"gte.{min_p}",
+                    "price_rub": f"lte.{max_p}",
+                    "order": "price_rub.asc", # <--- ТЕПЕРЬ БЕРЕТ САМОЕ ДЕШЕВОЕ В ДИАПАЗОНЕ
+                    "limit": 1
+                })
+                
+                alts = alt_res.json()
+                if alts and len(alts) > 0:
+                    real_skin = alts[0]
+                    logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']} ({real_skin['price_rub']} руб.)")
 
     # Если склад пуст и замены нет
     if not real_skin:
@@ -3172,6 +3207,14 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     user_id = user_record.get("telegram_id") if user_record else None
     user_display_name = user_record.get("full_name") if user_record else twitch_login
 
+    # 🔥 [АВТОВЫДАЧА] ИЩЕМ ТРЕЙД-ССЫЛКУ (в базе или вытаскиваем из текста) 🔥
+    import re
+    trade_link = user_record.get("trade_link") if user_record else None
+    if not trade_link and user_input:
+        match = re.search(r"(https?://steamcommunity\.com/tradeoffer/new/\?partner=\d+&token=[a-zA-Z0-9_-]+)", user_input)
+        if match:
+            trade_link = match.group(1)
+
     # --- 4. ЛОГИКА ОБРАБОТКИ (С ИСПОЛЬЗОВАНИЕМ КЭША) ---
 
     # === ВЕТКА 1: ВЕДЬМИНСКИЙ КОТЕЛ ===
@@ -3243,6 +3286,41 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                         json={"p_prize_id": winner_prize_id}
                     )
 
+                # 🔥 [АВТОВЫДАЧА] ОТПРАВЛЯЕМ СКИН РУЛЕТКИ 🔥
+                delivery_status_text = ""
+                is_delivered_auto = False
+                
+                if trade_link:
+                    try:
+                        # Пытаемся выдать скин (бюджет 0, нужен точный скин)
+                        deliv_res = await fulfill_item_delivery(
+                            user_id=user_id or 0, 
+                            target_name=winner_skin_name, 
+                            target_price_rub=0.0, 
+                            trade_url=trade_link, 
+                            supabase=supabase
+                        )
+                        if deliv_res.get("success"):
+                            real_skin = deliv_res.get("real_skin")
+                            trade_res = await send_steam_trade_offer(
+                                account_id=real_skin["account_id"], 
+                                assetid=real_skin["assetid"], 
+                                trade_url=trade_link, 
+                                supabase=supabase
+                            )
+                            if trade_res.get("success"):
+                                is_delivered_auto = True
+                                delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА УСПЕШНА:</b> Трейд отправлен!"
+                            else:
+                                delivery_status_text = f"\n⚠️ <b>ОШИБКА STEAM:</b> {trade_res.get('error')}"
+                        else:
+                            delivery_status_text = "\n⚠️ <b>ОШИБКА СКЛАДА:</b> Нет в наличии"
+                    except Exception as e:
+                        logging.error(f"Auto-delivery roulette error: {e}")
+                        delivery_status_text = "\n⚠️ <b>ОШИБКА АВТОВЫДАЧИ:</b> Сбой скрипта"
+                else:
+                    delivery_status_text = "\n⚠️ <b>АВТОВЫДАЧА ОТМЕНЕНА:</b> Нет трейд-ссылки"
+
                 # Получаем настройки награды (или берем из кэша)
                 if cached_reward:
                     reward_settings = cached_reward
@@ -3264,7 +3342,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                     "reward_id": reward_settings["id"],
                     "username": user_record.get("full_name", twitch_login) if user_record else twitch_login,
                     "twitch_login": twitch_login,
-                    "trade_link": user_record.get("trade_link") if user_record else user_input,
+                    "trade_link": trade_link, # 🔥 Используем найденную
                     "status": "Привязан" if user_record else "Не привязан",
                     "user_input": final_user_input,
                     "user_id": user_record.get("telegram_id") if user_record else None,
@@ -3277,6 +3355,12 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                     "snapshot_monthly_messages": user_record.get("monthly_message_count", 0) if user_record else 0,
                     "snapshot_monthly_uptime": user_record.get("monthly_uptime_minutes", 0) if user_record else 0
                 }
+                
+                # Закрашиваем зеленым, если выдано
+                if is_delivered_auto:
+                    from datetime import datetime, timezone
+                    purchase_payload["rewarded_at"] = datetime.now(timezone.utc).isoformat()
+
                 await supabase.post("/twitch_reward_purchases", json=purchase_payload)
                 
                 # Триггер Забега (Weekly Goal)
@@ -3294,7 +3378,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                         f"<b>Пользователь:</b> {html_decoration.quote(purchase_payload['username'])}\n" 
                         f"<b>Рулетка:</b> «{html_decoration.quote(reward_title)}»\n"
                         f"<b>Выпал приз:</b> {html_decoration.quote(winner_skin_name)}\n"
-                        f"<b>Остаток:</b> {winner_quantity_before_win - 1} шт."
+                        f"<b>Остаток:</b> {winner_quantity_before_win - 1} шт.{delivery_status_text}" # 🔥 Статус выдачи
                     )
                     await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
 
@@ -3359,11 +3443,48 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         reward_amount = reward_settings.get("reward_amount") or reward_settings.get("promocode_amount", 10)
         user_status = "Привязан" if user_record else "Не привязан"
 
+        # 🔥 [АВТОВЫДАЧА] ОТПРАВЛЯЕМ СКИН ДЛЯ ОБЫЧНЫХ НАГРАД 🔥
+        is_delivered_auto = False
+        delivery_status_text = ""
+        lower_title = reward_title.lower()
+        
+        # Триггерим выдачу, если это предмет
+        if any(word in lower_title for word in ["наклейка", "ширп", "скин", "бокс", "кейс"]):
+            if trade_link:
+                try:
+                    deliv_res = await fulfill_item_delivery(
+                        user_id=user_id or 0, 
+                        target_name=reward_title, 
+                        target_price_rub=0.0, 
+                        trade_url=trade_link, 
+                        supabase=supabase
+                    )
+                    if deliv_res.get("success"):
+                        real_skin = deliv_res.get("real_skin")
+                        trade_res = await send_steam_trade_offer(
+                            account_id=real_skin["account_id"], 
+                            assetid=real_skin["assetid"], 
+                            trade_url=trade_link, 
+                            supabase=supabase
+                        )
+                        if trade_res.get("success"):
+                            is_delivered_auto = True
+                            delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА УСПЕШНА:</b> Трейд отправлен!"
+                        else:
+                            delivery_status_text = f"\n⚠️ <b>ОШИБКА STEAM:</b> {trade_res.get('error')}"
+                    else:
+                        delivery_status_text = "\n⚠️ <b>ОШИБКА СКЛАДА:</b> Нет в наличии"
+                except Exception as e:
+                    logging.error(f"Auto-delivery standard reward error: {e}")
+                    delivery_status_text = "\n⚠️ <b>ОШИБКА АВТОВЫДАЧИ:</b> Сбой скрипта"
+            else:
+                delivery_status_text = "\n⚠️ <b>АВТОВЫДАЧА ОТМЕНЕНА:</b> Нет трейд-ссылки"
+
         # Лог покупки
-        await supabase.post("/twitch_reward_purchases", json={
+        purchase_payload = {
             "reward_id": reward_settings["id"], "user_id": user_id,
             "username": user_display_name, "twitch_login": twitch_login,
-            "trade_link": user_record.get("trade_link") if user_record else None, 
+            "trade_link": trade_link, # 🔥 Используем найденную
             "status": user_status,
             "user_input": user_input,
             "viewed_by_admin": False,
@@ -3374,7 +3495,14 @@ async def process_twitch_notification_background(data: dict, message_id: str):
             "snapshot_weekly_uptime": user_record.get("weekly_uptime_minutes", 0) if user_record else 0,
             "snapshot_monthly_messages": user_record.get("monthly_message_count", 0) if user_record else 0,
             "snapshot_monthly_uptime": user_record.get("monthly_uptime_minutes", 0) if user_record else 0
-        })
+        }
+
+        # Закрываем заявку, если трейд улетел
+        if is_delivered_auto:
+            from datetime import datetime, timezone
+            purchase_payload["rewarded_at"] = datetime.now(timezone.utc).isoformat()
+
+        await supabase.post("/twitch_reward_purchases", json=purchase_payload)
         
         # Триггер Забега
         if user_id: 
@@ -3400,6 +3528,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                 notification_text += f"\n<b>Тип:</b> Только лог"
 
             if user_input: notification_text += f"\n<b>Сообщение:</b> <code>{html_decoration.quote(user_input)}</code>"
+            if delivery_status_text: notification_text += delivery_status_text # 🔥 Добавляем лог выдачи
             
             await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
 
