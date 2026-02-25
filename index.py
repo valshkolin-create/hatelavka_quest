@@ -265,6 +265,66 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
 
     return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован и готов к отправке"}
 
+# =======================================================
+# 🚀 БЛОК 6: ОТПРАВКА ТРЕЙДА ЧЕРЕЗ STEAM (КУРЬЕР)
+# =======================================================
+async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
+    """
+    Берет куки бота из БД и отправляет предмет по Trade URL.
+    """
+    import logging
+    from steampy.client import SteamClient
+    from steampy.models import Asset, GameOptions
+    from fastapi.concurrency import run_in_threadpool
+
+    # 1. Получаем сессию бота
+    acc_res = await supabase.get("/steam_accounts", params={"id": f"eq.{account_id}"})
+    acc_data = acc_res.json()
+    if not acc_data:
+        return {"success": False, "error": "bot_not_found"}
+    
+    session_data = acc_data[0].get('session_data', {})
+    sessionid = session_data.get('sessionid')
+    steamLoginSecure = session_data.get('steamLoginSecure')
+    
+    if not sessionid or not steamLoginSecure:
+        return {"success": False, "error": "bot_not_logged_in"}
+
+    # 2. Синхронная функция для Steampy (запускаем в отдельном потоке, чтобы не вешать сервер)
+    def _send_offer():
+        # Инициализируем клиента без API-ключа (для оффера по ссылке он не обязателен)
+        client = SteamClient('DUMMY_API_KEY')
+        client._session.cookies.set('sessionid', sessionid, domain='steamcommunity.com')
+        client._session.cookies.set('steamLoginSecure', steamLoginSecure, domain='steamcommunity.com')
+        client.was_login_executed = True # Говорим библиотеке, что мы уже залогинены
+        
+        # Создаем объект предмета (Игра: CS:GO)
+        asset = Asset(assetid, GameOptions.CS)
+        
+        # Отправляем!
+        return client.make_offer_with_url(
+            items_from_me=[asset], 
+            items_from_them=[], 
+            trade_offer_url=trade_url, 
+            message="Твой выигрыш от HATElavka! 🐸"
+        )
+
+    # 3. Пытаемся отправить и ловим ошибки Steam
+    try:
+        logging.info(f"[COURIER] Попытка отправки AssetID {assetid} с бота #{account_id}...")
+        resp = await run_in_threadpool(_send_offer)
+        
+        if resp and resp.get('tradeofferid'):
+            logging.info(f"[COURIER] Успех! TradeID: {resp['tradeofferid']}")
+            return {"success": True, "tradeofferid": resp['tradeofferid']}
+        else:
+            logging.error(f"[COURIER] Ошибка Steam: {resp}")
+            return {"success": False, "error": f"steam_error: {resp}"}
+            
+    except Exception as e:
+        logging.error(f"[COURIER] Критический сбой отправки: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 # --- Pydantic Models ---
 
 class BaseAuthRequest(BaseModel):
@@ -15914,7 +15974,7 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет (подтягиваем данные из библиотеки cs_items)
+    # 2. Получаем предмет
     check_resp = await supabase.get(
         "/cs_history",
         params={
@@ -15929,13 +15989,14 @@ async def withdraw_inventory_item(
     if not rows:
         raise HTTPException(status_code=404, detail="Предмет не найден или уже в обработке")
 
-    # Данные берем из вложенного объекта 'item'
     item_info = rows[0].get('item', {})
     item_name = item_info.get('name', 'Неизвестный предмет')
     item_price = item_info.get('price', 0)
     item_rarity = item_info.get('rarity', 'common')
 
-    # 3. Пробуем зарезервировать предмет на ботах (Автовыдача)
+    # ==========================================
+    # 📦 3. АВТОВЫДАЧА (КЛАДОВЩИК + КУРЬЕР)
+    # ==========================================
     delivery_res = await fulfill_item_delivery(
         user_id=user_id,
         target_name=item_name,
@@ -15945,22 +16006,41 @@ async def withdraw_inventory_item(
     )
 
     if delivery_res.get("success"):
-        new_status = "auto_queued"
-        log_header = "⚙️ <b>АВТОВЫДАЧА (В ОЧЕРЕДИ)</b>\n<i>Предмет зарезервирован на боте.</i>\n\n"
-        response_msg = "Предмет зарезервирован! Ожидайте трейд в Steam."
+        real_skin = delivery_res.get("real_skin")
+        
+        # Кладовщик нашел скин, теперь Курьер его отправляет!
+        trade_res = await send_steam_trade_offer(
+            account_id=real_skin["account_id"],
+            assetid=real_skin["assetid"],
+            trade_url=trade_link,
+            supabase=supabase
+        )
+        
+        if trade_res.get("success"):
+            new_status = "sent"
+            log_header = f"✅ <b>ТРЕЙД УСПЕШНО ОТПРАВЛЕН!</b>\n<i>Оффер #{trade_res['tradeofferid']}</i>\n\n"
+            response_msg = "Трейд успешно отправлен! Зайдите в Steam и примите обмен."
+        else:
+            # Скин нашли, но Steam затупил (невалид ссылка, бан трейда и т.д.)
+            new_status = "processing"
+            log_header = f"⚠️ <b>ОШИБКА ОТПРАВКИ STEAM!</b>\n<i>Трейд не прошел: {trade_res.get('error')}</i>\n<i>Заявка переведена в ручной режим.</i>\n\n"
+            response_msg = "Произошла ошибка со стороны Steam. Заявка передана администратору."
     else:
+        # Кладовщик не нашел скин на ботах
         new_status = "processing"
         log_header = "📦 <b>ЗАЯВКА НА ВЫВОД!</b>\n<i>⚠️ Нет на ботах. Нужна ручная выдача.</i>\n\n"
         response_msg = "Заявка на вывод создана! Ожидайте выдачи администратором."
 
-    # 4. Меняем статус (auto_queued или processing)
-    upd_resp = await supabase.patch(
+    # ==========================================
+
+    # 4. Обновляем статус в БД
+    await supabase.patch(
         "/cs_history",
         params={"id": f"eq.{req.history_id}"},
         json={"status": new_status} 
     )
 
-    # 5. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ С КНОПКОЙ 🔥
+    # 5. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ 🔥
     if ADMIN_NOTIFY_CHAT_ID:
         try:
             log_text = (
@@ -15973,7 +16053,6 @@ async def withdraw_inventory_item(
             
             app_url = "https://t.me/HATElavka_bot/app?startapp=admin_orders"
 
-            # Используем обычную кнопку url
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="👨‍💻 Открыть заявки", url=app_url)]
             ])
