@@ -10,11 +10,15 @@
       "use": "@vercel/python"
     }
   ],
+  "functions": {
+    "index.py": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
   "routes": [
     { "src": "/public/(.*)", "dest": "/public/$1" },
-    
     { "src": "/static/(.*)", "dest": "/public/static/$1" }, 
-
     { "src": "/menu", "dest": "/public/menu.html" },
     { "src": "/quests", "dest": "/public/quests.html" },
     { "src": "/leaderboard", "dest": "/public/leaderboard.html" },
