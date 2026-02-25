@@ -1076,12 +1076,12 @@ class InventorySellRequest(BaseModel):
 class SteamInitRequest(BaseModel):
     initData: str
 
-class SteamAuthRequest(BaseModel):
+class SteamCookieAuthRequest(BaseModel):
     initData: str
     bot_id: int
-    login: str
-    password: str
-    steam_guard_code: str
+    username: str
+    sessionid: str
+    steamLoginSecure: str
     
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -2099,68 +2099,40 @@ async def get_steam_bots(
 # 1. Получить список ботов
 @app.post("/api/v1/admin/steam/auth")
 async def auth_steam_bot(
-    request: SteamAuthRequest,
+    request: SteamCookieAuthRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    import os
-    import json
-    
     user_info = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    client = SteamClient("API_KEY_ПОКА_НЕ_НУЖЕН")
-    
-    # 🔥 Делаем ИДЕАЛЬНЫЙ фейковый файл, чтобы steampy прошла все свои внутренние проверки
-    dummy_guard_path = "/tmp/dummy_guard.json"
-    with open(dummy_guard_path, "w") as f:
-        json.dump({
-            "steamid": "0",
-            "shared_secret": "dummy",
-            "identity_secret": "dummy",
-            "client_id": "0",
-            "device_id": "android:12345678-1234-1234-1234-123456789012",
-            "refresh_token": "",
-            "access_token": ""
-        }, f)
-    
-    # 🔥 ХАК ДЛЯ ОБХОДА ЗАЩИТЫ STEAMPY С АЙФОНА 🔥
-    original_generate = steampy.guard.generate_one_time_code
-    steampy.guard.generate_one_time_code = lambda shared_secret, timestamp=None: request.steam_guard_code
-
     try:
-        # Кормим библиотеку полным фейковым файлом
-        client.login(request.login, request.password, dummy_guard_path)
-        
-        # Если Стим принял наш пароль и код, забираем куки
-        session_cookies = client.get_web_session().cookies.get_dict()
-
-        session_data = {
-            "cookies": session_cookies,
-            "login": request.login,
-            "password": request.password
+        # Упаковываем куки в формат, который понимает steampy
+        session_cookies = {
+            "sessionid": request.sessionid,
+            "steamLoginSecure": request.steamLoginSecure
         }
 
-        # Сохраняем сессию в БД
+        # Сохраняем эти куки в базу. Пароль больше не храним — безопасность на максимум!
+        session_data = {
+            "cookies": session_cookies,
+            "login": request.username
+        }
+
+        # Обновляем статус бота в БД на active
         await supabase.patch(
             f"/steam_accounts?id=eq.{request.bot_id}",
             json={
                 "status": "active",
                 "session_data": session_data,
-                "username": request.login
+                "username": request.username
             }
         )
-        return {"success": True, "message": f"Бот {request.login} успешно подключен!"}
+        return {"success": True, "message": f"Бот {request.username} успешно подключен по кукам!"}
 
     except Exception as e:
-        print(f"Ошибка входа Steam: {e}")
-        # Если Стим отшил (например, код устарел), выдаем понятную ошибку
-        raise HTTPException(status_code=400, detail="Ошибка входа. Возможно, код Steam Guard устарел (он живет всего 30 сек)!")
-    finally:
-        # Возвращаем всё на место и убираем за собой мусор
-        steampy.guard.generate_one_time_code = original_generate
-        if os.path.exists(dummy_guard_path):
-            os.remove(dummy_guard_path)
+        print(f"Ошибка сохранения кук Steam: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении кук в БД")
          
 @app.post("/api/v1/admin/events/cauldron/reward_status")
 async def update_cauldron_reward_status(
