@@ -1765,7 +1765,7 @@ async def sync_steam_inventory(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Достаем бота
+        # 1. Берем активного бота
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
         bots = res.json()
         if not bots: return {"success": False, "message": "Нет активных ботов"}
@@ -1774,21 +1774,16 @@ async def sync_steam_inventory(
         bot_id = bot['id']
         session_data = bot.get('session_data', {})
         cookies = session_data.get('cookies', {})
+        steam_login_secure = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
+        steam_id = steam_login_secure.split('||')[0] if '||' in steam_login_secure else None
 
-        if 'sessionid' not in cookies or 'steamLoginSecure' not in cookies:
-            return {"success": False, "message": "Куки не найдены"}
+        if not steam_id: return {"success": False, "message": "SteamID не определен"}
 
-        steam_login_secure = urllib.parse.unquote(cookies['steamLoginSecure'])
-        steam_id = steam_login_secure.split('||')[0]
-
-        # 2. Парсим инвентарь Steam
+        # 2. Парсим инвентарь Steam (как и раньше, это работает четко)
         inventory_url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
-        steam_headers = {"User-Agent": "Mozilla/5.0"}
-
         async with httpx.AsyncClient(cookies=cookies) as client:
-            resp = await client.get(inventory_url, headers=steam_headers)
-            if resp.status_code != 200:
-                return {"success": False, "message": f"Steam Error {resp.status_code}"}
+            resp = await client.get(inventory_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15.0)
+            if resp.status_code != 200: return {"success": False, "message": f"Steam Error {resp.status_code}"}
             
             data = resp.json()
             assets = data.get("assets", [])
@@ -1801,61 +1796,58 @@ async def sync_steam_inventory(
                     desc_map_eng[key] = desc.get("market_hash_name", "")
                     desc_map_ru[key] = desc.get("market_name", desc.get("name", ""))
 
-        # 🔥 3. ПАРСИМ ЦЕНЫ SKINPORT (БЕЗ КОНФЛИКТОВ КОДИРОВКИ)
+        # 🔥 3. ПАРСИМ ЦЕНЫ ЧЕРЕЗ CSGOTRADER (БЕЗБЛОКИРОВОЧНЫЙ ВАРИАНТ)
         prices_dict = {}
         try:
-            # Убираем ручной Accept-Encoding, httpx сделает всё сама!
-            price_headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                "Accept": "application/json"
-            }
+            # Этот файл обновляется раз в час и содержит все цены мира
+            price_url = "https://prices.csgotrader.app/latest/prices_v6.json"
             async with httpx.AsyncClient(follow_redirects=True) as price_client:
-                price_resp = await price_client.get(
-                    "https://api.skinport.com/v1/items?app_id=730&currency=RUB",
-                    headers=price_headers,
-                    timeout=30.0
-                )
+                # Ставим большой таймаут, так как файл весит около 5-10 МБ
+                price_resp = await price_client.get(price_url, timeout=30.0)
+                
                 if price_resp.status_code == 200:
-                    # Метод .json() автоматически распакует GZIP
-                    price_data = price_resp.json()
-                    for item in price_data:
-                        mhn = item.get("market_hash_name")
-                        price = item.get("suggested_price") or item.get("min_price") or 0
-                        if mhn: prices_dict[mhn] = float(price)
+                    raw_prices = price_resp.json()
+                    # Курс доллара к рублю (можешь поправить, если хочешь точнее)
+                    usd_to_rub = 92.5 
+                    
+                    for mhn, info in raw_prices.items():
+                        # Берем среднюю цену Steam (в долларах) и переводим в рубли
+                        price_usd = info.get("steam", {}).get("last_7d") or info.get("steam", {}).get("last_30d") or 0
+                        if price_usd:
+                            prices_dict[mhn] = float(price_usd) * usd_to_rub
                 else:
-                    print(f"Skinport status: {price_resp.status_code}")
+                    print(f"Price API Error: {price_resp.status_code}")
         except Exception as pe:
-            print(f"Ошибка цен: {pe}")
+            print(f"Ошибка загрузки цен: {pe}")
 
-        # 4. Собираем инвентарь для БД
+        # 4. Собираем список для БД
         inventory_to_db = []
         for asset in assets:
             key = f"{asset['classid']}_{asset['instanceid']}"
             if key in desc_map_eng:
                 mhn_eng = desc_map_eng[key]
                 mhn_ru = desc_map_ru[key]
-                # Получаем цену (в рублях)
+                # Получаем цену в рублях из нашего словаря
                 price_rub = prices_dict.get(mhn_eng, 0.0)
                 
                 inventory_to_db.append({
                     "assetid": asset["assetid"],
                     "account_id": bot_id,
                     "market_hash_name": mhn_ru,
-                    "price_usd": price_rub, # Это наши рубли
+                    "price_usd": round(price_rub, 2), # Округляем до копеек
                     "is_reserved": False
                 })
 
-        # 5. Обновляем базу (Удаляем старое -> Пишем новое)
+        # 5. Сохраняем в Supabase
         await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
         if inventory_to_db:
-            # Делим на куски по 200 штук, чтобы база не подавилась
-            for i in range(0, len(inventory_to_db), 200):
-                chunk = inventory_to_db[i:i+200]
-                await supabase.post("/steam_inventory_cache", json=chunk)
+            # Разбиваем на пачки по 100, чтобы не перегружать память Vercel
+            for i in range(0, len(inventory_to_db), 100):
+                await supabase.post("/steam_inventory_cache", json=inventory_to_db[i:i+100])
 
         return {
             "success": True, 
-            "message": f"Бот {bot['username']} готов! {len(inventory_to_db)} предметов в базе (₽).",
+            "message": f"Бот {bot['username']} готов! Найдено предметов: {len(inventory_to_db)}.",
             "items_count": len(inventory_to_db)
         }
 
