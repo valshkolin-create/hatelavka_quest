@@ -16017,7 +16017,7 @@ async def finalize_raffle_webhook(
     except Exception as e:
         print(f"🔴 Ошибка при выборе победителя: {e}")
 
-    # 5. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА О ПОБЕДЕ
+    # 5. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА О ПОБЕДЕ (С АВТОВЫДАЧЕЙ!)
     if winner_id:
         # Успешное завершение
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
@@ -16031,13 +16031,58 @@ async def finalize_raffle_webhook(
 
                 winner_name = winner_data.get('full_name', 'Счастливчик')
                 winner_username = f"(@{winner_data.get('username')})" if winner_data.get('username') else ""
+                trade_link = winner_data.get('trade_link')
                 
+                # ==========================================
+                # 🔥 МАГИЯ АВТОВЫДАЧИ ДЛЯ РОЗЫГРЫШЕЙ 🔥
+                # ==========================================
+                delivery_status_text = ""
+                is_delivered_auto = False
+                
+                if trade_link:
+                    try:
+                        # Зовем Кладовщика (бюджет 0, нужен точный скин)
+                        deliv_res = await fulfill_item_delivery(
+                            user_id=winner_id, 
+                            target_name=prize_name, 
+                            target_price_rub=0.0, 
+                            trade_url=trade_link, 
+                            supabase=supabase,
+                            target_condition=quality if quality else None
+                        )
+                        if deliv_res.get("success"):
+                            real_skin = deliv_res.get("real_skin")
+                            # Зовем Курьера
+                            trade_res = await send_steam_trade_offer(
+                                account_id=real_skin["account_id"], 
+                                assetid=real_skin["assetid"], 
+                                trade_url=trade_link, 
+                                supabase=supabase
+                            )
+                            if trade_res.get("success"):
+                                is_delivered_auto = True
+                                delivery_status_text = f"\n\n✅ <i>Трейд со скином уже отправлен победителю! Принимай в Steam.</i>"
+                            else:
+                                delivery_status_text = f"\n\n⚠️ <i>ОШИБКА STEAM при отправке: {trade_res.get('error')} (Админ выдаст вручную)</i>"
+                        else:
+                            delivery_status_text = "\n\n⚠️ <i>Скин на складе закончился. Админ выдаст замену вручную!</i>"
+                    except Exception as e:
+                        print(f"Auto-delivery raffle error: {e}")
+                        delivery_status_text = "\n\n⚠️ <i>Сбой автовыдачи. Админ выдаст вручную.</i>"
+                else:
+                    delivery_status_text = "\n\n⚠️ <i>Трейд-ссылка не указана. Победитель, напиши админу для получения приза!</i>"
+                # ==========================================
+
+                # Формируем итоговый текст
                 text = (
                     f"🛑 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
                     f"🎁 Приз: <b>{prize_full}</b>\n"
                     f"🏆 Победитель: <b>{winner_name}</b> {winner_username}\n\n"
-                    f"Поздравляем! Администратор в течении суток выдаст вам награду. 🍀"
+                    f"Поздравляем! 🍀"
                 )
+                
+                # Добавляем статус выдачи к посту
+                text += delivery_status_text
                 
                 prize_img = s.get('prize_image')
                 
