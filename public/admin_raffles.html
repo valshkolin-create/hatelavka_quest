@@ -147,6 +147,32 @@
         .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
         .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
 
+        /* FAB & SEARCH STYLES FROM CASES */
+        .fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 90; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+        .fab-main {
+            width: 60px; height: 60px; background: var(--primary); color: #000; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 26px;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4); cursor: pointer; transition: transform 0.2s;
+        }
+        .fab-main.rotate { transform: rotate(45deg); background: #fff; }
+        
+        .fab-option {
+            background: #2c2c2e; border: 1px solid var(--card-border); color: #fff;
+            padding: 12px 20px; border-radius: 14px; font-size: 14px; font-weight: 600;
+            display: flex; align-items: center; gap: 10px; cursor: pointer;
+            transform: translateY(20px); opacity: 0; pointer-events: none; transition: 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .fab-menu-open .fab-option { transform: translateY(0); opacity: 1; pointer-events: auto; }
+
+        .search-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px;
+            background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px;
+        }
+        .search-img { width: 40px; height: 30px; object-fit: contain; }
+        .search-info { flex: 1; min-width: 0; }
+        .search-btn { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
         .hidden { display: none !important; }
     </style>
 </head>
@@ -335,6 +361,32 @@
         </div>
     </div>
 
+    <div class="fab-container" id="fabMenu">
+        <div class="fab-option" onclick="openLibrarySearch()">
+            <span>Выбрать со склада</span> <i class="fa-solid fa-box-open"></i>
+        </div>
+        <div class="fab-main" onclick="toggleFab()">
+            <i class="fa-solid fa-search"></i>
+        </div>
+    </div>
+
+    <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
+        <div class="bottom-sheet" style="height: 85vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0">Склад ботов</h3>
+                <button onclick="closeModal('modal-library')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="admin-form" style="margin-top: 15px;">
+                <input type="text" id="lib-search-inp" class="form-input" placeholder="Введите название (например AK-47)..." oninput="debounceSearch()">
+            </div>
+
+            <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;">
+                <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните вводить название...</div>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-parts" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-parts')">
         <div class="bottom-sheet">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -358,6 +410,8 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        let searchTimeout = null;
+
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
             if (document.getElementById('modal-parts').classList.contains('modal-active')) {
@@ -365,6 +419,9 @@
             }
             if (document.getElementById('modal-alert').classList.contains('modal-active')) {
                 closeModal('modal-alert'); return;
+            }
+            if (document.getElementById('modal-library').classList.contains('modal-active')) {
+                closeModal('modal-library'); return;
             }
             window.location.href = '/admin';
         });
@@ -377,12 +434,122 @@
             document.getElementById('tab-' + t).classList.remove('hidden');
             
             const tabs = document.querySelectorAll('.tab');
-            if(t === 'create') tabs[0].classList.add('active');
-            else if(t === 'list') { tabs[1].classList.add('active'); loadRaffles(); }
-            else if(t === 'scheduled') { tabs[2].classList.add('active'); loadRaffles(); }
-            else if(t === 'completed') { tabs[3].classList.add('active'); loadRaffles(); }
+            const fab = document.getElementById('fabMenu');
+            
+            if(t === 'create') {
+                tabs[0].classList.add('active');
+                fab.style.display = 'flex'; // Показываем FAB только в конструкторе
+            }
+            else {
+                fab.style.display = 'none';
+                if(t === 'list') { tabs[1].classList.add('active'); loadRaffles(); }
+                else if(t === 'scheduled') { tabs[2].classList.add('active'); loadRaffles(); }
+                else if(t === 'completed') { tabs[3].classList.add('active'); loadRaffles(); }
+            }
         }
 
+        /* --- МАГИЯ ПОИСКА ПО СКЛАДУ --- */
+        function toggleFab() {
+            document.getElementById('fabMenu').classList.toggle('fab-menu-open');
+            document.querySelector('.fab-main').classList.toggle('rotate');
+        }
+
+        function openLibrarySearch() {
+            toggleFab();
+            document.getElementById('modal-library').classList.add('modal-active');
+            document.getElementById('lib-search-inp').value = '';
+            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните вводить название...</div>';
+        }
+
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(doSearch, 500);
+        }
+
+        async function doSearch() {
+            const q = document.getElementById('lib-search-inp').value.trim();
+            const cont = document.getElementById('lib-results');
+            
+            if (q.length < 2) {
+                cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Введите минимум 2 символа...</div>';
+                return;
+            }
+            
+            cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем на складе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
+
+            try {
+                const res = await fetch('/api/v1/admin/cases/search_cache', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query: q})
+                });
+                const items = await res.json();
+                
+                cont.innerHTML = '';
+                if (!items || items.length === 0) {
+                    cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">На ботах ничего не найдено 😔</div>';
+                    return;
+                }
+
+                items.forEach(item => {
+                    // Экранируем JSON для передачи в onclick
+                    const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
+                    cont.innerHTML += `
+                    <div class="search-item">
+                        <img src="${item.image_url}" class="search-img" onerror="this.src='https://placehold.co/40'">
+                        <div class="search-info">
+                            <div style="font-weight:700; font-size:12px;">${item.market_hash_name}</div>
+                            <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
+                        </div>
+                        <button class="search-btn" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
+                    </div>`;
+                });
+            } catch(e) { 
+                console.error(e); 
+                cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
+            }
+        }
+
+        function selectFromCache(jsonStr) {
+            const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
+            closeModal('modal-library');
+            
+            // 1. Очищаем название от приписки (После полевых испытаний)
+            let cleanName = item.market_hash_name;
+            const conditionMatch = cleanName.match(/(.*?)\s+\([^)]+\)$/);
+            if (conditionMatch) {
+                cleanName = conditionMatch[1];
+            }
+            
+            // 2. Заполняем поля формы
+            document.getElementById('inp-prize').value = cleanName;
+            document.getElementById('inp-img').value = item.image_url || '';
+            document.getElementById('inp-card-img').value = item.image_url || '';
+            
+            // Опционально: цена билета = цене в рублях
+            document.querySelector('input[name="ticket_cost"]').value = Math.ceil(item.price_rub || 0);
+            
+            // 3. Износ
+            document.getElementById('inp-quality').value = item.condition || '';
+            
+            // 4. Редкость (Цвет подсветки)
+            const rarityMap = {
+                'common': '#b0c3d9',
+                'blue': '#5e98d9',
+                'purple': '#4b69ff',
+                'pink': '#d32ce6',
+                'red': '#eb4b4b',
+                'gold': '#ffd700'
+            };
+            if (item.rarity && rarityMap[item.rarity]) {
+                document.getElementById('inp-rarity-color').value = rarityMap[item.rarity];
+            }
+            
+            toggleRefundBox();
+            updatePreview();
+            tg.HapticFeedback.notificationOccurred('success');
+        }
+
+        /* --- ОСТАЛЬНАЯ ЛОГИКА --- */
         function toggleScheduleMode() {
             const box = document.getElementById('schedule-setup');
             const btn = document.getElementById('btn-schedule');
@@ -416,7 +583,6 @@
             else controls.classList.add('hidden-slider');
         }
 
-        // --- НОВАЯ ФУНКЦИЯ ПУБЛИКАЦИИ ---
         async function publishRaffle(id) {
             showConfirm('Опубликовать сейчас?', 'Пост появится в канале немедленно, а статус сменится на Active.', async () => {
                 try {
@@ -430,7 +596,7 @@
                     if (res.ok) {
                         tg.HapticFeedback.notificationOccurred('success');
                         showCustomAlert('Успех', d.message);
-                        loadRaffles(); // Обновляем список
+                        loadRaffles(); 
                     } else {
                         showCustomAlert('Ошибка', d.message || 'Не удалось опубликовать');
                     }
@@ -441,30 +607,16 @@
             });
         }
 
-        // 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ UPDATE PREVIEW
         function updatePreview() {
-            // Безопасное получение элементов
-            const getVal = (id) => {
-                const el = document.getElementById(id);
-                return el ? el.value : '';
-            };
+            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
 
             const prize = getVal('inp-prize') || 'Приз';
             const quality = getVal('inp-quality');
             const desc = getVal('inp-desc');
-            
-            // Берем картинку из любого поля (Пост или Карточка)
             const imgUrl = getVal('inp-img') || getVal('inp-card-img');
             
-            // Получаем остальные значения через querySelector (так как это безопаснее для input names)
-            const getInpVal = (name) => {
-                const el = document.querySelector(`input[name="${name}"]`);
-                return el ? el.value : '';
-            };
-            const getCheck = (name) => {
-                const el = document.querySelector(`input[name="${name}"]`);
-                return el ? el.checked : false;
-            };
+            const getInpVal = (name) => { const el = document.querySelector(`input[name="${name}"]`); return el ? el.value : ''; };
+            const getCheck = (name) => { const el = document.querySelector(`input[name="${name}"]`); return el ? el.checked : false; };
 
             const tickets = getInpVal('ticket_cost');
             const refs = getInpVal('min_referrals');
@@ -529,7 +681,7 @@
                 if (res.ok) {
                     const data = await res.json();
                     document.getElementById(targetId).value = data.url;
-                    updatePreview(); // Обновляем превью сразу
+                    updatePreview(); 
                     showCustomAlert('Готово', 'Картинка загружена!');
                 } else {
                     showCustomAlert('Ошибка', 'Не удалось загрузить фото');
@@ -648,6 +800,9 @@
             
             let activeCount = 0; let schedCount = 0; let complCount = 0;
 
+            // 🔥 СОРТИРОВКА: Новые всегда сверху (по ID)
+            list.sort((a, b) => b.id - a.id);
+
             list.forEach(r => {
                 const s = r.settings || {};
                 const isDone = r.status === 'completed';
@@ -656,7 +811,7 @@
                 const imgUrl = s.card_image || s.prize_image;
                 const img = imgUrl ? `<img src="${imgUrl}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gift"></i></div>`;
                 
-                const safeJson = encodeURIComponent(JSON.stringify(r));
+                const safeJson = encodeURIComponent(JSON.stringify(r).replace(/'/g, "&apos;"));
 
                 let statusBadge = '';
                 if(isDone) statusBadge = `<span class="status-badge st-done">Завершен</span>`;
@@ -728,7 +883,7 @@
         }
 
         window.cloneRaffle = function(jsonStr, makeSilent) {
-            const r = JSON.parse(decodeURIComponent(jsonStr));
+            const r = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
             const s = r.settings || {};
 
             switchTab('create');
@@ -842,7 +997,9 @@
             m.classList.add('modal-active');
         }
 
+        // Инициализация
         updatePreview();
+        switchTab('create');
     </script>
 </body>
 </html>
