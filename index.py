@@ -315,10 +315,10 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
 # =======================================================
 # =======================================================
 # 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
-# =======================================================
 async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
     """
     Прямой запрос к Steam API без сторонних библиотек.
+    С улучшенным логированием и защитой от пустых ответов.
     """
     import json
     import re
@@ -404,13 +404,22 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
             
             # Если слетели куки, Steam может кинуть редирект на страницу входа
             if resp.status_code == 302 or "login" in str(resp.url):
+                logging.error("[COURIER] Стим просит логин. Куки протухли!")
                 return {"success": False, "error": "Сессия бота устарела. Нужно обновить куки."}
+            
+            raw_text = resp.text # Читаем сырой текст для защиты и логов
             
             try:
                 resp_json = resp.json()
             except Exception:
-                return {"success": False, "error": f"Стим вернул не JSON (Код {resp.status_code})"}
+                logging.error(f"[COURIER] Стим вернул не JSON. Код: {resp.status_code}. Ответ: {raw_text[:200]}")
+                return {"success": False, "error": f"Стим вернул ошибку сервера (Код {resp.status_code})"}
             
+            # 🔥 ВОТ ОНА, ЗАЩИТА ОТ NoneType 🔥
+            if not isinstance(resp_json, dict):
+                logging.error(f"[COURIER] Стим сошел с ума и вернул: {raw_text[:200]}")
+                return {"success": False, "error": "Steam недоступен или вернул пустой ответ"}
+
             # Проверяем успешность
             if "tradeofferid" in resp_json:
                 logging.info(f"[COURIER] Успех! TradeID: {resp_json['tradeofferid']}")
@@ -418,13 +427,15 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
             else:
                 # Достаем реальную ошибку Стима
                 err_msg = resp_json.get("strError", "Неизвестная ошибка Steam")
-                logging.error(f"[COURIER] Стим отклонил трейд: {err_msg}")
+                logging.error(f"[COURIER] Стим отклонил трейд: {err_msg} | Сырой ответ: {raw_text[:200]}")
                 return {"success": False, "error": err_msg}
 
+    except httpx.TimeoutException:
+        logging.error("[COURIER] Сбой соединения: Steam не отвечает (Таймаут 15с).")
+        return {"success": False, "error": "Steam завис и не отвечает. Попробуйте позже."}
     except Exception as e:
         logging.error(f"[COURIER] Сбой соединения: {str(e)}")
         return {"success": False, "error": "Сбой соединения со Steam"}
-
 # --- Pydantic Models ---
 
 class BaseAuthRequest(BaseModel):
