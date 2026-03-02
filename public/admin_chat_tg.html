@@ -28,13 +28,12 @@
             padding-bottom: 100px;
         }
 
-        /* --- Header --- */
+        /* --- Header & Tabs --- */
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
         .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; transition: 0.2s; }
         .back-btn:active { color: var(--text); transform: scale(0.95); }
         .page-title { font-size: 20px; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        /* --- Tabs --- */
         .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; }
         .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; text-align: center; }
         .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
@@ -46,6 +45,7 @@
             color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
         }
         .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
+        .admin-form input[readonly] { background: rgba(0,0,0,0.4); color: var(--primary); cursor: pointer; font-weight: bold; text-align: center; }
         
         .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
         .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
@@ -54,11 +54,7 @@
         /* --- Buttons --- */
         .icon-btn { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
         .icon-btn:active { transform: scale(0.9); }
-        .action-submit-btn {
-            border: none; padding: 15px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            transition: 0.2s; width: 100%; margin-top: 20px; background: var(--primary); color: #000;
-        }
+        .action-submit-btn { border: none; padding: 15px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; width: 100%; margin-top: 20px; background: var(--primary); color: #000; }
         .action-submit-btn:active { transform: scale(0.97); opacity: 0.8; }
 
         /* --- Preview --- */
@@ -69,21 +65,16 @@
         .prev-text { font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
 
         /* --- Cards List --- */
-        .giveaway-card {
-            background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px;
-        }
+        .giveaway-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px; }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .card-title { font-weight: 700; font-size: 15px; }
         .status-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 700; background: rgba(40, 167, 69, 0.2); color: var(--accent); }
         .status-badge.inactive { background: rgba(255, 77, 77, 0.2); color: var(--danger); }
-        
         .card-info { font-size: 12px; color: var(--text-sec); margin-bottom: 15px; line-height: 1.5; }
         .card-info span { color: #fff; font-weight: 600; }
-        
         .btn-danger { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); padding: 10px; border-radius: 10px; width: 100%; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-danger:active { transform: scale(0.95); }
-
-        /* Custom Alerts */
+        
+        /* Custom Alerts & Bottom Sheet */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; }
         .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); }
@@ -92,6 +83,14 @@
         .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
         .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
         .hidden { display: none !important; }
+
+        /* Coins Bottom Sheet */
+        .bottom-sheet-container { position: absolute; bottom: 0; width: 100%; background: #1c1c1e; border-radius: 24px 24px 0 0; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .coin-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 10px; cursor: pointer; border: 1px solid var(--card-border); transition: 0.2s; }
+        .coin-item:active { transform: scale(0.98); border-color: var(--primary); background: rgba(255, 215, 0, 0.1); }
+        .coin-val { font-size: 16px; font-weight: 700; color: var(--primary); }
+        .coin-count { font-size: 12px; color: var(--text-sec); background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 8px;}
     </style>
 </head>
 <body>
@@ -99,7 +98,8 @@
     <div class="page-header">
         <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
         <h1 class="page-title">Комментарии</h1>
-        <div style="width: 36px;"></div> </div>
+        <div style="width: 36px;"></div> 
+    </div>
 
     <div class="tabs">
         <button class="tab active" onclick="switchTab('create')">Настройка</button>
@@ -137,14 +137,19 @@
                 <div class="cond-grid">
                     <div>
                         <label>Тип награды</label>
-                        <select name="reward_type" required onchange="updatePreview()">
+                        <select name="reward_type" id="inp-reward-type" required onchange="handleRewardType()">
+                            <option value="tickets" selected>Билеты 🎫</option>
                             <option value="coins">Монеты 🪙</option>
-                            <option value="tickets">Билеты 🎫</option>
-                            </select>
+                        </select>
                     </div>
                     <div>
                         <label>Номинал</label>
-                        <input type="number" name="reward_value" value="100" required oninput="updatePreview()">
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" name="reward_value" id="inp-reward-val" value="10" required oninput="updatePreview()">
+                            <button type="button" id="btn-select-coins" class="icon-btn hidden" onclick="openCoinsModal()" style="background: var(--primary); color: #000; flex-shrink: 0;">
+                                <i class="fa-solid fa-list-ol"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -186,6 +191,17 @@
         </div>
     </div>
 
+    <div id="modal-coins" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) closeModal('modal-coins')">
+        <div class="bottom-sheet-container">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h3 style="margin:0">Доступные номиналы</h3>
+                <button type="button" onclick="closeModal('modal-coins')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="coins-list" style="overflow-y: auto; display: flex; flex-direction: column; max-height: 50vh; padding-bottom: 20px;">
+                </div>
+        </div>
+    </div>
+
     <div id="modal-alert" class="modal-overlay">
         <div class="alert-box">
             <div class="alert-title" id="alert-title">Title</div>
@@ -203,6 +219,9 @@
         tg.BackButton.onClick(() => {
             if (document.getElementById('modal-alert').classList.contains('modal-active')) {
                 closeModal('modal-alert'); return;
+            }
+            if (document.getElementById('modal-coins').classList.contains('modal-active')) {
+                closeModal('modal-coins'); return;
             }
             window.location.href = '/admin';
         });
@@ -223,11 +242,77 @@
             }
         }
 
+        // --- ЛОГИКА ВЫБОРА МОНЕТ ---
+        function handleRewardType() {
+            const type = document.getElementById('inp-reward-type').value;
+            const valInp = document.getElementById('inp-reward-val');
+            const btnSelect = document.getElementById('btn-select-coins');
+
+            if (type === 'coins') {
+                // Если выбрали монеты, блокируем ввод и сразу открываем склад
+                valInp.readOnly = true;
+                valInp.value = ''; 
+                valInp.placeholder = 'Выбрать...';
+                valInp.onclick = openCoinsModal; // Можно кликнуть прямо на поле
+                btnSelect.classList.remove('hidden');
+                openCoinsModal(); 
+            } else {
+                // Если билеты, возвращаем обычный ввод
+                valInp.readOnly = false;
+                valInp.placeholder = '10';
+                valInp.value = '10';
+                valInp.onclick = null;
+                btnSelect.classList.add('hidden');
+            }
+            updatePreview();
+        }
+
+        async function openCoinsModal() {
+            const m = document.getElementById('modal-coins');
+            m.classList.add('modal-active');
+            const list = document.getElementById('coins-list');
+            list.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Проверяем склад...</div>';
+            
+            try {
+                const res = await fetch('/api/admin/promocodes/available_coins');
+                const data = await res.json();
+                
+                if(data.status === 'success') {
+                    if(data.data.length === 0) {
+                        list.innerHTML = '<div style="text-align:center; padding:20px; color:var(--danger);">Нет свободных монет на складе! Создайте промокоды.</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    data.data.forEach(item => {
+                        html += `
+                        <div class="coin-item" onclick="selectCoin(${item.value})">
+                            <div class="coin-val">🪙 ${item.value} монет</div>
+                            <div class="coin-count">В наличии: ${item.count}</div>
+                        </div>`;
+                    });
+                    list.innerHTML = html;
+                } else {
+                    list.innerHTML = '<div style="text-align:center; color:var(--danger);">Ошибка загрузки БД</div>';
+                }
+            } catch(e) {
+                list.innerHTML = '<div style="text-align:center; color:var(--danger);">Ошибка сети</div>';
+            }
+        }
+
+        function selectCoin(val) {
+            document.getElementById('inp-reward-val').value = val;
+            closeModal('modal-coins');
+            updatePreview();
+            tg.HapticFeedback.selectionChanged();
+        }
+
+        // --- ПРЕВЬЮ И ПРОЧЕЕ ---
         function updatePreview() {
             const getVal = (name) => { const el = document.querySelector(`[name="${name}"]`); return el ? el.value : ''; };
 
             const rType = getVal('reward_type');
-            const rVal = getVal('reward_value');
+            const rVal = getVal('reward_value') || '0';
             const desc = getVal('reply_text');
             const imgUrl = getVal('image_url');
             
@@ -284,12 +369,19 @@
             if(!form.reportValidity()) return;
 
             const fd = new FormData(form);
+            const val = parseInt(fd.get('reward_value'));
+            
+            if (isNaN(val) || val <= 0) {
+                showCustomAlert('Внимание', 'Пожалуйста, выберите номинал награды!');
+                return;
+            }
+
             const payload = {
                 post_id: parseInt(fd.get('post_id')),
                 min_messages: parseInt(fd.get('min_messages')),
                 max_messages: parseInt(fd.get('max_messages')),
                 reward_type: fd.get('reward_type'),
-                reward_value: parseInt(fd.get('reward_value')),
+                reward_value: val,
                 image_url: fd.get('image_url'),
                 reply_text: fd.get('reply_text')
             };
@@ -297,7 +389,6 @@
             tg.MainButton.showProgress();
 
             try {
-                // Используем эндпоинты, которые мы добавили в бэкенд
                 const res = await fetch('/api/admin/comment_giveaways/create', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
@@ -306,10 +397,10 @@
                 if (res.ok) {
                     const data = await res.json();
                     tg.HapticFeedback.notificationOccurred('success');
-                    showCustomAlert('Успех!', `Настройки применены!\nЦель сгенерирована: ${data.target_message}-й комментарий.`);
+                    showCustomAlert('Успех!', `Розыгрыш настроен!\nСработает на: ${data.target_message}-м комментарии.`);
                     
                     form.reset(); 
-                    updatePreview(); 
+                    handleRewardType(); // Сбрасываем UI
                     switchTab('list'); 
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
@@ -416,7 +507,7 @@
         }
 
         // Init
-        updatePreview();
+        handleRewardType();
     </script>
 </body>
 </html>
