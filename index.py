@@ -4341,6 +4341,34 @@ async def create_comment_giveaway(request: Request):
     
     return {"status": "success", "target_message": target_message}
 
+@app.get("/api/admin/promocodes/available_coins")
+async def get_available_coins():
+    try:
+        client = await get_background_client()
+        # Получаем все неиспользованные промокоды
+        res = await client.get("/promocodes", params={
+            "is_used": "eq.false",
+            "telegram_id": "is.null",
+            "select": "reward_value"
+        })
+        
+        if res.status_code == 200:
+            data = res.json()
+            # Группируем их по номиналу и считаем количество
+            counts = {}
+            for item in data:
+                val = item.get('reward_value')
+                if val is not None:
+                    counts[val] = counts.get(val, 0) + 1
+            
+            # Сортируем по номиналу (по возрастанию)
+            result = [{"value": k, "count": v} for k, v in sorted(counts.items())]
+            return {"status": "success", "data": result}
+        else:
+            return {"status": "error", "detail": "Ошибка БД"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 @app.get("/api/admin/comment_giveaways/list")
 async def list_comment_giveaways():
     res = supabase.table("post_giveaways").select("*").order("post_id", desc=True).execute()
