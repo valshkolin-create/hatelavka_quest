@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Chat Giveaways</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #ffd700;
+            --accent: #28a745;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+            --text-sec: #aaaaaa;
+            --blur: 10px;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 20px;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 100px;
+        }
+
+        /* --- Header --- */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .back-btn:active { color: var(--text); transform: scale(0.95); }
+        .page-title { font-size: 20px; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* --- Tabs --- */
+        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; }
+        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; text-align: center; }
+        .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+
+        /* --- Forms --- */
+        .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
+        .admin-form input, .admin-form select, .admin-form textarea {
+            width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
+            color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
+        }
+        .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
+        
+        .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+        .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* --- Buttons --- */
+        .icon-btn { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .icon-btn:active { transform: scale(0.9); }
+        .action-submit-btn {
+            border: none; padding: 15px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: 0.2s; width: 100%; margin-top: 20px; background: var(--primary); color: #000;
+        }
+        .action-submit-btn:active { transform: scale(0.97); opacity: 0.8; }
+
+        /* --- Preview --- */
+        .preview-box { background: #182533; border-radius: 12px; padding: 12px; margin-top: 20px; border-left: 3px solid var(--primary); }
+        .prev-reply-line { border-left: 2px solid #64b5ef; padding-left: 8px; margin-bottom: 8px; font-size: 12px; color: #aaa; }
+        .prev-img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: none; }
+        .prev-img.show { display: block; }
+        .prev-text { font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+
+        /* --- Cards List --- */
+        .giveaway-card {
+            background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .card-title { font-weight: 700; font-size: 15px; }
+        .status-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 700; background: rgba(40, 167, 69, 0.2); color: var(--accent); }
+        .status-badge.inactive { background: rgba(255, 77, 77, 0.2); color: var(--danger); }
+        
+        .card-info { font-size: 12px; color: var(--text-sec); margin-bottom: 15px; line-height: 1.5; }
+        .card-info span { color: #fff; font-weight: 600; }
+        
+        .btn-danger { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); padding: 10px; border-radius: 10px; width: 100%; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-danger:active { transform: scale(0.95); }
+
+        /* Custom Alerts */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-active { display: flex; }
+        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); }
+        .alert-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .alert-msg { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; }
+        .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
+        .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
+        <h1 class="page-title">Комментарии</h1>
+        <div style="width: 36px;"></div> </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('create')">Настройка</button>
+        <button class="tab" onclick="switchTab('list')">Активные</button>
+    </div>
+
+    <div id="tab-create" class="tab-content">
+        <form id="create-form" class="admin-form">
+            
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-link"></i> Привязка к посту</h3>
+                <label>ID сообщения в чате комментариев</label>
+                <input type="number" name="post_id" placeholder="Например: 15432" required>
+                <div style="font-size:11px;color:#aaa;margin-top:5px;">Перешлите пост из канала в бота, чтобы узнать ID, или скопируйте ссылку на сообщение в группе.</div>
+            </div>
+
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-dice"></i> Рандом</h3>
+                <div class="cond-grid">
+                    <div>
+                        <label>Мин. сообщений</label>
+                        <input type="number" name="min_messages" value="5" required>
+                    </div>
+                    <div>
+                        <label>Макс. сообщений</label>
+                        <input type="number" name="max_messages" value="15" required>
+                    </div>
+                </div>
+                <div style="font-size:11px;color:#aaa;margin-top:5px;">Бот сгенерирует случайное число между этими значениями.</div>
+            </div>
+
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-gift"></i> Награда и ответ</h3>
+                
+                <div class="cond-grid">
+                    <div>
+                        <label>Тип награды</label>
+                        <select name="reward_type" required onchange="updatePreview()">
+                            <option value="coins">Монеты 🪙</option>
+                            <option value="tickets">Билеты 🎫</option>
+                            </select>
+                    </div>
+                    <div>
+                        <label>Номинал</label>
+                        <input type="number" name="reward_value" value="100" required oninput="updatePreview()">
+                    </div>
+                </div>
+
+                <label>Картинка для ответа (URL)</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" name="image_url" id="inp-img" placeholder="https://..." oninput="updatePreview()">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload').click()">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+                    <input type="file" id="file-upload" hidden accept="image/*" onchange="uploadImage(this, 'inp-img')">
+                </div>
+
+                <label>Текст ответа бота</label>
+                <textarea name="reply_text" id="inp-desc" rows="3" placeholder="🎉 Поздравляем! Ты выиграл..." required oninput="updatePreview()">🎉 Поздравляем! Твой комментарий оказался счастливым!</textarea>
+            </div>
+
+            <div class="preview-box" id="preview-box">
+                <div style="font-size: 10px; text-transform: uppercase; color: #777; margin-bottom: 5px;">Превью ответа бота</div>
+                <div class="prev-reply-line">
+                    <span style="color: #64b5ef; font-weight: bold;">User</span><br>
+                    Обычный комментарий под постом...
+                </div>
+                <img src="" id="prev-img" class="prev-img">
+                <div class="prev-text" id="prev-txt"></div>
+            </div>
+
+            <button type="button" onclick="submitGiveaway()" class="action-submit-btn">
+                <i class="fa-solid fa-bolt"></i>
+                <span>СОЗДАТЬ РОЗЫГРЫШ</span>
+            </button>
+        </form>
+    </div>
+
+    <div id="tab-list" class="tab-content hidden">
+        <div id="list-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-alert" class="modal-overlay">
+        <div class="alert-box">
+            <div class="alert-title" id="alert-title">Title</div>
+            <div class="alert-msg" id="alert-msg">Message</div>
+            <button class="alert-btn" id="alert-ok">OK</button>
+            <button class="alert-btn cancel hidden" id="alert-cancel">Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
+            if (document.getElementById('modal-alert').classList.contains('modal-active')) {
+                closeModal('modal-alert'); return;
+            }
+            window.location.href = '/admin';
+        });
+
+        function goBack() { window.location.href = '/admin'; }
+        
+        function switchTab(t) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+            document.getElementById('tab-' + t).classList.remove('hidden');
+            
+            const tabs = document.querySelectorAll('.tab');
+            if(t === 'create') {
+                tabs[0].classList.add('active');
+            } else {
+                tabs[1].classList.add('active'); 
+                loadGiveaways(); 
+            }
+        }
+
+        function updatePreview() {
+            const getVal = (name) => { const el = document.querySelector(`[name="${name}"]`); return el ? el.value : ''; };
+
+            const rType = getVal('reward_type');
+            const rVal = getVal('reward_value');
+            const desc = getVal('reply_text');
+            const imgUrl = getVal('image_url');
+            
+            let emoji = rType === 'coins' ? '🪙 монеток' : '🎫 билетов';
+            let finalDesc = desc.replace('{reward}', `${rVal} ${emoji}`);
+
+            const imgEl = document.getElementById('prev-img');
+            if (imgUrl) { 
+                imgEl.src = imgUrl; 
+                imgEl.classList.add('show'); 
+            } else { 
+                imgEl.classList.remove('show'); 
+            }
+
+            document.getElementById('prev-txt').innerHTML = finalDesc.replace(/\n/g, '<br>');
+        }
+
+        async function uploadImage(input, targetId) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const btn = input.previousElementSibling;
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/v1/upload', {
+                    method: 'POST', body: formData 
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById(targetId).value = data.url;
+                    updatePreview(); 
+                    showCustomAlert('Готово', 'Картинка загружена!');
+                } else {
+                    showCustomAlert('Ошибка', 'Не удалось загрузить фото');
+                }
+            } catch (e) {
+                showCustomAlert('Ошибка', 'Сбой соединения');
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.disabled = false;
+                input.value = ''; 
+            }
+        }
+
+        async function submitGiveaway() {
+            const form = document.getElementById('create-form');
+            if(!form.reportValidity()) return;
+
+            const fd = new FormData(form);
+            const payload = {
+                post_id: parseInt(fd.get('post_id')),
+                min_messages: parseInt(fd.get('min_messages')),
+                max_messages: parseInt(fd.get('max_messages')),
+                reward_type: fd.get('reward_type'),
+                reward_value: parseInt(fd.get('reward_value')),
+                image_url: fd.get('image_url'),
+                reply_text: fd.get('reply_text')
+            };
+
+            tg.MainButton.showProgress();
+
+            try {
+                // Используем эндпоинты, которые мы добавили в бэкенд
+                const res = await fetch('/api/admin/comment_giveaways/create', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    tg.HapticFeedback.notificationOccurred('success');
+                    showCustomAlert('Успех!', `Настройки применены!\nЦель сгенерирована: ${data.target_message}-й комментарий.`);
+                    
+                    form.reset(); 
+                    updatePreview(); 
+                    switchTab('list'); 
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    showCustomAlert('Ошибка', 'Не удалось создать розыгрыш');
+                }
+            } catch (error) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        }
+
+        async function loadGiveaways() {
+            const container = document.getElementById('list-container');
+            container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>';
+            
+            try {
+                const res = await fetch('/api/admin/comment_giveaways/list');
+                const result = await res.json();
+                
+                if (result.status === 'success') {
+                    renderList(result.data);
+                } else {
+                    container.innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка загрузки</p>';
+                }
+            } catch(e) { 
+                container.innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка соединения</p>';
+            }
+        }
+
+        function renderList(list) {
+            const container = document.getElementById('list-container');
+            if(!list || list.length === 0) {
+                container.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Нет активных розыгрышей</div>';
+                return;
+            }
+
+            let html = '';
+            list.forEach(item => {
+                const isActive = item.is_active;
+                const rName = item.reward_type === 'coins' ? 'Монеты' : (item.reward_type === 'tickets' ? 'Билеты' : item.reward_type);
+                
+                html += `
+                <div class="giveaway-card">
+                    <div class="card-header">
+                        <div class="card-title">Пост #${item.post_id}</div>
+                        <div class="status-badge ${isActive ? '' : 'inactive'}">${isActive ? 'Активен' : 'Завершен'}</div>
+                    </div>
+                    <div class="card-info">
+                        Награда: <span>${item.reward_value} ${rName}</span><br>
+                        Сработает на: <span>${item.target_message}-м сообщении</span><br>
+                        Уже собрано в массиве: <span>${item.unique_user_ids ? item.unique_user_ids.length : 0} юзеров</span>
+                    </div>
+                    <button onclick="deleteGiveaway(${item.post_id})" class="btn-danger">
+                        <i class="fa-solid fa-trash"></i> Удалить / Остановить
+                    </button>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        async function deleteGiveaway(postId) {
+            showConfirm('Удалить розыгрыш?', 'Настройки и массив участников для этого поста будут очищены.', async () => {
+                try {
+                    const res = await fetch('/api/admin/comment_giveaways/delete', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({post_id: postId})
+                    });
+                    if(res.ok) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        loadGiveaways();
+                    }
+                } catch(e) {
+                    showCustomAlert('Ошибка', 'Не удалось удалить');
+                }
+            });
+        }
+
+        // --- Utils Modal ---
+        function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
+        
+        function showCustomAlert(title, msg) {
+            const m = document.getElementById('modal-alert');
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            const okBtn = document.getElementById('alert-ok');
+            const cBtn = document.getElementById('alert-cancel');
+            cBtn.classList.add('hidden');
+            okBtn.onclick = () => m.classList.remove('modal-active');
+            m.classList.add('modal-active');
+        }
+
+        function showConfirm(title, msg, onYes) {
+            const m = document.getElementById('modal-alert');
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            const okBtn = document.getElementById('alert-ok');
+            const cBtn = document.getElementById('alert-cancel');
+            cBtn.classList.remove('hidden');
+            cBtn.onclick = () => m.classList.remove('modal-active');
+            okBtn.onclick = () => { onYes(); m.classList.remove('modal-active'); };
+            m.classList.add('modal-active');
+        }
+
+        // Init
+        updatePreview();
+    </script>
+</body>
+</html>
