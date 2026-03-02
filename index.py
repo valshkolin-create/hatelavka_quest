@@ -1907,19 +1907,23 @@ async def track_message(message: types.Message):
                                         "/promocodes", 
                                         params={"id": f"eq.{promo_id}"}, 
                                         json={
-                                            "telegram_id": user_id,
+                                            "telegram_id": user.id,  # Заменил user_id на user.id, чтобы не было ошибки неопределенной переменной
                                             "description": "НАГРАДА ЗА ТГ ПОСТ"
                                         }
                                     )
-                                    logging.warning(f"[GIVEAWAY] Промокод #{promo_id} на {r_val} выдан юзеру {user_id}")
+                                    logging.warning(f"[GIVEAWAY] Промокод #{promo_id} на {r_val} выдан юзеру {user.id}")
                                 else:
                                     # Если промокоды такого номинала закончились на складе базы
                                     logging.error(f"[GIVEAWAY ERROR] На складе нет свободных промокодов номиналом {r_val}!")
                                     # При желании тут можно отправлять сообщение админу в ЛС
-                            
+                        
                         elif r_type == 'tickets':
                             # Билеты остаются как есть (через RPC функцию)
-                            await client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": r_val})
+                            await client.post("/rpc/increment_tickets", json={"p_user_id": user.id, "p_amount": r_val})
+
+        except Exception as e:
+            logging.error(f"[GIVEAWAY ERROR] Ошибка при обработке розыгрыша: {e}")
+
     # 👆👆👆 КОНЕЦ ЛОГИКИ РОЗЫГРЫШЕЙ 👆👆👆
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
