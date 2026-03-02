@@ -1854,9 +1854,56 @@ async def track_message(message: types.Message):
         # Логируем warning, чтобы не засорять консоль
         logging.warning(f"Не удалось записать сообщение от {user.id}: {e}")
 
+    
+
 # --- 🔥 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 🔥 ---
     # Запускаем обновление прогресса в фоне (не ждем ответа БД, чтобы бот не тупил)
     asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
+
+    # 👇👇👇 ВСТАВЛЯЕМ ЛОГИКУ РОЗЫГРЫШЕЙ СЮДА 👇👇👇
+    if message.reply_to_message and message.chat.type in ["group", "supergroup"]:
+        post_id = message.reply_to_message.message_id
+        
+        try:
+            client = await get_background_client()
+            # 1. Вызываем нашу RPC функцию в Supabase
+            response = await client.post(
+                "/rpc/process_giveaway_comment", 
+                json={"p_post_id": post_id, "p_user_id": user.id}
+            )
+            
+            if response.status_code == 200:
+                status = response.json()
+                
+                # 2. Если функция вернула 'winner', значит это победный коммент!
+                if status == 'winner':
+                    # Забираем настройки розыгрыша
+                    giveaway_info = await client.get("/post_giveaways", params={"post_id": f"eq.{post_id}"})
+                    giveaway_data = giveaway_info.json()
+                    
+                    if giveaway_data:
+                        g_data = giveaway_data[0]
+                        r_type = g_data['reward_type']
+                        r_val = g_data['reward_value']
+                        
+                        # ==== ВЫДАЧА НАГРАДЫ ====
+                        if r_type == 'coins':
+                            await client.post("/rpc/increment_balance", json={"user_id_val": user.id, "amount": r_val})
+                        elif r_type == 'tickets':
+                            await client.post("/rpc/increment_tickets", json={"user_id_val": user.id, "amount": r_val})
+                        
+                        # ==== ОТПРАВКА СООБЩЕНИЯ ====
+                        text = g_data.get('reply_text', f"🎉 Поздравляем! Ты выиграл {r_val} {r_type}!")
+                        photo_url = g_data.get('image_url')
+                        
+                        # Отвечаем прямо на победный комментарий
+                        if photo_url:
+                            await message.reply_photo(photo=photo_url, caption=text)
+                        else:
+                            await message.reply(text)
+        except Exception as e:
+            logging.error(f"Ошибка в механике розыгрыша: {e}")
+    # 👆👆👆 КОНЕЦ ЛОГИКИ РОЗЫГРЫШЕЙ 👆👆👆
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
@@ -4247,6 +4294,47 @@ class UserInitRequest(BaseModel):
 class MarkCopiedRequest(BaseModel):
     initData: str
     code: str
+
+@app.post("/api/admin/comment_giveaways/create")
+async def create_comment_giveaway(request: Request):
+    # Здесь можно добавить проверку на админа, если у тебя используется токен/куки
+    data = await request.json()
+    post_id = int(data.get("post_id"))
+    min_msg = int(data.get("min_messages", 5))
+    max_msg = int(data.get("max_messages", 10))
+    
+    # Генерируем то самое выигрышное сообщение
+    target_message = random.randint(min_msg, max_msg)
+
+    giveaway_data = {
+        "post_id": post_id,
+        "min_messages": min_msg,
+        "max_messages": max_msg,
+        "target_message": target_message,
+        "reward_type": data.get("reward_type"),
+        "reward_value": int(data.get("reward_value", 1)),
+        "reply_text": data.get("reply_text", "🎉 Поздравляем! Ты стал случайным победителем!"),
+        "image_url": data.get("image_url", ""),
+        "is_active": True,
+        "unique_user_ids": [] # Очищаем массив на случай перезапуска
+    }
+
+    # Upsert обновит запись, если на этот пост уже был розыгрыш, или создаст новую
+    supabase.table("post_giveaways").upsert(giveaway_data).execute()
+    
+    return {"status": "success", "target_message": target_message}
+
+@app.get("/api/admin/comment_giveaways/list")
+async def list_comment_giveaways():
+    res = supabase.table("post_giveaways").select("*").order("post_id", desc=True).execute()
+    return {"status": "success", "data": res.data}
+
+@app.post("/api/admin/comment_giveaways/delete")
+async def delete_comment_giveaway(request: Request):
+    data = await request.json()
+    post_id = int(data.get("post_id"))
+    supabase.table("post_giveaways").delete().eq("post_id", post_id).execute()
+    return {"status": "success"}
 
 @app.post("/api/admin/cs/codes/list")
 async def api_admin_codes_list(
