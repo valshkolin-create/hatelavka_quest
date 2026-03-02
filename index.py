@@ -1888,21 +1888,38 @@ async def track_message(message: types.Message):
                         
                         # ==== ВЫДАЧА НАГРАДЫ ====
                         if r_type == 'coins':
-                            await client.post("/rpc/increment_balance", json={"user_id_val": user.id, "amount": r_val})
+                            # 1. Ищем свободный промокод нужного номинала
+                            promo_resp = await client.get("/promocodes", params={
+                                "is_used": "eq.false",
+                                "telegram_id": "is.null",
+                                "reward_value": f"eq.{r_val}",
+                                "limit": "1"
+                            })
+                            
+                            if promo_resp.status_code == 200:
+                                promo_data = promo_resp.json()
+                                
+                                if promo_data and len(promo_data) > 0:
+                                    promo_id = promo_data[0]['id']
+                                    
+                                    # 2. Привязываем промокод к победителю и меняем описание
+                                    await client.patch(
+                                        "/promocodes", 
+                                        params={"id": f"eq.{promo_id}"}, 
+                                        json={
+                                            "telegram_id": user_id,
+                                            "description": "НАГРАДА ЗА ТГ ПОСТ"
+                                        }
+                                    )
+                                    logging.warning(f"[GIVEAWAY] Промокод #{promo_id} на {r_val} выдан юзеру {user_id}")
+                                else:
+                                    # Если промокоды такого номинала закончились на складе базы
+                                    logging.error(f"[GIVEAWAY ERROR] На складе нет свободных промокодов номиналом {r_val}!")
+                                    # При желании тут можно отправлять сообщение админу в ЛС
+                            
                         elif r_type == 'tickets':
-                            await client.post("/rpc/increment_tickets", json={"user_id_val": user.id, "amount": r_val})
-                        
-                        # ==== ОТПРАВКА СООБЩЕНИЯ ====
-                        text = g_data.get('reply_text', f"🎉 Поздравляем! Ты выиграл {r_val} {r_type}!")
-                        photo_url = g_data.get('image_url')
-                        
-                        # Отвечаем прямо на победный комментарий
-                        if photo_url:
-                            await message.reply_photo(photo=photo_url, caption=text)
-                        else:
-                            await message.reply(text)
-        except Exception as e:
-            logging.error(f"Ошибка в механике розыгрыша: {e}")
+                            # Билеты остаются как есть (через RPC функцию)
+                            await client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": r_val})
     # 👆👆👆 КОНЕЦ ЛОГИКИ РОЗЫГРЫШЕЙ 👆👆👆
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
