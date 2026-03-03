@@ -1983,8 +1983,22 @@ async def track_message(message: types.Message):
 
     # 👇👇👇 ВСТАВЛЯЕМ ЛОГИКУ РОЗЫГРЫШЕЙ СЮДА 👇👇👇
     if message.reply_to_message and message.chat.type in ["group", "supergroup"]:
-        # 🔥 ИЗМЕНЕНИЕ: Берем ID оригинального поста из канала, а не пересланного
-        post_id = message.reply_to_message.forward_from_message_id or message.reply_to_message.message_id
+        
+        # 🔥 ИСПРАВЛЕНИЕ: Безопасное получение ID поста для новых версий Telegram (Aiogram 3+)
+        post_id = None
+        reply_msg = message.reply_to_message
+
+        # 1. Пробуем достать через современный forward_origin (Aiogram 3.x)
+        if getattr(reply_msg, "forward_origin", None) and getattr(reply_msg.forward_origin, "type", "") == "channel":
+            post_id = reply_msg.forward_origin.message_id
+        # 2. Запасной вариант для старых версий
+        elif getattr(reply_msg, "forward_from_message_id", None):
+            post_id = reply_msg.forward_from_message_id
+        # 3. Если всё скрыто, берем ID самого сообщения
+        if not post_id:
+            post_id = reply_msg.message_id
+
+        print(f"🕵️‍♂️ [DEBUG] Юзер {user.id} написал коммент. Бот определил ID поста: {post_id}")
         
         try:
             client = await get_background_client()
@@ -1996,6 +2010,7 @@ async def track_message(message: types.Message):
             
             if response.status_code == 200:
                 result = response.json()
+                print(f"📦 [DEBUG] Ответ от БД для поста {post_id}: {result}")
                 
                 # 2. 🔥 ЧЕСТНЫЙ РАНДОМ: Ожидаем от базы словарь с победителем
                 if isinstance(result, dict) and result.get("status") == "winner":
@@ -2044,6 +2059,27 @@ async def track_message(message: types.Message):
                         elif r_type == 'tickets':
                             # Билеты зачисляются победителю (через RPC функцию)
                             await client.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
+
+                        # ==== АВТОМАТИЧЕСКАЯ ОТПРАВКА СООБЩЕНИЯ В ЧАТ ====
+                        try:
+                            announcement = (
+                                f"{reply_text}\n\n"
+                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Крутой пачан</a>\n"
+                                f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
+                                f"<i>Награда уже зачислена на баланс!</i>"
+                            )
+                            # Бот отвечает на пересланный пост в группе
+                            await message.bot.send_message(
+                                chat_id=message.chat.id,
+                                text=announcement,
+                                reply_to_message_id=message.reply_to_message.message_id,
+                                parse_mode="HTML"
+                            )
+                        except Exception as e:
+                            logging.error(f"Не удалось отправить пост с победителем в группу: {e}")
+
+        except Exception as e:
+            logging.error(f"[GIVEAWAY ERROR] Ошибка при обработке розыгрыша: {e}")
 
                         # ==== АВТОМАТИЧЕСКАЯ ОТПРАВКА СООБЩЕНИЯ В ЧАТ ====
                         try:
