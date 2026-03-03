@@ -1878,8 +1878,9 @@ async def auto_start_giveaway_from_channel(message: types.Message):
 
     # --- 4. РЕГИСТРИРУЕМ РОЗЫГРЫШ В БАЗЕ ---
     post_id = message.message_id
-    import random
-    target = random.randint(min_msg, max_msg)
+    
+    # Теперь мы не берем случайное число, а жестко ставим МАКСИМАЛЬНОЕ количество юзеров как цель
+    target = max_msg 
     
     try:
         await client.post(
@@ -1890,12 +1891,13 @@ async def auto_start_giveaway_from_channel(message: types.Message):
                 "reward_value": reward_value,
                 "min_messages": min_msg,
                 "max_messages": max_msg,
-                "target_message": target,
+                "target_message": target, # Сработает ровно на max_msg (например, на 15-м юзере)
                 "reply_text": reply_text,
+                "image_url": image_url,
                 "is_active": True
             }
         )
-        logging.info(f"✅ Авто-розыгрыш запущен для поста #{post_id}. Цель: {target}")
+        logging.info(f"✅ Авто-розыгрыш запущен. Ждем {target} уникальных юзеров.")
     except Exception as e:
         logging.error(f"Ошибка сохранения авто-розыгрыша в БД: {e}")
         return
