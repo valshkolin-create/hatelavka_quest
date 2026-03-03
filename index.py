@@ -15574,27 +15574,36 @@ async def check_telegram_profile(
 @app.get("/api/v1/admin/fix_webhook")
 async def fix_webhook_settings():
     """
-    Запусти этот эндпоинт один раз в браузере, чтобы включить реакции.
-    Пример: https://твоя-ссылка.vercel.app/api/v1/admin/fix_webhook
+    Запусти этот эндпоинт один раз в браузере, чтобы включить реакции И каналы.
     """
     webhook_url = f"{WEB_APP_URL}/api/v1/webhook"
     
-    # Указываем ВСЕ типы обновлений, включая реакции
+    # 🔥 ОБНОВЛЕННЫЙ СПИСОК: Добавили channel_post и edited_channel_post
     updates = [
         "message", 
         "callback_query", 
         "chat_member", 
         "my_chat_member", 
-        "message_reaction",        # <--- ВОТ ОНО
-        "message_reaction_count"
+        "message_reaction", 
+        "message_reaction_count",
+        "channel_post",         # <--- ОБЯЗАТЕЛЬНО для твоих розыгрышей
+        "edited_channel_post"   # <--- Чтобы бот видел правки постов
     ]
     
     try:
-        # Сначала удаляем (на всякий случай)
+        # Удаляем старый вебхук
         await bot.delete_webhook()
-        # Ставим заново с правильными настройками
-        await bot.set_webhook(url=webhook_url, allowed_updates=updates)
-        return {"status": "ok", "message": "Вебхук обновлен! Реакции включены.", "url": webhook_url}
+        # Ставим новый со всеми нужными доступами
+        await bot.set_webhook(
+            url=webhook_url, 
+            allowed_updates=updates,
+            drop_pending_updates=True # Пропустит старые сообщения, чтобы бот не сошел с ума при запуске
+        )
+        return {
+            "status": "ok", 
+            "message": "Вебхук обновлен! Теперь бот видит каналы и реакции.", 
+            "url": webhook_url
+        }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
