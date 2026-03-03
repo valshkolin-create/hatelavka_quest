@@ -1812,6 +1812,93 @@ async def try_send_message(chat_id: int, text: str):
         print(f"Ошибка отправки уведомления {chat_id}: {e}")
         
 
+# --- НОВЫЙ ХЭНДЛЕР: ЛОВИТ ПОСТ В КАНАЛЕ, МЕНЯЕТ ТЕКСТ И СТАВИТ ТАЙМЕР QSTASH ---
+@router.channel_post(F.text.contains("🎁") | F.caption.contains("🎁"))
+async def auto_start_giveaway_from_channel(message: types.Message):
+    """
+    Ловит посты в канале, ищет 🎁, заменяет его на условия розыгрыша,
+    создает запись в БД и заводит таймер на завершение через QStash.
+    """
+    # 1. Определяем, это текст или картинка с подписью
+    is_photo = message.photo is not None
+    original_text = message.html_text or message.caption or ""
+    
+    # 2. Удаляем значок подарка
+    clean_text = original_text.replace("🎁", "").strip()
+    
+    # 3. Наш красивый блок с условиями
+    giveaway_text = (
+        "\n\n🎁 <b>Розыгрыш для внимательных</b>\n"
+        "Для тех, кто дочитал до этого момента: под этим постом проходит розыгрыш!\n\n"
+        "Условия максимально просты:\n"
+        "🔴 Нужно просто оставить один комментарий под этим постом.\n"
+        "🔴 Бот выберет победителя среди уникальных пользователей (флудить нет смысла, система проверяет не количество сообщений, а уникальность аккаунта).\n"
+        "🔴 Писать нужно именно под пост, а не в личку или общий чат!\n\n"
+        "🏆 <b>Приз:</b> 30 билетов."
+    )
+    
+    new_text = f"{clean_text}{giveaway_text}"
+    
+    # 4. Редактируем пост прямо в канале
+    try:
+        if is_photo:
+            await message.edit_caption(caption=new_text, parse_mode="HTML")
+        else:
+            await message.edit_text(text=new_text, parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"Не удалось отредактировать пост в канале: {e}")
+        return
+
+    # 5. Регистрируем розыгрыш в БД по ID поста в канале
+    post_id = message.message_id
+    
+    try:
+        client = await get_background_client()
+        await client.post(
+            "/post_giveaways", 
+            json={
+                "post_id": post_id,
+                "reward_type": "tickets", 
+                "reward_value": 30,
+                "is_active": True
+            }
+        )
+        logging.info(f"✅ Авто-розыгрыш запущен для поста #{post_id}")
+    except Exception as e:
+        logging.error(f"Ошибка сохранения авто-розыгрыша в БД: {e}")
+        return
+
+    # 6. Ставим таймер QStash на авто-завершение через 48 часов
+    qstash_token = os.getenv("QSTASH_TOKEN")
+    app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
+    
+    if qstash_token and app_url:
+        try:
+            # Считаем время: сейчас (в UTC) + 48 часов
+            dt_future = datetime.now(timezone.utc) + timedelta(hours=48)
+            unix_time = int(dt_future.timestamp())
+            
+            target_url = f"{app_url}/api/v1/webhook/close_post_giveaway"
+            
+            async with httpx.AsyncClient() as http_client:
+                await http_client.post(
+                    f"https://qstash.upstash.io/v2/publish/{target_url}",
+                    headers={
+                        "Authorization": f"Bearer {qstash_token}", 
+                        "Upstash-Not-Before": str(unix_time), 
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "post_id": post_id, 
+                        # Если функция get_cron_secret у вас называется иначе, поменяйте тут
+                        "secret": get_cron_secret() 
+                    }
+                )
+            logging.info(f"✅ [QSTASH] Таймер закрытия установлен на {unix_time} для поста {post_id}")
+        except Exception as e:
+            logging.error(f"⚠️ [QSTASH] Ошибка установки таймера: {e}")
+
+
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message):
     """
@@ -1862,7 +1949,8 @@ async def track_message(message: types.Message):
 
     # 👇👇👇 ВСТАВЛЯЕМ ЛОГИКУ РОЗЫГРЫШЕЙ СЮДА 👇👇👇
     if message.reply_to_message and message.chat.type in ["group", "supergroup"]:
-        post_id = message.reply_to_message.message_id
+        # 🔥 ИЗМЕНЕНИЕ: Берем ID оригинального поста из канала, а не пересланного
+        post_id = message.reply_to_message.forward_from_message_id or message.reply_to_message.message_id
         
         try:
             client = await get_background_client()
@@ -1873,10 +1961,13 @@ async def track_message(message: types.Message):
             )
             
             if response.status_code == 200:
-                status = response.json()
+                result = response.json()
                 
-                # 2. Если функция вернула 'winner', значит это победный коммент!
-                if status == 'winner':
+                # 2. 🔥 ЧЕСТНЫЙ РАНДОМ: Ожидаем от базы словарь с победителем
+                if isinstance(result, dict) and result.get("status") == "winner":
+                    winner_id = result.get("winner_id")
+                    reply_text = result.get("reply_text") or "🎉 Розыгрыш завершен! Победитель выбран!"
+                    
                     # Забираем настройки розыгрыша
                     giveaway_info = await client.get("/post_giveaways", params={"post_id": f"eq.{post_id}"})
                     giveaway_data = giveaway_info.json()
@@ -1886,7 +1977,7 @@ async def track_message(message: types.Message):
                         r_type = g_data['reward_type']
                         r_val = g_data['reward_value']
                         
-                        # ==== ВЫДАЧА НАГРАДЫ ====
+                        # ==== ВЫДАЧА НАГРАДЫ ИМЕННО ПОБЕДИТЕЛЮ (winner_id) ====
                         if r_type == 'coins':
                             # 1. Ищем свободный промокод нужного номинала
                             promo_resp = await client.get("/promocodes", params={
@@ -1902,24 +1993,41 @@ async def track_message(message: types.Message):
                                 if promo_data and len(promo_data) > 0:
                                     promo_id = promo_data[0]['id']
                                     
-                                    # 2. Привязываем промокод к победителю и меняем описание
+                                    # 2. Привязываем промокод к РАНДОМНОМУ ПОБЕДИТЕЛЮ
                                     await client.patch(
                                         "/promocodes", 
                                         params={"id": f"eq.{promo_id}"}, 
                                         json={
-                                            "telegram_id": user.id,  # Заменил user_id на user.id, чтобы не было ошибки неопределенной переменной
+                                            "telegram_id": int(winner_id), 
                                             "description": "НАГРАДА ЗА ТГ ПОСТ"
                                         }
                                     )
-                                    logging.warning(f"[GIVEAWAY] Промокод #{promo_id} на {r_val} выдан юзеру {user.id}")
+                                    logging.warning(f"[GIVEAWAY] Промокод #{promo_id} на {r_val} выдан рандомному юзеру {winner_id}")
                                 else:
                                     # Если промокоды такого номинала закончились на складе базы
                                     logging.error(f"[GIVEAWAY ERROR] На складе нет свободных промокодов номиналом {r_val}!")
-                                    # При желании тут можно отправлять сообщение админу в ЛС
                         
                         elif r_type == 'tickets':
-                            # Билеты остаются как есть (через RPC функцию)
-                            await client.post("/rpc/increment_tickets", json={"p_user_id": user.id, "p_amount": r_val})
+                            # Билеты зачисляются победителю (через RPC функцию)
+                            await client.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
+
+                        # ==== АВТОМАТИЧЕСКАЯ ОТПРАВКА СООБЩЕНИЯ В ЧАТ ====
+                        try:
+                            announcement = (
+                                f"{reply_text}\n\n"
+                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                                f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
+                                f"<i>Награда уже зачислена на баланс!</i>"
+                            )
+                            # Бот отвечает на пересланный пост в группе
+                            await message.bot.send_message(
+                                chat_id=message.chat.id,
+                                text=announcement,
+                                reply_to_message_id=message.reply_to_message.message_id,
+                                parse_mode="HTML"
+                            )
+                        except Exception as e:
+                            logging.error(f"Не удалось отправить пост с победителем в группу: {e}")
 
         except Exception as e:
             logging.error(f"[GIVEAWAY ERROR] Ошибка при обработке розыгрыша: {e}")
@@ -15447,6 +15555,112 @@ async def upload_image(
         print(f"Upload Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# --- ЭНДПОИНТ ДЛЯ РУЧНОГО ЗАВЕРШЕНИЯ (АДМИНКА) ---
+@app.post("/api/v1/admin/raffles/force_close")
+async def force_close_giveaway(
+    req: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        data = await req.json()
+        post_id = data.get("post_id")
+        
+        if not post_id:
+            raise HTTPException(status_code=400, detail="Не передан post_id")
+
+        # 1. Забираем данные о розыгрыше из БД
+        giveaway_resp = await supabase.get("/post_giveaways", params={"post_id": f"eq.{post_id}"})
+        giveaway_data = giveaway_resp.json()
+
+        if not giveaway_data or len(giveaway_data) == 0:
+            raise HTTPException(status_code=404, detail="Розыгрыш не найден")
+
+        g_data = giveaway_data[0]
+        
+        if not g_data.get("is_active"):
+            return {"message": "Розыгрыш уже был завершен ранее"}
+
+        unique_users = g_data.get("unique_user_ids", [])
+        r_type = g_data.get('reward_type')
+        r_val = g_data.get('reward_value')
+        reply_text = g_data.get('reply_text') or "🎉 Розыгрыш завершен досрочно! Победитель выбран!"
+        
+        # 2. Железно закрываем розыгрыш в базе
+        await supabase.patch(
+            "/post_giveaways",
+            params={"post_id": f"eq.{post_id}"},
+            json={"is_active": False}
+        )
+
+        # 3. Если участников вообще не было, просто выходим
+        if not unique_users or len(unique_users) == 0:
+            return {"message": "Розыгрыш закрыт. Участников не было, призы сохранены."}
+
+        # 4. 🔥 ЧЕСТНЫЙ РАНДОМ (РУЧНОЙ СЦЕНАРИЙ)
+        import random
+        winner_id = random.choice(unique_users)
+
+        # 5. ВЫДАЕМ НАГРАДУ ПОБЕДИТЕЛЮ
+        if r_type == 'coins':
+            promo_resp = await supabase.get("/promocodes", params={
+                "is_used": "eq.false",
+                "telegram_id": "is.null",
+                "reward_value": f"eq.{r_val}",
+                "limit": "1"
+            })
+            
+            if promo_resp.status_code == 200:
+                promo_data = promo_resp.json()
+                if promo_data and len(promo_data) > 0:
+                    promo_id = promo_data[0]['id']
+                    
+                    await supabase.patch(
+                        "/promocodes", 
+                        params={"id": f"eq.{promo_id}"}, 
+                        json={
+                            "telegram_id": int(winner_id), 
+                            "description": "НАГРАДА ЗА ТГ ПОСТ (РУЧНОЕ ЗАВЕРШЕНИЕ)"
+                        }
+                    )
+                    logging.warning(f"[GIVEAWAY FORCE CLOSE] Промокод #{promo_id} на {r_val} выдан юзеру {winner_id}")
+                else:
+                    logging.error(f"[GIVEAWAY ERROR] На складе нет промокодов на {r_val}!")
+        
+        elif r_type == 'tickets':
+            await supabase.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
+
+        # 6. ОТПРАВЛЯЕМ ПОСТ В ГРУППУ
+        # Забираем ID чата из переменных окружения
+        chat_id = os.getenv("ALLOWED_CHAT_ID") or ALLOWED_CHAT_ID 
+        
+        if chat_id:
+            try:
+                announcement = (
+                    f"{reply_text}\n\n"
+                    f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                    f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
+                    f"<i>Награда зачислена!</i>"
+                )
+                # Глобальный объект 'bot' должен быть импортирован в ваш файл
+                await bot.send_message(
+                    chat_id=int(chat_id),
+                    text=announcement,
+                    reply_to_message_id=int(post_id),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logging.error(f"Не удалось опубликовать итоги ручного завершения: {e}")
+
+        return {
+            "status": "success", 
+            "message": f"Розыгрыш закрыт, победитель {winner_id} награжден!",
+            "winner_id": str(winner_id)
+        }
+
+    except Exception as e:
+        logging.error(f"Ошибка в force_close: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
 # ⚡ (Админ) ПРИНУДИТЕЛЬНАЯ ПУБЛИКАЦИЯ (Если таймер не сработал или нужно срочно)
