@@ -1949,13 +1949,8 @@ async def track_message(message: types.Message):
         return
 
     # 3. НОВАЯ ПРОВЕРКА: Экономим ресурсы на коротких сообщениях
-    # Если текст есть, но он короче 2 символов (1 символ) — выходим.
-    # База данных не дергается, деньги Vercel не тратятся.
     if message.text and len(message.text) < 2:
         return
-
-    # -------------------------
-    # Дальше твой код без изменений
 
     user = message.from_user
     full_name = f"{user.first_name} {user.last_name or ''}".strip()
@@ -1975,13 +1970,10 @@ async def track_message(message: types.Message):
         # Логируем warning, чтобы не засорять консоль
         logging.warning(f"Не удалось записать сообщение от {user.id}: {e}")
 
-    
-
-# --- 🔥 ДОБАВИТЬ ЭТУ СТРОКУ СЮДА 🔥 ---
     # Запускаем обновление прогресса в фоне (не ждем ответа БД, чтобы бот не тупил)
     asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
 
-    # 👇👇👇 ВСТАВЛЯЕМ ЛОГИКУ РОЗЫГРЫШЕЙ СЮДА 👇👇👇
+    # 👇👇👇 ЛОГИКА РОЗЫГРЫШЕЙ 👇👇👇
     if message.reply_to_message and message.chat.type in ["group", "supergroup"]:
         
         # 🔥 ИСПРАВЛЕНИЕ: Безопасное получение ID поста для новых версий Telegram (Aiogram 3+)
@@ -2080,29 +2072,6 @@ async def track_message(message: types.Message):
 
         except Exception as e:
             logging.error(f"[GIVEAWAY ERROR] Ошибка при обработке розыгрыша: {e}")
-
-                        # ==== АВТОМАТИЧЕСКАЯ ОТПРАВКА СООБЩЕНИЯ В ЧАТ ====
-                        try:
-                            announcement = (
-                                f"{reply_text}\n\n"
-                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Крутой пачан</a>\n"
-                                f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
-                                f"<i>Награда уже зачислена на баланс!</i>"
-                            )
-                            # Бот отвечает на пересланный пост в группе
-                            await message.bot.send_message(
-                                chat_id=message.chat.id,
-                                text=announcement,
-                                reply_to_message_id=message.reply_to_message.message_id,
-                                parse_mode="HTML"
-                            )
-                        except Exception as e:
-                            logging.error(f"Не удалось отправить пост с победителем в группу: {e}")
-
-        except Exception as e:
-            logging.error(f"[GIVEAWAY ERROR] Ошибка при обработке розыгрыша: {e}")
-
-    # 👆👆👆 КОНЕЦ ЛОГИКИ РОЗЫГРЫШЕЙ 👆👆👆
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
