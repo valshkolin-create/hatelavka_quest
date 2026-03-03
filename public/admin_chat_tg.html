@@ -469,7 +469,7 @@
                 if (res.ok) {
                     const data = await res.json();
                     tg.HapticFeedback.notificationOccurred('success');
-                    showCustomAlert('Успех!', `Розыгрыш настроен!\nСработает на: ${data.target_message}-м комментарии.`);
+                    showCustomAlert('Успех!', `Розыгрыш настроен!\nСработает на: ${data.target_message}-м юзере.`);
                     
                     form.reset(); 
                     handleRewardType();
