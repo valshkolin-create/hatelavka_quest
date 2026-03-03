@@ -592,12 +592,45 @@
                         Сработает на: <span>${item.target_message}-м сообщении</span><br>
                         Уже собрано: <span>${item.unique_user_ids ? item.unique_user_ids.length : 0} юзеров</span>
                     </div>
+                    
+                    <button onclick="manualAddUser(${item.post_id})" class="btn-danger" style="background: rgba(40,167,69,0.15); color: var(--accent); border-color: rgba(40,167,69,0.3); margin-bottom: 8px;">
+                        <i class="fa-solid fa-user-plus"></i> Добавить участника
+                    </button>
+
                     <button onclick="forceCloseGiveaway(${item.post_id})" class="btn-danger">
                         <i class="fa-solid fa-flag-checkered"></i> Завершить досрочно
                     </button>
                 </div>`;
             });
             container.innerHTML = html;
+        }
+
+        async function manualAddUser(postId) {
+            // Запрашиваем ник или ID у админа
+            const identifier = window.prompt("Введите @username или цифровой ID участника:\n(Например: @MILLIONs_333)");
+            
+            if (!identifier || identifier.trim() === '') return;
+
+            try {
+                const res = await fetch('/api/v1/admin/comment_giveaways/add_user', {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ post_id: postId, user_id: identifier.trim() })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    tg.HapticFeedback.notificationOccurred('success');
+                    showCustomAlert('Готово!', data.message);
+                    loadGiveaways(); // Обновляем список, чтобы увидеть новый счетчик
+                } else {
+                    const err = await res.json();
+                    tg.HapticFeedback.notificationOccurred('error');
+                    showCustomAlert('Ошибка', err.detail || 'Не удалось добавить участника');
+                }
+            } catch(e) {
+                showCustomAlert('Ошибка', 'Сбой сети при добавлении');
+            }
         }
 
         async function forceCloseGiveaway(postId) {
