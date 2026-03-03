@@ -2761,36 +2761,26 @@ async def manual_add_giveaway_user(
     try:
         data = await req.json()
         post_id = data.get("post_id")
-        identifier = data.get("user_id", "").strip() # Тут может быть и ник, и ID
+        identifier = data.get("user_id", "").strip()
 
         if not identifier:
             raise HTTPException(status_code=400, detail="Пустое значение!")
 
         user_id = None
-
-        # Если ввели только цифры — значит это прямой ID
         if identifier.isdigit():
             user_id = int(identifier)
         else:
-            # Если есть буквы — значит это юзернейм. Убираем @, если админ его написал
             username = identifier.replace("@", "")
-            
-            # Ищем пользователя в вашей таблице users (используем ilike для поиска без учета регистра)
             user_resp = await supabase.get("/users", params={"username": f"ilike.{username}", "limit": "1"})
-            
-            if user_resp.status_code == 200:
-                users_data = user_resp.json()
-                if users_data and len(users_data) > 0:
-                    user_id = users_data[0].get("telegram_id")
-                else:
-                    raise HTTPException(status_code=404, detail=f"Юзер @{username} не найден в базе бота! (Возможно, он ни разу не запускал бота. Используйте цифровой ID).")
+            if user_resp.status_code == 200 and user_resp.json():
+                user_id = user_resp.json()[0].get("telegram_id")
             else:
-                raise HTTPException(status_code=500, detail="Ошибка при поиске в БД")
+                raise HTTPException(status_code=404, detail=f"Юзер @{username} не найден в БД!")
 
         if not user_id:
-             raise HTTPException(status_code=404, detail="Не удалось определить ID пользователя")
+             raise HTTPException(status_code=404, detail="Не удалось определить ID")
 
-        # Добавляем найденный ID в розыгрыш
+        # 1. Закидываем юзера в БД
         resp = await supabase.post(
             "/rpc/process_giveaway_comment", 
             json={"p_post_id": post_id, "p_user_id": user_id}
@@ -2798,11 +2788,52 @@ async def manual_add_giveaway_user(
         
         if resp.status_code == 200:
             result = resp.json()
+            
+            # 🔥 2. ЕСЛИ ЭТОТ ЮЗЕР ОКАЗАЛСЯ ПОСЛЕДНИМ (ПОБЕДИТЕЛЕМ)
             if isinstance(result, dict) and result.get("status") == "winner":
-                return {"status": "success", "message": f"Участник добавлен! Лимит достигнут, розыгрыш завершен!", "winner": True}
-            return {"status": "success", "message": f"Участник успешно добавлен!"}
+                winner_id = result.get("winner_id")
+                
+                # Подтягиваем инфу о награде, чтобы выдать её
+                giveaway_info = await supabase.get("/post_giveaways", params={"post_id": f"eq.{post_id}"})
+                if giveaway_info.status_code == 200 and giveaway_info.json():
+                    g_data = giveaway_info.json()[0]
+                    r_type = g_data['reward_type']
+                    r_val = g_data['reward_value']
+                    reply_text = g_data.get('reply_text', '🎉 Розыгрыш завершен!')
+                    image_url = g_data.get('image_url', '')
+
+                    # --- ВЫДАЕМ НАГРАДУ ---
+                    if r_type == 'coins':
+                        promo_resp = await supabase.get("/promocodes", params={"is_used": "eq.false", "telegram_id": "is.null", "reward_value": f"eq.{r_val}", "limit": "1"})
+                        if promo_resp.status_code == 200 and promo_resp.json():
+                            promo_id = promo_resp.json()[0]['id']
+                            await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={"telegram_id": int(winner_id), "description": "НАГРАДА ЗА ТГ ПОСТ"})
+                    elif r_type == 'tickets':
+                        await supabase.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
+
+                    # --- ОТПРАВЛЯЕМ ПОСТ В КАНАЛ ---
+                    chat_id = os.getenv("ALLOWED_CHAT_ID") or ALLOWED_CHAT_ID
+                    if chat_id:
+                        announcement = (
+                            f"{reply_text}\n\n"
+                            f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                            f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
+                            f"<i>Награда зачислена!</i>"
+                        )
+                        try:
+                            if image_url:
+                                await bot.send_photo(chat_id=int(chat_id), photo=image_url, caption=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
+                            else:
+                                await bot.send_message(chat_id=int(chat_id), text=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
+                        except Exception as bot_e:
+                            logging.error(f"Ошибка отправки итога из админки: {bot_e}")
+
+                return {"status": "success", "message": "Лимит достигнут! Бот выдал приз и написал в чат.", "winner": True}
+            
+            # Если лимит еще не достигнут
+            return {"status": "success", "message": "Участник успешно добавлен!"}
         else:
-            raise HTTPException(status_code=500, detail="Не удалось добавить участника (возможно, он уже в списке)")
+            raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
     except HTTPException:
         raise
