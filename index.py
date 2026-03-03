@@ -1813,7 +1813,6 @@ async def try_send_message(chat_id: int, text: str):
         
 
 # --- НОВЫЙ ХЭНДЛЕР: ЛОВИТ ПОСТ В КАНАЛЕ, МЕНЯЕТ ТЕКСТ И СТАВИТ ТАЙМЕР QSTASH ---
-# --- НОВЫЙ ХЭНДЛЕР: ЛОВИТ ПОСТ В КАНАЛЕ, МЕНЯЕТ ТЕКСТ И СТАВИТ ТАЙМЕР QSTASH ---
 @router.channel_post(F.text.contains("🎁") | F.caption.contains("🎁"))
 async def auto_start_giveaway_from_channel(message: types.Message):
     """
@@ -1852,16 +1851,17 @@ async def auto_start_giveaway_from_channel(message: types.Message):
     clean_text = original_text.replace("🎁", "").strip()
     
     # Чтобы в посте корректно отображалась награда из базы
-    reward_str = f"{reward_value} монет 🪙" if reward_type == 'coins' else f"{reward_value} билетов 🎫"
+    reward_str = f"<u><i>{reward_value} монет 🪙</i></u>" if reward_type == 'coins' else f"<u><i>{reward_value} билетов 🎫</i></u>"
     
+    # Формируем текст с использованием тегов <b> (жирный), <u> (подчеркивание) и <i> (курсив)
     giveaway_text = (
-        "\n\n🎁 <b>Розыгрыш для внимательных</b>\n"
-        "Для тех, кто дочитал до этого момента: под этим постом проходит розыгрыш!\n\n"
-        "Условия максимально просты:\n"
+        "\n\n<b>ХАЛЯВА</b> <u><i>Розыгрыш для внимательных</i></u>\n"
+        "<u><i>Для тех, кто дочитал до этого момента: под этим постом проходит розыгрыш!</i></u>\n\n"
+        "<i>Условия максимально просты:</i>\n\n"
         "🔴 Нужно просто оставить один комментарий под этим постом.\n"
         "🔴 Бот выберет победителя среди уникальных пользователей (флудить нет смысла, система проверяет не количество сообщений, а уникальность аккаунта).\n"
         "🔴 Писать нужно именно под пост, а не в личку или общий чат!\n\n"
-        f"🏆 <b>Приз:</b> {reward_str}"
+        f"🏆 Приз: {reward_str}"
     )
     
     new_text = f"{clean_text}{giveaway_text}"
