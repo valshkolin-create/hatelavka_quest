@@ -3098,11 +3098,12 @@ async def telegram_webhook(
     """
     SUPER-FAST WEBHOOK (10-20ms response time)
     """
-    # 1. СРАЗУ возвращаем ответ Телеграму, если это редактирование
-    if "edited_message" in update or "channel_post" in update:
+    # 1. Игнорируем только редактирования, но ПРОПУСКАЕМ channel_post!
+    if "edited_message" in update:
         return JSONResponse(content={"status": "ignored"})
 
     # 2. Быстрая фильтрация чата (как делали раньше)
+    # Эта проверка работает только для обычных сообщений ("message")
     if "message" in update:
         chat_id = update["message"].get("chat", {}).get("id")
         if ALLOWED_CHAT_ID != 0 and chat_id != ALLOWED_CHAT_ID and update["message"].get("chat", {}).get("type") != "private":
