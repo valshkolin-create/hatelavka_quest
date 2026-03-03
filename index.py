@@ -1813,20 +1813,47 @@ async def try_send_message(chat_id: int, text: str):
         
 
 # --- НОВЫЙ ХЭНДЛЕР: ЛОВИТ ПОСТ В КАНАЛЕ, МЕНЯЕТ ТЕКСТ И СТАВИТ ТАЙМЕР QSTASH ---
+# --- НОВЫЙ ХЭНДЛЕР: ЛОВИТ ПОСТ В КАНАЛЕ, МЕНЯЕТ ТЕКСТ И СТАВИТ ТАЙМЕР QSTASH ---
 @router.channel_post(F.text.contains("🎁") | F.caption.contains("🎁"))
 async def auto_start_giveaway_from_channel(message: types.Message):
     """
     Ловит посты в канале, ищет 🎁, заменяет его на условия розыгрыша,
     создает запись в БД и заводит таймер на завершение через QStash.
+    Настройки берет динамически из БД (admin_controls).
     """
-    # 1. Определяем, это текст или картинка с подписью
+    # --- 1. ДОСТАЕМ ГЛОБАЛЬНЫЕ НАСТРОЙКИ АВТО-РОЗЫГРЫШЕЙ ИЗ БАЗЫ ---
+    # Безопасные дефолты (если в админке еще не сохранили настройки)
+    min_msg = 10
+    max_msg = 25
+    reward_type = "tickets"
+    reward_value = 30
+    reply_text = "🎉 Поздравляем! Твой комментарий оказался счастливым!"
+    
+    try:
+        client = await get_background_client()
+        # Берем настройки admin_controls напрямую из базы
+        settings_resp = await client.get("/settings", params={"key": "eq.admin_controls"})
+        if settings_resp.status_code == 200:
+            data = settings_resp.json()
+            if data and data[0].get('value'):
+                settings_data = data[0]['value']
+                # Перезаписываем дефолты тем, что настроено в админке
+                min_msg = int(settings_data.get('auto_gw_min_msg', 10))
+                max_msg = int(settings_data.get('auto_gw_max_msg', 25))
+                reward_type = settings_data.get('auto_gw_reward_type', 'tickets')
+                reward_value = int(settings_data.get('auto_gw_reward_value', 30))
+                reply_text = settings_data.get('auto_gw_reply_text', '🎉 Поздравляем! Твой комментарий оказался счастливым!')
+    except Exception as e:
+        logging.error(f"Не удалось получить настройки авто-розыгрышей, используем дефолт: {e}")
+
+    # --- 2. ФОРМИРУЕМ ТЕКСТ ДЛЯ КАНАЛА ---
     is_photo = message.photo is not None
     original_text = message.html_text or message.caption or ""
-    
-    # 2. Удаляем значок подарка
     clean_text = original_text.replace("🎁", "").strip()
     
-    # 3. Наш красивый блок с условиями
+    # Чтобы в посте корректно отображалась награда из базы
+    reward_str = f"{reward_value} монет 🪙" if reward_type == 'coins' else f"{reward_value} билетов 🎫"
+    
     giveaway_text = (
         "\n\n🎁 <b>Розыгрыш для внимательных</b>\n"
         "Для тех, кто дочитал до этого момента: под этим постом проходит розыгрыш!\n\n"
@@ -1834,12 +1861,12 @@ async def auto_start_giveaway_from_channel(message: types.Message):
         "🔴 Нужно просто оставить один комментарий под этим постом.\n"
         "🔴 Бот выберет победителя среди уникальных пользователей (флудить нет смысла, система проверяет не количество сообщений, а уникальность аккаунта).\n"
         "🔴 Писать нужно именно под пост, а не в личку или общий чат!\n\n"
-        "🏆 <b>Приз:</b> 30 билетов."
+        f"🏆 <b>Приз:</b> {reward_str}"
     )
     
     new_text = f"{clean_text}{giveaway_text}"
     
-    # 4. Редактируем пост прямо в канале
+    # --- 3. РЕДАКТИРУЕМ ПОСТ В КАНАЛЕ ---
     try:
         if is_photo:
             await message.edit_caption(caption=new_text, parse_mode="HTML")
@@ -1849,32 +1876,36 @@ async def auto_start_giveaway_from_channel(message: types.Message):
         logging.error(f"Не удалось отредактировать пост в канале: {e}")
         return
 
-    # 5. Регистрируем розыгрыш в БД по ID поста в канале
+    # --- 4. РЕГИСТРИРУЕМ РОЗЫГРЫШ В БАЗЕ ---
     post_id = message.message_id
+    import random
+    target = random.randint(min_msg, max_msg)
     
     try:
-        client = await get_background_client()
         await client.post(
             "/post_giveaways", 
             json={
                 "post_id": post_id,
-                "reward_type": "tickets", 
-                "reward_value": 30,
+                "reward_type": reward_type, 
+                "reward_value": reward_value,
+                "min_messages": min_msg,
+                "max_messages": max_msg,
+                "target_message": target,
+                "reply_text": reply_text,
                 "is_active": True
             }
         )
-        logging.info(f"✅ Авто-розыгрыш запущен для поста #{post_id}")
+        logging.info(f"✅ Авто-розыгрыш запущен для поста #{post_id}. Цель: {target}")
     except Exception as e:
         logging.error(f"Ошибка сохранения авто-розыгрыша в БД: {e}")
         return
 
-    # 6. Ставим таймер QStash на авто-завершение через 48 часов
+    # --- 5. СТАВИМ ТАЙМЕР QSTASH НА ЗАКРЫТИЕ ЧЕРЕЗ 48 ЧАСОВ ---
     qstash_token = os.getenv("QSTASH_TOKEN")
     app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
     
     if qstash_token and app_url:
         try:
-            # Считаем время: сейчас (в UTC) + 48 часов
             dt_future = datetime.now(timezone.utc) + timedelta(hours=48)
             unix_time = int(dt_future.timestamp())
             
@@ -1890,7 +1921,6 @@ async def auto_start_giveaway_from_channel(message: types.Message):
                     },
                     json={
                         "post_id": post_id, 
-                        # Если функция get_cron_secret у вас называется иначе, поменяйте тут
                         "secret": get_cron_secret() 
                     }
                 )
@@ -2015,7 +2045,7 @@ async def track_message(message: types.Message):
                         try:
                             announcement = (
                                 f"{reply_text}\n\n"
-                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Крутой пачан</a>\n"
                                 f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
                                 f"<i>Награда уже зачислена на баланс!</i>"
                             )
