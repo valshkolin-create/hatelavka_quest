@@ -455,27 +455,34 @@
                         Сработает на: <span>${item.target_message}-м сообщении</span><br>
                         Уже собрано в массиве: <span>${item.unique_user_ids ? item.unique_user_ids.length : 0} юзеров</span>
                     </div>
-                    <button onclick="deleteGiveaway(${item.post_id})" class="btn-danger">
-                        <i class="fa-solid fa-trash"></i> Удалить / Остановить
+                    <button onclick="forceCloseGiveaway(${item.post_id})" class="btn-danger">
+                        <i class="fa-solid fa-flag-checkered"></i> Завершить досрочно
                     </button>
                 </div>`;
             });
             container.innerHTML = html;
         }
 
-        async function deleteGiveaway(postId) {
-            showConfirm('Удалить розыгрыш?', 'Настройки и массив участников для этого поста будут очищены.', async () => {
+        async function forceCloseGiveaway(postId) {
+            showConfirm('Завершить досрочно?', 'Будет выбран случайный победитель из уже собранных участников, а розыгрыш будет закрыт.', async () => {
                 try {
-                    const res = await fetch('/api/admin/comment_giveaways/delete', {
+                    const res = await fetch('/api/v1/admin/raffles/force_close', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({post_id: postId})
                     });
+                    
                     if(res.ok) {
+                        const data = await res.json();
                         tg.HapticFeedback.notificationOccurred('success');
+                        showCustomAlert('Готово!', data.message || 'Розыгрыш успешно завершен!');
                         loadGiveaways();
+                    } else {
+                        const err = await res.json();
+                        tg.HapticFeedback.notificationOccurred('error');
+                        showCustomAlert('Ошибка', err.detail || 'Не удалось завершить');
                     }
                 } catch(e) {
-                    showCustomAlert('Ошибка', 'Не удалось удалить');
+                    showCustomAlert('Ошибка', 'Сбой сети при завершении');
                 }
             });
         }
