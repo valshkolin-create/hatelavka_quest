@@ -1843,6 +1843,7 @@ async def auto_start_giveaway_from_channel(message: types.Message):
                 reward_type = settings_data.get('auto_gw_reward_type', 'tickets')
                 reward_value = int(settings_data.get('auto_gw_reward_value', 30))
                 reply_text = settings_data.get('auto_gw_reply_text', '🎉 Поздравляем! Твой комментарий оказался счастливым!')
+                image_url = settings_data.get('auto_gw_image_url', '')
     except Exception as e:
         logging.error(f"Не удалось получить настройки авто-розыгрышей, используем дефолт: {e}")
 
@@ -1865,6 +1866,7 @@ async def auto_start_giveaway_from_channel(message: types.Message):
         f"🏆 Приз: {reward_str}"
     )
     
+    # Склеиваем очищенный оригинальный текст с нашим новым блоком розыгрыша
     new_text = f"{clean_text}{giveaway_text}"
     
     # --- 3. РЕДАКТИРУЕМ ПОСТ В КАНАЛЕ ---
@@ -1930,7 +1932,6 @@ async def auto_start_giveaway_from_channel(message: types.Message):
             logging.info(f"✅ [QSTASH] Таймер закрытия установлен на {unix_time} для поста {post_id}")
         except Exception as e:
             logging.error(f"⚠️ [QSTASH] Ошибка установки таймера: {e}")
-
 
 @router.message(F.text & ~F.command)
 async def track_message(message: types.Message):
