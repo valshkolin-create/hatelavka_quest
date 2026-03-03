@@ -2728,6 +2728,66 @@ async def bootstrap_app(
  
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 
+@app.get("/api/v1/admin/comment_giveaways/settings/get")
+async def get_auto_giveaway_settings(
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        # Запрашиваем настройки из таблицы settings
+        resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            if data and len(data) > 0:
+                # Извлекаем JSON-объект из поля value
+                settings_value = data[0].get('value', {})
+                return {"status": "success", "data": settings_value}
+                
+        return {"status": "error", "message": "Настройки не найдены"}
+        
+    except Exception as e:
+        logging.error(f"Ошибка при получении настроек авто-розыгрыша: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/v1/admin/comment_giveaways/settings/update")
+async def update_auto_giveaway_settings(
+    req: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        data = await req.json()
+        
+        # 1. Сначала запрашиваем текущие настройки, чтобы ничего не затереть
+        resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
+        if resp.status_code != 200 or not resp.json():
+            raise HTTPException(status_code=404, detail="Настройки admin_controls не найдены")
+            
+        current_settings = resp.json()[0].get('value', {})
+
+        # 2. Обновляем только поля авто-розыгрышей
+        current_settings['auto_gw_min_msg'] = int(data.get('min_msg', 10))
+        current_settings['auto_gw_max_msg'] = int(data.get('max_msg', 25))
+        current_settings['auto_gw_reward_type'] = data.get('reward_type', 'tickets')
+        current_settings['auto_gw_reward_value'] = int(data.get('reward_value', 30))
+        current_settings['auto_gw_reply_text'] = data.get('reply_text', '🎉 Поздравляем! Твой комментарий оказался счастливым!')
+
+        # 3. Сохраняем обновленный JSON обратно в базу
+        patch_resp = await supabase.patch(
+            "/settings",
+            params={"key": "eq.admin_controls"},
+            json={"value": current_settings}
+        )
+
+        if patch_resp.status_code in (200, 204):
+            return {"status": "success", "message": "Глобальные настройки авто-розыгрышей успешно сохранены!"}
+        else:
+            logging.error(f"Ошибка БД при обновлении настроек: {patch_resp.text}")
+            raise HTTPException(status_code=500, detail="Ошибка при сохранении в БД")
+
+    except Exception as e:
+        logging.error(f"Ошибка в update_auto_giveaway_settings: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/admin/steam/list")
 async def get_steam_bots(
     request: SteamInitRequest,
