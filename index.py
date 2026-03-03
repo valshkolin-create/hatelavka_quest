@@ -1827,6 +1827,7 @@ async def auto_start_giveaway_from_channel(message: types.Message):
     reward_type = "tickets"
     reward_value = 30
     reply_text = "🎉 Поздравляем! Твой комментарий оказался счастливым!"
+    image_url = ""
     
     try:
         client = await get_background_client()
@@ -2750,6 +2751,62 @@ async def get_auto_giveaway_settings(
     except Exception as e:
         logging.error(f"Ошибка при получении настроек авто-розыгрыша: {e}")
         return {"status": "error", "message": str(e)}
+
+@app.post("/api/v1/admin/comment_giveaways/add_user")
+async def manual_add_giveaway_user(
+    req: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        data = await req.json()
+        post_id = data.get("post_id")
+        identifier = data.get("user_id", "").strip() # Тут может быть и ник, и ID
+
+        if not identifier:
+            raise HTTPException(status_code=400, detail="Пустое значение!")
+
+        user_id = None
+
+        # Если ввели только цифры — значит это прямой ID
+        if identifier.isdigit():
+            user_id = int(identifier)
+        else:
+            # Если есть буквы — значит это юзернейм. Убираем @, если админ его написал
+            username = identifier.replace("@", "")
+            
+            # Ищем пользователя в вашей таблице users (используем ilike для поиска без учета регистра)
+            user_resp = await supabase.get("/users", params={"username": f"ilike.{username}", "limit": "1"})
+            
+            if user_resp.status_code == 200:
+                users_data = user_resp.json()
+                if users_data and len(users_data) > 0:
+                    user_id = users_data[0].get("telegram_id")
+                else:
+                    raise HTTPException(status_code=404, detail=f"Юзер @{username} не найден в базе бота! (Возможно, он ни разу не запускал бота. Используйте цифровой ID).")
+            else:
+                raise HTTPException(status_code=500, detail="Ошибка при поиске в БД")
+
+        if not user_id:
+             raise HTTPException(status_code=404, detail="Не удалось определить ID пользователя")
+
+        # Добавляем найденный ID в розыгрыш
+        resp = await supabase.post(
+            "/rpc/process_giveaway_comment", 
+            json={"p_post_id": post_id, "p_user_id": user_id}
+        )
+        
+        if resp.status_code == 200:
+            result = resp.json()
+            if isinstance(result, dict) and result.get("status") == "winner":
+                return {"status": "success", "message": f"Участник добавлен! Лимит достигнут, розыгрыш завершен!", "winner": True}
+            return {"status": "success", "message": f"Участник успешно добавлен!"}
+        else:
+            raise HTTPException(status_code=500, detail="Не удалось добавить участника (возможно, он уже в списке)")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/admin/comment_giveaways/settings/update")
 async def update_auto_giveaway_settings(
