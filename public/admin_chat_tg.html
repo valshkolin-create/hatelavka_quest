@@ -102,8 +102,9 @@
     </div>
 
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('create')">Настройка</button>
-        <button class="tab" onclick="switchTab('list')">Активные</button>
+        <button id="tab-btn-create" class="tab active" onclick="switchTab('create')">Ручной</button>
+        <button id="tab-btn-auto" class="tab" onclick="switchTab('auto')">Авто 🎁</button>
+        <button id="tab-btn-list" class="tab" onclick="switchTab('list')">Активные</button>
     </div>
 
     <div id="tab-create" class="tab-content">
@@ -146,7 +147,7 @@
                         <label>Номинал</label>
                         <div style="display: flex; gap: 8px;">
                             <input type="number" name="reward_value" id="inp-reward-val" value="10" required oninput="updatePreview()">
-                            <button type="button" id="btn-select-coins" class="icon-btn hidden" onclick="openCoinsModal()" style="background: var(--primary); color: #000; flex-shrink: 0;">
+                            <button type="button" id="btn-select-coins" class="icon-btn hidden" onclick="openCoinsModal('inp-reward-val')" style="background: var(--primary); color: #000; flex-shrink: 0;">
                                 <i class="fa-solid fa-list-ol"></i>
                             </button>
                         </div>
@@ -183,6 +184,53 @@
         </form>
     </div>
 
+    <div id="tab-auto" class="tab-content hidden">
+        <form id="auto-form" class="admin-form">
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-robot"></i> Дефолтные настройки для 🎁</h3>
+                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Эти настройки будут применяться ко всем новым постам в канале, где бот найдет эмодзи 🎁.</div>
+
+                <div class="cond-grid">
+                    <div>
+                        <label>Мин. сообщений</label>
+                        <input type="number" name="min_msg" id="auto_min_msg" value="10" required>
+                    </div>
+                    <div>
+                        <label>Макс. сообщений</label>
+                        <input type="number" name="max_msg" id="auto_max_msg" value="25" required>
+                    </div>
+                </div>
+
+                <div class="cond-grid">
+                    <div>
+                        <label>Тип награды</label>
+                        <select name="reward_type" id="auto-reward-type" required onchange="handleAutoRewardType()">
+                            <option value="tickets" selected>Билеты 🎫</option>
+                            <option value="coins">Монеты 🪙</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Номинал</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" name="reward_value" id="auto-reward-val" value="30" required>
+                            <button type="button" id="auto-btn-select-coins" class="icon-btn hidden" onclick="openCoinsModal('auto-reward-val')" style="background: var(--primary); color: #000; flex-shrink: 0;">
+                                <i class="fa-solid fa-list-ol"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <label>Текст ответа бота</label>
+                <textarea name="reply_text" id="auto_reply_text" rows="3" required>🎉 Поздравляем! Твой комментарий оказался счастливым!</textarea>
+            </div>
+
+            <button type="button" onclick="submitAutoSettings()" class="action-submit-btn" style="background: #28a745; color: #fff;">
+                <i class="fa-solid fa-save"></i>
+                <span>СОХРАНИТЬ АВТО-НАСТРОЙКИ</span>
+            </button>
+        </form>
+    </div>
+
     <div id="tab-list" class="tab-content hidden">
         <div id="list-container">
             <div style="text-align:center; padding: 40px; color: var(--text-sec);">
@@ -215,6 +263,8 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        let currentCoinTarget = 'inp-reward-val'; // По умолчанию склад отправляет монеты в ручную форму
+
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
             if (document.getElementById('modal-alert').classList.contains('modal-active')) {
@@ -232,32 +282,29 @@
             document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
             document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
             document.getElementById('tab-' + t).classList.remove('hidden');
+            document.getElementById('tab-btn-' + t).classList.add('active');
             
-            const tabs = document.querySelectorAll('.tab');
-            if(t === 'create') {
-                tabs[0].classList.add('active');
-            } else {
-                tabs[1].classList.add('active'); 
+            if(t === 'list') {
                 loadGiveaways(); 
+            } else if (t === 'auto') {
+                loadAutoSettings();
             }
         }
 
-        // --- ЛОГИКА ВЫБОРА МОНЕТ ---
+        // --- ЛОГИКА ВЫБОРА МОНЕТ (РУЧНАЯ ФОРМА) ---
         function handleRewardType() {
             const type = document.getElementById('inp-reward-type').value;
             const valInp = document.getElementById('inp-reward-val');
             const btnSelect = document.getElementById('btn-select-coins');
 
             if (type === 'coins') {
-                // Если выбрали монеты, блокируем ввод и сразу открываем склад
                 valInp.readOnly = true;
                 valInp.value = ''; 
                 valInp.placeholder = 'Выбрать...';
-                valInp.onclick = openCoinsModal; // Можно кликнуть прямо на поле
+                valInp.onclick = () => openCoinsModal('inp-reward-val');
                 btnSelect.classList.remove('hidden');
-                openCoinsModal(); 
+                openCoinsModal('inp-reward-val'); 
             } else {
-                // Если билеты, возвращаем обычный ввод
                 valInp.readOnly = false;
                 valInp.placeholder = '10';
                 valInp.value = '10';
@@ -267,7 +314,31 @@
             updatePreview();
         }
 
-        async function openCoinsModal() {
+        // --- ЛОГИКА ВЫБОРА МОНЕТ (АВТО ФОРМА) ---
+        function handleAutoRewardType() {
+            const type = document.getElementById('auto-reward-type').value;
+            const valInp = document.getElementById('auto-reward-val');
+            const btnSelect = document.getElementById('auto-btn-select-coins');
+
+            if (type === 'coins') {
+                valInp.readOnly = true;
+                valInp.value = ''; 
+                valInp.placeholder = 'Выбрать...';
+                valInp.onclick = () => openCoinsModal('auto-reward-val');
+                btnSelect.classList.remove('hidden');
+                openCoinsModal('auto-reward-val'); 
+            } else {
+                valInp.readOnly = false;
+                valInp.placeholder = '30';
+                valInp.value = '30';
+                valInp.onclick = null;
+                btnSelect.classList.add('hidden');
+            }
+        }
+
+        // --- УНИВЕРСАЛЬНЫЙ СКЛАД ---
+        async function openCoinsModal(targetId) {
+            currentCoinTarget = targetId;
             const m = document.getElementById('modal-coins');
             m.classList.add('modal-active');
             const list = document.getElementById('coins-list');
@@ -301,15 +372,15 @@
         }
 
         function selectCoin(val) {
-            document.getElementById('inp-reward-val').value = val;
+            document.getElementById(currentCoinTarget).value = val;
             closeModal('modal-coins');
-            updatePreview();
+            if(currentCoinTarget === 'inp-reward-val') updatePreview();
             tg.HapticFeedback.selectionChanged();
         }
 
-        // --- ПРЕВЬЮ И ПРОЧЕЕ ---
+        // --- ПРЕВЬЮ И ЗАГРУЗКА КАРТИНОК ---
         function updatePreview() {
-            const getVal = (name) => { const el = document.querySelector(`[name="${name}"]`); return el ? el.value : ''; };
+            const getVal = (name) => { const el = document.querySelector(`#create-form [name="${name}"]`); return el ? el.value : ''; };
 
             const rType = getVal('reward_type');
             const rVal = getVal('reward_value') || '0';
@@ -364,6 +435,7 @@
             }
         }
 
+        // --- САБМИТ РУЧНОГО РОЗЫГРЫША ---
         async function submitGiveaway() {
             const form = document.getElementById('create-form');
             if(!form.reportValidity()) return;
@@ -400,7 +472,7 @@
                     showCustomAlert('Успех!', `Розыгрыш настроен!\nСработает на: ${data.target_message}-м комментарии.`);
                     
                     form.reset(); 
-                    handleRewardType(); // Сбрасываем UI
+                    handleRewardType();
                     switchTab('list'); 
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
@@ -414,6 +486,68 @@
             }
         }
 
+        // --- ЛОГИКА АВТО-НАСТРОЕК ---
+        async function loadAutoSettings() {
+            try {
+                const res = await fetch('/api/v1/admin/comment_giveaways/settings/get');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'success' && data.data) {
+                        document.getElementById('auto_min_msg').value = data.data.auto_gw_min_msg || 10;
+                        document.getElementById('auto_max_msg').value = data.data.auto_gw_max_msg || 25;
+                        document.getElementById('auto-reward-type').value = data.data.auto_gw_reward_type || 'tickets';
+                        document.getElementById('auto-reward-val').value = data.data.auto_gw_reward_value || 30;
+                        document.getElementById('auto_reply_text').value = data.data.auto_gw_reply_text || '🎉 Поздравляем! Твой комментарий оказался счастливым!';
+                        handleAutoRewardType();
+                    }
+                }
+            } catch(e) { console.log('Ошибка предзагрузки авто-настроек', e); }
+        }
+
+        async function submitAutoSettings() {
+            const form = document.getElementById('auto-form');
+            if(!form.reportValidity()) return;
+
+            const fd = new FormData(form);
+            const val = parseInt(fd.get('reward_value'));
+            
+            if (isNaN(val) || val <= 0) {
+                showCustomAlert('Внимание', 'Пожалуйста, выберите номинал!');
+                return;
+            }
+
+            const payload = {
+                min_msg: parseInt(fd.get('min_msg')),
+                max_msg: parseInt(fd.get('max_msg')),
+                reward_type: fd.get('reward_type'),
+                reward_value: val,
+                reply_text: fd.get('reply_text')
+            };
+
+            tg.MainButton.showProgress();
+
+            try {
+                const res = await fetch('/api/v1/admin/comment_giveaways/settings/update', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    showCustomAlert('Успех!', 'Глобальные настройки для авто-розыгрышей сохранены.');
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    showCustomAlert('Ошибка', 'Не удалось сохранить настройки');
+                }
+            } catch (error) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        }
+
+        // --- ЛОГИКА СПИСКА И ЗАКРЫТИЯ ---
         async function loadGiveaways() {
             const container = document.getElementById('list-container');
             container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>';
@@ -434,26 +568,29 @@
 
         function renderList(list) {
             const container = document.getElementById('list-container');
-            if(!list || list.length === 0) {
+            
+            // 🔥 ФИЛЬТРУЕМ: Оставляем только активные розыгрыши
+            const activeList = list ? list.filter(item => item.is_active === true) : [];
+
+            if(activeList.length === 0) {
                 container.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Нет активных розыгрышей</div>';
                 return;
             }
 
             let html = '';
-            list.forEach(item => {
-                const isActive = item.is_active;
+            activeList.forEach(item => {
                 const rName = item.reward_type === 'coins' ? 'Монеты' : (item.reward_type === 'tickets' ? 'Билеты' : item.reward_type);
                 
                 html += `
                 <div class="giveaway-card">
                     <div class="card-header">
                         <div class="card-title">Пост #${item.post_id}</div>
-                        <div class="status-badge ${isActive ? '' : 'inactive'}">${isActive ? 'Активен' : 'Завершен'}</div>
+                        <div class="status-badge">Активен</div>
                     </div>
                     <div class="card-info">
                         Награда: <span>${item.reward_value} ${rName}</span><br>
                         Сработает на: <span>${item.target_message}-м сообщении</span><br>
-                        Уже собрано в массиве: <span>${item.unique_user_ids ? item.unique_user_ids.length : 0} юзеров</span>
+                        Уже собрано: <span>${item.unique_user_ids ? item.unique_user_ids.length : 0} юзеров</span>
                     </div>
                     <button onclick="forceCloseGiveaway(${item.post_id})" class="btn-danger">
                         <i class="fa-solid fa-flag-checkered"></i> Завершить досрочно
