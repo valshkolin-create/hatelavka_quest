@@ -14177,8 +14177,11 @@ async def buy_bott_item_proxy(
                 raise HTTPException(status_code=500, detail="В кейсе нет активных скинов.")
 
             # --- 3. УМНАЯ ЛОГИКА РУЛЕТКИ (PITY SYSTEM & ANTI-DRAIN) ---
-            case_price = float(price)
-            target_value = case_price * 0.66 if currency == 'coins' else case_price
+            # Вычисляем реальную (базовую) стоимость кейса (фронт для билетов шлет цену х2)
+            base_case_price = float(price) / 2.0 if currency == 'tickets' else float(price)
+            
+            # Гарант ищет скины в радиусе стоимости кейса (от 70% цены для билетов, от 66% для монет)
+            target_value = base_case_price * 0.70 if currency == 'tickets' else base_case_price * 0.66
             
             final_items = []
             final_weights = []
@@ -14196,15 +14199,15 @@ async def buy_bott_item_proxy(
                         final_items.append(skin)
                         
                         # ANTI-DRAIN: Жестко режем шансы на ультра-премиум внутри гаранта
-                        if skin_price >= case_price * 5.0:
-                            # Скин стоит в 5+ раз дороже кейса (очень дорогой)
+                        if skin_price >= base_case_price * 5.0:
+                            # Скин стоит в 5+ раз дороже базового кейса (очень дорогой)
                             final_weights.append(w * 0.001) # Режем шанс в 1000 раз!
-                        elif skin_price >= case_price * 2.0:
-                            # Скин стоит в 2-5 раз дороже (хороший окуп)
+                        elif skin_price >= base_case_price * 1.5:
+                            # Скин значительно дороже (выходит за наш "радиус")
                             final_weights.append(w * 0.1)   # Режем шанс в 10 раз
                         else:
-                            # Скин стоит ровно для окупа (от target_value до х2)
-                            # Бустим этот шлак, чтобы система выдавала именно его в гаранте
+                            # Скин стоит ровно в радиусе базовой цены (от 70% до 150%)
+                            # Бустим этот пул, чтобы система выдавала именно его в гаранте
                             final_weights.append(w * 5.0) 
                 
                 # Защита от пустого пула (если в кейсе вообще нет скинов для окупа)
@@ -14225,11 +14228,11 @@ async def buy_bott_item_proxy(
                     skin_price = float(skin.get('price', 0))
                     final_items.append(skin)
                     
-                    if target_value <= skin_price < case_price * 2.0:
-                        # Слегка повышаем шанс на "среднячок", чтобы подбодрить игрока
+                    if target_value <= skin_price < base_case_price * 1.5:
+                        # Слегка повышаем шанс на "среднячок" в нашем радиусе
                         final_weights.append(w * pity_multiplier)
-                    elif skin_price >= case_price * 2.0:
-                        # Топовые предметы НЕ бустим, их шанс остается базовым (0.01)
+                    elif skin_price >= base_case_price * 1.5:
+                        # Топовые предметы НЕ бустим, их шанс остается базовым
                         final_weights.append(w)
                     else:
                         # Мусор тоже оставляем со стандартным шансом
