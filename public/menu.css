@@ -2523,3 +2523,66 @@ html.vk-mode .app-footer {
     html.vk-mode .main-content::-webkit-scrollbar-track { background: #000; }
     html.vk-mode .main-content::-webkit-scrollbar-thumb { background-color: #333; border-radius: 5px; }
 }
+
+/* --- НОВАЯ СЕТКА ДЛЯ ВЕРХНИХ БАННЕРОВ --- */
+.top-banners-layout {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr; /* Левая колонка шире, правая уже */
+    gap: 10px;
+    margin-bottom: 15px;
+    width: 100%;
+    height: 160px; /* Фиксируем высоту */
+}
+
+/* Адаптируем слайдер */
+.top-banners-layout .slider-container {
+    margin-bottom: 0 !important;
+    height: 100%;
+    aspect-ratio: auto !important; 
+    border-radius: 14px;
+}
+
+/* Колонка для правых баннеров */
+.side-banners-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+}
+
+.side-banner {
+    flex: 1; 
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: transform 0.1s;
+}
+
+.side-banner:active {
+    transform: scale(0.96);
+}
+
+.side-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; 
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Корректировка текста в динамическом слайдере под новый размер */
+.top-banners-layout .raffle-item-name-new { font-size: 14px !important; margin-bottom: 4px; }
+.top-banners-layout .timer-val-new { font-size: 11px !important; }
+.top-banners-layout .raffle-item-img-new { max-width: 50%; right: -10px; }
+.top-banners-layout .premium-slide-box { padding: 10px 15px !important; }
+
+@media (min-width: 768px) {
+    .top-banners-layout { height: 220px; }
+}
