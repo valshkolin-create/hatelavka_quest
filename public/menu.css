@@ -2584,20 +2584,48 @@ html.vk-mode .app-footer {
     left: 0;
 }
 
-/* Корректировка внутренностей слайдера */
-.top-banners-layout .raffle-item-name-new { font-size: 14px !important; margin-bottom: 4px; }
-.top-banners-layout .timer-val-new { font-size: 11px !important; }
-.top-banners-layout .raffle-item-img-new { max-width: 50%; right: -10px; }
+/* --- КОРРЕКТИРОВКА ВНУТРЕННОСТЕЙ СЛАЙДЕРА (КРУПНЫЙ СКИН И ТЕКСТ) --- */
+
+/* 1. Даем тексту больше ширины, чтобы название не обрезалось */
+.top-banners-layout .slide-content-left {
+    max-width: 75% !important; /* Было 60-65%, теперь текст может растягиваться шире */
+}
+
+/* 2. Увеличиваем название скина */
+.top-banners-layout .raffle-item-name-new { 
+    font-size: 16px !important; /* Сделали текст крупнее */
+    line-height: 1.15 !important;
+    margin-bottom: 6px !important; 
+    -webkit-line-clamp: 3 !important; /* Разрешаем тексту переноситься на 3 строки, если он длинный */
+}
+
+/* 3. Огромный и сочный скин */
+.top-banners-layout .raffle-item-img-new { 
+    max-width: 65% !important; /* Позволяем скину занимать больше места */
+    max-height: 105% !important; /* Чуть-чуть увеличиваем высоту для крутого 3D эффекта */
+    right: -20px !important; /* Сдвигаем правее, чтобы он не перекрывал текст */
+    bottom: -5px !important;
+}
+
+/* 4. Уменьшаем стрелочки переключения */
+.top-banners-layout .slider-arrow {
+    width: 24px !important;  /* Было 32px */
+    height: 24px !important; /* Было 32px */
+    font-size: 11px !important; /* Иконка внутри тоже стала меньше */
+}
+/* Сдвигаем маленькие стрелочки чуть ближе к краям */
+.top-banners-layout .slider-arrow.prev { left: 6px !important; }
+.top-banners-layout .slider-arrow.next { right: 6px !important; }
+
+/* 5. Таймер: делаем цифры чуть крупнее, но сам блок компактнее */
+.top-banners-layout .raffle-timer-box-new {
+    padding: 4px 8px !important;
+}
+.top-banners-layout .timer-val-new { 
+    font-size: 12px !important; 
+}
 .top-banners-layout .premium-slide-box { 
     padding: 10px 15px !important; 
     border-radius: 8px !important; 
     border: none !important;
-}
-
-/* --- ПК ВЕРСИЯ (ФИКС РЕЗКОСТИ) --- */
-@media (min-width: 768px) {
-    .top-banners-layout { 
-        height: 260px; /* Делаем блок выше на ПК, чтобы картинки не сплющивало в узкие полоски */
-        grid-template-columns: 1.6fr 1fr; /* На широком мониторе слайдеру можно дать чуть больше места */
-    }
 }
