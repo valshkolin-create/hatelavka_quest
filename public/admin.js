@@ -6620,8 +6620,7 @@ async function initEventControls() {
     pausedToggle.addEventListener('change', updateStatus);
 }
 
-    // Инициализация приложения
-document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", () => {
         console.log("Admin Init Started");
         tg.ready();
         setupEventListeners();
@@ -6632,6 +6631,38 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 /* ==========================================
+   ЛОГИКА ПЛАВАЮЩЕЙ КНОПКИ СОХРАНЕНИЯ
+   ========================================== */
+document.addEventListener("DOMContentLoaded", () => {
+    const cauldronFormEl = document.getElementById('cauldron-settings-form');
+    const floatBtn = document.getElementById('floating-save-cauldron-btn');
+
+    // Функция показа кнопки
+    window.showFloatingSaveBtn = function() {
+        if (floatBtn) {
+            floatBtn.style.transform = 'translateX(-50%) translateY(0)';
+            floatBtn.style.opacity = '1';
+            floatBtn.style.pointerEvents = 'auto';
+        }
+    };
+
+    // Функция скрытия кнопки
+    window.hideFloatingSaveBtn = function() {
+        if (floatBtn) {
+            floatBtn.style.transform = 'translateX(-50%) translateY(100px)';
+            floatBtn.style.opacity = '0';
+            floatBtn.style.pointerEvents = 'none';
+        }
+    };
+
+    if (cauldronFormEl) {
+        // Кнопка появится при любом изменении в форме Котла
+        cauldronFormEl.addEventListener('input', window.showFloatingSaveBtn);
+        cauldronFormEl.addEventListener('change', window.showFloatingSaveBtn);
+    }
+});
+
+/* ==========================================
    ЛОГИКА ПРИВЯЗКИ ЗАДАНИЙ К КОТЛУ
    ========================================== */
 let availableManualQuests = [];
@@ -6639,7 +6670,6 @@ let availableManualQuests = [];
 document.addEventListener("DOMContentLoaded", async () => {
     // 1. Загружаем список ручных заданий из базы
     try {
-        // ВАЖНО: Укажи здесь свой эндпоинт, который отдает список квестов в админке
         const quests = await makeApiRequest('/api/v1/quests/list', {}, 'POST', true);
         
         // Оставляем только активные ручные задания
@@ -6669,7 +6699,6 @@ window.addQuestTaskRow = function(questId = '', pointsReward = '') {
     
     const row = document.createElement('div');
     row.className = 'manual-task-row';
-    // Добавлен flex-wrap для телефонов
     row.style.display = 'flex';
     row.style.gap = '8px';
     row.style.alignItems = 'center';
@@ -6682,12 +6711,13 @@ window.addQuestTaskRow = function(questId = '', pointsReward = '') {
         });
     }
 
+    // В кнопке "X" добавили вызов showFloatingSaveBtn()
     row.innerHTML = `
         <select class="task-quest-id" style="flex: 2; min-width: 0; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 13px;">
             ${optionsHtml}
         </select>
         <input type="number" class="task-points" placeholder="Очки" value="${pointsReward}" style="flex: 1; min-width: 60px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 13px;">
-        <button type="button" onclick="this.parentElement.remove()" style="background: #ff453a; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: bold; flex-shrink: 0;">X</button>
+        <button type="button" onclick="this.parentElement.remove(); if(window.showFloatingSaveBtn) window.showFloatingSaveBtn();" style="background: #ff453a; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: bold; flex-shrink: 0;">X</button>
     `;
     list.appendChild(row);
 };
@@ -6699,13 +6729,13 @@ window.getManualTasksConfig = function() {
     rows.forEach(row => {
         const qId = parseInt(row.querySelector('.task-quest-id').value);
         const points = parseInt(row.querySelector('.task-points').value);
-        if (!isNaN(qId) && !isNaN(points)) {
+        // 🔥 ИСПРАВЛЕНИЕ: сохраняем только если очки вписаны и больше нуля!
+        if (!isNaN(qId) && !isNaN(points) && points > 0) {
             config.push({ quest_id: qId, points: points });
         }
     });
     return config;
 };
-
 /* ==========================================
    ЛОГИКА ПЕРЕНОСА НАГРАД (КОТЕЛ)
    Вставить в конец файла admin.js
