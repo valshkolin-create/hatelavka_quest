@@ -884,7 +884,7 @@ const showLoader = () => {
                     break;
                 }    
                 // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
-                case 'view-admin-advent': {
+               case 'view-admin-advent': {
                     await loadAdventSettings();
                     break;
                 }
@@ -948,6 +948,32 @@ const showLoader = () => {
                             setVal(`${prefix}_rarity_${level}`, tierData.rarity); // Грузим редкость
                         });
                     });
+
+                    // 👇👇👇 ДОБАВЛЕНО: ЗАГРУЗКА РУЧНЫХ ЗАДАНИЙ 👇👇👇
+                    const isManualMode = currentCauldronData.is_manual_tasks_only || false;
+                    const manualModeToggle = document.getElementById('toggle-manual-tasks');
+                    const manualTasksContainer = document.getElementById('manual-tasks-container');
+
+                    if (manualModeToggle && manualTasksContainer) {
+                        manualModeToggle.checked = isManualMode;
+                        manualTasksContainer.style.display = isManualMode ? 'block' : 'none';
+
+                        const manualList = document.getElementById('manual-tasks-list');
+                        if (manualList) {
+                            manualList.innerHTML = ''; // Очищаем список перед отрисовкой
+                            const savedTasks = currentCauldronData.manual_tasks_config || [];
+
+                            if (savedTasks.length === 0) {
+                                if (typeof window.addQuestTaskRow === 'function') window.addQuestTaskRow(); // Пустая строка
+                            } else {
+                                savedTasks.forEach(task => {
+                                    if (typeof window.addQuestTaskRow === 'function') window.addQuestTaskRow(task.quest_id, task.points);
+                                });
+                            }
+                        }
+                    }
+                    // 👆👆👆 КОНЕЦ ДОБАВЛЕНИЯ 👆👆👆
+
                     break;
                 }
                 case 'view-admin-main': {
@@ -3795,13 +3821,19 @@ function executeCopy(rewardsData, targetLevel) {
             }
             // --- 👆 КОНЕЦ ВСТАВКИ 👆 ---
 
-    // ТВОЙ ОРИГИНАЛЬНЫЙ КОД (без изменений логики)
+ // ТВОЙ ОРИГИНАЛЬНЫЙ КОД (без изменений логики)
     dom.cauldronSettingsForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         tg.showConfirm('Сохранить все настройки для ивента "Котел"?', async (ok) => {
             if (ok) {
                 try {
                     const eventData = collectCauldronData();
+                    
+                    // 👇👇👇 ДОБАВЛЕНО: Собираем данные ручных заданий перед отправкой 👇👇👇
+                    eventData.is_manual_tasks_only = document.getElementById('toggle-manual-tasks')?.checked || false;
+                    eventData.manual_tasks_config = typeof window.getManualTasksConfig === 'function' ? window.getManualTasksConfig() : [];
+                    // 👆👆👆 КОНЕЦ ДОБАВЛЕНИЯ 👆👆👆
+
                     const currentStatus = await makeApiRequest('/api/v1/events/cauldron/status', {}, 'GET', true).catch(() => ({}));
                     eventData.current_progress = currentStatus.current_progress || 0; // Сохраняем текущий прогресс
 
