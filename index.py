@@ -9397,7 +9397,7 @@ async def update_submission_status(
         logging.info(f"Заявка {submission_id} была бесшумно отклонена.")
         return {"message": "Заявка отклонена (бесшумно)."}
 
-elif action == 'approved':
+    elif action == 'approved':
         try:
             # 1. Начисляем билеты
             ticket_reward = await get_ticket_reward_amount_global("manual_quest_approval")
