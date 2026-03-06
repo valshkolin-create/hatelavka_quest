@@ -3845,7 +3845,10 @@ function executeCopy(rewardsData, targetLevel) {
                     const eventData = collectCauldronData();
                     
                     // 👇👇👇 ДОБАВЛЕНО: Собираем данные ручных заданий перед отправкой 👇👇👇
+                    eventData.is_visible_to_users = document.getElementById('toggle-event-visible')?.checked || false;
                     eventData.is_manual_tasks_only = document.getElementById('toggle-manual-tasks')?.checked || false;
+                    eventData.is_paused = document.getElementById('toggle-event-paused')?.checked || false;
+                    
                     eventData.manual_tasks_config = typeof window.getManualTasksConfig === 'function' ? window.getManualTasksConfig() : [];
                     // 👆👆👆 КОНЕЦ ДОБАВЛЕНИЯ 👆👆👆
 
@@ -6636,6 +6639,9 @@ async function initEventControls() {
 document.addEventListener("DOMContentLoaded", () => {
     const cauldronFormEl = document.getElementById('cauldron-settings-form');
     const floatBtn = document.getElementById('floating-save-cauldron-btn');
+    
+    // Находим верхнюю панель с тумблерами (она вне формы)
+    const controlPanelEl = document.querySelector('.event-control-panel');
 
     // Функция показа кнопки
     window.showFloatingSaveBtn = function() {
@@ -6655,10 +6661,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    // 1. Слушаем любые изменения внутри основной формы
     if (cauldronFormEl) {
-        // Кнопка появится при любом изменении в форме Котла
         cauldronFormEl.addEventListener('input', window.showFloatingSaveBtn);
         cauldronFormEl.addEventListener('change', window.showFloatingSaveBtn);
+    }
+
+    // 2. ДОБАВЛЕНО: Слушаем клики по тумблерам в верхней панели!
+    if (controlPanelEl) {
+        controlPanelEl.addEventListener('input', window.showFloatingSaveBtn);
+        controlPanelEl.addEventListener('change', window.showFloatingSaveBtn);
     }
 });
 
