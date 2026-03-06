@@ -563,6 +563,7 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.userLeaderboardRank.textContent = userRank;
 
         // ==========================================
+// ==========================================
         // 🔥 НОВЫЙ БЛОК: РЕЖИМ ПОДДЕРЖКИ КАНАЛА 🔥
         // ==========================================
         // Сохраняем оригинальные правила один раз в память, чтобы уметь их возвращать
@@ -591,28 +592,50 @@ function renderPage(eventData, leaderboardData = {}) {
                  else dom.userLeaderboardRank.parentElement.style.display = 'none';
             }
 
-            // 3. ПРЯЧЕМ ШКАЛУ ПРОГРЕССА (Фигуру над участниками)
-            if (dom.progressBarFill) {
-                const progressWrapper = dom.progressBarFill.closest('.progress-container, .event-progress-wrapper, .progress-section, .cauldron-progress');
-                if (progressWrapper) progressWrapper.style.display = 'none';
-                else dom.progressBarFill.parentElement.style.display = 'none';
+            // 3. ПРЯЧЕМ ШКАЛУ ПРОГРЕССА (Убираем пустую линию и текст под ней)
+            if (dom.progressBarFill && dom.progressBarFill.parentElement) {
+                dom.progressBarFill.parentElement.style.display = 'none'; // Скрываем саму рамку
+            }
+            if (dom.progressText) {
+                dom.progressText.style.display = 'none'; // Скрываем цифры 0 / 1000
             }
 
-            // 4. Подменяем окно "Как играть?" на КРАСИВЫЙ дизайн
+            // 4. Подменяем окно "Как играть?" (Путь + Список твоих заданий)
             if (dom.rulesModal) {
+                // Динамически собираем список заданий, привязанных в админке
+                let tasksHtml = '';
+                const manualTasks = currentEventData.manual_tasks_config || [];
+                if (manualTasks.length > 0) {
+                    tasksHtml = '<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: left;">';
+                    tasksHtml += '<div style="font-size: 11px; color: var(--text-color-muted); margin-bottom: 8px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Награды за активные задания:</div>';
+                    manualTasks.forEach(t => {
+                        tasksHtml += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 6px 0; font-size: 13px;">
+                            <span style="color: #ddd;">Задание ID: <b>${t.quest_id}</b></span>
+                            <span style="color: #4b69ff; font-weight: bold;">+${t.points} 🔵</span>
+                        </div>`;
+                    });
+                    tasksHtml += '</div>';
+                }
+
                 dom.rulesModal.innerHTML = `
-                    <div class="modal-content" style="padding: 24px; text-align: center; border-radius: 16px; background: var(--bg-color, #1c1c1e); color: var(--text-color, #fff); position: relative; max-width: 90%; margin: auto; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <div class="modal-content" style="padding: 24px; text-align: center; border-radius: 16px; background: var(--bg-color, #121216); color: var(--text-color, #fff); position: relative; max-width: 90%; margin: auto; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                         <button class="modal-close-btn" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: #888; font-size: 20px; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" onclick="this.closest('.modal-overlay').classList.add('hidden'); document.body.classList.remove('no-scroll');">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
-                        <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 22px;">Как играть?</h2>
-                        <div style="background: rgba(75, 105, 255, 0.1); border-radius: 50%; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                            <i class="fa-solid fa-list-check" style="font-size: 30px; color: #4b69ff;"></i>
+                        
+                        <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 22px;">Как играть?</h2>
+                        
+                        <div style="background: rgba(0, 0, 0, 0.4); border: 1px dashed #4b69ff; border-radius: 10px; padding: 15px; text-align: left; margin-bottom: 15px;">
+                            <strong style="color: #4b69ff; font-size: 14px; display: block; margin-bottom: 8px;"><i class="fa-solid fa-map-location-dot"></i> Где найти задания?</strong>
+                            <ol style="margin: 0; padding-left: 20px; color: #bbb; font-size: 13px; line-height: 1.6;">
+                                <li>Нажмите кнопку <b>«Перейти к заданиям»</b> ниже.</li>
+                                <li>В верхнем меню переключитесь на вкладку <b style="color: #fff;">«РУЧНЫЕ ЗАДАНИЯ»</b>.</li>
+                                <li>Выполняйте их и получайте синие монеты 🔵 для Топ-20!</li>
+                            </ol>
                         </div>
-                        <p style="color: var(--text-color-muted, #aaa); line-height: 1.5; font-size: 14px; margin-bottom: 24px;">
-                            В этом ивенте очки добываются только за выполнение заданий.<br><br>
-                            Перейдите в раздел <strong>«Задания»</strong>, выполняйте миссии и получайте монеты <span style="color: #4b69ff;">🔵</span>, чтобы продвинуться в Топ-20 и забрать награды!
-                        </p>
+
+                        ${tasksHtml}
+
                         <button type="button" onclick="window.location.href='/quests'" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #4b69ff, #324ecc); border: none; border-radius: 12px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(75, 105, 255, 0.3);">
                             Перейти к заданиям
                         </button>
@@ -642,10 +665,11 @@ function renderPage(eventData, leaderboardData = {}) {
             }
 
             // ВОЗВРАЩАЕМ ШКАЛУ ПРОГРЕССА
-            if (dom.progressBarFill) {
-                const progressWrapper = dom.progressBarFill.closest('.progress-container, .event-progress-wrapper, .progress-section, .cauldron-progress');
-                if (progressWrapper) progressWrapper.style.display = '';
-                else dom.progressBarFill.parentElement.style.display = '';
+            if (dom.progressBarFill && dom.progressBarFill.parentElement) {
+                dom.progressBarFill.parentElement.style.display = '';
+            }
+            if (dom.progressText) {
+                dom.progressText.style.display = '';
             }
 
             // Возвращаем оригинальные правила
