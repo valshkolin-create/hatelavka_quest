@@ -571,10 +571,10 @@ function renderPage(eventData, leaderboardData = {}) {
         }
 
         if (currentEventData.is_manual_tasks_only) {
-            // 1. Прячем форму ввода билетов и ЕЁ ФОНОВУЮ СЕКЦИЮ (ту самую линию)
+            // 1. Прячем форму ввода билетов и ВСЮ ЕЁ СЕКЦИЮ (убираем ту самую линию/фон)
             if (dom.contributionForm) {
                 dom.contributionForm.style.display = 'none';
-                // Ищем родительскую секцию с фоном и границами, чтобы убрать "линию"
+                // Находим родительскую секцию .contribution-section и скрываем её целиком
                 const contributionSection = dom.contributionForm.closest('.contribution-section');
                 if (contributionSection) {
                     contributionSection.style.display = 'none';
@@ -600,9 +600,8 @@ function renderPage(eventData, leaderboardData = {}) {
 
             // 3. ПРЯЧЕМ ШКАЛУ ПРОГРЕССА (Убираем пустую линию и текст под ней)
             const pbContainer = document.querySelector('.progress-bar-container');
-            if (pbContainer) {
-                pbContainer.style.display = 'none'; 
-            }
+            if (pbContainer) pbContainer.style.display = 'none'; 
+            
             if (dom.progressBarFill && dom.progressBarFill.parentElement) {
                 dom.progressBarFill.parentElement.style.display = 'none'; 
             }
@@ -610,20 +609,22 @@ function renderPage(eventData, leaderboardData = {}) {
                 dom.progressText.style.display = 'none'; 
             }
 
-            // 4. Подменяем окно "Как играть?" (Путь + Список твоих заданий с НАЗВАНИЯМИ)
+            // 4. Подменяем окно "Как играть?" (Путь + Названия из админки)
             if (dom.rulesModal) {
-                // Динамически собираем список заданий, привязанных в админке
                 let tasksHtml = '';
                 const manualTasks = currentEventData.manual_tasks_config || [];
                 if (manualTasks.length > 0) {
                     tasksHtml = '<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: left;">';
-                    tasksHtml += '<div style="font-size: 13px; color: #4b69ff; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; text-align: center; letter-spacing: 0.5px;">ДЛЯ ЛУЧШИХ НАГРАД ТОПА:</div>';
+                    // ОБНОВЛЕННЫЙ ЗАГОЛОВОК
+                    tasksHtml += '<div style="font-size: 13px; color: #4b69ff; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; text-align: center; letter-spacing: 0.5px;">ЗАДАНИЯ ДЛЯ ПОЛУЧЕНИЕ ОЧКОВ:</div>';
+                    
                     manualTasks.forEach(t => {
-                        // Используем название задания из конфига (title), если оно есть
-                        const taskName = t.title || `Задание #${t.quest_id}`;
-                        tasksHtml += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1 solid rgba(255,255,255,0.02); padding: 8px 0; font-size: 13px;">
-                            <span style="color: #ddd; flex: 1; padding-right: 10px;">${taskName}</span>
-                            <span style="color: #4b69ff; font-weight: bold; flex-shrink: 0;">+${t.points} 🔵</span>
+                        // ИСПОЛЬЗУЕМ t.title. Если его нет в базе (старый конфиг), пишем ID
+                        const taskDisplayName = t.title || `Задание #${t.quest_id}`;
+                        
+                        tasksHtml += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 8px 0; font-size: 13px;">
+                            <span style="color: #ddd; flex: 1; padding-right: 10px; line-height: 1.4;">${taskDisplayName}</span>
+                            <span style="color: #4b69ff; font-weight: bold; flex-shrink: 0; font-size: 14px;">+${t.points} 🔵</span>
                         </div>`;
                     });
                     tasksHtml += '</div>';
@@ -684,9 +685,8 @@ function renderPage(eventData, leaderboardData = {}) {
 
             // ВОЗВРАЩАЕМ ШКАЛУ ПРОГРЕССА
             const pbContainer = document.querySelector('.progress-bar-container');
-            if (pbContainer) {
-                pbContainer.style.display = '';
-            }
+            if (pbContainer) pbContainer.style.display = '';
+            
             if (dom.progressBarFill && dom.progressBarFill.parentElement) {
                 dom.progressBarFill.parentElement.style.display = '';
             }
@@ -697,7 +697,6 @@ function renderPage(eventData, leaderboardData = {}) {
             // Возвращаем оригинальные правила
             if (dom.rulesModal && window.originalRulesHtml) {
                 dom.rulesModal.innerHTML = window.originalRulesHtml;
-                // Восстанавливаем работу крестика
                 const closeBtn = dom.rulesModal.querySelector('.modal-close-btn');
                 if (closeBtn) {
                     closeBtn.onclick = () => {
