@@ -528,6 +528,9 @@ function renderPage(eventData, leaderboardData = {}) {
                         .trim(); // Убирает лишние пробелы по краям
                 }
 
+                // Определяем иконку валюты в зависимости от режима
+                const currencyIcon = currentEventData.is_manual_tasks_only ? '🔵' : '🎟️';
+
                 // --- ВЕРНУЛИ СТАРУЮ СТРУКТУРУ ВЕРСТКИ (4 элемента), НО ОБНОВИЛИ SPAN.PLAYER ---
                 return `
                 <div class="${rowClass}">
@@ -541,7 +544,7 @@ function renderPage(eventData, leaderboardData = {}) {
                     </span>
 
                     <div class="prize-image-container">${prizeImageHtml}</div>
-                    <span class="contribution align-right">${formatNumber(contributionAmount)} 🎟️</span>
+                    <span class="contribution align-right">${formatNumber(contributionAmount)} ${currencyIcon}</span>
                 </div>`;
             }).join('');
 
@@ -558,6 +561,92 @@ function renderPage(eventData, leaderboardData = {}) {
         }
         dom.userContributionTotal.textContent = userContribution;
         dom.userLeaderboardRank.textContent = userRank;
+
+        // ==========================================
+        // 🔥 НОВЫЙ БЛОК: РЕЖИМ ПОДДЕРЖКИ КАНАЛА 🔥
+        // ==========================================
+        // Сохраняем оригинальные правила один раз в память, чтобы уметь их возвращать
+        if (dom.rulesModal && !window.originalRulesHtml) {
+            window.originalRulesHtml = dom.rulesModal.innerHTML;
+        }
+
+        if (currentEventData.is_manual_tasks_only) {
+            // 1. Прячем форму ввода билетов
+            if (dom.contributionForm) dom.contributionForm.style.display = 'none';
+            
+            // 2. Прячем статистику (Баланс, Ранг, Твой вклад)
+            if (dom.userTicketBalance) {
+                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                if (statsWrapper) statsWrapper.style.display = 'none';
+                else dom.userTicketBalance.parentElement.style.display = 'none';
+            }
+            if (dom.userContributionTotal) {
+                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 if (contribWrapper) contribWrapper.style.display = 'none';
+                 else dom.userContributionTotal.parentElement.style.display = 'none';
+            }
+            if (dom.userLeaderboardRank) {
+                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 if (rankWrapper) rankWrapper.style.display = 'none';
+                 else dom.userLeaderboardRank.parentElement.style.display = 'none';
+            }
+
+            // 3. Подменяем окно "Как играть?" (Правила)
+            if (dom.rulesModal) {
+                dom.rulesModal.innerHTML = `
+                    <div class="modal-content" style="text-align: center;">
+                        <button class="modal-close-btn" onclick="this.closest('.modal-overlay').classList.add('hidden'); document.body.classList.remove('no-scroll');">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <h2 style="margin-bottom: 20px;">Как играть?</h2>
+                        <i class="fa-solid fa-list-check" style="font-size: 40px; color: #4b69ff; margin-bottom: 15px;"></i>
+                        <p style="color: var(--text-color-muted); line-height: 1.5; font-size: 14px; margin-bottom: 20px;">
+                            В этом ивенте очки добываются только за выполнение специальных поручений.<br><br>
+                            Перейдите в раздел <strong>"Задания"</strong>, выполняйте активные миссии и получайте синие монеты 🔵, 
+                            чтобы продвинуться в Топ-20 и забрать главные награды!
+                        </p>
+                        <button type="button" onclick="window.location.href='/quests'" class="admin-action-btn approve" style="width: 100%; font-size: 15px; padding: 12px; background: #4b69ff; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;">
+                            Перейти к заданиям
+                        </button>
+                    </div>
+                `;
+            }
+            
+        } else {
+            // === ТУМБЛЕР ВЫКЛЮЧЕН: ВОЗВРАЩАЕМ КАК БЫЛО ===
+            if (dom.contributionForm) dom.contributionForm.style.display = '';
+            
+            // Возвращаем статистику
+            if (dom.userTicketBalance) {
+                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                if (statsWrapper) statsWrapper.style.display = '';
+                else dom.userTicketBalance.parentElement.style.display = '';
+            }
+            if (dom.userContributionTotal) {
+                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 if (contribWrapper) contribWrapper.style.display = '';
+                 else dom.userContributionTotal.parentElement.style.display = '';
+            }
+            if (dom.userLeaderboardRank) {
+                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 if (rankWrapper) rankWrapper.style.display = '';
+                 else dom.userLeaderboardRank.parentElement.style.display = '';
+            }
+
+            // Возвращаем оригинальные правила
+            if (dom.rulesModal && window.originalRulesHtml) {
+                dom.rulesModal.innerHTML = window.originalRulesHtml;
+                // Восстанавливаем работу крестика
+                const closeBtn = dom.rulesModal.querySelector('.modal-close-btn');
+                if (closeBtn) {
+                    closeBtn.onclick = () => {
+                        dom.rulesModal.classList.add('hidden');
+                        document.body.classList.remove('no-scroll');
+                    };
+                }
+            }
+        }
+        // ==========================================
 
         // === НОВАЯ ЛОГИКА: Рендеринг списка тиров (Витрина наград) ===
         // Ищем новый контейнер, который вы добавили в HTML
