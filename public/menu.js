@@ -143,13 +143,14 @@ async function fetchVkParamsFromBridge() {
 }
 
 try {
-    // Сообщаем телеграму, что приложение готово
     window.Telegram.WebApp.ready();
-    // Принудительно разворачиваем на весь экран МГНОВЕННО
     window.Telegram.WebApp.expand();
     
-    // Хак: повторяем expand через небольшие промежутки, 
-    // так как на некоторых Android он может не сработать с первого раза
+    // 👇 НОВОЕ: Официальная блокировка свайпа вниз от Telegram
+    if (window.Telegram.WebApp.disableVerticalSwipes) {
+        window.Telegram.WebApp.disableVerticalSwipes();
+    }
+    
     setTimeout(() => window.Telegram.WebApp.expand(), 100);
     setTimeout(() => window.Telegram.WebApp.expand(), 500);
 } catch (e) {
@@ -2242,6 +2243,22 @@ function setupEventListeners() {
     const giftXBtn = document.getElementById('gift-x-btn');
     if (giftXBtn) giftXBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
 }
+
+// ================================================================
+// ГЛОБАЛЬНАЯ ЗАЩИТА ОТ СВОРАЧИВАНИЯ (СВАЙПА ВНИЗ)
+// ================================================================
+document.body.addEventListener('touchmove', function(e) {
+    // Проверяем, находится ли палец внутри областей, которые РАЗРЕШЕНО скроллить
+    const isInsideMainContent = e.target.closest('#main-content');
+    const isInsideWeeklyScroll = e.target.closest('.weekly-goals-scroll-area');
+    
+    // Если пользователь тянет за шапку, футер или фон (вне скролл-зон) - жестко блокируем!
+    if (!isInsideMainContent && !isInsideWeeklyScroll) {
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+    }
+}, { passive: false });
 
 // ЗАПУСК
 try {
