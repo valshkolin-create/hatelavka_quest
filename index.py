@@ -9373,7 +9373,7 @@ async def update_submission_status(
     # Поле reward_amount из квеста больше не используется, берем только title
     submission_data_resp = await supabase.get(
         "/quest_submissions",
-        params={"id": f"eq.{submission_id}", "select": "user_id, quest_id, quest:quests(title)"} # <-- ДОБАВИЛ quest_id в select
+        params={"id": f"eq.{submission_id}", "select": "user_id, quest_id, quest:quests(title)"}
     )
     submission_data = submission_data_resp.json()
     if not submission_data:
@@ -9381,27 +9381,23 @@ async def update_submission_status(
 
     user_to_notify = submission_data[0]['user_id']
     quest_title = submission_data[0]['quest']['title']
-    manual_quest_id = submission_data[0].get('quest_id') # Сохраняем quest_id сразу, чтобы не делать лишних запросов
+    manual_quest_id = submission_data[0].get('quest_id')
 
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
         background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
         return {"message": "Заявка отклонена."}
 
-    # --- 👇👇👇 НАЧАЛО НОВОГО БЛОКА 👇👇👇 ---
     elif action == 'rejected_silent':
-        # Просто обновляем статус в базе данных
         await supabase.patch(
             "/quest_submissions",
             params={"id": f"eq.{submission_id}"},
             json={"status": "rejected"}
         )
-        # НЕ отправляем уведомление пользователю
         logging.info(f"Заявка {submission_id} была бесшумно отклонена.")
         return {"message": "Заявка отклонена (бесшумно)."}
-    # --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА 👆👆👆 ---
 
-elif action == 'approved':
+    elif action == 'approved':
         try:
             # 1. Начисляем билеты
             ticket_reward = await get_ticket_reward_amount_global("manual_quest_approval")
