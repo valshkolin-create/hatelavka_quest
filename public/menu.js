@@ -1571,7 +1571,8 @@ async function renderFullInterface(data) {
          }
          
          const setupSlide = (id, enabled, url, link) => {
-            const slide = document.querySelector(`.slide[data-event="${id}"]`);
+    // Ищем любой элемент с data-event, чтобы работало и для слайдера, и для боковых баннеров
+         const slide = document.querySelector(`[data-event="${id}"]`);
             if (slide) {
                 const show = enabled || userData.is_admin;
                 slide.style.display = show ? '' : 'none';
@@ -1619,7 +1620,7 @@ async function renderFullInterface(data) {
     }
 
     // Котел (БЫЛО ПРОПУЩЕНО)
-    const eventSlide = document.querySelector('.slide[data-event="cauldron"]');
+    const eventSlide = document.querySelector('[data-event="cauldron"]');
     if (eventSlide) {
         const show = (cauldronData && cauldronData.is_visible_to_users) || (userData && userData.is_admin);
         eventSlide.style.display = show ? '' : 'none';
