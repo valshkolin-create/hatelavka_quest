@@ -793,12 +793,12 @@
         </label>
     </div>
 
-    <div class="control-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
-        <div class="control-info">
-            <span class="control-title">Режим поддержки канала</span>
-            <span class="control-desc">Вкл = очки</span>
+    <div class="control-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;">
+        <div class="control-info" style="flex: 1; min-width: 150px;">
+            <span class="control-title" style="display: block; word-break: break-word; white-space: normal;">Режим поддержки канала</span>
+            <span class="control-desc" style="display: block; font-size: 12px; color: var(--text-color-muted); white-space: normal; margin-top: 2px;">Вкл = очки только за ручные задания</span>
         </div>
-        <label class="switch">
+        <label class="switch" style="flex-shrink: 0;">
             <input type="checkbox" id="toggle-manual-tasks">
             <span class="slider round"></span>
         </label>
