@@ -2629,3 +2629,28 @@ html.vk-mode .app-footer {
     border-radius: 8px !important; 
     border: none !important;
 }
+/* 1. Делаем блок шире (залезаем на боковые отступы) и меняем пропорцию */
+.top-banners-layout {
+    grid-template-columns: 1.25fr 1fr !important; 
+    width: calc(100% + 20px) !important; 
+    margin-left: -10px !important; 
+}
+
+/* 2. Возвращаем центровку правым картинкам */
+.side-banner img {
+    object-position: center !important; 
+}
+
+/* 3. Железобетонно уменьшаем плашку "РОЗЫГРЫШ" почти в 2 раза */
+.raffle-badge-top-right {
+    transform: scale(0.55) !important; 
+    transform-origin: top right !important; 
+    top: 8px !important;   
+    right: 8px !important; 
+}
+
+/* 4. Чуть сдвигаем картинку скина, так как левая часть стала у́же */
+.top-banners-layout .raffle-item-img-new { 
+    max-width: 60% !important; 
+    right: -15px !important; 
+}
