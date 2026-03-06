@@ -6625,7 +6625,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 1. Загружаем список ручных заданий из базы
     try {
         // ВАЖНО: Укажи здесь свой эндпоинт, который отдает список квестов в админке
-        const quests = await makeApiRequest('/api/v1/admin/quests/list', {}, 'GET', true);
+        const quests = await makeApiRequest('/api/v1/quests/list', {}, 'POST', true);
         
         // Оставляем только активные ручные задания
         if (Array.isArray(quests)) {
