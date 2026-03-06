@@ -464,6 +464,51 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
 
+        // ==========================================
+        // 🔥 НОВЫЙ БЛОК: РЕЖИМ РУЧНЫХ ЗАДАНИЙ 🔥
+        // ==========================================
+        if (currentEventData.is_manual_tasks_only) {
+            // Прячем форму ввода билетов
+            if (dom.contributionForm) {
+                dom.contributionForm.style.display = 'none';
+            }
+            
+            // Ищем контейнер, где была форма, чтобы вставить туда красивое сообщение
+            const controlsContainer = document.querySelector('.controls-container');
+            if (controlsContainer) {
+                // Удаляем старое сообщение, если оно уже было отрисовано
+                const oldMsg = controlsContainer.querySelector('.manual-tasks-notice');
+                if (oldMsg) oldMsg.remove();
+
+                // Добавляем новое сообщение
+                const noticeHtml = `
+                    <div class="manual-tasks-notice" style="background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px;">
+                        <i class="fa-solid fa-hand-holding-heart" style="font-size: 24px; color: #FFD700; margin-bottom: 10px; display: block;"></i>
+                        <h4 style="margin: 0 0 5px; color: #fff; font-size: 16px;">Режим поддержки канала</h4>
+                        <p style="margin: 0; font-size: 13px; color: var(--text-color-muted); line-height: 1.4;">
+                            В этом ивенте очки начисляются только за выполнение специальных ручных заданий. Перейдите в раздел <strong>"Задания"</strong>, чтобы помочь заполнить шкалу!
+                        </p>
+                        <button onclick="window.location.href='/quests'" class="admin-action-btn approve" style="margin-top: 15px; width: 100%; font-size: 14px;">
+                            Перейти к заданиям
+                        </button>
+                    </div>
+                `;
+                controlsContainer.insertAdjacentHTML('afterbegin', noticeHtml);
+            }
+        } else {
+            // Если режим выключен, возвращаем форму обратно
+            if (dom.contributionForm) {
+                dom.contributionForm.style.display = 'flex'; // или 'block', в зависимости от твоей верстки
+            }
+            // Удаляем сообщение
+            const controlsContainer = document.querySelector('.controls-container');
+            if (controlsContainer) {
+                const oldMsg = controlsContainer.querySelector('.manual-tasks-notice');
+                if (oldMsg) oldMsg.remove();
+            }
+        }
+        // ==========================================
+
         const levelConfig = levels[`level_${currentLevel}`] || {};
         const topPlaceRewards = levelConfig.top_places || [];
         
