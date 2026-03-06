@@ -464,13 +464,13 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.progressBarFill.style.width = `${progressPercentage}%`;
         dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
 
-        // ==========================================
+       // ==========================================
         // 🔥 НОВЫЙ БЛОК: РЕЖИМ РУЧНЫХ ЗАДАНИЙ 🔥
         // ==========================================
         if (currentEventData.is_manual_tasks_only) {
             // Прячем форму ввода билетов
             if (dom.contributionForm) {
-                dom.contributionForm.style.display = 'none';
+                dom.contributionForm.classList.add('hidden');
             }
             
             // Ищем контейнер, где была форма, чтобы вставить туда красивое сообщение
@@ -496,9 +496,10 @@ function renderPage(eventData, leaderboardData = {}) {
                 controlsContainer.insertAdjacentHTML('afterbegin', noticeHtml);
             }
         } else {
-            // Если режим выключен, возвращаем форму обратно
+            // Если режим выключен, возвращаем форму обратно (ИСПРАВЛЕНИЕ ТУТ)
             if (dom.contributionForm) {
-                dom.contributionForm.style.display = 'flex'; // или 'block', в зависимости от твоей верстки
+                dom.contributionForm.classList.remove('hidden');
+                dom.contributionForm.style.display = ''; // Сбрасываем инлайн стиль, чтобы работал CSS класс
             }
             // Удаляем сообщение
             const controlsContainer = document.querySelector('.controls-container');
