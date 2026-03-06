@@ -949,7 +949,22 @@ const showLoader = () => {
                         });
                     });
 
-                    // 👇👇👇 ДОБАВЛЕНО: ЗАГРУЗКА РУЧНЫХ ЗАДАНИЙ 👇👇👇
+                   // 👇👇👇 ДОБАВЛЕНО: ЗАГРУЗКА РУЧНЫХ ЗАДАНИЙ 👇👇👇
+                    
+                    // 1. Сначала ГАРАНТИРОВАННО скачиваем список заданий с сервера (ЖДЕМ!)
+                    if (!window.availableManualQuests || window.availableManualQuests.length === 0) {
+                        try {
+                            const questsList = await makeApiRequest('/api/v1/quests/list', {}, 'POST', true);
+                            if (Array.isArray(questsList)) {
+                                window.availableManualQuests = questsList.filter(q => q.quest_type === 'manual_check' && q.is_active);
+                            }
+                        } catch(e) {
+                            console.error("Ошибка загрузки списка заданий для Котла:", e);
+                            window.availableManualQuests = [];
+                        }
+                    }
+
+                    // 2. Теперь спокойно рисуем тумблер и список
                     const isManualMode = currentCauldronData.is_manual_tasks_only || false;
                     const manualModeToggle = document.getElementById('toggle-manual-tasks');
                     const manualTasksContainer = document.getElementById('manual-tasks-container');
@@ -960,7 +975,7 @@ const showLoader = () => {
 
                         const manualList = document.getElementById('manual-tasks-list');
                         if (manualList) {
-                            manualList.innerHTML = ''; // Очищаем список перед отрисовкой
+                            manualList.innerHTML = ''; // Очищаем список
                             const savedTasks = currentCauldronData.manual_tasks_config || [];
 
                             if (savedTasks.length === 0) {
@@ -973,7 +988,7 @@ const showLoader = () => {
                         }
                     }
                     // 👆👆👆 КОНЕЦ ДОБАВЛЕНИЯ 👆👆👆
-
+                    
                     break;
                 }
                 case 'view-admin-main': {
@@ -6646,6 +6661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
+
 // Добавление новой строки (Выпадающий список заданий + Инпут очков)
 window.addQuestTaskRow = function(questId = '', pointsReward = '') {
     const list = document.getElementById('manual-tasks-list');
@@ -6653,22 +6669,25 @@ window.addQuestTaskRow = function(questId = '', pointsReward = '') {
     
     const row = document.createElement('div');
     row.className = 'manual-task-row';
+    // Добавлен flex-wrap для телефонов
     row.style.display = 'flex';
-    row.style.gap = '10px';
+    row.style.gap = '8px';
+    row.style.alignItems = 'center';
     
-    // Генерируем <option> для выпадающего списка
     let optionsHtml = '<option value="">Выберите задание...</option>';
-    availableManualQuests.forEach(q => {
-        const selected = (q.id == questId) ? 'selected' : '';
-        optionsHtml += `<option value="${q.id}" ${selected}>${q.title} (Награда: ${q.reward_amount} 🟡)</option>`;
-    });
+    if (window.availableManualQuests) {
+        window.availableManualQuests.forEach(q => {
+            const selected = (q.id == questId) ? 'selected' : '';
+            optionsHtml += `<option value="${q.id}" ${selected}>${q.title}</option>`;
+        });
+    }
 
     row.innerHTML = `
-        <select class="task-quest-id" style="flex: 2; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; outline: none;">
+        <select class="task-quest-id" style="flex: 2; min-width: 0; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 13px;">
             ${optionsHtml}
         </select>
-        <input type="number" class="task-points" placeholder="Очков в котел" value="${pointsReward}" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white;">
-        <button type="button" onclick="this.parentElement.remove()" style="background: #ff453a; color: white; border: none; border-radius: 6px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
+        <input type="number" class="task-points" placeholder="Очки" value="${pointsReward}" style="flex: 1; min-width: 60px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 13px;">
+        <button type="button" onclick="this.parentElement.remove()" style="background: #ff453a; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: bold; flex-shrink: 0;">X</button>
     `;
     list.appendChild(row);
 };
