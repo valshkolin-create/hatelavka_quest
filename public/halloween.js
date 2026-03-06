@@ -576,36 +576,44 @@ function renderPage(eventData, leaderboardData = {}) {
             
             // 2. Прячем статистику (Баланс, Ранг, Твой вклад)
             if (dom.userTicketBalance) {
-                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
                 if (statsWrapper) statsWrapper.style.display = 'none';
                 else dom.userTicketBalance.parentElement.style.display = 'none';
             }
             if (dom.userContributionTotal) {
-                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
                  if (contribWrapper) contribWrapper.style.display = 'none';
                  else dom.userContributionTotal.parentElement.style.display = 'none';
             }
             if (dom.userLeaderboardRank) {
-                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
                  if (rankWrapper) rankWrapper.style.display = 'none';
                  else dom.userLeaderboardRank.parentElement.style.display = 'none';
             }
 
-            // 3. Подменяем окно "Как играть?" (Правила)
+            // 3. ПРЯЧЕМ ШКАЛУ ПРОГРЕССА (Фигуру над участниками)
+            if (dom.progressBarFill) {
+                const progressWrapper = dom.progressBarFill.closest('.progress-container, .event-progress-wrapper, .progress-section, .cauldron-progress');
+                if (progressWrapper) progressWrapper.style.display = 'none';
+                else dom.progressBarFill.parentElement.style.display = 'none';
+            }
+
+            // 4. Подменяем окно "Как играть?" на КРАСИВЫЙ дизайн
             if (dom.rulesModal) {
                 dom.rulesModal.innerHTML = `
-                    <div class="modal-content" style="text-align: center;">
-                        <button class="modal-close-btn" onclick="this.closest('.modal-overlay').classList.add('hidden'); document.body.classList.remove('no-scroll');">
+                    <div class="modal-content" style="padding: 24px; text-align: center; border-radius: 16px; background: var(--bg-color, #1c1c1e); color: var(--text-color, #fff); position: relative; max-width: 90%; margin: auto; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                        <button class="modal-close-btn" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: #888; font-size: 20px; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" onclick="this.closest('.modal-overlay').classList.add('hidden'); document.body.classList.remove('no-scroll');">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
-                        <h2 style="margin-bottom: 20px;">Как играть?</h2>
-                        <i class="fa-solid fa-list-check" style="font-size: 40px; color: #4b69ff; margin-bottom: 15px;"></i>
-                        <p style="color: var(--text-color-muted); line-height: 1.5; font-size: 14px; margin-bottom: 20px;">
-                            В этом ивенте очки добываются только за выполнение специальных поручений.<br><br>
-                            Перейдите в раздел <strong>"Задания"</strong>, выполняйте активные миссии и получайте синие монеты 🔵, 
-                            чтобы продвинуться в Топ-20 и забрать главные награды!
+                        <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 22px;">Как играть?</h2>
+                        <div style="background: rgba(75, 105, 255, 0.1); border-radius: 50%; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                            <i class="fa-solid fa-list-check" style="font-size: 30px; color: #4b69ff;"></i>
+                        </div>
+                        <p style="color: var(--text-color-muted, #aaa); line-height: 1.5; font-size: 14px; margin-bottom: 24px;">
+                            В этом ивенте очки добываются только за выполнение заданий.<br><br>
+                            Перейдите в раздел <strong>«Задания»</strong>, выполняйте миссии и получайте монеты <span style="color: #4b69ff;">🔵</span>, чтобы продвинуться в Топ-20 и забрать награды!
                         </p>
-                        <button type="button" onclick="window.location.href='/quests'" class="admin-action-btn approve" style="width: 100%; font-size: 15px; padding: 12px; background: #4b69ff; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;">
+                        <button type="button" onclick="window.location.href='/quests'" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #4b69ff, #324ecc); border: none; border-radius: 12px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(75, 105, 255, 0.3);">
                             Перейти к заданиям
                         </button>
                     </div>
@@ -618,19 +626,26 @@ function renderPage(eventData, leaderboardData = {}) {
             
             // Возвращаем статистику
             if (dom.userTicketBalance) {
-                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
                 if (statsWrapper) statsWrapper.style.display = '';
                 else dom.userTicketBalance.parentElement.style.display = '';
             }
             if (dom.userContributionTotal) {
-                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
                  if (contribWrapper) contribWrapper.style.display = '';
                  else dom.userContributionTotal.parentElement.style.display = '';
             }
             if (dom.userLeaderboardRank) {
-                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats');
+                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
                  if (rankWrapper) rankWrapper.style.display = '';
                  else dom.userLeaderboardRank.parentElement.style.display = '';
+            }
+
+            // ВОЗВРАЩАЕМ ШКАЛУ ПРОГРЕССА
+            if (dom.progressBarFill) {
+                const progressWrapper = dom.progressBarFill.closest('.progress-container, .event-progress-wrapper, .progress-section, .cauldron-progress');
+                if (progressWrapper) progressWrapper.style.display = '';
+                else dom.progressBarFill.parentElement.style.display = '';
             }
 
             // Возвращаем оригинальные правила
