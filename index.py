@@ -9373,7 +9373,7 @@ async def update_submission_status(
     # Поле reward_amount из квеста больше не используется, берем только title
     submission_data_resp = await supabase.get(
         "/quest_submissions",
-        params={"id": f"eq.{submission_id}", "select": "user_id, quest:quests(title)"}
+        params={"id": f"eq.{submission_id}", "select": "user_id, quest_id, quest:quests(title)"} # <-- ДОБАВИЛ quest_id в select
     )
     submission_data = submission_data_resp.json()
     if not submission_data:
@@ -9381,6 +9381,7 @@ async def update_submission_status(
 
     user_to_notify = submission_data[0]['user_id']
     quest_title = submission_data[0]['quest']['title']
+    manual_quest_id = submission_data[0].get('quest_id') # Сохраняем quest_id сразу, чтобы не делать лишних запросов
 
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
@@ -9400,7 +9401,6 @@ async def update_submission_status(
         return {"message": "Заявка отклонена (бесшумно)."}
     # --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА 👆👆👆 ---
 
-    # --- 👇 CORRECTED INDENTATION FOR ELIF 👇 ---
     elif action == 'approved':
         try:
             # 1. Начисляем билеты
@@ -9417,37 +9417,82 @@ async def update_submission_status(
             response.raise_for_status()
             promo_code = response.text.strip('"')
 
-            # --- 🔽🔽🔽 БЛОК С ЛОГАМИ (ЗАМЕНИ СТАРЫЙ БЛОК НА ЭТОТ) 🔽🔽🔽 ---
             # 3. Вызываем триггер для "Недельного Забега"
             try:
                 logging.info(f"--- [update_submission_status] Запуск триггера 'Забега' для submission_id: {submission_id} ---")
-                submission_details_resp = await supabase.get(
-                    "/quest_submissions",
-                    params={"id": f"eq.{submission_id}", "select": "quest_id"}
-                )
-                submission_details = submission_details_resp.json()
-                
-                if submission_details:
-                    manual_quest_id = submission_details[0].get('quest_id')
-                    logging.info(f"--- [update_submission_status] Найден manual_quest_id: {manual_quest_id} (Тип: {type(manual_quest_id)}) ---")
-                    
-                    if manual_quest_id is None or manual_quest_id == "":
-                         logging.error(f"--- [update_submission_status] ОШИБКА: manual_quest_id ПУСТОЙ. Триггер не будет вызван. ---")
-                    else:
-                        await supabase.post(
-                            "/rpc/increment_weekly_goal_progress",
-                            json={
-                                "p_user_id": user_to_notify,
-                                "p_task_type": "manual_quest_complete",
-                                "p_entity_id": manual_quest_id
-                            }
-                        )
-                        logging.info(f"--- [update_submission_status] УСПЕХ: Триггер 'manual_quest_complete' (ID: {manual_quest_id}) вызван для user {user_to_notify}. ---")
+                if manual_quest_id is None or manual_quest_id == "":
+                     logging.error(f"--- [update_submission_status] ОШИБКА: manual_quest_id ПУСТОЙ. Триггер не будет вызван. ---")
                 else:
-                    logging.warning(f"--- [update_submission_status] НЕ НАЙДЕН quest_id для submission {submission_id}, триггер 'Забега' не вызван. ---")
+                    await supabase.post(
+                        "/rpc/increment_weekly_goal_progress",
+                        json={
+                            "p_user_id": user_to_notify,
+                            "p_task_type": "manual_quest_complete",
+                            "p_entity_id": manual_quest_id
+                        }
+                    )
+                    logging.info(f"--- [update_submission_status] УСПЕХ: Триггер 'manual_quest_complete' (ID: {manual_quest_id}) вызван для user {user_to_notify}. ---")
             except Exception as trigger_e:
                 logging.error(f"--- [update_submission_status] ОШИБКА при вызове триггера 'Забега': {trigger_e} ---", exc_info=True)
-            # --- 🔼🔼🔼 КОНЕЦ БЛОКА С ЛОГАМИ 🔼🔼🔼 ---
+
+
+            # ==========================================
+            # 🔥 3.5 ИНТЕГРАЦИЯ С КОТЛОМ (НАЧИСЛЕНИЕ ОЧКОВ ЗА РУЧНОЙ КВЕСТ) 🔥
+            # ==========================================
+            try:
+                # Получаем настройки котла
+                cauldron_resp = await supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1})
+                cauldron_data = cauldron_resp.json()[0]['content'] if cauldron_resp.json() else {}
+                
+                # Проверяем, включен ли ивент и включен ли режим ручных заданий
+                if cauldron_data.get('is_visible_to_users') and cauldron_data.get('is_manual_tasks_only') and manual_quest_id:
+                    manual_config = cauldron_data.get('manual_tasks_config', [])
+                    
+                    # Ищем, привязан ли этот конкретный квест к котлу и сколько за него дают очков
+                    points_to_add = 0
+                    for task in manual_config:
+                        if task.get('quest_id') == manual_quest_id: 
+                            points_to_add = task.get('points', 0)
+                            break
+                    
+                    if points_to_add > 0:
+                        # Получаем никнейм или полное имя юзера для OBS триггера
+                        user_profile_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_to_notify}", "select": "full_name, username"})
+                        user_profile = user_profile_resp.json()
+                        user_display_name = "Аноним"
+                        if user_profile:
+                            user_display_name = user_profile[0].get('username') or user_profile[0].get('full_name') or str(user_to_notify)
+
+                        # Начисляем очки в общий прогресс котла
+                        current_progress = cauldron_data.get('current_progress', 0)
+                        new_progress = current_progress + points_to_add
+                        cauldron_data['current_progress'] = new_progress
+                        
+                        # Сохраняем новый прогресс в БД (pages_content)
+                        await supabase.patch("/pages_content", params={"page_name": "eq.cauldron_event"}, json={"content": cauldron_data})
+                        
+                        # Записываем в лидерборд (кто сколько задонатил)
+                        # Используем тот же RPC, который используется при донате билетами, но передаем очки
+                        await supabase.post(
+                            "/rpc/add_cauldron_contribution",
+                            json={
+                                "p_user_id": user_to_notify,
+                                "p_amount": points_to_add
+                            }
+                        )
+
+                        # Отправляем триггер в OBS (чтобы на стриме вылезла анимация с именем донатера)
+                        await send_cauldron_trigger_to_obs(
+                            supabase=supabase, 
+                            user_display_name=user_display_name, 
+                            amount=points_to_add, 
+                            new_progress=new_progress
+                        )
+                        logging.info(f"[КОТЕЛ] В котел добавлено {points_to_add} очков от юзера {user_to_notify} за ручной квест {manual_quest_id}!")
+            except Exception as cauldron_e:
+                logging.error(f"[КОТЕЛ] Ошибка при начислении очков в котел: {cauldron_e}", exc_info=True)
+            # ==========================================
+
 
             # 4. Отправляем уведомление
             background_tasks.add_task(
@@ -9460,20 +9505,13 @@ async def update_submission_status(
             logging.info(f"Заявка {submission_id} одобрена. Билеты ({ticket_reward}) начислены, промокод '{promo_code}' отправляется.")
             return {"message": "Заявка одобрена. Награда (билеты и промокод) отправляется пользователю.", "promocode": promo_code}
 
-            # --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
         except httpx.HTTPStatusError as e:
-            # Обработка ошибок, если RPC award_reward_and_get_promocode вернула ошибку
-            # (например, не нашлось свободного промокода)
             error_details = e.response.json().get("message", "Ошибка базы данных при выдаче награды.")
             logging.error(f"Ошибка при одобрении заявки {submission_id}: {error_details}")
-            # Важно: Не меняем статус заявки на approved, если награду выдать не удалось
             raise HTTPException(status_code=400, detail=error_details)
         except Exception as e:
             logging.error(f"Критическая ошибка при одобрении заявки {submission_id}: {e}", exc_info=True)
-            # Важно: Не меняем статус заявки на approved при неизвестной ошибке
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
-    # --- 👇 CORRECTED INDENTATION FOR ELSE 👇 ---
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
 # --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
