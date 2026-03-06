@@ -562,7 +562,6 @@ function renderPage(eventData, leaderboardData = {}) {
         dom.userContributionTotal.textContent = userContribution;
         dom.userLeaderboardRank.textContent = userRank;
 
-        // ==========================================
 // ==========================================
         // 🔥 НОВЫЙ БЛОК: РЕЖИМ ПОДДЕРЖКИ КАНАЛА 🔥
         // ==========================================
@@ -572,8 +571,15 @@ function renderPage(eventData, leaderboardData = {}) {
         }
 
         if (currentEventData.is_manual_tasks_only) {
-            // 1. Прячем форму ввода билетов
-            if (dom.contributionForm) dom.contributionForm.style.display = 'none';
+            // 1. Прячем форму ввода билетов и ЕЁ ФОНОВУЮ СЕКЦИЮ (ту самую линию)
+            if (dom.contributionForm) {
+                dom.contributionForm.style.display = 'none';
+                // Ищем родительскую секцию с фоном и границами, чтобы убрать "линию"
+                const contributionSection = dom.contributionForm.closest('.contribution-section');
+                if (contributionSection) {
+                    contributionSection.style.display = 'none';
+                }
+            }
             
             // 2. Прячем статистику (Баланс, Ранг, Твой вклад)
             if (dom.userTicketBalance) {
@@ -593,25 +599,31 @@ function renderPage(eventData, leaderboardData = {}) {
             }
 
             // 3. ПРЯЧЕМ ШКАЛУ ПРОГРЕССА (Убираем пустую линию и текст под ней)
+            const pbContainer = document.querySelector('.progress-bar-container');
+            if (pbContainer) {
+                pbContainer.style.display = 'none'; 
+            }
             if (dom.progressBarFill && dom.progressBarFill.parentElement) {
-                dom.progressBarFill.parentElement.style.display = 'none'; // Скрываем саму рамку
+                dom.progressBarFill.parentElement.style.display = 'none'; 
             }
             if (dom.progressText) {
-                dom.progressText.style.display = 'none'; // Скрываем цифры 0 / 1000
+                dom.progressText.style.display = 'none'; 
             }
 
-            // 4. Подменяем окно "Как играть?" (Путь + Список твоих заданий)
+            // 4. Подменяем окно "Как играть?" (Путь + Список твоих заданий с НАЗВАНИЯМИ)
             if (dom.rulesModal) {
                 // Динамически собираем список заданий, привязанных в админке
                 let tasksHtml = '';
                 const manualTasks = currentEventData.manual_tasks_config || [];
                 if (manualTasks.length > 0) {
                     tasksHtml = '<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: left;">';
-                    tasksHtml += '<div style="font-size: 11px; color: var(--text-color-muted); margin-bottom: 8px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Награды за активные задания:</div>';
+                    tasksHtml += '<div style="font-size: 13px; color: #4b69ff; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; text-align: center; letter-spacing: 0.5px;">ДЛЯ ЛУЧШИХ НАГРАД ТОПА:</div>';
                     manualTasks.forEach(t => {
-                        tasksHtml += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 6px 0; font-size: 13px;">
-                            <span style="color: #ddd;">Задание ID: <b>${t.quest_id}</b></span>
-                            <span style="color: #4b69ff; font-weight: bold;">+${t.points} 🔵</span>
+                        // Используем название задания из конфига (title), если оно есть
+                        const taskName = t.title || `Задание #${t.quest_id}`;
+                        tasksHtml += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1 solid rgba(255,255,255,0.02); padding: 8px 0; font-size: 13px;">
+                            <span style="color: #ddd; flex: 1; padding-right: 10px;">${taskName}</span>
+                            <span style="color: #4b69ff; font-weight: bold; flex-shrink: 0;">+${t.points} 🔵</span>
                         </div>`;
                     });
                     tasksHtml += '</div>';
@@ -630,7 +642,7 @@ function renderPage(eventData, leaderboardData = {}) {
                             <ol style="margin: 0; padding-left: 20px; color: #bbb; font-size: 13px; line-height: 1.6;">
                                 <li>Нажмите кнопку <b>«Перейти к заданиям»</b> ниже.</li>
                                 <li>В верхнем меню переключитесь на вкладку <b style="color: #fff;">«РУЧНЫЕ ЗАДАНИЯ»</b>.</li>
-                                <li>Выполняйте их и получайте синие монеты 🔵 для Топ-20!</li>
+                                <li>Выполняйте их и получайте синие монеты 🔵 для продвижения в ТОП!</li>
                             </ol>
                         </div>
 
@@ -645,7 +657,13 @@ function renderPage(eventData, leaderboardData = {}) {
             
         } else {
             // === ТУМБЛЕР ВЫКЛЮЧЕН: ВОЗВРАЩАЕМ КАК БЫЛО ===
-            if (dom.contributionForm) dom.contributionForm.style.display = '';
+            if (dom.contributionForm) {
+                dom.contributionForm.style.display = '';
+                const contributionSection = dom.contributionForm.closest('.contribution-section');
+                if (contributionSection) {
+                    contributionSection.style.display = '';
+                }
+            }
             
             // Возвращаем статистику
             if (dom.userTicketBalance) {
@@ -665,6 +683,10 @@ function renderPage(eventData, leaderboardData = {}) {
             }
 
             // ВОЗВРАЩАЕМ ШКАЛУ ПРОГРЕССА
+            const pbContainer = document.querySelector('.progress-bar-container');
+            if (pbContainer) {
+                pbContainer.style.display = '';
+            }
             if (dom.progressBarFill && dom.progressBarFill.parentElement) {
                 dom.progressBarFill.parentElement.style.display = '';
             }
