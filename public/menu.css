@@ -2551,7 +2551,10 @@ html.vk-mode .app-footer {
 }
 
 .side-banner {
-    flex: 1; 
+    /* 👇 УБИРАЕМ flex: 1; и ставим точный расчет высоты 👇 */
+    height: calc(50% - 5px); 
+    width: 100%;
+    
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     overflow: hidden;
