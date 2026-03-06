@@ -2524,18 +2524,16 @@ html.vk-mode .app-footer {
     html.vk-mode .main-content::-webkit-scrollbar-thumb { background-color: #333; border-radius: 5px; }
 }
 
-/* --- НОВАЯ СЕТКА ДЛЯ ВЕРХНИХ БАННЕРОВ (БЕЗ РАМОК И ШИРЕ) --- */
+/* --- ОБНОВЛЕННАЯ СЕТКА (УЛУЧШЕННЫЕ ПРОПОРЦИИ) --- */
 .top-banners-layout {
     display: grid;
-    grid-template-columns: 1.8fr 1fr; 
-    gap: 6px; /* Уменьшили щель между левым и правым блоком */
+    /* БЫЛО 1.8fr 1fr. Теперь правая часть шире, слайдер чуть уже */
+    grid-template-columns: 1.4fr 1fr; 
+    gap: 8px; /* Оптимальный отступ */
     
-    /* Делаем блок шире: залезаем на боковые отступы на 5px с каждой стороны */
-    width: calc(100% + 10px);
-    margin-left: -5px; 
-    
+    width: 100%; 
     margin-bottom: 15px;
-    height: 160px; 
+    height: 180px; /* БЫЛО 160px. Делаем чуть выше для сочности на телефоне */
 }
 
 /* Слайдер (левая часть) */
@@ -2543,31 +2541,29 @@ html.vk-mode .app-footer {
     margin-bottom: 0 !important;
     height: 100%;
     aspect-ratio: auto !important; 
-    border-radius: 0 !important; /* Убрали скругления */
-    border: none !important;     /* Убрали любые рамки */
+    border-radius: 8px !important; /* Легкое, аккуратное закругление */
+    border: none !important;
 }
 
 /* Колонка для правых баннеров */
 .side-banners-column {
     display: flex;
     flex-direction: column;
-    gap: 6px; /* Уменьшили щель между верхним и нижним баннером */
+    gap: 8px; /* Отступ между аукционом и ивентом */
     height: 100%;
 }
 
-/* Маленькие статичные баннеры (правая часть) */
+/* Правые баннеры */
 .side-banner {
-    height: calc(50% - 3px); /* 3px — это ровно половина от gap: 6px */
+    height: calc(50% - 4px); /* Строго половина высоты минус половина отступа */
     width: 100%;
-    background: transparent; /* Убрали полупрозрачный фон */
+    background: transparent;
     
-    border-radius: 0 !important; /* Убрали скругления */
-    border: none !important;     /* Убрали белую обводку */
+    border-radius: 8px !important; /* Такое же легкое закругление */
+    border: none !important;
     
     overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
     position: relative;
     text-decoration: none;
     transition: transform 0.1s;
@@ -2581,21 +2577,27 @@ html.vk-mode .app-footer {
     width: 100%;
     height: 100%;
     object-fit: cover; 
+    /* 👇 ВОТ ФИКС ОБРЕЗКИ: Привязываем картинку к левому краю, чтобы текст/суть не резались */
+    object-position: left center; 
     position: absolute;
     top: 0;
     left: 0;
 }
 
-/* Корректировка текста в динамическом слайдере под новый размер */
+/* Корректировка внутренностей слайдера */
 .top-banners-layout .raffle-item-name-new { font-size: 14px !important; margin-bottom: 4px; }
 .top-banners-layout .timer-val-new { font-size: 11px !important; }
 .top-banners-layout .raffle-item-img-new { max-width: 50%; right: -10px; }
 .top-banners-layout .premium-slide-box { 
     padding: 10px 15px !important; 
-    border-radius: 0 !important; /* Убираем скругление внутри слайда */
-    border: none !important;     /* Убираем рамку внутри слайда */
+    border-radius: 8px !important; 
+    border: none !important;
 }
 
+/* --- ПК ВЕРСИЯ (ФИКС РЕЗКОСТИ) --- */
 @media (min-width: 768px) {
-    .top-banners-layout { height: 220px; }
+    .top-banners-layout { 
+        height: 260px; /* Делаем блок выше на ПК, чтобы картинки не сплющивало в узкие полоски */
+        grid-template-columns: 1.6fr 1fr; /* На широком мониторе слайдеру можно дать чуть больше места */
+    }
 }
