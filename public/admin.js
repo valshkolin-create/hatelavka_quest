@@ -6574,7 +6574,7 @@ async function initEventControls() {
 }
 
     // Инициализация приложения
-    document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", () => {
         console.log("Admin Init Started");
         tg.ready();
         setupEventListeners();
@@ -6583,6 +6583,78 @@ async function initEventControls() {
         // 👇 ДОБАВИТЬ ЭТУ СТРОКУ 👇
         initEventControls(); 
     });
+
+/* ==========================================
+   ЛОГИКА ПРИВЯЗКИ ЗАДАНИЙ К КОТЛУ
+   ========================================== */
+let availableManualQuests = [];
+
+document.addEventListener("DOMContentLoaded", async () => {
+    // 1. Загружаем список ручных заданий из базы
+    try {
+        // ВАЖНО: Укажи здесь свой эндпоинт, который отдает список квестов в админке
+        const quests = await makeApiRequest('/api/v1/admin/quests/list', {}, 'GET', true);
+        
+        // Оставляем только активные ручные задания
+        if (Array.isArray(quests)) {
+            availableManualQuests = quests.filter(q => q.quest_type === 'manual_check' && q.is_active);
+        }
+    } catch (e) {
+        console.error("Ошибка загрузки заданий для котла:", e);
+    }
+
+    // 2. Логика переключения тумблера
+    const manualModeToggle = document.getElementById('toggle-manual-tasks');
+    const manualTasksContainer = document.getElementById('manual-tasks-container');
+
+    if (manualModeToggle && manualTasksContainer) {
+        manualModeToggle.addEventListener('change', (e) => {
+            manualTasksContainer.style.display = e.target.checked ? 'block' : 'none';
+        });
+    }
+});
+
+// Добавление новой строки (Выпадающий список заданий + Инпут очков)
+window.addQuestTaskRow = function(questId = '', pointsReward = '') {
+    const list = document.getElementById('manual-tasks-list');
+    if (!list) return;
+    
+    const row = document.createElement('div');
+    row.className = 'manual-task-row';
+    row.style.display = 'flex';
+    row.style.gap = '10px';
+    
+    // Генерируем <option> для выпадающего списка
+    let optionsHtml = '<option value="">Выберите задание...</option>';
+    availableManualQuests.forEach(q => {
+        const selected = (q.id == questId) ? 'selected' : '';
+        optionsHtml += `<option value="${q.id}" ${selected}>${q.title} (Награда: ${q.reward_amount} 🟡)</option>`;
+    });
+
+    row.innerHTML = `
+        <select class="task-quest-id" style="flex: 2; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; outline: none;">
+            ${optionsHtml}
+        </select>
+        <input type="number" class="task-points" placeholder="Очков в котел" value="${pointsReward}" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white;">
+        <button type="button" onclick="this.parentElement.remove()" style="background: #ff453a; color: white; border: none; border-radius: 6px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
+    `;
+    list.appendChild(row);
+};
+
+// Сбор данных перед сохранением
+window.getManualTasksConfig = function() {
+    const rows = document.querySelectorAll('.manual-task-row');
+    const config = [];
+    rows.forEach(row => {
+        const qId = parseInt(row.querySelector('.task-quest-id').value);
+        const points = parseInt(row.querySelector('.task-points').value);
+        if (!isNaN(qId) && !isNaN(points)) {
+            config.push({ quest_id: qId, points: points });
+        }
+    });
+    return config;
+};
+
 /* ==========================================
    ЛОГИКА ПЕРЕНОСА НАГРАД (КОТЕЛ)
    Вставить в конец файла admin.js
