@@ -779,7 +779,7 @@
                 <div style="width: 60px;"></div>
             </div>
 
-         <div class="event-control-panel" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+        <div class="event-control-panel" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
     <h3 style="margin-top:0; color: #ff9500;"><i class="fa-solid fa-fire-burner"></i> Управление Котлом</h3>
     
     <div class="control-row">
@@ -796,7 +796,7 @@
     <div class="control-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
         <div class="control-info">
             <span class="control-title">Режим поддержки канала</span>
-            <span class="control-desc">Вкл = очки только за ручные задания (кнопка билетов скроется)</span>
+            <span class="control-desc">Очки только за ручные задания</span>
         </div>
         <label class="switch">
             <input type="checkbox" id="toggle-manual-tasks">
@@ -805,13 +805,13 @@
     </div>
 
     <div id="manual-tasks-container" style="display: none; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-top: 15px;">
-        <h4 style="margin-top: 0; color: #fff; font-size: 14px; margin-bottom: 10px;">Настройка очков за пополнение</h4>
+        <h4 style="margin-top: 0; color: #fff; font-size: 14px; margin-bottom: 10px;">Привязка заданий к ивенту</h4>
         
         <div id="manual-tasks-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
         </div>
         
-        <button type="button" onclick="addManualTaskRow()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; width: 100%; transition: 0.2s;">
-            + Добавить условие
+        <button type="button" onclick="addQuestTaskRow()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; width: 100%; transition: 0.2s;">
+            + Привязать задание
         </button>
     </div>
 </div>
