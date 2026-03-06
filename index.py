@@ -9401,7 +9401,7 @@ async def update_submission_status(
         return {"message": "Заявка отклонена (бесшумно)."}
     # --- 👆👆👆 КОНЕЦ НОВОГО БЛОКА 👆👆👆 ---
 
-    elif action == 'approved':
+elif action == 'approved':
         try:
             # 1. Начисляем билеты
             ticket_reward = await get_ticket_reward_amount_global("manual_quest_approval")
@@ -9440,57 +9440,75 @@ async def update_submission_status(
             # 🔥 3.5 ИНТЕГРАЦИЯ С КОТЛОМ (НАЧИСЛЕНИЕ ОЧКОВ ЗА РУЧНОЙ КВЕСТ) 🔥
             # ==========================================
             try:
+                logging.info(f"--- [КОТЕЛ] СТАРТ ПРОВЕРКИ ДЛЯ КВЕСТА ID: {manual_quest_id} ---")
+                
                 # Получаем настройки котла
                 cauldron_resp = await supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1})
-                cauldron_data = cauldron_resp.json()[0]['content'] if cauldron_resp.json() else {}
                 
-                # Проверяем, включен ли ивент и включен ли режим ручных заданий
-                if cauldron_data.get('is_visible_to_users') and cauldron_data.get('is_manual_tasks_only') and manual_quest_id:
+                if not cauldron_resp.json():
+                    logging.warning("[КОТЕЛ] ❌ Настройки котла не найдены в БД!")
+                else:
+                    cauldron_data = cauldron_resp.json()[0]['content'] or {}
+                    
+                    is_visible = cauldron_data.get('is_visible_to_users', False)
+                    is_manual = cauldron_data.get('is_manual_tasks_only', False)
                     manual_config = cauldron_data.get('manual_tasks_config', [])
                     
-                    # Ищем, привязан ли этот конкретный квест к котлу и сколько за него дают очков
-                    points_to_add = 0
-                    for task in manual_config:
-                        if task.get('quest_id') == manual_quest_id: 
-                            points_to_add = task.get('points', 0)
-                            break
+                    logging.info(f"[КОТЕЛ] Статусы -> Активен: {is_visible} | Режим заданий: {is_manual}")
+                    logging.info(f"[КОТЕЛ] Привязанные задания: {manual_config}")
                     
-                    if points_to_add > 0:
-                        # Получаем никнейм или полное имя юзера для OBS триггера
-                        user_profile_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_to_notify}", "select": "full_name, username"})
-                        user_profile = user_profile_resp.json()
-                        user_display_name = "Аноним"
-                        if user_profile:
-                            user_display_name = user_profile[0].get('username') or user_profile[0].get('full_name') or str(user_to_notify)
-
-                        # Начисляем очки в общий прогресс котла
-                        current_progress = cauldron_data.get('current_progress', 0)
-                        new_progress = current_progress + points_to_add
-                        cauldron_data['current_progress'] = new_progress
+                    # Проверяем, включен ли ивент и включен ли режим ручных заданий
+                    if is_visible and is_manual and manual_quest_id:
                         
-                        # Сохраняем новый прогресс в БД (pages_content)
-                        await supabase.patch("/pages_content", params={"page_name": "eq.cauldron_event"}, json={"content": cauldron_data})
+                        # Ищем, привязан ли этот конкретный квест к котлу
+                        points_to_add = 0
+                        for task in manual_config:
+                            # ⚠️ ЖЕЛЕЗОБЕТОННОЕ СРАВНЕНИЕ: переводим оба ID в строки
+                            if str(task.get('quest_id')) == str(manual_quest_id): 
+                                points_to_add = int(task.get('points', 0))
+                                break
                         
-                        # Записываем в лидерборд (кто сколько задонатил)
-                        # Используем тот же RPC, который используется при донате билетами, но передаем очки
-                        await supabase.post(
-                            "/rpc/add_cauldron_contribution",
-                            json={
-                                "p_user_id": user_to_notify,
-                                "p_amount": points_to_add
-                            }
-                        )
+                        logging.info(f"[КОТЕЛ] За этот квест положено очков: {points_to_add}")
+                        
+                        if points_to_add > 0:
+                            # Получаем никнейм или полное имя юзера для OBS триггера
+                            user_profile_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_to_notify}", "select": "full_name, username"})
+                            user_profile = user_profile_resp.json()
+                            user_display_name = "Аноним"
+                            if user_profile:
+                                user_display_name = user_profile[0].get('username') or user_profile[0].get('full_name') or str(user_to_notify)
 
-                        # Отправляем триггер в OBS (чтобы на стриме вылезла анимация с именем донатера)
-                        await send_cauldron_trigger_to_obs(
-                            supabase=supabase, 
-                            user_display_name=user_display_name, 
-                            amount=points_to_add, 
-                            new_progress=new_progress
-                        )
-                        logging.info(f"[КОТЕЛ] В котел добавлено {points_to_add} очков от юзера {user_to_notify} за ручной квест {manual_quest_id}!")
+                            # Начисляем очки в общий прогресс котла
+                            current_progress = int(cauldron_data.get('current_progress', 0))
+                            new_progress = current_progress + points_to_add
+                            cauldron_data['current_progress'] = new_progress
+                            
+                            # Сохраняем новый прогресс в БД
+                            await supabase.patch("/pages_content", params={"page_name": "eq.cauldron_event"}, json={"content": cauldron_data})
+                            
+                            # Записываем в лидерборд
+                            await supabase.post(
+                                "/rpc/add_cauldron_contribution",
+                                json={
+                                    "p_user_id": user_to_notify,
+                                    "p_amount": points_to_add
+                                }
+                            )
+
+                            # Отправляем триггер в OBS
+                            await send_cauldron_trigger_to_obs(
+                                supabase=supabase, 
+                                user_display_name=user_display_name, 
+                                amount=points_to_add, 
+                                new_progress=new_progress
+                            )
+                            logging.info(f"[КОТЕЛ] ✅ УСПЕХ! В котел добавлено {points_to_add} очков от юзера {user_to_notify}!")
+                        else:
+                            logging.info(f"[КОТЕЛ] ❌ Квест {manual_quest_id} не найден в привязках или за него стоит 0 очков.")
+                    else:
+                        logging.info("[КОТЕЛ] ❌ Пропуск: Котел выключен, либо выключен режим ручных заданий.")
             except Exception as cauldron_e:
-                logging.error(f"[КОТЕЛ] Ошибка при начислении очков в котел: {cauldron_e}", exc_info=True)
+                logging.error(f"[КОТЕЛ] 🚨 Критическая ошибка: {cauldron_e}", exc_info=True)
             # ==========================================
 
 
@@ -9514,6 +9532,8 @@ async def update_submission_status(
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
+
+
 # --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
 @app.get("/api/v1/leaderboard/wizebot")
 async def get_wizebot_leaderboard(sub_type: str = "ALL", limit: int = 50):
