@@ -6739,11 +6739,22 @@ window.getManualTasksConfig = function() {
     const rows = document.querySelectorAll('.manual-task-row');
     const config = [];
     rows.forEach(row => {
-        const qId = parseInt(row.querySelector('.task-quest-id').value);
+        const selectEl = row.querySelector('.task-quest-id');
+        const qId = parseInt(selectEl.value);
         const points = parseInt(row.querySelector('.task-points').value);
-        // 🔥 ИСПРАВЛЕНИЕ: сохраняем только если очки вписаны и больше нуля!
+        
+        // Получаем текстовое название выбранного задания из <option>
+        let titleName = '';
+        if (selectEl.selectedIndex >= 0) {
+            titleName = selectEl.options[selectEl.selectedIndex].text;
+        }
+
         if (!isNaN(qId) && !isNaN(points) && points > 0) {
-            config.push({ quest_id: qId, points: points });
+            config.push({ 
+                quest_id: qId, 
+                points: points, 
+                title: titleName // Сохраняем название
+            });
         }
     });
     return config;
