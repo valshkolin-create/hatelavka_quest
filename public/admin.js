@@ -462,7 +462,7 @@ function getCurrentLevel(eventData) {
         // 👇 НОВАЯ СТРУКТУРА ПЕРВОЙ СТРОКИ
         wrapper.innerHTML = `
             <div style="display:flex; gap:8px; width: 100%; align-items: center;">
-                <input type="number" class="reward-place reward-place-input" placeholder="#" value="${escapeHTML(place.toString())}" min="1" max="20">
+                <input type="text" class="reward-place reward-place-input" placeholder="Места (1, 2-5, 6+)" value="${escapeHTML(place.toString())}" style="width: 120px;">
                 
                 <input type="text" class="reward-name" placeholder="Название предмета" value="${escapeHTML(name)}">
                 
@@ -532,35 +532,27 @@ function collectCauldronData() {
     [1, 2, 3, 4].forEach(level => {
         const levelKey = `level_${level}`;
         
-        // 1. Сбор Топ-20
+        // 1. Сбор ВСЕХ наград (теперь они гибкие: "1", "2-5", "21+")
         const topPlaces = [];
         const container = document.getElementById(`top-rewards-container-${level}`);
         if (container) {
             container.querySelectorAll('.top-reward-row').forEach(row => {
-                const place = parseInt(row.querySelector('.reward-place').value, 10);
+                // ВАЖНО: Теперь place - это строка (text), а не число (int)
+                const place = row.querySelector('.reward-place').value.trim(); 
                 const name = row.querySelector('.reward-name').value.trim();
                 const image_url = row.querySelector('.reward-image').value.trim();
                 const wear = row.querySelector('.reward-wear').value;
                 const rarity = row.querySelector('.reward-rarity').value;
 
-                if (place >= 1 && place <= 20 && name) {
+                // Убрали ограничение до 20. Главное, чтобы поля места и имени были не пустыми
+                if (place && name) { 
                     topPlaces.push({ place, name, image_url, wear, rarity });
                 }
             });
         }
 
-        // 2. Сбор Тиров (ПРАВИЛЬНАЯ ЛОГИКА)
+        // 2. Старые тиры отключаем (мы перешли на гибрид, но оставляем пустой объект для бэкенда)
         const tiers = {};
-        ["21-30", "31-40", "41+"].forEach(tierKey => {
-            const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
-            
-            tiers[tierKey] = {
-                name: getValue(`${prefix}_name_${level}`),
-                image_url: getValue(`${prefix}_image_url_${level}`),
-                wear: getValue(`${prefix}_wear_${level}`),
-                rarity: getValue(`${prefix}_rarity_${level}`)
-            };
-        });
 
         content.levels[levelKey] = {
             top_places: topPlaces,
@@ -622,14 +614,23 @@ async function renderCauldronParticipants() {
             let prize = null;
 
             if (activeRewardLevel) {
-                // Логика определения награды
-                if (place <= 20) {
-                    prize = activeRewardLevel.top_places?.find(r => r.place === place);
-                } else {
-                    const tiers = activeRewardLevel.tiers || {};
-                    if (place <= 30) prize = tiers["21-30"];
-                    else if (place <= 40) prize = tiers["31-40"];
-                    else prize = tiers["41+"] || activeRewardLevel.default_reward;
+                // ГИБРИДНАЯ ЛОГИКА определения награды
+                const allRewards = activeRewardLevel.top_places || [];
+                prize = null;
+                
+                for (let r of allRewards) {
+                    const pStr = String(r.place).trim();
+                    if (pStr.includes('+')) {
+                        const min = parseInt(pStr);
+                        if (place >= min) prize = r;
+                    } else if (pStr.includes('-')) {
+                        const parts = pStr.split('-');
+                        if (place >= parseInt(parts[0]) && place <= parseInt(parts[1])) prize = r;
+                    } else {
+                        if (place === parseInt(pStr)) prize = r;
+                    }
+                    
+                    if (prize) break; // Как только нашли подходящий диапазон, выходим
                 }
             }
 
@@ -918,39 +919,42 @@ const showLoader = () => {
                     setVal('goal_level_3', goals.level_3);
                     setVal('goal_level_4', goals.level_4);
 
-                    // Заполняем награды для каждого уровня
+                    /// Заполняем награды для каждого уровня
                     const levels = currentCauldronData.levels || {};
                     [1, 2, 3, 4].forEach(level => {
                         const levelData = levels[`level_${level}`] || {};
                         const topPlaces = levelData.top_places || [];
                         const tiers = levelData.tiers || { "41+": levelData.default_reward || {} };
 
-                        // 1. Заполнение Топ-20
+                        // 1. Заполнение ГИБРИДНЫХ наград
                         const container = document.getElementById(`top-rewards-container-${level}`);
                         if (container) { 
                            container.innerHTML = ''; 
-                           topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
-                               // В createTopRewardRow передаем уже готовый объект reward (с полями wear/rarity)
+                           
+                           // Грузим обычные награды (убрали .sort(), так как теперь там могут быть строки "2-5")
+                           topPlaces.forEach(reward => {
                                container.appendChild(createTopRewardRow(reward));
                            });
-                        }
 
-                        // 2. Заполнение Тиров (21-30, 31-40, 41+)
-                        ["21-30", "31-40", "41+"].forEach(tierKey => {
-                            const tierData = tiers[tierKey] || {};
-                            // Формируем префикс имени поля (например: tier_21_30)
-                            const prefix = `tier_${tierKey.replace('+', '_plus').replace('-', '_')}`;
-                            
-                            // Используем setVal для безопасного заполнения
-                            setVal(`${prefix}_name_${level}`, tierData.name);
-                            setVal(`${prefix}_image_url_${level}`, tierData.image_url);
-                            setVal(`${prefix}_wear_${level}`, tierData.wear);     // Грузим износ
-                            setVal(`${prefix}_rarity_${level}`, tierData.rarity); // Грузим редкость
-                        });
+                           // 2. Мигрируем старые фиксированные тиры (21-30, 31-40, 41+) в новые гибкие строки
+                           ["21-30", "31-40", "41+"].forEach(tierKey => {
+                               const tierData = tiers[tierKey] || {};
+                               // Добавляем строку только если в старом тире было задано имя награды
+                               if (tierData.name) {
+                                   container.appendChild(createTopRewardRow({
+                                       place: tierKey,
+                                       name: tierData.name,
+                                       image_url: tierData.image_url,
+                                       wear: tierData.wear,
+                                       rarity: tierData.rarity
+                                   }));
+                               }
+                           });
+                        }
                     });
 
                    // 👇👇👇 ДОБАВЛЕНО: ЗАГРУЗКА РУЧНЫХ ЗАДАНИЙ 👇👇👇
-                    
+                   
                     // 1. Сначала ГАРАНТИРОВАННО скачиваем список заданий с сервера (ЖДЕМ!)
                     if (!window.availableManualQuests || window.availableManualQuests.length === 0) {
                         try {
