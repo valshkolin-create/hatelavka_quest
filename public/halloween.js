@@ -212,7 +212,9 @@ async function checkEventStatus() {
     const THEME_ASSETS = {
         halloween: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png' },
         new_year: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png' },
-        classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }
+        classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }.
+        runcase: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_RUNCASE.png' } // <-- ДОБАВИТЬ ЭТО
+            
     };
 
     const FALLBACK_CAULDRON_URL = 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
@@ -365,6 +367,13 @@ function getAllRewardImages(eventData) {
                 btnAction: 'Пополнить банк',
                 acc: 'банк',
                 prep: 'банке'
+            },
+    // <-- ДОБАВЛЯЕМ НОВУЮ ТЕМУ -->
+            runcase: {
+                title: 'RUNCASE x HATELOVE', // Как на скрине, или "Ранговый Кейс"
+                btnAction: 'СЗАЛУТАТЬ ДРОП', // У Runcase кнопки капсом
+                acc: 'дроп',
+                prep: 'дропе'
             }
         };
 
@@ -379,7 +388,7 @@ function getAllRewardImages(eventData) {
 
         if (headerTitle) {
             // Меняем заголовок, только если он стандартный или пустой, чтобы не затереть кастомное название с сервера
-            if (!currentEventData || !currentEventData.title || currentEventData.title === "Ивент-Котел" || currentEventData.title === "Ведьминский Котел" || currentEventData.title === "Новогодний Мешок" || currentEventData.title === "Общий Банк") {
+            if (!currentEventData || !currentEventData.title || currentEventData.title === "Ивент-Котел" || currentEventData.title === "Ведьминский Котел" || currentEventData.title === "Новогодний Мешок" || currentEventData.title === "Общий Банк" || currentEventData.title === "RUNCASE x HATELOVE") {
                 headerTitle.textContent = t.title;
             }
         }
