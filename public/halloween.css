@@ -1333,71 +1333,77 @@ body.no-scroll {
 
 /* --- ТЕМА: RUNCASE --- */
 body[data-theme="runcase"] {
-  /* Темно-синий/почти черный фон сайта */
-  background-color: #11131a;
-  --bg-image: none; /* Убираем картинку, оставляем заливку, или добавь свою картинку */
+  /* Темно-синий матовый фон (как на скриншотах) */
+  background-color: #151722;
+  --bg-image: none; /* Отключаем фоновую картинку */
   
-  --primary-color: #f77e21; /* Фирменный оранжевый Runcase */
-  --action-color: #1e2230; /* Цвет кнопок/подложек */
-  --glow-color: rgba(247, 126, 33, 0.4);
+  /* Нейтральный пастельно-оранжевый (персиковый) акцент, как на кнопке "ПОПОЛНИТЬ" */
+  --primary-color: #ffcca6; 
+  
+  /* Цвет внутренних плашек и кнопок (темно-сине-серый) */
+  --action-color: #202435; 
+  --glow-color: transparent; /* Полностью убираем кислотное свечение */
   
   --text-color: #ffffff;
-  --text-color-muted: #8b96a8; /* Серо-синий цвет для второстепенного текста */
+  --text-color-muted: #828a9f; /* Приглушенный серо-голубой для второстепенного текста */
   
-  --surface-primary: #181b26; /* Цвет основных плашек */
-  --surface-secondary: #212533; /* Внутренние плашки, инпуты */
-  --border-color: #2a2f40; /* Цвет тонких границ */
+  /* Цвета контейнеров */
+  --surface-primary: #191c29; 
+  --surface-secondary: #202435; 
+  --border-color: #2b3045; /* Очень мягкие, едва заметные рамки */
 }
 
-/* Переопределение стилей для строгого дизайна Runcase (меньше блюра, строгие формы) */
+/* Убираем стекло и лишние эффекты, делаем дизайн плоским и строгим */
 body[data-theme="runcase"] .contribution-section, 
 body[data-theme="runcase"] .leaderboard-section, 
 body[data-theme="runcase"] .default-reward-section {
     background: var(--surface-primary);
     border: 1px solid var(--border-color);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    border-radius: 8px; /* У runcase углы более острые */
-    backdrop-filter: none; /* Убираем стекло */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* Очень легкая, естественная тень */
+    border-radius: 8px; /* Небольшие, аккуратные скругления */
+    backdrop-filter: none;
 }
 
-/* Оранжевые кнопки в стиле Runcase */
+/* Мягкие кнопки (персиковый фон, темный текст, как на скрине) */
 body[data-theme="runcase"] #contribution-form button,
 body[data-theme="runcase"] .rules-button {
     background: var(--primary-color);
-    color: #ffffff;
-    font-weight: 800;
+    color: #151722; /* Темный текст на светлом фоне читается лучше и выглядит как оригинал */
+    font-weight: 700;
     text-transform: uppercase;
-    border-radius: 6px;
-    box-shadow: 0 4px 15px rgba(247, 126, 33, 0.2);
+    border-radius: 8px;
+    box-shadow: none; /* Убрали свечение */
     border: none;
     letter-spacing: 0.5px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 body[data-theme="runcase"] #contribution-form button:hover,
 body[data-theme="runcase"] .rules-button:hover {
-    filter: brightness(1.15);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(247, 126, 33, 0.4);
+    opacity: 0.85; /* Простое затухание при наведении вместо свечения */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
 /* Инпуты */
 body[data-theme="runcase"] #tickets-input {
-    border-radius: 6px;
-    background-color: var(--action-color);
+    border-radius: 8px;
+    background-color: var(--surface-secondary);
     border: 1px solid var(--border-color);
+    color: #ffffff;
 }
 
 /* Карточки наград (Тиры) */
 body[data-theme="runcase"] .tier-card {
     background: var(--surface-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
-/* У Runcase вместо течения/рамки используются верхние полоски редкости */
-body[data-theme="runcase"] .tier-card.tier-gold { border-top: 3px solid #FFD700; border-left: 1px solid var(--border-color); }
-body[data-theme="runcase"] .tier-card.tier-silver { border-top: 3px solid #C0C0C0; border-left: 1px solid var(--border-color); }
-body[data-theme="runcase"] .tier-card.tier-bronze { border-top: 3px solid #CD7F32; border-left: 1px solid var(--border-color); }
+/* Спокойные полоски редкости (без ярких цветов) */
+body[data-theme="runcase"] .tier-card.tier-gold { border-left: 3px solid #d4af37; border-top: none; }
+body[data-theme="runcase"] .tier-card.tier-silver { border-left: 3px solid #a8a9ad; border-top: none; }
+body[data-theme="runcase"] .tier-card.tier-bronze { border-left: 3px solid #b07c5a; border-top: none; }
 
 body[data-theme="runcase"] .tier-name { color: #ffffff; }
 body[data-theme="runcase"] .tier-range-badge { color: var(--text-color-muted); font-size: 10px; }
@@ -1405,10 +1411,11 @@ body[data-theme="runcase"] .tier-range-badge { color: var(--text-color-muted); f
 /* Прогресс-бар */
 body[data-theme="runcase"] .progress-bar-fill {
     background: var(--primary-color);
-    box-shadow: 0 0 10px var(--glow-color);
+    box-shadow: none; /* Без свечения */
     border-radius: 4px;
 }
 body[data-theme="runcase"] .progress-bar-container {
     border-radius: 4px;
     background-color: var(--surface-secondary);
+    border: 1px solid var(--border-color);
 }
