@@ -180,10 +180,10 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
         
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
-    Точечный активатор. Исправлен: теперь всегда использует правильный асинхронный клиент.
+    Точечный активатор. Бронебойная версия для фоновых задач.
     """
     try:
-        # 🔥 ИСПРАВЛЕНИЕ: Мы вызываем функцию, которая возвращает асинхронный httpx клиент
+        # Получаем клиент
         client = await get_background_client()
         
         # 1. Достаем внутренний ID юзера для Bot-t
@@ -194,34 +194,32 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
             bott_id = u_data[0]["bott_internal_id"]
             
             # 2. Начисляем реальные монеты в Bot-t
-            # Эта функция использует свой httpx клиент, тут всё ок
-            success = await add_balance_to_bott(
-                bott_internal_id=bott_id, 
-                amount=reward_value, 
-                comment=f"🎁 {description}"
-            )
+            success = await add_balance_to_bott(bott_id, reward_value, f"🎁 {description}")
             
-            # 3. Если Bot-t принял деньги, сжигаем этот конкретный код в БД
+            # 3. Если Bot-t принял деньги, НАМЕРТВО скрываем код
             if success:
-                # Используем patch через httpx клиент для скорости и надежности в фоне
-                await client.patch(
+                patch_resp = await client.patch(
                     "/promocodes",
                     params={"id": f"eq.{promo_id}"},
                     json={
                         "is_used": True, 
-                        "auto_is_used": True, # 🔥 Помечаем, что это автоматическая активация
+                        "auto_is_used": True, # 🔥 ИМЕННО ОНО ДЕЛАЕТ КАРТОЧКУ ЗЕЛЕНОЙ
                         "claimed_at": datetime.now(timezone.utc).isoformat()
                     }
                 )
-                logging.info(f"⚡ Снайперская активация УСПЕШНА: код {promo_id} зачислен юзеру {telegram_id}")
+                
+                # Проверяем, не отвергла ли база наш запрос
+                if patch_resp.status_code >= 400:
+                    logging.error(f"❌ ОШИБКА БД ПРИ СКРЫТИИ КОДА {promo_id}: {patch_resp.text}")
+                else:
+                    logging.info(f"⚡ УСПЕХ: Код {promo_id} начислен и СКРЫТ от пользователя (auto_is_used=True)")
             else:
                 logging.error(f"❌ Bot-t отклонил начисление для кода {promo_id}")
         else:
             logging.error(f"❌ Не удалось найти bott_internal_id для юзера {telegram_id}")
 
     except Exception as e:
-        logging.error(f"❌ Критическая ошибка точечной активации кода {promo_id}: {e}")
-
+        logging.error(f"❌ Критическая ошибка точечной активации кода {promo_id}: {e}", exc_info=True)
 # =========================================================================
 
 
