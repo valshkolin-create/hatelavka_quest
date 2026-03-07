@@ -1125,7 +1125,6 @@ if (dom.popupTradeLinkInput) {
 function renderRewards(rewards) {
         const listContainer = document.getElementById('promocodes-list-container');
         const promoBtnInfo = document.getElementById('promo-btn-info');
-        const promoAlertBadge = document.getElementById('promo-alert-badge');
         
         // Логика модалок
         const modalPromos = document.getElementById('modal-promocodes');
@@ -1153,19 +1152,16 @@ function renderRewards(rewards) {
 
         if (!rewards || rewards.length === 0) {
             if(promoBtnInfo) promoBtnInfo.textContent = 'Награды';
-            if(promoAlertBadge) promoAlertBadge.style.display = 'none';
             listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных наград</div>';
             return;
         }
 
         if(promoBtnInfo) promoBtnInfo.textContent = `Награды (${rewards.length})`;
-        if(promoAlertBadge) promoAlertBadge.style.display = 'block';
 
         // Цикл отрисовки
         rewards.forEach(item => {
             const reward = item.data || item; 
-            
-            // 🔥 УЛУЧШЕННАЯ ПРОВЕРКА СТАТУСА (видит и true, и "true", и 1)
+            // Проверка статуса (видит и true, и "true", и 1)
             const isUsed = reward.is_used === true || String(reward.is_used) === 'true' || reward.is_used == 1;
             
             const rawDate = reward.claimed_at || reward.created_at || item.date;
@@ -1173,7 +1169,7 @@ function renderRewards(rewards) {
                 day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
             });
 
-            // Статус "Скопировано" (только если не использован)
+            // Статус "Скопировано" (только для новых кодов)
             let copiedHtml = '';
             if (reward.copied_at && !isUsed) {
                 const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', {
@@ -1182,12 +1178,10 @@ function renderRewards(rewards) {
                 copiedHtml = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${dateCopied}</div>`;
             }
 
-            let iconSymbol = '<i class="fa-solid fa-coins" style="color: #FFD700; margin-left: 5px;"></i>'; 
-
             const div = document.createElement('div');
             div.className = 'reward-card';
             
-            // Добавляем стили для активированных прямо в JS для надежности
+            // Добавляем стили для активированных прямо в JS
             if (isUsed) {
                 div.style.borderLeft = "4px solid var(--primary-color)";
                 div.style.backgroundColor = "rgba(52, 199, 89, 0.05)";
@@ -1197,8 +1191,7 @@ function renderRewards(rewards) {
 
             if (isPromo) {
                 if (isUsed) {
-                    // --- ✅ ВАРИАНТ 1: ПРОМОКОД УЖЕ АКТИВИРОВАН (МАСКИРУЕМ КОД) ---
-                    // Превращаем 699F2E5D4507A -> 699F••••507A
+                    // --- ✅ ВАРИАНТ 1: ПРОМОКОД УЖЕ АКТИВИРОВАН (КРУГ УДАЛЕН) ---
                     const c = reward.code || "";
                     const maskedCode = c.length > 8 ? (c.slice(0, 4) + "••••" + c.slice(-4)) : "••••••••";
 
@@ -1209,7 +1202,7 @@ function renderRewards(rewards) {
                                 <span style="background: rgba(52, 199, 89, 0.2); color: var(--primary-color); font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; text-transform: uppercase;">
                                     <i class="fa-solid fa-check"></i> Зачислено
                                 </span>
-                                <span style="font-size: 14px; font-weight: 800; color: var(--primary-color);">+${reward.reward_value || 0} 🟡</span>
+                                <span style="font-size: 14px; font-weight: 800; color: var(--primary-color);">+${reward.reward_value || 0}</span>
                             </div>
                             <p class="reward-card-description" style="color: #fff; font-weight: 600; margin: 0;">
                                 ${reward.description || 'Награда'}
@@ -1222,12 +1215,12 @@ function renderRewards(rewards) {
                         </button>
                     </div>`;
                 } else {
-                    // --- 🎫 ВАРИАНТ 2: НОВЫЙ ПРОМОКОД (НУЖНА АКТИВАЦИЯ) ---
+                    // --- 🎫 ВАРИАНТ 2: НОВЫЙ ПРОМОКОД (КРУГ УДАЛЕН) ---
                     div.innerHTML = `
                     <div class="reward-card-info">
                         <div class="reward-card-details">
                             <p class="reward-card-description" style="color: #fff; font-weight: 600;">
-                                ${reward.description || 'Награда'} ${iconSymbol}
+                                ${reward.description || 'Награда'}
                             </p>
                             
                             <div class="reward-card-code-wrapper">
@@ -1267,7 +1260,7 @@ function renderRewards(rewards) {
                 <div class="reward-card-info">
                     <div class="reward-card-details">
                         <p class="reward-card-description" style="font-weight:600; color:#fff;">
-                            Начислено: ${reward.amount || 0} ${typeText} ${iconSymbol}
+                            Начислено: ${reward.amount || 0} ${typeText}
                         </p>
                         <span style="font-size:12px; color:#aaa;">(Администратор)</span>
                         <p class="reward-card-meta">Дата: ${dateStr}</p>
