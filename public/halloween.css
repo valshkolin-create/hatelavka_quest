@@ -1330,3 +1330,85 @@ body.no-scroll {
 @keyframes slideUpContent {
     to { transform: translateY(0); }
 }
+
+/* --- ТЕМА: RUNCASE --- */
+body[data-theme="runcase"] {
+  /* Темно-синий/почти черный фон сайта */
+  background-color: #11131a;
+  --bg-image: none; /* Убираем картинку, оставляем заливку, или добавь свою картинку */
+  
+  --primary-color: #f77e21; /* Фирменный оранжевый Runcase */
+  --action-color: #1e2230; /* Цвет кнопок/подложек */
+  --glow-color: rgba(247, 126, 33, 0.4);
+  
+  --text-color: #ffffff;
+  --text-color-muted: #8b96a8; /* Серо-синий цвет для второстепенного текста */
+  
+  --surface-primary: #181b26; /* Цвет основных плашек */
+  --surface-secondary: #212533; /* Внутренние плашки, инпуты */
+  --border-color: #2a2f40; /* Цвет тонких границ */
+}
+
+/* Переопределение стилей для строгого дизайна Runcase (меньше блюра, строгие формы) */
+body[data-theme="runcase"] .contribution-section, 
+body[data-theme="runcase"] .leaderboard-section, 
+body[data-theme="runcase"] .default-reward-section {
+    background: var(--surface-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border-radius: 8px; /* У runcase углы более острые */
+    backdrop-filter: none; /* Убираем стекло */
+}
+
+/* Оранжевые кнопки в стиле Runcase */
+body[data-theme="runcase"] #contribution-form button,
+body[data-theme="runcase"] .rules-button {
+    background: var(--primary-color);
+    color: #ffffff;
+    font-weight: 800;
+    text-transform: uppercase;
+    border-radius: 6px;
+    box-shadow: 0 4px 15px rgba(247, 126, 33, 0.2);
+    border: none;
+    letter-spacing: 0.5px;
+}
+
+body[data-theme="runcase"] #contribution-form button:hover,
+body[data-theme="runcase"] .rules-button:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(247, 126, 33, 0.4);
+}
+
+/* Инпуты */
+body[data-theme="runcase"] #tickets-input {
+    border-radius: 6px;
+    background-color: var(--action-color);
+    border: 1px solid var(--border-color);
+}
+
+/* Карточки наград (Тиры) */
+body[data-theme="runcase"] .tier-card {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+/* У Runcase вместо течения/рамки используются верхние полоски редкости */
+body[data-theme="runcase"] .tier-card.tier-gold { border-top: 3px solid #FFD700; border-left: 1px solid var(--border-color); }
+body[data-theme="runcase"] .tier-card.tier-silver { border-top: 3px solid #C0C0C0; border-left: 1px solid var(--border-color); }
+body[data-theme="runcase"] .tier-card.tier-bronze { border-top: 3px solid #CD7F32; border-left: 1px solid var(--border-color); }
+
+body[data-theme="runcase"] .tier-name { color: #ffffff; }
+body[data-theme="runcase"] .tier-range-badge { color: var(--text-color-muted); font-size: 10px; }
+
+/* Прогресс-бар */
+body[data-theme="runcase"] .progress-bar-fill {
+    background: var(--primary-color);
+    box-shadow: 0 0 10px var(--glow-color);
+    border-radius: 4px;
+}
+body[data-theme="runcase"] .progress-bar-container {
+    border-radius: 4px;
+    background-color: var(--surface-secondary);
+}
