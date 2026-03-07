@@ -9949,13 +9949,12 @@ async def get_user_rewards(
 
     try:
         # 1. Получаем промокоды
-        # 1. Получаем промокоды
         promocodes_resp = await supabase.get(
             "/promocodes", 
             params={
                 "telegram_id": f"eq.{user_id}", 
-                # 👇 ДОБАВЛЯЕМ СЮДА id и copied_at 👇
-                "select": "id,code,description,reward_value,claimed_at,copied_at"
+                # 👇 В ЭТОЙ СТРОКЕ НУЖНО ДОБАВИТЬ is_used 👇
+                "select": "id,code,description,reward_value,claimed_at,copied_at,is_used"
             }
         )
         promocodes = promocodes_resp.json()
