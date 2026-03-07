@@ -1393,29 +1393,51 @@ body[data-theme="runcase"] #tickets-input {
     color: #ffffff;
 }
 
-/* Карточки наград (Тиры) */
+/* =========================================
+   КАРТОЧКИ НАГРАД (Стиль по скриншоту Runcase)
+   ========================================= */
 body[data-theme="runcase"] .tier-card {
-    background: var(--surface-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    background: #1d202e; /* Цвет карточки со скрина */
+    border: none !important; /* Убираем общую рамку */
+    border-radius: 12px; /* Чуть больше скругления, как на фото */
+    padding: 15px 20px;
+    min-height: 75px;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); /* Приятная глубокая тень */
 }
 
-/* Спокойные полоски редкости (без ярких цветов) */
-body[data-theme="runcase"] .tier-card.tier-gold { border-left: 3px solid #d4af37; border-top: none; }
-body[data-theme="runcase"] .tier-card.tier-silver { border-left: 3px solid #a8a9ad; border-top: none; }
-body[data-theme="runcase"] .tier-card.tier-bronze { border-left: 3px solid #b07c5a; border-top: none; }
+/* Оставляем только левую полоску, делаем её толще и подбираем цвета по скрину */
+body[data-theme="runcase"] .tier-card.tier-gold { border-left: 4px solid #ffd04b !important; }
+body[data-theme="runcase"] .tier-card.tier-silver { border-left: 4px solid #b1b6c6 !important; }
+body[data-theme="runcase"] .tier-card.tier-bronze { border-left: 4px solid #d98c60 !important; }
 
-body[data-theme="runcase"] .tier-name { color: #ffffff; }
-body[data-theme="runcase"] .tier-range-badge { color: var(--text-color-muted); font-size: 10px; }
-
-/* Прогресс-бар */
-body[data-theme="runcase"] .progress-bar-fill {
-    background: var(--primary-color);
-    box-shadow: none; /* Без свечения */
-    border-radius: 4px;
+/* Настраиваем внутренности */
+body[data-theme="runcase"] .tier-info {
+    gap: 15px; /* Отступ между картинкой и текстом */
 }
-body[data-theme="runcase"] .progress-bar-container {
-    border-radius: 4px;
-    background-color: var(--surface-secondary);
-    border: 1px solid var(--border-color);
+
+/* Текст названия предмета (белый, жирный) */
+body[data-theme="runcase"] .tier-name { 
+    color: #ffffff; 
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* Текст "Места 21-30" — ставим в правый верхний угол, делаем серым */
+body[data-theme="runcase"] .tier-range-badge { 
+    position: absolute;
+    top: 12px;
+    right: 15px;
+    transform: none; /* Убираем дефолтное центрирование */
+    color: #727a8e; /* Темно-серо-голубой цвет со скрина */
+    font-size: 11px;
+    font-weight: 800;
+    opacity: 1; /* Убираем полупрозрачность, если она была */
+}
+
+/* Картинка скина */
+body[data-theme="runcase"] .tier-image {
+    width: 45px;
+    height: 45px;
+    filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.4)); /* Тень под самой пушкой для объема */
 }
