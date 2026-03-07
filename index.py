@@ -14004,54 +14004,124 @@ async def background_bott_sync_task(telegram_id: int, init_data: str):
 
 
 # --- 2. УМНЫЙ ЭНДПОИНТ ДЛЯ МАГАЗИНА ---
+# =========================================================================
+# ВЗАИМОДЕЙСТВИЕ С БАЛАНСОМ BOT-T (НАЧИСЛЕНИЕ И ПРОВЕРКА)
+# =========================================================================
+
+async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str = "Бонус от HATElavka"):
+    """
+    Функция для начисления реального баланса в систему Bot-t.
+    Вызывай ее, когда юзер активирует промокод, рефералку или выигрывает монеты.
+    """
+    if not bott_internal_id:
+        return False
+        
+    url = "https://api.bot-t.com/v1/bot/user/add-balance"
+    params = {
+        "botToken": BOTT_BOT_TOKEN,
+        "secretKey": BOTT_SECRET_KEY
+    }
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "user_id": int(bott_internal_id),
+        "sum": float(amount),
+        "comment": comment,
+        "isNotice": False, # Уведомление в боте (True/False)
+        "isSendComment": False
+    }
+    
+    try:
+        client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=10.0)
+        resp = await client.post(url, params=params, json=payload)
+        
+        if resp.status_code == 200 and resp.json().get("result"):
+            logging.info(f"✅ Начислено {amount} монет юзеру {bott_internal_id} в Bot-t")
+            return True
+        else:
+            logging.error(f"❌ Ошибка Bot-t: {resp.text}")
+            return False
+    except Exception as e:
+        logging.error(f"⚠️ Сбой при начислении: {e}")
+        return False
+
+
+# --- УМНЫЙ ЭНДПОИНТ ДЛЯ МАГАЗИНА (БЕЗ ФОНОВЫХ ЗАДАЧ) ---
 @app.post("/api/v1/shop/smart_balance")
 async def get_shop_smart_balance(
     request_data: InitDataRequest,
-    background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Вызывается при открытии магазина или нажатии Reload.
-    1. Отдает старый баланс мгновенно (чтобы интерфейс не висел).
-    2. Если данные старее 10 секунд -> запускает обновление в фоне.
+    Вызывается при открытии магазина.
+    Мгновенно отдает монеты (из Bot-t) и билеты (из БД).
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    telegram_id = user_info["id"]
+    telegram_id = int(user_info["id"])
 
-    # 1. Быстро читаем текущее состояние из базы (добавили tickets в select)
+    # 1. Читаем кэш и билеты из БД
     user_resp = await supabase.get(
         "/users", 
-        params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync, tickets"} # <--- ТУТ
+        params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync, tickets, bott_internal_id"}
     )
-    # Если юзера нет в базе, вернем 0, но фоновая задача его создаст/обновит позже
     user_data = user_resp.json()[0] if user_resp.json() else {}
     
     current_coins = user_data.get("bot_t_coins", 0)
-    current_tickets = user_data.get("tickets", 0) # <--- ТУТ
+    current_tickets = user_data.get("tickets", 0)
+    
+    # 2. Проверяем свежесть кэша (5 секунд)
     last_sync = user_data.get("last_balance_sync")
-
-    # 2. Решаем, нужно ли обновлять (кэш 10 секунд)
     should_sync = True
     if last_sync:
         try:
-            last_sync_dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
-            # Если прошло меньше 10 секунд с последнего обновления - не трогаем Bot-t
-            if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < 10:
+            last_dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+            if (datetime.now(timezone.utc) - last_dt).total_seconds() < 5:
                 should_sync = False
         except ValueError:
             pass
 
-    # 3. Если нужно обновление — добавляем задачу в фон
-    if should_sync:
-        background_tasks.add_task(background_bott_sync_task, telegram_id, request_data.initData)
+    # Если кэш свежий - отдаем сразу (чтобы не спамить запросами)
+    if not should_sync:
+        return {"balance": current_coins, "tickets": current_tickets}
 
-    # 4. Сразу возвращаем то, что есть сейчас (отдаем оба баланса)
+    # 3. ЕСЛИ КЭШ УСТАРЕЛ -> Идем в Bot-t и ждем ответ (это займет ~0.3 сек)
+    url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "botToken": BOTT_BOT_TOKEN,
+        "secretKey": BOTT_SECRET_KEY,
+        "telegram_id": telegram_id
+    }
+    
+    try:
+        client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=5.0)
+        resp = await client.post(url, json=payload)
+        
+        if resp.status_code == 200 and resp.json().get("result"):
+            api_data = resp.json().get("data", {})
+            
+            # Актуальные монеты из Bot-t
+            current_coins = int(float(api_data.get("money", 0)))
+            
+            # Обновляем кэш у нас в базе
+            update_data = {
+                "bot_t_coins": current_coins,
+                "last_balance_sync": datetime.now(timezone.utc).isoformat()
+            }
+            if api_data.get("id"): update_data["bott_internal_id"] = api_data.get("id")
+            if api_data.get("secret_user_key"): update_data["bott_secret_key"] = api_data.get("secret_user_key")
+
+            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
+            
+    except Exception as e:
+        logging.error(f"[SHOP BALANCE] Ошибка синхронизации: {e}")
+
+    # Отдаем актуальные цифры
     return {
         "balance": current_coins, 
-        "tickets": current_tickets # <--- ТУТ
+        "tickets": current_tickets
     }
 
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
