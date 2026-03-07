@@ -209,12 +209,11 @@ async function checkEventStatus() {
         }
     }
 
-    const THEME_ASSETS = {
+     const THEME_ASSETS = {
         halloween: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_HALLOWEEN.png' },
         new_year: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_NEW_YEAR.png' },
-        classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }.
-        runcase: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_RUNCASE.png' } // <-- ДОБАВИТЬ ЭТО
-            
+        classic: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_CLASSIC.png' }, // <--- ОБЯЗАТЕЛЬНО ЗАПЯТАЯ ЗДЕСЬ
+        runcase: { default_reward_image: 'URL_ВАШЕЙ_НАГРАДЫ_RUNCASE.png' }
     };
 
     const FALLBACK_CAULDRON_URL = 'https://i.postimg.cc/d1G5DRk1/magic-pot.png';
