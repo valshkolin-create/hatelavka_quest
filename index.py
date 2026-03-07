@@ -90,36 +90,84 @@ _background_supabase_client: Optional[httpx.AsyncClient] = None
 # =========================================================================
 
 async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str = "Бонус от HATElavka"):
-    """Функция для начисления реального баланса в систему Bot-t"""
+    """
+    Начисляет баланс и имитирует системные уведомления Bot-t для пользователя и админа.
+    """
     if not bott_internal_id:
         return False
         
-    url = "https://api.bot-t.com/v1/bot/user/add-balance"
-    params = {
-        "botToken": BOTT_BOT_TOKEN,
-        "secretKey": BOTT_SECRET_KEY
-    }
+    # 1. Начисляем баланс в Bot-t
+    url_add = "https://api.bot-t.com/v1/bot/user/add-balance"
+    params = {"botToken": BOTT_BOT_TOKEN, "secretKey": BOTT_SECRET_KEY}
+    
+    clean_amount = int(amount) if amount == int(amount) else amount
+    
     payload = {
         "bot_id": int(BOTT_BOT_ID),
         "user_id": int(bott_internal_id),
-        "sum": float(amount),
+        "sum": clean_amount,
         "comment": comment,
-        "isNotice": True,       # Уведомление в боте
-        "isSendComment": True   # Текст комментария
+        "isNotice": False, # Выключаем стандартное, шлем своё красивое
+        "isSendComment": False
     }
     
     try:
         client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=10.0)
-        resp = await client.post(url, params=params, json=payload)
+        resp = await client.post(url_add, params=params, json=payload)
         
         if resp.status_code == 200 and resp.json().get("result"):
-            logging.info(f"✅ Начислено {amount} монет юзеру {bott_internal_id} в Bot-t")
+            # Достаем данные юзера из нашей базы, чтобы сообщение было полным
+            u_resp = await supabase.get("/users", params={"bott_internal_id": f"eq.{bott_internal_id}", "select": "telegram_id, username, bot_t_coins"})
+            u_data = u_resp.json()
+            
+            user_tg_id = None
+            tg_username = "не указан"
+            new_balance = "обновляется..."
+            
+            if u_data:
+                user_tg_id = u_data[0].get("telegram_id")
+                tg_username = f"@{u_data[0].get('username')}" if u_data[0].get('username') else "скрыт"
+                # Прибавляем сумму к старому балансу для текста (или берем из API, если есть)
+                new_balance = (u_data[0].get("bot_t_coins", 0) or 0) + clean_amount
+
+            # --- 📝 ФОРМИРУЕМ ТО САМОЕ СООБЩЕНИЕ ---
+            full_msg = (
+                f"💰 <b>Произошло пополнение баланса</b>\n\n"
+                f"<b>Сумма:</b> {clean_amount} 💰\n"
+                f"<b>Аккаунт покупателя:</b> {tg_username}\n"
+                f"<b>Баланс пользователя:</b> {new_balance} 💰\n"
+                f"<b>ID покупателя:</b> #{user_tg_id or '---'}\n"
+                f"<b>Способ пополнения:</b> AUTO-COUPON 🎫\n"
+                f"<b>Комментарий:</b> {comment}"
+            )
+
+            # 2. ОТПРАВЛЯЕМ ПОЛЬЗОВАТЕЛЮ (через API Bot-t)
+            url_msg = "https://api.bot-t.com/v1/bot/message/send"
+            await client.post(url_msg, params=params, json={
+                "bot_id": int(BOTT_BOT_ID),
+                "user_id": int(bott_internal_id),
+                "message": full_msg,
+                "parse_mode": "HTML"
+            })
+
+            # 3. ОТПРАВЛЯЕМ АДМИНУ (в твой чат уведомлений)
+            if ADMIN_NOTIFY_CHAT_ID:
+                try:
+                    # Используем основной объект bot из aiogram
+                    await bot.send_message(
+                        chat_id=int(ADMIN_NOTIFY_CHAT_ID), 
+                        text=f"👤 <b>ЛОГ АКТИВАЦИИ</b>\n{full_msg}", 
+                        parse_mode="HTML"
+                    )
+                except Exception as admin_err:
+                    logging.error(f"Ошибка уведомления админа: {admin_err}")
+
+            logging.info(f"✅ Полный цикл начисления и уведомлений завершен для {bott_internal_id}")
             return True
-        else:
-            logging.error(f"❌ Ошибка Bot-t: {resp.text}")
-            return False
+            
+        return False
     except Exception as e:
-        logging.error(f"⚠️ Сбой при начислении: {e}")
+        logging.error(f"⚠️ Ошибка системы пополнения: {e}")
         return False
 
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
