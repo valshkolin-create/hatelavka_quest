@@ -14052,8 +14052,7 @@ async def get_shop_smart_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Вызывается при открытии магазина.
-    Мгновенно отдает монеты (из Bot-t) и билеты (из БД).
+    Мгновенно обновляет баланс через проверенный метод check-hash.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -14071,7 +14070,7 @@ async def get_shop_smart_balance(
     current_coins = user_data.get("bot_t_coins", 0)
     current_tickets = user_data.get("tickets", 0)
     
-    # 2. Проверяем свежесть кэша (5 секунд)
+    # 2. Проверяем кэш (5 сек)
     last_sync = user_data.get("last_balance_sync")
     should_sync = True
     if last_sync:
@@ -14082,48 +14081,46 @@ async def get_shop_smart_balance(
         except ValueError:
             pass
 
-    # Если кэш свежий - отдаем сразу (чтобы не спамить запросами)
+    # Если обновляли только что - отдаем сразу
     if not should_sync:
         return {"balance": current_coins, "tickets": current_tickets}
 
-    # 3. ЕСЛИ КЭШ УСТАРЕЛ -> Идем в Bot-t и ждем ответ (это займет ~0.3 сек)
-    url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
-    payload = {
-        "bot_id": int(BOTT_BOT_ID),
-        "botToken": BOTT_BOT_TOKEN,
-        "secretKey": BOTT_SECRET_KEY,
-        "telegram_id": telegram_id
-    }
+    # 3. Идем в Bot-t ПРОВЕРЕННЫМ МЕТОДОМ (check-hash)
+    url = "https://api.bot-t.com/v1/module/bot/check-hash"
+    payload = {"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}
     
     try:
         client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=5.0)
+        # Ждем ответа (это быстро)
         resp = await client.post(url, json=payload)
         
-        if resp.status_code == 200 and resp.json().get("result"):
-            api_data = resp.json().get("data", {})
+        if resp.status_code == 200:
+            res_json = resp.json()
+            api_data = res_json.get("data", {})
             
-            # Актуальные монеты из Bot-t
-            current_coins = int(float(api_data.get("money", 0)))
-            
-            # Обновляем кэш у нас в базе
-            update_data = {
-                "bot_t_coins": current_coins,
-                "last_balance_sync": datetime.now(timezone.utc).isoformat()
-            }
-            if api_data.get("id"): update_data["bott_internal_id"] = api_data.get("id")
-            if api_data.get("secret_user_key"): update_data["bott_secret_key"] = api_data.get("secret_user_key")
+            if api_data:
+                # Успешно получили свежие данные!
+                current_coins = int(float(api_data.get("money", 0)))
+                
+                # Обновляем базу
+                update_data = {
+                    "bot_t_coins": current_coins,
+                    "last_balance_sync": datetime.now(timezone.utc).isoformat()
+                }
+                if api_data.get("id"): update_data["bott_internal_id"] = api_data.get("id")
+                if api_data.get("secret_user_key"): update_data["bott_secret_key"] = api_data.get("secret_user_key")
 
-            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
+                await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
             
     except Exception as e:
-        logging.error(f"[SHOP BALANCE] Ошибка синхронизации: {e}")
+        logging.error(f"[SHOP BALANCE] Ошибка: {e}")
 
-    # Отдаем актуальные цифры
+    # Отдаем реальные 116 звезд!
     return {
         "balance": current_coins, 
         "tickets": current_tickets
     }
-
+    
 # --- ЭНДПОИНТ 2: РЕФЕРАЛЫ (С ДЕТАЛЬНЫМ ЛОГОМ ПАРСИНГА) ---
 @app.post("/api/v1/user/sync_referral")
 async def sync_user_referral(
