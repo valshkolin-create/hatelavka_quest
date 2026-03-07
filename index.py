@@ -3436,22 +3436,28 @@ async def silent_update_twitch_user(telegram_id: int):
             if user_api_resp.status_code == 200:
                 twitch_login_actual = user_api_resp.json()["data"][0]["login"]
 
-            # 4. Проверяем подписку
+           # 4. Проверяем подписку (ИСПРАВЛЕНО)
             broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
-            new_status = "none"
+            new_status = current_status if current_status else "none"
+            
             if broadcaster_id:
                 try:
                     sub_resp = await tw_client.get(
-                        f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
+                        f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
                         headers=headers
                     )
-                    if sub_resp.status_code == 200:
+                    sub_data = sub_resp.json().get("data", [])
+                    
+                    # Если вернул 200 и есть реальные данные — подписчик
+                    if sub_resp.status_code == 200 and len(sub_data) > 0:
                         new_status = "subscriber"
-                    elif sub_resp.status_code == 404:
-                        new_status = "none"
+                    # Если 200, но массив ПУСТОЙ (или 404) — не подписчик
+                    elif (sub_resp.status_code == 200 and len(sub_data) == 0) or sub_resp.status_code == 404:
+                        if new_status == "subscriber": # Снимаем сабку, только если она истекла
+                            new_status = "none"
                 except: pass
             
-            # Если он VIP, не понижаем его
+            # Если он VIP, железобетонно не понижаем его
             if current_status == "vip":
                 new_status = "vip"
 
@@ -6607,56 +6613,48 @@ async def twitch_oauth_callback(
             tw_user = u_json["data"][0]
             twitch_id, twitch_login = tw_user["id"], tw_user["login"]
 
-            # 4. ОПРЕДЕЛЕНИЕ СТАТУСА (Иерархия: VIP > Moderator > Subscriber > Follower)
-            new_status = "none"
+           # 4. ОПРЕДЕЛЕНИЕ СТАТУСА (ИСПРАВЛЕНО)
+        new_status = "none"
 
-            # --- А. Проверка на Фолловера ---
-            try:
-                f_resp = await client.get(f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={BROADCASTER_ID}", headers=user_headers)
-                if f_resp.status_code == 200 and f_resp.json().get("data"):
-                    new_status = "follower"
-            except Exception as e:
-                logging.warning(f"Ошибка проверки фоллоу: {e}")
-            
-            # --- Б. Проверка на Сабскрибера ---
-            try:
-                s_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}", headers=user_headers)
-                if s_resp.status_code == 200:
-                    new_status = "subscriber"
-            except Exception as e:
-                logging.warning(f"Ошибка проверки сабки: {e}")
+        # --- Б. Проверка на Сабскрибера ---
+        try:
+            # Используем актуальный эндпоинт Twitch
+            s_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}", headers=user_headers)
+            s_data = s_resp.json().get("data", [])
+            # Выдаем подписку ТОЛЬКО если код 200 И массив данных не пустой
+            if s_resp.status_code == 200 and len(s_data) > 0:
+                new_status = "subscriber"
+        except Exception as e:
+            logging.warning(f"Ошибка проверки сабки: {e}")
 
-            # --- В. Проверка на Модератора (Используем твой токен из базы) ---
-            try:
-                # Достаем токен стримера (тебя) из базы данных
-                br_resp = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-                br_data = br_resp.json()
-                if br_data and br_data[0].get("twitch_access_token"):
-                    broadcaster_token = br_data[0]["twitch_access_token"]
-                    m_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID}
-                    
-                    # Проверяем, есть ли юзер в списке модеров твоего канала
-                    m_url = f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
-                    m_resp = await client.get(m_url, headers=m_headers)
-                    
-                    if m_resp.status_code == 200:
-                        if m_resp.json().get("data"):
-                            new_status = "moderator"
-                    else:
-                        # Если код не 200, значит твой токен стримера не имеет прав moderation:read
-                        logging.warning(f"🛡️ [Mod Check] Не удалось проверить модератора. Код: {m_resp.status_code}. Тебе (стримеру) нужно перепривязать Twitch!")
-                else:
-                    logging.warning("🛡️ [Mod Check] Токен стримера не найден в БД. Проверка модераторов невозможна.")
-            except Exception as e:
-                logging.error(f"❌ [Mod Check] Критическая ошибка: {e}")
+        # --- В. Проверка на Модератора ---
+        try:
+            br_resp = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
+            br_data = br_resp.json()
+            if br_data and br_data[0].get("twitch_access_token"):
+                broadcaster_token = br_data[0]["twitch_access_token"]
+                m_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID}
+                m_url = f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
+                m_resp = await client.get(m_url, headers=m_headers)
+                m_data = m_resp.json().get("data", [])
+                if m_resp.status_code == 200 and len(m_data) > 0:
+                    new_status = "moderator"
+        except Exception as e:
+            logging.error(f"❌ [Mod Check] Критическая ошибка: {e}")
 
-            # --- Г. Защита VIP статуса (чтобы не затереть ручную выдачу) ---
-            try:
-                db_user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
-                db_user_data = db_user_resp.json()
-                if db_user_data and db_user_data[0].get("twitch_status") == "vip":
+        # --- Г. Защита VIP и текущего статуса (чтобы не затереть ручную выдачу) ---
+        try:
+            db_user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
+            db_user_data = db_user_resp.json()
+            if db_user_data and db_user_data[0].get("twitch_status"):
+                db_status = db_user_data[0].get("twitch_status")
+                # Если он УЖЕ VIP, жестко оставляем его (приоритет)
+                if db_status == "vip":
                     new_status = "vip"
-            except: pass
+                # Если бот определил "none", но в базе что-то было, возвращаем старое
+                elif new_status == "none":
+                    new_status = db_status
+        except: pass
 
             # 5. Сохранение в базу
             update_payload = {
