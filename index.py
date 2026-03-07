@@ -6898,10 +6898,18 @@ async def twitch_oauth_callback(
 
             # --- Б. Проверка на Сабскрибера ---
             try:
-                s_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}", headers=user_headers)
-                s_data = s_resp.json().get("data", [])
-                if s_resp.status_code == 200 and len(s_data) > 0:
-                    new_status = "subscriber"
+                # 🔥 ИСПРАВЛЕНИЕ: Добавлено /user в URL
+                # Это эндпоинт для проверки подписки именно от лица зрителя
+                s_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
+                s_resp = await client.get(s_url, headers=user_headers)
+                
+                if s_resp.status_code == 200:
+                    s_data = s_resp.json().get("data", [])
+                    if len(s_data) > 0:
+                        new_status = "subscriber"
+                else:
+                    # Если Twitch не отдаст сабку, мы точно увидим причину в логах Vercel
+                    logging.warning(f"⚠️ Ошибка проверки сабки ({twitch_login}): {s_resp.status_code} - {s_resp.text}")
             except Exception as e:
                 logging.warning(f"Ошибка проверки сабки: {e}")
 
