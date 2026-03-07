@@ -2214,8 +2214,8 @@ async def run_mass_twitch_update():
     """Сама логика проверки, которая будет работать в фоне"""
     logging.info("⏳ Запуск массового обновления статусов Twitch (через cron)...")
     try:
-        # Получаем всех, у кого привязан Twitch
-        resp = await supabase.table("users").select(
+        # УБРАН await перед supabase.table(...)
+        resp = supabase.table("users").select(
             "telegram_id, twitch_id, twitch_status, twitch_access_token"
         ).not_.is_("twitch_id", "null").execute()
         
@@ -2250,9 +2250,9 @@ async def run_mass_twitch_update():
                     if sub_resp.status_code == 200 and len(sub_data) > 0:
                         new_status = "subscriber"
                     
-                    # Обновляем только если статус изменился
+                    # УБРАН await перед supabase.table(...)
                     if new_status != user.get("twitch_status"):
-                        await supabase.table("users").update({"twitch_status": new_status}).eq("telegram_id", user.get("telegram_id")).execute()
+                        supabase.table("users").update({"twitch_status": new_status}).eq("telegram_id", user.get("telegram_id")).execute()
                         logging.info(f"🔄 Изменен статус для {twitch_id}: {user.get('twitch_status')} -> {new_status}")
                         
                 except Exception as e:
