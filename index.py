@@ -13419,7 +13419,7 @@ async def issue_twitch_reward_promocode(
     background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Выдает промокод за покупку на Twitch. Проверка Wizebot УДАЛЕНА."""
+    """(Админ) Выдает промокод за покупку на Twitch с АВТО-АКТИВАЦИЕЙ."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -13427,8 +13427,6 @@ async def issue_twitch_reward_promocode(
     purchase_id = request_data.purchase_id
 
     try:
-        # --- БЛОК ПРОВЕРКИ WIZEBOT (ШАГ 3) БЫЛ ПОЛНОСТЬЮ УДАЛЕН ---
-        
         # Сразу вызываем RPC для выдачи промокода
         rpc_response = await supabase.post(
             "/rpc/issue_promocode_for_twitch_purchase",
@@ -13444,19 +13442,39 @@ async def issue_twitch_reward_promocode(
         if not all([user_id_to_notify, promo_code, reward_title]):
             raise HTTPException(status_code=404, detail="Не удалось получить все данные для отправки уведомления.")
             
+        # --- 🔥 АВТО-АКТИВАЦИЯ ДЛЯ TWITCH (СНАЙПЕР) 🔥 ---
+        try:
+            # Узнаем ID и номинал промокода из БД
+            promo_info_resp = await supabase.get(
+                "/promocodes", 
+                params={"code": f"eq.{promo_code}", "select": "id,reward_value"}
+            )
+            if promo_info_resp.status_code == 200 and promo_info_resp.json():
+                p_data = promo_info_resp.json()[0]
+                
+                # ЖДЕМ завершения снайпера (await), чтобы Vercel не убил процесс!
+                await activate_single_promocode(
+                    promo_id=p_data['id'],
+                    telegram_id=user_id_to_notify,
+                    reward_value=p_data['reward_value'],
+                    description=f"Награда за Twitch: {reward_title}"
+                )
+        except Exception as sniper_e:
+            logging.error(f"❌ Ошибка авто-активации Twitch награды для {user_id_to_notify}: {sniper_e}")
+        # ----------------------------------------------------
+
         # Отправляем уведомление в фоне
         safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
         activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
         
         notification_text = (
             f"<b>🎉 Ваша награда за «{html_decoration.quote(reward_title)}»!</b>\n\n"
-            f"Скопируйте промокод и используйте его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
-            f"Ваш промокод:\n<code>{promo_code}</code>"
+            f"Награда была автоматически зачислена на ваш баланс! 🟡"
         )
         
+        # Кнопку "Активировать" можно убрать или оставить только "Удалить из списка"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
-            [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
+            [InlineKeyboardButton(text="🗑️ Понятно, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
         ])
 
         background_tasks.add_task(safe_send_message, user_id_to_notify, text=notification_text, reply_markup=keyboard)
@@ -13573,18 +13591,14 @@ async def handle_confirm_reward(
             promo_data = res.json()[0] if res.json() else None
 
             if promo_data and not promo_data.get("is_used"):
-                # 🔥 ЗАПУСКАЕМ АВТО-АКТИВАЦИЮ В ФОНЕ 🔥
-                # Так как мы сейчас удалим этот код, мы используем упрощенную активацию 
-                # или просто вызываем зачисление баланса
-                asyncio.create_task(
-                    activate_single_promocode(
-                        promo_id=promo_data['id'],
-                        telegram_id=callback.from_user.id,
-                        reward_value=promo_data.get('reward_value', 0),
-                        description=f"Подтверждение в боте: {promo_data.get('description', 'Reward')}"
-                    )
+               # 🔥 ЖДЕМ АВТО-АКТИВАЦИЮ (ИСПРАВЛЕНО) 🔥
+                await activate_single_promocode(
+                    promo_id=promo_data['id'],
+                    telegram_id=callback.from_user.id,
+                    reward_value=promo_data.get('reward_value', 0),
+                    description=f"Подтверждение в боте: {promo_data.get('description', 'Reward')}"
                 )
-
+                
             # 2. ТЕПЕРЬ УДАЛЯЕМ (как и было в твоей логике)
             await supabase.delete(
                 "/promocodes",
