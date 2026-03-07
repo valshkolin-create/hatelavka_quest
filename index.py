@@ -6852,17 +6852,24 @@ async def twitch_oauth_callback(
 
         async with httpx.AsyncClient() as client:
             # 2. Обмен кода на Access Token пользователя
-            t_resp = await client.post("https://id.twitch.tv/oauth2/token", data={
+            # 🔥 ИСПРАВЛЕНИЕ: Используем 'params' вместо 'data'
+            t_resp = await client.post("https://id.twitch.tv/oauth2/token", params={
                 "client_id": TWITCH_CLIENT_ID, 
                 "client_secret": TWITCH_CLIENT_SECRET,
                 "code": code, 
                 "grant_type": "authorization_code", 
                 "redirect_uri": TWITCH_REDIRECT_URI
             })
+            
             t_data = t_resp.json()
-            if "access_token" not in t_data:
-                logging.error(f"❌ [Twitch API] Ошибка обмена токена: {t_data}")
+            
+            if t_resp.status_code != 200:
+                logging.error(f"❌ [Twitch API] Ошибка обмена токена. Код: {t_resp.status_code}. Ответ: {t_data}")
                 raise HTTPException(status_code=500, detail="Twitch token exchange failed")
+
+            if "access_token" not in t_data:
+                logging.error(f"❌ [Twitch API] Токен отсутствует в ответе: {t_data}")
+                raise HTTPException(status_code=500, detail="Twitch token exchange failed (no token)")
 
             user_access_token = t_data["access_token"]
             user_headers = {"Authorization": f"Bearer {user_access_token}", "Client-Id": TWITCH_CLIENT_ID}
@@ -6870,7 +6877,9 @@ async def twitch_oauth_callback(
             # 3. Получаем профиль вошедшего юзера
             u_resp = await client.get("https://api.twitch.tv/helix/users", headers=user_headers)
             u_json = u_resp.json()
+            
             if not u_json.get("data"):
+                logging.error(f"❌ [Twitch API] Ошибка получения профиля пользователя. Ответ: {u_json}")
                 raise HTTPException(status_code=500, detail="No Twitch user data")
 
             tw_user = u_json["data"][0]
