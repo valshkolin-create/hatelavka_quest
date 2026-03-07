@@ -1505,3 +1505,39 @@ body[data-theme="runcase"] .modal-reward-place {
 body[data-theme="runcase"] .page-header {
     padding-top: 5px;
 }
+
+/* =========================================
+   ГРАДИЕНТНЫЙ ФОН ДЛЯ БЛОКОВ (RUNCASE)
+   ========================================= */
+/* Применяем красивый синий градиент как на карточке КЕЙСБАТЛ */
+body[data-theme="runcase"] .leaderboard-section, 
+body[data-theme="runcase"] .default-reward-section {
+    background: linear-gradient(135deg, #171b2c 0%, #262f47 100%);
+    /* На всякий случай дублируем рамки и тени, чтобы они не слетели */
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    border-radius: 8px;
+}
+
+/* =========================================
+   ОСВЕТЛЕНИЕ СКИНОВ (RUNCASE)
+   ========================================= */
+/* Осветляем скины в списке "Лучшие участники" */
+body[data-theme="runcase"] .leaderboard-row .prize-image {
+    filter: brightness(1.25) contrast(1.15); /* Делаем на 25% ярче и чуть контрастнее */
+}
+
+/* Осветляем скины в блоке "Награды для остальных" (сохраняем тень, которую делали раньше) */
+body[data-theme="runcase"] .tier-image {
+    filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.4)) brightness(1.25) contrast(1.15);
+}
+
+/* Осветляем скины внутри модального окна со списком всех наград */
+body[data-theme="runcase"] .modal-reward-img {
+    filter: brightness(1.25) contrast(1.15);
+}
+
+/* Осветляем картинку при детальном просмотре (когда кликаешь на скин) */
+body[data-theme="runcase"] .viewer-image {
+    filter: brightness(1.25) contrast(1.15);
+}
