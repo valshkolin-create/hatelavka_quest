@@ -1426,7 +1426,7 @@ body[data-theme="runcase"] .tier-name {
 /* Текст "Места 21-30" — ставим в правый верхний угол, делаем серым */
 body[data-theme="runcase"] .tier-range-badge { 
     position: absolute;
-    top: 12px;
+    top: 8px;
     right: 15px;
     transform: none; /* Убираем дефолтное центрирование */
     color: #727a8e; /* Темно-серо-голубой цвет со скрина */
