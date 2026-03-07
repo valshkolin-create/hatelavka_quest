@@ -9647,6 +9647,24 @@ async def update_submission_status(
             response.raise_for_status()
             promo_code = response.text.strip('"')
 
+            # --- 🔥 ДОБАВЛЕНО: АВТО-АКТИВАЦИЯ ДЛЯ РУЧНЫХ КВЕСТОВ ---
+            # Так как RPC вернул только текст, быстро узнаем ID и номинал для Bot-t
+            promo_info_resp = await supabase.get(
+                "/promocodes", 
+                params={"code": f"eq.{promo_code}", "select": "id,reward_value"}
+            )
+            if promo_info_resp.status_code == 200 and promo_info_resp.json():
+                p_data = promo_info_resp.json()[0]
+                asyncio.create_task(
+                    activate_single_promocode(
+                        promo_id=p_data['id'],
+                        telegram_id=user_to_notify,
+                        reward_value=p_data['reward_value'],
+                        description=f"Награда за квест: {quest_title}"
+                    )
+                )
+            # ------------------------------------------------------
+
             # 3. Вызываем триггер для "Недельного Забега"
             try:
                 logging.info(f"--- [update_submission_status] Запуск триггера 'Забега' для submission_id: {submission_id} ---")
@@ -9711,8 +9729,7 @@ async def update_submission_status(
                         if contrib_response.status_code >= 400:
                             logging.error(f"[КОТЕЛ] ❌ ОШИБКА RPC: {contrib_response.text}")
                             
-                            # Бронебойный запасной вариант: если RPC выдал ошибку (например, не принял тип 'quest'), 
-                            # мы вручную обновим хотя бы шкалу прогресса, чтобы очки не сгорели
+                            # Бронебойный запасной вариант
                             current_progress = int(cauldron_data.get('current_progress', 0))
                             new_progress = current_progress + points_to_add
                             cauldron_data['current_progress'] = new_progress
@@ -9744,8 +9761,8 @@ async def update_submission_status(
                 promo_code=promo_code
             )
 
-            logging.info(f"Заявка {submission_id} одобрена. Билеты ({ticket_reward}) начислены, промокод '{promo_code}' отправляется.")
-            return {"message": "Заявка одобрена. Награда (билеты и промокод) отправляется пользователю.", "promocode": promo_code}
+            logging.info(f"Заявка {submission_id} одобрена. Билеты ({ticket_reward}) начислены, промокод '{promo_code}' зачисляется автоматически.")
+            return {"message": "Заявка одобрена. Монеты успешно начислены!", "promocode": promo_code}
 
         except httpx.HTTPStatusError as e:
             error_details = e.response.json().get("message", "Ошибка базы данных при выдаче награды.")
@@ -9756,7 +9773,6 @@ async def update_submission_status(
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
-
 
 # --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
 @app.get("/api/v1/leaderboard/wizebot")
