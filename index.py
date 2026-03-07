@@ -311,81 +311,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     await supabase.post("/user_winnings", json=delivery_payload)
 
     return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован и готов к отправке"}
-
-# ==========================================
-# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB
-# ==========================================
-
-async def run_mass_twitch_update():
-    """Сама логика проверки, которая будет работать в фоне"""
-    logging.info("⏳ Запуск массового обновления статусов Twitch (через cron)...")
-    try:
-        # Получаем всех, у кого привязан Twitch
-        resp = await supabase.table("users").select(
-            "telegram_id, twitch_id, twitch_status, twitch_access_token"
-        ).not_.is_("twitch_id", "null").execute()
-        
-        users = resp.data if hasattr(resp, 'data') else resp
-        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
-        
-        async with httpx.AsyncClient() as client:
-            for user in users:
-                # VIP-статусы не трогаем
-                if user.get("twitch_status") == "vip":
-                    continue
-                    
-                twitch_id = user.get("twitch_id")
-                token = user.get("twitch_access_token")
-                
-                if not twitch_id or not token or not broadcaster_id:
-                    continue
-
-                headers = {
-                    "Authorization": f"Bearer {token}",
-                    "Client-Id": os.getenv("TWITCH_CLIENT_ID")
-                }
-                
-                try:
-                    sub_resp = await client.get(
-                        f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
-                        headers=headers
-                    )
-                    sub_data = sub_resp.json().get("data", [])
-                    
-                    new_status = "none"
-                    if sub_resp.status_code == 200 and len(sub_data) > 0:
-                        new_status = "subscriber"
-                    
-                    # Обновляем только если статус изменился
-                    if new_status != user.get("twitch_status"):
-                        await supabase.table("users").update({"twitch_status": new_status}).eq("telegram_id", user.get("telegram_id")).execute()
-                        logging.info(f"🔄 Изменен статус для {twitch_id}: {user.get('twitch_status')} -> {new_status}")
-                        
-                except Exception as e:
-                    logging.error(f"⚠️ Ошибка проверки юзера {twitch_id}: {e}")
-
-                # Обязательная пауза, чтобы не словить бан API от Twitch
-                await asyncio.sleep(0.5) 
-                
-        logging.info("✅ Массовое обновление статусов Twitch успешно завершено.")
-    except Exception as e:
-        logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}")
-
-
-@app.get("/api/cron/update-twitch-statuses")
-async def trigger_twitch_update(background_tasks: BackgroundTasks, secret: str = Query(None)):
-    """Эндпоинт, который будет дергать cron-job.org"""
-    
-    # Защита: проверяем секретный ключ, чтобы никто чужой не мог запустить обновление
-    expected_secret = os.getenv("CRON_SECRET", "твой_секретный_пароль_123")
-    if secret != expected_secret:
-        raise HTTPException(status_code=403, detail="Неверный секретный ключ")
-    
-    # Отправляем долгую задачу в фон
-    background_tasks.add_task(run_mass_twitch_update)
-    
-    return {"status": "success", "message": "Обновление статусов запущено в фоновом режиме"}
-    
+   
 # =======================================================
 # 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
 async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
@@ -2807,6 +2733,81 @@ async def bootstrap_app(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
+
+
+# ==========================================
+# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB
+# ==========================================
+
+async def run_mass_twitch_update():
+    """Сама логика проверки, которая будет работать в фоне"""
+    logging.info("⏳ Запуск массового обновления статусов Twitch (через cron)...")
+    try:
+        # Получаем всех, у кого привязан Twitch
+        resp = await supabase.table("users").select(
+            "telegram_id, twitch_id, twitch_status, twitch_access_token"
+        ).not_.is_("twitch_id", "null").execute()
+        
+        users = resp.data if hasattr(resp, 'data') else resp
+        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
+        
+        async with httpx.AsyncClient() as client:
+            for user in users:
+                # VIP-статусы не трогаем
+                if user.get("twitch_status") == "vip":
+                    continue
+                    
+                twitch_id = user.get("twitch_id")
+                token = user.get("twitch_access_token")
+                
+                if not twitch_id or not token or not broadcaster_id:
+                    continue
+
+                headers = {
+                    "Authorization": f"Bearer {token}",
+                    "Client-Id": os.getenv("TWITCH_CLIENT_ID")
+                }
+                
+                try:
+                    sub_resp = await client.get(
+                        f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
+                        headers=headers
+                    )
+                    sub_data = sub_resp.json().get("data", [])
+                    
+                    new_status = "none"
+                    if sub_resp.status_code == 200 and len(sub_data) > 0:
+                        new_status = "subscriber"
+                    
+                    # Обновляем только если статус изменился
+                    if new_status != user.get("twitch_status"):
+                        await supabase.table("users").update({"twitch_status": new_status}).eq("telegram_id", user.get("telegram_id")).execute()
+                        logging.info(f"🔄 Изменен статус для {twitch_id}: {user.get('twitch_status')} -> {new_status}")
+                        
+                except Exception as e:
+                    logging.error(f"⚠️ Ошибка проверки юзера {twitch_id}: {e}")
+
+                # Обязательная пауза, чтобы не словить бан API от Twitch
+                await asyncio.sleep(0.5) 
+                
+        logging.info("✅ Массовое обновление статусов Twitch успешно завершено.")
+    except Exception as e:
+        logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}")
+
+
+@app.get("/api/cron/update-twitch-statuses")
+async def trigger_twitch_update(background_tasks: BackgroundTasks, secret: str = Query(None)):
+    """Эндпоинт, который будет дергать cron-job.org"""
+    
+    # Защита: проверяем секретный ключ, чтобы никто чужой не мог запустить обновление
+    expected_secret = os.getenv("CRON_SECRET", "твой_секретный_пароль_123")
+    if secret != expected_secret:
+        raise HTTPException(status_code=403, detail="Неверный секретный ключ")
+    
+    # Отправляем долгую задачу в фон
+    background_tasks.add_task(run_mass_twitch_update)
+    
+    return {"status": "success", "message": "Обновление статусов запущено в фоновом режиме"}
  
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 
