@@ -2207,12 +2207,12 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 
 
 # ==========================================
-# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB
+# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB (ПАКЕТНАЯ ОБРАБОТКА)
 # ==========================================
 
 async def run_mass_twitch_update():
-    """Сама логика проверки, которая будет работать в фоне"""
-    logging.info("⏳ Запуск массового обновления статусов Twitch (через cron)...")
+    """Логика пакетной проверки: берем 50 юзеров, которых проверяли давнее всего"""
+    logging.info("⏳ Запуск пакетного обновления Twitch (50 юзеров)...")
     try:
         broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
         client_id = os.getenv("TWITCH_CLIENT_ID")
@@ -2227,7 +2227,7 @@ async def run_mass_twitch_update():
             if br_data and br_data[0].get("twitch_refresh_token"):
                 br_user = br_data[0]
                 
-                # 2. АВТО-ОБНОВЛЕНИЕ ТОКЕНА СТРИМЕРА (чтобы он никогда не сбрасывался)
+                # Обновляем токен стримера (чтобы права moderation/vip не пропадали)
                 token_resp = await client.post("https://id.twitch.tv/oauth2/token", data={
                     "client_id": client_id,
                     "client_secret": client_secret,
@@ -2238,36 +2238,32 @@ async def run_mass_twitch_update():
                 if token_resp.status_code == 200:
                     new_tokens = token_resp.json()
                     broadcaster_token = new_tokens["access_token"]
-                    # Сохраняем новый свежий токен в БД
                     supabase.table("users").update({
                         "twitch_access_token": broadcaster_token,
                         "twitch_refresh_token": new_tokens.get("refresh_token", br_user.get("twitch_refresh_token"))
                     }).eq("telegram_id", br_user.get("telegram_id")).execute()
-                    logging.info("🔄 Токен стримера успешно обновлен перед стартом крона.")
                 else:
                     broadcaster_token = br_user.get("twitch_access_token")
-                    logging.warning("⚠️ Не удалось обновить токен стримера, пробуем использовать старый.")
 
-            # Формируем заголовки от лица стримера
             br_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": client_id} if broadcaster_token else None
 
-            # 3. Получаем всех юзеров (у кого привязан Twitch)
+            # 2. БЕРЕМ 50 ЮЗЕРОВ (сортируем по дате последней проверки - самые старые в начале)
             resp = supabase.table("users").select(
                 "telegram_id, twitch_id, twitch_status, twitch_access_token"
-            ).not_.is_("twitch_id", "null").execute()
+            ).not_.is_("twitch_id", "null").order("last_twitch_sync").limit(50).execute()
             
             users = resp.data if hasattr(resp, 'data') else resp
             
             for user in users:
                 twitch_id = user.get("twitch_id")
                 
-                # Себя (стримера) не проверяем, чтобы случайно не сбить себе статус
+                # Себя (стримера) пропускаем
                 if not twitch_id or twitch_id == broadcaster_id:
                     continue
 
                 new_status = "none"
 
-                # А. Проверяем Сабку (по токену самого юзера)
+                # А. Проверяем Сабку
                 user_token = user.get("twitch_access_token")
                 if user_token:
                     u_headers = {"Authorization": f"Bearer {user_token}", "Client-Id": client_id}
@@ -2277,7 +2273,7 @@ async def run_mass_twitch_update():
                             new_status = "subscriber"
                     except: pass
 
-                # Б. Проверяем Модератора (по обновленному токену стримера)
+                # Б. Проверяем Модератора
                 if br_headers:
                     try:
                         m_url = f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
@@ -2286,7 +2282,7 @@ async def run_mass_twitch_update():
                             new_status = "moderator"
                     except: pass
 
-                # В. Проверяем VIP (по обновленному токену стримера - VIP перебьет модератора)
+                # В. Проверяем VIP
                 if br_headers:
                     try:
                         v_url = f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
@@ -2295,17 +2291,33 @@ async def run_mass_twitch_update():
                             new_status = "vip"
                     except: pass
                 
-                # 4. Обновляем в БД только если статус изменился
+                # 3. ОБНОВЛЯЕМ БАЗУ (Ставим время проверки, чтобы юзер ушел в конец очереди)
+                update_payload = {"last_twitch_sync": datetime.now(timezone.utc).isoformat()}
                 if new_status != user.get("twitch_status"):
-                    supabase.table("users").update({"twitch_status": new_status}).eq("telegram_id", user.get("telegram_id")).execute()
+                    update_payload["twitch_status"] = new_status
                     logging.info(f"🔄 Изменен статус для {twitch_id}: {user.get('twitch_status')} -> {new_status}")
                     
-                # Обязательная пауза, чтобы не словить бан API от Twitch
-                await asyncio.sleep(0.5) 
+                supabase.table("users").update(update_payload).eq("telegram_id", user.get("telegram_id")).execute()
+                    
+                # Пауза 0.3 сек (ускорили чуть-чуть, чтобы 50 чел влезли в 30 сек)
+                await asyncio.sleep(0.3) 
                 
-        logging.info("✅ Массовое обновление статусов Twitch (включая VIP и Mod) успешно завершено.")
+        logging.info("✅ Пакетное обновление (50 юзеров) завершено.")
     except Exception as e:
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}")
+
+
+@app.get("/api/cron/update-twitch-statuses")
+async def trigger_twitch_update(secret: str = Query(None)):
+    """Эндпоинт для cron-job.org"""
+    expected_secret = os.getenv("CRON_SECRET", "твой_секретный_пароль_123")
+    if secret != expected_secret:
+        raise HTTPException(status_code=403, detail="Неверный секретный ключ")
+    
+    # Запускаем проверку пачки
+    await run_mass_twitch_update()
+    
+    return {"status": "success", "message": "Пакет из 50 юзеров успешно проверен"}
         
 # =======================================================
 # 🔥 КРОН: МУЛЬТИ-АККАУНТ (V8 - CS:GO MARKET FULL PRICES) 🔥
