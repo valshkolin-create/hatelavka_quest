@@ -534,6 +534,26 @@
             width: 32px; height: 32px; font-size: 14px;
             cursor: pointer; transition: background-color 0.2s ease;
         }
+/* Стиль для уже активированных наград */
+        .reward-card.activated {
+            border-left: 4px solid var(--primary-color);
+            background-color: rgba(52, 199, 89, 0.05);
+        }
+        .status-badge {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+        .status-badge.used {
+            background: rgba(52, 199, 89, 0.2);
+            color: var(--primary-color);
+        }
+        .status-badge.new {
+            background: rgba(255, 159, 10, 0.2);
+            color: #ff9f0a;
+        }
         /* --- Стили для окна Trade Link --- */
 .popup-help {
     margin-top: 5px;
@@ -1103,72 +1123,100 @@ if (dom.popupTradeLinkInput) {
     
     // --- ОТРИСОВКА НАГРАД (ВЕРНУЛИ СТАРЫЙ ДИЗАЙН) ---
     function renderRewards(rewards) {
-        const listContainer = document.getElementById('promocodes-list-container');
-        const promoBtnInfo = document.getElementById('promo-btn-info');
-        const promoAlertBadge = document.getElementById('promo-alert-badge');
-        
-        // Логика модалок
-        const modalPromos = document.getElementById('modal-promocodes');
-        const btnOpen = document.getElementById('btn-open-promocodes');
-        if (btnOpen) {
-            btnOpen.onclick = () => {
-                modalPromos.classList.add('visible');
-                if (tg.BackButton) {
-                    tg.BackButton.show();
-                    tg.BackButton.onClick(() => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); });
-                }
-            };
-        }
-        const closePromos = document.getElementById('close-modal-promocodes');
-        if (closePromos) closePromos.onclick = () => { modalPromos.classList.remove('visible'); if(tg.BackButton) tg.BackButton.hide(); };
-
-        const modalSecret = document.getElementById('modal-secret');
-        const btnSecret = document.getElementById('btn-open-secret');
-        if(btnSecret) btnSecret.onclick = () => modalSecret.classList.add('visible');
-        const closeSecret = document.getElementById('close-modal-secret');
-        if(closeSecret) closeSecret.onclick = () => modalSecret.classList.remove('visible');
-
-        // Очистка
-        listContainer.innerHTML = ''; 
-
-        if (!rewards || rewards.length === 0) {
-            if(promoBtnInfo) promoBtnInfo.textContent = 'Награды';
-            if(promoAlertBadge) promoAlertBadge.style.display = 'none';
-            listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных наград</div>';
-            return;
-        }
-
-        if(promoBtnInfo) promoBtnInfo.textContent = `Награды (${rewards.length})`;
-        if(promoAlertBadge) promoAlertBadge.style.display = 'block';
-
-        // Цикл отрисовки
-        rewards.forEach(item => {
-            const reward = item.data || item; 
-            const rawDate = reward.claimed_at || reward.created_at || item.date;
-            const dateClaimed = new Date(rawDate).toLocaleString('ru-RU', {
-                day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-
-            // Статус "Скопировано"
-            let copiedHtml = '';
-            if (reward.copied_at) {
-                const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', {
-                      day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                });
-                copiedHtml = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${dateCopied}</div>`;
+    const listContainer = document.getElementById('promocodes-list-container');
+    const promoBtnInfo = document.getElementById('promo-btn-info');
+    const promoAlertBadge = document.getElementById('promo-alert-badge');
+    
+    // Логика модалок
+    const modalPromos = document.getElementById('modal-promocodes');
+    const btnOpen = document.getElementById('btn-open-promocodes');
+    if (btnOpen) {
+        btnOpen.onclick = () => {
+            modalPromos.classList.add('visible');
+            if (tg.BackButton) {
+                tg.BackButton.show();
+                tg.BackButton.onClick(() => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); });
             }
+        };
+    }
+    const closePromos = document.getElementById('close-modal-promocodes');
+    if (closePromos) closePromos.onclick = () => { modalPromos.classList.remove('visible'); if(tg.BackButton) tg.BackButton.hide(); };
 
-            // --- ОБНОВЛЕНИЕ: Иконка FontAwesome ---
-            // Можно добавить стиль, например цвет: style="color: #FFD700;" (золотой)
-            let iconSymbol = '<i class="fa-solid fa-coins" style="color: #FFD700; margin-left: 5px;"></i>'; 
+    const modalSecret = document.getElementById('modal-secret');
+    const btnSecret = document.getElementById('btn-open-secret');
+    if(btnSecret) btnSecret.onclick = () => modalSecret.classList.add('visible');
+    const closeSecret = document.getElementById('close-modal-secret');
+    if(closeSecret) closeSecret.onclick = () => modalSecret.classList.remove('visible');
 
-            // Создаем карточку
-            const div = document.createElement('div');
-            div.className = 'reward-card';
+    // Очистка
+    listContainer.innerHTML = ''; 
 
-            const isPromo = (item.type === 'promocode' || reward.code);
+    if (!rewards || rewards.length === 0) {
+        if(promoBtnInfo) promoBtnInfo.textContent = 'Награды';
+        if(promoAlertBadge) promoAlertBadge.style.display = 'none';
+        listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Нет активных наград</div>';
+        return;
+    }
 
-            if (isPromo) {
+    if(promoBtnInfo) promoBtnInfo.textContent = `Награды (${rewards.length})`;
+    if(promoAlertBadge) promoAlertBadge.style.display = 'block';
+
+    // Цикл отрисовки
+    rewards.forEach(item => {
+        const reward = item.data || item; 
+        const isUsed = reward.is_used === true; // 🔥 ПРОВЕРКА СТАТУСА ИЗ SUPABASE
+        
+        const rawDate = reward.claimed_at || reward.created_at || item.date;
+        const dateStr = new Date(rawDate).toLocaleString('ru-RU', {
+            day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        // Статус "Скопировано" (только для новых кодов)
+        let copiedHtml = '';
+        if (reward.copied_at && !isUsed) {
+            const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', {
+                  day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            copiedHtml = `<div style="color: #4ade80; font-size: 11px; margin-top: 4px; font-weight: 500;">Скопировано: ${dateCopied}</div>`;
+        }
+
+        let iconSymbol = '<i class="fa-solid fa-coins" style="color: #FFD700; margin-left: 5px;"></i>'; 
+
+        const div = document.createElement('div');
+        div.className = 'reward-card';
+        
+        // Добавляем легкую подсветку для активированных
+        if (isUsed) {
+            div.style.borderLeft = "4px solid var(--primary-color)";
+            div.style.backgroundColor = "rgba(52, 199, 89, 0.05)";
+        }
+
+        const isPromo = (item.type === 'promocode' || reward.code);
+
+        if (isPromo) {
+            if (isUsed) {
+                // --- ВАРИАНТ 1: ПРОМОКОД УЖЕ АКТИВИРОВАН (ИСТОРИЯ) ---
+                div.innerHTML = `
+                <div class="reward-card-info">
+                    <div class="reward-card-details">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <span style="background: rgba(52, 199, 89, 0.2); color: var(--primary-color); font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; text-transform: uppercase;">
+                                <i class="fa-solid fa-check"></i> Зачислено
+                            </span>
+                            <span style="font-size: 14px; font-weight: 800; color: var(--primary-color);">+${reward.reward_value} 🟡</span>
+                        </div>
+                        <p class="reward-card-description" style="color: #fff; font-weight: 600; margin: 0;">
+                            ${reward.description || 'Награда'}
+                        </p>
+                        <p class="reward-card-meta" style="margin-top: 5px; opacity: 0.6;">Код: ${reward.code} • ${dateStr}</p>
+                    </div>
+                    
+                    <button class="reward-card-delete-btn" onclick="deleteReward('${reward.code}', 'promocode', this)">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>`;
+            } else {
+                // --- ВАРИАНТ 2: НОВЫЙ ПРОМОКОД (НУЖНА АКТИВАЦИЯ) ---
                 div.innerHTML = `
                 <div class="reward-card-info">
                     <div class="reward-card-details">
@@ -1196,36 +1244,36 @@ if (dom.popupTradeLinkInput) {
                             <i class="fa-solid fa-circle-question"></i> Где использовать?
                         </button>
                         
-                        <p class="reward-card-meta">Получено: ${dateClaimed}</p>
+                        <p class="reward-card-meta">Получено: ${dateStr}</p>
                     </div>
                     
                     <button class="reward-card-delete-btn" onclick="deleteReward('${reward.code}', 'promocode', this)">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>`;
-            } else {
-                // Грант
-                const gType = reward.grant_type || 'currency';
-                const typeText = gType === 'tickets' ? 'билетов' : 'монет';
-                
-                // Для грантов тоже можно добавить иконку, если нужно
-                div.innerHTML = `
-                <div class="reward-card-info">
-                    <div class="reward-card-details">
-                        <p class="reward-card-description" style="font-weight:600; color:#fff;">
-                            Начислено: ${reward.amount || 0} ${typeText} ${iconSymbol}
-                        </p>
-                        <span style="font-size:12px; color:#aaa;">(Администратор)</span>
-                        <p class="reward-card-meta">Дата: ${dateClaimed}</p>
-                    </div>
-                    <button class="reward-card-delete-btn" onclick="deleteReward('${reward.id}', 'grant', this)">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </div>`;
             }
-            listContainer.appendChild(div);
-        });
-    }
+        } else {
+            // Грант (прямое начисление админом)
+            const gType = reward.grant_type || 'currency';
+            const typeText = gType === 'tickets' ? 'билетов' : 'монет';
+            
+            div.innerHTML = `
+            <div class="reward-card-info">
+                <div class="reward-card-details">
+                    <p class="reward-card-description" style="font-weight:600; color:#fff;">
+                        Начислено: ${reward.amount || 0} ${typeText} ${iconSymbol}
+                    </p>
+                    <span style="font-size:12px; color:#aaa;">(Администратор)</span>
+                    <p class="reward-card-meta">Дата: ${dateStr}</p>
+                </div>
+                <button class="reward-card-delete-btn" onclick="deleteReward('${reward.id}', 'grant', this)">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>`;
+        }
+        listContainer.appendChild(div);
+    });
+}
 
     // --- ОТРИСОВКА СЕКРЕТНЫХ КОДОВ ---
     // --- ОТРИСОВКА СЕКРЕТНЫХ КОДОВ ---
