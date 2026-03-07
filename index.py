@@ -2207,18 +2207,17 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 
 
 # ==========================================
-# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB (ПАКЕТНАЯ ОБРАБОТКА)
+# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB (ОПТИМИЗИРОВАННЫЙ)
 # ==========================================
 
 async def run_mass_twitch_update():
-    """Логика пакетной проверки: берем 50 юзеров, которых проверяли давнее всего"""
-    logging.info("⏳ Запуск пакетного обновления Twitch (50 юзеров)...")
+    """Логика пакетной проверки: берем 30 юзеров (оптимально для таймаута 30с)"""
+    logging.info("⏳ Запуск пакетного обновления Twitch (30 юзеров)...")
     try:
         broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
         client_id = os.getenv("TWITCH_CLIENT_ID")
         client_secret = os.getenv("TWITCH_CLIENT_SECRET")
 
-        # 1. Достаем токен стримера
         br_resp = supabase.table("users").select("telegram_id, twitch_access_token, twitch_refresh_token").eq("twitch_id", broadcaster_id).execute()
         br_data = br_resp.data if hasattr(br_resp, 'data') else br_resp
         
@@ -2226,8 +2225,6 @@ async def run_mass_twitch_update():
             broadcaster_token = None
             if br_data and br_data[0].get("twitch_refresh_token"):
                 br_user = br_data[0]
-                
-                # Обновляем токен стримера (чтобы права moderation/vip не пропадали)
                 token_resp = await client.post("https://id.twitch.tv/oauth2/token", data={
                     "client_id": client_id,
                     "client_secret": client_secret,
@@ -2247,51 +2244,43 @@ async def run_mass_twitch_update():
 
             br_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": client_id} if broadcaster_token else None
 
-            # 2. БЕРЕМ 50 ЮЗЕРОВ (сортируем по дате последней проверки - самые старые в начале)
+            # ЛИМИТ 30 ЮЗЕРОВ (чтобы уложиться в 30 секунд для cron-job.org)
             resp = supabase.table("users").select(
                 "telegram_id, twitch_id, twitch_status, twitch_access_token"
-            ).not_.is_("twitch_id", "null").order("last_twitch_sync").limit(50).execute()
+            ).not_.is_("twitch_id", "null").order("last_twitch_sync").limit(30).execute()
             
             users = resp.data if hasattr(resp, 'data') else resp
             
             for user in users:
                 twitch_id = user.get("twitch_id")
-                
-                # Себя (стримера) пропускаем
                 if not twitch_id or twitch_id == broadcaster_id:
                     continue
 
                 new_status = "none"
-
-                # А. Проверяем Сабку
                 user_token = user.get("twitch_access_token")
+                
+                # Проверки Сабки, Модерки и VIP
                 if user_token:
-                    u_headers = {"Authorization": f"Bearer {user_token}", "Client-Id": client_id}
                     try:
+                        u_headers = {"Authorization": f"Bearer {user_token}", "Client-Id": client_id}
                         sub_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}", headers=u_headers)
                         if sub_resp.status_code == 200 and len(sub_resp.json().get("data", [])) > 0:
                             new_status = "subscriber"
                     except: pass
 
-                # Б. Проверяем Модератора
                 if br_headers:
                     try:
                         m_url = f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
                         m_resp = await client.get(m_url, headers=br_headers)
                         if m_resp.status_code == 200 and len(m_resp.json().get("data", [])) > 0:
                             new_status = "moderator"
-                    except: pass
 
-                # В. Проверяем VIP
-                if br_headers:
-                    try:
                         v_url = f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
                         v_resp = await client.get(v_url, headers=br_headers)
                         if v_resp.status_code == 200 and len(v_resp.json().get("data", [])) > 0:
                             new_status = "vip"
                     except: pass
                 
-                # 3. ОБНОВЛЯЕМ БАЗУ (Ставим время проверки, чтобы юзер ушел в конец очереди)
                 update_payload = {"last_twitch_sync": datetime.now(timezone.utc).isoformat()}
                 if new_status != user.get("twitch_status"):
                     update_payload["twitch_status"] = new_status
@@ -2299,25 +2288,21 @@ async def run_mass_twitch_update():
                     
                 supabase.table("users").update(update_payload).eq("telegram_id", user.get("telegram_id")).execute()
                     
-                # Пауза 0.3 сек (ускорили чуть-чуть, чтобы 50 чел влезли в 30 сек)
-                await asyncio.sleep(0.3) 
+                # ПАУЗА 0.1 СЕКУНДЫ (для ускорения)
+                await asyncio.sleep(0.1) 
                 
-        logging.info("✅ Пакетное обновление (50 юзеров) завершено.")
+        logging.info("✅ Пакетное обновление (30 юзеров) завершено.")
     except Exception as e:
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}")
 
-
 @app.get("/api/cron/update-twitch-statuses")
 async def trigger_twitch_update(secret: str = Query(None)):
-    """Эндпоинт для cron-job.org"""
     expected_secret = os.getenv("CRON_SECRET", "твой_секретный_пароль_123")
     if secret != expected_secret:
         raise HTTPException(status_code=403, detail="Неверный секретный ключ")
     
-    # Запускаем проверку пачки
     await run_mass_twitch_update()
-    
-    return {"status": "success", "message": "Пакет из 50 юзеров успешно проверен"}
+    return {"status": "success", "message": "Пакет из 30 юзеров успешно проверен"}
         
 # =======================================================
 # 🔥 КРОН: МУЛЬТИ-АККАУНТ (V8 - CS:GO MARKET FULL PRICES) 🔥
