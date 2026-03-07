@@ -1494,6 +1494,13 @@ body[data-theme="runcase"] .runcase-top-logo-link {
     display: flex;
 }
 
+/* =========================================
+   ИСПРАВЛЕНИЕ ЦВЕТА МЕСТ В МОДАЛКЕ НАГРАД (RUNCASE)
+   ========================================= */
+body[data-theme="runcase"] .modal-reward-place {
+    color: #727a8e; /* Приятный серо-голубой цвет, чтобы цифры хорошо читались */
+}
+
 /* Слегка убираем стандартный отступ у заголовка, так как теперь над ним логотип */
 body[data-theme="runcase"] .page-header {
     padding-top: 5px;
