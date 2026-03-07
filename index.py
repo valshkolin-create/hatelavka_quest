@@ -172,11 +172,11 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
 
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
-    Точечный активатор. Принимает ID только что выданного кода и мгновенно зачисляет его в Bot-t.
+    Точечный активатор. Исправлен: теперь всегда использует правильный асинхронный клиент.
     """
     try:
-        # Используем глобальный клиент supabase для фона
-        client = _background_supabase_client if _background_supabase_client else supabase
+        # 🔥 ИСПРАВЛЕНИЕ: Мы вызываем функцию, которая возвращает асинхронный httpx клиент
+        client = await get_background_client()
         
         # 1. Достаем внутренний ID юзера для Bot-t
         u_resp = await client.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bott_internal_id"})
@@ -186,6 +186,7 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
             bott_id = u_data[0]["bott_internal_id"]
             
             # 2. Начисляем реальные монеты в Bot-t
+            # Эта функция использует свой httpx клиент, тут всё ок
             success = await add_balance_to_bott(
                 bott_internal_id=bott_id, 
                 amount=reward_value, 
@@ -194,6 +195,7 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
             
             # 3. Если Bot-t принял деньги, сжигаем этот конкретный код в БД
             if success:
+                # Используем patch через httpx клиент для скорости и надежности в фоне
                 await client.patch(
                     "/promocodes",
                     params={"id": f"eq.{promo_id}"},
@@ -202,9 +204,14 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
                         "claimed_at": datetime.now(timezone.utc).isoformat()
                     }
                 )
-                logging.info(f"⚡ Снайперская активация: код {promo_id} зачислен юзеру {telegram_id}")
+                logging.info(f"⚡ Снайперская активация УСПЕШНА: код {promo_id} зачислен юзеру {telegram_id}")
+            else:
+                logging.error(f"❌ Bot-t отклонил начисление для кода {promo_id}")
+        else:
+            logging.error(f"❌ Не удалось найти bott_internal_id для юзера {telegram_id}")
+
     except Exception as e:
-        logging.error(f"❌ Ошибка точечной активации кода {promo_id}: {e}")
+        logging.error(f"❌ Критическая ошибка точечной активации кода {promo_id}: {e}")
 
 # =========================================================================
 
