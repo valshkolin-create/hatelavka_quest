@@ -1337,7 +1337,7 @@ body.no-scroll {
 /* Применяем цвет прямо к фоновому слою и убираем картинку */
 body[data-theme="runcase"] .bg-layer {
     background-image: none !important;
-    background-color: #161b2e !important;
+    background-color: #0c142b !important;
 }
 
 /* ПОЛНОСТЬЮ ОТКЛЮЧАЕМ черную пленку-затемнение, чтобы цвет был чистым */
