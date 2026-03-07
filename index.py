@@ -9719,13 +9719,14 @@ async def update_submission_status(
             )
             if promo_info_resp.status_code == 200 and promo_info_resp.json():
                 p_data = promo_info_resp.json()[0]
-                asyncio.create_task(
-                    activate_single_promocode(
-                        promo_id=p_data['id'],
-                        telegram_id=user_to_notify,
-                        reward_value=p_data['reward_value'],
-                        description=f"Награда за квест: {quest_title}"
-                    )
+                
+                # 🔥 ИСПРАВЛЕНИЕ: Используем надежный механизм FastAPI вместо asyncio!
+                background_tasks.add_task(
+                    activate_single_promocode,
+                    promo_id=p_data['id'],
+                    telegram_id=user_to_notify,
+                    reward_value=p_data['reward_value'],
+                    description=f"Награда за квест: {quest_title}"
                 )
             # ------------------------------------------------------
 
