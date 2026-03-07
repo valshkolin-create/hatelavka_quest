@@ -2734,7 +2734,6 @@ async def bootstrap_app(
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
 
-
 # ==========================================
 # ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB
 # ==========================================
@@ -17376,11 +17375,7 @@ async def cancel_tg_challenge_paid(request: Request):
         print(f"Error in cancel_tg_challenge_paid: {str(e)}")
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(status_code=500, detail=str(e))
-
-# --- Вставь это в api/index.py ---
-
-# --- ДОБАВИТЬ В api/index.py ---
+        raise HTTPException(status_code=500, detail=str(e))))
 
 # =====================================================
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
