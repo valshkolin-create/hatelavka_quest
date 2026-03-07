@@ -1483,10 +1483,10 @@ body[data-theme="runcase"] .tier-image {
 }
 
 .runcase-top-logo {
-    height: 28px; /* Оптимальный размер логотипа (можешь менять) */
+    height: 42px; /* Увеличили размер (было 28px). Если нужно еще больше — ставь 50px */
     width: auto;
     object-fit: contain;
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3)); /* Легкая тень, чтобы логотип выделялся */
+    /* Убрали строку filter: drop-shadow(...), чтобы не было никаких теней и эффектов */
 }
 
 /* ПОКАЗЫВАЕМ ЛОГОТИП ТОЛЬКО В ТЕМЕ RUNCASE */
