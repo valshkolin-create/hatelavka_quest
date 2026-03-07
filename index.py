@@ -209,6 +209,7 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
                     params={"id": f"eq.{promo_id}"},
                     json={
                         "is_used": True, 
+                        "auto_is_used": True, # 🔥 Помечаем, что это автоматическая активация
                         "claimed_at": datetime.now(timezone.utc).isoformat()
                     }
                 )
@@ -9954,7 +9955,7 @@ async def get_user_rewards(
             params={
                 "telegram_id": f"eq.{user_id}", 
                 # 👇 В ЭТОЙ СТРОКЕ НУЖНО ДОБАВИТЬ is_used 👇
-                "select": "id,code,description,reward_value,claimed_at,copied_at,is_used"
+                "select": "id,code,description,reward_value,claimed_at,copied_at,is_used,auto_is_used" # 🔥 Добавили
             }
         )
         promocodes = promocodes_resp.json()
