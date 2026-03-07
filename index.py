@@ -10124,6 +10124,29 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
             ).execute()
 
             promocode_data = rpc_response.data
+            
+            # --- 🔥 АВТО-АКТИВАЦИЯ ДЛЯ АВТОМАТИЧЕСКИХ КВЕСТОВ (TWITCH/TG) ---
+            promo_code_str = promocode_data if isinstance(promocode_data, str) else (promocode_data.get("code") if isinstance(promocode_data, dict) else None)
+
+            if promo_code_str:
+                try:
+                    # Узнаем ID и номинал промокода из базы
+                    promo_info_resp = supabase.table("promocodes").select("id,reward_value").eq("code", promo_code_str).execute()
+                    
+                    if promo_info_resp.data:
+                        p_data = promo_info_resp.data[0]
+                        
+                        # Вызываем Снайпера с await, чтобы Vercel дождался скрытия карточки
+                        await activate_single_promocode(
+                            promo_id=p_data['id'],
+                            telegram_id=user_id,
+                            reward_value=p_data['reward_value'],
+                            description="Награда за авто-квест"
+                        )
+                except Exception as sniper_e:
+                    logging.error(f"❌ Ошибка при авто-активации квеста для {user_id}: {sniper_e}")
+            # -----------------------------------------------------------------
+
             # RPC возвращает сам промокод строкой, а не JSON объект
             # Поэтому нужно убедиться, что фронтенд ожидает именно строку или адаптировать ответ
             if isinstance(promocode_data, str): # Проверка, что вернулась строка
@@ -10133,7 +10156,7 @@ async def get_promocode(request_data: PromocodeClaimRequest): # <<< Убрали
                  # Если RPC возвращает JSON или что-то другое, используем как есть
                  promocode_obj = promocode_data
 
-            return { "message": "Квест выполнен! Ваша награда добавлена в профиль.", "promocode": promocode_obj }
+            return { "message": "Квест выполнен! Ваша награда зачислена автоматически.", "promocode": promocode_obj }
 
     # except PostgrestAPIError as e: # Можно ловить специфичные ошибки supabase-py
     #     error_details = getattr(e, 'message', str(e))
@@ -10544,8 +10567,7 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
     user_id = user['id']
     
     # 1. Получаем контракт (СИНХРОННО)
-    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)")\
-        .eq("user_id", user_id).eq("template_id", req.template_id).execute()
+    contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)").eq("user_id", user_id).eq("template_id", req.template_id).execute()
     
     if not contract_res.data: return JSONResponse({"status": "error", "message": "Контракт не найден"})
     
@@ -10605,7 +10627,7 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
             supabase.rpc("increment_tickets", {"p_user_id": user_id, "p_amount": amount}).execute()
             response_data['messages'].append(f"+{amount} 🎟️")
 
-# ==========================
+    # ==========================
     # 2. ВЫДАЧА МОНЕТ (Промокод)
     # ==========================
     if rewards.get('coins'):
@@ -10630,15 +10652,13 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
                     "description": f"Challenge Reward (Tier {tier_idx+1})"
                 }).eq("id", code_item['id']).execute()
                 
-                # 🔥🔥🔥 МГНОВЕННАЯ АВТО-АКТИВАЦИЯ 🔥🔥🔥
-                # Запускаем "снайперское" пополнение в Bot-t в фоне
-                asyncio.create_task(
-                    activate_single_promocode(
-                        promo_id=code_item['id'],
-                        telegram_id=int(user_id),
-                        reward_value=amount,
-                        description=f"Challenge Reward (Tier {tier_idx+1})"
-                    )
+                # 🔥🔥🔥 МГНОВЕННАЯ АВТО-АКТИВАЦИЯ (ИСПРАВЛЕНО) 🔥🔥🔥
+                # ЖДЕМ завершения Снайпера, чтобы Vercel не убил процесс!
+                await activate_single_promocode(
+                    promo_id=code_item['id'],
+                    telegram_id=int(user_id),
+                    reward_value=amount,
+                    description=f"Challenge Reward (Tier {tier_idx+1})"
                 )
 
                 response_data['messages'].append(f"+{amount} 💰 (Зачислено)")
@@ -10712,7 +10732,6 @@ async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
         }).eq("id", contract['id']).execute()
 
     return JSONResponse(content={"status": "ok", "data": response_data})
-
 
 # ==========================================
 #      CHALLENGE SYSTEM 2.0 API
