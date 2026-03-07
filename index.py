@@ -96,7 +96,10 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
     if not bott_internal_id:
         return False
         
-    # 1. Начисляем баланс в Bot-t
+    # 1. Готовим асинхронного клиента для базы и запросов
+    # Используем наш специальный фоновый клиент, чтобы не было ошибки SyncClient
+    db_client = await get_background_client()
+    
     url_add = "https://api.bot-t.com/v1/bot/user/add-balance"
     params = {"botToken": BOTT_BOT_TOKEN, "secretKey": BOTT_SECRET_KEY}
     
@@ -112,30 +115,36 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
     }
     
     try:
+        # Используем httpx клиент для работы с API Bot-t
         client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=10.0)
         resp = await client.post(url_add, params=params, json=payload)
         
         if resp.status_code == 200 and resp.json().get("result"):
-            # Достаем данные юзера из нашей базы, чтобы сообщение было полным
-            u_resp = await supabase.get("/users", params={"bott_internal_id": f"eq.{bott_internal_id}", "select": "telegram_id, username, bot_t_coins"})
+            # 🔥 ИСПРАВЛЕНИЕ: Используем db_client вместо синхронного supabase
+            u_resp = await db_client.get(
+                "/users", 
+                params={"bott_internal_id": f"eq.{bott_internal_id}", "select": "telegram_id, username, bot_t_coins"}
+            )
             u_data = u_resp.json()
             
             user_tg_id = None
             tg_username = "не указан"
-            new_balance = "обновляется..."
+            # Текущий баланс из базы (который был до начисления) + прибавка
+            new_balance_display = "обновляется..."
             
-            if u_data:
+            if u_data and isinstance(u_data, list) and len(u_data) > 0:
                 user_tg_id = u_data[0].get("telegram_id")
                 tg_username = f"@{u_data[0].get('username')}" if u_data[0].get('username') else "скрыт"
-                # Прибавляем сумму к старому балансу для текста (или берем из API, если есть)
-                new_balance = (u_data[0].get("bot_t_coins", 0) or 0) + clean_amount
+                
+                old_bal = u_data[0].get("bot_t_coins", 0) or 0
+                new_balance_display = f"{old_bal + clean_amount}"
 
-            # --- 📝 ФОРМИРУЕМ ТО САМОЕ СООБЩЕНИЕ ---
+            # --- 📝 ФОРМИРУЕМ СООБЩЕНИЕ (копия твоего стиля) ---
             full_msg = (
                 f"💰 <b>Произошло пополнение баланса</b>\n\n"
-                f"<b>Сумма:</b> {clean_amount} 💰\n"
+                f"<b>Сумма:</b> {clean_amount} ⭐️\n"
                 f"<b>Аккаунт покупателя:</b> {tg_username}\n"
-                f"<b>Баланс пользователя:</b> {new_balance} 💰\n"
+                f"<b>Баланс пользователя:</b> {new_balance_display} ⭐️\n"
                 f"<b>ID покупателя:</b> #{user_tg_id or '---'}\n"
                 f"<b>Способ пополнения:</b> AUTO-COUPON 🎫\n"
                 f"<b>Комментарий:</b> {comment}"
@@ -150,10 +159,9 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
                 "parse_mode": "HTML"
             })
 
-            # 3. ОТПРАВЛЯЕМ АДМИНУ (в твой чат уведомлений)
+            # 3. ОТПРАВЛЯЕМ АДМИНУ (в твой чат уведомлений через aiogram)
             if ADMIN_NOTIFY_CHAT_ID:
                 try:
-                    # Используем основной объект bot из aiogram
                     await bot.send_message(
                         chat_id=int(ADMIN_NOTIFY_CHAT_ID), 
                         text=f"👤 <b>ЛОГ АКТИВАЦИИ</b>\n{full_msg}", 
@@ -162,14 +170,14 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
                 except Exception as admin_err:
                     logging.error(f"Ошибка уведомления админа: {admin_err}")
 
-            logging.info(f"✅ Полный цикл начисления и уведомлений завершен для {bott_internal_id}")
+            logging.info(f"✅ Цикл начисления завершен для {bott_internal_id}")
             return True
             
         return False
     except Exception as e:
         logging.error(f"⚠️ Ошибка системы пополнения: {e}")
         return False
-
+        
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
     Точечный активатор. Исправлен: теперь всегда использует правильный асинхронный клиент.
