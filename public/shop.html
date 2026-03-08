@@ -1572,7 +1572,7 @@
 .custom-confirm-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 20000; /* Поверх всего */
+    z-index: 40000 !important; /* Увеличили с 20000 до 40000 */
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(5px);
     display: flex;
@@ -1879,12 +1879,30 @@
 
 /* --- ГЛАВНОЕ: КРУПНАЯ КАРТИНКА --- */
 .replacement-card img {
-    width: 90%;
-    height: 95px; /* Максимальный размер для этой высоты */
+    width: 95%;
+    height: 95px; 
     object-fit: contain;
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
+    filter: drop-shadow(0 5px 12px rgba(0,0,0,0.4));
     z-index: 2;
-    margin-top: 5px;
+    margin-top: 4px;
+    
+    /* БАЗОВОЕ УВЕЛИЧЕНИЕ ДЛЯ ОРУЖИЯ */
+    transform: scale(1.3) translateZ(0); 
+    transition: transform 0.2s ease;
+}
+
+.replacement-card:active img {
+    transform: scale(1.4) translateZ(0);
+}
+
+/* СПЕЦИАЛЬНОЕ УВЕЛИЧЕНИЕ ДЛЯ НАКЛЕЕК (чтобы срезать пустоту) */
+.replacement-card.is-sticker img {
+    transform: scale(1.8) translateZ(0);
+    margin-top: 15px; 
+}
+
+.replacement-card.is-sticker:active img {
+    transform: scale(1.9) translateZ(0);
 }
 
 /* --- ТЕКСТ (2 СТРОКИ МАКСИМУМ) --- */
