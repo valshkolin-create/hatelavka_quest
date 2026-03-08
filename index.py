@@ -1595,6 +1595,7 @@ TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
 SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_that_should_be_changed") # Добавь эту переменную в Vercel для безопасности
 WIZEBOT_API_KEY = os.getenv("WIZEBOT_API_KEY")
 VK_APP_SECRET = os.getenv("VK_APP_SECRET")
+CSGO_MARKET_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
         
 
 # --- Paths ---
@@ -1818,6 +1819,76 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
     except Exception as e:
         logging.error(f"Error checking hash: {e}")
         return None
+
+# ⬇️⬇️⬇️ ВСТАВЛЯЕМ КЛАСС МАРКЕТА СЮДА ⬇️⬇️⬇️
+
+class MarketCSGO:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://market.csgo.com/api/v2"
+
+    @staticmethod
+    def parse_trade_link(trade_link: str):
+        import urllib.parse
+        try:
+            parsed_url = urllib.parse.urlparse(trade_link)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            partner = query_params.get('partner', [None])[0]
+            token = query_params.get('token', [None])[0]
+            return partner, token
+        except Exception:
+            return None, None
+
+    async def _make_request(self, endpoint: str, params: dict = None) -> dict:
+        if params is None:
+            params = {}
+        params['key'] = self.api_key
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{self.base_url}/{endpoint}", params=params, timeout=15.0)
+                return response.json()
+            except Exception as e:
+                import logging
+                logging.error(f"[MARKET API] Ошибка запроса {endpoint}: {e}")
+                return {"success": False, "error": str(e)}
+
+    async def get_lowest_price(self, hash_name: str):
+        data = await self._make_request("bid-ask", {"hash_name": hash_name})
+        if data and data.get("ask") and len(data["ask"]) > 0:
+            lowest_ask_rub = float(data["ask"][0]["price"])
+            price_in_kopecks = int((lowest_ask_rub * 100)) + 1 
+            return price_in_kopecks
+        return None
+
+    async def buy_for_user(self, hash_name: str, trade_link: str):
+        partner, token = self.parse_trade_link(trade_link)
+        if not partner or not token:
+            return {"success": False, "error": "Неверная трейд-ссылка"}
+
+        price = await self.get_lowest_price(hash_name)
+        if not price:
+            return {"success": False, "error": "Предмет не найден в продаже"}
+
+        import uuid
+        custom_id = f"m_{uuid.uuid4().hex[:12]}"
+
+        params = {
+            "hash_name": hash_name,
+            "price": price,
+            "partner": partner,
+            "token": token,
+            "custom_id": custom_id
+        }
+        
+        response = await self._make_request("buy-for", params)
+        response['custom_id'] = custom_id 
+        return response
+
+    async def check_order_status(self, custom_id: str):
+        return await self._make_request("get-buy-info-by-custom-id", {"custom_id": custom_id})
+
+# ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ МАРКЕТА ⬆️⬆️⬆️
 
 # --- 🔥 [ВСТАВИТЬ СЮДА] 2. Функция валидации VK ---
 def is_valid_vk_query(query_string: str, secret: str) -> dict | None:
@@ -15659,10 +15730,39 @@ async def claim_gift(
 # 🚀 МАССОВАЯ АВТОВЫДАЧА (ФОНОВАЯ ЗАДАЧА)
 # =======================================================
 async def background_mass_delivery():
-    """Фоновая задача: ищет заявки со статусом processing/auto_queued и пытается их отправить"""
+    """Фоновая задача: ищет заявки со статусом processing/auto_queued/market_pending и пытается их отправить"""
     import logging
+    import os
     client = await get_background_client()
     
+    market_api_key = os.getenv("CSGO_MARKET_API_KEY")
+    market_client = MarketCSGO(api_key=market_api_key) if market_api_key else None
+
+    # --- 🔄 ШАГ 0: ПРОВЕРКА ЗАВИСШИХ ТРЕЙДОВ С МАРКЕТА ---
+    if market_client:
+        pending_market_resp = await client.get("/cs_history", params={
+            "status": "eq.market_pending",
+            "select": "id, market_custom_id"
+        })
+        pending_market_items = pending_market_resp.json()
+        if isinstance(pending_market_items, list):
+            for item in pending_market_items:
+                custom_id = item.get("market_custom_id")
+                history_id = item.get("id")
+                if not custom_id: 
+                    continue
+                
+                status_data = await market_client.check_order_status(custom_id)
+                if status_data.get("success"):
+                    stage = str(status_data.get("data", {}).get("stage"))
+                    if stage == "2": # Успешно передан юзеру (TRADE_STAGE_ITEM_GIVEN)
+                        logging.info(f"[MARKET] Успешно выдан предмет P2P (ID: {custom_id})")
+                        await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "sent"})
+                    elif stage == "5": # Таймаут / Ошибка (TRADE_STAGE_TIMED_OUT)
+                        logging.warning(f"[MARKET] Отмена P2P (ID: {custom_id}). Перевод в ручной/складской режим.")
+                        # Если маркет отменил выдачу, возвращаем статус processing, чтобы ты мог выдать руками или со склада
+                        await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
+
     # 1. Берем все заявки, которые ждут ручной или автовыдачи
     resp = await client.get("/cs_history", params={
         "status": "in.(processing,auto_queued)",
@@ -15676,6 +15776,7 @@ async def background_mass_delivery():
 
     success_count = 0
     error_count = 0
+    market_count = 0
 
     for row in items:
         history_id = row['id']
@@ -15693,6 +15794,28 @@ async def background_mass_delivery():
             
         trade_url = u_data[0]["trade_link"]
 
+        # --- 🚀 ЭТАП 1: ПЛАН "А" (ПОКУПКА НА МАРКЕТЕ) ---
+        market_success = False
+        if market_client:
+            logging.info(f"[MARKET] Пробуем купить {target_name} для юзера {user_id}...")
+            buy_res = await market_client.buy_for_user(target_name, trade_url)
+            
+            if buy_res.get("success"):
+                market_success = True
+                market_count += 1
+                custom_id = buy_res.get("custom_id")
+                await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={
+                    "status": "market_pending",
+                    "market_custom_id": custom_id
+                })
+                logging.info(f"[MARKET] Заказ создан. Ожидаем продавца P2P (ID: {custom_id})")
+            else:
+                logging.warning(f"[MARKET] Отказ покупки {target_name}: {buy_res.get('error')}")
+
+        if market_success:
+            continue # Если купили на маркете, идем к следующему предмету (остальное делает P2P)
+
+        # --- 📦 ЭТАП 2: ПЛАН "Б" (СО СКЛАДА БОТОВ) ---
         # Пытаемся выдать предмет
         delivery_res = await fulfill_item_delivery(
             user_id=user_id,
@@ -15723,8 +15846,13 @@ async def background_mass_delivery():
             await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
 
     # Отчет админу
-    if ADMIN_NOTIFY_CHAT_ID:
-        msg = f"🤖 <b>Массовая отправка завершена!</b>\n\n✅ Успешно отправлено: <b>{success_count}</b>\n❌ Ошибок/Нет в наличии: <b>{error_count}</b>"
+    if ADMIN_NOTIFY_CHAT_ID and (success_count > 0 or error_count > 0 or market_count > 0):
+        msg = (
+            f"🤖 <b>Массовая отправка завершена!</b>\n\n"
+            f"🛒 Ушло на Market P2P: <b>{market_count}</b>\n"
+            f"✅ Успешно со склада: <b>{success_count}</b>\n"
+            f"❌ Ошибок/Ждут ручной выдачи: <b>{error_count}</b>"
+        )
         try:
             await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=msg, parse_mode="HTML")
         except Exception:
