@@ -3337,36 +3337,73 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
             }
         }
 
-        window.buyItem = function(id, price, name, imageUrl) {
-            // 1. Сначала спрашиваем подтверждение
+// ========================================================
+        // 🔒 СТРОГАЯ ПРОВЕРКА ТРЕЙД-ССЫЛКИ ПЕРЕД ПОКУПКОЙ
+        // ========================================================
+        async function validateUserTradeLink() {
+            const loader = document.getElementById('purchase-loader');
+            if (loader) {
+                loader.querySelector('.loader-text').innerText = "Проверка профиля...";
+                loader.classList.add('active');
+            }
+            
+            try {
+                const userCheckResp = await fetch('/api/v1/user/me', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: Telegram.WebApp.initData })
+                });
+                const userData = await userCheckResp.json();
+                const tLink = userData?.trade_link || "";
+
+                // Строгая проверка: правильный домен + есть partner + есть token
+                const isValidLink = tLink.startsWith("https://steamcommunity.com/tradeoffer/new") && 
+                                    tLink.includes("partner=") && 
+                                    tLink.includes("token=");
+
+                if (!isValidLink) {
+                    if (loader) loader.classList.remove('active');
+                    Telegram.WebApp.showPopup({
+                        title: '❌ Нет трейд-ссылки',
+                        message: 'Для получения скинов нужна правильная Steam Trade ссылка (с partner и token).\n\nЗайдите в Профиль и привяжите её!',
+                        buttons: [
+                            { id: 'go_profile', type: 'default', text: 'Перейти в Профиль' }, 
+                            { type: 'cancel', text: 'Закрыть' }
+                        ]
+                    }, (buttonId) => {
+                        if (buttonId === 'go_profile') {
+                            window.location.href = '/profile';
+                        }
+                    });
+                    return false; 
+                }
+                
+                if (loader) loader.classList.remove('active');
+                return true; 
+            } catch(e) {
+                if (loader) loader.classList.remove('active');
+                Telegram.WebApp.showAlert("Ошибка проверки. Попробуйте еще раз.");
+                return false;
+            }
+        }
+
+        window.buyItem = async function(id, price, name, imageUrl) {
+            // 1. ЖЕСТКАЯ ПРОВЕРКА ССЫЛКИ ДО НАЖАТИЯ
+            const isLinkValid = await validateUserTradeLink();
+            if (!isLinkValid) return; // Останавливаем, если ссылки нет
+
+            // 2. Сначала спрашиваем подтверждение
             Telegram.WebApp.showConfirm(`Купить "${name}" за ${price} звезд?`, async (ok) => {
                 if (!ok) return;
 
-                // 2. ВКЛЮЧАЕМ БЛОКИРОВКУ ЭКРАНА (сразу, чтобы не тыкали)
+                // 3. ВКЛЮЧАЕМ БЛОКИРОВКУ ЭКРАНА (сразу, чтобы не тыкали)
                 const loader = document.getElementById('purchase-loader');
-                if (loader) loader.classList.add('active');
+                if (loader) {
+                    loader.querySelector('.loader-text').innerText = "Оформляем покупку...";
+                    loader.classList.add('active');
+                }
 
                 try {
-                    // 3. ПРОВЕРЯЕМ ССЫЛКУ СВЕЖИМ ЗАПРОСОМ (самый надежный способ)
-                    // Мы не верим переменной hasTradeLink, мы верим базе данных прямо сейчас.
-                    const userCheckResp = await fetch('/api/v1/user/me', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ initData: Telegram.WebApp.initData })
-                    });
-                    const userData = await userCheckResp.json();
-
-                    // Если ссылки нет в базе - останавливаемся
-                    if (!userData || !userData.trade_link) {
-                        if (loader) loader.classList.remove('active'); // Убираем лоадер
-                        Telegram.WebApp.showPopup({
-                            title: 'Нет трейд-ссылки',
-                            message: 'Система не видит вашу трейд-ссылку. Пожалуйста, укажите её в Профиле и попробуйте снова.',
-                            buttons: [{type: 'ok'}]
-                        });
-                        return; 
-                    }
-
                     // 4. ЕСЛИ ССЫЛКА ЕСТЬ — ДЕЛАЕМ ПОКУПКУ
                     const buyResp = await fetch('/api/v1/shop/buy', {
                         method: 'POST',
@@ -3409,249 +3446,314 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
 
         // --- [NEW] ФУНКЦИИ ДЛЯ ЭКРАНА ПОБЕДЫ ---
 
-// 1. ЗАБРАТЬ (Создает запись в магазине/инвентаре)
-// --- 1. ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ОКНА ПОДТВЕРЖДЕНИЯ (ИЗ PROFILE) ---
-// --- 1. УНИВЕРСАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ (CUSTOM MODAL) ---
-function showShopModal({ title, subtitle, confirmText, confirmClass, onConfirm }) {
-    // Удаляем старое, если есть
-    const old = document.querySelector('.custom-confirm-overlay');
-    if (old) old.remove();
-
-    const overlay = document.createElement('div'); 
-    overlay.className = 'custom-confirm-overlay';
-    
-    overlay.innerHTML = `
-        <div class="custom-confirm-box">
-            <h3 class="confirm-title">${title}</h3>
-            <p class="confirm-subtitle">${subtitle}</p>
-            <div class="confirm-buttons">
-                <button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>
-                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(overlay);
-
-    // Анимация появления
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    
-    const close = () => {
-        overlay.classList.remove('visible');
-        setTimeout(() => overlay.remove(), 200);
-    };
-    
-    overlay.querySelector('#modal-cancel').onclick = close;
-    
-    overlay.querySelector('#modal-confirm').onclick = () => { 
-        onConfirm(close); 
-    };
-    
-    // Закрытие по клику на фон
-    overlay.onclick = (e) => { if(e.target === overlay) close(); };
-}
-
-// --- 2. ЛОГИКА "ЗАБРАТЬ" (Желтая кнопка) ---
-// --- 2. ЛОГИКА "ЗАБРАТЬ" (Желтая кнопка) ---
-async function claimItem(itemId) {
-    if (!itemId) return Telegram.WebApp.showAlert("Ошибка: ID предмета не найден.");
-
-    showShopModal({
-        title: "Вывести этот предмет в Steam?",
-        subtitle: "Заявка будет создана. Ожидайте трейд в течение 24 часов.",
-        confirmText: "ЗАБРАТЬ",
-        confirmClass: "btn-yellow-modal", 
-        onConfirm: async (closeModal) => {
+        // ========================================================
+        // 🎁 ОБНОВЛЕННАЯ ФУНКЦИЯ ОТКРЫТИЯ КЕЙСА
+        // ========================================================
+        window.openCase = async function(id, price, name, imageUrl, currency = 'coins') {
+            const currencyIcon = currency === 'coins' ? '🟡' : '🎟️';
             
-            const loader = document.getElementById('purchase-loader');
-            if (loader) {
-                loader.classList.add('active');
-                loader.querySelector('.loader-text').innerText = "Создаем заявку...";
-            }
+            // 1. ЖЕСТКАЯ ПРОВЕРКА ССЫЛКИ ДО СПИСАНИЯ
+            const isLinkValid = await validateUserTradeLink();
+            if (!isLinkValid) return; // Останавливаем, если ссылки нет или она кривая
 
-            try {
-                // Запрос к API
-                const res = await makeApiRequest('/api/v1/user/inventory/withdraw', 'POST', { 
-                    history_id: itemId 
-                });
+            // 2. Подтверждение
+            Telegram.WebApp.showConfirm(`Открыть "${name}" за ${price} ${currencyIcon}?`, async (ok) => {
+                if (!ok) return;
 
-                // 1. СНАЧАЛА СООБЩЕНИЕ (Скрипт встанет на паузу тут, пока ты не нажмешь ОК)
-                if (res) {
-                     Telegram.WebApp.showAlert(`✅ Успешно!\n\nОжидайте трейд по указанной Вами ссылке в течение 24 часов.`);
+                const loader = document.getElementById('purchase-loader');
+                if (loader) {
+                    loader.querySelector('.loader-text').innerText = "Крутим барабан...";
+                    loader.classList.add('active');
                 }
 
-                // 2. ПОТОМ ЗАКРЫВАЕМ ОКНА (Когда нажал ОК)
-                closeModal();      
-                closeRoulette();   
+                try {
+                    // 2. СНАЧАЛА ГРУЗИМ СОДЕРЖИМОЕ КЕЙСА (ДЛЯ КРАСИВОЙ РУЛЕТКИ)
+                    const contentsResp = await makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(name)}`, 'GET');
+                    
+                    // Если кейс пустой, создадим заглушку, чтобы не сломаться
+                    const possibleItems = (contentsResp && contentsResp.length > 0) ? contentsResp : [{
+                        name: "Mystery Item", image_url: "https://placehold.co/100?text=?", rarity: "common"
+                    }];
 
-            } catch (e) {
-                Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
-                closeModal(); 
-            } finally {
-                // 3. УБИРАЕМ ЛОАДЕР
-                if (loader) loader.classList.remove('active');
-            }
-        }
-    });
-}
-// --- 3. ЛОГИКА "ПРОДАТЬ ЗА БИЛЕТЫ" (Фиолетовая кнопка, API исправлен) ---
-function sellForTickets(itemId, price) {
-    showShopModal({
-        title: `Продать скин за ${price} 🎟️?`,
-        subtitle: "Предмет будет продан системе, вы получите билеты моментально.",
-        confirmText: "ПРОДАТЬ",
-        confirmClass: "btn-purple-modal", // Фиолетовая кнопка
-        onConfirm: async (closeModal) => {
+                    // 3. ТЕПЕРЬ ПОКУПАЕМ И ПОЛУЧАЕМ ПОБЕДИТЕЛЯ
+                    const buyResp = await fetch('/api/v1/shop/buy', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ 
+                            initData: Telegram.WebApp.initData,
+                            item_id: id,
+                            price: price,
+                            title: name,
+                            image_url: imageUrl,
+                            currency: currency
+                        })
+                    });
+
+                    const resData = await buyResp.json();
+
+                    if (buyResp.status !== 200) {
+                        Telegram.WebApp.showAlert(resData.detail || "Недостаточно средств");
+                    } else {
+                        // 4. УСПЕХ! ГОТОВИМ РУЛЕТКУ
+                        let winner = resData.winner;
+                        
+                        // Фолбэк, если сервер не прислал победителя
+                        if (!winner) {
+                            winner = { name: "Error", image_url: imageUrl, rarity: 'common' };
+                        }
+
+                        // ГЕНЕРИРУЕМ ЛЕНТУ ИЗ РЕАЛЬНЫХ ПРЕДМЕТОВ КЕЙСА
+                        let strip = [];
+                        for(let i=0; i<80; i++) {
+                            const randomItem = possibleItems[Math.floor(Math.random() * possibleItems.length)];
+                            strip.push(randomItem);
+                        }
+                        
+                        // ВАЖНО: На 60-е место (финиш) ставим ПОБЕДИТЕЛЯ
+                        strip[60] = winner; 
+                        
+                        // Запускаем
+                        launchRoulette(strip, winner, resData.messages || [], resData.lacky, name);
+                        
+                        // Обновляем баланс
+                        checkBalance(true);
+                        delete itemsCache[currentCategoryId];
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    Telegram.WebApp.showAlert("Ошибка соединения или сервера");
+                } finally {
+                    if (loader) loader.classList.remove('active');
+                }
+            });
+        };
+
+        // --- 1. УНИВЕРСАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ (CUSTOM MODAL) ---
+        function showShopModal({ title, subtitle, confirmText, confirmClass, onConfirm }) {
+            // Удаляем старое, если есть
+            const old = document.querySelector('.custom-confirm-overlay');
+            if (old) old.remove();
+
+            const overlay = document.createElement('div'); 
+            overlay.className = 'custom-confirm-overlay';
             
-            const loader = document.getElementById('purchase-loader');
-            if (loader) {
-                loader.classList.add('active');
-                loader.querySelector('.loader-text').innerText = "Продаем...";
+            overlay.innerHTML = `
+                <div class="custom-confirm-box">
+                    <h3 class="confirm-title">${title}</h3>
+                    <p class="confirm-subtitle">${subtitle}</p>
+                    <div class="confirm-buttons">
+                        <button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>
+                        <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+
+            // Анимация появления
+            requestAnimationFrame(() => overlay.classList.add('visible'));
+            
+            const close = () => {
+                overlay.classList.remove('visible');
+                setTimeout(() => overlay.remove(), 200);
+            };
+            
+            overlay.querySelector('#modal-cancel').onclick = close;
+            
+            overlay.querySelector('#modal-confirm').onclick = () => { 
+                onConfirm(close); 
+            };
+            
+            // Закрытие по клику на фон
+            overlay.onclick = (e) => { if(e.target === overlay) close(); };
+        }
+
+        // --- 2. ЛОГИКА "ЗАБРАТЬ" (Желтая кнопка) ---
+        async function claimItem(itemId) {
+            if (!itemId) return Telegram.WebApp.showAlert("Ошибка: ID предмета не найден.");
+
+            showShopModal({
+                title: "Вывести этот предмет в Steam?",
+                subtitle: "Заявка будет создана. Ожидайте трейд в течение 24 часов.",
+                confirmText: "ЗАБРАТЬ",
+                confirmClass: "btn-yellow-modal", 
+                onConfirm: async (closeModal) => {
+                    
+                    const loader = document.getElementById('purchase-loader');
+                    if (loader) {
+                        loader.classList.add('active');
+                        loader.querySelector('.loader-text').innerText = "Создаем заявку...";
+                    }
+
+                    try {
+                        // Запрос к API
+                        const res = await makeApiRequest('/api/v1/user/inventory/withdraw', 'POST', { 
+                            history_id: itemId 
+                        });
+
+                        // 1. СНАЧАЛА СООБЩЕНИЕ (Скрипт встанет на паузу тут, пока ты не нажмешь ОК)
+                        if (res) {
+                             Telegram.WebApp.showAlert(`✅ Успешно!\n\nОжидайте трейд по указанной Вами ссылке в течение 24 часов.`);
+                        }
+
+                        // 2. ПОТОМ ЗАКРЫВАЕМ ОКНА (Когда нажал ОК)
+                        closeModal();     
+                        closeRoulette();   
+
+                    } catch (e) {
+                        Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
+                        closeModal(); 
+                    } finally {
+                        // 3. УБИРАЕМ ЛОАДЕР
+                        if (loader) loader.classList.remove('active');
+                    }
+                }
+            });
+        }
+
+        // --- 3. ЛОГИКА "ПРОДАТЬ ЗА БИЛЕТЫ" (Фиолетовая кнопка, API исправлен) ---
+        function sellForTickets(itemId, price) {
+            showShopModal({
+                title: `Продать скин за ${price} 🎟️?`,
+                subtitle: "Предмет будет продан системе, вы получите билеты моментально.",
+                confirmText: "ПРОДАТЬ",
+                confirmClass: "btn-purple-modal", // Фиолетовая кнопка
+                onConfirm: async (closeModal) => {
+                    
+                    const loader = document.getElementById('purchase-loader');
+                    if (loader) {
+                        loader.classList.add('active');
+                        loader.querySelector('.loader-text').innerText = "Продаем...";
+                    }
+
+                    try {
+                        // ИСПРАВЛЕННЫЙ ВЫЗОВ API (URL, METHOD, BODY)
+                        await makeApiRequest('/api/v1/user/inventory/sell', 'POST', { 
+                            history_id: itemId 
+                        });
+
+                        Telegram.WebApp.showAlert(`Успешно! +${price} билетов начислено.`);
+                        
+                        closeModal();      // Закрываем диалог
+                        closeRoulette();   // Закрываем рулетку
+
+                    } catch (e) {
+                        Telegram.WebApp.showAlert(e.message || "Ошибка обмена");
+                        closeModal();
+                    } finally {
+                        if (loader) loader.classList.remove('active');
+                    }
+                }
+            });
+        }
+
+        // --- ЛОГИКА ПРОСМОТРА СОДЕРЖИМОГО КЕЙСА ---
+        let cachedCaseContents = null; // Кэшируем, чтобы не грузить каждый раз
+
+        // Добавили аргумент caseName 👇
+        async function openCaseContents(event, caseName) {
+            // Если событие передано (клик по картинке или кнопке) - останавливаем всплытие
+            if (event && event.stopPropagation) {
+                event.stopPropagation();
             }
+            
+            const modal = document.getElementById('case-contents-modal');
+            const list = document.getElementById('case-items-list');
+            const loader = document.getElementById('contents-loader');
+            
+            modal.classList.remove('hidden');
+            
+            loader.style.display = 'block';
+            list.innerHTML = '';
 
             try {
-                // ИСПРАВЛЕННЫЙ ВЫЗОВ API (URL, METHOD, BODY)
-                await makeApiRequest('/api/v1/user/inventory/sell', 'POST', { 
-                    history_id: itemId 
-                });
-
-                Telegram.WebApp.showAlert(`Успешно! +${price} билетов начислено.`);
+                // 👇 ОТПРАВЛЯЕМ НАЗВАНИЕ КЕЙСА В ПАРАМЕТРАХ ЗАПРОСА
+                const data = await makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(caseName)}`, 'GET');
                 
-                closeModal();      // Закрываем диалог
-                closeRoulette();   // Закрываем рулетку
-
+                renderContentsList(data);
             } catch (e) {
-                Telegram.WebApp.showAlert(e.message || "Ошибка обмена");
-                closeModal();
+                list.innerHTML = `<div style="text-align:center; grid-column:1/-1; color:#ff453a;">Пусто или ошибка</div>`;
+                console.error(e);
             } finally {
-                if (loader) loader.classList.remove('active');
+                loader.style.display = 'none';
             }
         }
-    });
-}
 
-// --- ЛОГИКА ПРОСМОТРА СОДЕРЖИМОГО КЕЙСА ---
-
-let cachedCaseContents = null; // Кэшируем, чтобы не грузить каждый раз
-
-// Добавили аргумент caseName 👇
-async function openCaseContents(event, caseName) {
-    // Если событие передано (клик по картинке или кнопке) - останавливаем всплытие
-    if (event && event.stopPropagation) {
-        event.stopPropagation();
-    }
-    
-    const modal = document.getElementById('case-contents-modal');
-    const list = document.getElementById('case-items-list');
-    const loader = document.getElementById('contents-loader');
-    
-    modal.classList.remove('hidden');
-    
-    // ВАЖНО: Мы больше не используем глобальный кэш cachedCaseContents "в лоб", 
-    // потому что юзер может кликнуть на разные кейсы.
-    // Либо нужно кэшировать по именам (cachedCaseContents[caseName]), либо грузить каждый раз.
-    // Для надежности пока будем грузить каждый раз:
-    
-    loader.style.display = 'block';
-    list.innerHTML = '';
-
-    try {
-        // 👇 ОТПРАВЛЯЕМ НАЗВАНИЕ КЕЙСА В ПАРАМЕТРАХ ЗАПРОСА
-        // encodeURIComponent нужен, чтобы спецсимволы (типа |) не сломали ссылку
-        const data = await makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(caseName)}`, 'GET');
-        
-        renderContentsList(data);
-    } catch (e) {
-        list.innerHTML = `<div style="text-align:center; grid-column:1/-1; color:#ff453a;">Пусто или ошибка</div>`;
-        console.error(e);
-    } finally {
-        loader.style.display = 'none';
-    }
-}
-
-function closeContentsModal() {
-    document.getElementById('case-contents-modal').classList.add('hidden');
-}
-
-function renderContentsList(items) {
-    const list = document.getElementById('case-items-list');
-    
-    if (!items || items.length === 0) {
-        list.innerHTML = '<div style="text-align:center; color:#888; grid-column:1/-1;">Пусто</div>';
-        return;
-    }
-
-    // --- ЛОГИКА СОРТИРОВКИ (САМОЕ ВАЖНОЕ) ---
-    // Задаем "вес" каждой редкости. Чем больше цифра, тем выше будет предмет.
-    const rarityWeight = {
-        'gold': 100,      // Золотое (Нож/Перчатки) - ТОП
-        'red': 80,        // Тайное (Красное)
-        'pink': 60,       // Засекреченное (Розовое)
-        'purple': 40,     // Запрещенное (Фиолетовое)
-        'blue': 20,       // Армейское (Синее)
-        'common': 0       // Ширпотреб
-    };
-
-    // Сортируем список
-    items.sort((a, b) => {
-        // Получаем редкость (защита от null)
-        const rA = (a.rarity || 'common').toLowerCase();
-        const rB = (b.rarity || 'common').toLowerCase();
-
-        // 1. Ищем вес редкости (если редкость нестандартная, считаем как common)
-        // Используем частичное совпадение (includes), т.к. может быть "ancient (red)"
-        let weightA = 0;
-        let weightB = 0;
-
-        // Определяем вес A
-        if (rA.includes('gold')) weightA = 100;
-        else if (rA.includes('red') || rA.includes('ancient')) weightA = 80;
-        else if (rA.includes('pink') || rA.includes('legendary')) weightA = 60;
-        else if (rA.includes('purple') || rA.includes('mythical')) weightA = 40;
-        else if (rA.includes('blue') || rA.includes('rare')) weightA = 20;
-
-        // Определяем вес B
-        if (rB.includes('gold')) weightB = 100;
-        else if (rB.includes('red') || rB.includes('ancient')) weightB = 80;
-        else if (rB.includes('pink') || rB.includes('legendary')) weightB = 60;
-        else if (rB.includes('purple') || rB.includes('mythical')) weightB = 40;
-        else if (rB.includes('blue') || rB.includes('rare')) weightB = 20;
-
-        // Сортировка: сначала по весу (убывание), потом по цене (убывание)
-        if (weightB !== weightA) {
-            return weightB - weightA; // Кто "тяжелее" (редче), тот выше
+        function closeContentsModal() {
+            document.getElementById('case-contents-modal').classList.add('hidden');
         }
-        // Если редкость одинаковая — сортируем по цене (дорогие выше)
-        return (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0);
-    });
-    // ----------------------------------------
 
-    // Рендер (остался прежним, но теперь список отсортирован)
-    list.innerHTML = items.map(item => {
-        let rClass = 'blue'; 
-        const r = (item.rarity || '').toLowerCase();
-        
-        if (r.includes('purple') || r.includes('mythical')) rClass = 'purple';
-        else if (r.includes('pink') || r.includes('legendary')) rClass = 'pink';
-        else if (r.includes('red') || r.includes('ancient')) rClass = 'red';
-        else if (r.includes('gold')) rClass = 'gold';
+        function renderContentsList(items) {
+            const list = document.getElementById('case-items-list');
+            
+            if (!items || items.length === 0) {
+                list.innerHTML = '<div style="text-align:center; color:#888; grid-column:1/-1;">Пусто</div>';
+                return;
+            }
 
-        const shortName = item.name.split('|').pop().trim(); 
+            // --- ЛОГИКА СОРТИРОВКИ (САМОЕ ВАЖНОЕ) ---
+            const rarityWeight = {
+                'gold': 100,      // Золотое (Нож/Перчатки) - ТОП
+                'red': 80,        // Тайное (Красное)
+                'pink': 60,       // Засекреченное (Розовое)
+                'purple': 40,     // Запрещенное (Фиолетовое)
+                'blue': 20,       // Армейское (Синее)
+                'common': 0       // Ширпотреб
+            };
 
-        return `
-            <div class="content-item ${rClass}">
-                <img src="${item.image_url}" loading="lazy">
-                <div class="content-name">${shortName}</div>
-                <div class="content-quality">${item.condition || 'Factory New'}</div>
-            </div>
-        `;
-    }).join('');
-}
+            // Сортируем список
+            items.sort((a, b) => {
+                const rA = (a.rarity || 'common').toLowerCase();
+                const rB = (b.rarity || 'common').toLowerCase();
 
-// --- 4. ПЕРЕХОД В ПРОФИЛЬ ---
-function goToProfile() {
-    window.location.href = "/profile"; 
-}
+                let weightA = 0;
+                let weightB = 0;
+
+                if (rA.includes('gold')) weightA = 100;
+                else if (rA.includes('red') || rA.includes('ancient')) weightA = 80;
+                else if (rA.includes('pink') || rA.includes('legendary')) weightA = 60;
+                else if (rA.includes('purple') || rA.includes('mythical')) weightA = 40;
+                else if (rA.includes('blue') || rA.includes('rare')) weightA = 20;
+
+                if (rB.includes('gold')) weightB = 100;
+                else if (rB.includes('red') || rB.includes('ancient')) weightB = 80;
+                else if (rB.includes('pink') || rB.includes('legendary')) weightB = 60;
+                else if (rB.includes('purple') || rB.includes('mythical')) weightB = 40;
+                else if (rB.includes('blue') || rB.includes('rare')) weightB = 20;
+
+                if (weightB !== weightA) {
+                    return weightB - weightA; 
+                }
+                return (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0);
+            });
+
+            // Рендер 
+            list.innerHTML = items.map(item => {
+                let rClass = 'blue'; 
+                const r = (item.rarity || '').toLowerCase();
+                
+                if (r.includes('purple') || r.includes('mythical')) rClass = 'purple';
+                else if (r.includes('pink') || r.includes('legendary')) rClass = 'pink';
+                else if (r.includes('red') || r.includes('ancient')) rClass = 'red';
+                else if (r.includes('gold')) rClass = 'gold';
+
+                const shortName = item.name.split('|').pop().trim(); 
+
+                return `
+                    <div class="content-item ${rClass}">
+                        <img src="${item.image_url}" loading="lazy">
+                        <div class="content-name">${shortName}</div>
+                        <div class="content-quality">${item.condition || 'Factory New'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- 4. ПЕРЕХОД В ПРОФИЛЬ ---
+        function goToProfile() {
+            window.location.href = "/profile"; 
+        }
 
         function escapeHtml(text) {
             if (!text) return "";
@@ -3659,9 +3761,6 @@ function goToProfile() {
         }
 
         // --- ЗАПУСК ---
-        
-        // Достаточно вызвать только это. 
-        // Вся логика (тихий запрос + таймер на 2.5 сек) теперь находится ВНУТРИ этой функции.
         initShop();        
     </script>
 </body>
