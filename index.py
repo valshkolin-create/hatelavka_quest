@@ -17647,7 +17647,7 @@ async def sell_inventory_item(
     return {"success": True, "message": f"Обменяно на {tickets_amount} билетов!"}
 
 
-# 3. Запросить вывод (С КНОПКОЙ ДЛЯ АДМИНА)
+# 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД)
 @app.post("/api/v1/user/inventory/withdraw")
 async def withdraw_inventory_item(
     req: InventorySellRequest,
@@ -17673,14 +17673,14 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет (ДОБАВЛЕНЫ price_rub И condition В SELECT)
+    # 2. Получаем предмет (ОБЯЗАТЕЛЬНО тянем market_hash_name и price)
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "id": f"eq.{req.history_id}",
             "user_id": f"eq.{user_id}",
             "status": "eq.pending",
-            "select": "id, item:cs_items(name, price, rarity, condition, price_rub)"
+            "select": "id, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
         }
     )
     
@@ -17690,27 +17690,63 @@ async def withdraw_inventory_item(
 
     item_info = rows[0].get('item', {})
     item_name = item_info.get('name', 'Неизвестный предмет')
-    item_price = item_info.get('price', 0)          # Это билеты
-    item_price_rub = item_info.get('price_rub', 0)  # Это реальные рубли для бота
+    # Берем бюджет из колонки 'price' (там где "6" или "3.93")
+    try:
+        target_price = float(item_info.get('price', 0))
+    except:
+        target_price = 0.0
+        
     item_rarity = item_info.get('rarity', 'common')
-    item_condition = item_info.get('condition')     # Это качество (MW, FT и т.д.)
+    item_condition = item_info.get('condition')
+    market_hash_name = item_info.get('market_hash_name') or item_name
+
+    # ⚙️ Проверяем настройки автовыдачи
+    setting_res = await supabase.get("/settings", params={"key": "eq.auto_delivery_enabled", "select": "value"})
+    auto_enabled = True
+    if setting_res.status_code == 200 and setting_res.json():
+        auto_enabled = setting_res.json()[0].get("value", {}).get("enabled", True)
+
+    market_api_key = os.getenv("CSGO_MARKET_API_KEY")
+    market_client = MarketCSGO(api_key=market_api_key) if market_api_key else None
 
     # ==========================================
-    # 📦 3. АВТОВЫДАЧА (КЛАДОВЩИК + КУРЬЕР)
+    # 🛒 ЭТАП 1: ПОПЫТКА ЗАКУПКИ НА МАРКЕТЕ (ПЛАН А)
     # ==========================================
+    if market_client and auto_enabled and target_price > 0:
+        # Проверяем на кириллицу перед отправкой на маркет
+        if not any(re.search('[а-яА-Я]', market_hash_name) for _ in market_hash_name):
+            print(f"[MARKET] Пытаемся купить через кнопку: {market_hash_name}")
+            buy_res = await market_client.buy_for_user(market_hash_name, trade_link)
+            
+            if buy_res.get("success"):
+                # УСПЕХ НА МАРКЕТЕ
+                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                    "status": "market_pending",
+                    "market_custom_id": buy_res.get("custom_id")
+                })
+                
+                # Уведомление админу
+                if ADMIN_NOTIFY_CHAT_ID:
+                    log_text = f"🛒 <b>ЗАКУПЛЕНО НА МАРКЕТЕ!</b>\n👤 {full_name}\n🔫 {item_name}\n💰 Бюджет: {target_price} руб."
+                    await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=log_text, parse_mode="HTML")
+                
+                return {"success": True, "message": "Продавец с Маркета получил ваш заказ! Ожидайте трейд в Steam."}
+
+    # ==========================================
+    # 📦 ЭТАП 2: АВТОВЫДАЧА СО СКЛАДА (ПЛАН Б)
+    # ==========================================
+    print(f"[STOREKEEPER] Маркет не подошел, ищем {item_name} на складе...")
     delivery_res = await fulfill_item_delivery(
         user_id=user_id,
         target_name=item_name,
-        target_price_rub=float(item_price_rub), # ПЕРЕДАЕМ РУБЛИ, А НЕ БИЛЕТЫ!
+        target_price_rub=target_price,
         trade_url=trade_link,
         supabase=supabase,
-        target_condition=item_condition         # ПЕРЕДАЕМ КАЧЕСТВО ДЛЯ ТОЧНОГО ПОИСКА!
+        target_condition=item_condition
     )
 
     if delivery_res.get("success"):
         real_skin = delivery_res.get("real_skin")
-        
-        # Кладовщик нашел скин, теперь Курьер его отправляет!
         trade_res = await send_steam_trade_offer(
             account_id=real_skin["account_id"],
             assetid=real_skin["assetid"],
@@ -17718,56 +17754,35 @@ async def withdraw_inventory_item(
             supabase=supabase
         )
         
-        if trade_res.get("success"):
+        if trade_res and trade_res.get("success"):
             new_status = "sent"
-            log_header = f"✅ <b>ТРЕЙД УСПЕШНО ОТПРАВЛЕН!</b>\n<i>Оффер #{trade_res['tradeofferid']}</i>\n\n"
-            response_msg = "Трейд успешно отправлен! Зайдите в Steam и примите обмен."
+            log_header = f"✅ <b>ОТПРАВЛЕНО СО СКЛАДА!</b>\n"
+            response_msg = "Трейд отправлен! Зайдите в Steam и примите обмен."
         else:
-            # Скин нашли, но Steam затупил (невалид ссылка, бан трейда и т.д.)
             new_status = "processing"
-            log_header = f"⚠️ <b>ОШИБКА ОТПРАВКИ STEAM!</b>\n<i>Трейд не прошел: {trade_res.get('error')}</i>\n<i>Заявка переведена в ручной режим.</i>\n\n"
-            response_msg = "Произошла ошибка со стороны Steam. Заявка передана администратору."
+            err_msg = trade_res.get('error') if trade_res else "Steam Session Expired"
+            log_header = f"⚠️ <b>ОШИБКА СКЛАДА!</b>\n<i>{err_msg}</i>\n"
+            response_msg = "Ошибка Steam при отправке со склада. Мы передали заявку админу."
     else:
-        # Кладовщик не нашел скин на ботах
+        # И на складе ничего нет
         new_status = "processing"
-        log_header = "📦 <b>ЗАЯВКА НА ВЫВОД!</b>\n<i>⚠️ Нет на ботах. Нужна ручная выдача.</i>\n\n"
-        response_msg = "Заявка на вывод создана! Ожидайте выдачи администратором."
+        log_header = "📦 <b>РУЧНАЯ ВЫДАЧА</b>\n<i>Нет на Маркете и на Складе.</i>\n"
+        response_msg = "Предмета нет в наличии. Заявка передана администратору для ручной выдачи."
 
-    # ==========================================
+    # Обновляем статус
+    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": new_status})
 
-    # 4. Обновляем статус в БД
-    await supabase.patch(
-        "/cs_history",
-        params={"id": f"eq.{req.history_id}"},
-        json={"status": new_status} 
-    )
-
-    # 5. 🔥 УВЕДОМЛЕНИЕ В АДМИН ЧАТ 🔥
+    # Отправляем финальный лог админу
     if ADMIN_NOTIFY_CHAT_ID:
         try:
             log_text = (
                 f"{log_header}"
                 f"👤 {full_name} ({username_txt})\n"
-                f"🔫 <b>{item_name}</b> ({item_rarity})\n"
-                f"💰 {item_price} (цена базы)\n\n"
-                f"🔗 <a href='{trade_link}'>Ссылка на обмен</a>"
+                f"🔫 <b>{item_name}</b>\n"
+                f"💰 Бюджет: {target_price} руб."
             )
-            
-            app_url = "https://t.me/HATElavka_bot/app?startapp=admin_orders"
-
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="👨‍💻 Открыть заявки", url=app_url)]
-            ])
-            
-            await bot.send_message(
-                chat_id=ADMIN_NOTIFY_CHAT_ID, 
-                text=log_text, 
-                reply_markup=kb, 
-                parse_mode="HTML",
-                disable_web_page_preview=True
-            )
-        except Exception as e:
-            print(f"⚠️ Ошибка отправки лога: {e}")
+            await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=log_text, parse_mode="HTML")
+        except: pass
             
     return {"success": True, "message": response_msg}
     
