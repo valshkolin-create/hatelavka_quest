@@ -1465,6 +1465,10 @@ class SteamCookieAuthRequest(BaseModel):
     username: str
     sessionid: str
     steamLoginSecure: str
+
+class MarketToggleRequest(BaseModel):
+    initData: str
+    enabled: bool
     
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -3056,6 +3060,62 @@ async def bootstrap_app(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
+
+
+# ==========================================
+# 🛒 УПРАВЛЕНИЕ МАРКЕТОМ И АВТОВЫДАЧЕЙ
+# ==========================================
+@app.post("/api/v1/admin/market/status")
+async def admin_market_status(body: dict = Body(...)):
+    """Получает баланс маркета и статус тумблера автовыдачи"""
+    initData = body.get("initData")
+    user_data = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_data or user_data.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
+    client = await get_supabase_client()
+    
+    # 1. Читаем статус тумблера из БД
+    setting_res = await client.get("/settings", params={"key": "eq.auto_delivery_enabled", "select": "value"})
+    auto_enabled = True # По умолчанию включено
+    if setting_res.status_code == 200 and setting_res.json():
+        auto_enabled = setting_res.json()[0].get("value", {}).get("enabled", True)
+        
+    # 2. Получаем баланс с маркета
+    balance = 0.0
+    market_success = False
+    market_api_key = os.getenv("CSGO_MARKET_API_KEY")
+    
+    if market_api_key:
+        market_client = MarketCSGO(api_key=market_api_key)
+        money_data = await market_client._make_request("get-money")
+        if money_data and money_data.get("success"):
+            balance = float(money_data.get("money", 0))
+            market_success = True
+            
+    return {
+        "market_success": market_success, 
+        "balance": balance, 
+        "auto_delivery_enabled": auto_enabled
+    }
+
+@app.post("/api/v1/admin/market/toggle_delivery")
+async def admin_market_toggle(req: MarketToggleRequest):
+    """Включает или выключает автовыдачу"""
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data or user_data.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+    client = await get_supabase_client()
+    
+    # Сохраняем новое состояние в БД
+    await client.patch(
+        "/settings", 
+        params={"key": "eq.auto_delivery_enabled"}, 
+        json={"value": {"enabled": req.enabled}}
+    )
+    
+    return {"success": True, "enabled": req.enabled}
  
 # --- НОВЫЙ ЭНДПОИНТ: Получение списка всех квестов или челленджей ---
 
@@ -15729,6 +15789,9 @@ async def claim_gift(
 # =======================================================
 # 🚀 МАССОВАЯ АВТОВЫДАЧА (ФОНОВАЯ ЗАДАЧА)
 # =======================================================
+# =======================================================
+# 🚀 МАССОВАЯ АВТОВЫДАЧА (ФОНОВАЯ ЗАДАЧА)
+# =======================================================
 async def background_mass_delivery():
     """Фоновая задача: ищет заявки со статусом processing/auto_queued/market_pending и пытается их отправить"""
     import logging
@@ -15737,6 +15800,12 @@ async def background_mass_delivery():
     
     market_api_key = os.getenv("CSGO_MARKET_API_KEY")
     market_client = MarketCSGO(api_key=market_api_key) if market_api_key else None
+
+    # --- ⚙️ ПРОВЕРКА ТУМБЛЕРА АВТОВЫДАЧИ ---
+    setting_res = await client.get("/settings", params={"key": "eq.auto_delivery_enabled", "select": "value"})
+    auto_enabled = True
+    if setting_res.status_code == 200 and setting_res.json():
+        auto_enabled = setting_res.json()[0].get("value", {}).get("enabled", True)
 
     # --- 🔄 ШАГ 0: ПРОВЕРКА ЗАВИСШИХ ТРЕЙДОВ С МАРКЕТА ---
     if market_client:
@@ -15771,7 +15840,7 @@ async def background_mass_delivery():
     items = resp.json()
     
     if not items:
-        logging.info("[MASS_DELIVERY] Нет активных заявок для отправки.")
+        # Убрано логирование пустой очереди, чтобы не забивать логи
         return
 
     success_count = 0
@@ -15796,7 +15865,7 @@ async def background_mass_delivery():
 
         # --- 🚀 ЭТАП 1: ПЛАН "А" (ПОКУПКА НА МАРКЕТЕ) ---
         market_success = False
-        if market_client:
+        if market_client and auto_enabled:
             logging.info(f"[MARKET] Пробуем купить {target_name} для юзера {user_id}...")
             buy_res = await market_client.buy_for_user(target_name, trade_url)
             
@@ -15810,7 +15879,21 @@ async def background_mass_delivery():
                 })
                 logging.info(f"[MARKET] Заказ создан. Ожидаем продавца P2P (ID: {custom_id})")
             else:
-                logging.warning(f"[MARKET] Отказ покупки {target_name}: {buy_res.get('error')}")
+                error_msg = str(buy_res.get("error", "")).lower()
+                logging.warning(f"[MARKET] Отказ покупки {target_name}: {error_msg}")
+                
+                # Защита от нулевого баланса: если Маркет ругается на деньги
+                if any(word in error_msg for word in ["balance", "money", "средств", "баланс", "fund", "insufficient"]):
+                    auto_enabled = False # Отключаем для следующих предметов в цикле
+                    # Выключаем тумблер в БД
+                    await client.patch("/settings", params={"key": "eq.auto_delivery_enabled"}, json={"value": {"enabled": False}})
+                    
+                    if ADMIN_NOTIFY_CHAT_ID:
+                        alert_msg = "🚨 <b>ВНИМАНИЕ! КРИТИЧЕСКАЯ ОШИБКА МАРКЕТА!</b> 🚨\n\nНа аккаунте закончился баланс. Автовыдача принудительно <b>ОТКЛЮЧЕНА</b>.\n\nПополните баланс и включите тумблер в админке."
+                        try:
+                            await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=alert_msg, parse_mode="HTML")
+                        except Exception:
+                            pass
 
         if market_success:
             continue # Если купили на маркете, идем к следующему предмету (остальное делает P2P)
@@ -15854,9 +15937,10 @@ async def background_mass_delivery():
             f"❌ Ошибок/Ждут ручной выдачи: <b>{error_count}</b>"
         )
         try:
-            await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=msg, parse_mode="HTML")
+            await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=msg, parse_mode="HTML")
         except Exception:
             pass
+
 
 # Эндпоинт для запуска из админки
 @app.post("/api/v1/admin/steam/mass_send")
