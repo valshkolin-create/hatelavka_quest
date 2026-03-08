@@ -1910,7 +1910,21 @@
     text-transform: uppercase;
 }
 
+/* --- ФИКС СЛОЕВ (Z-INDEX) --- */
+#replacement-modal {
+    z-index: 30000 !important; /* Гарантированно поверх окна подтверждения (20000) */
+}
 
+/* --- ФИКС МЕЛКИХ НАКЛЕЕК STEAM (ZOOM) --- */
+/* Steam отдает PNG наклеек с огромными прозрачными полями. Мы их "зумим" */
+.replacement-card.is-sticker img {
+    transform: scale(1.8) translateZ(0); /* Увеличиваем в 1.8 раза */
+    margin-top: 15px; /* Сдвигаем чуть вниз, чтобы не улетела вверх при зуме */
+}
+
+.replacement-card.is-sticker:active img {
+    transform: scale(1.9) translateZ(0); /* Эффект нажатия для наклеек */
+}
 
 /* --- GLOW ЭФФЕКТ (СВЕЧЕНИЕ) --- */
 .replacement-card::after {
@@ -1920,6 +1934,8 @@
     opacity: 0.2;
     z-index: 0;
 }
+
+        
 
 /* Цвета по редкостям (Рамки + Свечение) */
 .replacement-card.blue { border-color: #4b69ff; }
@@ -3909,9 +3925,16 @@ function showReplacementChoice(options, historyId) {
         // Чистим название (убираем часть до '|')
         const cleanName = item.name_ru.split('|').pop().trim();
 
+        // --- ДЕТЕКТОР НАКЛЕЕК (ЧТОБЫ УВЕЛИЧИТЬ ИХ) ---
+        const lowerName = item.name_ru.toLowerCase();
+        const isSticker = lowerName.includes('наклейка') || lowerName.includes('нашивка') || lowerName.includes('брелок');
+        const stickerClass = isSticker ? 'is-sticker' : ''; // Если наклейка, добавляем класс is-sticker
+
         return `
-            <div class="replacement-card ${rClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${item.name_ru.replace(/'/g, "")}')">
+            <div class="replacement-card ${rClass} ${stickerClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${item.name_ru.replace(/'/g, "")}')">
+                
                 <img src="${item.icon_url}" loading="lazy">
+                
                 <div class="replacement-text-zone">
                     <div class="replacement-name">${escapeHtml(cleanName)}</div>
                     <div class="replacement-condition">${escapeHtml(item.condition || '-')}</div>
