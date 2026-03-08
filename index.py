@@ -180,10 +180,9 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
         
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
-    Точечный активатор. Бронебойная версия для фоновых задач.
+    Точечный активатор. Бронебойная версия с сохранением старого баланса.
     """
     try:
-        # Получаем клиент
         client = await get_background_client()
         
         # 1. Достаем внутренний ID юзера для Bot-t
@@ -193,26 +192,35 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
         if u_data and isinstance(u_data, list) and len(u_data) > 0 and u_data[0].get("bott_internal_id"):
             bott_id = u_data[0]["bott_internal_id"]
             
-            # 2. Начисляем реальные монеты в Bot-t
+            # 🔥 НОВОЕ: 2. Узнаем текущий (старый) баланс юзера в Bot-t ПЕРЕД начислением
+            old_balance = 0
+            try:
+                bal_resp = await get_user_balance_from_bott(bott_id) # Убедись, что эта функция у тебя импортирована
+                if bal_resp is not None:
+                    old_balance = round(float(bal_resp), 2) # Округляем для красоты
+            except Exception as bal_err:
+                logging.warning(f"Не удалось получить старый баланс для {bott_id}: {bal_err}")
+
+            # 3. Начисляем реальные монеты в Bot-t
             success = await add_balance_to_bott(bott_id, reward_value, f"🎁 {description}")
             
-            # 3. Если Bot-t принял деньги, НАМЕРТВО скрываем код
+            # 4. Если Bot-t принял деньги, НАМЕРТВО скрываем код и пишем старый баланс
             if success:
                 patch_resp = await client.patch(
                     "/promocodes",
                     params={"id": f"eq.{promo_id}"},
                     json={
                         "is_used": True, 
-                        "auto_is_used": True, # 🔥 ИМЕННО ОНО ДЕЛАЕТ КАРТОЧКУ ЗЕЛЕНОЙ
+                        "auto_is_used": True,
+                        "old_balance": old_balance, # 🔥 ЗАПИСЫВАЕМ СТАРЫЙ БАЛАНС В БАЗУ
                         "claimed_at": datetime.now(timezone.utc).isoformat()
                     }
                 )
                 
-                # Проверяем, не отвергла ли база наш запрос
                 if patch_resp.status_code >= 400:
                     logging.error(f"❌ ОШИБКА БД ПРИ СКРЫТИИ КОДА {promo_id}: {patch_resp.text}")
                 else:
-                    logging.info(f"⚡ УСПЕХ: Код {promo_id} начислен и СКРЫТ от пользователя (auto_is_used=True)")
+                    logging.info(f"⚡ УСПЕХ: Код {promo_id} начислен. Старый баланс: {old_balance}")
             else:
                 logging.error(f"❌ Bot-t отклонил начисление для кода {promo_id}")
         else:
@@ -220,6 +228,7 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
 
     except Exception as e:
         logging.error(f"❌ Критическая ошибка точечной активации кода {promo_id}: {e}", exc_info=True)
+        
 # =========================================================================
 
 
