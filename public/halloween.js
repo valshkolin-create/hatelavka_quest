@@ -629,7 +629,7 @@ function renderPage(eventData, leaderboardData = {}) {
                 if (manualTasks.length > 0) {
                     tasksHtml = '<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: left;">';
                     // ОБНОВЛЕННЫЙ ЗАГОЛОВОК
-                    tasksHtml += '<div style="font-size: 13px; color: #4b69ff; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; text-align: center; letter-spacing: 0.5px;">ЗАДАНИЯ ДЛЯ ПОЛУЧЕНИЕ ОЧКОВ:</div>';
+                    tasksHtml += '<div style="font-size: 13px; color: #4b69ff; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; text-align: center; letter-spacing: 0.5px;">ЗАДАНИЯ ДЛЯ ПОЛУЧЕНИЯ ОЧКОВ:</div>';
                     
                     manualTasks.forEach(t => {
                         // ИСПОЛЬЗУЕМ t.title. Если его нет в базе (старый конфиг), пишем ID
@@ -776,26 +776,7 @@ function renderPage(eventData, leaderboardData = {}) {
 
         console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
-    // --- НОВАЯ ФУНКЦИЯ: Рендер списка наград в модалке ---
-    // [НОВОЕ] Вспомогательная функция для расчета % прогресса
-    function calculateEventProgress(eventData) {
-        const { goals = {}, current_progress = 0 } = eventData || {};
-        const currentLevel = getCurrentLevel(eventData);
-        
-        let currentGoal = 1, prevGoal = 0;
-        
-        if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
-        else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
-        else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
-        else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
 
-        const progressInLevel = Math.max(0, current_progress - prevGoal);
-        const goalForLevel = currentGoal - prevGoal;
-        // Считаем процент (0-100)
-        const percentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
-        
-        return { currentLevel, percentage };
-    }
     // --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: РАСЧЕТ ПРОГРЕССА ---
     function calculateEventProgress(eventData) {
         const { goals = {}, current_progress = 0 } = eventData || {};
@@ -819,211 +800,174 @@ function renderPage(eventData, leaderboardData = {}) {
 
     // --- ОБНОВЛЕННАЯ ФУНКЦИЯ: Рендер списка наград ---
     function renderRewardsModalContent(targetLevel) {
-    // Рассчитываем прогресс
-    const { currentLevel, percentage } = calculateEventProgress(currentEventData);
-    
-    // Словари для отображения
-    const RARITY_COLORS = {
-        common: '#b0c3d9', uncommon: '#5e98d9', rare: '#4b69ff',
-        mythical: '#8847ff', legendary: '#d32ce6', ancient: '#eb4b4b', immortal: '#e4ae39'
-    };
-    const WEAR_NAMES = {
-        'Factory New': 'Прямо с завода', 'Minimal Wear': 'Немного поношенное',
-        'Field-Tested': 'После полевых', 'Well-Worn': 'Поношенное', 'Battle-Scarred': 'Закаленное в боях'
-    };
-
-    // Определяем падежи
-    const activeTheme = document.body.dataset.theme || 'halloween';
-    const containerNames = {
-        halloween: { acc: 'котел', prep: 'котле' },
-        new_year:  { acc: 'мешок', prep: 'мешке' },
-        classic:   { acc: 'сундук', prep: 'сундуке' }
-    };
-    const t = containerNames[activeTheme] || containerNames.classic;
-
-    // --- ЛОГИКА ДОСТУПА ---
-    const isNextLevelUnlocked = percentage >= 70;
-    const maxViewableLevel = isNextLevelUnlocked ? Math.min(currentLevel + 1, 4) : currentLevel;
-    
-    // 1. Уровень закрыт (будущее)
-    const isTargetLocked = targetLevel > maxViewableLevel;
-    
-    // 2. Уровень пройден (прошлое) - НОВАЯ ЛОГИКА
-    // Если мы на уровне 3, то 1 и 2 считаются пройденными
-    const isTargetCompleted = targetLevel < currentLevel; 
-
-    // Обновляем табы (стили)
-    if (dom.rewardsTabs) {
-        dom.rewardsTabs.forEach(btn => {
-            const btnLevel = parseInt(btn.dataset.level);
-            btn.classList.toggle('active', btnLevel === targetLevel);
-            
-            // Замок если закрыт (будущее) ИЛИ если пройден (прошлое - по желанию, но обычно пройденные остаются открытыми для просмотра. 
-            // Но ты просил закрыть их.
-            
-            // Если ты хочешь блокировать кнопку таба для будущего, оставляем locked
-            btn.classList.toggle('locked', btnLevel > maxViewableLevel);
-            
-            // Для пройденных можно добавить класс 'completed' если нужно стилизовать галочку
-            if (btnLevel < currentLevel) btn.classList.add('completed-tab');
-        });
-    }
-
-    const content = dom.rewardsListContent;
-    if (!content) return;
-    content.innerHTML = '';
-
-    // --- СЦЕНАРИЙ 1: Уровень ПРОЙДЕН (Прошлое) ---
-    if (isTargetCompleted) {
-        content.innerHTML = `
-            <div class="locked-level-container completed-level-container">
-                <i class="fa-solid fa-circle-check lock-icon-large" style="color: var(--primary-color);"></i>
-                <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #fff;">Уровень пройден!</div>
-                <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5; color: var(--text-color-muted);">            
-            </div>
-        `;
-        return;
-    }
-
-    // --- СЦЕНАРИЙ 2: Уровень ЗАКРЫТ (Будущее) ---
-    if (isTargetLocked) {
-        const currentPercentFixed = percentage.toFixed(0);
-        const showProgressBar = (targetLevel === currentLevel + 1);
-        let lockDescription = '';
+        // Рассчитываем прогресс
+        const { currentLevel, percentage } = calculateEventProgress(currentEventData);
         
-        if (showProgressBar) {
-            lockDescription = `Заполните ${t.acc} на <strong>70%</strong>, чтобы увидеть награды этого этапа.`;
-        } else {
-            lockDescription = `Этот этап пока недоступен. Сначала заполните ${t.acc} на предыдущих уровнях.`;
+        // Словари для отображения
+        const RARITY_COLORS = {
+            common: '#b0c3d9', uncommon: '#5e98d9', rare: '#4b69ff',
+            mythical: '#8847ff', legendary: '#d32ce6', ancient: '#eb4b4b', immortal: '#e4ae39'
+        };
+        const WEAR_NAMES = {
+            'Factory New': 'Прямо с завода', 'Minimal Wear': 'Немного поношенное',
+            'Field-Tested': 'После полевых', 'Well-Worn': 'Поношенное', 'Battle-Scarred': 'Закаленное в боях'
+        };
+
+        // Определяем падежи
+        const activeTheme = document.body.dataset.theme || 'halloween';
+        const containerNames = {
+            halloween: { acc: 'котел', prep: 'котле' },
+            new_year:  { acc: 'мешок', prep: 'мешке' },
+            classic:   { acc: 'сундук', prep: 'сундуке' }
+        };
+        const t = containerNames[activeTheme] || containerNames.classic;
+
+        // --- ЛОГИКА ДОСТУПА ---
+        const isNextLevelUnlocked = percentage >= 70;
+        const maxViewableLevel = isNextLevelUnlocked ? Math.min(currentLevel + 1, 4) : currentLevel;
+        
+        // 1. Уровень закрыт (будущее)
+        const isTargetLocked = targetLevel > maxViewableLevel;
+        
+        // 2. Уровень пройден (прошлое) - НОВАЯ ЛОГИКА
+        // Если мы на уровне 3, то 1 и 2 считаются пройденными
+        const isTargetCompleted = targetLevel < currentLevel; 
+
+        // Обновляем табы (стили)
+        if (dom.rewardsTabs) {
+            dom.rewardsTabs.forEach(btn => {
+                const btnLevel = parseInt(btn.dataset.level);
+                btn.classList.toggle('active', btnLevel === targetLevel);
+                
+                // Если ты хочешь блокировать кнопку таба для будущего, оставляем locked
+                btn.classList.toggle('locked', btnLevel > maxViewableLevel);
+                
+                // Для пройденных можно добавить класс 'completed' если нужно стилизовать галочку
+                if (btnLevel < currentLevel) btn.classList.add('completed-tab');
+            });
         }
 
-        content.innerHTML = `
-            <div class="locked-level-container">
-                <i class="fa-solid fa-lock lock-icon-large"></i>
-                <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #fff;">Этап закрыт</div>
-                <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5;">${lockDescription}</div>
-                ${showProgressBar ? `
-                    <div class="modal-progress-wrapper">
-                        <div class="modal-progress-fill" style="width: ${percentage}%"></div>
-                    </div>
-                    <div style="font-size: 12px; color: var(--text-color-muted); margin-top: 5px;">
-                        Прогресс: <span style="color: var(--primary-color); font-weight:bold;">${currentPercentFixed}%</span> / 70%
-                    </div>
-                ` : ''}
-            </div>
-        `;
-        return;
-    }
+        const content = dom.rewardsListContent;
+        if (!content) return;
+        content.innerHTML = '';
 
-    // --- СЦЕНАРИЙ 3: Уровень ОТКРЫТ (Текущий) -> Рендерим список ---
-    const levels = currentEventData.levels || {};
-    const levelConfig = levels[`level_${targetLevel}`] || {};
-    const topPlaces = levelConfig.top_places || [];
-    const tiers = levelConfig.tiers || {};
-    const defaultReward = levelConfig.default_reward || {};
-
-    // === ГРУППА 1: Гибридные награды ===
-    let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Список наград</div>`;
-    
-    if (topPlaces.length === 0 && Object.keys(tiers).length === 0) {
-        html += '<p style="font-size:12px; color:#777; padding:10px;">Награды не назначены</p>';
-    } else {
-        // Отрисовка новых гибких наград (без сортировки, чтобы сохранить порядок из админки)
-        topPlaces.forEach(reward => {
-            const name = reward.name || '';
-            const wearKey = reward.wear;
-            const rarityKey = reward.rarity;
-            const wearText = WEAR_NAMES[wearKey] || '';
-            const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
-            const hasRarity = !!RARITY_COLORS[rarityKey];
-
-            // Форматируем место (если это просто число, добавляем #, иначе оставляем как есть, например "21+")
-            const displayPlace = /^\d+$/.test(reward.place) ? `#${reward.place}` : reward.place;
-
-            html += `
-            <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
-                <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7; word-break: break-word; text-align: center;">${displayPlace}</span>
-                <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" 
-                     data-full-name="${escapeHTML(name)}" 
-                     data-wear="${escapeHTML(wearText)}"> 
-                <div class="modal-reward-info">
-                    <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
-                    ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+        // --- СЦЕНАРИЙ 1: Уровень ПРОЙДЕН (Прошлое) ---
+        if (isTargetCompleted) {
+            content.innerHTML = `
+                <div class="locked-level-container completed-level-container">
+                    <i class="fa-solid fa-circle-check lock-icon-large" style="color: var(--primary-color);"></i>
+                    <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #fff;">Уровень пройден!</div>
+                    <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5; color: var(--text-color-muted);">            
                 </div>
-            </div>`;
-        });
+            `;
+            return;
+        }
 
-        // Отрисовка старых тиров (для обратной совместимости, если они еще остались в базе)
-        const tierData = [
-            { id: '21-30', label: '21-30', data: tiers["21-30"] },
-            { id: '31-40', label: '31-40', data: tiers["31-40"] },
-            { id: '41+',   label: '41+',   data: tiers["41+"] || defaultReward }
-        ];
-
-        tierData.forEach(tier => {
-            if (!tier.data || !tier.data.name) return; // Пропускаем пустые старые тиры
+        // --- СЦЕНАРИЙ 2: Уровень ЗАКРЫТ (Будущее) ---
+        if (isTargetLocked) {
+            const currentPercentFixed = percentage.toFixed(0);
+            const showProgressBar = (targetLevel === currentLevel + 1);
+            let lockDescription = '';
             
-            const name = tier.data.name || '---';
-            const img = tier.data.image_url || '';
-            const wearKey = tier.data.wear;
-            const rarityKey = tier.data.rarity;
-            const wearText = WEAR_NAMES[wearKey] || '';
-            const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
-            const hasRarity = !!RARITY_COLORS[rarityKey];
+            if (showProgressBar) {
+                lockDescription = `Заполните ${t.acc} на <strong>70%</strong>, чтобы увидеть награды этого этапа.`;
+            } else {
+                lockDescription = `Этот этап пока недоступен. Сначала заполните ${t.acc} на предыдущих уровнях.`;
+            }
 
-            html += `
-            <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
-                <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
-                ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" 
-                              data-full-name="${escapeHTML(name)}" 
-                              data-wear="${escapeHTML(wearText)}">` 
-                      : '<div style="width:36px;"></div>'}
-                <div class="modal-reward-info">
-                    <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
-                    ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+            content.innerHTML = `
+                <div class="locked-level-container">
+                    <i class="fa-solid fa-lock lock-icon-large"></i>
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #fff;">Этап закрыт</div>
+                    <div style="font-size: 14px; margin-bottom: 15px; line-height: 1.5;">${lockDescription}</div>
+                    ${showProgressBar ? `
+                        <div class="modal-progress-wrapper">
+                            <div class="modal-progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-color-muted); margin-top: 5px;">
+                            Прогресс: <span style="color: var(--primary-color); font-weight:bold;">${currentPercentFixed}%</span> / 70%
+                        </div>
+                    ` : ''}
                 </div>
-            </div>`;
-        });
+            `;
+            return;
+        }
+
+        // --- СЦЕНАРИЙ 3: Уровень ОТКРЫТ (Текущий) -> Рендерим список ---
+        const levels = currentEventData.levels || {};
+        const levelConfig = levels[`level_${targetLevel}`] || {};
+        const topPlaces = levelConfig.top_places || [];
+        const tiers = levelConfig.tiers || {};
+        const defaultReward = levelConfig.default_reward || {};
+
+        // === ГРУППА 1: Гибридные награды ===
+        let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Список наград</div>`;
+        
+        if (topPlaces.length === 0 && Object.keys(tiers).length === 0) {
+            html += '<p style="font-size:12px; color:#777; padding:10px;">Награды не назначены</p>';
+        } else {
+            // Отрисовка новых гибких наград (без сортировки, чтобы сохранить порядок из админки)
+            topPlaces.forEach(reward => {
+                const name = reward.name || '';
+                const wearKey = reward.wear;
+                const rarityKey = reward.rarity;
+                const wearText = WEAR_NAMES[wearKey] || '';
+                const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
+                const hasRarity = !!RARITY_COLORS[rarityKey];
+
+                // Форматируем место (если это просто число, добавляем #, иначе оставляем как есть, например "21+")
+                const displayPlace = /^\d+$/.test(reward.place) ? `#${reward.place}` : reward.place;
+
+                html += `
+                <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
+                    <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7; word-break: break-word; text-align: center;">${displayPlace}</span>
+                    <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" 
+                         data-full-name="${escapeHTML(name)}" 
+                         data-wear="${escapeHTML(wearText)}"> 
+                    <div class="modal-reward-info">
+                        <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                        ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+                    </div>
+                </div>`;
+            });
+
+            // Отрисовка старых тиров (для обратной совместимости, если они еще остались в базе)
+            const tierData = [
+                { id: '21-30', label: '21-30', data: tiers["21-30"] },
+                { id: '31-40', label: '31-40', data: tiers["31-40"] },
+                { id: '41+',   label: '41+',   data: tiers["41+"] || defaultReward }
+            ];
+
+            tierData.forEach(tier => {
+                if (!tier.data || !tier.data.name) return; // Пропускаем пустые старые тиры
+                
+                const name = tier.data.name || '---';
+                const img = tier.data.image_url || '';
+                const wearKey = tier.data.wear;
+                const rarityKey = tier.data.rarity;
+                const wearText = WEAR_NAMES[wearKey] || '';
+                const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
+                const hasRarity = !!RARITY_COLORS[rarityKey];
+
+                html += `
+                <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
+                    <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
+                    ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" 
+                                  data-full-name="${escapeHTML(name)}" 
+                                  data-wear="${escapeHTML(wearText)}">` 
+                          : '<div style="width:36px;"></div>'}
+                    <div class="modal-reward-info">
+                        <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                        ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+                    </div>
+                </div>`;
+            });
+        }
+        html += `</div>`;
+        
+        content.innerHTML = html;
     }
-    html += `</div>`;
-    
-    content.innerHTML = html;
-}
 
-    // === ГРУППА 2: Награды остальным ===
-    html += `<div class="modal-rewards-group"><div class="modal-rewards-title">Награды остальным</div>`;
-    const tierData = [
-        { id: '21-30', label: '21-30', data: tiers["21-30"] },
-        { id: '31-40', label: '31-40', data: tiers["31-40"] },
-        { id: '41+',   label: '41+',   data: tiers["41+"] || defaultReward }
-    ];
-
-    tierData.forEach(tier => {
-        const name = tier.data?.name || '---';
-        const img = tier.data?.image_url || '';
-        const wearKey = tier.data?.wear;
-        const rarityKey = tier.data?.rarity;
-        const wearText = WEAR_NAMES[wearKey] || '';
-        const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
-        const hasRarity = !!RARITY_COLORS[rarityKey];
-
-        html += `
-        <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
-            <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
-            ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" 
-                          data-full-name="${escapeHTML(name)}" 
-                          data-wear="${escapeHTML(wearText)}">` 
-                  : '<div style="width:36px;"></div>'}
-            <div class="modal-reward-info">
-                <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
-                ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
-            </div>
-        </div>`;
-    });
-    html += `</div>`;
-    
-    content.innerHTML = html;
-}
     // Добавляем новые элементы в объект dom
     dom.gatekeeperOverlay = document.getElementById('gatekeeper-overlay');
     dom.checkSubBtn = document.getElementById('check-sub-btn');
