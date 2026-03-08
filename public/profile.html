@@ -1456,13 +1456,13 @@ function renderInventory(items) {
         return;
     }
 
-    // Сортировка: Сначала автовыдача, потом в работе, потом новые, архив внизу
-    const statusWeight = { 'auto_queued': 1, 'processing': 2, 'pending': 3, 'sent': 4, 'received': 4, 'exchanged': 5, 'failed': 6, 'canceled': 6 };
+    // Сортировка: добавили market_pending
+    const statusWeight = { 'auto_queued': 1, 'market_pending': 2, 'processing': 3, 'pending': 4, 'sent': 5, 'received': 5, 'exchanged': 6, 'failed': 7, 'canceled': 7 };
     items.sort((a, b) => (statusWeight[a.status] || 99) - (statusWeight[b.status] || 99));
 
     items.forEach(item => {
         const status = (item.status || 'pending').toLowerCase();
-        const rData = getRarityData(item.rarity); // <-- Вызываем умную функцию
+        const rData = getRarityData(item.rarity); 
         const ticketVal = item.price || 0;
 
         let rightContentHtml = '';
@@ -1472,28 +1472,37 @@ function renderInventory(items) {
         // --- ЛОГИКА СТАТУСОВ И КНОПОК ---
 
         if (status === 'auto_queued') {
-            // АВТОВЫДАЧА
-            statusLabel = '<span style="color:#00c0e3; font-size:9px;">АВТОВЫДАЧА В ОЧЕРЕДИ</span>';
+            // В ОЧЕРЕДИ НА АВТОВЫДАЧУ
+            statusLabel = '<span style="color:#00c0e3; font-size:9px;">ПОИСК СКИНА В БАЗЕ</span>';
             rightContentHtml = `
-                <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
-                    ОЖИДАЙТЕ<br>ТРЕЙД
+                <div style="background: rgba(0, 192, 227, 0.1); color: #00c0e3; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(0, 192, 227, 0.2);">
+                    ПОИСК...
+                </div>`;
+        }
+        else if (status === 'market_pending') {
+            // НАЙДЕН НА МАРКЕТЕ, ЖДЕМ ПРОДАВЦА
+            statusLabel = '<span style="color:#a200ff; font-size:9px;">ПРОДАВЕЦ ОТПРАВЛЯЕТ ТРЕЙД</span>';
+            rightContentHtml = `
+                <div style="background: rgba(162, 0, 255, 0.1); color: #c466ff; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(162, 0, 255, 0.2);">
+                    В ПУТИ<br><span style="font-size:8px; opacity: 0.8;">~ до 30 мин</span>
                 </div>`;
         }
         else if (status === 'processing') {
-            // ЖЕЛТАЯ ПЛАШКА ОЖИДАНИЯ (БЕЗ ПУНКТИРА)
-            statusLabel = '<span style="color:#FFD700; font-size:9px;">ОЖИДАЕТ АДМИНА</span>';
+            // РУЧНАЯ ВЫДАЧА ИЛИ ПУСТОЙ СКЛАД
+            statusLabel = '<span style="color:#FFD700; font-size:9px;">ОЖИДАЕТ РУЧНОЙ ВЫДАЧИ</span>';
             rightContentHtml = `
                 <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
-                    ОЖИДАЙТЕ<br>ТРЕЙД
+                    ОБРАБОТКА
                 </div>`;
         } 
         else if (status === 'sent' || status === 'received') {
             // ФИНАЛЬНЫЙ СТАТУС (ПОЛУЧЕНО)
             cardOpacity = '0.5';
-            statusLabel = '<span style="color:#34c759; font-size:9px;">ВЫДАНО В STEAM</span>';
+            statusLabel = '<span style="color:#34c759; font-size:9px;">УСПЕШНО ДОСТАВЛЕНО</span>';
             rightContentHtml = `
                 <div style="text-align: right; color: #34c759; font-weight: 800; font-size: 11px;">
-                    <i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО
+                    <i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО<br>
+                    <span style="font-size: 8px; color: #888; font-weight: 600;">ВЫДАНО</span>
                 </div>`;
         } 
         else if (status === 'exchanged') {
