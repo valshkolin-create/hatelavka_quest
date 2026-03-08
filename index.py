@@ -2583,6 +2583,7 @@ async def sync_steam_inventory(
     import httpx
     import traceback
     import asyncio
+    import re
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -2604,11 +2605,10 @@ async def sync_steam_inventory(
             if not steam_id:
                 return {"bot_id": bot_id, "error": "SteamID не найден в куках", "items": []}
 
-            # Ссылки на инвентарь (EN для ключей цен, RU для названий в боте)
+            # Ссылки на инвентарь
             url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
             url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
             
-            # --- БРОНЯ ОТ ОШИБОК 500 И 429 (Retry Logic) ---
             async def safe_get(url):
                 last_resp = None
                 for attempt in range(3):
@@ -2617,7 +2617,6 @@ async def sync_steam_inventory(
                         if resp.status_code == 200:
                             return resp
                         last_resp = resp
-                        # Экспоненциальная задержка перед повтором
                         await asyncio.sleep(3 * (attempt + 1)) 
                     except Exception:
                         await asyncio.sleep(3)
@@ -2628,7 +2627,6 @@ async def sync_steam_inventory(
                 err_code = resp_en.status_code if resp_en else "Network Error"
                 return {"bot_id": bot_id, "error": f"Steam EN Error: {err_code}", "items": []}
 
-            # Пауза между запросами, чтобы Стим не ругался
             await asyncio.sleep(2.5) 
 
             resp_ru = await safe_get(url_ru)
@@ -2636,7 +2634,7 @@ async def sync_steam_inventory(
                 err_code = resp_ru.status_code if resp_ru else "Network Error"
                 return {"bot_id": bot_id, "error": f"Steam RU Error: {err_code}", "items": []}
 
-            # Собираем английские названия (они нужны как ключи для API цен)
+            # Собираем английские названия (Market Hash Name)
             en_desc_map = {}
             for desc in resp_en.json().get("descriptions", []):
                 if desc.get("tradable") == 1:
@@ -2655,7 +2653,6 @@ async def sync_steam_inventory(
                     raw_cond = "-"
                     rarity_col = "default"
                     
-                    # Извлекаем качество и редкость из тегов
                     for tag in desc.get("tags", []):
                         if tag.get("category") == "Exterior":
                             raw_cond = tag.get("localized_tag_name", tag.get("name"))
@@ -2677,8 +2674,9 @@ async def sync_steam_inventory(
                     bot_items.append({
                         "assetid": asset["assetid"],
                         "account_id": bot_id,
-                        "market_hash_name": info["name_ru"],
-                        "hash_name_en": info["hash_name_en"],
+                        # ТЕПЕРЬ: market_hash_name = ENGLISH, name_ru = RUSSIAN
+                        "market_hash_name": info["hash_name_en"],
+                        "name_ru": info["name_ru"],
                         "condition": info["condition"],
                         "rarity": info["rarity"],
                         "icon_url": info["icon_url"],
@@ -2686,6 +2684,72 @@ async def sync_steam_inventory(
                     })
             
             return {"bot_id": bot_id, "error": None, "items": bot_items}
+
+        # 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР
+        async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
+            tasks = [fetch_bot_inventory(client, bot) for bot in bots]
+            bot_results = await asyncio.gather(*tasks)
+
+        # 3. ПОЛУЧАЕМ ЦЕНЫ (по английским именам)
+        market_prices_rub = {}
+        try:
+            async with httpx.AsyncClient() as client:
+                price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=30.0)
+                if price_resp.status_code == 200:
+                    market_data = price_resp.json()
+                    for item in market_data.get("items", []):
+                        market_prices_rub[item["market_hash_name"]] = float(item["price"])
+        except Exception as e:
+            print(f"Ошибка загрузки цен: {e}")
+
+        # 4. ОБРАБОТКА И СОХРАНЕНИЕ
+        total_synced = 0
+        bot_stats = {}
+
+        for res_data in bot_results:
+            bot_id = res_data["bot_id"]
+            if res_data["error"]:
+                bot_stats[bot_id] = res_data["error"]
+                continue
+                
+            bot_inventory = []
+            for item in res_data["items"]:
+                # Используем market_hash_name (он теперь английский) для поиска цены
+                p_rub = market_prices_rub.get(item["market_hash_name"], 0.0)
+                
+                if p_rub == 0.0:
+                    p_rub = round(0.02 * EXCHANGE_RATE, 2)
+                elif p_rub > 2000.0:
+                    p_rub = 2000.0
+                
+                p_usd = round(p_rub / EXCHANGE_RATE, 2)
+                tickets_count = max(1, int(p_rub / 3.0)) if p_rub >= 3 else 1
+                
+                item["price_usd"] = p_usd
+                item["price_rub"] = p_rub
+                item["tickets"] = tickets_count
+                
+                bot_inventory.append(item)
+
+            if bot_inventory:
+                await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+                for i in range(0, len(bot_inventory), 50):
+                    chunk = bot_inventory[i:i+50]
+                    await supabase.post("/steam_inventory_cache", json=chunk)
+                
+                total_synced += len(bot_inventory)
+                bot_stats[bot_id] = f"Успешно: {len(bot_inventory)}"
+            else:
+                bot_stats[bot_id] = "Пусто"
+
+        return {
+            "success": True, 
+            "total_items_synced": total_synced,
+            "bot_details": bot_stats
+        }
+
+    except Exception as e:
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
 
         # --- 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР СО ВСЕХ БОТОВ ---
         async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
