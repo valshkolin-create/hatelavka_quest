@@ -17658,29 +17658,39 @@ async def sell_inventory_item(
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ЗАМЕН ---
 async def get_replacement_options(target_price_rub: float, supabase: httpx.AsyncClient, limit: int = 4):
-    """Ищет 4 случайных предмета в кэше ботов в диапазоне цены +/- 10%"""
+    """Ищет 4 РАЗНЫХ предмета в кэше ботов в диапазоне цены +/- 10%"""
     import random
     
-    # Определяем диапазон цены (от 90% до 110% стоимости)
     min_p = target_price_rub * 0.9
     max_p = target_price_rub * 1.1
     
-    # Запрашиваем подходящие свободные предметы из кэша ботов
+    # Берем больше записей (например 100), чтобы было из чего выбирать уникальные
     resp = await supabase.get("/steam_inventory_cache", params={
         "is_reserved": "eq.false",
         "price_rub": f"gte.{min_p}",
         "and": f"(price_rub.lte.{max_p})",
-        "select": "assetid, name_ru, icon_url, price_rub, condition, rarity",
-        "limit": "30" # Берем с запасом для рандома
+        "select": "assetid, name_ru, market_hash_name, icon_url, price_rub, condition, rarity",
+        "limit": "100" 
     })
     
     data = resp.json()
-    if not data or isinstance(data, dict) or not isinstance(data, list):
+    if not data or not isinstance(data, list):
         return []
+
+    # --- ФИЛЬТР УНИКАЛЬНОСТИ ---
+    unique_items = {}
+    for item in data:
+        name = item['name_ru']
+        # Если такого названия еще не было в списке — добавляем
+        if name not in unique_items:
+            unique_items[name] = item
     
-    # Перемешиваем результаты и берем нужное количество
-    random.shuffle(data)
-    return data[:limit]
+    # Превращаем обратно в список
+    final_pool = list(unique_items.values())
+    
+    # Перемешиваем и отдаем 4 РАЗНЫХ предмета
+    random.shuffle(final_pool)
+    return final_pool[:limit]
 
 
 # 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД + ЗАМЕНЫ)
