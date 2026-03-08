@@ -5666,6 +5666,19 @@ async def admin_p2p_complete(
         "description": f"Покупка P2P #{request_data.trade_id}"
     })
     
+    # --- 🔥 ДОБАВЛЕНО: АВТО-АКТИВАЦИЯ P2P (СНАЙПЕР) 🔥 ---
+    try:
+        # Вызываем Снайпера и ЖДЕМ его (await), чтобы скрыть карточку в профиле
+        await activate_single_promocode(
+            promo_id=promo_id,
+            telegram_id=user_id,
+            reward_value=amount,
+            description=f"Покупка P2P #{request_data.trade_id}"
+        )
+    except Exception as sniper_e:
+        logging.error(f"❌ Ошибка авто-активации P2P для {user_id}: {sniper_e}")
+    # ----------------------------------------------------
+
     # ЗАКРЫВАЕМ СДЕЛКУ
     await supabase.patch(
         "/p2p_trades", 
@@ -5676,16 +5689,15 @@ async def admin_p2p_complete(
     # ОТПРАВЛЯЕМ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЮ
     msg = (
         f"✅ <b>P2P Сделка #{request_data.trade_id} завершена!</b>\n\n"
-        f"Ваш код на {amount} монет:\n"
-        f"<code>{code_text}</code>\n\n"
-        f"<i>Код добавлен в ваш профиль.</i>"
+        f"Награда в размере <b>{amount} монет</b> была автоматически зачислена на ваш баланс! 🟡\n\n"
+        f"<i>Запись добавлена в ваш профиль.</i>"
     )
     await try_send_message(user_id, msg)
 
     # УВЕДОМЛЕНИЕ В ТЕХ. ЧАТ АДМИНОВ
     if ADMIN_NOTIFY_CHAT_ID:
         try:
-            log_msg = f"✅ <b>P2P #{request_data.trade_id} ЗАВЕРШЕНА</b>\nВыдан код на {amount} монет пользователю {user_id}."
+            log_msg = f"✅ <b>P2P #{request_data.trade_id} ЗАВЕРШЕНА</b>\nАвто-зачислено {amount} монет пользователю {user_id}."
             await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), log_msg)
         except Exception as e:
             print(f"Ошибка уведомления админа: {e}")
