@@ -15789,6 +15789,9 @@ async def claim_gift(
 # =======================================================
 # 🚀 МАССОВАЯ АВТОВЫДАЧА (ФОНОВАЯ ЗАДАЧА)
 # =======================================================
+# =======================================================
+# 🚀 МАССОВАЯ АВТОВЫДАЧА (ПОЛНЫЙ КОД С ФИКСОМ БЮДЖЕТА)
+# =======================================================
 async def background_mass_delivery():
     """Фоновая задача: ищет заявки со статусом processing/auto_queued/market_pending и пытается их отправить"""
     import logging
@@ -15830,7 +15833,7 @@ async def background_mass_delivery():
                         await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
 
     # 1. Берем все заявки, которые ждут ручной или автовыдачи
-    # ВАЖНО: Добавили выбор market_hash_name из связанной таблицы cs_items
+    # ВАЖНО: Вытягиваем name, price (бюджет) и market_hash_name
     resp = await client.get("/cs_history", params={
         "status": "in.(processing,auto_queued)",
         "select": "id, user_id, status, item:cs_items(name, price, market_hash_name)"
@@ -15849,75 +15852,75 @@ async def background_mass_delivery():
         user_id = row['user_id']
         item_data = row.get('item', {})
         
-        # Разделяем имена: 
-        # market_name — английское для API Маркета
-        # warehouse_name — русское для твоего склада/кэша инвентарей
+        # --- 🎯 ФИКС БЮДЖЕТА ---
+        # Т.к. в базе 'price' — это строка "6", переводим в float для расчетов
+        try:
+            target_price = float(item_data.get('price', 0))
+        except (ValueError, TypeError):
+            target_price = 0.0
+            
+        # Названия для разных целей
         warehouse_name = item_data.get('name')
         market_name = item_data.get('market_hash_name') or warehouse_name
-        
-        target_price = item_data.get('price', 0)
         
         # Получаем Trade Link юзера
         u_resp = await client.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "trade_link"})
         u_data = u_resp.json()
         if not u_data or not u_data[0].get("trade_link"):
             error_count += 1
+            logging.warning(f"[DELIVERY] У юзера {user_id} нет трейд-ссылки.")
             continue
             
         trade_url = u_data[0]["trade_link"]
 
         # --- 🚀 ЭТАП 1: ПЛАН "А" (ПОКУПКА НА МАРКЕТЕ) ---
         market_success = False
-        if market_client and auto_enabled:
-            # Проверяем, не русское ли имя мы пытаемся отправить в API Маркета
-            if bool(re.search('[а-яА-Я]', market_name)):
-                logging.warning(f"[MARKET] Пропуск P2P для {market_name}: Имя содержит кириллицу. Нужно market_hash_name.")
+        if market_client and auto_enabled and target_price > 0:
+            logging.info(f"[MARKET] Пытаюсь купить '{market_name}' для юзера {user_id}. Бюджет: {target_price} руб.")
+            
+            # Мы намеренно не блокируем кириллицу здесь, чтобы ты увидел ответ Маркета в логах
+            buy_res = await market_client.buy_for_user(market_name, trade_url)
+            
+            if buy_res.get("success"):
+                market_success = True
+                market_count += 1
+                custom_id = buy_res.get("custom_id")
+                await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={
+                    "status": "market_pending",
+                    "market_custom_id": custom_id
+                })
+                logging.info(f"[MARKET] Заказ создан. Ожидаем продавца P2P (ID: {custom_id})")
             else:
-                logging.info(f"[MARKET] Пробуем купить {market_name} для юзера {user_id}...")
-                buy_res = await market_client.buy_for_user(market_name, trade_url)
+                error_msg = str(buy_res.get("error", "")).lower()
+                logging.warning(f"[MARKET] Отказ покупки '{market_name}': {error_msg}")
                 
-                if buy_res.get("success"):
-                    market_success = True
-                    market_count += 1
-                    custom_id = buy_res.get("custom_id")
-                    await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={
-                        "status": "market_pending",
-                        "market_custom_id": custom_id
-                    })
-                    logging.info(f"[MARKET] Заказ создан. Ожидаем продавца P2P (ID: {custom_id})")
-                else:
-                    error_msg = str(buy_res.get("error", "")).lower()
-                    logging.warning(f"[MARKET] Отказ покупки {market_name}: {error_msg}")
+                # Защита от нулевого баланса
+                if any(word in error_msg for word in ["balance", "money", "средств", "баланс", "fund", "insufficient"]):
+                    auto_enabled = False 
+                    await client.patch("/settings", params={"key": "eq.auto_delivery_enabled"}, json={"value": {"enabled": False}})
                     
-                    # Защита от нулевого баланса
-                    if any(word in error_msg for word in ["balance", "money", "средств", "баланс", "fund", "insufficient"]):
-                        auto_enabled = False 
-                        await client.patch("/settings", params={"key": "eq.auto_delivery_enabled"}, json={"value": {"enabled": False}})
-                        
-                        if ADMIN_NOTIFY_CHAT_ID:
-                            alert_msg = "🚨 <b>ВНИМАНИЕ! КРИТИЧЕСКАЯ ОШИБКА МАРКЕТА!</b> 🚨\n\nНа аккаунте закончился баланс. Автовыдача принудительно <b>ОТКЛЮЧЕНА</b>.\n\nПополните баланс и включите тумблер в админке."
-                            try:
-                                await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=alert_msg, parse_mode="HTML")
-                            except Exception:
-                                pass
+                    if ADMIN_NOTIFY_CHAT_ID:
+                        alert_msg = "🚨 <b>ВНИМАНИЕ! КРИТИЧЕСКАЯ ОШИБКА МАРКЕТА!</b> 🚨\n\nНа аккаунте закончился баланс. Автовыдача принудительно <b>ОТКЛЮЧЕНА</b>.\n\nПополните баланс и включите тумблер в админке."
+                        try:
+                            await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=alert_msg, parse_mode="HTML")
+                        except Exception:
+                            pass
 
         if market_success:
-            continue # Если купили на маркете, идем к следующему предмету
+            continue # Если купили на маркете, идем к следующему
 
         # --- 📦 ЭТАП 2: ПЛАН "Б" (СО СКЛАДА БОТОВ) ---
-        # Используем складское имя (русское) для поиска в кэше
-        logging.info(f"[STOREKEEPER] План Б: Ищем {warehouse_name} на складе...")
+        logging.info(f"[STOREKEEPER] План Б: Ищем '{warehouse_name}' на складе (Бюджет: {target_price})...")
         delivery_res = await fulfill_item_delivery(
             user_id=user_id,
             target_name=warehouse_name,
-            target_price_rub=float(target_price),
+            target_price_rub=target_price,
             trade_url=trade_url,
             supabase=client
         )
 
         if delivery_res.get("success"):
             real_skin = delivery_res.get("real_skin")
-            # Отправляем трейд!
             trade_res = await send_steam_trade_offer(
                 account_id=real_skin["account_id"],
                 assetid=real_skin["assetid"],
@@ -15925,18 +15928,18 @@ async def background_mass_delivery():
                 supabase=client
             )
             
-            # Проверка на null и успех
             if trade_res and trade_res.get("success"):
                 success_count += 1
                 await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "sent"})
                 logging.info(f"[COURIER] Предмет {warehouse_name} успешно отправлен со склада.")
             else:
                 error_count += 1
-                err_text = trade_res.get('error') if trade_res else "Стим вернул null (протухли куки)"
+                err_text = trade_res.get('error') if trade_res else "Стим вернул null (сессия бота №1 упала)"
                 logging.error(f"[COURIER] Ошибка отправки со склада: {err_text}")
                 await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
         else:
             error_count += 1
+            logging.warning(f"[STOREKEEPER] Не нашли подходящих замен на складе для {warehouse_name}.")
             await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
 
     # Отчет админу
