@@ -1839,27 +1839,30 @@
             opacity: 0.8;
         }
 
-/* --- [ULTIMATE] КОМПАКТНЫЕ КАРТОЧКИ + GLOW + СВЕТЛЫЙ ФОН --- */
+/* --- СТИЛИ ДЛЯ ВЫБОРА ЗАМЕНЫ (В СТИЛЕ ТВОЕГО ИНВЕНТАРЯ) --- */
+.replacement-modal {
+    z-index: 30000 !important; /* Гарантированно поверх всего */
+}
+
 .replacement-modal .modal-content {
     background: #1c1c1e;
     max-height: 98vh;
-    padding: 12px;
+    padding: 16px;
 }
 
 .replacement-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: 10px;
     margin-top: 10px;
 }
 
 .replacement-card {
-    /* ОСВЕТЛЕННЫЙ ФОН */
-    background: #3a3a3c; 
-    border-radius: 16px;
-    padding: 8px;
-    /* РАМКА (будет меняться через классы редкости) */
-    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    background: #1c1c1e; /* Темный фон, как на твоих скринах */
+    border-radius: 14px;
+    padding: 10px;
+    /* Тонкая рамка по умолчанию, цвет меняется классом */
+    border: 1px solid rgba(255, 255, 255, 0.1); 
     
     text-align: center;
     position: relative;
@@ -1867,109 +1870,94 @@
     flex-direction: column;
     align-items: center;
     
-    /* ФИКС ВЫСОТЫ для попадания в "одну зону" */
-    height: 165px; 
+    height: 170px; /* Компактная высота */
     justify-content: space-between;
     overflow: hidden;
     z-index: 1;
+    cursor: pointer;
     transition: transform 0.1s ease;
 }
 
 .replacement-card:active { transform: scale(0.96); }
 
-/* --- ГЛАВНОЕ: КРУПНАЯ КАРТИНКА --- */
+/* --- КАРТИНКА (ОРУЖИЕ) --- */
 .replacement-card img {
-    width: 95%;
-    height: 95px; 
+    width: 90%;
+    height: 90px; 
     object-fit: contain;
-    filter: drop-shadow(0 5px 12px rgba(0,0,0,0.4));
+    filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6)); /* Глубокая тень */
     z-index: 2;
-    margin-top: 4px;
+    margin-top: 5px;
     
-    /* БАЗОВОЕ УВЕЛИЧЕНИЕ ДЛЯ ОРУЖИЯ */
     transform: scale(1.3) translateZ(0); 
     transition: transform 0.2s ease;
 }
 
-.replacement-card:active img {
-    transform: scale(1.4) translateZ(0);
-}
-
-/* СПЕЦИАЛЬНОЕ УВЕЛИЧЕНИЕ ДЛЯ НАКЛЕЕК (чтобы срезать пустоту) */
+/* --- КАРТИНКА (НАКЛЕЙКИ И БРЕЛКИ) --- */
+/* Steam делает у наклеек огромные прозрачные поля. Режем их мощным зумом */
 .replacement-card.is-sticker img {
-    transform: scale(1.8) translateZ(0);
+    transform: scale(2.2) translateZ(0); /* Зум x2.2! */
     margin-top: 15px; 
 }
-
 .replacement-card.is-sticker:active img {
-    transform: scale(1.9) translateZ(0);
+    transform: scale(2.3) translateZ(0);
 }
 
-/* --- ТЕКСТ (2 СТРОКИ МАКСИМУМ) --- */
+/* --- ТЕКСТОВАЯ ЗОНА --- */
 .replacement-text-zone {
     width: 100%;
     z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    flex-grow: 1;
+    padding-bottom: 2px;
 }
+
 .replacement-name {
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 700;
     color: #fff;
     line-height: 1.2;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    min-height: 26px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8); /* Тень для читаемости */
 }
+
 .replacement-condition {
     font-size: 9px;
-    color: rgba(255,255,255,0.5);
-    font-weight: 700;
-    text-transform: uppercase;
+    color: #8E8E93;
+    font-weight: 600;
+    margin-top: 4px;
 }
 
-/* --- ФИКС СЛОЕВ (Z-INDEX) --- */
-#replacement-modal {
-    z-index: 30000 !important; /* Гарантированно поверх окна подтверждения (20000) */
-}
-
-/* --- ФИКС МЕЛКИХ НАКЛЕЕК STEAM (ZOOM) --- */
-/* Steam отдает PNG наклеек с огромными прозрачными полями. Мы их "зумим" */
-.replacement-card.is-sticker img {
-    transform: scale(1.8) translateZ(0); /* Увеличиваем в 1.8 раза */
-    margin-top: 15px; /* Сдвигаем чуть вниз, чтобы не улетела вверх при зуме */
-}
-
-.replacement-card.is-sticker:active img {
-    transform: scale(1.9) translateZ(0); /* Эффект нажатия для наклеек */
-}
-
-/* --- GLOW ЭФФЕКТ (СВЕЧЕНИЕ) --- */
+/* --- GLOW ЭФФЕКТ КАК НА СКРИНШОТАХ --- */
 .replacement-card::after {
     content: '';
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    opacity: 0.2;
+    opacity: 0.2; /* Мягкое свечение */
     z-index: 0;
+    pointer-events: none;
 }
 
-        
-
-/* Цвета по редкостям (Рамки + Свечение) */
+/* Цвета (Рамка + Радиальный градиент по центру) */
 .replacement-card.blue { border-color: #4b69ff; }
-.replacement-card.blue::after { background: radial-gradient(circle, #4b69ff 0%, transparent 80%); }
+.replacement-card.blue::after { background: radial-gradient(circle at 50% 40%, #4b69ff 0%, transparent 70%); }
 
 .replacement-card.purple { border-color: #8847ff; }
-.replacement-card.purple::after { background: radial-gradient(circle, #8847ff 0%, transparent 80%); }
+.replacement-card.purple::after { background: radial-gradient(circle at 50% 40%, #8847ff 0%, transparent 70%); }
 
 .replacement-card.pink { border-color: #d32ce6; }
-.replacement-card.pink::after { background: radial-gradient(circle, #d32ce6 0%, transparent 80%); }
+.replacement-card.pink::after { background: radial-gradient(circle at 50% 40%, #d32ce6 0%, transparent 70%); }
 
 .replacement-card.red { border-color: #eb4b4b; }
-.replacement-card.red::after { background: radial-gradient(circle, #eb4b4b 0%, transparent 80%); }
+.replacement-card.red::after { background: radial-gradient(circle at 50% 40%, #eb4b4b 0%, transparent 70%); }
 
 .replacement-card.gold { border-color: #ffd700; }
-.replacement-card.gold::after { background: radial-gradient(circle, #ffd700 0%, transparent 80%); }
+.replacement-card.gold::after { background: radial-gradient(circle at 50% 40%, #ffd700 0%, transparent 70%); }
         
     </style>
 </head>
@@ -3933,6 +3921,7 @@ function showReplacementChoice(options, historyId) {
     const container = document.getElementById('replacement-options-list');
     
     container.innerHTML = options.map(item => {
+        // 1. Цвета и редкость
         let r = (item.rarity || '').toLowerCase();
         let rClass = 'blue';
         if (r.includes('purple')) rClass = 'purple';
@@ -3940,16 +3929,24 @@ function showReplacementChoice(options, historyId) {
         else if (r.includes('red')) rClass = 'red';
         else if (r.includes('gold')) rClass = 'gold';
 
-        // Чистим название (убираем часть до '|')
-        const cleanName = item.name_ru.split('|').pop().trim();
+        // 2. Имя предмета (убираем лишнее, если нужно)
+        let cleanName = item.name_ru || 'Неизвестно';
+        
+        // 3. 🎯 БРОНЕБОЙНЫЙ ДЕТЕКТОР НАКЛЕЕК
+        const lowerName = cleanName.toLowerCase();
+        const isSticker = lowerName.includes('наклейка') || 
+                          lowerName.includes('нашивка') || 
+                          lowerName.includes('брелок') || 
+                          lowerName.includes('sticker') || 
+                          lowerName.includes('patch');
+                          
+        const stickerClass = isSticker ? 'is-sticker' : '';
 
-        // --- ДЕТЕКТОР НАКЛЕЕК (ЧТОБЫ УВЕЛИЧИТЬ ИХ) ---
-        const lowerName = item.name_ru.toLowerCase();
-        const isSticker = lowerName.includes('наклейка') || lowerName.includes('нашивка') || lowerName.includes('брелок');
-        const stickerClass = isSticker ? 'is-sticker' : ''; // Если наклейка, добавляем класс is-sticker
+        // Чтобы избежать поломки HTML из-за кавычек в названии предмета:
+        const safeNameForJS = cleanName.replace(/'/g, "").replace(/"/g, "&quot;");
 
         return `
-            <div class="replacement-card ${rClass} ${stickerClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${item.name_ru.replace(/'/g, "")}')">
+            <div class="replacement-card ${rClass} ${stickerClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeNameForJS}')">
                 
                 <img src="${item.icon_url}" loading="lazy">
                 
@@ -3957,13 +3954,14 @@ function showReplacementChoice(options, historyId) {
                     <div class="replacement-name">${escapeHtml(cleanName)}</div>
                     <div class="replacement-condition">${escapeHtml(item.condition || '-')}</div>
                 </div>
+                
             </div>
         `;
     }).join('');
 
     modal.classList.remove('hidden');
 }
-
+        
 function closeReplacementModal() {
     document.getElementById('replacement-modal').classList.add('hidden');
 }
