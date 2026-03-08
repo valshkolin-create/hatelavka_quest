@@ -1958,6 +1958,33 @@
 
 .replacement-card.gold { border-color: #ffd700; }
 .replacement-card.gold::after { background: radial-gradient(circle at 50% 40%, #ffd700 0%, transparent 70%); }
+
+/* =========================================
+   ИЕРАРХИЯ СЛОЕВ (Z-INDEX) ДЛЯ ВСЕХ ОКОН
+   ========================================= */
+
+/* 1. Окно рулетки (самое нижнее из всплывающих) */
+.r-modal-overlay { 
+    z-index: 10000 !important; 
+}
+
+/* 2. Окно "Выберите замену" (сетка из 4-х предметов) */
+#replacement-modal { 
+    z-index: 50000 !important; 
+}
+
+/* 3. КАСТОМНОЕ ОКНО ПОДТВЕРЖДЕНИЯ ("Вы уверены?") 
+   Оно должно быть ВЫШЕ окна замен, чтобы перекрывать его */
+.custom-confirm-overlay { 
+    z-index: 60000 !important; 
+}
+
+/* 4. Экран загрузки (Крутилка "Отправляем трейд...") 
+   Она перекрывает вообще всё, пока идет запрос */
+.purchase-loader { 
+    z-index: 70000 !important; 
+}
+
         
     </style>
 </head>
