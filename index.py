@@ -17648,6 +17648,7 @@ async def sell_inventory_item(
 
 
 # 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД)
+# 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД)
 @app.post("/api/v1/user/inventory/withdraw")
 async def withdraw_inventory_item(
     req: InventorySellRequest,
@@ -17661,7 +17662,7 @@ async def withdraw_inventory_item(
 
     # 1. Получаем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-    if not user_res.json():
+    if not user_res.json() or not isinstance(user_res.json(), list):
         raise HTTPException(status_code=400, detail="User error")
     
     user_info = user_res.json()[0]
@@ -17673,7 +17674,8 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет (ОБЯЗАТЕЛЬНО тянем market_hash_name и price)
+    # 2. Получаем предмет
+    # ВАЖНО: тянем market_hash_name и price
     check_resp = await supabase.get(
         "/cs_history",
         params={
@@ -17685,26 +17687,35 @@ async def withdraw_inventory_item(
     )
     
     rows = check_resp.json()
-    if not rows:
+
+    # --- 🛡️ ЗАЩИТА ОТ KeyError: 0 (Если Supabase вернул ошибку) ---
+    if isinstance(rows, dict):
+        print(f"❌ Ошибка Supabase при поиске предмета: {rows}")
+        raise HTTPException(status_code=500, detail=f"Ошибка БД: {rows.get('message', 'Unknown')}")
+
+    if not rows or not isinstance(rows, list):
         raise HTTPException(status_code=404, detail="Предмет не найден или уже в обработке")
 
-    item_info = rows[0].get('item', {})
-    item_name = item_info.get('name', 'Неизвестный предмет')
-    # Берем бюджет из колонки 'price' (там где "6" или "3.93")
+    item_data = rows[0].get('item', {})
+    item_name = item_data.get('name', 'Неизвестный предмет')
+    
+    # Пытаемся получить бюджет из колонки 'price'
     try:
-        target_price = float(item_info.get('price', 0))
+        target_price = float(item_data.get('price', 0))
     except:
         target_price = 0.0
         
-    item_rarity = item_info.get('rarity', 'common')
-    item_condition = item_info.get('condition')
-    market_hash_name = item_info.get('market_hash_name') or item_name
+    item_rarity = item_data.get('rarity', 'common')
+    item_condition = item_data.get('condition')
+    market_hash_name = item_data.get('market_hash_name') or item_name
 
     # ⚙️ Проверяем настройки автовыдачи
     setting_res = await supabase.get("/settings", params={"key": "eq.auto_delivery_enabled", "select": "value"})
     auto_enabled = True
-    if setting_res.status_code == 200 and setting_res.json():
-        auto_enabled = setting_res.json()[0].get("value", {}).get("enabled", True)
+    if setting_res.status_code == 200:
+        s_data = setting_res.json()
+        if s_data and isinstance(s_data, list):
+            auto_enabled = s_data[0].get("value", {}).get("enabled", True)
 
     market_api_key = os.getenv("CSGO_MARKET_API_KEY")
     market_client = MarketCSGO(api_key=market_api_key) if market_api_key else None
@@ -17713,7 +17724,7 @@ async def withdraw_inventory_item(
     # 🛒 ЭТАП 1: ПОПЫТКА ЗАКУПКИ НА МАРКЕТЕ (ПЛАН А)
     # ==========================================
     if market_client and auto_enabled and target_price > 0:
-        # Проверяем на кириллицу перед отправкой на маркет
+        # Проверяем на кириллицу (Маркет принимает только английские имена)
         if not any(re.search('[а-яА-Я]', market_hash_name) for _ in market_hash_name):
             print(f"[MARKET] Пытаемся купить через кнопку: {market_hash_name}")
             buy_res = await market_client.buy_for_user(market_hash_name, trade_link)
@@ -17727,10 +17738,19 @@ async def withdraw_inventory_item(
                 
                 # Уведомление админу
                 if ADMIN_NOTIFY_CHAT_ID:
-                    log_text = f"🛒 <b>ЗАКУПЛЕНО НА МАРКЕТЕ!</b>\n👤 {full_name}\n🔫 {item_name}\n💰 Бюджет: {target_price} руб."
-                    await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=log_text, parse_mode="HTML")
+                    log_text = (
+                        f"🛒 <b>ЗАКУПЛЕНО НА МАРКЕТЕ!</b>\n"
+                        f"👤 {full_name} ({username_txt})\n"
+                        f"🔫 {item_name}\n"
+                        f"💰 Бюджет: {target_price} руб."
+                    )
+                    try:
+                        await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=log_text, parse_mode="HTML")
+                    except: pass
                 
-                return {"success": True, "message": "Продавец с Маркета получил ваш заказ! Ожидайте трейд в Steam."}
+                return {"success": True, "message": "Заявка отправлена на Маркет! Ожидайте трейд в Steam."}
+            else:
+                print(f"[MARKET] Отказ Маркета: {buy_res.get('error')}")
 
     # ==========================================
     # 📦 ЭТАП 2: АВТОВЫДАЧА СО СКЛАДА (ПЛАН Б)
