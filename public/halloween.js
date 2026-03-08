@@ -789,13 +789,25 @@ function renderPage(eventData, leaderboardData = {}) {
         if (dom.rewardsTabs) {
             dom.rewardsTabs.forEach(btn => {
                 const btnLevel = parseInt(btn.dataset.level);
-                btn.classList.toggle('active', btnLevel === targetLevel);
+
+                // --- ПРОВЕРКА НА ПУСТОЙ УРОВЕНЬ ---
+                const levelData = (currentEventData.levels && currentEventData.levels[`level_${btnLevel}`]);
+                const hasTopRewards = levelData && levelData.top_places && levelData.top_places.length > 0;
+                const hasTierRewards = levelData && levelData.tiers && Object.values(levelData.tiers).some(tier => tier && tier.name);
+
+                if (!hasTopRewards && !hasTierRewards) {
+                    btn.style.display = 'none'; // Скрываем, если наград нет вообще
+                } else {
+                    btn.style.display = ''; // Показываем (стандартно)
+                    
+                    btn.classList.toggle('active', btnLevel === targetLevel);
                 
-                // Если ты хочешь блокировать кнопку таба для будущего, оставляем locked
-                btn.classList.toggle('locked', btnLevel > maxViewableLevel);
-                
-                // Для пройденных можно добавить класс 'completed' если нужно стилизовать галочку
-                if (btnLevel < currentLevel) btn.classList.add('completed-tab');
+                    // Если ты хочешь блокировать кнопку таба для будущего, оставляем locked
+                    btn.classList.toggle('locked', btnLevel > maxViewableLevel);
+                    
+                    // Для пройденных можно добавить класс 'completed' если нужно стилизовать галочку
+                    if (btnLevel < currentLevel) btn.classList.add('completed-tab');
+                }
             });
         }
 
@@ -908,17 +920,17 @@ function renderPage(eventData, leaderboardData = {}) {
                                   data-full-name="${escapeHTML(name)}" 
                                   data-wear="${escapeHTML(wearText)}">` 
                           : '<div style="width:36px;"></div>'}
-                    <div class="modal-reward-info">
-                        <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
-                        ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
-                    </div>
-                </div>`;
+                <div class="modal-reward-info">
+                    <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                    ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+                </div>
+            </div>`;
             });
         }
         html += `</div>`;
         
         content.innerHTML = html;
-    }
+}
 
     // Добавляем новые элементы в объект dom
     dom.gatekeeperOverlay = document.getElementById('gatekeeper-overlay');
