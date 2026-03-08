@@ -33,7 +33,49 @@
         }
         .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
 
+        /* --- DASHBOARD (НОВЫЙ БЛОК) --- */
+        .dashboard-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        .dash-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 15px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .dash-title {
+            font-size: 11px; color: var(--text-sec); text-transform: uppercase;
+            font-weight: 700; margin-bottom: 8px; letter-spacing: 0.5px;
+        }
+        .dash-value {
+            font-size: 20px; font-weight: 800; color: var(--primary);
+        }
+        .dash-value.rubles::after { content: ' ₽'; font-size: 14px; opacity: 0.8; }
+
+        /* Toggle Switch (Стиль iOS) */
+        .toggle-switch {
+            position: relative; width: 51px; height: 31px; flex-shrink: 0; margin-bottom: 5px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #39393d; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 27px; width: 27px;
+            left: 2px; bottom: 2px; background-color: white; transition: .4s;
+            border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input:checked + .slider { background-color: var(--action); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        /* ------------------------------- */
+
         /* BOTS GRID */
+        .section-title { font-size: 14px; color: var(--text-sec); text-transform: uppercase; font-weight: 800; margin-bottom: 12px; letter-spacing: 0.5px; }
         .bots-grid { 
             display: grid; 
             grid-template-columns: repeat(2, 1fr); 
@@ -86,10 +128,26 @@
 
     <div class="page-header">
         <button class="back-btn" onclick="window.location.href='/admin'"><i class="fa-solid fa-chevron-left"></i> Назад</button>
-        <h1 class="page-title">Steam Боты</h1>
+        <h1 class="page-title">Склад и Выдачи</h1>
         <div style="width: 20px;"></div> 
     </div>
 
+    <div class="dashboard-panel">
+        <div class="dash-card">
+            <div class="dash-title">Баланс Маркета</div>
+            <div id="market-balance" class="dash-value">Загрузка...</div>
+        </div>
+        <div class="dash-card">
+            <div class="dash-title">Режим выдачи</div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="auto-delivery-toggle">
+                <span class="slider"></span>
+            </label>
+            <div id="delivery-status-text" style="font-size: 10px; font-weight: 800; color: #888;">Загрузка...</div>
+        </div>
+    </div>
+
+    <div class="section-title">Steam Аккаунты</div>
     <div id="bots-grid" class="bots-grid">
         <div style="text-align:center; color:#555; grid-column:1/-1;">Загрузка аккаунтов...</div>
     </div>
@@ -119,7 +177,7 @@
                     <b>Как получить куки:</b><br>
                     1. Зайди в Steam через браузер (Chrome/Safari).<br>
                     2. Авторизуйся в аккаунте бота.<br>
-                    3. Для ПК: нажми F12 -> Application -> Cookies -> steamcommunity.com.<br>
+                    3. Нажми F12 -> Application -> Cookies -> steamcommunity.com.<br>
                     4. Скопируй значения <code>sessionid</code> и <code>steamLoginSecure</code>.
                 </div>
 
@@ -132,7 +190,89 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // 🚀 Реальная загрузка ботов с бэкенда
+        // 1. ЗАГРУЗКА ИНФОРМАЦИИ О МАРКЕТЕ И НАСТРОЙКАХ
+        async function loadMarketData() {
+            try {
+                // Запрашиваем баланс маркета и статус переключателя
+                const res = await fetch('/api/v1/admin/market/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Обновляем баланс
+                    const balanceEl = document.getElementById('market-balance');
+                    if (data.market_success) {
+                        balanceEl.classList.add('rubles');
+                        balanceEl.innerText = parseFloat(data.balance).toFixed(2);
+                    } else {
+                        balanceEl.innerText = "Ошибка API";
+                        balanceEl.style.color = "var(--danger)";
+                    }
+
+                    // Обновляем переключатель
+                    const toggle = document.getElementById('auto-delivery-toggle');
+                    const statusText = document.getElementById('delivery-status-text');
+                    
+                    const isAuto = data.auto_delivery_enabled === true;
+                    toggle.checked = isAuto;
+                    
+                    if (isAuto) {
+                        statusText.innerText = "АВТОВЫДАЧА";
+                        statusText.style.color = "var(--action)";
+                    } else {
+                        statusText.innerText = "РУЧНОЙ РЕЖИМ";
+                        statusText.style.color = "var(--danger)";
+                    }
+                }
+            } catch (e) {
+                console.error("Ошибка загрузки данных маркета", e);
+                document.getElementById('market-balance').innerText = "---";
+            }
+        }
+
+        // 2. ОБРАБОТЧИК ПЕРЕКЛЮЧАТЕЛЯ
+        document.getElementById('auto-delivery-toggle').addEventListener('change', async (e) => {
+            const isEnabled = e.target.checked;
+            const statusText = document.getElementById('delivery-status-text');
+            
+            // Временный визуальный статус
+            statusText.innerText = "СОХРАНЕНИЕ...";
+            statusText.style.color = "#888";
+
+            try {
+                const res = await fetch('/api/v1/admin/market/toggle_delivery', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        initData: tg.initData,
+                        enabled: isEnabled
+                    })
+                });
+
+                if (!res.ok) throw new Error("Сбой");
+                
+                tg.HapticFeedback.impactOccurred(isEnabled ? 'medium' : 'light');
+                
+                if (isEnabled) {
+                    statusText.innerText = "АВТОВЫДАЧА";
+                    statusText.style.color = "var(--action)";
+                } else {
+                    statusText.innerText = "РУЧНОЙ РЕЖИМ";
+                    statusText.style.color = "var(--danger)";
+                }
+            } catch (err) {
+                // Откат визуального состояния при ошибке
+                e.target.checked = !isEnabled;
+                tg.showAlert("Ошибка сохранения настройки!");
+                loadMarketData(); // Перезагружаем корректные данные
+            }
+        });
+
+        // 3. ЗАГРУЗКА БОТОВ
         async function loadBots() {
             const grid = document.getElementById('bots-grid');
             grid.innerHTML = '<div style="text-align:center; color:#555; grid-column:1/-1;"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка аккаунтов...</div>';
@@ -155,7 +295,6 @@
                 }
 
                 bots.forEach(bot => {
-                    // Проверяем статус из базы
                     const isActive = bot.status === 'active';
                     const statusClass = isActive ? 'status-active' : 'status-error';
                     const statusText = isActive ? '🟢 Работает' : '🔴 Нужен вход';
@@ -163,7 +302,6 @@
 
                     const div = document.createElement('div');
                     div.className = 'bot-card';
-                    // Передаем id и username в модалку
                     div.onclick = () => openAuthModal(bot.id, bot.username);
                     div.innerHTML = `
                         <div class="bot-icon" style="color: ${iconColor};"><i class="fa-brands fa-steam"></i></div>
@@ -178,13 +316,11 @@
             }
         }
 
+        // --- ЛОГИКА МОДАЛОК ---
         function openAuthModal(id, name) {
             document.getElementById('bot-id').value = id;
             document.getElementById('auth-title').innerText = "Вход: " + name;
-            
-            // Сбрасываем форму
             document.getElementById('auth-form').reset();
-            
             document.getElementById('modal-auth').classList.add('modal-active');
             tg.HapticFeedback.impactOccurred('light');
         }
@@ -228,7 +364,7 @@
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.showAlert("✅ " + data.message);
                     closeModal(); 
-                    loadBots();   // Обновляем список, чтобы бот загорелся зеленым
+                    loadBots();
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
                     tg.showAlert("❌ Ошибка: " + (data.detail || "Неизвестная ошибка"));
@@ -241,7 +377,8 @@
             }
         }
 
-        // Инициализация
+        // Запуск при открытии страницы
+        loadMarketData();
         loadBots();
     </script>
 </body>
