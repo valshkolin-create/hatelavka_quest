@@ -486,26 +486,38 @@ function renderPage(eventData, leaderboardData = {}) {
                 const contributionAmount = p.total_contribution || 0;
                 let assignedReward = null;
                 
-                // Ищем награду (старая логика)
-                if (rank <= 20) assignedReward = topPlaceRewards.find(r => r.place === rank);
-                else if (rank <= 30) assignedReward = tiers["21-30"];
-                else if (rank <= 40) assignedReward = tiers["31-40"];
-                else assignedReward = tiers["41+"];
+                // Умный поиск награды по текстовым диапазонам ("1", "2-5", "6+")
+                const allRewards = topPlaceRewards || [];
+                for (let r of allRewards) {
+                    const pStr = String(r.place).trim();
+                    if (pStr.includes('+')) {
+                        const min = parseInt(pStr);
+                        if (rank >= min) { assignedReward = r; break; }
+                    } else if (pStr.includes('-')) {
+                        const parts = pStr.split('-');
+                        if (rank >= parseInt(parts[0]) && rank <= parseInt(parts[1])) { assignedReward = r; break; }
+                    } else {
+                        if (rank === parseInt(pStr)) { assignedReward = r; break; }
+                    }
+                }
+
+                // Если награда не найдена в гибридных правилах, пробуем старые тиры (обратная совместимость)
+                if (!assignedReward) {
+                    if (rank <= 30) assignedReward = tiers["21-30"];
+                    else if (rank <= 40) assignedReward = tiers["31-40"];
+                    else assignedReward = tiers["41+"];
+                }
 
                 const prizeName = escapeHTML(assignedReward?.name || '');
                 
-                // --- ИСПРАВЛЕНИЕ: ДОБАВЛЯЕМ ЛОГИКУ СВЕЧЕНИЯ И ИЗНОСА ДЛЯ ТОПОВ ---
+                // --- ЛОГИКА СВЕЧЕНИЯ И ИЗНОСА ДЛЯ ТОПОВ ---
                 const rarityKey = assignedReward?.rarity;
                 const rarityColor = RARITY_COLORS[rarityKey] || null;
                 const wearKey = assignedReward?.wear;
-                const wearText = WEAR_NAMES[wearKey] || ''; // Текст износа
+                const wearText = WEAR_NAMES[wearKey] || ''; 
 
-                // Если есть цвет редкости -> добавляем тень
-                const glowStyle = rarityColor 
-                    ? `style="filter: drop-shadow(0 0 6px ${rarityColor}80);"` 
-                    : '';
+                const glowStyle = rarityColor ? `style="filter: drop-shadow(0 0 6px ${rarityColor}80);"` : '';
 
-                // Добавляем data-wear в контейнер и glowStyle в картинку
                 const prizeImageHtml = assignedReward?.image_url
                     ? `<div class="image-zoom-container" data-item-name="${prizeName}" data-wear="${escapeHTML(wearText)}">
                            <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image" ${glowStyle}>
@@ -515,7 +527,6 @@ function renderPage(eventData, leaderboardData = {}) {
 
                 const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
                 
-                // --- ЛОГИКА ИМЕН И ИКОНОК ---
                 const twitchIconSvg = `<svg class="platform-icon icon-twitch" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:16px; height:16px; margin-right:5px; flex-shrink:0; fill:#9146FF;"><path d="M2.149 0L.537 4.119v16.836h5.731V24h3.224l3.045-3.045h4.657l6.269-6.269V0H2.149zm19.164 13.612l-3.582 3.582H12l-3.045 3.045v-3.045H4.119V2.149h17.194v11.463zm-12.09-5.731h2.507v5.731H9.224V7.881zm5.731 0h2.507v5.731h-2.507V7.881z"/></svg>`;
                 const telegramIconSvg = `<svg class="platform-icon icon-telegram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:16px; height:16px; margin-right:5px; flex-shrink:0; fill:#24A1DE;"><path d="M21.928 3.52c.316-1.418-.963-2.489-2.284-1.934L2.57 9.265c-1.338.564-1.33 1.872.225 2.349l4.847 1.504 11.2-7.056c.536-.329 1.024.005.621.36l-9.08 8.184v4.167c0 .614.497.756.826.458l2.424-2.334 5.023 3.71c1.136.625 1.954.3 2.237-1.046l4.047-19.046z"/></svg>`;
 
@@ -529,28 +540,22 @@ function renderPage(eventData, leaderboardData = {}) {
                     playerName = p.full_name || 'Без имени';
                     iconHtml = telegramIconSvg;
                 }
-                // --- ОЧИСТКА НИКА ОТ РЕКЛАМЫ ---
+                
                 if (playerName) {
-                    playerName = playerName
-                        .replace(/@cs_shot_bot/gi, '') // Убирает @cs_shot_bot (независимо от регистра)
-                        .trim(); // Убирает лишние пробелы по краям
+                    playerName = playerName.replace(/@cs_shot_bot/gi, '').trim(); 
                 }
 
-                // Определяем иконку валюты в зависимости от режима
                 const currencyIcon = currentEventData.is_manual_tasks_only ? '🔵' : '🎟️';
 
-                // --- ВЕРНУЛИ СТАРУЮ СТРУКТУРУ ВЕРСТКИ (4 элемента), НО ОБНОВИЛИ SPAN.PLAYER ---
                 return `
                 <div class="${rowClass}">
                     <span class="rank">#${rank}</span>
-                    
                     <span class="player" style="display: flex; align-items: center; overflow: hidden;">
                         ${iconHtml}
                         <span style="font-weight: 700; font-size: 0.7em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${escapeHTML(playerName)}
                         </span>
                     </span>
-
                     <div class="prize-image-container">${prizeImageHtml}</div>
                     <span class="contribution align-right">${formatNumber(contributionAmount)} ${currencyIcon}</span>
                 </div>`;
@@ -917,13 +922,14 @@ function renderPage(eventData, leaderboardData = {}) {
     const tiers = levelConfig.tiers || {};
     const defaultReward = levelConfig.default_reward || {};
 
-    // === ГРУППА 1: Топ-20 Игроков ===
-    let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Топ-20 Игроков</div>`;
+    // === ГРУППА 1: Гибридные награды ===
+    let html = `<div class="modal-rewards-group"><div class="modal-rewards-title">Список наград</div>`;
     
-    if (topPlaces.length === 0) {
+    if (topPlaces.length === 0 && Object.keys(tiers).length === 0) {
         html += '<p style="font-size:12px; color:#777; padding:10px;">Награды не назначены</p>';
     } else {
-        topPlaces.sort((a,b) => a.place - b.place).forEach(reward => {
+        // Отрисовка новых гибких наград (без сортировки, чтобы сохранить порядок из админки)
+        topPlaces.forEach(reward => {
             const name = reward.name || '';
             const wearKey = reward.wear;
             const rarityKey = reward.rarity;
@@ -931,9 +937,12 @@ function renderPage(eventData, leaderboardData = {}) {
             const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
             const hasRarity = !!RARITY_COLORS[rarityKey];
 
+            // Форматируем место (если это просто число, добавляем #, иначе оставляем как есть, например "21+")
+            const displayPlace = /^\d+$/.test(reward.place) ? `#${reward.place}` : reward.place;
+
             html += `
             <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
-                <span class="modal-reward-place">#${reward.place}</span>
+                <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7; word-break: break-word; text-align: center;">${displayPlace}</span>
                 <img src="${escapeHTML(reward.image_url)}" class="modal-reward-img" 
                      data-full-name="${escapeHTML(name)}" 
                      data-wear="${escapeHTML(wearText)}"> 
@@ -943,8 +952,43 @@ function renderPage(eventData, leaderboardData = {}) {
                 </div>
             </div>`;
         });
+
+        // Отрисовка старых тиров (для обратной совместимости, если они еще остались в базе)
+        const tierData = [
+            { id: '21-30', label: '21-30', data: tiers["21-30"] },
+            { id: '31-40', label: '31-40', data: tiers["31-40"] },
+            { id: '41+',   label: '41+',   data: tiers["41+"] || defaultReward }
+        ];
+
+        tierData.forEach(tier => {
+            if (!tier.data || !tier.data.name) return; // Пропускаем пустые старые тиры
+            
+            const name = tier.data.name || '---';
+            const img = tier.data.image_url || '';
+            const wearKey = tier.data.wear;
+            const rarityKey = tier.data.rarity;
+            const wearText = WEAR_NAMES[wearKey] || '';
+            const rarityColor = RARITY_COLORS[rarityKey] || 'transparent';
+            const hasRarity = !!RARITY_COLORS[rarityKey];
+
+            html += `
+            <div class="modal-reward-item" style="border-left: 3px solid ${rarityColor};">
+                <span class="modal-reward-place" style="font-size: 11px; width: 40px; opacity: 0.7;">${tier.label}</span>
+                ${img ? `<img src="${escapeHTML(img)}" class="modal-reward-img" 
+                              data-full-name="${escapeHTML(name)}" 
+                              data-wear="${escapeHTML(wearText)}">` 
+                      : '<div style="width:36px;"></div>'}
+                <div class="modal-reward-info">
+                    <span class="modal-reward-name" style="${hasRarity ? `color:${rarityColor};` : ''}">${escapeHTML(name)}</span>
+                    ${wearText ? `<span class="reward-wear-text">${wearText}</span>` : ''}
+                </div>
+            </div>`;
+        });
     }
     html += `</div>`;
+    
+    content.innerHTML = html;
+}
 
     // === ГРУППА 2: Награды остальным ===
     html += `<div class="modal-rewards-group"><div class="modal-rewards-title">Награды остальным</div>`;
