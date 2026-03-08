@@ -70,18 +70,8 @@ async function checkEventStatus() {
         const response = await fetch('/api/event/status');
         const data = await response.json();
 
-        // 1. ИВЕНТ ВЫКЛЮЧЕН (Глобальная заглушка)
-        if (!data.visible) {
-            document.body.innerHTML = `
-                <div style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; color:white; font-family:sans-serif; text-align:center; padding:20px;">
-                    <i class="fa-solid fa-door-closed" style="font-size: 50px; color: #555; margin-bottom: 20px;"></i>
-                    <h1 style="margin:0;">Ивент завершен</h1>
-                    <p style="color:#888;">Спасибо за участие!</p>
-                    <a href="/menu" style="margin-top:20px; color:#ff9500; text-decoration:none; border:1px solid #333; padding:10px 20px; border-radius:10px;">В главное меню</a>
-                </div>
-            `;
-            return;
-        }
+        // ❌ УБРАЛИ ОТСЮДА БЛОК "if (!data.visible)", так как он мешает админам.
+        // Теперь эта функция отвечает ТОЛЬКО за оверлей паузы.
 
         // 2. ПАУЗА (Красивый оверлей)
         if (data.paused) {
@@ -91,20 +81,16 @@ async function checkEventStatus() {
             const btn = document.getElementById('contribute-btn');
             if (btn) btn.disabled = true;
 
-            // Ищем контейнер формы для перекрытия
             let controlsContainer = document.getElementById('contribution-form');
             if (!controlsContainer && btn) {
-                controlsContainer = btn.parentNode; // Запасной вариант
+                controlsContainer = btn.parentNode;
             }
 
             if (controlsContainer) {
-                controlsContainer.style.position = 'relative'; // Важно для позиционирования
-                
-                // Если оверлея еще нет — создаем его
+                controlsContainer.style.position = 'relative';
                 if (!controlsContainer.querySelector('.pause-overlay')) {
                     const overlay = document.createElement('div');
                     overlay.className = 'pause-overlay';
-                    
                     overlay.innerHTML = `
                         <div class="pause-content">
                             <div class="pause-icon-wrapper">
@@ -118,16 +104,12 @@ async function checkEventStatus() {
                 }
             }
         } else {
-            // ИВЕНТ АКТИВЕН
             window.isEventPaused = false;
-            
-            // Удаляем оверлей, если он есть
             const overlay = document.querySelector('.pause-overlay');
             if (overlay) {
-                overlay.style.opacity = '0'; // Плавное исчезновение
+                overlay.style.opacity = '0';
                 setTimeout(() => overlay.remove(), 300);
             }
-            
             const btn = document.getElementById('contribute-btn');
             if (btn) btn.disabled = false;
         }
@@ -136,7 +118,6 @@ async function checkEventStatus() {
         console.error("Ошибка статуса:", e);
     }
 }
-
 
 
     const tg = window.Telegram.WebApp;
