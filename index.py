@@ -17925,7 +17925,7 @@ async def confirm_replacement(
     return {"success": False, "message": f"Ошибка при отправке трейда: {err_text}. Попробуйте выбрать другой скин."}
     
 # 4. Подтвердить получение (Статус -> received)
-@app.post("/api/v1/user/inventory/confirm")
+app.post("/api/v1/user/inventory/confirm")
 async def confirm_inventory_item(
     req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -17934,18 +17934,52 @@ async def confirm_inventory_item(
     if not user_data:
         raise HTTPException(status_code=401, detail="Auth failed")
     
-    # Меняем статус только если он был 'sent' (админ отправил скин)
+    # Меняем статус только если он был 'sent' или 'offer_sent'
     res = await supabase.patch(
         "/cs_history",
         params={
             "id": f"eq.{req.history_id}", 
             "user_id": f"eq.{user_data['id']}", 
-            "status": "eq.sent"
+            "status": "in.(sent,offer_sent)" # <--- ИСПРАВЛЕНО: Учитывает оба статуса отправки
         },
-        json={"status": "received"}
+        json={"status": "received"},
+        headers={"Prefer": "return=representation"} # <--- ИСПРАВЛЕНО: Запрашиваем ответ от БД
     )
     
+    updated_data = res.json()
+    
+    # Если база данных ничего не обновила (предмет не найден или статус уже другой)
+    if not updated_data or len(updated_data) == 0:
+        return JSONResponse(
+            status_code=400, 
+            content={"success": False, "message": "Невозможно подтвердить. Возможно, статус изменился."}
+        )
+    
     return {"success": True, "message": "Отлично! Скин получен."}
+
+# ==========================================
+# 🕒 АВТО-ПОДТВЕРЖДЕНИЕ ЧЕРЕЗ 1 ЧАС (НОВОЕ)
+# ==========================================
+async def auto_confirm_old_offers(supabase_client: httpx.AsyncClient):
+    """
+    Ищет все трейды со статусом sent/offer_sent, которые висят дольше 1 часа,
+    и автоматически переводит их в статус received.
+    Эту функцию можно вызывать перед загрузкой инвентаря пользователя или в фоновой задаче (Cron).
+    """
+    # Отнимаем 1 час от текущего времени
+    one_hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    
+    try:
+        await supabase_client.patch(
+            "/cs_history",
+            params={
+                "status": "in.(sent,offer_sent)",
+                "updated_at": f"lte.{one_hour_ago}" # Время последнего обновления старше 1 часа
+            },
+            json={"status": "received"}
+        )
+    except Exception as e:
+        print(f"Ошибка авто-подтверждения старых офферов: {e}")
     
 # ==========================================
 # ⚡ ТЕЛЕГРАМ ЗАДАНИЯ И РЕАКЦИИ
