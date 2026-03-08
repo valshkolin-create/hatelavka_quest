@@ -1838,6 +1838,73 @@
             text-align: center;
             opacity: 0.8;
         }
+
+        /* --- СТИЛИ ДЛЯ ВЫБОРА ЗАМЕНЫ --- */
+.replacement-modal {
+    z-index: 25000 !important; /* Выше всех остальных окон */
+}
+
+.replacement-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.replacement-card {
+    background: #2c2c2e;
+    border-radius: 16px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.replacement-card:active {
+    transform: scale(0.95);
+    border-color: var(--primary-color);
+    background: rgba(255, 204, 0, 0.05);
+}
+
+.replacement-card img {
+    width: 80px;
+    height: 60px;
+    object-fit: contain;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+.replacement-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 26px;
+}
+
+.replacement-rarity-line {
+    width: 40%;
+    height: 3px;
+    border-radius: 2px;
+    margin-top: 5px;
+}
+
+/* Цвета для линий редкости в заменах */
+.replacement-card.blue .replacement-rarity-line { background: var(--rarity-blue); }
+.replacement-card.purple .replacement-rarity-line { background: var(--rarity-purple); }
+.replacement-card.pink .replacement-rarity-line { background: var(--rarity-pink); }
+.replacement-card.red .replacement-rarity-line { background: var(--rarity-red); }
+.replacement-card.gold .replacement-rarity-line { background: var(--rarity-gold); }
         
     </style>
 </head>
@@ -2097,6 +2164,25 @@
         
         <div id="full-history-list" class="history-scroll-area">
             </div>
+    </div>
+</div>
+
+    <div id="replacement-modal" class="modal hidden replacement-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Выберите замену</h3>
+            <button onclick="closeReplacementModal()" class="close-modal">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <p style="font-size: 12px; color: #8E8E93; margin: 0;">Оригинала нет в наличии, но вы можете выбрать любой из этих предметов — мы отправим его моментально!</p>
+        
+        <div id="replacement-options-list" class="replacement-grid">
+            </div>
+
+        <button onclick="closeReplacementModal()" class="action-btn btn-secondary-action" style="margin-top: 10px; width: 100%; height: 44px;">
+            Отмена
+        </button>
     </div>
 </div>
     
@@ -3571,46 +3657,60 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
 
         // --- 2. ЛОГИКА "ЗАБРАТЬ" (Желтая кнопка) ---
         async function claimItem(itemId) {
-            if (!itemId) return Telegram.WebApp.showAlert("Ошибка: ID предмета не найден.");
+    if (!itemId) return Telegram.WebApp.showAlert("Ошибка: ID предмета не найден.");
 
-            showShopModal({
-                title: "Вывести этот предмет в Steam?",
-                subtitle: "Заявка будет создана. Ожидайте трейд в течение 24 часов.",
-                confirmText: "ЗАБРАТЬ",
-                confirmClass: "btn-yellow-modal", 
-                onConfirm: async (closeModal) => {
+    showShopModal({
+        title: "Вывести этот предмет в Steam?",
+        subtitle: "Заявка будет создана. Ожидайте трейд в течение 24 часов.",
+        confirmText: "ЗАБРАТЬ",
+        confirmClass: "btn-yellow-modal", 
+        onConfirm: async (closeModal) => {
+            
+            const loader = document.getElementById('purchase-loader');
+            if (loader) {
+                loader.classList.add('active');
+                loader.querySelector('.loader-text').innerText = "Создаем заявку...";
+            }
+
+            try {
+                // Запрос к API
+                const res = await makeApiRequest('/api/v1/user/inventory/withdraw', 'POST', { 
+                    history_id: itemId 
+                });
+
+                // ==========================================
+                // 🎁 [НОВОЕ] ЛОГИКА ПРЕДЛОЖЕНИЯ ЗАМЕН
+                // ==========================================
+                if (res && res.status === 'offer_replacement') {
+                    closeModal(); // Закрываем окно подтверждения "Вывести предмет?"
+                    if (loader) loader.classList.remove('active'); // Убираем лоадер для выбора
                     
-                    const loader = document.getElementById('purchase-loader');
-                    if (loader) {
-                        loader.classList.add('active');
-                        loader.querySelector('.loader-text').innerText = "Создаем заявку...";
-                    }
-
-                    try {
-                        // Запрос к API
-                        const res = await makeApiRequest('/api/v1/user/inventory/withdraw', 'POST', { 
-                            history_id: itemId 
-                        });
-
-                        // 1. СНАЧАЛА СООБЩЕНИЕ (Скрипт встанет на паузу тут, пока ты не нажмешь ОК)
-                        if (res) {
-                             Telegram.WebApp.showAlert(`✅ Успешно!\n\nОжидайте трейд по указанной Вами ссылке в течение 24 часов.`);
-                        }
-
-                        // 2. ПОТОМ ЗАКРЫВАЕМ ОКНА (Когда нажал ОК)
-                        closeModal();     
-                        closeRoulette();   
-
-                    } catch (e) {
-                        Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
-                        closeModal(); 
-                    } finally {
-                        // 3. УБИРАЕМ ЛОАДЕР
-                        if (loader) loader.classList.remove('active');
-                    }
+                    // Вызываем функцию показа сетки с 4 заменами
+                    showReplacementChoice(res.options, itemId);
+                    return; // Важно: прерываем выполнение, чтобы не показать Alert успеха
                 }
-            });
+                // ==========================================
+
+                // 1. СНАЧАЛА СООБЩЕНИЕ (Скрипт встанет на паузу тут, пока ты не нажмешь ОК)
+                if (res) {
+                     Telegram.WebApp.showAlert(`✅ Успешно!\n\nОжидайте трейд по указанной Вами ссылке в течение 24 часов.`);
+                }
+
+                // 2. ПОТОМ ЗАКРЫВАЕМ ОКНА (Когда нажал ОК)
+                closeModal();     
+                closeRoulette();   
+
+            } catch (e) {
+                Telegram.WebApp.showAlert(e.message || "Ошибка соединения");
+                closeModal(); 
+            } finally {
+                // 3. УБИРАЕМ ЛОАДЕР (если мы не ушли в ветку замен)
+                const finalLoader = document.getElementById('purchase-loader');
+                if (finalLoader) finalLoader.classList.remove('active');
+            }
         }
+    });
+}
 
         // --- 3. ЛОГИКА "ПРОДАТЬ ЗА БИЛЕТЫ" (Фиолетовая кнопка, API исправлен) ---
         function sellForTickets(itemId, price) {
@@ -3759,6 +3859,69 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
             if (!text) return "";
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
+
+        // --- ФУНКЦИИ ВЫБОРА ЗАМЕНЫ ---
+
+function showReplacementChoice(options, historyId) {
+    const modal = document.getElementById('replacement-modal');
+    const container = document.getElementById('replacement-options-list');
+    
+    container.innerHTML = options.map(item => {
+        // Определяем класс редкости
+        let r = (item.rarity || '').toLowerCase();
+        let rClass = 'blue';
+        if (r.includes('purple')) rClass = 'purple';
+        else if (r.includes('pink')) rClass = 'pink';
+        else if (r.includes('red')) rClass = 'red';
+        else if (r.includes('gold')) rClass = 'gold';
+
+        return `
+            <div class="replacement-card ${rClass}" onclick="confirmReplacementChoice(${historyId}, '${item.assetid}', '${item.name_ru}')">
+                <img src="${item.icon_url}" alt="">
+                <div class="replacement-name">${item.name_ru}</div>
+                <div style="font-size: 9px; color: #8E8E93;">${item.condition || ''}</div>
+                <div class="replacement-rarity-line"></div>
+            </div>
+        `;
+    }).join('');
+
+    modal.classList.remove('hidden');
+}
+
+function closeReplacementModal() {
+    document.getElementById('replacement-modal').classList.add('hidden');
+}
+
+async function confirmReplacementChoice(historyId, assetid, itemName) {
+    Telegram.WebApp.showConfirm(`Вы уверены, что хотите замену на "${itemName}"?`, async (ok) => {
+        if (!ok) return;
+
+        const loader = document.getElementById('purchase-loader');
+        if (loader) {
+            loader.querySelector('.loader-text').innerText = "Отправляем трейд...";
+            loader.classList.add('active');
+        }
+
+        try {
+            const res = await makeApiRequest('/api/v1/user/inventory/confirm_replacement', 'POST', {
+                history_id: historyId,
+                assetid: assetid
+            });
+
+            if (res.success) {
+                Telegram.WebApp.showAlert("✅ Отлично! Трейд уже летит к вам в Steam.");
+                closeReplacementModal();
+                closeRoulette(); // Если выбор был из экрана победы
+            } else {
+                Telegram.WebApp.showAlert("❌ " + res.message);
+            }
+        } catch (e) {
+            Telegram.WebApp.showAlert("Ошибка: " + e.message);
+        } finally {
+            if (loader) loader.classList.remove('active');
+        }
+    });
+}
 
         // --- ЗАПУСК ---
         initShop();        
