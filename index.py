@@ -410,11 +410,12 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                 
                 logging.info(f"[STOREKEEPER] Оригинала нет. Ищем замену от {min_p:.2f} до {max_p:.2f} руб.")
                 
+                # --- ИСПРАВЛЕННЫЙ ЗАПРОС К SUPABASE ---
+                # Используем оператор and, чтобы база учла ОБА условия цены
                 alt_res = await supabase.get("/steam_inventory_cache", params={
                     "is_reserved": "eq.false",
-                    "price_rub": f"gte.{min_p}",
-                    "price_rub": f"lte.{max_p}",
-                    "order": "price_rub.asc", # <--- ТЕПЕРЬ БЕРЕТ САМОЕ ДЕШЕВОЕ В ДИАПАЗОНЕ
+                    "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
+                    "order": "price_rub.asc", # берем самый дешевый в ЭТОМ СТРОГОМ диапазоне
                     "limit": 1
                 })
                 
@@ -449,9 +450,6 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
 
     return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован и готов к отправке"}
 
-# =======================================================
-# 🚀 БЛОК 6: ОТПРАВКА ТРЕЙДА ЧЕРЕЗ STEAM (КУРЬЕР)
-# =======================================================
 # =======================================================
 # 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
 async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
@@ -17658,34 +17656,34 @@ async def sell_inventory_item(
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ЗАМЕН ---
 async def get_replacement_options(target_price_rub: float, supabase: httpx.AsyncClient, limit: int = 4):
-    """Ищет 4 РАЗНЫХ предмета в кэше ботов в диапазоне цены +/- 10%"""
+    """Ищет 4 РАЗНЫХ предмета в кэше ботов в строгом диапазоне цены +/- 10%"""
     import random
     
     min_p = target_price_rub * 0.9
     max_p = target_price_rub * 1.1
     
-    # Берем больше записей (например 100), чтобы было из чего выбирать уникальные
-    resp = await supabase.get("/steam_inventory_cache", params={
+    # --- ИСПРАВЛЕННЫЙ ЗАПРОС ---
+    # Упаковываем ОБА условия в один жесткий фильтр AND
+    params = {
         "is_reserved": "eq.false",
-        "price_rub": f"gte.{min_p}",
-        "and": f"(price_rub.lte.{max_p})",
+        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
         "select": "assetid, name_ru, market_hash_name, icon_url, price_rub, condition, rarity",
         "limit": "100" 
-    })
+    }
     
+    resp = await supabase.get("/steam_inventory_cache", params=params)
     data = resp.json()
+    
     if not data or not isinstance(data, list):
         return []
 
-    # --- ФИЛЬТР УНИКАЛЬНОСТИ ---
+    # Фильтруем предметы, чтобы они не повторялись (убираем кучу одинаковых наклеек)
     unique_items = {}
     for item in data:
         name = item['name_ru']
-        # Если такого названия еще не было в списке — добавляем
         if name not in unique_items:
             unique_items[name] = item
     
-    # Превращаем обратно в список
     final_pool = list(unique_items.values())
     
     # Перемешиваем и отдаем 4 РАЗНЫХ предмета
