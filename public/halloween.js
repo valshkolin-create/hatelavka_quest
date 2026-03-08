@@ -428,355 +428,307 @@ function getAllRewardImages(eventData) {
     }
 
 function renderPage(eventData, leaderboardData = {}) {
-        console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
+    console.log('[RENDER] Начинаем отрисовку страницы (renderPage).');
 
-        // ... (Код сортировки и проверок в начале функции renderPage оставляем без изменений) ...
-        const allParticipants = leaderboardData.all || [];
-        if (allParticipants.length > 0) {
-            allParticipants.sort((a, b) => {
-                const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
-                if (contributionDiff !== 0) return contributionDiff;
-                // Приоритет Twitch ника при сортировке
-                const nameA = a.twitch_login || a.full_name || ''; 
-                const nameB = b.twitch_login || b.full_name || '';
-                return nameA.localeCompare(nameB);
-            });
-        }
+    // Код сортировки и проверок
+    const allParticipants = leaderboardData.all || [];
+    if (allParticipants.length > 0) {
+        allParticipants.sort((a, b) => {
+            const contributionDiff = (b.total_contribution || 0) - (a.total_contribution || 0);
+            if (contributionDiff !== 0) return contributionDiff;
+            const nameA = a.twitch_login || a.full_name || ''; 
+            const nameB = b.twitch_login || b.full_name || '';
+            return nameA.localeCompare(nameB);
+        });
+    }
 
-        if (eventData) { currentEventData = eventData; }
-        
-        const isAdmin = currentUserData.is_admin;
-        const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
-        if (!canViewEvent) { document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>'; return; }
-        dom.adminNotice.classList.toggle('hidden', !(isAdmin && !currentEventData.is_visible_to_users));
-        if (isAdmin && dom.adminControls) { dom.adminControls.classList.remove('hidden'); }
-        if (currentEventData.start_date && currentEventData.end_date) {
-            dom.eventDatesDisplay.innerHTML = `<i class="fa-solid fa-calendar-days"></i><span>${formatDateToDisplay(currentEventData.start_date)} - ${formatDateToDisplay(currentEventData.end_date)}</span>`;
-        } else { dom.eventDatesDisplay.innerHTML = `<span>Сроки ивента не назначены</span>`; }
+    if (eventData) { currentEventData = eventData; }
+    
+    const isAdmin = currentUserData.is_admin;
+    const canViewEvent = currentEventData && (currentEventData.is_visible_to_users || isAdmin);
+    if (!canViewEvent) { document.body.innerHTML = '<h2 style="text-align:center; padding-top: 50px;">Ивент пока неактивен.</h2>'; return; }
+    
+    dom.adminNotice.classList.toggle('hidden', !(isAdmin && !currentEventData.is_visible_to_users));
+    if (isAdmin && dom.adminControls) { dom.adminControls.classList.remove('hidden'); }
+    
+    if (currentEventData.start_date && currentEventData.end_date) {
+        dom.eventDatesDisplay.innerHTML = `<i class="fa-solid fa-calendar-days"></i><span>${formatDateToDisplay(currentEventData.start_date)} - ${formatDateToDisplay(currentEventData.end_date)}</span>`;
+    } else { dom.eventDatesDisplay.innerHTML = `<span>Сроки ивента не назначены</span>`; }
 
-        const { goals = {}, levels = {}, current_progress = 0 } = currentEventData || {};
-        const top20 = leaderboardData.top20 || [];
-        const currentLevel = getCurrentLevel(currentEventData);
+    const { goals = {}, levels = {}, current_progress = 0 } = currentEventData || {};
+    const top20 = leaderboardData.top20 || [];
+    const currentLevel = getCurrentLevel(currentEventData);
 
-        const cauldronImageUrl = currentEventData[`cauldron_image_url_${currentLevel}`] || currentEventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
-        dom.cauldronImage.src = cauldronImageUrl;
-        let currentGoal = 1, prevGoal = 0;
-        if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
-        else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
-        else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
-        else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
-        dom.eventTitle.textContent = currentEventData.title || "Ивент-Котел";
-        const progressInLevel = current_progress - prevGoal;
-        const goalForLevel = currentGoal - prevGoal;
-        const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
-        dom.progressBarFill.style.width = `${progressPercentage}%`;
-        dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
+    const cauldronImageUrl = currentEventData[`cauldron_image_url_${currentLevel}`] || currentEventData.cauldron_image_url || FALLBACK_CAULDRON_URL;
+    dom.cauldronImage.src = cauldronImageUrl;
+    
+    let currentGoal = 1, prevGoal = 0;
+    if (currentLevel === 1) { currentGoal = goals.level_1 || 1; prevGoal = 0; }
+    else if (currentLevel === 2) { currentGoal = goals.level_2 || goals.level_1; prevGoal = goals.level_1; }
+    else if (currentLevel === 3) { currentGoal = goals.level_3 || goals.level_2; prevGoal = goals.level_2; }
+    else if (currentLevel === 4) { currentGoal = goals.level_4 || goals.level_3; prevGoal = goals.level_3; }
+    
+    dom.eventTitle.textContent = currentEventData.title || "Ивент-Котел";
+    const progressInLevel = current_progress - prevGoal;
+    const goalForLevel = currentGoal - prevGoal;
+    const progressPercentage = (goalForLevel > 0) ? Math.min((progressInLevel / goalForLevel) * 100, 100) : 0;
+    dom.progressBarFill.style.width = `${progressPercentage}%`;
+    dom.progressText.textContent = `${current_progress} / ${currentGoal}`;
 
-        const levelConfig = levels[`level_${currentLevel}`] || {};
-        const topPlaceRewards = levelConfig.top_places || [];
-        
-        // Получаем тиры или создаем объект с fallback-ом на дефолтную награду для 41+
-        const tiers = levelConfig.tiers || { "41+": levelConfig.default_reward || {} };
+    const levelConfig = levels[`level_${currentLevel}`] || {};
+    const topPlaceRewards = levelConfig.top_places || [];
 
-        // 1. Отрисовка Топ-20
-        dom.leaderboardRewardsList.innerHTML = top20.length === 0
-            ? '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>'
-            : top20.map((p, index) => {
-                const rank = index + 1;
-                const contributionAmount = p.total_contribution || 0;
-                let assignedReward = null;
+    // ==========================================
+    // 🎯 ЛОГИКА ГИБРИДНОГО РАСПРЕДЕЛЕНИЯ (ПО ТВОЕМУ ЗАПРОСУ)
+    // ==========================================
+    
+    // 1. Фильтруем награды: те, где указано только число (1, 2, 5) — пойдут в Лидерборд
+    const numericRewards = topPlaceRewards.filter(r => !String(r.place).includes('-') && !String(r.place).includes('+'));
+    
+    // 2. Те, где есть тире или плюс (21-30, 41+) — пойдут в нижние карточки "Награды для остальных"
+    const rangeRewards = topPlaceRewards.filter(r => String(r.place).includes('-') || String(r.place).includes('+'));
+
+    // ------------------------------------------
+    // 1. Отрисовка ТОП УЧАСТНИКОВ (Лидерборд)
+    // ------------------------------------------
+    dom.leaderboardRewardsList.innerHTML = top20.length === 0
+        ? '<p style="text-align:center; padding: 20px; color: var(--text-color-muted);">Участников пока нет.</p>'
+        : top20.filter((p, index) => {
+            const rank = index + 1;
+            // ПОКАЗЫВАЕМ В СПИСКЕ ТОЛЬКО ТЕХ, ДЛЯ КОГО ВЫ ЗАДАЛИ ПРИЗ (например, 1-5)
+            // Если для места "6" приза нет — он не попадет в этот блок
+            return numericRewards.some(r => parseInt(r.place) === rank);
+        }).map((p) => {
+            const rank = top20.indexOf(p) + 1;
+            const contributionAmount = p.total_contribution || 0;
+            
+            // Находим награду именно для этого места
+            const assignedReward = numericRewards.find(r => parseInt(r.place) === rank);
+
+            const prizeName = escapeHTML(assignedReward?.name || '');
+            const rarityKey = assignedReward?.rarity;
+            const rarityColor = RARITY_COLORS[rarityKey] || null;
+            const wearKey = assignedReward?.wear;
+            const wearText = WEAR_NAMES[wearKey] || ''; 
+
+            const glowStyle = rarityColor ? `style="filter: drop-shadow(0 0 6px ${rarityColor}80);"` : '';
+
+            const prizeImageHtml = assignedReward?.image_url
+                ? `<div class="image-zoom-container" data-item-name="${prizeName}" data-wear="${escapeHTML(wearText)}">
+                       <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image" ${glowStyle}>
+                       <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                   </div>`
+                : `<span>-</span>`;
+
+            const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
+            
+            const twitchIconSvg = `<svg class="platform-icon icon-twitch" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:16px; height:16px; margin-right:5px; flex-shrink:0; fill:#9146FF;"><path d="M2.149 0L.537 4.119v16.836h5.731V24h3.224l3.045-3.045h4.657l6.269-6.269V0H2.149zm19.164 13.612l-3.582 3.582H12l-3.045 3.045v-3.045H4.119V2.149h17.194v11.463zm-12.09-5.731h2.507v5.731H9.224V7.881zm5.731 0h2.507v5.731h-2.507V7.881z"/></svg>`;
+            const telegramIconSvg = `<svg class="platform-icon icon-telegram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:16px; height:16px; margin-right:5px; flex-shrink:0; fill:#24A1DE;"><path d="M21.928 3.52c.316-1.418-.963-2.489-2.284-1.934L2.57 9.265c-1.338.564-1.33 1.872.225 2.349l4.847 1.504 11.2-7.056c.536-.329 1.024.005.621.36l-9.08 8.184v4.167c0 .614.497.756.826.458l2.424-2.334 5.023 3.71c1.136.625 1.954.3 2.237-1.046l4.047-19.046z"/></svg>`;
+
+            let playerName = (p.twitch_login || p.full_name || 'Без имени').replace(/@cs_shot_bot/gi, '').trim();
+            let iconHtml = p.twitch_login ? twitchIconSvg : telegramIconSvg;
+
+            const currencyIcon = currentEventData.is_manual_tasks_only ? '🔵' : '🎟️';
+
+            return `
+            <div class="${rowClass}">
+                <span class="rank">#${rank}</span>
+                <span class="player" style="display: flex; align-items: center; overflow: hidden;">
+                    ${iconHtml}
+                    <span style="font-weight: 700; font-size: 0.7em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${escapeHTML(playerName)}
+                    </span>
+                </span>
+                <div class="prize-image-container">${prizeImageHtml}</div>
+                <span class="contribution align-right">${formatNumber(contributionAmount)} ${currencyIcon}</span>
+            </div>`;
+        }).join('');
+
+    // ------------------------------------------
+    // 2. ОТРИСОВКА "НАГРАДЫ ДЛЯ ОСТАЛЬНЫХ" (Тиры)
+    // ------------------------------------------
+    const tierListContainer = document.getElementById('tier-rewards-list');
+    if (tierListContainer) {
+        if (rangeRewards.length === 0) {
+            tierListContainer.innerHTML = '<p style="text-align:center; width:100%; color:gray; font-size:12px;">Дополнительные награды не указаны</p>';
+        } else {
+            // Рисуем все награды, которые в админке были записаны как "21-30", "41+" и т.д.
+            tierListContainer.innerHTML = rangeRewards.map((reward, idx) => {
+                const name = escapeHTML(reward.name || 'Награда');
+                const label = reward.place; // Например: "21-30"
+                const img = reward.image_url || '';
                 
-                // Умный поиск награды по текстовым диапазонам ("1", "2-5", "6+")
-                const allRewards = topPlaceRewards || [];
-                for (let r of allRewards) {
-                    const pStr = String(r.place).trim();
-                    if (pStr.includes('+')) {
-                        const min = parseInt(pStr);
-                        if (rank >= min) { assignedReward = r; break; }
-                    } else if (pStr.includes('-')) {
-                        const parts = pStr.split('-');
-                        if (rank >= parseInt(parts[0]) && rank <= parseInt(parts[1])) { assignedReward = r; break; }
-                    } else {
-                        if (rank === parseInt(pStr)) { assignedReward = r; break; }
-                    }
-                }
+                // Назначаем стили (золото, серебро, бронза) по порядку следования
+                const styles = ['tier-gold', 'tier-silver', 'tier-bronze'];
+                const currentStyle = styles[idx] || 'tier-bronze';
 
-                // Если награда не найдена в гибридных правилах, пробуем старые тиры (обратная совместимость)
-                if (!assignedReward) {
-                    if (rank <= 30) assignedReward = tiers["21-30"];
-                    else if (rank <= 40) assignedReward = tiers["31-40"];
-                    else assignedReward = tiers["41+"];
-                }
-
-                const prizeName = escapeHTML(assignedReward?.name || '');
-                
-                // --- ЛОГИКА СВЕЧЕНИЯ И ИЗНОСА ДЛЯ ТОПОВ ---
-                const rarityKey = assignedReward?.rarity;
+                const rarityKey = reward.rarity;
                 const rarityColor = RARITY_COLORS[rarityKey] || null;
-                const wearKey = assignedReward?.wear;
-                const wearText = WEAR_NAMES[wearKey] || ''; 
-
+                const wearText = WEAR_NAMES[reward.wear] || '';
                 const glowStyle = rarityColor ? `style="filter: drop-shadow(0 0 6px ${rarityColor}80);"` : '';
 
-                const prizeImageHtml = assignedReward?.image_url
-                    ? `<div class="image-zoom-container" data-item-name="${prizeName}" data-wear="${escapeHTML(wearText)}">
-                           <img src="${escapeHTML(assignedReward.image_url)}" alt="Приз" class="prize-image" ${glowStyle}>
-                           <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
-                       </div>`
-                    : `<span>-</span>`;
-
-                const rowClass = rank <= 3 ? 'leaderboard-row is-top-3' : 'leaderboard-row';
-                
-                const twitchIconSvg = `<svg class="platform-icon icon-twitch" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:16px; height:16px; margin-right:5px; flex-shrink:0; fill:#9146FF;"><path d="M2.149 0L.537 4.119v16.836h5.731V24h3.224l3.045-3.045h4.657l6.269-6.269V0H2.149zm19.164 13.612l-3.582 3.582H12l-3.045 3.045v-3.045H4.119V2.149h17.194v11.463zm-12.09-5.731h2.507v5.731H9.224V7.881zm5.731 0h2.507v5.731h-2.507V7.881z"/></svg>`;
-                const telegramIconSvg = `<svg class="platform-icon icon-telegram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:16px; height:16px; margin-right:5px; flex-shrink:0; fill:#24A1DE;"><path d="M21.928 3.52c.316-1.418-.963-2.489-2.284-1.934L2.57 9.265c-1.338.564-1.33 1.872.225 2.349l4.847 1.504 11.2-7.056c.536-.329 1.024.005.621.36l-9.08 8.184v4.167c0 .614.497.756.826.458l2.424-2.334 5.023 3.71c1.136.625 1.954.3 2.237-1.046l4.047-19.046z"/></svg>`;
-
-                let playerName;
-                let iconHtml;
-
-                if (p.twitch_login) {
-                    playerName = p.twitch_login;
-                    iconHtml = twitchIconSvg;
-                } else {
-                    playerName = p.full_name || 'Без имени';
-                    iconHtml = telegramIconSvg;
-                }
-                
-                if (playerName) {
-                    playerName = playerName.replace(/@cs_shot_bot/gi, '').trim(); 
-                }
-
-                const currencyIcon = currentEventData.is_manual_tasks_only ? '🔵' : '🎟️';
-
-                return `
-                <div class="${rowClass}">
-                    <span class="rank">#${rank}</span>
-                    <span class="player" style="display: flex; align-items: center; overflow: hidden;">
-                        ${iconHtml}
-                        <span style="font-weight: 700; font-size: 0.7em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            ${escapeHTML(playerName)}
-                        </span>
-                    </span>
-                    <div class="prize-image-container">${prizeImageHtml}</div>
-                    <span class="contribution align-right">${formatNumber(contributionAmount)} ${currencyIcon}</span>
-                </div>`;
-            }).join('');
-
-        // 2. Статистика текущего пользователя
-        let userRank = 'N/A';
-        let userContribution = 0;
-        const currentUserIndex = allParticipants.findIndex(p =>
-             (currentUserData.id && p.user_id === currentUserData.id) ||
-             (!currentUserData.id && p.full_name === currentUserData.full_name)
-        );
-        if (currentUserIndex !== -1) {
-            userRank = `#${currentUserIndex + 1}`;
-            userContribution = allParticipants[currentUserIndex].total_contribution || 0;
-        }
-        dom.userContributionTotal.textContent = userContribution;
-        dom.userLeaderboardRank.textContent = userRank;
-
-// ==========================================
-        // 🔥 НОВЫЙ БЛОК: РЕЖИМ ПОДДЕРЖКИ КАНАЛА 🔥
-        // ==========================================
-        // Сохраняем оригинальные правила один раз в память, чтобы уметь их возвращать
-        if (dom.rulesModal && !window.originalRulesHtml) {
-            window.originalRulesHtml = dom.rulesModal.innerHTML;
-        }
-
-        if (currentEventData.is_manual_tasks_only) {
-            // 1. Прячем форму ввода билетов и ВСЮ ЕЁ СЕКЦИЮ (убираем ту самую линию/фон)
-            if (dom.contributionForm) {
-                dom.contributionForm.style.display = 'none';
-                // Находим родительскую секцию .contribution-section и скрываем её целиком
-                const contributionSection = dom.contributionForm.closest('.contribution-section');
-                if (contributionSection) {
-                    contributionSection.style.display = 'none';
-                }
-            }
-            
-            // 2. Прячем статистику (Баланс, Ранг, Твой вклад)
-            if (dom.userTicketBalance) {
-                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
-                if (statsWrapper) statsWrapper.style.display = 'none';
-                else dom.userTicketBalance.parentElement.style.display = 'none';
-            }
-            if (dom.userContributionTotal) {
-                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
-                 if (contribWrapper) contribWrapper.style.display = 'none';
-                 else dom.userContributionTotal.parentElement.style.display = 'none';
-            }
-            if (dom.userLeaderboardRank) {
-                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
-                 if (rankWrapper) rankWrapper.style.display = 'none';
-                 else dom.userLeaderboardRank.parentElement.style.display = 'none';
-            }
-
-            // 3. ПРЯЧЕМ ШКАЛУ ПРОГРЕССА (Убираем пустую линию и текст под ней)
-            const pbContainer = document.querySelector('.progress-bar-container');
-            if (pbContainer) pbContainer.style.display = 'none'; 
-            
-            if (dom.progressBarFill && dom.progressBarFill.parentElement) {
-                dom.progressBarFill.parentElement.style.display = 'none'; 
-            }
-            if (dom.progressText) {
-                dom.progressText.style.display = 'none'; 
-            }
-
-            // 4. Подменяем окно "Как играть?" (Путь + Названия из админки)
-            if (dom.rulesModal) {
-                let tasksHtml = '';
-                const manualTasks = currentEventData.manual_tasks_config || [];
-                if (manualTasks.length > 0) {
-                    tasksHtml = '<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: left;">';
-                    // ОБНОВЛЕННЫЙ ЗАГОЛОВОК
-                    tasksHtml += '<div style="font-size: 13px; color: #4b69ff; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; text-align: center; letter-spacing: 0.5px;">ЗАДАНИЯ ДЛЯ ПОЛУЧЕНИЯ ОЧКОВ:</div>';
-                    
-                    manualTasks.forEach(t => {
-                        // ИСПОЛЬЗУЕМ t.title. Если его нет в базе (старый конфиг), пишем ID
-                        const taskDisplayName = t.title || `Задание #${t.quest_id}`;
-                        
-                        tasksHtml += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 8px 0; font-size: 13px;">
-                            <span style="color: #ddd; flex: 1; padding-right: 10px; line-height: 1.4;">${taskDisplayName}</span>
-                            <span style="color: #4b69ff; font-weight: bold; flex-shrink: 0; font-size: 14px;">+${t.points} 🔵</span>
-                        </div>`;
-                    });
-                    tasksHtml += '</div>';
-                }
-
-                dom.rulesModal.innerHTML = `
-                    <div class="modal-content" style="padding: 24px; text-align: center; border-radius: 16px; background: var(--bg-color, #121216); color: var(--text-color, #fff); position: relative; max-width: 90%; margin: auto; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                        <button class="modal-close-btn" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: #888; font-size: 20px; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" onclick="this.closest('.modal-overlay').classList.add('hidden'); document.body.classList.remove('no-scroll');">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                        
-                        <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 22px;">Как играть?</h2>
-                        
-                        <div style="background: rgba(0, 0, 0, 0.4); border: 1px dashed #4b69ff; border-radius: 10px; padding: 15px; text-align: left; margin-bottom: 15px;">
-                            <strong style="color: #4b69ff; font-size: 14px; display: block; margin-bottom: 8px;"><i class="fa-solid fa-map-location-dot"></i> Где найти задания?</strong>
-                            <ol style="margin: 0; padding-left: 20px; color: #bbb; font-size: 13px; line-height: 1.6;">
-                                <li>Нажмите кнопку <b>«Перейти к заданиям»</b> ниже.</li>
-                                <li>В верхнем меню переключитесь на вкладку <b style="color: #fff;">«РУЧНЫЕ ЗАДАНИЯ»</b>.</li>
-                                <li>Выполняйте их и получайте синие монеты 🔵 для продвижения в ТОП!</li>
-                            </ol>
-                        </div>
-
-                        ${tasksHtml}
-
-                        <button type="button" onclick="window.location.href='/quests'" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #4b69ff, #324ecc); border: none; border-radius: 12px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(75, 105, 255, 0.3);">
-                            Перейти к заданиям
-                        </button>
-                    </div>
-                `;
-            }
-            
-        } else {
-            // === ТУМБЛЕР ВЫКЛЮЧЕН: ВОЗВРАЩАЕМ КАК БЫЛО ===
-            if (dom.contributionForm) {
-                dom.contributionForm.style.display = '';
-                const contributionSection = dom.contributionForm.closest('.contribution-section');
-                if (contributionSection) {
-                    contributionSection.style.display = '';
-                }
-            }
-            
-            // Возвращаем статистику
-            if (dom.userTicketBalance) {
-                const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
-                if (statsWrapper) statsWrapper.style.display = '';
-                else dom.userTicketBalance.parentElement.style.display = '';
-            }
-            if (dom.userContributionTotal) {
-                 const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
-                 if (contribWrapper) contribWrapper.style.display = '';
-                 else dom.userContributionTotal.parentElement.style.display = '';
-            }
-            if (dom.userLeaderboardRank) {
-                 const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
-                 if (rankWrapper) rankWrapper.style.display = '';
-                 else dom.userLeaderboardRank.parentElement.style.display = '';
-            }
-
-            // ВОЗВРАЩАЕМ ШКАЛУ ПРОГРЕССА
-            const pbContainer = document.querySelector('.progress-bar-container');
-            if (pbContainer) pbContainer.style.display = '';
-            
-            if (dom.progressBarFill && dom.progressBarFill.parentElement) {
-                dom.progressBarFill.parentElement.style.display = '';
-            }
-            if (dom.progressText) {
-                dom.progressText.style.display = '';
-            }
-
-            // Возвращаем оригинальные правила
-            if (dom.rulesModal && window.originalRulesHtml) {
-                dom.rulesModal.innerHTML = window.originalRulesHtml;
-                const closeBtn = dom.rulesModal.querySelector('.modal-close-btn');
-                if (closeBtn) {
-                    closeBtn.onclick = () => {
-                        dom.rulesModal.classList.add('hidden');
-                        document.body.classList.remove('no-scroll');
-                    };
-                }
-            }
-        }
-        // ==========================================
-
-        // === НОВАЯ ЛОГИКА: Рендеринг списка тиров (Витрина наград) ===
-        // Ищем новый контейнер, который вы добавили в HTML
-        const tierListContainer = document.getElementById('tier-rewards-list');
-        
-        if (tierListContainer) {
-            const activeTheme = document.body.dataset.theme || 'halloween';
-            const themeFallbackImg = THEME_ASSETS[activeTheme]?.default_reward_image;
-
-            // Определяем данные для отображения 3 блоков
-            const tierDisplayData = [
-                { id: '21-30', label: 'Места 21-30', style: 'tier-gold' },
-                { id: '31-40', label: 'Места 31-40', style: 'tier-silver' },
-                { id: '41+',   label: 'Места 41+',   style: 'tier-bronze' }
-            ];
-
-            tierListContainer.innerHTML = tierDisplayData.map(tier => {
-                const data = tiers[tier.id] || {};
-                const name = data.name || (levelConfig.default_reward?.name) || 'Награда не настроена';
-                
-                // --- ЛОГИКА СВЕЧЕНИЯ И ИЗНОСА ---
-                const img = data.image_url || levelConfig.default_reward?.image_url || themeFallbackImg;
-                const rarityKey = data.rarity; 
-                const rarityColor = RARITY_COLORS[rarityKey] || null; // Цвет редкости
-                const wearKey = data.wear;
-                const wearText = WEAR_NAMES[wearKey] || ''; // Текст износа
-
-                // Если есть редкость, добавляем легкий drop-shadow того же цвета
-                const glowStyle = rarityColor 
-                    ? `style="filter: drop-shadow(0 0 6px ${rarityColor}80);"` // 80 в конце добавляет прозрачность
-                    : '';
-
-                // Добавляем data-wear в атрибуты
                 const imgHtml = img 
-                    ? `<div class="image-zoom-container" data-item-name="${escapeHTML(name)}" data-wear="${escapeHTML(wearText)}">
+                    ? `<div class="image-zoom-container" data-item-name="${name}" data-wear="${escapeHTML(wearText)}">
                            <img src="${escapeHTML(img)}" class="tier-image" ${glowStyle}>
                            <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
                        </div>`
                     : '';
 
                 return `
-                <div class="tier-card ${tier.style}">
-                    <div class="tier-range-badge">${tier.label}</div>
+                <div class="tier-card ${currentStyle}">
+                    <div class="tier-range-badge">Места ${label}</div>
                     <div class="tier-info">
                         ${imgHtml}
-                        <span class="tier-name">${escapeHTML(name)}</span>
+                        <span class="tier-name">${name}</span>
                     </div>
-                </div>
-                `;
+                </div>`;
             }).join('');
-        } else {
-            console.warn('[RENDER] Элемент tier-rewards-list не найден в HTML!');
         }
-
-        console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
     }
 
+    // 3. Статистика текущего пользователя
+    let userRank = 'N/A';
+    let userContribution = 0;
+    const currentUserIndex = allParticipants.findIndex(p =>
+         (currentUserData.id && p.user_id === currentUserData.id) ||
+         (!currentUserData.id && p.full_name === currentUserData.full_name)
+    );
+    if (currentUserIndex !== -1) {
+        userRank = `#${currentUserIndex + 1}`;
+        userContribution = allParticipants[currentUserIndex].total_contribution || 0;
+    }
+    dom.userContributionTotal.textContent = userContribution;
+    dom.userLeaderboardRank.textContent = userRank;
+
+    // 4. Режим поддержки канала
+    if (dom.rulesModal && !window.originalRulesHtml) {
+        window.originalRulesHtml = dom.rulesModal.innerHTML;
+    }
+
+    if (currentEventData.is_manual_tasks_only) {
+        if (dom.contributionForm) {
+            dom.contributionForm.style.display = 'none';
+            const contributionSection = dom.contributionForm.closest('.contribution-section');
+            if (contributionSection) {
+                contributionSection.style.display = 'none';
+            }
+        }
+        
+        if (dom.userTicketBalance) {
+            const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
+            if (statsWrapper) statsWrapper.style.display = 'none';
+            else dom.userTicketBalance.parentElement.style.display = 'none';
+        }
+        if (dom.userContributionTotal) {
+             const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
+             if (contribWrapper) contribWrapper.style.display = 'none';
+             else dom.userContributionTotal.parentElement.style.display = 'none';
+        }
+        if (dom.userLeaderboardRank) {
+             const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
+             if (rankWrapper) rankWrapper.style.display = 'none';
+             else dom.userLeaderboardRank.parentElement.style.display = 'none';
+        }
+
+        const pbContainer = document.querySelector('.progress-bar-container');
+        if (pbContainer) pbContainer.style.display = 'none'; 
+        
+        if (dom.progressBarFill && dom.progressBarFill.parentElement) {
+            dom.progressBarFill.parentElement.style.display = 'none'; 
+        }
+        if (dom.progressText) {
+            dom.progressText.style.display = 'none'; 
+        }
+
+        if (dom.rulesModal) {
+            let tasksHtml = '';
+            const manualTasks = currentEventData.manual_tasks_config || [];
+            if (manualTasks.length > 0) {
+                tasksHtml = '<div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: left;">';
+                tasksHtml += '<div style="font-size: 13px; color: #4b69ff; margin-bottom: 12px; text-transform: uppercase; font-weight: 800; text-align: center; letter-spacing: 0.5px;">ЗАДАНИЯ ДЛЯ ПОЛУЧЕНИЯ ОЧКОВ:</div>';
+                
+                manualTasks.forEach(t => {
+                    const taskDisplayName = t.title || `Задание #${t.quest_id}`;
+                    tasksHtml += `<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.02); padding: 8px 0; font-size: 13px;">
+                        <span style="color: #ddd; flex: 1; padding-right: 10px; line-height: 1.4;">${taskDisplayName}</span>
+                        <span style="color: #4b69ff; font-weight: bold; flex-shrink: 0; font-size: 14px;">+${t.points} 🔵</span>
+                    </div>`;
+                });
+                tasksHtml += '</div>';
+            }
+
+            dom.rulesModal.innerHTML = `
+                <div class="modal-content" style="padding: 24px; text-align: center; border-radius: 16px; background: var(--bg-color, #121216); color: var(--text-color, #fff); position: relative; max-width: 90%; margin: auto; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <button class="modal-close-btn" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: #888; font-size: 20px; cursor: pointer; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" onclick="this.closest('.modal-overlay').classList.add('hidden'); document.body.classList.remove('no-scroll');">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 22px;">Как играть?</h2>
+                    <div style="background: rgba(0, 0, 0, 0.4); border: 1px dashed #4b69ff; border-radius: 10px; padding: 15px; text-align: left; margin-bottom: 15px;">
+                        <strong style="color: #4b69ff; font-size: 14px; display: block; margin-bottom: 8px;"><i class="fa-solid fa-map-location-dot"></i> Где найти задания?</strong>
+                        <ol style="margin: 0; padding-left: 20px; color: #bbb; font-size: 13px; line-height: 1.6;">
+                            <li>Нажмите кнопку <b>«Перейти к заданиям»</b> ниже.</li>
+                            <li>В верхнем меню переключитесь на вкладку <b style="color: #fff;">«РУЧНЫЕ ЗАДАНИЯ»</b>.</li>
+                            <li>Выполняйте их и получайте синие монеты 🔵 для продвижения в ТОП!</li>
+                        </ol>
+                    </div>
+                    ${tasksHtml}
+                    <button type="button" onclick="window.location.href='/quests'" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #4b69ff, #324ecc); border: none; border-radius: 12px; color: white; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(75, 105, 255, 0.3);">
+                        Перейти к заданиям
+                    </button>
+                </div>
+            `;
+        }
+        
+    } else {
+        if (dom.contributionForm) {
+            dom.contributionForm.style.display = '';
+            const contributionSection = dom.contributionForm.closest('.contribution-section');
+            if (contributionSection) {
+                contributionSection.style.display = '';
+            }
+        }
+        
+        if (dom.userTicketBalance) {
+            const statsWrapper = dom.userTicketBalance.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
+            if (statsWrapper) statsWrapper.style.display = '';
+            else dom.userTicketBalance.parentElement.style.display = '';
+        }
+        if (dom.userContributionTotal) {
+             const contribWrapper = dom.userContributionTotal.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
+             if (contribWrapper) contribWrapper.style.display = '';
+             else dom.userContributionTotal.parentElement.style.display = '';
+        }
+        if (dom.userLeaderboardRank) {
+             const rankWrapper = dom.userLeaderboardRank.closest('.user-stats-container, .stats-row, .info-panel, .user-stats, .stats-wrapper');
+             if (rankWrapper) rankWrapper.style.display = '';
+             else dom.userLeaderboardRank.parentElement.style.display = '';
+        }
+
+        const pbContainer = document.querySelector('.progress-bar-container');
+        if (pbContainer) pbContainer.style.display = '';
+        
+        if (dom.progressBarFill && dom.progressBarFill.parentElement) {
+            dom.progressBarFill.parentElement.style.display = '';
+        }
+        if (dom.progressText) {
+            dom.progressText.style.display = '';
+        }
+
+        if (dom.rulesModal && window.originalRulesHtml) {
+            dom.rulesModal.innerHTML = window.originalRulesHtml;
+            const closeBtn = dom.rulesModal.querySelector('.modal-close-btn');
+            if (closeBtn) {
+                closeBtn.onclick = () => {
+                    dom.rulesModal.classList.add('hidden');
+                    document.body.classList.remove('no-scroll');
+                };
+            }
+        }
+    }
+
+    console.log('[RENDER] Отрисовка страницы (renderPage) завершена.');
+}
+        
     // --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: РАСЧЕТ ПРОГРЕССА ---
     function calculateEventProgress(eventData) {
         const { goals = {}, current_progress = 0 } = eventData || {};
