@@ -1839,72 +1839,115 @@
             opacity: 0.8;
         }
 
-        /* --- СТИЛИ ДЛЯ ВЫБОРА ЗАМЕНЫ --- */
+/* --- [ОБНОВЛЕНО] СТИЛИ ДЛЯ ВЫБОРА ЗАМЕНЫ (КРУПНЕЕ + GLOW) --- */
 .replacement-modal {
-    z-index: 25000 !important; /* Выше всех остальных окон */
+    z-index: 25000 !important;
 }
 
+/* Сетка по-прежнему 2х2, но с большими отступами */
 .replacement-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-top: 15px;
+    gap: 16px; /* Больше отступ */
+    margin-top: 20px;
+    padding-bottom: 10px;
 }
 
 .replacement-card {
-    background: #2c2c2e;
-    border-radius: 16px;
-    padding: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: #1c1c1e; /* Темный фон карточки */
+    border-radius: 20px; /* Более скругленные углы */
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     text-align: center;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* Фикс высоты, чтобы карточки были одинаковыми */
+    min-height: 180px; 
+    justify-content: space-between;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 
+/* Эффект нажатия */
 .replacement-card:active {
-    transform: scale(0.95);
+    transform: scale(0.96);
     border-color: var(--primary-color);
-    background: rgba(255, 204, 0, 0.05);
 }
 
+/* --- КАРТИНКА ПРЕДМЕТА (НАМНОГО БОЛЬШЕ) --- */
 .replacement-card img {
-    width: 80px;
-    height: 60px;
-    object-fit: contain;
-    margin-bottom: 8px;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+    width: 100%; /* На всю ширину карточки */
+    height: 100px; /* Фиксированная высота для теста */
+    object-fit: contain; /* Чтобы не обрезалось */
+    margin-bottom: 10px;
+    
+    /* Ускорение GPU для сглаживания */
+    transform: translateZ(0); 
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+    
+    transition: transform 0.3s ease;
+}
+
+/* Легкое увеличение картинки при наведении/нажатии */
+.replacement-card:active img {
+    transform: scale(1.05) translateZ(0);
 }
 
 .replacement-name {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 13px; /* Крупнее шрифт */
+    font-weight: 800; /* Жирнее */
     color: #fff;
     line-height: 1.2;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 2; /* Максимум 2 строки */
     -webkit-box-orient: vertical;
     overflow: hidden;
-    height: 26px;
+    min-height: 32px; /* Фикс высоты для выравнивания */
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 
-.replacement-rarity-line {
-    width: 40%;
-    height: 3px;
-    border-radius: 2px;
-    margin-top: 5px;
+.replacement-condition {
+    font-size: 10px;
+    color: #8E8E93;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-/* Цвета для линий редкости в заменах */
-.replacement-card.blue .replacement-rarity-line { background: var(--rarity-blue); }
-.replacement-card.purple .replacement-rarity-line { background: var(--rarity-purple); }
-.replacement-card.pink .replacement-rarity-line { background: var(--rarity-pink); }
-.replacement-card.red .replacement-rarity-line { background: var(--rarity-red); }
-.replacement-card.gold .replacement-rarity-line { background: var(--rarity-gold); }
+/* --- [NEW] ГЛОУ-ЭФФЕКТ (СВЕЧЕНИЕ) ДЛЯ РЕДКОСТИ --- */
+.replacement-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    border-radius: 20px;
+    opacity: 0.15; /* Легкое постоянное свечение */
+    transition: opacity 0.2s ease;
+    z-index: -1; /* Под контентом */
+}
+
+.replacement-card:active::after {
+    opacity: 0.3; /* Усиливаем свечение при нажатии */
+}
+
+/* Цвета Glow в зависимости от редкости (взято из рулетки) */
+.replacement-card.blue { border-color: rgba(75, 105, 255, 0.3); }
+.replacement-card.blue::after { background: radial-gradient(circle, #4b69ff 0%, transparent 70%); }
+
+.replacement-card.purple { border-color: rgba(136, 71, 255, 0.3); }
+.replacement-card.purple::after { background: radial-gradient(circle, #8847ff 0%, transparent 70%); }
+
+.replacement-card.pink { border-color: rgba(211, 44, 230, 0.3); }
+.replacement-card.pink::after { background: radial-gradient(circle, #d32ce6 0%, transparent 70%); }
+
+.replacement-card.red { border-color: rgba(235, 75, 75, 0.3); }
+.replacement-card.red::after { background: radial-gradient(circle, #eb4b4b 0%, transparent 70%); }
+
+.replacement-card.gold { border-color: rgba(255, 215, 0, 0.3); }
+.replacement-card.gold::after { background: radial-gradient(circle, #ffd700 0%, transparent 70%); }
         
     </style>
 </head>
@@ -3862,32 +3905,43 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
 
         // --- ФУНКЦИИ ВЫБОРА ЗАМЕНЫ ---
 
+// --- [ОБНОВЛЕНО] РЕНДЕР КРУПНЫХ КАРТОЧЕК ЗАМЕН ---
 function showReplacementChoice(options, historyId) {
     const modal = document.getElementById('replacement-modal');
     const container = document.getElementById('replacement-options-list');
     
     container.innerHTML = options.map(item => {
-        // Определяем класс редкости
+        // 1. Определяем класс редкости (Glow)
         let r = (item.rarity || '').toLowerCase();
-        let rClass = 'blue';
-        if (r.includes('purple')) rClass = 'purple';
-        else if (r.includes('pink')) rClass = 'pink';
-        else if (r.includes('red')) rClass = 'red';
+        let rClass = 'blue'; // Дефолт (Синее)
+
+        if (r.includes('purple') || r.includes('mythical')) rClass = 'purple';
+        else if (r.includes('pink') || r.includes('legendary')) rClass = 'pink';
+        else if (r.includes('red') || r.includes('ancient')) rClass = 'red';
         else if (r.includes('gold')) rClass = 'gold';
+
+        // 2. Очищаем название (убираем техническую часть до '|')
+        const cleanName = item.name_ru.split('|').pop().trim();
+
+        // 3. Используем дефолтную картинку, если icon_url пуст
+        const imgUrl = item.icon_url || 'https://placehold.co/200?text=No+Image';
 
         return `
             <div class="replacement-card ${rClass}" onclick="confirmReplacementChoice(${historyId}, '${item.assetid}', '${item.name_ru}')">
-                <img src="${item.icon_url}" alt="">
-                <div class="replacement-name">${item.name_ru}</div>
-                <div style="font-size: 9px; color: #8E8E93;">${item.condition || ''}</div>
-                <div class="replacement-rarity-line"></div>
+                
+                <img src="${imgUrl}" alt="${escapeHtml(item.name_ru)}" loading="lazy">
+                
+                <div style="width: 100%;">
+                    <div class="replacement-name">${escapeHtml(cleanName)}</div>
+                    <div class="replacement-condition">${escapeHtml(item.condition || '')}</div>
+                </div>
+                
             </div>
         `;
     }).join('');
 
     modal.classList.remove('hidden');
 }
-
 function closeReplacementModal() {
     document.getElementById('replacement-modal').classList.add('hidden');
 }
