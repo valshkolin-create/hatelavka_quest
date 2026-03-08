@@ -2605,7 +2605,7 @@ async def sync_steam_inventory(
             if not steam_id:
                 return {"bot_id": bot_id, "error": "SteamID не найден в куках", "items": []}
 
-            # Ссылки на инвентарь
+            # Ссылки на инвентарь (EN для ключей цен, RU для названий в боте)
             url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
             url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
             
@@ -2674,8 +2674,9 @@ async def sync_steam_inventory(
                     bot_items.append({
                         "assetid": asset["assetid"],
                         "account_id": bot_id,
-                        # ТЕПЕРЬ: market_hash_name = ENGLISH, name_ru = RUSSIAN
+                        # market_hash_name теперь всегда на АНГЛИЙСКОМ для API Маркета
                         "market_hash_name": info["hash_name_en"],
+                        # name_ru для отображения в интерфейсе
                         "name_ru": info["name_ru"],
                         "condition": info["condition"],
                         "rarity": info["rarity"],
@@ -2685,12 +2686,12 @@ async def sync_steam_inventory(
             
             return {"bot_id": bot_id, "error": None, "items": bot_items}
 
-        # 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР
+        # 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР СО ВСЕХ БОТОВ
         async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
             tasks = [fetch_bot_inventory(client, bot) for bot in bots]
             bot_results = await asyncio.gather(*tasks)
 
-        # 3. ПОЛУЧАЕМ ЦЕНЫ (по английским именам)
+        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (по английским именам)
         market_prices_rub = {}
         try:
             async with httpx.AsyncClient() as client:
@@ -2700,11 +2701,12 @@ async def sync_steam_inventory(
                     for item in market_data.get("items", []):
                         market_prices_rub[item["market_hash_name"]] = float(item["price"])
         except Exception as e:
-            print(f"Ошибка загрузки цен: {e}")
+            print(f"Критическая ошибка загрузки цен: {e}")
 
-        # 4. ОБРАБОТКА И СОХРАНЕНИЕ
+        # 4. ОБРАБОТКА, РАСЧЕТ ТИКЕТОВ И СОХРАНЕНИЕ В КЭШ
         total_synced = 0
         bot_stats = {}
+        unique_pairs = {} # Для обновления таблицы cs_items (name_ru -> market_hash_name)
 
         for res_data in bot_results:
             bot_id = res_data["bot_id"]
@@ -2714,7 +2716,7 @@ async def sync_steam_inventory(
                 
             bot_inventory = []
             for item in res_data["items"]:
-                # Используем market_hash_name (он теперь английский) для поиска цены
+                # Ищем цену по английскому имени (market_hash_name)
                 p_rub = market_prices_rub.get(item["market_hash_name"], 0.0)
                 
                 if p_rub == 0.0:
@@ -2729,85 +2731,13 @@ async def sync_steam_inventory(
                 item["price_rub"] = p_rub
                 item["tickets"] = tickets_count
                 
+                # Запоминаем связку для Шага 5
+                unique_pairs[item["name_ru"]] = item["market_hash_name"]
+                
                 bot_inventory.append(item)
 
             if bot_inventory:
                 await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
-                for i in range(0, len(bot_inventory), 50):
-                    chunk = bot_inventory[i:i+50]
-                    await supabase.post("/steam_inventory_cache", json=chunk)
-                
-                total_synced += len(bot_inventory)
-                bot_stats[bot_id] = f"Успешно: {len(bot_inventory)}"
-            else:
-                bot_stats[bot_id] = "Пусто"
-
-        return {
-            "success": True, 
-            "total_items_synced": total_synced,
-            "bot_details": bot_stats
-        }
-
-    except Exception as e:
-        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
-
-        # --- 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР СО ВСЕХ БОТОВ ---
-        async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
-            tasks = [fetch_bot_inventory(client, bot) for bot in bots]
-            bot_results = await asyncio.gather(*tasks)
-
-        # --- 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (СРАЗУ В РУБЛЯХ) ---
-        market_prices_rub = {}
-        try:
-            async with httpx.AsyncClient() as client:
-                price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=30.0)
-                if price_resp.status_code == 200:
-                    market_data = price_resp.json()
-                    for item in market_data.get("items", []):
-                        market_prices_rub[item["market_hash_name"]] = float(item["price"])
-        except Exception as e:
-            print(f"Критическая ошибка загрузки цен: {e}")
-
-        # --- 4. РАСПРЕДЕЛЯЕМ ЦЕНЫ И СОХРАНЯЕМ В БД ---
-        total_synced = 0
-        bot_stats = {}
-
-        for res_data in bot_results:
-            bot_id = res_data["bot_id"]
-            if res_data["error"]:
-                bot_stats[bot_id] = res_data["error"]
-                continue
-                
-            bot_inventory = []
-            for item in res_data["items"]:
-                # Достаем английское имя для поиска цены
-                hash_en = item.pop("hash_name_en") 
-                
-                # Ищем цену в рублях
-                p_rub = market_prices_rub.get(hash_en, 0.0)
-                
-                # Логика: если цены нет (новый предмет), ставим заглушку $0.02
-                if p_rub == 0.0:
-                    p_rub = round(0.02 * EXCHANGE_RATE, 2)
-                elif p_rub > 2000.0:
-                    p_rub = 2000.0 # Ограничиваем стоимость для системы замены
-                
-                # Сохраняем и рубли, и доллары (для совместимости)
-                p_usd = round(p_rub / EXCHANGE_RATE, 2)
-                
-                # Рассчитываем билеты (1 билет за каждые 3 рубля)
-                tickets_count = max(1, int(p_rub / 3.0)) if p_rub >= 3 else 1
-                
-                item["price_usd"] = p_usd
-                item["price_rub"] = p_rub
-                item["tickets"] = tickets_count
-                
-                bot_inventory.append(item)
-
-            # Перезаписываем инвентарь в базе (Удаляем старое -> Пишем новое)
-            if bot_inventory:
-                await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
-                # Пишем пачками по 50 записей, чтобы не "повесить" Vercel
                 for i in range(0, len(bot_inventory), 50):
                     chunk = bot_inventory[i:i+50]
                     await supabase.post("/steam_inventory_cache", json=chunk)
@@ -2817,12 +2747,21 @@ async def sync_steam_inventory(
             else:
                 bot_stats[bot_id] = "Инвентарь пуст."
 
+        # --- 🚀 ШАГ 5: АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ CS_ITEMS ---
+        # Проходим по всем найденным связкам и обновляем английские имена в магазине
+        if unique_pairs:
+            print(f"[SYNC] Обновление market_hash_name для {len(unique_pairs)} предметов в cs_items...")
+            for ru_name, en_name in unique_pairs.items():
+                await supabase.patch("/cs_items", 
+                    params={"name": f"eq.{ru_name}"}, 
+                    json={"market_hash_name": en_name}
+                )
+
         return {
             "success": True, 
             "total_items_synced": total_synced,
-            "market_prices_loaded": len(market_prices_rub),
-            "bot_details": bot_stats,
-            "sync_interval": "24h"
+            "templates_updated": len(unique_pairs),
+            "bot_details": bot_stats
         }
 
     except Exception as e:
