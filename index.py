@@ -17655,10 +17655,19 @@ async def sell_inventory_item(
 
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ЗАМЕН ---
-async def get_replacement_options(target_price_rub: float, supabase: httpx.AsyncClient, limit: int = 4):
+async def get_replacement_options(target_price_rub: float, target_price_base: float, supabase: httpx.AsyncClient, limit: int = 4):
     """Ищет 4 РАЗНЫХ предмета в кэше ботов в строгом диапазоне цены +/- 10%"""
     import random
     
+    # --- 🛡️ ЗАЩИТА ОТ ДЕШЕВОГО МУСОРА ---
+    # Если цена в рублях 0 (или не прогрузилась), высчитываем её из базовой цены (билетов)
+    if target_price_rub <= 0:
+        target_price_rub = target_price_base * 3.0
+        
+    # Если даже после этого цена 0 (какой-то баг базы), отменяем поиск замен
+    if target_price_rub <= 0:
+        return []
+
     min_p = target_price_rub * 0.9
     max_p = target_price_rub * 1.1
     
@@ -17800,7 +17809,7 @@ async def withdraw_inventory_item(
     # ==========================================
     # Если мы здесь, значит Маркет и Склад (оригинал) не сработали.
     # Ищем альтернативы в кэше ботов по цене price_rub.
-    replacements = await get_replacement_options(target_price_rub, supabase)
+    replacements = await get_replacement_options(target_price_rub, target_price_base, supabase)
     
     if replacements:
         # Возвращаем статус 'offer_replacement', чтобы фронтенд открыл модалку
