@@ -1880,30 +1880,43 @@
 
 .replacement-card:active { transform: scale(0.96); }
 
-/* --- КАРТИНКА (ОРУЖИЕ) --- */
+/* ========================================================
+   ИСПРАВЛЕННЫЙ БЛОК: ВИЗУАЛ ПРЕДМЕТОВ + ИЕРАРХИЯ ОКОН
+   ======================================================== */
+
+/* --- 1. КАРТИНКА (ОРУЖИЕ, НАШИВКИ, БРЕЛОКИ) --- */
 .replacement-card img {
-    width: 90%;
+    width: 85%;
     height: 90px; 
     object-fit: contain;
-    filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6)); /* Глубокая тень */
+    filter: drop-shadow(0 8px 15px rgba(0,0,0,0.5));
     z-index: 2;
     margin-top: 5px;
     
-    transform: scale(1.3) translateZ(0); 
+    /* Оптимальный зум для оружия, чтобы не вылезало за рамки */
+    transform: scale(1.15) translateZ(0); 
     transition: transform 0.2s ease;
 }
 
-/* --- КАРТИНКА (НАКЛЕЙКИ И БРЕЛКИ) --- */
-/* Steam делает у наклеек огромные прозрачные поля. Режем их мощным зумом */
+/* --- 2. КАРТИНКА (ТОЛЬКО НАКЛЕЙКИ) --- */
+/* Мощный зум, но с лимитом роста вниз, чтобы не перекрывать текст */
 .replacement-card.is-sticker img {
-    transform: scale(2.2) translateZ(0); /* Зум x2.2! */
-    margin-top: 15px; 
-}
-.replacement-card.is-sticker:active img {
-    transform: scale(2.3) translateZ(0);
+    transform: scale(2.0) translateZ(0) !important; 
+    
+    /* 🔥 ТОТ САМЫЙ ЛИМИТ: Увеличиваем из точки "чуть выше центра". 
+       Картинка растет вверх и в стороны, низ остается на месте! */
+    transform-origin: center 35%; 
+    margin-top: 10px; 
 }
 
-/* --- ТЕКСТОВАЯ ЗОНА --- */
+.replacement-card:active img {
+    transform: scale(1.25) translateZ(0);
+}
+.replacement-card.is-sticker:active img {
+    transform: scale(2.1) translateZ(0) !important;
+}
+
+/* --- 3. ТЕКСТОВАЯ ЗОНА (УВЕЛИЧЕНА) --- */
 .replacement-text-zone {
     width: 100%;
     z-index: 2;
@@ -1911,80 +1924,68 @@
     flex-direction: column;
     justify-content: flex-end;
     flex-grow: 1;
-    padding-bottom: 2px;
+    padding-bottom: 5px;
 }
 
 .replacement-name {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 10px; /* Чуть меньше шрифт, чтобы влезло больше текста */
+    font-weight: 800;
     color: #fff;
-    line-height: 1.2;
+    line-height: 1.1;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3; /* РАЗРЕШАЕМ 3 СТРОКИ для длинных названий */
     -webkit-box-orient: vertical;
     overflow: hidden;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8); /* Тень для читаемости */
+    min-height: 33px; /* Фикс высота, чтобы карточки не плясали */
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    text-transform: uppercase;
 }
 
 .replacement-condition {
     font-size: 9px;
     color: #8E8E93;
-    font-weight: 600;
-    margin-top: 4px;
+    font-weight: 700;
+    margin-top: 2px;
 }
 
-/* --- GLOW ЭФФЕКТ КАК НА СКРИНШОТАХ --- */
+/* --- 4. GLOW ЭФФЕКТ --- */
 .replacement-card::after {
     content: '';
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    opacity: 0.2; /* Мягкое свечение */
+    opacity: 0.25; 
     z-index: 0;
     pointer-events: none;
 }
 
-/* Цвета (Рамка + Радиальный градиент по центру) */
+/* Цвета редкостей */
 .replacement-card.blue { border-color: #4b69ff; }
-.replacement-card.blue::after { background: radial-gradient(circle at 50% 40%, #4b69ff 0%, transparent 70%); }
-
+.replacement-card.blue::after { background: radial-gradient(circle at 50% 40%, #4b69ff 0%, transparent 75%); }
 .replacement-card.purple { border-color: #8847ff; }
-.replacement-card.purple::after { background: radial-gradient(circle at 50% 40%, #8847ff 0%, transparent 70%); }
-
+.replacement-card.purple::after { background: radial-gradient(circle at 50% 40%, #8847ff 0%, transparent 75%); }
 .replacement-card.pink { border-color: #d32ce6; }
-.replacement-card.pink::after { background: radial-gradient(circle at 50% 40%, #d32ce6 0%, transparent 70%); }
-
+.replacement-card.pink::after { background: radial-gradient(circle at 50% 40%, #d32ce6 0%, transparent 75%); }
 .replacement-card.red { border-color: #eb4b4b; }
-.replacement-card.red::after { background: radial-gradient(circle at 50% 40%, #eb4b4b 0%, transparent 70%); }
-
+.replacement-card.red::after { background: radial-gradient(circle at 50% 40%, #eb4b4b 0%, transparent 75%); }
 .replacement-card.gold { border-color: #ffd700; }
-.replacement-card.gold::after { background: radial-gradient(circle at 50% 40%, #ffd700 0%, transparent 70%); }
+.replacement-card.gold::after { background: radial-gradient(circle at 50% 40%, #ffd700 0%, transparent 75%); }
 
-/* =========================================
-   ИЕРАРХИЯ СЛОЕВ (Z-INDEX) ДЛЯ ВСЕХ ОКОН
-   ========================================= */
+/* ========================================================
+   ЖЕСТКАЯ ИЕРАРХИЯ СЛОЕВ (ЧТОБЫ НИЧЕГО НЕ ПРЯТАЛОСЬ)
+   ======================================================== */
 
-/* 1. Окно рулетки (самое нижнее из всплывающих) */
-.r-modal-overlay { 
-    z-index: 10000 !important; 
-}
+/* Слой 1: Рулетка */
+.r-modal-overlay { z-index: 10000 !important; }
 
-/* 2. Окно "Выберите замену" (сетка из 4-х предметов) */
-#replacement-modal { 
-    z-index: 50000 !important; 
-}
+/* Слой 2: Окно "Выберите замену" (Выше рулетки) */
+#replacement-modal { z-index: 80000 !important; }
 
-/* 3. КАСТОМНОЕ ОКНО ПОДТВЕРЖДЕНИЯ ("Вы уверены?") 
-   Оно должно быть ВЫШЕ окна замен, чтобы перекрывать его */
-.custom-confirm-overlay { 
-    z-index: 60000 !important; 
-}
+/* Слой 3: КАСТОМНОЕ ПОДТВЕРЖДЕНИЕ (Поверх выбора замен) */
+.custom-confirm-overlay { z-index: 90000 !important; }
 
-/* 4. Экран загрузки (Крутилка "Отправляем трейд...") 
-   Она перекрывает вообще всё, пока идет запрос */
-.purchase-loader { 
-    z-index: 70000 !important; 
-}
-
+/* Слой 4: Лоадер (Поверх всего мира) */
+.purchase-loader { z-index: 99999 !important; }
+    
         
     </style>
 </head>
@@ -3948,7 +3949,6 @@ function showReplacementChoice(options, historyId) {
     const container = document.getElementById('replacement-options-list');
     
     container.innerHTML = options.map(item => {
-        // 1. Цвета и редкость
         let r = (item.rarity || '').toLowerCase();
         let rClass = 'blue';
         if (r.includes('purple')) rClass = 'purple';
@@ -3956,24 +3956,16 @@ function showReplacementChoice(options, historyId) {
         else if (r.includes('red')) rClass = 'red';
         else if (r.includes('gold')) rClass = 'gold';
 
-        // 2. Имя предмета (убираем лишнее, если нужно)
-        let cleanName = item.name_ru || 'Неизвестно';
-        
-        // 3. 🎯 БРОНЕБОЙНЫЙ ДЕТЕКТОР НАКЛЕЕК
-        const lowerName = cleanName.toLowerCase();
-        const isSticker = lowerName.includes('наклейка') || 
-                          lowerName.includes('нашивка') || 
-                          lowerName.includes('брелок') || 
-                          lowerName.includes('sticker') || 
-                          lowerName.includes('patch');
-                          
+        // Чистим название (убираем часть до '|')
+        const cleanName = item.name_ru.split('|').pop().trim();
+
+        // 🎯 УМНЫЙ ДЕТЕКТОР: Срабатывает ТОЛЬКО на наклейки.
+        // Оружие, "Остин" и "Лорена" получат стандартный красивый масштаб.
+        const isSticker = item.name_ru.toLowerCase().includes('наклейка');
         const stickerClass = isSticker ? 'is-sticker' : '';
 
-        // Чтобы избежать поломки HTML из-за кавычек в названии предмета:
-        const safeNameForJS = cleanName.replace(/'/g, "").replace(/"/g, "&quot;");
-
         return `
-            <div class="replacement-card ${rClass} ${stickerClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeNameForJS}')">
+            <div class="replacement-card ${rClass} ${stickerClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${item.name_ru.replace(/'/g, "")}')">
                 
                 <img src="${item.icon_url}" loading="lazy">
                 
