@@ -1759,7 +1759,7 @@ function renderInventory(items) {
 
         el.innerHTML = `
             <div style="width: 70px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                <img src="${item.image_url}" style="max-width: 90%; max-height: 90%; object-fit: contain;">
+                <img src="${item.image_url}" style="max-width: 90%; max-height: 90%; object-fit: contain;" loading="lazy" decoding="async">
             </div>
 
             <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
@@ -1946,36 +1946,41 @@ window.checkTradeStatus = async function(historyId) {
     async function loadData(isSilent = false) {
     if (!isSilent) showLoader();
     try {
-        const bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', isSilent);
-        
-        // 1. Обычные награды
-        const rewards = await makeApiRequest("/api/v1/user/rewards", {}, 'POST', isSilent);
-        
-        // 🔥 2. ЗАГРУЖАЕМ ИНВЕНТАРЬ (Вместо секреток) 🔥
-        // Бэкенд должен вернуть массив объектов из cs_history c данными items
-        const inventory = await makeApiRequest("/api/v1/user/inventory", {}, 'POST', isSilent);
-
+        // Фоновые задачи: запускаем, но не ждём их завершения
         if (!isSilent) {
             makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
             makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
         }
 
-        const userSettings = await makeApiRequest("/api/v1/user/settings/get", {}, 'POST', isSilent);
+        // 🔥 ГЛАВНЫЙ СЕКРЕТ УСКОРЕНИЯ: запускаем все 4 запроса ОДНОВРЕМЕННО 🔥
+        // Используем isSilent=true для каждого, чтобы лоадер не мигал
+        const [bootstrapData, rewards, inventory, userSettings] = await Promise.all([
+            makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
+            makeApiRequest("/api/v1/user/rewards", {}, 'POST', true),
+            makeApiRequest("/api/v1/user/inventory", {}, 'POST', true),
+            makeApiRequest("/api/v1/user/settings/get", {}, 'POST', true)
+        ]);
+
+        // Объединяем данные, как и было
         const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
 
-        if (dom.profileName) dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+        if (dom.profileName) {
+            dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+        }
         
-        // Рендер
+        // Быстрый рендер
         renderSettingsList(fullUserData); 
         renderRewards(rewards);
-        renderInventory(inventory); // <--- ВЫЗЫВАЕМ НОВЫЙ РЕНДЕР ИНВЕНТАРЯ
+        renderInventory(inventory);
 
     } catch (e) {
         console.error(e);
+        if (!isSilent) showCustomAlert("Ошибка соединения с сервером", true);
     } finally {
         if (!isSilent) hideLoader();
     }
 }
+    
     // Функция отрисовки настроек (сокращена для краткости, берется из старого кода)
     function renderSettingsList(userData) {
         dom.settingsList.innerHTML = '';
