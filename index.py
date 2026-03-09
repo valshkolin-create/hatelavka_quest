@@ -362,17 +362,29 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     real_skin = None
     target_lower = target_name.lower()
     
-    # 🔥 [НОВОЕ] БЛОК-ПЕРЕВОДЧИК: Ищем английское имя в кэше по русскому названию
-    # Это гарантирует, что на Маркет пойдет English Name, даже если снаружи пришел русский
-    market_search_name = target_market_name # Берем то, что передали
-
+    # 🔥 [ОБНОВЛЕННЫЙ ПЕРЕВОДЧИК: ВЕРСИЯ 2.0]
     # Если передали русское имя (или вообще ничего), лезем в "словарь" steam_inventory_cache
     if not market_search_name or bool(re.search('[а-яА-Я]', market_search_name)):
-        logging.info(f"[STOREKEEPER] Ищем перевод для '{target_name}' в steam_inventory_cache...")
+        logging.info(f"[STOREKEEPER] Умный поиск перевода для '{target_name}'...")
+        
+        # Маппинг для склейки русского названия с качеством, как оно обычно лежит в кэше
+        cond_map_ru = {
+            "FN": "Прямо с завода",
+            "MW": "Немного поношенное",
+            "FT": "После полевых",
+            "WW": "Поношенное",
+            "BS": "Закаленное в боях"
+        }
+        
+        # Собираем полное имя (например: "Glock-18 | Океаническая топография (Немного поношенное)")
+        full_ru_name = target_name
+        if target_condition in cond_map_ru:
+            full_ru_name = f"{target_name} ({cond_map_ru[target_condition]})"
+
         try:
-            # Ищем в кэше запись, где name_ru совпадает с нашим русским названием
+            # 1. Пробуем найти по максимально точному совпадению (с качеством) через ilike
             trans_res = await supabase.get("/steam_inventory_cache", params={
-                "name_ru": f"eq.{target_name}",
+                "name_ru": f"ilike.%{full_ru_name}%",
                 "select": "market_hash_name",
                 "limit": 1
             })
@@ -380,14 +392,29 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             
             if trans_data and len(trans_data) > 0:
                 market_search_name = trans_data[0].get('market_hash_name')
-                logging.info(f"[STOREKEEPER] Перевод найден в кэше: {market_search_name}")
+                logging.info(f"[STOREKEEPER] Перевод найден (точно): {market_search_name}")
             else:
-                # Если перевода нет, оставляем что было (последний шанс)
-                market_search_name = market_search_name or target_name
-                logging.warning(f"[STOREKEEPER] Перевод для '{target_name}' не найден. Используем: {market_search_name}")
+                # 2. Если не нашли с качеством, ищем просто по базовому названию (через ilike)
+                logging.info(f"[STOREKEEPER] Точный перевод не найден, ищем по базе: {target_name}...")
+                trans_res_alt = await supabase.get("/steam_inventory_cache", params={
+                    "name_ru": f"ilike.%{target_name}%",
+                    "select": "market_hash_name",
+                    "limit": 1
+                })
+                trans_data_alt = trans_res_alt.json()
+                
+                if trans_data_alt and len(trans_data_alt) > 0:
+                    market_search_name = trans_data_alt[0].get('market_hash_name')
+                    logging.info(f"[STOREKEEPER] Перевод найден (по названию): {market_search_name}")
+                else:
+                    logging.warning(f"[STOREKEEPER] Перевод для '{target_name}' не найден ни в каком виде.")
+                    # Если перевода нет — ставим заглушку, чтобы Маркет не получил кириллицу
+                    market_search_name = "SKIP_MARKET_TRANSLATION_NOT_FOUND"
+                    
         except Exception as e:
             logging.error(f"[STOREKEEPER] Ошибка при поиске перевода: {e}")
             market_search_name = market_search_name or target_name
+            
 
     # ==========================================
     # 🛒 ПЛАН "А": ПОКУПКА НА МАРКЕТЕ (ТЕПЕРЬ ПРИОРИТЕТ!)
