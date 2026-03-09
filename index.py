@@ -1943,17 +1943,34 @@ class MarketCSGO:
             params = {}
         params['key'] = self.api_key
         
+        # 🔥 Обходим особенность httpx: Маркету нужны пробелы строго как %20
+        import urllib.parse
+        import logging
+        
+        query_parts = []
+        for k, v in params.items():
+            # quote с safe='' кодирует всё, пробелы становятся %20, а не плюсами
+            query_parts.append(f"{k}={urllib.parse.quote(str(v), safe='')}")
+            
+        query_string = "&".join(query_parts)
+        url = f"{self.base_url}/{endpoint}?{query_string}"
+        
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(f"{self.base_url}/{endpoint}", params=params, timeout=15.0)
+                # logging.info(f"[MARKET DEBUG] URL запроса: {url}") # Раскомментируй, чтобы видеть готовую ссылку в логах
+                response = await client.get(url, timeout=15.0)
                 return response.json()
             except Exception as e:
-                import logging
                 logging.error(f"[MARKET API] Ошибка запроса {endpoint}: {e}")
                 return {"success": False, "error": str(e)}
 
     async def get_lowest_price(self, hash_name: str):
+        import logging
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
+        
+        # 🔥 Выводим чистый ответ Маркета в консоль
+        logging.info(f"[MARKET DEBUG] Ответ bid-ask по '{hash_name}': {data}")
+        
         if data and data.get("ask") and len(data["ask"]) > 0:
             lowest_ask_rub = float(data["ask"][0]["price"])
             price_in_kopecks = int((lowest_ask_rub * 100)) + 1 
@@ -17904,7 +17921,6 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     return final_pool[:limit]
 
 
-# 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД + ЗАМЕНЫ)
 # 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД + ЗАМЕНЫ)
 @app.post("/api/v1/user/inventory/withdraw")
 async def withdraw_inventory_item(
