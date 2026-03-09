@@ -1952,20 +1952,12 @@ class MarketCSGO:
                 logging.error(f"[MARKET API] Ошибка запроса {endpoint}: {e}")
                 return {"success": False, "error": str(e)}
 
-async def get_lowest_price(self, hash_name: str):
+    async def get_lowest_price(self, hash_name: str):
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
-        
-        # 🔥 ВСТАВЛЯЕМ СЮДА:
-        import logging
-        logging.info(f"[DEBUG MARKET] Ответ API по {hash_name}: {data}")
-
         if data and data.get("ask") and len(data["ask"]) > 0:
             lowest_ask_rub = float(data["ask"][0]["price"])
-            # Мы прибавляем 1 копейку, чтобы перебить цену (стандартная тактика)
             price_in_kopecks = int((lowest_ask_rub * 100)) + 1 
             return price_in_kopecks
-        
-        # Если мы здесь, значит в data['ask'] пусто
         return None
 
     async def buy_for_user(self, hash_name: str, trade_link: str, history_id: int): # <--- Добавили history_id
