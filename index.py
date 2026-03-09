@@ -362,8 +362,32 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     real_skin = None
     target_lower = target_name.lower()
     
-    # 🔥 ОПРЕДЕЛЯЕМ ИМЯ ДЛЯ МАРКЕТА (Берем English name из market_hash_name)
-    market_search_name = target_market_name if target_market_name else target_name
+    # 🔥 [НОВОЕ] БЛОК-ПЕРЕВОДЧИК: Ищем английское имя в кэше по русскому названию
+    # Это гарантирует, что на Маркет пойдет English Name, даже если снаружи пришел русский
+    market_search_name = target_market_name # Берем то, что передали
+
+    # Если передали русское имя (или вообще ничего), лезем в "словарь" steam_inventory_cache
+    if not market_search_name or bool(re.search('[а-яА-Я]', market_search_name)):
+        logging.info(f"[STOREKEEPER] Ищем перевод для '{target_name}' в steam_inventory_cache...")
+        try:
+            # Ищем в кэше запись, где name_ru совпадает с нашим русским названием
+            trans_res = await supabase.get("/steam_inventory_cache", params={
+                "name_ru": f"eq.{target_name}",
+                "select": "market_hash_name",
+                "limit": 1
+            })
+            trans_data = trans_res.json()
+            
+            if trans_data and len(trans_data) > 0:
+                market_search_name = trans_data[0].get('market_hash_name')
+                logging.info(f"[STOREKEEPER] Перевод найден в кэше: {market_search_name}")
+            else:
+                # Если перевода нет, оставляем что было (последний шанс)
+                market_search_name = market_search_name or target_name
+                logging.warning(f"[STOREKEEPER] Перевод для '{target_name}' не найден. Используем: {market_search_name}")
+        except Exception as e:
+            logging.error(f"[STOREKEEPER] Ошибка при поиске перевода: {e}")
+            market_search_name = market_search_name or target_name
 
     # ==========================================
     # 🛒 ПЛАН "А": ПОКУПКА НА МАРКЕТЕ (ТЕПЕРЬ ПРИОРИТЕТ!)
@@ -376,7 +400,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     # Создаем клиента
     market = MarketCSGO(api_key=TM_API_KEY)
     
-    # 🔥 ВЫЗЫВАЕМ ПОКУПКУ С АНГЛИЙСКИМ НАЗВАНИЕМ
+    # 🔥 ВЫЗЫВАЕМ ПОКУПКУ С АНГЛИЙСКИМ НАЗВАНИЕМ (которое мы только что нашли в кэше)
     market_res = await market.buy_for_user(
         hash_name=market_search_name, 
         trade_link=trade_url, 
@@ -432,7 +456,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     if not real_skin:
         # 2. Поиск оригинала на полках ботов (используем target_name, так как на складе русский поиск)
         search_params = {
-            "market_hash_name": f"ilike.%{target_name}%",
+            "name_ru": f"eq.{target_name}", # 🔥 Ищем прямо по name_ru в кэше
             "is_reserved": "eq.false",
             "limit": 1
         }
@@ -17862,6 +17886,7 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
 
 
 # 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД + ЗАМЕНЫ)
+# 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД + ЗАМЕНЫ)
 @app.post("/api/v1/user/inventory/withdraw")
 async def withdraw_inventory_item(
     req: InventorySellRequest,
@@ -17937,8 +17962,10 @@ async def withdraw_inventory_item(
     )
     
     # --- СЛУЧАЙ 1: Успешная покупка на Маркете (ТМ) ---
-    if delivery_res.get("success") and delivery_res.get("message") == "Предмет куплен на Маркете!":
-        return {"success": True, "message": "Предмет куплен на Маркете! Следите за статусом в профиле."}
+    # 🔥 ИСПРАВЛЕНО: Сверяем текст сообщения с тем, что реально возвращает Кладовщик
+    market_msg = "Предмет куплен на Маркете и скоро будет отправлен!"
+    if delivery_res.get("success") and delivery_res.get("message") == market_msg:
+        return {"success": True, "message": "Предмет закуплен на Маркете! Следите за статусом в профиле."}
 
     # --- СЛУЧАЙ 2: Предмет найден на твоем складе ---
     if delivery_res.get("success") and "real_skin" in delivery_res:
