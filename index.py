@@ -17608,6 +17608,76 @@ async def get_user_inventory(
 # Переменная для уведомлений
 ADMIN_NOTIFY_CHAT_ID = os.getenv("ADMIN_NOTIFY_CHAT_ID")
 
+@app.post("/api/v1/user/inventory/check_trade")
+async def check_trade_status_endpoint(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    body = await request.json()
+    history_id = body.get("history_id")
+    user_data = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
+    
+    if not user_data:
+        return JSONResponse({"success": False, "message": "Auth failed"}, status_code=401)
+
+    # 1. Достаем информацию о предмете из базы
+    res = await supabase.get("/cs_history", params={"id": f"eq.{history_id}", "user_id": f"eq.{user_data['id']}"})
+    data = res.json()
+    if not data:
+        return JSONResponse({"success": False, "message": "Предмет не найден"})
+        
+    item = data[0]
+    
+    # Предполагаем, что при покупке на ТМ вы передавали history_id как custom_id
+    # Если вы сохраняете ID покупки ТМ в отдельное колоночку, замените это:
+    custom_id = str(item.get("id")) 
+
+    # =================================================================
+    # 2. ИДЕМ В TM API УЗНАВАТЬ СУДЬБУ ТРЕЙДА
+    # =================================================================
+    TM_API_KEY = "ТВОЙ_SECRET_KEY_ОТ_МАРКЕТА" # <--- ВСТАВЬ СВОЙ КЛЮЧ
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            tm_res = await client.get(
+                f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_id}"
+            )
+            tm_data = tm_res.json()
+            
+            # Проверяем, нашел ли Маркет эту покупку
+            if not tm_data.get("success"):
+                error_msg = tm_data.get("error", "Неизвестная ошибка ТМ")
+                return {"success": False, "message": f"Ошибка Маркета: {error_msg}"}
+            
+            # Достаем стадию трейда
+            stage = str(tm_data.get("data", {}).get("stage"))
+            
+            if stage == "2":
+                # TRADE_STAGE_ITEM_GIVEN - Успех! Юзер забрал скин.
+                await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "received"})
+                return {"success": True, "message": "Трейд успешно принят! Скин у вас.", "new_status": "received"}
+                
+            elif stage == "5":
+                # TRADE_STAGE_TIMED_OUT - Отказ, отмена или ошибка!
+                # Возвращаем скин юзеру на сайте (status = available)
+                await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "available"})
+                
+                # Если предмет был с вашего личного склада, снимаем резерв:
+                if item.get("assetid"):
+                    await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{item['assetid']}"}, json={"is_reserved": False})
+                    
+                return {"success": True, "message": "Трейд был отменен в Steam. Вы можете забрать предмет снова.", "new_status": "available"}
+                
+            elif stage == "1":
+                # TRADE_STAGE_NEW - Оффер висит, юзер еще ничего не нажал
+                return {"success": False, "message": "Оффер все еще ожидает подтверждения. Зайдите в Steam!"}
+                
+            else:
+                return {"success": False, "message": f"Ожидание статуса... (Код: {stage})"}
+                
+    except Exception as e:
+        return JSONResponse({"success": False, "message": f"Ошибка связи с ТМ: {str(e)}"})
+
 # 2. Обменять скин на билеты (FIX 400 ERROR)
 @app.post("/api/v1/user/inventory/sell")
 async def sell_inventory_item(
