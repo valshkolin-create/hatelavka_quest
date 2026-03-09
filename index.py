@@ -17765,7 +17765,7 @@ async def check_trade_status_endpoint(
     # =================================================================
     # 2. ИДЕМ В TM API УЗНАВАТЬ СУДЬБУ ТРЕЙДА
     # =================================================================
-    TM_API_KEY = "ТВОЙ_SECRET_KEY_ОТ_МАРКЕТА" # <--- ВСТАВЬ СВОЙ КЛЮЧ
+    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     
     try:
         async with httpx.AsyncClient() as client:
