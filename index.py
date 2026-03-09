@@ -341,9 +341,10 @@ async def get_roulette_strip(winner_item, count=30):
         logging.error(f"Error generating strip: {e}")
         return [winner_item] * count
 
-async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, history_id: int, target_condition: str = None):
+async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, history_id: int, target_condition: str = None, target_market_name: str = None):
     """
-    Ищет предмет: Сначала на Маркете (Приоритет), затем на складе (или замену).
+    Ищет предмет: Сначала на Маркете (Приоритет, по market_hash_name), 
+    затем на складе (или замену по name).
     """
     import re
     import logging
@@ -360,21 +361,24 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
 
     real_skin = None
     target_lower = target_name.lower()
+    
+    # 🔥 ОПРЕДЕЛЯЕМ ИМЯ ДЛЯ МАРКЕТА (Берем English name из market_hash_name)
+    market_search_name = target_market_name if target_market_name else target_name
 
     # ==========================================
     # 🛒 ПЛАН "А": ПОКУПКА НА МАРКЕТЕ (ТЕПЕРЬ ПРИОРИТЕТ!)
     # ==========================================
-    # Мы сначала идем на Маркет для всех обычных предметов
-    logging.info(f"[STOREKEEPER] План А: Пробуем купить {target_name} на Маркете...")
+    # Мы сначала идем на Маркет для всех обычных предметов, используя English Name
+    logging.info(f"[STOREKEEPER] План А: Пробуем купить на Маркете по названию: {market_search_name}")
     
     # Берем API-ключ из окружения
     TM_API_KEY = os.getenv("MARKET_API_KEY", "ТВОЙ_API_KEY_МАРКЕТА")
     # Создаем клиента
     market = MarketCSGO(api_key=TM_API_KEY)
     
-    # Вызываем покупку с привязкой history_id
+    # 🔥 ВЫЗЫВАЕМ ПОКУПКУ С АНГЛИЙСКИМ НАЗВАНИЕМ
     market_res = await market.buy_for_user(
-        hash_name=target_name, 
+        hash_name=market_search_name, 
         trade_link=trade_url, 
         history_id=history_id
     )
@@ -390,12 +394,12 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     else:
         # Если на маркете ошибка (нет денег или предмета), не паникуем — идем к ботам
         err = market_res.get("error", "Неизвестная ошибка")
-        logging.warning(f"[STOREKEEPER] Маркет не справился ({err}). Переходим к плану Б (Склад)...")
+        logging.warning(f"[STOREKEEPER] Маркет не справился с '{market_search_name}' ({err}). Переходим к плану Б (Склад)...")
 
     # ==========================================
     # 🔥 СПЕЦНАЗ: РАНДОМНЫЙ ДЕШЕВЫЙ ЛУТ (СКЛАД) 🔥
     # ==========================================
-    # Если это дешевый рандом, смотрим сначала свои запасы, чтобы не гонять баланс ТМ на копейки
+    # Если это дешевый рандом, смотрим сначала свои запасы
     if "1 наклейка" in target_lower or "рандомная наклейка" in target_lower:
         logging.info("[STOREKEEPER] Ищем самую дешевую наклейку в кэше...")
         stock_res = await supabase.get("/steam_inventory_cache", params={
@@ -426,7 +430,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     # 📦 ОБЫЧНЫЙ ПОИСК ПО СКЛАДУ (Если Маркет не сработал)
     # ==========================================
     if not real_skin:
-        # 2. Поиск оригинала на полках ботов
+        # 2. Поиск оригинала на полках ботов (используем target_name, так как на складе русский поиск)
         search_params = {
             "market_hash_name": f"ilike.%{target_name}%",
             "is_reserved": "eq.false",
@@ -493,7 +497,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     # Если Маркет пуст, склад пуст и замен нет
     logging.error(f"[STOREKEEPER] КРИТИЧЕСКАЯ ОШИБКА: Предмета {target_name} нет ни на Маркете, ни на складах!")
     return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии нигде"}
-
+    
 # =======================================================
 # 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
 async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
@@ -15075,7 +15079,7 @@ async def buy_bott_item_proxy(
                     trade_url=user_trade_link,
                     supabase=supabase,
                     history_id=history_id, # Передаем ID
-                    target_condition=winner.get('condition')
+                    target_market_name=winner.get('market_hash_name')
                 )
                 
                 if delivery_res.get("success"):
@@ -16046,7 +16050,7 @@ async def background_mass_delivery():
             trade_url=trade_url,
             supabase=client,
             history_id=history_id,
-            target_condition=item_condition
+            target_market_name=market_name
         )
 
         if delivery_res.get("success"):
@@ -18022,9 +18026,9 @@ async def withdraw_inventory_item(
         trade_url=trade_link,
         supabase=supabase,
         history_id=req.history_id, # <--- ПЕРЕДАЕМ ID
-        target_condition=item_condition
+        target_market_name=market_hash_name # 🔥 Теперь Маркет увидит English Name
     )
-
+    
     if delivery_res.get("success"):
         real_skin = delivery_res.get("real_skin")
         trade_res = await send_steam_trade_offer(
