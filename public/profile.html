@@ -1422,6 +1422,7 @@ function renderRewards(rewards) {
     // --- MAIN FUNCTION ---
 
 // --- КАРТА РЕДКОСТЕЙ ---
+    
 // --- УМНАЯ ЛОГИКА РЕДКОСТЕЙ ---
 function getRarityData(rarity) {
     const r = (rarity || '').toLowerCase();
@@ -1451,6 +1452,34 @@ function getRarityData(rarity) {
     return { color: '#b0c3d9', name: 'Ширпотреб' };
 }
 
+function initCountdown(elementId, updatedAtStr) {
+    const updateTime = new Date(updatedAtStr).getTime();
+    const expireTime = updateTime + (60 * 60 * 1000); // Время обновления + 60 минут
+
+    const timerInterval = setInterval(() => {
+        const now = new Date().getTime();
+        const distance = expireTime - now;
+        const el = document.getElementById(elementId);
+
+        if (!el) {
+            clearInterval(timerInterval);
+            return;
+        }
+
+        if (distance < 0) {
+            clearInterval(timerInterval);
+            el.innerHTML = "ЗАВЕРШЕНИЕ...";
+            // Можно вызвать loadData(true) здесь для автообновления статуса
+            return;
+        }
+
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        el.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
+    }, 1000);
+}
+
 function renderInventory(items) {
     const container = dom.inventoryList;
     const infoBadge = dom.inventoryInfoBadge;
@@ -1468,20 +1497,15 @@ function renderInventory(items) {
     }
 
     // --- УЛУЧШЕННАЯ СОРТИРОВКА (ПРИОРИТЕТ АКТИВНЫХ ДЕЙСТВИЙ) ---
-    // 1 - Самый высокий приоритет (в процессе отправки/ожидания)
-    // 2 - Доступные (ждут решения юзера)
-    // 3 - Завершенные/отмененные (в самом низу)
     const statusWeight = { 
-        'market_pending': 1, 'sent': 1, 'offer_sent': 1, 'auto_queued': 1, 'pending': 1, // Самые горячие!
-        'available': 2, 'processing': 2, 'failed': 2, 'canceled': 2, // Ждут действия
-        'received': 3, 'exchanged': 4 // Архив
+        'market_pending': 1, 'sent': 1, 'offer_sent': 1, 'auto_queued': 1, 'pending': 1,
+        'available': 2, 'processing': 2, 'failed': 2, 'canceled': 2,
+        'received': 3, 'exchanged': 4 
     };
     
     items.sort((a, b) => {
         const statA = (a.status || 'available').toLowerCase();
         const statB = (b.status || 'available').toLowerCase();
-        
-        // Если веса равны, сортируем по ID, чтобы новые были выше старых
         if (statusWeight[statA] === statusWeight[statB]) {
              return b.history_id - a.history_id;
         }
@@ -1492,6 +1516,7 @@ function renderInventory(items) {
         const status = (item.status || 'available').toLowerCase();
         const rData = getRarityData(item.rarity); 
         const ticketVal = item.price || 0;
+        const timerElementId = `timer-${item.history_id}`;
 
         let rightContentHtml = '';
         let cardOpacity = '1';
@@ -1508,24 +1533,32 @@ function renderInventory(items) {
                     ПОИСК...
                 </div>`;
         }
-        // 🔥 Блок "else if (status === 'pending')" удален отсюда! 🔥
-        else if (status === 'market_pending') {
-            statusLabel = ''; // Убираем текст из центральной колонки
+        else if (status === 'market_pending' || status === 'sent' || status === 'offer_sent') {
+            // 🔥 ВМЕСТО КНОПКИ ПРОВЕРИТЬ — ТАЙМЕР НА 60 МИНУТ 🔥
+            const actionText = status === 'market_pending' ? 'ПРОДАВЕЦ ОТПРАВЛЯЕТ' : 'ОФФЕР ОТПРАВЛЕН';
+            const accentColor = status === 'market_pending' ? '#a200ff' : '#ffcc00';
+
+            statusLabel = ''; 
             rightContentHtml = `
                 <div style="display: flex; flex-direction: column; justify-content: center; gap: 4px; width: 100%;">
-                    <div style="color:#a200ff; font-size:8px; font-weight:800; text-align:center; line-height:1.1;">
-                        ПРОДАВЕЦ ОТПРАВЛЯЕТ
+                    <div style="color:${accentColor}; font-size:8px; font-weight:800; text-align:center; line-height:1.1;">
+                        ${actionText}
                     </div>
-                    <div style="background: rgba(162, 0, 255, 0.1); color: #c466ff; text-align: center; padding: 6px 2px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(162, 0, 255, 0.2); box-sizing: border-box;">
-                        В ПУТИ<br><span style="font-size:8px; opacity: 0.8;">~ до 5 мин</span>
+                    <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; text-align: center; padding: 8px 2px; border-radius: 8px; font-size: 11px; font-weight: 800; border: 1px solid rgba(255,255,255,0.1); font-family: monospace;">
+                        --:--
                     </div>
                     <button onclick="checkTradeStatus(${item.history_id})" style="
                         background: rgba(255, 255, 255, 0.05); color: #ccc; border: 1px solid rgba(255, 255, 255, 0.1);
-                        font-size: 9px; font-weight: 600; padding: 6px 0; margin-top: 2px;
-                        border-radius: 6px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; transition: 0.2s;">
-                        <i class="fa-solid fa-rotate-right"></i> ПРОВЕРИТЬ
+                        font-size: 9px; font-weight: 600; padding: 4px 0; margin-top: 2px;
+                        border-radius: 6px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; opacity: 0.7;">
+                        <i class="fa-solid fa-rotate"></i>
                     </button>
                 </div>`;
+            
+            // Запускаем тиканье таймера для этой карточки
+            setTimeout(() => {
+                initCountdown(timerElementId, item.updated_at);
+            }, 50);
         }
         else if (status === 'processing') {
             statusLabel = '<span style="color:#FFD700; font-size:9px;">ОЖИДАЕТ РУЧНОЙ ВЫДАЧИ</span>';
@@ -1534,23 +1567,6 @@ function renderInventory(items) {
                     ОБРАБОТКА
                 </div>`;
         } 
-        else if (status === 'sent' || status === 'offer_sent') {
-            statusLabel = '<span style="color:#ffcc00; font-size:9px;">ОФФЕР ОТПРАВЛЕН В STEAM</span>';
-            rightContentHtml = `
-                <button onclick="confirmReceived(${item.history_id})" style="
-                    background: #34c759; color: #000; border: none;
-                    font-size: 10px; font-weight: 800; padding: 10px 0; 
-                    border-radius: 8px; cursor: pointer; width: 100%;
-                    box-shadow: 0 0 10px rgba(52, 199, 89, 0.4); margin-bottom: 6px;">
-                    <i class="fa-solid fa-check"></i> Я ПОЛУЧИЛ
-                </button>
-                <button onclick="checkTradeStatus(${item.history_id})" style="
-                    background: rgba(255, 255, 255, 0.05); color: #ccc; border: 1px solid rgba(255, 255, 255, 0.1);
-                    font-size: 9px; font-weight: 600; padding: 8px 0; 
-                    border-radius: 8px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; transition: 0.2s;">
-                    <i class="fa-solid fa-rotate-right"></i> ПРОВЕРИТЬ
-                </button>`;
-        }
         else if (status === 'received') {
             cardOpacity = '0.5';
             statusLabel = '<span style="color:#34c759; font-size:9px;">УСПЕШНО ДОСТАВЛЕНО</span>';
@@ -1569,11 +1585,9 @@ function renderInventory(items) {
                 </div>`;
         }
         else {
-            // 🔥 ТЕПЕРЬ ВСЕ НОВЫЕ ПРЕДМЕТЫ ПОПАДАЮТ СЮДА 🔥
             if (status === 'failed' || status === 'canceled') {
                 statusLabel = '<span style="color:#ff3b30; font-size:9px;"><i class="fa-solid fa-rotate-left"></i> ОТМЕНЕНО (МОЖНО ПОВТОРИТЬ)</span>';
             } else {
-                // Если статус pending или available
                 statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДЛЯ ВЫВОДА</span>';
             }
 
@@ -1626,7 +1640,6 @@ function renderInventory(items) {
         container.appendChild(el);
     });
 }
-
 // --- ФУНКЦИЯ "ЗАБРАТЬ" (С авто-обновлением) ---
 window.withdrawItem = function(historyId, itemName) {
     showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (close) => {
