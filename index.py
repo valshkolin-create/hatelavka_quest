@@ -14381,45 +14381,58 @@ async def fetch_and_cache_goods_background(category_id: int):
     }
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
     
-    # 🔥 УМНЫЙ РОУТИНГ: Если корень (0) - идем в index. Если папка (>0) - идем в view.
-    if category_id == 0:
-        url = "https://api.bot-t.com/v1/shop/category/index"
-        payload = {"bot_id": int(BOTT_BOT_ID)}
-    else:
-        url = "https://api.bot-t.com/v1/shop/category/view"
-        payload = {
-            "bot_id": int(BOTT_BOT_ID),
-            "id": int(category_id)
-        }
-    
+    items_list = []
+
     try:
         async with httpx.AsyncClient(timeout=15.0) as client: 
-            resp = await client.post(url, params=params, json=payload, headers=headers)
-            
-        if resp.status_code != 200:
-            logging.error(f"[BG_SHOP] Ошибка Bot-t: {resp.status_code} - {resp.text}")
-            return
+            if category_id == 0:
+                # ==========================================
+                # 1. ГЛАВНАЯ СТРАНИЦА (КОРЕНЬ МАГАЗИНА)
+                # ==========================================
+                url = "https://api.bot-t.com/v1/shop/category/index"
+                payload = {"bot_id": int(BOTT_BOT_ID)}
+                
+                resp = await client.post(url, params=params, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    # /index отдает массив категорий
+                    items_list.extend(data if isinstance(data, list) else [])
+            else:
+                # ==========================================
+                # 2. ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ)
+                # ==========================================
+                payload = {"bot_id": int(BOTT_BOT_ID), "id": int(category_id)}
+                
+                url_products = "https://api.bot-t.com/v1/shop/category/view-products"
+                url_view = "https://api.bot-t.com/v1/shop/category/view"
+                
+                # 🔥 МАГИЯ СКОРОСТИ: Запрашиваем товары и подпапки ОДНОВРЕМЕННО 🔥
+                resp_prod, resp_view = await asyncio.gather(
+                    client.post(url_products, params=params, json=payload, headers=headers),
+                    client.post(url_view, params=params, json=payload, headers=headers),
+                    return_exceptions=True
+                )
+                
+                # Разбираем ТОВАРЫ (скины, ключи и тд)
+                if isinstance(resp_prod, httpx.Response) and resp_prod.status_code == 200:
+                    prod_data = resp_prod.json().get("data", [])
+                    if isinstance(prod_data, list):
+                        items_list.extend(prod_data)
+                
+                # Разбираем ПОДПАПКИ (если внутри этой папки есть еще папки)
+                if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
+                    view_data = resp_view.json().get("data", {})
+                    if isinstance(view_data, dict):
+                        sub_cats = view_data.get("children", []) or view_data.get("categories", [])
+                        items_list.extend(sub_cats)
 
-        res_json = resp.json()
-        data = res_json.get("data", [])
-        
-        items_list = []
-        
-        # Разбираем ответ в зависимости от того, откуда он пришел (index или view)
-        if category_id == 0:
-            # Для /index приходит просто массив главных категорий
-            items_list = data if isinstance(data, list) else []
-        else:
-            # Для /view приходит объект с подкатегориями и товарами
-            if isinstance(data, dict):
-                items_list = data.get("categories", []) + data.get("goods", [])
-            elif isinstance(data, list):
-                items_list = data
-
+        # ==========================================
+        # 🛡️ ПАРСИМ И ФИЛЬТРУЕМ РЕЗУЛЬТАТ
+        # ==========================================
         mapped_items = []
-
+        
         for item in items_list:
-            # Фильтр: берем только Активные (1)
+            # Берем только Активные (1)
             item_status = item.get("status")
             if item_status not in [1, "1", "ACTIVE", None]:
                 continue
@@ -14438,8 +14451,10 @@ async def fetch_and_cache_goods_background(category_id: int):
                 price = int(amount / 100) if amount else 0
                 
             name = "Без названия"
-            if item.get("design"):
-                name = item["design"].get("title", "Без названия")
+            if item.get("design") and item["design"].get("title"):
+                name = item["design"]["title"]
+            elif item.get("name"): # Фолбэк, если в view-products имя лежит прямо в корне
+                name = item.get("name")
                 
             count = None 
             if item.get("setting"):
@@ -14456,7 +14471,9 @@ async def fetch_and_cache_goods_background(category_id: int):
                 "count": count 
             })
 
-        # Сохраняем в Supabase (shop_cache)
+        # ==========================================
+        # 💾 СОХРАНЯЕМ ГОТОВЫЙ СПИСОК В БД
+        # ==========================================
         async with httpx.AsyncClient(base_url=f"{SUPABASE_URL}/rest/v1", headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}) as sb_client:
             await sb_client.post(
                 "/shop_cache",
@@ -14467,9 +14484,9 @@ async def fetch_and_cache_goods_background(category_id: int):
                 },
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
-
+            
     except Exception as e:
-        logging.error(f"[BG_SHOP] Ошибка обновления: {e}")
+        logging.error(f"[BG_SHOP] Ошибка обновления товаров: {e}")
 
 # --- ОПТИМИЗИРОВАННЫЙ ЭНДПОИНТ МАГАЗИНА ---
 @app.post("/api/v1/shop/goods")
