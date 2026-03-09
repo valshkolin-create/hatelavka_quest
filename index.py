@@ -341,12 +341,13 @@ async def get_roulette_strip(winner_item, count=30):
         logging.error(f"Error generating strip: {e}")
         return [winner_item] * count
 
-async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, target_condition: str = None):
+async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, history_id: int, target_condition: str = None):
     """
     Ищет предмет на складе (или замену), бронирует его и ставит в очередь на отправку.
     """
     import re
     import logging
+    import os
 
     # 1. Проверка адреса доставки (Trade URL)
     trade_pattern = r"partner=(\d+)&token=([a-zA-Z0-9_-]+)"
@@ -433,11 +434,40 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                     real_skin = alts[0]
                     logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']} ({real_skin['price_rub']} руб.)")
 
-    # Если склад пуст и замены нет
+    # ==========================================
+    # 🛒 ПЛАН "В": ПОКУПКА НА МАРКЕТЕ (НОВОЕ)
+    # ==========================================
     if not real_skin:
-        logging.warning(f"[STOREKEEPER] Склад пуст. Нет подходящих предметов для {user_id}.")
-        return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
+        logging.info(f"[STOREKEEPER] На складах пусто. Покупаем {target_name} на Маркете...")
+        
+        # Берем API-ключ из окружения (убедись, что он там есть)
+        TM_API_KEY = os.getenv("MARKET_API_KEY", "ТВОЙ_API_KEY_МАРКЕТА")
+        # Создаем клиента (используя твой класс MarketCSGO)
+        market = MarketCSGO(api_key=TM_API_KEY)
+        
+        # Вызываем покупку с привязкой history_id
+        market_res = await market.buy_for_user(
+            hash_name=target_name, 
+            trade_link=trade_url, 
+            history_id=history_id
+        )
+        
+        if market_res.get("success"):
+            logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {history_id}")
+            # Статус market_pending разблокирует кнопку "СТАТУС TM" в профиле
+            await supabase.patch("/cs_history", 
+                params={"id": f"eq.{history_id}"}, 
+                json={"status": "market_pending"}
+            )
+            return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
+        else:
+            err = market_res.get("error", "Неизвестная ошибка")
+            logging.error(f"[STOREKEEPER] ❌ Ошибка Маркета: {err}")
+            return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
 
+    # ==========================================
+    # 📦 ЛОГИКА ДЛЯ ПРЕДМЕТА СО СКЛАДА
+    # ==========================================
     # 4. Наклеиваем стикер "ПРОДАНО" (Резерв)
     await supabase.patch("/steam_inventory_cache", 
         params={"assetid": f"eq.{real_skin['assetid']}"}, 
@@ -451,11 +481,15 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
         "account_id": real_skin["account_id"],
         "trade_url": trade_url,
         "trade_status": "pending",
-        "market_hash_name": real_skin["market_hash_name"]
+        "market_hash_name": real_skin["market_hash_name"],
+        "history_id": history_id # <--- Обязательно связываем с историей
     }
     
     # Отправляем в таблицу очереди выигрышей
     await supabase.post("/user_winnings", json=delivery_payload)
+    
+    # Ставим статус "В ОЧЕРЕДИ" в основной истории
+    await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "pending"})
 
     return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован и готов к отправке"}
 
@@ -17864,7 +17898,7 @@ async def withdraw_inventory_item(
     # ==========================================
     if market_client and auto_enabled and target_price_base > 0:
         if not any(re.search('[а-яА-Я]', market_hash_name) for _ in market_hash_name):
-            buy_res = await market_client.buy_for_user(market_hash_name, trade_link)
+            buy_res = await market_client.buy_for_user(market_hash_name, trade_link, history_id=req.history_id)
             if buy_res.get("success"):
                 await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                     "status": "market_pending",
