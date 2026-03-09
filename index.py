@@ -17927,6 +17927,10 @@ async def withdraw_inventory_item(
     req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    import re
+    import logging
+    import os
+
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data:
         raise HTTPException(status_code=401, detail="Auth failed")
@@ -17979,75 +17983,83 @@ async def withdraw_inventory_item(
     # Достаем английское название для Маркета
     market_hash_name = item_data.get('market_hash_name')
 
-    # ==========================================
-    # 📦 ВЫЗОВ КЛАДОВЩИКА (ЕДИНАЯ ТОЧКА ВЫДАЧИ)
-    # ==========================================
-    # Теперь План А (Маркет), План Б (Оригинал) и План В (Замена) 
-    # вызываются внутри одной функции. Никакого дублирования кода!
-    
-    delivery_res = await fulfill_item_delivery(
-        user_id=user_id,
-        target_name=item_name,                 # Русское для логов/склада
-        target_price_rub=target_price_rub,
-        trade_url=trade_link,
-        supabase=supabase,
-        history_id=req.history_id, 
-        target_condition=item_condition,
-        target_market_name=market_hash_name    # 🔥 Английское для Market.CSGO
-    )
-    
-    # --- СЛУЧАЙ 1: Успешная покупка на Маркете (ТМ) ---
-    # 🔥 ИСПРАВЛЕНО: Сверяем текст сообщения с тем, что реально возвращает Кладовщик
-    market_msg = "Предмет куплен на Маркете и скоро будет отправлен!"
-    if delivery_res.get("success") and delivery_res.get("message") == market_msg:
-        return {"success": True, "message": "Предмет закуплен на Маркете! Следите за статусом в профиле."}
+    # 🔥 ПРЕДОХРАНИТЕЛЬ: Проверяем, можно ли вообще отправить этот скин на Маркет
+    # Если названия нет или там кириллица — сразу переходим к выбору замен (Этап 3)
+    has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
 
-    # --- СЛУЧАЙ 2: Предмет найден на твоем складе ---
-    if delivery_res.get("success") and "real_skin" in delivery_res:
-        real_skin = delivery_res.get("real_skin")
-        
-        # Зовем курьера для отправки трейда
-        trade_res = await send_steam_trade_offer(
-            account_id=real_skin["account_id"],
-            assetid=real_skin["assetid"],
+    if has_english_name:
+        # ==========================================
+        # 📦 ВЫЗОВ КЛАДОВЩИКА (ПЛАН А и Б)
+        # ==========================================
+        delivery_res = await fulfill_item_delivery(
+            user_id=user_id,
+            target_name=item_name,                 # Русское для логов/склада
+            target_price_rub=target_price_rub,
             trade_url=trade_link,
-            supabase=supabase
+            supabase=supabase,
+            history_id=req.history_id, 
+            target_condition=item_condition,
+            target_market_name=market_hash_name    # 🔥 Английское для Market.CSGO
         )
         
-        if trade_res and trade_res.get("success"):
-            t_id = str(trade_res.get("tradeofferid"))
-            # Обновляем статус: трейд улетел
-            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                "status": "sent",
-                "tradeofferid": t_id 
-            })
-            return {"success": True, "message": "Трейд отправлен! Подтвердите получение в Steam."}
-        else:
-            # Ошибка стима - переводим в ручной режим, чтобы не потерять
-            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "processing"})
-            err_msg = trade_res.get('error', 'Steam Error')
-            return {"success": False, "message": f"Ошибка Steam: {err_msg}. Заявка передана админу."}
+        # --- СЛУЧАЙ 1: Успешная покупка на Маркете (ТМ) ---
+        market_msg = "Предмет куплен на Маркете и скоро будет отправлен!"
+        if delivery_res.get("success") and delivery_res.get("message") == market_msg:
+            return {"success": True, "message": "Предмет закуплен на Маркете! Следите за статусом в профиле."}
+
+        # --- СЛУЧАЙ 2: Предмет найден на твоем складе ---
+        if delivery_res.get("success") and "real_skin" in delivery_res:
+            real_skin = delivery_res.get("real_skin")
+            
+            # Зовем курьера для отправки трейда
+            trade_res = await send_steam_trade_offer(
+                account_id=real_skin["account_id"],
+                assetid=real_skin["assetid"],
+                trade_url=trade_link,
+                supabase=supabase
+            )
+            
+            if trade_res and trade_res.get("success"):
+                t_id = str(trade_res.get("tradeofferid"))
+                # Обновляем статус: трейд улетел
+                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                    "status": "sent",
+                    "tradeofferid": t_id 
+                })
+                return {"success": True, "message": "Трейд отправлен! Подтвердите получение в Steam."}
+            else:
+                # 🔥 ИСПРАВЛЕНО: Если Стим выдал ошибку/null, мы НЕ уходим в ручной режим.
+                # Снимаем резерв с предмета и даем коду провалиться ниже к выбору замен юзером.
+                err_msg = trade_res.get('error', 'Steam Error')
+                logging.error(f"[COURIER] Сбой при выдаче оригинала: {err_msg}. Снимаем резерв и идем к заменам.")
+                
+                await supabase.patch("/steam_inventory_cache", 
+                    params={"assetid": f"eq.{real_skin['assetid']}"}, 
+                    json={"is_reserved": False}
+                )
+                # Код продолжает выполнение к Этапу 3
 
     # ==========================================
-    # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН (Если на складе и маркете пусто)
+    # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН
     # ==========================================
-    # Если Кладовщик вернул False, пробуем найти варианты для замены через интерфейс
+    # Сюда попадем, если нет англ. названия, Маркет не нашел скин или Стим выдал null
     replacements = await get_replacement_options(target_price_rub, target_price_base, supabase)
     
     if replacements:
         return {
             "success": False,
             "status": "offer_replacement",
-            "message": "Этого предмета нет в наличии, выберите любую замену из списка!",
+            "message": "Этого предмета сейчас нет в наличии. Пожалуйста, выберите любую замену из списка ниже!",
             "options": replacements
         }
 
     # ==========================================
     # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
     # ==========================================
-    # Если даже замен не нашли или автовыдача отключена
+    # Если даже замен не нашли (склад совсем пустой)
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "processing"})
     
+    ADMIN_NOTIFY_CHAT_ID = os.getenv("ADMIN_NOTIFY_CHAT_ID")
     if ADMIN_NOTIFY_CHAT_ID:
         try:
             log_text = (
@@ -18056,10 +18068,10 @@ async def withdraw_inventory_item(
                 f"🔫 <b>{item_name}</b>\n"
                 f"💰 Бюджет: {target_price_rub} руб. ({target_price_base} монеты)"
             )
-            await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=log_text, parse_mode="HTML")
+            # await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=log_text, parse_mode="HTML")
         except: pass
             
-    return {"success": True, "message": "Автовыдача недоступна. Заявка передана администратору."}
+    return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
     
 # 4. Подтверждение выбора замены пользователем
 @app.post("/api/v1/user/inventory/confirm_replacement")
@@ -18092,7 +18104,7 @@ async def confirm_replacement(
     if not trade_link:
         return {"success": False, "message": "⚠️ Сначала укажите Trade Link в профиле!"}
 
-    # --- 3. ПРОВЕРЯЕМ ДОСТУПНОСТЬ ПРЕДМЕТА (100% ПРОВЕРКА) ---
+    # --- 3. ПРОВЕРЯЕМ ДОСТУПНОСТЬ ПРЕДМЕТА ---
     check_asset = await supabase.get("/steam_inventory_cache", params={
         "assetid": f"eq.{req.assetid}", 
         "is_reserved": "eq.false"
@@ -18104,77 +18116,38 @@ async def confirm_replacement(
 
     selected_item = asset_rows[0]
     m_name = selected_item.get('market_hash_name', '')
+    item_name_ru = selected_item.get('name_ru') or m_name
 
-    # Дополнительный фильтр: не берем скины с русскими буквами в хеш-нейме (условие 1)
+    # Блокируем скин кириллицей (защита от кривых данных)
     if bool(re.search('[а-яА-Я]', m_name)):
-        return {"success": False, "message": "Ошибка конфигурации скина. Выберите другой."}
+        return {"success": False, "message": "Ошибка конфигурации скина. Выберите другой вариант."}
 
-    # --- 4. ПРОБУЕМ ОТПРАВИТЬ (ЭТАП ВЫДАЧИ) ---
-    logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал {m_name}")
-    
-    trade_res = await send_steam_trade_offer(
-        account_id=selected_item["account_id"],
-        assetid=selected_item["assetid"],
-        trade_url=trade_link,
-        supabase=supabase
-    )
-
-    # Резервируем в базе СРАЗУ, чтобы никто другой не нажал
+    # СРАЗУ резервируем предмет в кэше, чтобы его не увидел другой юзер
     await supabase.patch("/steam_inventory_cache", 
         params={"assetid": f"eq.{req.assetid}"}, 
         json={"is_reserved": True}
     )
 
-    # --- 5. ОБРАБОТКА РЕЗУЛЬТАТА (БЕЗ ОШИБОК ДЛЯ ЮЗЕРА) ---
-    if trade_res and trade_res.get("success"):
-        # СЛУЧАЙ А: Стим сработал, оффер улетел
-        t_id = str(trade_res.get("tradeofferid"))
-        
-        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-            "status": "sent",
-            "tradeofferid": t_id,
-            "details": f"Замена: {selected_item.get('name_ru')} (Авто)"
-        })
-        
-        return {
-            "success": True, 
-            "message": "Скин отправлен! Подтвердите получение в Steam.",
-            "tradeofferid": t_id
-        }
+    # --- 4. ПЛАН А: ПОКУПКА НА МАРКЕТЕ (ПРИОРИТЕТ) ---
+    logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал замену через Маркет: {m_name}")
     
-    else:
-        # СЛУЧАЙ Б: Стим выдал null или ошибку (Пункт 3 твоего условия)
-        # Мы НЕ пишем "Ошибка", а переводим в ручной режим (processing)
-        err_log = trade_res.get('error', 'Steam null') if trade_res else "Steam connection error"
-        logging.warning(f"[REPLACEMENT] Сбой автоматики: {err_log}. Перевожу #{req.history_id} в ручной режим.")
-
+    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
+    market = MarketCSGO(api_key=TM_API_KEY)
+    
+    # Пытаемся купить на ТМ
+    buy_res = await market.buy_item(m_name, price=selected_item.get('price_rub'))
+    
+    if buy_res.get("success"):
+        custom_id = str(buy_res.get("id"))
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-            "status": "processing",
-            "details": f"Замена выбрана: {selected_item.get('name_ru')}. Ждет ручной отправки (Сбой: {err_log})"
+            "status": "market_pending",
+            "tradeofferid": custom_id,
+            "details": f"Замена закуплена на Маркете: {item_name_ru}"
         })
+        return {"success": True, "message": "Замена успешно закуплена на Маркете! Ожидайте трейд."}
 
-        # Уведомляем тебя в телеграм
-        if os.getenv("ADMIN_NOTIFY_CHAT_ID"):
-            try:
-                alert = (
-                    f"⚠️ <b>НУЖНА РУЧНАЯ ВЫДАЧА</b>\n"
-                    f"Юзер выбрал замену, но Steam API выдал ошибку.\n"
-                    f"👤 {full_name} (@{username})\n"
-                    f"🎁 Предмет: {selected_item.get('name_ru')}\n"
-                    f"🆔 AssetID: <code>{req.assetid}</code>\n"
-                    f"🐞 Ошибка: {err_log}"
-                )
-                # Здесь должен быть вызов твоего метода отправки сообщения в телеграм
-                # await bot.send_message(chat_id=int(os.getenv("ADMIN_NOTIFY_CHAT_ID")), text=alert, parse_mode="HTML")
-            except: pass
-
-        return {
-            "success": True, 
-            "message": "Заявка на этот скин принята! Наш менеджер отправит его вам в течение дня."
-        }
-
-    # --- 4. ОТПРАВЛЯЕМ ТРЕЙД ---
-    print(f"[REPLACEMENT] Отправка замены: {selected_item.get('name_ru', selected_item.get('market_hash_name'))} (Asset: {req.assetid})")
+    # --- 5. ПЛАН Б: ОТПРАВКА СО СКЛАДА (ЕСЛИ МАРКЕТ НЕ СРАБОТАЛ) ---
+    logging.info(f"[REPLACEMENT] Маркет не сработал, пробуем отправить со склада бота...")
     
     trade_res = await send_steam_trade_offer(
         account_id=selected_item["account_id"],
@@ -18184,44 +18157,41 @@ async def confirm_replacement(
     )
 
     if trade_res and trade_res.get("success"):
-        # 5. УСПЕХ: Обновляем историю и кэш
         t_id = str(trade_res.get("tradeofferid"))
-        item_name_log = selected_item.get('name_ru') or selected_item.get('market_hash_name')
-
-        # 🔥 ИСПРАВЛЕНО: Записываем tradeofferid, чтобы кнопка в профиле могла проверить статус
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
             "status": "sent",
             "tradeofferid": t_id,
-            "details": f"Выдана замена: {item_name_log} ({selected_item['assetid']})"
+            "details": f"Замена выдана со склада бота: {item_name_ru}"
         })
-        
-        # Резервируем предмет, чтобы его не предложили кому-то еще
-        await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{req.assetid}"}, json={
-            "is_reserved": True
-        })
+        return {"success": True, "message": "Замена отправлена! Принимайте трейд в Steam.", "tradeofferid": t_id}
 
-        # Уведомление админу
-        if ADMIN_NOTIFY_CHAT_ID:
-            try:
-                msg = (
-                    f"🔄 <b>ВЫДАНА ЗАМЕНА!</b>\n"
-                    f"👤 Юзер: {full_name} ({user_id})\n"
-                    f"🎁 Предмет: {item_name_log}\n"
-                    f"🆔 TradeID: <code>{t_id}</code>"
-                )
-                await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=msg, parse_mode="HTML")
-            except: pass
+    # --- 6. ПЛАН В: РУЧНОЙ РЕЖИМ (ФИНАЛЬНЫЙ) ---
+    # Если мы дошли сюда, значит и Маркет, и Стим-бот (null) выдали ошибку
+    err_log = trade_res.get('error', 'Steam null') if trade_res else "Market & Steam fail"
+    logging.warning(f"[REPLACEMENT] Полный сбой автоматики. Перевод #{req.history_id} в ручной режим.")
 
-        return {"success": True, "message": "Замена успешно отправлена! Принимайте трейд в Steam.", "tradeofferid": t_id}
-    
-    # --- 6. ОШИБКА ---
-    err_text = trade_res.get('error') if trade_res else "Steam вернул null"
-    print(f"[REPLACEMENT] Ошибка Steam: {err_text}")
-    
-    # В случае ошибки трейда, статус в истории не меняем (оставляем pending), 
-    # чтобы юзер мог попробовать еще раз или выбрать другой предмет.
-    
-    return {"success": False, "message": f"Ошибка при отправке трейда: {err_text}. Попробуйте выбрать другой скин или повторить позже."}
+    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+        "status": "processing",
+        "details": f"Выбрана замена: {item_name_ru}. ТРЕБУЕТСЯ РУЧНАЯ ВЫДАЧА (Сбой API: {err_log})"
+    })
+
+    # Уведомление в ТГ
+    if os.getenv("ADMIN_NOTIFY_CHAT_ID"):
+        try:
+            alert_text = (
+                f"🚨 <b>НУЖНА РУЧНАЯ ВЫДАЧА</b>\n"
+                f"Юзер выбрал замену, но автоматика (ТМ/Склад) не справилась.\n"
+                f"👤 {full_name} (@{username})\n"
+                f"🔫 Предмет: <b>{item_name_ru}</b>\n"
+                f"🐞 Ошибка: <code>{err_log}</code>"
+            )
+            # await bot.send_message(chat_id=int(os.getenv("ADMIN_NOTIFY_CHAT_ID")), text=alert_text, parse_mode="HTML")
+        except: pass
+
+    return {
+        "success": True, 
+        "message": "Заявка на получение заменяющего скина принята! Менеджер отправит его вам вручную в ближайшее время."
+    }
     
 # 4. Подтвердить получение (Статус -> received)
 app.post("/api/v1/user/inventory/confirm")
