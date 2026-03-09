@@ -1953,22 +1953,22 @@ class MarketCSGO:
                 return {"success": False, "error": str(e)}
 
 async def get_lowest_price(self, hash_name: str):
-        # Внутри метода должен быть ОДИН уровень отступа (4 пробела относительно def)
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
         
-        # ЛОГ ДЕБАГА (ровно под 'data')
+        # 🔥 ВСТАВЛЯЕМ СЮДА:
         import logging
         logging.info(f"[DEBUG MARKET] Ответ API по {hash_name}: {data}")
 
         if data and data.get("ask") and len(data["ask"]) > 0:
             lowest_ask_rub = float(data["ask"][0]["price"])
+            # Мы прибавляем 1 копейку, чтобы перебить цену (стандартная тактика)
             price_in_kopecks = int((lowest_ask_rub * 100)) + 1 
             return price_in_kopecks
         
+        # Если мы здесь, значит в data['ask'] пусто
         return None
 
-    # Эта функция должна быть на ТАКОМ ЖЕ уровне отступа, как и get_lowest_price
-    async def buy_for_user(self, hash_name: str, trade_link: str, history_id: int):
+    async def buy_for_user(self, hash_name: str, trade_link: str, history_id: int): # <--- Добавили history_id
         partner, token = self.parse_trade_link(trade_link)
         if not partner or not token:
             return {"success": False, "error": "Неверная трейд-ссылка"}
@@ -1977,6 +1977,8 @@ async def get_lowest_price(self, hash_name: str):
         if not price:
             return {"success": False, "error": "Предмет не найден в продаже"}
 
+        # 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ:
+        # Теперь custom_id — это просто твой ID из таблицы cs_history
         custom_id = str(history_id) 
 
         params = {
