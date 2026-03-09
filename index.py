@@ -362,12 +362,15 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     real_skin = None
     target_lower = target_name.lower()
     
+    # 🔥 ФИКС ОШИБКИ: Сначала создаем переменную, чтобы она была доступна везде
+    market_search_name = target_market_name if target_market_name else target_name
+    
     # 🔥 [ОБНОВЛЕННЫЙ ПЕРЕВОДЧИК: ВЕРСИЯ 2.0]
-    # Если передали русское имя (или вообще ничего), лезем в "словарь" steam_inventory_cache
+    # Если имени нет или в нем русские буквы — лезем в "словарь" steam_inventory_cache
     if not market_search_name or bool(re.search('[а-яА-Я]', market_search_name)):
         logging.info(f"[STOREKEEPER] Умный поиск перевода для '{target_name}'...")
         
-        # Маппинг для склейки русского названия с качеством, как оно обычно лежит в кэше
+        # Маппинг для склейки русского названия с качеством
         cond_map_ru = {
             "FN": "Прямо с завода",
             "MW": "Немного поношенное",
@@ -376,13 +379,13 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             "BS": "Закаленное в боях"
         }
         
-        # Собираем полное имя (например: "Glock-18 | Океаническая топография (Немного поношенное)")
+        # Собираем полное имя для поиска в кэше
         full_ru_name = target_name
         if target_condition in cond_map_ru:
             full_ru_name = f"{target_name} ({cond_map_ru[target_condition]})"
 
         try:
-            # 1. Пробуем найти по максимально точному совпадению (с качеством) через ilike
+            # 1. Пробуем найти по максимально точному совпадению (с качеством)
             trans_res = await supabase.get("/steam_inventory_cache", params={
                 "name_ru": f"ilike.%{full_ru_name}%",
                 "select": "market_hash_name",
@@ -394,7 +397,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                 market_search_name = trans_data[0].get('market_hash_name')
                 logging.info(f"[STOREKEEPER] Перевод найден (точно): {market_search_name}")
             else:
-                # 2. Если не нашли с качеством, ищем просто по базовому названию (через ilike)
+                # 2. Если не нашли с качеством, ищем просто по базовому названию
                 logging.info(f"[STOREKEEPER] Точный перевод не найден, ищем по базе: {target_name}...")
                 trans_res_alt = await supabase.get("/steam_inventory_cache", params={
                     "name_ru": f"ilike.%{target_name}%",
@@ -407,50 +410,46 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                     market_search_name = trans_data_alt[0].get('market_hash_name')
                     logging.info(f"[STOREKEEPER] Перевод найден (по названию): {market_search_name}")
                 else:
-                    logging.warning(f"[STOREKEEPER] Перевод для '{target_name}' не найден ни в каком виде.")
-                    # Если перевода нет — ставим заглушку, чтобы Маркет не получил кириллицу
-                    market_search_name = "SKIP_MARKET_TRANSLATION_NOT_FOUND"
+                    logging.warning(f"[STOREKEEPER] Перевод для '{target_name}' не найден. План А будет пропущен.")
+                    market_search_name = "SKIP_MARKET_NOT_FOUND"
                     
         except Exception as e:
             logging.error(f"[STOREKEEPER] Ошибка при поиске перевода: {e}")
+            # В случае ошибки оставляем что было, чтобы не падать
             market_search_name = market_search_name or target_name
-            
 
     # ==========================================
-    # 🛒 ПЛАН "А": ПОКУПКА НА МАРКЕТЕ (ТЕПЕРЬ ПРИОРИТЕТ!)
+    # 🛒 ПЛАН "А": ПОКУПКА НА МАРКЕТЕ (ПРИОРИТЕТ)
     # ==========================================
-    # Мы сначала идем на Маркет для всех обычных предметов, используя English Name
-    logging.info(f"[STOREKEEPER] План А: Пробуем купить на Маркете по названию: {market_search_name}")
-    
-    # Берем API-ключ из окружения
-    TM_API_KEY = os.getenv("MARKET_API_KEY", "ТВОЙ_API_KEY_МАРКЕТА")
-    # Создаем клиента
-    market = MarketCSGO(api_key=TM_API_KEY)
-    
-    # 🔥 ВЫЗЫВАЕМ ПОКУПКУ С АНГЛИЙСКИМ НАЗВАНИЕМ (которое мы только что нашли в кэше)
-    market_res = await market.buy_for_user(
-        hash_name=market_search_name, 
-        trade_link=trade_url, 
-        history_id=history_id
-    )
-    
-    if market_res.get("success"):
-        logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {history_id}")
-        # Статус market_pending разблокирует кнопку "СТАТУС TM" в профиле
-        await supabase.patch("/cs_history", 
-            params={"id": f"eq.{history_id}"}, 
-            json={"status": "market_pending"}
+    # Проверяем, что название не SKIP и не содержит кириллицу
+    if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
+        logging.info(f"[STOREKEEPER] План А: Пробуем купить на Маркете: {market_search_name}")
+        
+        TM_API_KEY = os.getenv("MARKET_API_KEY", "ТВОЙ_API_KEY_МАРКЕТА")
+        market = MarketCSGO(api_key=TM_API_KEY)
+        
+        market_res = await market.buy_for_user(
+            hash_name=market_search_name, 
+            trade_link=trade_url, 
+            history_id=history_id
         )
-        return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
+        
+        if market_res.get("success"):
+            logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {history_id}")
+            await supabase.patch("/cs_history", 
+                params={"id": f"eq.{history_id}"}, 
+                json={"status": "market_pending"}
+            )
+            return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
+        else:
+            err = market_res.get("error", "Неизвестная ошибка")
+            logging.warning(f"[STOREKEEPER] Маркет не справился ({err}). Идем к плану Б (Склад)...")
     else:
-        # Если на маркете ошибка (нет денег или предмета), не паникуем — идем к ботам
-        err = market_res.get("error", "Неизвестная ошибка")
-        logging.warning(f"[STOREKEEPER] Маркет не справился с '{market_search_name}' ({err}). Переходим к плану Б (Склад)...")
+        logging.warning(f"[STOREKEEPER] План А пропущен (нет англ. названия): {market_search_name}")
 
     # ==========================================
     # 🔥 СПЕЦНАЗ: РАНДОМНЫЙ ДЕШЕВЫЙ ЛУТ (СКЛАД) 🔥
     # ==========================================
-    # Если это дешевый рандом, смотрим сначала свои запасы
     if "1 наклейка" in target_lower or "рандомная наклейка" in target_lower:
         logging.info("[STOREKEEPER] Ищем самую дешевую наклейку в кэше...")
         stock_res = await supabase.get("/steam_inventory_cache", params={
@@ -478,12 +477,12 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             logging.info(f"[STOREKEEPER] Нашли рандомный сувенир: {real_skin['market_hash_name']}")
 
     # ==========================================
-    # 📦 ОБЫЧНЫЙ ПОИСК ПО СКЛАДУ (Если Маркет не сработал)
+    # 📦 ОБЫЧНЫЙ ПОИСК ПО СКЛАДУ
     # ==========================================
     if not real_skin:
-        # 2. Поиск оригинала на полках ботов (используем target_name, так как на складе русский поиск)
+        # Ищем по name_ru в кэше
         search_params = {
-            "name_ru": f"eq.{target_name}", # 🔥 Ищем прямо по name_ru в кэше
+            "name_ru": f"eq.{target_name}",
             "is_reserved": "eq.false",
             "limit": 1
         }
@@ -498,12 +497,10 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             real_skin = stock_data[0]
             logging.info(f"[STOREKEEPER] Найден оригинал на складе! AssetID: {real_skin['assetid']}")
         else:
-            # 3. План "Б": Умная замена на складе (±7% от цены)
+            # План "В": Умная замена (±7% от цены)
             if target_price_rub > 0:
-                min_p = target_price_rub * 0.93
-                max_p = target_price_rub * 1.07
-                
-                logging.info(f"[STOREKEEPER] Оригинала нет нигде. Ищем замену на складе от {min_p:.2f} до {max_p:.2f} руб.")
+                min_p, max_p = target_price_rub * 0.93, target_price_rub * 1.07
+                logging.info(f"[STOREKEEPER] Ищем замену на складе от {min_p:.2f} до {max_p:.2f} руб.")
                 
                 alt_res = await supabase.get("/steam_inventory_cache", params={
                     "is_reserved": "eq.false",
@@ -515,19 +512,17 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                 alts = alt_res.json()
                 if alts and len(alts) > 0:
                     real_skin = alts[0]
-                    logging.info(f"[STOREKEEPER] Нашли замену на складе: {real_skin['market_hash_name']} ({real_skin['price_rub']} руб.)")
+                    logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']}")
 
     # ==========================================
-    # 📦 ФИНАЛИЗАЦИЯ ДЛЯ ПРЕДМЕТА СО СКЛАДА
+    # 📦 ФИНАЛИЗАЦИЯ
     # ==========================================
     if real_skin:
-        # 4. Наклеиваем стикер "ПРОДАНО" (Резерв)
         await supabase.patch("/steam_inventory_cache", 
             params={"assetid": f"eq.{real_skin['assetid']}"}, 
             json={"is_reserved": True}
         )
 
-        # 5. Передача заказа курьеру (Очередь в user_winnings)
         delivery_payload = {
             "user_id": user_id,
             "assetid": real_skin["assetid"],
@@ -539,15 +534,12 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
         }
         
         await supabase.post("/user_winnings", json=delivery_payload)
-        
-        # Ставим статус "В ОЧЕРЕДИ" в основной истории
         await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "pending"})
 
-        return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован на складе и готов к отправке"}
+        return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован на складе"}
 
-    # Если Маркет пуст, склад пуст и замен нет
-    logging.error(f"[STOREKEEPER] КРИТИЧЕСКАЯ ОШИБКА: Предмета {target_name} нет ни на Маркете, ни на складах!")
-    return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии нигде"}
+    logging.error(f"[STOREKEEPER] Везде пусто для {target_name}!")
+    return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
     
 # =======================================================
 # 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
