@@ -655,6 +655,108 @@
     border-color: var(--danger-color) !important;
     box-shadow: 0 0 10px rgba(255, 59, 48, 0.3);
 }
+/* --- СТИЛИ ДЛЯ ВЫБОРА ЗАМЕНЫ (ИЗ МАГАЗИНА) --- */
+        #replacement-modal { z-index: 30000 !important; }
+        
+        .replacement-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-bottom: 10px;
+        }
+        
+        .replacement-card {
+            background: #1c1c1e;
+            border-radius: 14px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            text-align: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 170px;
+            justify-content: space-between;
+            overflow: hidden;
+            z-index: 1;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        .replacement-card:active { transform: scale(0.96); }
+        
+        .replacement-card img {
+            width: 85%;
+            height: 90px; 
+            object-fit: contain;
+            filter: drop-shadow(0 8px 15px rgba(0,0,0,0.5));
+            z-index: 2;
+            margin-top: 5px;
+            transform: scale(1.15) translateZ(0); 
+            transition: transform 0.2s ease;
+        }
+        
+        /* Особый зум для наклеек */
+        .replacement-card.is-sticker img {
+            transform: scale(2.0) translateZ(0) !important; 
+            transform-origin: center 35%; 
+            margin-top: 10px; 
+        }
+        
+        .replacement-card:active img { transform: scale(1.25) translateZ(0); }
+        .replacement-card.is-sticker:active img { transform: scale(2.1) translateZ(0) !important; }
+
+        .replacement-text-zone {
+            width: 100%;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            flex-grow: 1;
+            padding-bottom: 5px;
+        }
+        .replacement-name {
+            font-size: 10px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.1;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 33px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            text-transform: uppercase;
+        }
+        .replacement-condition {
+            font-size: 9px;
+            color: #8E8E93;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        
+        /* Glow эффекты */
+        .replacement-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.25; 
+            z-index: 0;
+            pointer-events: none;
+        }
+        .replacement-card.blue { border-color: #4b69ff; }
+        .replacement-card.blue::after { background: radial-gradient(circle at 50% 40%, #4b69ff 0%, transparent 75%); }
+        .replacement-card.purple { border-color: #8847ff; }
+        .replacement-card.purple::after { background: radial-gradient(circle at 50% 40%, #8847ff 0%, transparent 75%); }
+        .replacement-card.pink { border-color: #d32ce6; }
+        .replacement-card.pink::after { background: radial-gradient(circle at 50% 40%, #d32ce6 0%, transparent 75%); }
+        .replacement-card.red { border-color: #eb4b4b; }
+        .replacement-card.red::after { background: radial-gradient(circle at 50% 40%, #eb4b4b 0%, transparent 75%); }
+        .replacement-card.gold { border-color: #ffd700; }
+        .replacement-card.gold::after { background: radial-gradient(circle at 50% 40%, #ffd700 0%, transparent 75%); }
+        
     </style>
 </head>
 <body>
@@ -901,6 +1003,23 @@
             
             <button class="popup-btn primary" id="share-ref-link-btn" style="margin-top: 10px;">Пригласить друга</button>
             <button class="popup-btn secondary" id="close-ref-modal-btn" style="margin-top: 10px;">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="replacement-modal" class="custom-popup-overlay">
+        <div class="custom-popup" style="max-width: 360px; padding: 15px; width: 90%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 18px;">Выберите замену</h3>
+                <button onclick="closeReplacementModal()" style="background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p style="font-size: 11px; color: #8E8E93; margin: 0 0 10px 0; text-align: left;">Оригинала нет, выберите любой скин — отправим его сразу:</p>
+            
+            <div id="replacement-options-list" class="replacement-grid">
+                </div>
+
+            <button onclick="closeReplacementModal()" class="popup-btn secondary" style="margin-top: 10px;">Отмена</button>
         </div>
     </div>
     
@@ -2259,6 +2378,86 @@ window.checkTradeStatus = async function(historyId) {
     } catch(e) { 
         console.error("Ошибка при запуске:", e); 
     }
+
+    // Показываем окно замен
+window.openReplacementModal = function(historyId, options) {
+    const modal = document.getElementById('replacement-modal');
+    const container = document.getElementById('replacement-options-list');
+    
+    container.innerHTML = options.map(item => {
+        let r = (item.rarity || '').toLowerCase();
+        let rClass = 'blue';
+        if (r.includes('purple')) rClass = 'purple';
+        else if (r.includes('pink')) rClass = 'pink';
+        else if (r.includes('red')) rClass = 'red';
+        else if (r.includes('gold')) rClass = 'gold';
+
+        const cleanName = item.name_ru.split('|').pop().trim();
+        const isSticker = item.name_ru.toLowerCase().includes('наклейка');
+        const stickerClass = isSticker ? 'is-sticker' : '';
+        const safeName = item.name_ru.replace(/'/g, "");
+
+        return `
+            <div class="replacement-card ${rClass} ${stickerClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeName}')">
+                <img src="${item.icon_url}" loading="lazy">
+                <div class="replacement-text-zone">
+                    <div class="replacement-name">${cleanName}</div>
+                    <div class="replacement-condition">${item.condition || '-'}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    modal.classList.add('visible');
+}
+
+// Закрываем окно замен
+window.closeReplacementModal = function() {
+    document.getElementById('replacement-modal').classList.remove('visible');
+}
+
+// Финальное подтверждение (отправка трейда с заменой)
+window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
+    // Используем окно подтверждения из профиля (showCustomConfirmHTML)
+    showCustomConfirmHTML(`Забрать "${itemName}"?`, async (closeConfirmWindow) => {
+        showLoader();
+        try {
+            // Отправляем запрос на бэкенд
+            const res = await makeApiRequest('/api/v1/user/inventory/confirm_replacement', {
+                history_id: historyId,
+                assetid: assetid
+            }, 'POST', true);
+
+            if (res && res.success) {
+                showNotification("✅ Успешно! Трейд отправлен.", "success");
+                closeConfirmWindow(); 
+                closeReplacementModal();
+                
+                // Мгновенно меняем кнопку в инвентаре на "В ОЧЕРЕДИ"
+                const actionsDiv = document.getElementById(`actions-${historyId}`);
+                const statusTextDiv = document.getElementById(`status-text-${historyId}`);
+                if (actionsDiv && statusTextDiv) {
+                    statusTextDiv.innerHTML = '<span style="color:#FFD700; font-size:9px;">ОЖИДАЕТ ВЫДАЧИ</span>';
+                    actionsDiv.innerHTML = `
+                        <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
+                            В ОЧЕРЕДИ
+                        </div>`;
+                }
+
+                // Фоновое обновление списка
+                setTimeout(() => { loadData(true); }, 800);
+            } else {
+                showCustomAlert("❌ " + (res.message || "Ошибка замены"), true);
+                closeConfirmWindow();
+            }
+        } catch (e) {
+            showCustomAlert("Ошибка: " + e.message, true);
+            closeConfirmWindow();
+        } finally {
+            hideLoader();
+        }
+    }, "ЗАБРАТЬ", "#ffcc00"); // Желтая кнопка "Забрать"
+}
 
 </script>
 </body>
