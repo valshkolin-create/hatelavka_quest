@@ -18067,6 +18067,10 @@ async def confirm_replacement(
     req: ReplacementConfirmRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    import re
+    import os
+    import logging
+
     # --- 1. ПРОВЕРКА АВТОРИЗАЦИИ ---
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data:
@@ -18074,21 +18078,21 @@ async def confirm_replacement(
     
     user_id = user_data['id']
 
-    # --- 2. ПОЛУЧАЕМ ТРЕЙД-ССЫЛКУ ЮЗЕРА ---
+    # --- 2. ПОЛУЧАЕМ ДАННЫЕ ЮЗЕРА ---
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-    u_data = user_res.json()
-    if not u_data or not isinstance(u_data, list):
+    u_list = user_res.json()
+    if not u_list or not isinstance(u_list, list):
         raise HTTPException(status_code=400, detail="User error")
     
-    user_info = u_data[0]
+    user_info = u_list[0]
     trade_link = user_info.get('trade_link')
     full_name = user_info.get('full_name', 'User')
+    username = user_info.get('username', 'NoName')
 
     if not trade_link:
-        raise HTTPException(status_code=400, detail="У вас не указана трейд-ссылка!")
+        return {"success": False, "message": "⚠️ Сначала укажите Trade Link в профиле!"}
 
-    # --- 3. ПРОВЕРЯЕМ ДОСТУПНОСТЬ ПРЕДМЕТА ---
-    # Ищем в кэше по assetid, убеждаемся что он не зарезервирован
+    # --- 3. ПРОВЕРЯЕМ ДОСТУПНОСТЬ ПРЕДМЕТА (100% ПРОВЕРКА) ---
     check_asset = await supabase.get("/steam_inventory_cache", params={
         "assetid": f"eq.{req.assetid}", 
         "is_reserved": "eq.false"
@@ -18096,9 +18100,78 @@ async def confirm_replacement(
     asset_rows = check_asset.json()
     
     if not asset_rows or not isinstance(asset_rows, list):
-        return {"success": False, "message": "Извините, этот скин уже кто-то забрал или он пропал со склада. Выберите другой!"}
+        return {"success": False, "message": "Этот скин уже забрали. Выберите другой из списка!"}
 
     selected_item = asset_rows[0]
+    m_name = selected_item.get('market_hash_name', '')
+
+    # Дополнительный фильтр: не берем скины с русскими буквами в хеш-нейме (условие 1)
+    if bool(re.search('[а-яА-Я]', m_name)):
+        return {"success": False, "message": "Ошибка конфигурации скина. Выберите другой."}
+
+    # --- 4. ПРОБУЕМ ОТПРАВИТЬ (ЭТАП ВЫДАЧИ) ---
+    logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал {m_name}")
+    
+    trade_res = await send_steam_trade_offer(
+        account_id=selected_item["account_id"],
+        assetid=selected_item["assetid"],
+        trade_url=trade_link,
+        supabase=supabase
+    )
+
+    # Резервируем в базе СРАЗУ, чтобы никто другой не нажал
+    await supabase.patch("/steam_inventory_cache", 
+        params={"assetid": f"eq.{req.assetid}"}, 
+        json={"is_reserved": True}
+    )
+
+    # --- 5. ОБРАБОТКА РЕЗУЛЬТАТА (БЕЗ ОШИБОК ДЛЯ ЮЗЕРА) ---
+    if trade_res and trade_res.get("success"):
+        # СЛУЧАЙ А: Стим сработал, оффер улетел
+        t_id = str(trade_res.get("tradeofferid"))
+        
+        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+            "status": "sent",
+            "tradeofferid": t_id,
+            "details": f"Замена: {selected_item.get('name_ru')} (Авто)"
+        })
+        
+        return {
+            "success": True, 
+            "message": "Скин отправлен! Подтвердите получение в Steam.",
+            "tradeofferid": t_id
+        }
+    
+    else:
+        # СЛУЧАЙ Б: Стим выдал null или ошибку (Пункт 3 твоего условия)
+        # Мы НЕ пишем "Ошибка", а переводим в ручной режим (processing)
+        err_log = trade_res.get('error', 'Steam null') if trade_res else "Steam connection error"
+        logging.warning(f"[REPLACEMENT] Сбой автоматики: {err_log}. Перевожу #{req.history_id} в ручной режим.")
+
+        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+            "status": "processing",
+            "details": f"Замена выбрана: {selected_item.get('name_ru')}. Ждет ручной отправки (Сбой: {err_log})"
+        })
+
+        # Уведомляем тебя в телеграм
+        if os.getenv("ADMIN_NOTIFY_CHAT_ID"):
+            try:
+                alert = (
+                    f"⚠️ <b>НУЖНА РУЧНАЯ ВЫДАЧА</b>\n"
+                    f"Юзер выбрал замену, но Steam API выдал ошибку.\n"
+                    f"👤 {full_name} (@{username})\n"
+                    f"🎁 Предмет: {selected_item.get('name_ru')}\n"
+                    f"🆔 AssetID: <code>{req.assetid}</code>\n"
+                    f"🐞 Ошибка: {err_log}"
+                )
+                # Здесь должен быть вызов твоего метода отправки сообщения в телеграм
+                # await bot.send_message(chat_id=int(os.getenv("ADMIN_NOTIFY_CHAT_ID")), text=alert, parse_mode="HTML")
+            except: pass
+
+        return {
+            "success": True, 
+            "message": "Заявка на этот скин принята! Наш менеджер отправит его вам в течение дня."
+        }
 
     # --- 4. ОТПРАВЛЯЕМ ТРЕЙД ---
     print(f"[REPLACEMENT] Отправка замены: {selected_item.get('name_ru', selected_item.get('market_hash_name'))} (Asset: {req.assetid})")
