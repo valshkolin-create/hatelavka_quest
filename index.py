@@ -17902,19 +17902,21 @@ async def withdraw_inventory_item(
             if buy_res.get("success"):
                 await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                     "status": "market_pending",
-                    "market_custom_id": buy_res.get("custom_id")
+                    "tradeofferid": None # Очищаем, так как это покупка через ТМ (там custom_id)
                 })
                 return {"success": True, "message": "Заявка отправлена на Маркет!"}
 
     # ==========================================
     # 📦 ЭТАП 2: СКЛАД ОРИГИНАЛ (ПЛАН Б)
     # ==========================================
+    # 🔥 ИСПРАВЛЕНО: Добавлен аргумент history_id
     delivery_res = await fulfill_item_delivery(
         user_id=user_id,
         target_name=item_name,
         target_price_rub=target_price_rub,
         trade_url=trade_link,
         supabase=supabase,
+        history_id=req.history_id, # <--- ПЕРЕДАЕМ ID
         target_condition=item_condition
     )
 
@@ -17926,19 +17928,21 @@ async def withdraw_inventory_item(
             trade_url=trade_link,
             supabase=supabase
         )
+        # 🔥 ИСПРАВЛЕНО: Сохраняем tradeofferid в базу
         if trade_res and trade_res.get("success"):
-            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "sent"})
+            t_id = str(trade_res.get("tradeofferid"))
+            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                "status": "sent",
+                "tradeofferid": t_id # <--- СОХРАНЯЕМ ДЛЯ ПРОВЕРКИ
+            })
             return {"success": True, "message": "Трейд отправлен со склада!"}
 
     # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН (ПЛАН В)
     # ==========================================
-    # Если мы здесь, значит Маркет и Склад (оригинал) не сработали.
-    # Ищем альтернативы в кэше ботов по цене price_rub.
     replacements = await get_replacement_options(target_price_rub, target_price_base, supabase)
     
     if replacements:
-        # Возвращаем статус 'offer_replacement', чтобы фронтенд открыл модалку
         return {
             "success": False,
             "status": "offer_replacement",
@@ -17946,7 +17950,7 @@ async def withdraw_inventory_item(
             "options": replacements
         }
 
-    # Если даже замен не нашли (склад совсем пустой)
+    # Если даже замен не нашли
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "processing"})
     
     if ADMIN_NOTIFY_CHAT_ID:
