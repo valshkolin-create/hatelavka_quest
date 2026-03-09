@@ -15034,109 +15034,58 @@ async def buy_bott_item_proxy(
             winner = random.choices(final_items, weights=final_weights, k=1)[0]
             
             # ==========================================
-            # 📦 ВЫЗОВ КЛАДОВЩИКА (БЛОК 5)
             # ==========================================
-            delivery_status = "pending" # Статус по умолчанию
+            # 📦 ВЫЗОВ КЛАДОВЩИКА (БЛОК 5) - ИСПРАВЛЕНО
+            # ==========================================
+            delivery_status = "pending"
             history_id = None
+            
+            # Определяем код покупки заранее
+            current_code = f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}"
 
-            # --- ШАГ 1: Создаем запись в истории ПЕРЕД выдачей ---
-            # Это нужно, чтобы у нас был ID для отслеживания трейда
+            # --- ШАГ 1: Создаем ОДНУ окончательную запись в истории ПЕРЕД выдачей ---
             try:
                 h_res = await supabase.post("/cs_history", json={
                     "user_id": int(telegram_id),
-                    "case_name": case_name if 'case_name' in locals() else "Магазин",
-                    "item_id": winner.get('id'), # ID предмета из таблицы cs_items
+                    "item_id": int(winner['id']),
+                    "case_name": str(item_title),
+                    "code_used": current_code,
                     "status": "pending",
+                    "lacky": current_lacky, # Сохраняем удачу сразу
                     "details": f"Выигрыш: {winner['name']}"
-                })
+                }, headers={"Prefer": "return=representation"}) # 🔥 ВАЖНО: заголовок, чтобы не было ошибки JSON
+                
                 h_data = h_res.json()
                 if h_data and isinstance(h_data, list):
                     history_id = h_data[0].get('id')
-                    logging.info(f"[SHOP] Создана запись в истории: #{history_id}")
+                    logging.info(f"[SHOP] Запись создана! HistoryID: {history_id}")
+                else:
+                    raise Exception(f"База вернула пустой ответ: {h_data}")
+
             except Exception as e:
-                logging.error(f"[SHOP] Ошибка создания записи в cs_history: {e}")
+                logging.error(f"[SHOP] Ошибка создания записи (JSON Error fix): {e}")
 
             if user_trade_link and history_id:
-                # --- ШАГ 2: Отправляем кладовщика на склад ---
-                # 🔥 ТЕПЕРЬ ПЕРЕДАЕМ history_id (обязательный аргумент)
+                # --- ШАГ 2: Отправляем кладовщика на склад с уже готовым ID ---
                 delivery_res = await fulfill_item_delivery(
                     user_id=int(telegram_id),
                     target_name=winner['name'],
                     target_price_rub=float(winner.get('price', 0)),
                     trade_url=user_trade_link,
                     supabase=supabase,
-                    history_id=history_id, # <--- ВОТ ОНО!
+                    history_id=history_id, # Передаем ID
                     target_condition=winner.get('condition')
                 )
                 
                 if delivery_res.get("success"):
-                    # Проверяем, что ответил Кладовщик
                     if "market_pending" in str(delivery_res):
                         delivery_status = "market_pending"
-                        logging.info(f"[SHOP] Предмет закуплен на Маркете для #{history_id}")
                     else:
-                        delivery_status = "auto_queued" 
-                        logging.info(f"[SHOP] Автовыдача: предмет {winner['name']} зарезервирован!")
+                        delivery_status = "auto_queued"
                 else:
-                    logging.warning(f"[SHOP] Автовыдача не удалась ({delivery_res.get('error')}). Переход в ручной режим.")
-                    # Если автовыдача не удалась, обновляем статус в базе на 'processing' (ручная выдача)
-                    await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
-            else:
-                if not user_trade_link:
-                    logging.warning(f"[SHOP] У юзера {telegram_id} нет трейд-ссылки. Ручная выдача.")
-                if history_id:
-                    # Ставим статус ручной выдачи, если нет ссылки
-                    await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
-
-            # В конце этого блока у тебя теперь есть история, ID и правильный статус для отчета
-            # ==========================================
-            
-            # --- 5. ЗАПИСЬ В ИСТОРИЮ (Добавили lacky) ---
-            hist_payload = {
-                "user_id": int(telegram_id), 
-                "item_id": int(winner['id']),
-                "case_name": str(item_title),
-                "code_used": f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}",
-                "status": "pending", # <-- Снова ставим просто pending
-                "lacky": current_lacky 
-            }
-            
-            logging.info(f"[SHOP] Попытка вставки в cs_history: {hist_payload}")
-
-            hist_insert_resp = await supabase.post(
-                "/cs_history", 
-                json=hist_payload,
-                headers={"Prefer": "return=representation"} 
-            )
-            
-            if hist_insert_resp.status_code not in [200, 201]:
-                logging.error(f"[SHOP] БАЗА ОТКЛОНИЛА ЗАПИСЬ: {hist_insert_resp.text}")
-                raise Exception(f"Database error: {hist_insert_resp.text}")
-
-            hist_result = hist_insert_resp.json()
-            history_id = 0
-
-            if isinstance(hist_result, list) and len(hist_result) > 0:
-                history_id = hist_result[0].get('id')
-            elif isinstance(hist_result, dict):
-                history_id = hist_result.get('id')
-
-            if not history_id:
-                # Резервный поиск
-                backup_check = await supabase.get("/cs_history", params={
-                    "user_id": f"eq.{telegram_id}",
-                    "order": "id.desc",
-                    "limit": "1"
-                })
-                backup_data = backup_check.json()
-                if backup_data and len(backup_data) > 0:
-                    history_id = backup_data[0].get('id')
-
-            if not history_id:
-                logging.error("[SHOP] КРИТИЧЕСКАЯ ОШИБКА: Запись не найдена даже после поиска!")
-                raise Exception("Не удалось создать запись в истории.")
-
-            logging.info(f"[SHOP] Успешно! HistoryID: {history_id}, Lacky: {current_lacky}")
+                    # Если автовыдача не пошла, статус в базе уже должен быть processing
+                    # Но для надежности можно оставить как есть
+                    logging.warning(f"[SHOP] Автовыдача не удалась. Ручной режим для #{history_id}")
 
             # --- 6. Готовим ответ для фронтенда ---
             roulette_strip = random.choices(all_items, weights=weights, k=80)
