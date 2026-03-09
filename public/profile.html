@@ -1508,13 +1508,7 @@ function renderInventory(items) {
                     ПОИСК...
                 </div>`;
         }
-        else if (status === 'pending') {
-            statusLabel = '<span style="color:#007aff; font-size:9px;">ОЖИДАЕТ ОТПРАВКИ БОТОМ</span>';
-            rightContentHtml = `
-                <div style="background: rgba(0, 122, 255, 0.1); color: #007aff; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(0, 122, 255, 0.2);">
-                    <i class="fa-solid fa-spinner fa-spin"></i> В ОЧЕРЕДИ
-                </div>`;
-        }
+        // 🔥 Блок "else if (status === 'pending')" удален отсюда! 🔥
         else if (status === 'market_pending') {
             statusLabel = ''; // Убираем текст из центральной колонки
             rightContentHtml = `
@@ -1575,9 +1569,11 @@ function renderInventory(items) {
                 </div>`;
         }
         else {
+            // 🔥 ТЕПЕРЬ ВСЕ НОВЫЕ ПРЕДМЕТЫ ПОПАДАЮТ СЮДА 🔥
             if (status === 'failed' || status === 'canceled') {
                 statusLabel = '<span style="color:#ff3b30; font-size:9px;"><i class="fa-solid fa-rotate-left"></i> ОТМЕНЕНО (МОЖНО ПОВТОРИТЬ)</span>';
             } else {
+                // Если статус pending или available
                 statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДЛЯ ВЫВОДА</span>';
             }
 
