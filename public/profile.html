@@ -906,6 +906,9 @@
     
 <script>
     const tg = window.Telegram.WebApp;
+    let isUpdating = false; // 🔥 Добавляем сюда
+
+    
 
     // Объект ссылок на элементы (DOM) - объявляем глобально, чтобы видеть везде
     const dom = {
@@ -1453,30 +1456,47 @@ function getRarityData(rarity) {
 }
 
 function initCountdown(elementId, updatedAtStr) {
-    const updateTime = new Date(updatedAtStr).getTime();
-    const expireTime = updateTime + (60 * 60 * 1000); // Время обновления + 60 минут
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    // Если даты нет, пишем "Ждем..."
+    if (!updatedAtStr) {
+        el.innerHTML = "Ждем данные...";
+        return;
+    }
+
+    // Нормализация даты: заменяем пробел на 'T', чтобы JS понимал формат
+    const normalizedStr = updatedAtStr.replace(' ', 'T');
+    const updateTime = new Date(normalizedStr).getTime();
+    
+    // Если дата все равно кривая, выводим заглушку
+    if (isNaN(updateTime)) {
+        el.innerHTML = "В процессе...";
+        return;
+    }
+
+    const expireTime = updateTime + (60 * 60 * 1000); // + 60 минут
 
     const timerInterval = setInterval(() => {
         const now = new Date().getTime();
         const distance = expireTime - now;
-        const el = document.getElementById(elementId);
+        const currentEl = document.getElementById(elementId);
 
-        if (!el) {
+        if (!currentEl) {
             clearInterval(timerInterval);
             return;
         }
 
         if (distance < 0) {
             clearInterval(timerInterval);
-            el.innerHTML = "ЗАВЕРШЕНИЕ...";
-            // Можно вызвать loadData(true) здесь для автообновления статуса
+            currentEl.innerHTML = "ЗАВЕРШЕНИЕ...";
             return;
         }
 
         const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-        el.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
+        currentEl.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
     }, 1000);
 }
 
@@ -1534,7 +1554,7 @@ function renderInventory(items) {
                 </div>`;
         }
         else if (status === 'market_pending' || status === 'sent' || status === 'offer_sent') {
-            // 🔥 ВМЕСТО КНОПКИ ПРОВЕРИТЬ — ТАЙМЕР НА 60 МИНУТ 🔥
+            // 🔥 ВИЗУАЛЬНЫЙ ТАЙМЕР НА 60 МИНУТ 🔥
             const actionText = status === 'market_pending' ? 'ПРОДАВЕЦ ОТПРАВЛЯЕТ' : 'ОФФЕР ОТПРАВЛЕН';
             const accentColor = status === 'market_pending' ? '#a200ff' : '#ffcc00';
 
@@ -1555,7 +1575,7 @@ function renderInventory(items) {
                     </button>
                 </div>`;
             
-            // Запускаем тиканье таймера для этой карточки
+            // Запускаем тиканье таймера
             setTimeout(() => {
                 initCountdown(timerElementId, item.updated_at);
             }, 50);
@@ -1645,18 +1665,36 @@ window.withdrawItem = function(historyId, itemName) {
     showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (close) => {
         showLoader(); 
         try {
-            // 1. Отправляем запрос на вывод
-            await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
-            
-            // 2. Закрываем окно подтверждения
+            const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: historyId }, 'POST', true);
             close();
-            
-            // 3. СРАЗУ показываем успешное окно (без ожидания загрузки других данных)
-            showCustomAlert(`✅ <b>Заявка создана!</b><br><br>Скин появится в Steam в течение 24 часов.`, false);
-            
-            // 4. Запускаем обновление инвентаря в фоне (ОБЯЗАТЕЛЬНО БЕЗ await)
-            loadData(true); 
-            
+
+            // 🔥 МГНОВЕННОЕ ОБНОВЛЕНИЕ СТАТУСА В ИНТЕРФЕЙСЕ 🔥
+            const actionsDiv = document.getElementById(`actions-${historyId}`);
+            const statusTextDiv = document.getElementById(`status-text-${historyId}`);
+
+            if (actionsDiv && statusTextDiv) {
+                // Если сервер предложил замену — не меняем статус на "Обработка", 
+                // так как юзер еще должен выбрать скин.
+                if (res.status !== 'offer_replacement') {
+                    statusTextDiv.innerHTML = '<span style="color:#FFD700; font-size:9px;">ОЖИДАЕТ ВЫДАЧИ</span>';
+                    actionsDiv.innerHTML = `
+                        <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
+                            В ОЧЕРЕДИ
+                        </div>`;
+                }
+            }
+
+            if (res.status === 'offer_replacement') {
+                if (typeof openReplacementModal === 'function') {
+                    openReplacementModal(historyId, res.options);
+                }
+            } else if (res.success) {
+                showNotification("Заявка создана!", "success");
+            }
+
+            // Фоновое обновление данных через паузу для синхронизации с базой
+            setTimeout(() => { loadData(true); }, 800);
+
         } catch (e) {
             close();
             showCustomAlert("Ошибка:<br>" + (e.message || "Соединение прервано"), true);
@@ -1665,7 +1703,7 @@ window.withdrawItem = function(historyId, itemName) {
         }
     }, "ВЫВЕСТИ", "#34c759");
 }
-
+    
 // --- ФУНКЦИЯ ОБМЕНА (С авто-обновлением) ---
 window.exchangeItem = function(historyId, amount) {
     showCustomConfirmHTML(`Продать скин за ${amount} 🎟️?`, async (close) => {
