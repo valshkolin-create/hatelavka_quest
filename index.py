@@ -14551,10 +14551,9 @@ async def get_bott_goods_proxy(
 async def fetch_and_cache_goods_background(category_id: int, supabase_client=None):
     """Фоновая задача: Скачивает товары с Bot-t (PUBLIC API) и сохраняет в Supabase"""
     
-    # 🔥 ВОЗВРАЩАЕМСЯ К ПУБЛИЧНОМУ API (Он идеально понимает структуру и скрытые товары)
+    # 🔥 ИСПОЛЬЗУЕМ ПУБЛИЧНЫЙ API (Он отдает идеальную структуру витрины)
     url = "https://api.bot-t.com/v1/shoppublic/category/view"
     
-    # Используем публичный ключ для витрины, как было у тебя изначально
     payload = {
         "bot_id": int(BOTT_BOT_ID),
         "public_key": BOTT_PUBLIC_KEY,
@@ -14563,43 +14562,60 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
     
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client: 
+        # Таймаут 30 секунд (в фоне это не страшно, юзер этого не ждет)
+        async with httpx.AsyncClient(timeout=30.0) as client: 
             resp = await client.post(url, json=payload, headers=headers)
             
         if resp.status_code != 200:
             logging.error(f"[BG_SHOP] Ошибка Bot-t: {resp.status_code}")
             return []
 
-        # Публичный API отдает идеальный массив: папки + товары нужной категории
+        # Публичный API отдает готовый массив: папки + товары нужной категории
         data = resp.json().get("data", [])
         if not data:
             return []
 
         mapped_items = []
 
-        # Тот самый парсер, который идеально работал
+        # Наш мощный парсер, который достанет всё
         for item in data:
             is_folder = (item.get("type") == 0)
-            image_url = "https://placehold.co/150?text=No+Image"
             
+            # --- Поиск картинки ---
+            image_url = "https://placehold.co/150?text=No+Image"
             if item.get("design") and item["design"].get("image"):
                 image_url = item["design"]["image"]
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
+            elif item.get("image"):
+                image_url = item.get("image")
+            elif item.get("icon"):
+                image_url = item.get("icon")
                 
+            # --- Поиск цены ---
             price = 0
-            if item.get("price"):
+            if item.get("price") and isinstance(item["price"], dict):
                 amount = item["price"].get("amount", 0)
                 price = int(amount / 100) if amount else 0
+            elif item.get("price") and isinstance(item["price"], (int, float)):
+                price = int(item["price"])
                 
+            # --- Поиск названия ---
             name = "Без названия"
-            if item.get("design"):
-                name = item["design"].get("title", "Без названия")
+            if item.get("design") and item["design"].get("title"):
+                name = item["design"]["title"]
+            elif item.get("name"): 
+                name = item.get("name")
+            elif item.get("title"):
+                name = item.get("title")
                 
+            # --- Поиск лимитов ---
             count = None 
-            if item.get("setting"):
+            if item.get("setting") and isinstance(item["setting"], dict):
                 raw_count = item["setting"].get("count")
                 if raw_count is not None: count = int(raw_count)
+            elif "count" in item:
+                count = int(item["count"])
 
             mapped_items.append({
                 "id": item.get("id"),
