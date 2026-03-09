@@ -1467,17 +1467,24 @@ function renderInventory(items) {
         return;
     }
 
-    // --- УЛУЧШЕННАЯ СОРТИРОВКА ---
-    // Теперь 'pending', 'failed' и 'canceled' приравнены к 'available' и показываются в самом верху
+    // --- УЛУЧШЕННАЯ СОРТИРОВКА (ПРИОРИТЕТ АКТИВНЫХ ДЕЙСТВИЙ) ---
+    // 1 - Самый высокий приоритет (в процессе отправки/ожидания)
+    // 2 - Доступные (ждут решения юзера)
+    // 3 - Завершенные/отмененные (в самом низу)
     const statusWeight = { 
-        'available': 1, 'pending': 1, 'failed': 1, 'canceled': 1, 'active': 1, 
-        'auto_queued': 3, 'market_pending': 4, 'processing': 5, 
-        'sent': 6, 'offer_sent': 6, 'received': 7, 'exchanged': 8 
+        'market_pending': 1, 'sent': 1, 'offer_sent': 1, 'auto_queued': 1, 'pending': 1, // Самые горячие!
+        'available': 2, 'processing': 2, 'failed': 2, 'canceled': 2, // Ждут действия
+        'received': 3, 'exchanged': 4 // Архив
     };
     
     items.sort((a, b) => {
         const statA = (a.status || 'available').toLowerCase();
         const statB = (b.status || 'available').toLowerCase();
+        
+        // Если веса равны, сортируем по ID, чтобы новые были выше старых
+        if (statusWeight[statA] === statusWeight[statB]) {
+             return b.history_id - a.history_id;
+        }
         return (statusWeight[statA] || 99) - (statusWeight[statB] || 99);
     });
 
@@ -1501,6 +1508,13 @@ function renderInventory(items) {
                     ПОИСК...
                 </div>`;
         }
+        else if (status === 'pending') {
+            statusLabel = '<span style="color:#007aff; font-size:9px;">ОЖИДАЕТ ОТПРАВКИ БОТОМ</span>';
+            rightContentHtml = `
+                <div style="background: rgba(0, 122, 255, 0.1); color: #007aff; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(0, 122, 255, 0.2);">
+                    <i class="fa-solid fa-spinner fa-spin"></i> В ОЧЕРЕДИ
+                </div>`;
+        }
         else if (status === 'market_pending') {
             statusLabel = ''; // Убираем текст из центральной колонки
             rightContentHtml = `
@@ -1511,6 +1525,12 @@ function renderInventory(items) {
                     <div style="background: rgba(162, 0, 255, 0.1); color: #c466ff; text-align: center; padding: 6px 2px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(162, 0, 255, 0.2); box-sizing: border-box;">
                         В ПУТИ<br><span style="font-size:8px; opacity: 0.8;">~ до 5 мин</span>
                     </div>
+                    <button onclick="checkTradeStatus(${item.history_id})" style="
+                        background: rgba(255, 255, 255, 0.05); color: #ccc; border: 1px solid rgba(255, 255, 255, 0.1);
+                        font-size: 9px; font-weight: 600; padding: 6px 0; margin-top: 2px;
+                        border-radius: 6px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; transition: 0.2s;">
+                        <i class="fa-solid fa-rotate-right"></i> ПРОВЕРИТЬ
+                    </button>
                 </div>`;
         }
         else if (status === 'processing') {
@@ -1534,7 +1554,7 @@ function renderInventory(items) {
                     background: rgba(255, 255, 255, 0.05); color: #ccc; border: 1px solid rgba(255, 255, 255, 0.1);
                     font-size: 9px; font-weight: 600; padding: 8px 0; 
                     border-radius: 8px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; transition: 0.2s;">
-                    <i class="fa-solid fa-rotate-right"></i> СТАТУС TM
+                    <i class="fa-solid fa-rotate-right"></i> ПРОВЕРИТЬ
                 </button>`;
         }
         else if (status === 'received') {
@@ -1555,10 +1575,6 @@ function renderInventory(items) {
                 </div>`;
         }
         else {
-            // 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ 🔥
-            // Сюда теперь попадают статусы: 'available', 'pending', 'canceled', 'failed'
-            // Юзер снова видит кнопки "ЗАБРАТЬ" и "ПРОДАТЬ"
-            
             if (status === 'failed' || status === 'canceled') {
                 statusLabel = '<span style="color:#ff3b30; font-size:9px;"><i class="fa-solid fa-rotate-left"></i> ОТМЕНЕНО (МОЖНО ПОВТОРИТЬ)</span>';
             } else {
