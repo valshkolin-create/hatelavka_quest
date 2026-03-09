@@ -14373,46 +14373,79 @@ class ShopCategoryRequest(BaseModel):
     category_id: int = 0  # По умолчанию 0 (главная)
 
 async def fetch_and_cache_goods_background(category_id: int):
-    """Фоновая задача: Скачивает товары с Bot-t и сохраняет в Supabase (shop_cache)"""
-    url = "https://api.bot-t.com/v1/shoppublic/category/view"
-    payload = {
-        "bot_id": str(BOTT_BOT_ID),
-        "public_key": BOTT_PUBLIC_KEY,
-        "category_id": category_id 
+    """Фоновая задача: Скачивает товары с Bot-t (Private API) и сохраняет в Supabase (shop_cache)"""
+    
+    params = {
+        "botToken": BOTT_BOT_TOKEN,
+        "secretKey": BOTT_SECRET_KEY
     }
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
     
+    # 🔥 УМНЫЙ РОУТИНГ: Если корень (0) - идем в index. Если папка (>0) - идем в view.
+    if category_id == 0:
+        url = "https://api.bot-t.com/v1/shop/category/index"
+        payload = {"bot_id": int(BOTT_BOT_ID)}
+    else:
+        url = "https://api.bot-t.com/v1/shop/category/view"
+        payload = {
+            "bot_id": int(BOTT_BOT_ID),
+            "id": int(category_id)
+        }
+    
     try:
-        # logging.info(f"🔄 [BG_SHOP] Начало обновления категории {category_id}...")
-        async with httpx.AsyncClient(timeout=60.0) as client: # Увеличенный таймаут для Bot-t
-            resp = await client.post(url, json=payload, headers=headers)
+        async with httpx.AsyncClient(timeout=15.0) as client: 
+            resp = await client.post(url, params=params, json=payload, headers=headers)
             
         if resp.status_code != 200:
-            logging.error(f"[BG_SHOP] Ошибка Bot-t: {resp.status_code}")
+            logging.error(f"[BG_SHOP] Ошибка Bot-t: {resp.status_code} - {resp.text}")
             return
 
-        data = resp.json().get("data", [])
+        res_json = resp.json()
+        data = res_json.get("data", [])
+        
+        items_list = []
+        
+        # Разбираем ответ в зависимости от того, откуда он пришел (index или view)
+        if category_id == 0:
+            # Для /index приходит просто массив главных категорий
+            items_list = data if isinstance(data, list) else []
+        else:
+            # Для /view приходит объект с подкатегориями и товарами
+            if isinstance(data, dict):
+                items_list = data.get("categories", []) + data.get("goods", [])
+            elif isinstance(data, list):
+                items_list = data
+
         mapped_items = []
 
-        # Ваш парсинг (без изменений)
-        for item in data:
+        for item in items_list:
+            # Фильтр: берем только Активные (1)
+            item_status = item.get("status")
+            if item_status not in [1, "1", "ACTIVE", None]:
+                continue
+                
             is_folder = (item.get("type") == 0)
             image_url = "https://placehold.co/150?text=No+Image"
+            
             if item.get("design") and item["design"].get("image"):
                 image_url = item["design"]["image"]
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
+                
             price = 0
             if item.get("price"):
                 amount = item["price"].get("amount", 0)
                 price = int(amount / 100) if amount else 0
+                
             name = "Без названия"
             if item.get("design"):
                 name = item["design"].get("title", "Без названия")
+                
             count = None 
             if item.get("setting"):
                 raw_count = item["setting"].get("count")
-                if raw_count is not None: count = int(raw_count)
+                if raw_count is not None: 
+                    count = int(raw_count)
 
             mapped_items.append({
                 "id": item.get("id"),
@@ -14424,7 +14457,6 @@ async def fetch_and_cache_goods_background(category_id: int):
             })
 
         # Сохраняем в Supabase (shop_cache)
-        # Используем upsert (обновить или вставить)
         async with httpx.AsyncClient(base_url=f"{SUPABASE_URL}/rest/v1", headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}) as sb_client:
             await sb_client.post(
                 "/shop_cache",
@@ -14435,7 +14467,6 @@ async def fetch_and_cache_goods_background(category_id: int):
                 },
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
-        # logging.info(f"✅ [BG_SHOP] Категория {category_id} обновлена в базе.")
 
     except Exception as e:
         logging.error(f"[BG_SHOP] Ошибка обновления: {e}")
