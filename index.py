@@ -18188,24 +18188,36 @@ async def confirm_inventory_item(
 # ==========================================
 async def auto_confirm_old_offers(supabase_client: httpx.AsyncClient):
     """
-    Ищет все трейды со статусом sent/offer_sent, которые висят дольше 1 часа,
-    и автоматически переводит их в статус received.
-    Эту функцию можно вызывать перед загрузкой инвентаря пользователя или в фоновой задаче (Cron).
+    Ищет все трейды со статусом sent/offer_sent/market_pending, которые висят без изменений 
+    дольше 1 часа, и автоматически переводит их в статус received.
     """
-    # Отнимаем 1 час от текущего времени
+    import logging
+    from datetime import datetime, timezone, timedelta
+
+    # Вычисляем порог: текущее время минус 1 час
+    # Благодаря вашему триггеру в БД, updated_at всегда актуален
     one_hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     
     try:
-        await supabase_client.patch(
+        # Патчим таблицу cs_history
+        res = await supabase_client.patch(
             "/cs_history",
             params={
-                "status": "in.(sent,offer_sent)",
-                "updated_at": f"lte.{one_hour_ago}" # Время последнего обновления старше 1 часа
+                # 🔥 Добавили market_pending в список для авто-завершения
+                "status": "in.(sent,offer_sent,market_pending)",
+                "updated_at": f"lte.{one_hour_ago}" 
             },
-            json={"status": "received"}
+            json={"status": "received"},
+            headers={"Prefer": "return=representation"} # Запрашиваем ответ, чтобы знать, сколько строк изменилось
         )
+        
+        if res.status_code == 200:
+            count = len(res.json())
+            if count > 0:
+                logging.info(f"[CRON] Авто-подтверждение: закрыто {count} старых сделок.")
+        
     except Exception as e:
-        print(f"Ошибка авто-подтверждения старых офферов: {e}")
+        logging.error(f"[CRON] Ошибка авто-подтверждения: {e}")
     
 # ==========================================
 # ⚡ ТЕЛЕГРАМ ЗАДАНИЯ И РЕАКЦИИ
