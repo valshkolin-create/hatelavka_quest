@@ -1953,7 +1953,7 @@ class MarketCSGO:
                 return {"success": False, "error": str(e)}
 
 async def get_lowest_price(self, hash_name: str):
-        # Внутри метода должен быть ОДИН уровень отступа (4 пробела)
+        # Внутри метода должен быть ОДИН уровень отступа (4 пробела относительно def)
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
         
         # ЛОГ ДЕБАГА (ровно под 'data')
