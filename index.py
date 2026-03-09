@@ -14821,7 +14821,7 @@ async def buy_bott_item_proxy(
     # Получаем название, картинку и ВАЛЮТУ с фронта
     item_title = getattr(request_data, 'title', "") or "Товар"
     item_image = getattr(request_data, 'image_url', "") or ""
-    currency = getattr(request_data, 'currency', 'coins') # <--- НОВОЕ: Получаем тип валюты
+    currency = getattr(request_data, 'currency', 'coins')
 
     # 1. Получаем данные юзера из БД
     try:
@@ -14829,7 +14829,6 @@ async def buy_bott_item_proxy(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}",
-                # 👇 ВОТ ТУТ ОШИБКА НА 99%: забыл дописать ,trade_link
                 "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link" 
             }
         )
@@ -14842,12 +14841,10 @@ async def buy_bott_item_proxy(
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
         
     user_record = user_data_list[0]
-    user_trade_link = user_record.get("trade_link")
     bott_internal_id = user_record.get("bott_internal_id")
     bott_secret_key = user_record.get("bott_secret_key")
     current_balance_kopecks = user_record.get("bot_t_coins", 0)
-    current_tickets = user_record.get("tickets", 0) # <--- НОВОЕ: Достаем билеты
-    user_trade_link = user_record.get("trade_link")
+    current_tickets = user_record.get("tickets", 0)
 
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
@@ -14855,10 +14852,9 @@ async def buy_bott_item_proxy(
     bott_order_id = 0
 
     # =========================================================================
-    # 2 & 3. НОВОЕ: ПРОВЕРКА БАЛАНСА И СПИСАНИЕ В ЗАВИСИМОСТИ ОТ ВАЛЮТЫ
+    # 2 & 3. ПРОВЕРКА БАЛАНСА И СПИСАНИЕ
     # =========================================================================
     if currency == 'tickets':
-        # ПРОДАЖА ЗА БИЛЕТЫ (без обращения к Bot-T, чисто внутренняя экономика)
         if current_tickets < price:
             raise HTTPException(status_code=400, detail="Недостаточно билетов!")
             
@@ -14871,11 +14867,10 @@ async def buy_bott_item_proxy(
         logging.info(f"[SHOP] Списаны билеты. Было: {current_tickets}, Стало: {new_tickets}")
 
     else:
-        # ПРОДАЖА ЗА МОНЕТЫ (старая логика с Bot-T)
         if current_balance_kopecks < (price * 100):
             raise HTTPException(status_code=400, detail="Недостаточно средств!")
 
-        # 3. СОЗДАЕМ ЗАКАЗ В BOT-T
+        # Создаем заказ в Bot-T для учета
         url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
         payload = {
             "bot_id": int(BOTT_BOT_ID),
@@ -14888,7 +14883,6 @@ async def buy_bott_item_proxy(
         async with httpx.AsyncClient(timeout=60.0) as client:
             try:
                 resp = await client.post(url, json=payload)
-                
                 if resp.status_code != 200:
                     logging.error(f"[SHOP] Bot-T Error {resp.status_code}: {resp.text}")
                     raise HTTPException(status_code=500, detail="Ошибка магазина Bot-T")
@@ -14907,23 +14901,21 @@ async def buy_bott_item_proxy(
                 logging.error(f"[SHOP] Critical Bot-T request fail: {e}")
                 raise HTTPException(status_code=500, detail="Сбой связи с магазином")
 
-        # 4. СПИСЫВАЕМ МОНЕТКИ (ЛОКАЛЬНО)
         new_balance = current_balance_kopecks - (price * 100)
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={"bot_t_coins": new_balance} 
         )
-    # =========================================================================
 
-# =========================================================================
-    # 🎰 ЛОГИКА РУЛЕТКИ (ИНДИВИДУАЛЬНЫЙ СЧЕТЧИК LACKY ДЛЯ КЕЙСА)
+    # =========================================================================
+    # 🎰 ЛОГИКА РУЛЕТКИ (КЕЙСЫ)
     # =========================================================================
     if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
         logging.info(f"[SHOP] Открытие кейса: {item_title} для юзера {telegram_id}")
         
         try:
-            # --- 1. ДОСТАЕМ ПОСЛЕДНИЙ LACKY ДЛЯ ЭТОГО ЮЗЕРА И ЭТОГО КЕЙСА ---
+            # 1. Достаем последний Lacky
             last_spin_resp = await supabase.get(
                 "/cs_history",
                 params={
@@ -14940,14 +14932,13 @@ async def buy_bott_item_proxy(
             if isinstance(last_spin_data, list) and len(last_spin_data) > 0:
                 last_lacky = int(last_spin_data[0].get("lacky", 0))
 
-            # Определяем текущий шаг
             current_lacky = last_lacky + 1
             if current_lacky > 5:
-                current_lacky = 1 # Сброс цикла после пятой крутки
+                current_lacky = 1 
                 
             logging.info(f"[SHOP] Юзер {telegram_id} | Кейс '{item_title}' | Крутка: {current_lacky}/5")
 
-            # --- 2. Получаем скины из таблицы связей ---
+            # 2. Получаем содержимое кейса
             contents_resp = await supabase.get(
                 "/cs_case_contents", 
                 params={
@@ -14958,141 +14949,76 @@ async def buy_bott_item_proxy(
             rows = contents_resp.json()
             
             if not rows or not isinstance(rows, list):
-                logging.error(f"[SHOP] ОШИБКА: Кейс '{item_title}' не настроен в cs_case_contents!")
-                raise HTTPException(status_code=500, detail="Кейс не настроен в базе связей.")
+                raise HTTPException(status_code=500, detail="Кейс не настроен в базе.")
 
             all_items = []
             weights = []
-
             for row in rows:
                 skin = row.get('item')
                 if skin and skin.get('is_active', True):
                     all_items.append(skin)
                     weights.append(float(row.get('chance_weight', 10)))
 
-            if not all_items:
-                raise HTTPException(status_code=500, detail="В кейсе нет активных скинов.")
-
-            # --- 3. УМНАЯ ЛОГИКА РУЛЕТКИ (PITY SYSTEM & ANTI-DRAIN) ---
-            # Вычисляем реальную (базовую) стоимость кейса (фронт для билетов шлет цену х2)
+            # 3. Умная логика (Pity System)
             base_case_price = float(price) / 2.0 if currency == 'tickets' else float(price)
-            
-            # Гарант ищет скины в радиусе стоимости кейса (от 70% цены для билетов, от 66% для монет)
             target_value = base_case_price * 0.70 if currency == 'tickets' else base_case_price * 0.66
             
             final_items = []
             final_weights = []
 
             if current_lacky == 5:
-                # ==========================================
-                # 🔥 ШАГ 5: ГАРАНТ (Защита от банкротства)
-                # ==========================================
-                logging.info(f"[SHOP] ШАГ 5! Включаем ГАРАНТ. Ищем скины >= {target_value}.")
-                
+                logging.info(f"[SHOP] ГАРАНТ! Ищем скины >= {target_value}.")
                 for skin, w in zip(all_items, weights):
-                    skin_price = float(skin.get('price', 0))
-                    
+                    skin_price = float(skin.get('price_rub', 0))
                     if skin_price >= target_value:
                         final_items.append(skin)
-                        
-                        # ANTI-DRAIN: Жестко режем шансы на ультра-премиум внутри гаранта
+                        # Защита баланса: режем ультра-дорогие
                         if skin_price >= base_case_price * 5.0:
-                            # Скин стоит в 5+ раз дороже базового кейса (очень дорогой)
-                            final_weights.append(w * 0.001) # Режем шанс в 1000 раз!
+                            final_weights.append(w * 0.001)
                         elif skin_price >= base_case_price * 1.5:
-                            # Скин значительно дороже (выходит за наш "радиус")
-                            final_weights.append(w * 0.1)   # Режем шанс в 10 раз
+                            final_weights.append(w * 0.1)
                         else:
-                            # Скин стоит ровно в радиусе базовой цены (от 70% до 150%)
-                            # Бустим этот пул, чтобы система выдавала именно его в гаранте
                             final_weights.append(w * 5.0) 
                 
-                # Защита от пустого пула (если в кейсе вообще нет скинов для окупа)
                 if not final_items:
-                    logging.warning(f"[SHOP] В кейсе '{item_title}' нет скинов дороже {target_value}! Выдаем рандом.")
-                    final_items = all_items
-                    final_weights = weights
-
+                    final_items, final_weights = all_items, weights
             else:
-                # ==========================================
-                # 🍀 ШАГИ 1-4: МЯГКАЯ ЖАЛОСТЬ (Pity Timer)
-                # ==========================================
-                # Чем больше круток юзер сделал без гаранта, тем чуть-чуть выше шанс на средний дроп
-                # На 2 шаге шанс х1.1, на 4 шаге шанс х1.3
                 pity_multiplier = 1.0 + (current_lacky * 0.1)
-                
                 for skin, w in zip(all_items, weights):
-                    skin_price = float(skin.get('price', 0))
+                    skin_price = float(skin.get('price_rub', 0))
                     final_items.append(skin)
-                    
                     if target_value <= skin_price < base_case_price * 1.5:
-                        # Слегка повышаем шанс на "среднячок" в нашем радиусе
                         final_weights.append(w * pity_multiplier)
-                    elif skin_price >= base_case_price * 1.5:
-                        # Топовые предметы НЕ бустим, их шанс остается базовым
-                        final_weights.append(w)
                     else:
-                        # Мусор тоже оставляем со стандартным шансом
                         final_weights.append(w)
 
-            # --- 4. Выбираем победителя по новым умным весам ---
+            # 4. Выбор победителя
             winner = random.choices(final_items, weights=final_weights, k=1)[0]
             
-            # ==========================================
-            # ==========================================
-            # 📦 ВЫЗОВ КЛАДОВЩИКА (БЛОК 5) - ИСПРАВЛЕНО
-            # ==========================================
-            delivery_status = "pending"
+            # 5. СОЗДАНИЕ ЗАПИСИ (Без немедленной выдачи!)
             history_id = None
-            
-            # Определяем код покупки заранее
             current_code = f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}"
 
-            # --- ШАГ 1: Создаем ОДНУ окончательную запись в истории ПЕРЕД выдачей ---
             try:
+                # 🔥 Исправлено: добавляем Prefer: return=representation, чтобы получить ID
                 h_res = await supabase.post("/cs_history", json={
                     "user_id": int(telegram_id),
                     "item_id": int(winner['id']),
                     "case_name": str(item_title),
                     "code_used": current_code,
-                    "status": "pending",
-                    "lacky": current_lacky, # Сохраняем удачу сразу
+                    "status": "pending", # <--- Предмет просто лежит и ждет кнопку "Забрать"
+                    "lacky": current_lacky,
                     "details": f"Выигрыш: {winner['name']}"
-                }, headers={"Prefer": "return=representation"}) # 🔥 ВАЖНО: заголовок, чтобы не было ошибки JSON
+                }, headers={"Prefer": "return=representation"})
                 
                 h_data = h_res.json()
                 if h_data and isinstance(h_data, list):
                     history_id = h_data[0].get('id')
                     logging.info(f"[SHOP] Запись создана! HistoryID: {history_id}")
-                else:
-                    raise Exception(f"База вернула пустой ответ: {h_data}")
-
             except Exception as e:
-                logging.error(f"[SHOP] Ошибка создания записи (JSON Error fix): {e}")
+                logging.error(f"[SHOP] Ошибка создания записи: {e}")
 
-            if user_trade_link and history_id:
-                # --- ШАГ 2: Отправляем кладовщика на склад с уже готовым ID ---
-                delivery_res = await fulfill_item_delivery(
-                    user_id=int(telegram_id),
-                    target_name=winner['name'],
-                    target_price_rub=float(winner.get('price', 0)),
-                    trade_url=user_trade_link,
-                    supabase=supabase,
-                    history_id=history_id, # Передаем ID
-                    target_market_name=winner.get('market_hash_name')
-                )
-                
-                if delivery_res.get("success"):
-                    if "market_pending" in str(delivery_res):
-                        delivery_status = "market_pending"
-                    else:
-                        delivery_status = "auto_queued"
-                else:
-                    # Если автовыдача не пошла, статус в базе уже должен быть processing
-                    # Но для надежности можно оставить как есть
-                    logging.warning(f"[SHOP] Автовыдача не удалась. Ручной режим для #{history_id}")
-
-            # --- 6. Готовим ответ для фронтенда ---
+            # 6. Ответ фронтенду
             roulette_strip = random.choices(all_items, weights=weights, k=80)
             roulette_strip[60] = winner 
             
@@ -15105,14 +15031,14 @@ async def buy_bott_item_proxy(
                 "winner": winner_output,
                 "roulette_strip": roulette_strip,
                 "history_id": history_id,
-                "id": history_id,
-                "lacky": current_lacky, # <--- Отдаем на фронт для прогресс-бара
+                "lacky": current_lacky,
                 "messages": [f"Выпало: {winner['name']}"]
             }
 
         except Exception as e:
-            logging.error(f"[SHOP] Критическая ошибка в логике кейса: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
+            logging.error(f"[SHOP] Ошибка кейса: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     # =========================================================================
     # ЛОГИКА ОБЫЧНОГО ТОВАРА
     # =========================================================================
@@ -15131,7 +15057,7 @@ async def buy_bott_item_proxy(
         except Exception as e:
             logging.error(f"Ошибка лога: {e}")
 
-        return {"message": "Покупка успешна! Товар выдан."}
+        return {"message": "Покупка успешна! Товар будет выдан модератором."}
         
 # --- ПОЛУЧЕНИЕ АССОРТИМЕНТА МАГАЗИНА ---
 @app.get("/api/v1/user/grind/shop")
@@ -17949,10 +17875,11 @@ async def withdraw_inventory_item(
 
     # 1. Получаем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-    if not user_res.json() or not isinstance(user_res.json(), list):
+    user_list = user_res.json()
+    if not user_list or not isinstance(user_list, list):
         raise HTTPException(status_code=400, detail="User error")
     
-    user_info = user_res.json()[0]
+    user_info = user_list[0]
     trade_link = user_info.get('trade_link')
     full_name = user_info.get('full_name', 'User')
     username = user_info.get('username')
@@ -17961,7 +17888,7 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет
+    # 2. Получаем предмет из истории
     check_resp = await supabase.get(
         "/cs_history",
         params={
@@ -17982,73 +17909,67 @@ async def withdraw_inventory_item(
     
     # Цены
     try:
-        target_price_base = float(item_data.get('price', 0)) # Цена в билетах/базовая
-        target_price_rub = float(item_data.get('price_rub', 0)) # Реальная цена в рублях
+        target_price_base = float(item_data.get('price', 0)) 
+        target_price_rub = float(item_data.get('price_rub', 0)) 
     except:
         target_price_base = 0.0
         target_price_rub = 0.0
         
     item_condition = item_data.get('condition')
-    market_hash_name = item_data.get('market_hash_name') or item_name
-
-    # ⚙️ Проверяем настройки автовыдачи
-    setting_res = await supabase.get("/settings", params={"key": "eq.auto_delivery_enabled", "select": "value"})
-    auto_enabled = True
-    if setting_res.status_code == 200:
-        s_data = setting_res.json()
-        if s_data and isinstance(s_data, list):
-            auto_enabled = s_data[0].get("value", {}).get("enabled", True)
-
-    market_api_key = os.getenv("CSGO_MARKET_API_KEY")
-    market_client = MarketCSGO(api_key=market_api_key) if market_api_key else None
+    # Достаем английское название для Маркета
+    market_hash_name = item_data.get('market_hash_name')
 
     # ==========================================
-    # 🛒 ЭТАП 1: МАРКЕТ (ПЛАН А)
+    # 📦 ВЫЗОВ КЛАДОВЩИКА (ЕДИНАЯ ТОЧКА ВЫДАЧИ)
     # ==========================================
-    if market_client and auto_enabled and target_price_base > 0:
-        if not any(re.search('[а-яА-Я]', market_hash_name) for _ in market_hash_name):
-            buy_res = await market_client.buy_for_user(market_hash_name, trade_link, history_id=req.history_id)
-            if buy_res.get("success"):
-                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                    "status": "market_pending",
-                    "tradeofferid": None # Очищаем, так как это покупка через ТМ (там custom_id)
-                })
-                return {"success": True, "message": "Заявка отправлена на Маркет!"}
-
-    # ==========================================
-    # 📦 ЭТАП 2: СКЛАД ОРИГИНАЛ (ПЛАН Б)
-    # ==========================================
-    # 🔥 ИСПРАВЛЕНО: Добавлен аргумент history_id
+    # Теперь План А (Маркет), План Б (Оригинал) и План В (Замена) 
+    # вызываются внутри одной функции. Никакого дублирования кода!
+    
     delivery_res = await fulfill_item_delivery(
         user_id=user_id,
-        target_name=item_name,
+        target_name=item_name,                 # Русское для логов/склада
         target_price_rub=target_price_rub,
         trade_url=trade_link,
         supabase=supabase,
-        history_id=req.history_id, # <--- ПЕРЕДАЕМ ID
-        target_market_name=market_hash_name # 🔥 Теперь Маркет увидит English Name
+        history_id=req.history_id, 
+        target_condition=item_condition,
+        target_market_name=market_hash_name    # 🔥 Английское для Market.CSGO
     )
     
-    if delivery_res.get("success"):
+    # --- СЛУЧАЙ 1: Успешная покупка на Маркете (ТМ) ---
+    if delivery_res.get("success") and delivery_res.get("message") == "Предмет куплен на Маркете!":
+        return {"success": True, "message": "Предмет куплен на Маркете! Следите за статусом в профиле."}
+
+    # --- СЛУЧАЙ 2: Предмет найден на твоем складе ---
+    if delivery_res.get("success") and "real_skin" in delivery_res:
         real_skin = delivery_res.get("real_skin")
+        
+        # Зовем курьера для отправки трейда
         trade_res = await send_steam_trade_offer(
             account_id=real_skin["account_id"],
             assetid=real_skin["assetid"],
             trade_url=trade_link,
             supabase=supabase
         )
-        # 🔥 ИСПРАВЛЕНО: Сохраняем tradeofferid в базу
+        
         if trade_res and trade_res.get("success"):
             t_id = str(trade_res.get("tradeofferid"))
+            # Обновляем статус: трейд улетел
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "sent",
-                "tradeofferid": t_id # <--- СОХРАНЯЕМ ДЛЯ ПРОВЕРКИ
+                "tradeofferid": t_id 
             })
-            return {"success": True, "message": "Трейд отправлен со склада!"}
+            return {"success": True, "message": "Трейд отправлен! Подтвердите получение в Steam."}
+        else:
+            # Ошибка стима - переводим в ручной режим, чтобы не потерять
+            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "processing"})
+            err_msg = trade_res.get('error', 'Steam Error')
+            return {"success": False, "message": f"Ошибка Steam: {err_msg}. Заявка передана админу."}
 
     # ==========================================
-    # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН (ПЛАН В)
+    # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН (Если на складе и маркете пусто)
     # ==========================================
+    # Если Кладовщик вернул False, пробуем найти варианты для замены через интерфейс
     replacements = await get_replacement_options(target_price_rub, target_price_base, supabase)
     
     if replacements:
@@ -18059,17 +17980,25 @@ async def withdraw_inventory_item(
             "options": replacements
         }
 
-    # Если даже замен не нашли
+    # ==========================================
+    # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
+    # ==========================================
+    # Если даже замен не нашли или автовыдача отключена
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "processing"})
     
     if ADMIN_NOTIFY_CHAT_ID:
         try:
-            log_text = f"📦 <b>РУЧНАЯ ВЫДАЧА</b>\n👤 {full_name}\n🔫 <b>{item_name}</b>\n💰 Бюджет: {target_price_base} руб."
-            await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=log_text, parse_mode="HTML")
+            log_text = (
+                f"📦 <b>РУЧНАЯ ВЫДАЧА</b>\n"
+                f"👤 {full_name} ({username_txt})\n"
+                f"🔫 <b>{item_name}</b>\n"
+                f"💰 Бюджет: {target_price_rub} руб. ({target_price_base} монеты)"
+            )
+            await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=log_text, parse_mode="HTML")
         except: pass
             
-    return {"success": True, "message": "Заявка передана администратору для ручной выдачи."}
-
+    return {"success": True, "message": "Автовыдача недоступна. Заявка передана администратору."}
+    
 # 4. Подтверждение выбора замены пользователем
 @app.post("/api/v1/user/inventory/confirm_replacement")
 async def confirm_replacement(
@@ -18089,7 +18018,10 @@ async def confirm_replacement(
     if not u_data or not isinstance(u_data, list):
         raise HTTPException(status_code=400, detail="User error")
     
-    trade_link = u_data[0].get('trade_link')
+    user_info = u_data[0]
+    trade_link = user_info.get('trade_link')
+    full_name = user_info.get('full_name', 'User')
+
     if not trade_link:
         raise HTTPException(status_code=400, detail="У вас не указана трейд-ссылка!")
 
@@ -18107,7 +18039,7 @@ async def confirm_replacement(
     selected_item = asset_rows[0]
 
     # --- 4. ОТПРАВЛЯЕМ ТРЕЙД ---
-    print(f"[REPLACEMENT] Отправка замены: {selected_item['name_ru']} (Asset: {req.assetid})")
+    print(f"[REPLACEMENT] Отправка замены: {selected_item.get('name_ru', selected_item.get('market_hash_name'))} (Asset: {req.assetid})")
     
     trade_res = await send_steam_trade_offer(
         account_id=selected_item["account_id"],
@@ -18118,10 +18050,14 @@ async def confirm_replacement(
 
     if trade_res and trade_res.get("success"):
         # 5. УСПЕХ: Обновляем историю и кэш
-        # В историю записываем, что это была замена
+        t_id = str(trade_res.get("tradeofferid"))
+        item_name_log = selected_item.get('name_ru') or selected_item.get('market_hash_name')
+
+        # 🔥 ИСПРАВЛЕНО: Записываем tradeofferid, чтобы кнопка в профиле могла проверить статус
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
             "status": "sent",
-            "details": f"Выдана замена: {selected_item['name_ru']} ({selected_item['assetid']})"
+            "tradeofferid": t_id,
+            "details": f"Выдана замена: {item_name_log} ({selected_item['assetid']})"
         })
         
         # Резервируем предмет, чтобы его не предложили кому-то еще
@@ -18129,18 +18065,28 @@ async def confirm_replacement(
             "is_reserved": True
         })
 
+        # Уведомление админу
         if ADMIN_NOTIFY_CHAT_ID:
             try:
-                msg = f"🎁 <b>ВЫДАНА ЗАМЕНА!</b>\n👤 Юзер: {user_id}\n🔄 Предмет: {selected_item['name_ru']}"
-                await bot.send_message(chat_id=ADMIN_NOTIFY_CHAT_ID, text=msg, parse_mode="HTML")
+                msg = (
+                    f"🔄 <b>ВЫДАНА ЗАМЕНА!</b>\n"
+                    f"👤 Юзер: {full_name} ({user_id})\n"
+                    f"🎁 Предмет: {item_name_log}\n"
+                    f"🆔 TradeID: <code>{t_id}</code>"
+                )
+                await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=msg, parse_mode="HTML")
             except: pass
 
-        return {"success": True, "message": "Замена успешно отправлена! Принимайте трейд в Steam."}
+        return {"success": True, "message": "Замена успешно отправлена! Принимайте трейд в Steam.", "tradeofferid": t_id}
     
     # --- 6. ОШИБКА ---
     err_text = trade_res.get('error') if trade_res else "Steam вернул null"
     print(f"[REPLACEMENT] Ошибка Steam: {err_text}")
-    return {"success": False, "message": f"Ошибка при отправке трейда: {err_text}. Попробуйте выбрать другой скин."}
+    
+    # В случае ошибки трейда, статус в истории не меняем (оставляем pending), 
+    # чтобы юзер мог попробовать еще раз или выбрать другой предмет.
+    
+    return {"success": False, "message": f"Ошибка при отправке трейда: {err_text}. Попробуйте выбрать другой скин или повторить позже."}
     
 # 4. Подтвердить получение (Статус -> received)
 app.post("/api/v1/user/inventory/confirm")
