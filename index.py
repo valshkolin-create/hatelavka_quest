@@ -14488,6 +14488,9 @@ async def fetch_and_cache_goods_background(category_id: int):
     except Exception as e:
         logging.error(f"[BG_SHOP] Ошибка обновления товаров: {e}")
 
+RAM_SHOP_CACHE = {}
+RAM_CACHE_TTL = 600  # 10 минут
+
 # --- ОПТИМИЗИРОВАННЫЙ ЭНДПОИНТ МАГАЗИНА ---
 @app.post("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
@@ -14496,16 +14499,19 @@ async def get_bott_goods_proxy(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     category_id = request_data.category_id
+    current_time = time.time()
     
-    # 1. Сразу запрашиваем данные из Supabase (shop_cache)
+    # 1. Читаем из ОЗУ
+    if category_id in RAM_SHOP_CACHE:
+        cache_entry = RAM_SHOP_CACHE[category_id]
+        if current_time - cache_entry['time'] < RAM_CACHE_TTL:
+            return cache_entry['data']
+
+    # 2. Читаем из БД
     try:
-        resp = await supabase.get(
-            "/shop_cache",
-            params={"category_id": f"eq.{category_id}", "select": "data,updated_at"}
-        )
+        resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{category_id}", "select": "data,updated_at"})
         db_data = resp.json()
     except Exception as e:
-        logging.error(f"[SHOP] Ошибка чтения кэша: {e}")
         db_data = []
 
     cached_goods = []
@@ -14515,29 +14521,149 @@ async def get_bott_goods_proxy(
         row = db_data[0]
         cached_goods = row.get("data") or []
         updated_at_str = row.get("updated_at")
-        
-        # Проверяем, насколько данные свежие (например, 10 минут)
         if updated_at_str:
             try:
                 updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
-                # Если прошло меньше 10 минут (600 сек), не обновляем
                 if (datetime.now(timezone.utc) - updated_at).total_seconds() < 600:
                     should_update = False
             except ValueError:
                 pass
 
-    # 2. Логика обновления
-    if should_update:
-        # Если данных вообще нет или они старые -> запускаем задачу в ФОНЕ
-        # logging.info(f"⏳ [SHOP] Запуск фонового обновления для категории {category_id}")
-        background_tasks.add_task(fetch_and_cache_goods_background, category_id)
+    # 🔥 ФИКС ПУСТОТЫ: Если кэш ВООБЩЕ пустой, мы ЖДЕМ загрузки синхронно (не в фоне)
+    if not cached_goods:
+        cached_goods = await fetch_and_cache_goods_background(category_id, supabase)
+        should_update = False # Уже обновили
 
-    # 3. Возвращаем то, что есть в базе (мгновенно)
-    # Если база пустая (первый запуск), вернем пустой список, но в фоне уже качается.
-    # Пользователь может просто обновить страницу через пару секунд.
-    
+    # 3. Сохраняем в ОЗУ
+    if cached_goods:
+        RAM_SHOP_CACHE[category_id] = {
+            'time': current_time if not should_update else current_time - RAM_CACHE_TTL,
+            'data': cached_goods
+        }
+
+    # 4. Фоновое обновление (если данные старые, но они есть)
+    if should_update:
+        background_tasks.add_task(fetch_and_cache_goods_background, category_id, supabase)
+
     return cached_goods
 
+# --- БРОНЕБОЙНЫЙ ПАРСЕР ТОВАРОВ И ПАПОК ---
+async def fetch_and_cache_goods_background(category_id: int, supabase_client=None):
+    params = {"botToken": BOTT_BOT_TOKEN, "secretKey": BOTT_SECRET_KEY}
+    headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+    items_list = []
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client: 
+            if category_id == 0:
+                # ГЛАВНАЯ СТРАНИЦА (КОРЕНЬ)
+                url = "https://api.bot-t.com/v1/shop/category/index"
+                payload = {"bot_id": int(BOTT_BOT_ID), "status": [1]} # Запрашиваем только активные
+                
+                resp = await client.post(url, params=params, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    items_list.extend(data if isinstance(data, list) else data.get("data", []))
+            else:
+                # ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ ОДНОВРЕМЕННО)
+                payload = {"bot_id": int(BOTT_BOT_ID), "id": int(category_id)}
+                
+                resp_prod, resp_view = await asyncio.gather(
+                    client.post("https://api.bot-t.com/v1/shop/category/view-products", params=params, json=payload, headers=headers),
+                    client.post("https://api.bot-t.com/v1/shop/category/view", params=params, json=payload, headers=headers),
+                    return_exceptions=True
+                )
+                
+                # Вытаскиваем товары
+                if isinstance(resp_prod, httpx.Response) and resp_prod.status_code == 200:
+                    prod_data = resp_prod.json().get("data", [])
+                    if isinstance(prod_data, list):
+                        items_list.extend(prod_data)
+                        
+                # Вытаскиваем подпапки
+                if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
+                    view_data = resp_view.json().get("data", {})
+                    if isinstance(view_data, dict):
+                        items_list.extend(view_data.get("children", []) or view_data.get("categories", []))
+
+        # Если Bot-T ничего не отдал или завис - выходим, чтобы не записать пустоту!
+        if not items_list:
+            logging.warning(f"⚠️ Для категории {category_id} Bot-T вернул 0 элементов.")
+            return []
+
+        mapped_items = []
+        for item in items_list:
+            # Пропускаем архив (0) и скрытые (2)
+            if item.get("status") not in [1, "1", "ACTIVE", None]:
+                continue
+                
+            is_folder = (item.get("type") == 0)
+            
+            # --- Умный поиск картинки ---
+            image_url = "https://placehold.co/150?text=No+Image"
+            if item.get("design") and item["design"].get("image"):
+                image_url = item["design"]["image"]
+            elif item.get("photo") and item["photo"].get("abs_path"):
+                image_url = item["photo"]["abs_path"]
+            elif item.get("image"):
+                image_url = item.get("image")
+            elif item.get("icon"):
+                image_url = item.get("icon")
+                
+            # --- Умный поиск цены ---
+            price = 0
+            if item.get("price") and isinstance(item["price"], dict):
+                amount = item["price"].get("amount", 0)
+                price = int(amount / 100) if amount else 0
+            elif item.get("price") and isinstance(item["price"], (int, float)):
+                price = int(item["price"])
+                
+            # --- Умный поиск названия ---
+            name = "Без названия"
+            if item.get("design") and item["design"].get("title"):
+                name = item["design"]["title"]
+            elif item.get("name"): 
+                name = item.get("name")
+            elif item.get("title"):
+                name = item.get("title")
+                
+            # --- Умный поиск лимитов ---
+            count = None 
+            if item.get("setting") and isinstance(item["setting"], dict):
+                raw_count = item["setting"].get("count")
+                if raw_count is not None: count = int(raw_count)
+            elif "count" in item:
+                count = int(item["count"])
+
+            mapped_items.append({
+                "id": item.get("id"),
+                "name": name,
+                "price": price,
+                "image_url": image_url,
+                "is_folder": is_folder,
+                "count": count 
+            })
+
+        # Пишем в БД
+        client_sb = supabase_client
+        close_sb = False
+        if not client_sb:
+            client_sb = httpx.AsyncClient(base_url=f"{SUPABASE_URL}/rest/v1", headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"})
+            close_sb = True
+            
+        await client_sb.post(
+            "/shop_cache",
+            json={"category_id": category_id, "data": mapped_items, "updated_at": datetime.now(timezone.utc).isoformat()},
+            headers={"Prefer": "resolution=merge-duplicates"}
+        )
+        if close_sb: await client_sb.aclose()
+        
+        return mapped_items
+
+    except Exception as e:
+        logging.error(f"[BG_SHOP] Ошибка: {e}")
+        return []
+    
 async def save_balance_background(telegram_id: int, update_data: dict):
     """Фоновая задача для сохранения данных магазина в Supabase"""
     try:
