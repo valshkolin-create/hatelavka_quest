@@ -14549,91 +14549,57 @@ async def get_bott_goods_proxy(
 
 # --- БРОНЕБОЙНЫЙ ПАРСЕР ТОВАРОВ И ПАПОК ---
 async def fetch_and_cache_goods_background(category_id: int, supabase_client=None):
-    params = {"botToken": BOTT_BOT_TOKEN, "secretKey": BOTT_SECRET_KEY}
+    """Фоновая задача: Скачивает товары с Bot-t (PUBLIC API) и сохраняет в Supabase"""
+    
+    # 🔥 ВОЗВРАЩАЕМСЯ К ПУБЛИЧНОМУ API (Он идеально понимает структуру и скрытые товары)
+    url = "https://api.bot-t.com/v1/shoppublic/category/view"
+    
+    # Используем публичный ключ для витрины, как было у тебя изначально
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "public_key": BOTT_PUBLIC_KEY,
+        "category_id": category_id 
+    }
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-    items_list = []
-
+    
     try:
         async with httpx.AsyncClient(timeout=15.0) as client: 
-            if category_id == 0:
-                # ГЛАВНАЯ СТРАНИЦА (КОРЕНЬ)
-                url = "https://api.bot-t.com/v1/shop/category/index"
-                payload = {"bot_id": int(BOTT_BOT_ID), "status": [1]} # Запрашиваем только активные
-                
-                resp = await client.post(url, params=params, json=payload, headers=headers)
-                if resp.status_code == 200:
-                    data = resp.json().get("data", [])
-                    items_list.extend(data if isinstance(data, list) else data.get("data", []))
-            else:
-                # ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ ОДНОВРЕМЕННО)
-                payload = {"bot_id": int(BOTT_BOT_ID), "id": int(category_id)}
-                
-                resp_prod, resp_view = await asyncio.gather(
-                    client.post("https://api.bot-t.com/v1/shop/category/view-products", params=params, json=payload, headers=headers),
-                    client.post("https://api.bot-t.com/v1/shop/category/view", params=params, json=payload, headers=headers),
-                    return_exceptions=True
-                )
-                
-                # Вытаскиваем товары
-                if isinstance(resp_prod, httpx.Response) and resp_prod.status_code == 200:
-                    prod_data = resp_prod.json().get("data", [])
-                    if isinstance(prod_data, list):
-                        items_list.extend(prod_data)
-                        
-                # Вытаскиваем подпапки
-                if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
-                    view_data = resp_view.json().get("data", {})
-                    if isinstance(view_data, dict):
-                        items_list.extend(view_data.get("children", []) or view_data.get("categories", []))
+            resp = await client.post(url, json=payload, headers=headers)
+            
+        if resp.status_code != 200:
+            logging.error(f"[BG_SHOP] Ошибка Bot-t: {resp.status_code}")
+            return []
 
-        # Если Bot-T ничего не отдал или завис - выходим, чтобы не записать пустоту!
-        if not items_list:
-            logging.warning(f"⚠️ Для категории {category_id} Bot-T вернул 0 элементов.")
+        # Публичный API отдает идеальный массив: папки + товары нужной категории
+        data = resp.json().get("data", [])
+        if not data:
             return []
 
         mapped_items = []
-        for item in items_list:
-            # Пропускаем архив (0) и скрытые (2)
-            if item.get("status") not in [1, "1", "ACTIVE", None]:
-                continue
-                
+
+        # Тот самый парсер, который идеально работал
+        for item in data:
             is_folder = (item.get("type") == 0)
-            
-            # --- Умный поиск картинки ---
             image_url = "https://placehold.co/150?text=No+Image"
+            
             if item.get("design") and item["design"].get("image"):
                 image_url = item["design"]["image"]
             elif item.get("photo") and item["photo"].get("abs_path"):
                 image_url = item["photo"]["abs_path"]
-            elif item.get("image"):
-                image_url = item.get("image")
-            elif item.get("icon"):
-                image_url = item.get("icon")
                 
-            # --- Умный поиск цены ---
             price = 0
-            if item.get("price") and isinstance(item["price"], dict):
+            if item.get("price"):
                 amount = item["price"].get("amount", 0)
                 price = int(amount / 100) if amount else 0
-            elif item.get("price") and isinstance(item["price"], (int, float)):
-                price = int(item["price"])
                 
-            # --- Умный поиск названия ---
             name = "Без названия"
-            if item.get("design") and item["design"].get("title"):
-                name = item["design"]["title"]
-            elif item.get("name"): 
-                name = item.get("name")
-            elif item.get("title"):
-                name = item.get("title")
+            if item.get("design"):
+                name = item["design"].get("title", "Без названия")
                 
-            # --- Умный поиск лимитов ---
             count = None 
-            if item.get("setting") and isinstance(item["setting"], dict):
+            if item.get("setting"):
                 raw_count = item["setting"].get("count")
                 if raw_count is not None: count = int(raw_count)
-            elif "count" in item:
-                count = int(item["count"])
 
             mapped_items.append({
                 "id": item.get("id"),
@@ -14644,7 +14610,7 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
                 "count": count 
             })
 
-        # Пишем в БД
+        # Пишем в БД (Supabase)
         client_sb = supabase_client
         close_sb = False
         if not client_sb:
@@ -14653,7 +14619,11 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
             
         await client_sb.post(
             "/shop_cache",
-            json={"category_id": category_id, "data": mapped_items, "updated_at": datetime.now(timezone.utc).isoformat()},
+            json={
+                "category_id": category_id, 
+                "data": mapped_items, 
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
             headers={"Prefer": "resolution=merge-duplicates"}
         )
         if close_sb: await client_sb.aclose()
