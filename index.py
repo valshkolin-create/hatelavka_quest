@@ -1878,7 +1878,7 @@ class MarketCSGO:
             return price_in_kopecks
         return None
 
-    async def buy_for_user(self, hash_name: str, trade_link: str):
+    async def buy_for_user(self, hash_name: str, trade_link: str, history_id: int): # <--- Добавили history_id
         partner, token = self.parse_trade_link(trade_link)
         if not partner or not token:
             return {"success": False, "error": "Неверная трейд-ссылка"}
@@ -1887,8 +1887,9 @@ class MarketCSGO:
         if not price:
             return {"success": False, "error": "Предмет не найден в продаже"}
 
-        import uuid
-        custom_id = f"m_{uuid.uuid4().hex[:12]}"
+        # 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ:
+        # Теперь custom_id — это просто твой ID из таблицы cs_history
+        custom_id = str(history_id) 
 
         params = {
             "hash_name": hash_name,
