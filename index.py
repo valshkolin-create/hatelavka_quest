@@ -4120,7 +4120,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                     logging.warning(f"WS Broadcast error in background: {ws_e}")
             return # Завершаем, если это был котел
 
-    # === ВЕТКА 2: РУЛЕТКА (SKIN RACE) ===
+ # === ВЕТКА 2: РУЛЕТКА (SKIN RACE) ===
     elif is_roulette:
         prizes_resp = await supabase.get(
             "/roulette_prizes",
@@ -4153,6 +4153,21 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                         json={"p_prize_id": winner_prize_id}
                     )
 
+                # 🔥 [НОВОЕ] СОЗДАЕМ ЗАПИСЬ В CS_HISTORY ПЕРЕД ВЫДАЧЕЙ 🔥
+                history_id = None
+                try:
+                    h_res = await supabase.post("/cs_history", json={
+                        "user_id": user_id,
+                        "case_name": f"Рулетка: {reward_title}",
+                        "status": "pending",
+                        "details": f"Скин: {winner_skin_name}"
+                    })
+                    h_data = h_res.json()
+                    if h_data and isinstance(h_data, list):
+                        history_id = h_data[0].get('id')
+                except Exception as e:
+                    logging.error(f"Ошибка создания истории для рулетки: {e}")
+
                 # 🔥 [АВТОВЫДАЧА] ОТПРАВЛЯЕМ СКИН РУЛЕТКИ 🔥
                 delivery_status_text = ""
                 is_delivered_auto = False
@@ -4160,33 +4175,58 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                 if trade_link:
                     try:
                         # Пытаемся выдать скин (бюджет 0, нужен точный скин)
+                        # 🔥 ПЕРЕДАЕМ history_id
                         deliv_res = await fulfill_item_delivery(
                             user_id=user_id or 0, 
                             target_name=winner_skin_name, 
                             target_price_rub=0.0, 
                             trade_url=trade_link, 
-                            supabase=supabase
+                            supabase=supabase,
+                            history_id=history_id # <--- Передаем ID для связи с ТМ/Складом
                         )
+                        
                         if deliv_res.get("success"):
-                            real_skin = deliv_res.get("real_skin")
-                            trade_res = await send_steam_trade_offer(
-                                account_id=real_skin["account_id"], 
-                                assetid=real_skin["assetid"], 
-                                trade_url=trade_link, 
-                                supabase=supabase
-                            )
-                            if trade_res.get("success"):
+                            # Проверяем, не купил ли Кладовщик предмет на Маркете (План В)
+                            if "Предмет куплен на Маркете" in deliv_res.get("message", ""):
                                 is_delivered_auto = True
-                                delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА УСПЕШНА:</b> Трейд отправлен!"
+                                delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА:</b> Куплено на Маркете!"
                             else:
-                                delivery_status_text = f"\n⚠️ <b>ОШИБКА STEAM:</b> {trade_res.get('error')}"
+                                # Если предмет на нашем складе — отправляем трейд
+                                real_skin = deliv_res.get("real_skin")
+                                trade_res = await send_steam_trade_offer(
+                                    account_id=real_skin["account_id"], 
+                                    assetid=real_skin["assetid"], 
+                                    trade_url=trade_link, 
+                                    supabase=supabase
+                                )
+                                
+                                if trade_res.get("success"):
+                                    is_delivered_auto = True
+                                    trade_id = str(trade_res.get("tradeofferid"))
+                                    delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА УСПЕШНА:</b> Трейд отправлен!"
+                                    
+                                    # 🔥 СОХРАНЯЕМ tradeofferid В ИСТОРИЮ
+                                    if history_id:
+                                        await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={
+                                            "status": "sent",
+                                            "tradeofferid": trade_id
+                                        })
+                                else:
+                                    delivery_status_text = f"\n⚠️ <b>ОШИБКА STEAM:</b> {trade_res.get('error')}"
+                                    if history_id:
+                                        await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
                         else:
                             delivery_status_text = "\n⚠️ <b>ОШИБКА СКЛАДА:</b> Нет в наличии"
+                            if history_id:
+                                await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
+                                
                     except Exception as e:
                         logging.error(f"Auto-delivery roulette error: {e}")
                         delivery_status_text = "\n⚠️ <b>ОШИБКА АВТОВЫДАЧИ:</b> Сбой скрипта"
                 else:
                     delivery_status_text = "\n⚠️ <b>АВТОВЫДАЧА ОТМЕНЕНА:</b> Нет трейд-ссылки"
+                    if history_id:
+                         await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
 
                 # Получаем настройки награды (или берем из кэша)
                 if cached_reward:
@@ -4268,8 +4308,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                 if ADMIN_NOTIFY_CHAT_ID:
                     await safe_send_message(ADMIN_NOTIFY_CHAT_ID, f"⚠️ <b>Закончились призы</b> для рулетки «{html_decoration.quote(reward_title)}»!")
                 return
-
-    # === ВЕТКА 3: ОБЫЧНАЯ НАГРАДА ===
+# === ВЕТКА 3: ОБЫЧНАЯ НАГРАДА ===
     else:
         logging.info(f"📦 Обычная награда '{reward_title}' от {twitch_login}.")
         
@@ -4319,28 +4358,70 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         if any(word in lower_title for word in ["наклейка", "ширп", "скин", "бокс", "кейс"]):
             if trade_link:
                 try:
-                    deliv_res = await fulfill_item_delivery(
-                        user_id=user_id or 0, 
-                        target_name=reward_title, 
-                        target_price_rub=0.0, 
-                        trade_url=trade_link, 
-                        supabase=supabase
-                    )
-                    if deliv_res.get("success"):
-                        real_skin = deliv_res.get("real_skin")
-                        trade_res = await send_steam_trade_offer(
-                            account_id=real_skin["account_id"], 
-                            assetid=real_skin["assetid"], 
+                    # --- ШАГ 1: СОЗДАЕМ ЗАПИСЬ В CS_HISTORY ---
+                    # Нам нужен этот ID для Кладовщика и Маркета
+                    history_id = None
+                    try:
+                        h_res = await supabase.post("/cs_history", json={
+                            "user_id": user_id,
+                            "case_name": f"Twitch: {reward_title}",
+                            "status": "pending",
+                            "details": f"Запрос: {reward_title}"
+                        })
+                        h_data = h_res.json()
+                        if h_data and isinstance(h_data, list):
+                            history_id = h_data[0].get('id')
+                    except Exception as e:
+                        logging.error(f"Ошибка создания истории для Twitch награды: {e}")
+
+                    if history_id:
+                        # --- ШАГ 2: ВЫЗЫВАЕМ КЛАДОВЩИКА ---
+                        # 🔥 ПЕРЕДАЕМ history_id
+                        deliv_res = await fulfill_item_delivery(
+                            user_id=user_id or 0, 
+                            target_name=reward_title, 
+                            target_price_rub=0.0, 
                             trade_url=trade_link, 
-                            supabase=supabase
+                            supabase=supabase,
+                            history_id=history_id # <--- ТЕПЕРЬ ВСЁ ОК
                         )
-                        if trade_res.get("success"):
-                            is_delivered_auto = True
-                            delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА УСПЕШНА:</b> Трейд отправлен!"
+                        
+                        if deliv_res.get("success"):
+                            # Проверяем, не куплено ли на Маркете (План В)
+                            if "Предмет куплен на Маркете" in deliv_res.get("message", "" or ""):
+                                is_delivered_auto = True
+                                delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА:</b> Куплено на Маркете!"
+                            else:
+                                # Если предмет на нашем складе — зовем Курьера
+                                real_skin = deliv_res.get("real_skin")
+                                trade_res = await send_steam_trade_offer(
+                                    account_id=real_skin["account_id"], 
+                                    assetid=real_skin["assetid"], 
+                                    trade_url=trade_link, 
+                                    supabase=supabase
+                                )
+                                
+                                if trade_res.get("success"):
+                                    is_delivered_auto = True
+                                    t_id = str(trade_res.get("tradeofferid"))
+                                    delivery_status_text = f"\n✅ <b>АВТОВЫДАЧА УСПЕШНА:</b> Трейд отправлен!"
+                                    
+                                    # 🔥 СОХРАНЯЕМ tradeofferid В ИСТОРИЮ ДЛЯ ПРОФИЛЯ
+                                    await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={
+                                        "status": "sent",
+                                        "tradeofferid": t_id
+                                    })
+                                else:
+                                    # Ошибка Стима — переводим в ручной режим
+                                    await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
+                                    delivery_status_text = f"\n⚠️ <b>ОШИБКА STEAM:</b> {trade_res.get('error')}"
                         else:
-                            delivery_status_text = f"\n⚠️ <b>ОШИБКА STEAM:</b> {trade_res.get('error')}"
+                            # Предмета нет — переводим в ручной режим
+                            await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
+                            delivery_status_text = "\n⚠️ <b>ОШИБКА СКЛАДА:</b> Нет в наличии"
                     else:
-                        delivery_status_text = "\n⚠️ <b>ОШИБКА СКЛАДА:</b> Нет в наличии"
+                        delivery_status_text = "\n⚠️ <b>ОШИБКА:</b> Не удалось создать запись в БД"
+
                 except Exception as e:
                     logging.error(f"Auto-delivery standard reward error: {e}")
                     delivery_status_text = "\n⚠️ <b>ОШИБКА АВТОВЫДАЧИ:</b> Сбой скрипта"
@@ -14955,26 +15036,59 @@ async def buy_bott_item_proxy(
             # ==========================================
             # 📦 ВЫЗОВ КЛАДОВЩИКА (БЛОК 5)
             # ==========================================
-            delivery_status = "pending" # Статус по умолчанию (ручная выдача)
-            
-            if user_trade_link:
-                # Отправляем кладовщика на склад
+            delivery_status = "pending" # Статус по умолчанию
+            history_id = None
+
+            # --- ШАГ 1: Создаем запись в истории ПЕРЕД выдачей ---
+            # Это нужно, чтобы у нас был ID для отслеживания трейда
+            try:
+                h_res = await supabase.post("/cs_history", json={
+                    "user_id": int(telegram_id),
+                    "case_name": case_name if 'case_name' in locals() else "Магазин",
+                    "item_id": winner.get('id'), # ID предмета из таблицы cs_items
+                    "status": "pending",
+                    "details": f"Выигрыш: {winner['name']}"
+                })
+                h_data = h_res.json()
+                if h_data and isinstance(h_data, list):
+                    history_id = h_data[0].get('id')
+                    logging.info(f"[SHOP] Создана запись в истории: #{history_id}")
+            except Exception as e:
+                logging.error(f"[SHOP] Ошибка создания записи в cs_history: {e}")
+
+            if user_trade_link and history_id:
+                # --- ШАГ 2: Отправляем кладовщика на склад ---
+                # 🔥 ТЕПЕРЬ ПЕРЕДАЕМ history_id (обязательный аргумент)
                 delivery_res = await fulfill_item_delivery(
                     user_id=int(telegram_id),
-                    target_name=winner['name'], # <-- Передаем конкретное имя
-                    target_price_rub=float(winner.get('price', 0)), # <-- Передаем цену
+                    target_name=winner['name'],
+                    target_price_rub=float(winner.get('price', 0)),
                     trade_url=user_trade_link,
-                    supabase=supabase
+                    supabase=supabase,
+                    history_id=history_id, # <--- ВОТ ОНО!
+                    target_condition=winner.get('condition')
                 )
                 
                 if delivery_res.get("success"):
-                    # Кладовщик нашел скин и забронировал его!
-                    delivery_status = "auto_queued" # Меняем статус на "В очереди автовыдачи"
-                    logging.info(f"[SHOP] Автовыдача: предмет {winner['name']} зарезервирован!")
+                    # Проверяем, что ответил Кладовщик
+                    if "market_pending" in str(delivery_res):
+                        delivery_status = "market_pending"
+                        logging.info(f"[SHOP] Предмет закуплен на Маркете для #{history_id}")
+                    else:
+                        delivery_status = "auto_queued" 
+                        logging.info(f"[SHOP] Автовыдача: предмет {winner['name']} зарезервирован!")
                 else:
                     logging.warning(f"[SHOP] Автовыдача не удалась ({delivery_res.get('error')}). Переход в ручной режим.")
+                    # Если автовыдача не удалась, обновляем статус в базе на 'processing' (ручная выдача)
+                    await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
             else:
-                logging.warning(f"[SHOP] У юзера {telegram_id} нет трейд-ссылки. Ручная выдача.")
+                if not user_trade_link:
+                    logging.warning(f"[SHOP] У юзера {telegram_id} нет трейд-ссылки. Ручная выдача.")
+                if history_id:
+                    # Ставим статус ручной выдачи, если нет ссылки
+                    await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
+
+            # В конце этого блока у тебя теперь есть история, ID и правильный статус для отчета
             # ==========================================
             
             # --- 5. ЗАПИСЬ В ИСТОРИЮ (Добавили lacky) ---
@@ -15858,6 +15972,8 @@ async def background_mass_delivery():
     import logging
     import os
     import re
+    from datetime import datetime, timezone
+    
     client = await get_background_client()
     
     market_api_key = os.getenv("CSGO_MARKET_API_KEY")
@@ -15878,17 +15994,16 @@ async def background_mass_delivery():
         pending_market_items = pending_market_resp.json()
         if isinstance(pending_market_items, list):
             for item in pending_market_items:
-                custom_id = item.get("market_custom_id")
+                # Используем либо market_custom_id, либо сам id (history_id)
                 history_id = item.get("id")
-                if not custom_id: 
-                    continue
+                custom_id = item.get("market_custom_id") or str(history_id)
                 
                 status_data = await market_client.check_order_status(custom_id)
                 if status_data.get("success"):
                     stage = str(status_data.get("data", {}).get("stage"))
                     if stage == "2": # Успешно передан юзеру
                         logging.info(f"[MARKET] Успешно выдан предмет P2P (ID: {custom_id})")
-                        await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "sent"})
+                        await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "received"})
                     elif stage == "5": # Таймаут / Ошибка
                         logging.warning(f"[MARKET] Отмена P2P (ID: {custom_id}). Перевод в ручной/складской режим.")
                         await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
@@ -15896,7 +16011,7 @@ async def background_mass_delivery():
     # 1. Берем все заявки, которые ждут ручной или автовыдачи
     resp = await client.get("/cs_history", params={
         "status": "in.(processing,auto_queued)",
-        "select": "id, user_id, status, item:cs_items(name, price, market_hash_name)"
+        "select": "id, user_id, status, item:cs_items(name, price, market_hash_name, condition)"
     })
     items = resp.json()
     
@@ -15914,14 +16029,13 @@ async def background_mass_delivery():
         
         # --- 🎯 ФИКС БЮДЖЕТА (СМОТРИМ В КОЛОНКУ PRICE) ---
         try:
-            # Превращаем "6" (строку) в 6.0 (число)
             target_price = float(item_data.get('price', 0))
         except (ValueError, TypeError):
             target_price = 0.0
             
-        # Названия для разных целей
-        warehouse_name = item_data.get('name') # Русское для склада
-        market_name = item_data.get('market_hash_name') or warehouse_name # Английское для Маркета
+        warehouse_name = item_data.get('name') 
+        market_name = item_data.get('market_hash_name') or warehouse_name 
+        item_condition = item_data.get('condition')
         
         # Получаем Trade Link юзера
         u_resp = await client.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "trade_link"})
@@ -15932,8 +16046,6 @@ async def background_mass_delivery():
         logging.info(f"--- АНАЛИЗ ЗАЯВКИ #{history_id} ---")
         logging.info(f"Предмет: {warehouse_name}")
         logging.info(f"Бюджет (price): {target_price}")
-        logging.info(f"Маркет Ключ: {'Есть' if market_api_key else 'НЕТ'}")
-        logging.info(f"Тумблер: {'ВКЛ' if auto_enabled else 'ВЫКЛ'}")
         logging.info(f"Трейд-ссылка: {'Есть' if trade_url else 'НЕТ'}")
 
         if not trade_url:
@@ -15944,27 +16056,24 @@ async def background_mass_delivery():
         # --- 🚀 ЭТАП 1: ПЛАН "А" (ПОКУПКА НА МАРКЕТЕ) ---
         market_success = False
         
-        # Заходим в блок только если есть клиент, включен тумблер и бюджет > 0
         if market_client and auto_enabled and target_price > 0:
             logging.info(f"[MARKET] Пытаюсь купить '{market_name}' через API...")
             
-            # Делаем запрос к Маркету
-            buy_res = await market_client.buy_for_user(market_name, trade_url)
+            # 🔥 ИСПРАВЛЕНО: Добавлен history_id
+            buy_res = await market_client.buy_for_user(market_name, trade_url, history_id=history_id)
             
             if buy_res.get("success"):
                 market_success = True
                 market_count += 1
-                custom_id = buy_res.get("custom_id")
                 await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={
                     "status": "market_pending",
-                    "market_custom_id": custom_id
+                    "market_custom_id": str(history_id)
                 })
-                logging.info(f"[MARKET] ✅ ЗАКАЗ СОЗДАН! ID: {custom_id}")
+                logging.info(f"[MARKET] ✅ ЗАКАЗ СОЗДАН! ID: {history_id}")
             else:
                 error_msg = str(buy_res.get("error", "")).lower()
                 logging.warning(f"[MARKET] ❌ ОТКАЗ МАРКЕТА: {error_msg}")
                 
-                # Авто-выключение при пустом балансе
                 if any(word in error_msg for word in ["balance", "money", "средств", "баланс", "fund", "insufficient"]):
                     auto_enabled = False 
                     await client.patch("/settings", params={"key": "eq.auto_delivery_enabled"}, json={"value": {"enabled": False}})
@@ -15977,13 +16086,17 @@ async def background_mass_delivery():
             continue 
 
         # --- 📦 ЭТАП 2: ПЛАН "Б" (СО СКЛАДА БОТОВ) ---
-        logging.info(f"[STOREKEEPER] Переход к Плану Б для '{warehouse_name}' (Бюджет: {target_price})...")
+        logging.info(f"[STOREKEEPER] Переход к Плану Б для '{warehouse_name}'...")
+        
+        # 🔥 ИСПРАВЛЕНО: Добавлен history_id
         delivery_res = await fulfill_item_delivery(
             user_id=user_id,
             target_name=warehouse_name,
             target_price_rub=target_price,
             trade_url=trade_url,
-            supabase=client
+            supabase=client,
+            history_id=history_id,
+            target_condition=item_condition
         )
 
         if delivery_res.get("success"):
@@ -15997,16 +16110,21 @@ async def background_mass_delivery():
             
             if trade_res and trade_res.get("success"):
                 success_count += 1
-                await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "sent"})
-                logging.info(f"[COURIER] ✅ Отправлено со склада: {real_skin['name']}")
+                t_id = str(trade_res.get("tradeofferid"))
+                # 🔥 ИСПРАВЛЕНО: Сохраняем tradeofferid для работы кнопки в профиле
+                await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={
+                    "status": "sent",
+                    "tradeofferid": t_id
+                })
+                logging.info(f"[COURIER] ✅ Отправлено со склада: {real_skin['name']} (Offer: {t_id})")
             else:
                 error_count += 1
-                err_text = trade_res.get('error') if trade_res else "Стим вернул null (куки бота №1 сдохли)"
+                err_text = trade_res.get('error') if trade_res else "Стим вернул null"
                 logging.error(f"[COURIER] ❌ Ошибка склада: {err_text}")
                 await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
         else:
             error_count += 1
-            logging.warning(f"[STOREKEEPER] ❌ Не нашли замену на складе для {warehouse_name}.")
+            logging.warning(f"[STOREKEEPER] ❌ Нет замены на складе для {warehouse_name}.")
             await client.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "processing"})
 
     # Отчет админу
@@ -17419,31 +17537,68 @@ async def finalize_raffle_webhook(
                 
                 if trade_link:
                     try:
-                        # Зовем Кладовщика (бюджет 0, нужен точный скин)
+                        # --- ШАГ 1: Создаем запись в истории для отслеживания ---
+                        # Нам нужен этот ID, чтобы передать его в fulfill_item_delivery
+                        history_res = await supabase.post("/cs_history", json={
+                            "user_id": winner_id,
+                            "case_name": "Розыгрыш",
+                            "status": "pending",
+                            "details": f"Приз: {prize_name}"
+                        })
+                        
+                        history_data = history_res.json()
+                        giveaway_history_id = history_data[0]['id'] if isinstance(history_data, list) else None
+
+                        if not giveaway_history_id:
+                            raise Exception("Не удалось создать запись в истории для розыгрыша")
+
+                        # --- ШАГ 2: Зовем Кладовщика (бюджет 0, нужен точный скин) ---
+                        # 🔥 ПЕРЕДАЕМ giveaway_history_id
                         deliv_res = await fulfill_item_delivery(
                             user_id=winner_id, 
                             target_name=prize_name, 
                             target_price_rub=0.0, 
                             trade_url=trade_link, 
                             supabase=supabase,
+                            history_id=giveaway_history_id, # <--- ТЕПЕРЬ ВСЁ ОК
                             target_condition=quality if quality else None
                         )
+                        
                         if deliv_res.get("success"):
-                            real_skin = deliv_res.get("real_skin")
-                            # Зовем Курьера
-                            trade_res = await send_steam_trade_offer(
-                                account_id=real_skin["account_id"], 
-                                assetid=real_skin["assetid"], 
-                                trade_url=trade_link, 
-                                supabase=supabase
-                            )
-                            if trade_res.get("success"):
+                            # Если предмет куплен на Маркете, статус в базе уже сменился на market_pending
+                            if "Предмет куплен на Маркете" in deliv_res.get("message", ""):
                                 is_delivered_auto = True
-                                delivery_status_text = f"\n\n✅ <i>Трейд со скином уже отправлен победителю! Принимай в Steam.</i>"
+                                delivery_status_text = f"\n\n✅ <i>Приз закуплен на Маркете! Отслеживай статус в Профиле.</i>"
                             else:
-                                delivery_status_text = f"\n\n⚠️ <i>ОШИБКА STEAM при отправке: {trade_res.get('error')} (Админ выдаст вручную)</i>"
+                                # Если предмет на нашем складе — зовем Курьера
+                                real_skin = deliv_res.get("real_skin")
+                                trade_res = await send_steam_trade_offer(
+                                    account_id=real_skin["account_id"], 
+                                    assetid=real_skin["assetid"], 
+                                    trade_url=trade_link, 
+                                    supabase=supabase
+                                )
+                                
+                                if trade_res.get("success"):
+                                    is_delivered_auto = True
+                                    t_id = str(trade_res.get("tradeofferid"))
+                                    
+                                    # Обновляем статус и записываем tradeofferid для проверки в профиле
+                                    await supabase.patch("/cs_history", params={"id": f"eq.{giveaway_history_id}"}, json={
+                                        "status": "sent",
+                                        "tradeofferid": t_id
+                                    })
+                                    
+                                    delivery_status_text = f"\n\n✅ <i>Трейд со скином уже отправлен победителю! Принимай в Steam.</i>"
+                                else:
+                                    # Ошибка отправки — переводим в ручной режим
+                                    await supabase.patch("/cs_history", params={"id": f"eq.{giveaway_history_id}"}, json={"status": "processing"})
+                                    delivery_status_text = f"\n\n⚠️ <i>ОШИБКА STEAM при отправке: {trade_res.get('error')} (Админ выдаст вручную)</i>"
                         else:
+                            # Предмета нет ни на складе, ни на Маркете
+                            await supabase.patch("/cs_history", params={"id": f"eq.{giveaway_history_id}"}, json={"status": "processing"})
                             delivery_status_text = "\n\n⚠️ <i>Скин на складе закончился. Админ выдаст замену вручную!</i>"
+
                     except Exception as e:
                         print(f"Auto-delivery raffle error: {e}")
                         delivery_status_text = "\n\n⚠️ <i>Сбой автовыдачи. Админ выдаст вручную.</i>"
