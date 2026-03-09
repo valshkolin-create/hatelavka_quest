@@ -1467,11 +1467,12 @@ function renderInventory(items) {
         return;
     }
 
-    // --- УЛУЧШЕННАЯ СОРТИРОВКА (Сначала доступные, затем в процессе, завершенные внизу) ---
+    // --- УЛУЧШЕННАЯ СОРТИРОВКА ---
+    // Теперь 'pending', 'failed' и 'canceled' приравнены к 'available' и показываются в самом верху
     const statusWeight = { 
-        'available': 1, 'active': 1, 'pending': 2, 'auto_queued': 3, 
-        'market_pending': 4, 'processing': 5, 'sent': 6, 'offer_sent': 6, 
-        'received': 7, 'exchanged': 8, 'failed': 9, 'canceled': 9 
+        'available': 1, 'pending': 1, 'failed': 1, 'canceled': 1, 'active': 1, 
+        'auto_queued': 3, 'market_pending': 4, 'processing': 5, 
+        'sent': 6, 'offer_sent': 6, 'received': 7, 'exchanged': 8 
     };
     
     items.sort((a, b) => {
@@ -1481,7 +1482,6 @@ function renderInventory(items) {
     });
 
     items.forEach(item => {
-        // 🔥 ФИКС: Если статус пустой, считаем его 'available' (доступным)
         const status = (item.status || 'available').toLowerCase();
         const rData = getRarityData(item.rarity); 
         const ticketVal = item.price || 0;
@@ -1502,10 +1502,15 @@ function renderInventory(items) {
                 </div>`;
         }
         else if (status === 'market_pending') {
-            statusLabel = '<span style="color:#a200ff; font-size:9px;">ПРОДАВЕЦ ОТПРАВЛЯЕТ ТРЕЙД</span>';
+            statusLabel = ''; // Убираем текст из центральной колонки
             rightContentHtml = `
-                <div style="background: rgba(162, 0, 255, 0.1); color: #c466ff; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(162, 0, 255, 0.2);">
-                    В ПУТИ<br><span style="font-size:8px; opacity: 0.8;">~ до 30 мин</span>
+                <div style="display: flex; flex-direction: column; justify-content: center; gap: 4px; width: 100%;">
+                    <div style="color:#a200ff; font-size:8px; font-weight:800; text-align:center; line-height:1.1;">
+                        ПРОДАВЕЦ ОТПРАВЛЯЕТ
+                    </div>
+                    <div style="background: rgba(162, 0, 255, 0.1); color: #c466ff; text-align: center; padding: 6px 2px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(162, 0, 255, 0.2); box-sizing: border-box;">
+                        В ПУТИ<br><span style="font-size:8px; opacity: 0.8;">~ до 5 мин</span>
+                    </div>
                 </div>`;
         }
         else if (status === 'processing') {
@@ -1515,16 +1520,7 @@ function renderInventory(items) {
                     ОБРАБОТКА
                 </div>`;
         } 
-        else if (status === 'pending') {
-            // 🔥 ЗАЩИТА: Скин в очереди на выдачу (бот вот-вот отправит)
-            statusLabel = '<span style="color:#007aff; font-size:9px;">ОЖИДАЕТ ОТПРАВКИ БОТОМ</span>';
-            rightContentHtml = `
-                <div style="background: rgba(0, 122, 255, 0.1); color: #007aff; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(0, 122, 255, 0.2);">
-                    <i class="fa-solid fa-spinner fa-spin"></i> В ОЧЕРЕДИ
-                </div>`;
-        }
         else if (status === 'sent' || status === 'offer_sent') {
-            // 🔥 ОФФЕР ОТПРАВЛЕН: Даем выбор: подтвердить получение или проверить статус на Маркете
             statusLabel = '<span style="color:#ffcc00; font-size:9px;">ОФФЕР ОТПРАВЛЕН В STEAM</span>';
             rightContentHtml = `
                 <button onclick="confirmReceived(${item.history_id})" style="
@@ -1542,7 +1538,6 @@ function renderInventory(items) {
                 </button>`;
         }
         else if (status === 'received') {
-            // ФИНАЛ: Юзер подтвердил получение
             cardOpacity = '0.5';
             statusLabel = '<span style="color:#34c759; font-size:9px;">УСПЕШНО ДОСТАВЛЕНО</span>';
             rightContentHtml = `
@@ -1559,17 +1554,17 @@ function renderInventory(items) {
                     +${ticketVal} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i>
                 </div>`;
         }
-        else if (status === 'failed' || status === 'canceled') {
-            cardOpacity = '0.5';
-            statusLabel = '<span style="color:#ff3b30; font-size:9px;">ВЫВОД ОТМЕНЕН</span>';
-            rightContentHtml = `
-                <div style="text-align: right; color: #ff3b30; font-weight: 800; font-size: 11px;">
-                    <i class="fa-solid fa-ban"></i> ОТМЕНА
-                </div>`;
-        }
         else {
-            // ДЕФОЛТ: Доступно (кнопка активна)
-            statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДЛЯ ВЫВОДА</span>';
+            // 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ 🔥
+            // Сюда теперь попадают статусы: 'available', 'pending', 'canceled', 'failed'
+            // Юзер снова видит кнопки "ЗАБРАТЬ" и "ПРОДАТЬ"
+            
+            if (status === 'failed' || status === 'canceled') {
+                statusLabel = '<span style="color:#ff3b30; font-size:9px;"><i class="fa-solid fa-rotate-left"></i> ОТМЕНЕНО (МОЖНО ПОВТОРИТЬ)</span>';
+            } else {
+                statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДЛЯ ВЫВОДА</span>';
+            }
+
             rightContentHtml = `
                 <button onclick="withdrawItem(${item.history_id}, '${item.name.replace(/'/g, "\\'")}')" style="
                     background: #34c759; color: #000; border: none;
