@@ -1524,15 +1524,21 @@ function renderInventory(items) {
                 </div>`;
         }
         else if (status === 'sent' || status === 'offer_sent') {
-            // 🔥 ОФФЕР ОТПРАВЛЕН: Ждем, пока юзер нажмет "Я получил"
+            // 🔥 ОФФЕР ОТПРАВЛЕН: Даем выбор: подтвердить получение или проверить статус на Маркете
             statusLabel = '<span style="color:#ffcc00; font-size:9px;">ОФФЕР ОТПРАВЛЕН В STEAM</span>';
             rightContentHtml = `
                 <button onclick="confirmReceived(${item.history_id})" style="
-                    background: #ffcc00; color: #000; border: none;
+                    background: #34c759; color: #000; border: none;
                     font-size: 10px; font-weight: 800; padding: 10px 0; 
                     border-radius: 8px; cursor: pointer; width: 100%;
-                    box-shadow: 0 0 10px rgba(255, 204, 0, 0.4); margin-bottom: 8px;">
-                    Я ПОЛУЧИЛ
+                    box-shadow: 0 0 10px rgba(52, 199, 89, 0.4); margin-bottom: 6px;">
+                    <i class="fa-solid fa-check"></i> Я ПОЛУЧИЛ
+                </button>
+                <button onclick="checkTradeStatus(${item.history_id})" style="
+                    background: rgba(255, 255, 255, 0.05); color: #ccc; border: 1px solid rgba(255, 255, 255, 0.1);
+                    font-size: 9px; font-weight: 600; padding: 8px 0; 
+                    border-radius: 8px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; transition: 0.2s;">
+                    <i class="fa-solid fa-rotate-right"></i> СТАТУС TM
                 </button>`;
         }
         else if (status === 'received') {
@@ -1682,6 +1688,29 @@ window.confirmReceived = function(historyId) {
 // =========================================================
 // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
 // =========================================================
+// --- ФУНКЦИЯ ПРОВЕРКИ СТАТУСА НА МАРКЕТЕ (ТМ) ---
+window.checkTradeStatus = async function(historyId) {
+    showLoader();
+    try {
+        // Отправляем запрос на наш бэкенд, а он уже спросит Маркет (TM)
+        const res = await makeApiRequest('/api/v1/user/inventory/check_trade', { history_id: historyId }, 'POST', true);
+        
+        if (res && res.success) {
+            // Если ТМ вернул статус "Успех" или "Отмена"
+            showCustomAlert(res.message, false);
+            // Мгновенно обновляем инвентарь, чтобы показать актуальную кнопку
+            await loadData(true); 
+        } else {
+            // Если ТМ говорит, что оффер все еще висит
+            showCustomAlert(res.message || "Трейд активен. Ожидаем ваших действий в Steam!", true);
+        }
+    } catch (e) {
+        showCustomAlert("Ошибка проверки: " + e.message, true);
+    } finally {
+        hideLoader();
+    }
+}
+    
     // --- MAIN FUNCTION ---
     async function main() {
         // 1. Проверка: запущено ли в Telegram
