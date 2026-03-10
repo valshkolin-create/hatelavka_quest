@@ -1331,13 +1331,40 @@ function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel 
 // ================================================================
 // УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ И FAQ
 // ================================================================
+
+// Обновленный showShopModal (умеет скрывать кнопку отмены и закрываться по клику вне окна)
+function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
+    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
+    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+    
+    let cancelBtnHtml = showCancel ? `<button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>` : '';
+
+    overlay.innerHTML = `
+        <div class="custom-confirm-box">
+            <h3 class="confirm-title">${title}</h3>
+            <div class="confirm-subtitle" style="white-space: pre-wrap;">${subtitle}</div>
+            <div class="confirm-buttons">
+                ${cancelBtnHtml}
+                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    
+    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+    
+    if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
+    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
+    overlay.onclick = (e) => { if(e.target === overlay && showCancel) close(); };
+}
+
 window.customAlert = function(message) {
     showShopModal({
         title: "Внимание",
         subtitle: message,
         confirmText: "ПОНЯТНО",
         confirmClass: "btn-yellow-modal",
-        showCancel: false, // Без кнопки "Отмена"
+        showCancel: false, 
         onConfirm: (close) => close()
     });
 };
@@ -1356,11 +1383,41 @@ window.customConfirm = function(message, callback) {
     });
 };
 
-// Функция для FAQ
+// ================================================================
+// FAQ БОТА
+// ================================================================
 window.showFaq = function() {
-    customAlert("Бот позволяет обменивать ненужные скины (Trade-In), участвовать в рулетках и ежедневных розыгрышах.\n\nДля получения призов обязательно привяжите Trade-ссылку в Профиле!");
-};
+    const faqHtml = `<div style="text-align: left; font-size: 13px; line-height: 1.5; color: #ddd;">
+Добро пожаловать в HATElavka Чтобы ты не запутался, вот краткий путеводитель:
 
+<b style="color: #fff; font-size: 14px;"> Валюта и прогресс</b>
+• <b>Монетки:</b> Твоя основная валюта с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.
+• <b>Билеты:</b> это монета активности, открывает возможность пользоваться аукционом, розыгрышами.
+
+<b style="color: #fff; font-size: 14px;">📋 Как зарабатывать</b>
+• <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.
+• <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.
+
+<b style="color: #fff; font-size: 14px;">🎁 Активности и Ивенты</b>
+Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b>, и крути <b>Рулетки</b> за скины.
+
+<b style="color: #fff; font-size: 14px;">🛒 TRADE IT</b>
+Продавай кейсы в разделе кейсы. ⚠️ <span style="color: #ffd700; font-weight: bold;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span>
+
+⚠️ <span style="color: #ffd700; font-weight: bold;">Помним, что Валя соло разработчик, баги - это нормально!</span>
+
+<b style="color: #fff; font-size: 14px;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!
+</div>`;
+
+    showShopModal({
+        title: "📖 Как работает бот?",
+        subtitle: faqHtml,
+        confirmText: "Спасибо!",
+        confirmClass: "btn-yellow-modal",
+        showCancel: false,
+        onConfirm: (close) => close()
+    });
+};
 // Обновленный showShopModal (умеет скрывать кнопку отмены)
 function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
     const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
