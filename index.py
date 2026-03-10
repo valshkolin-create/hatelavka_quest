@@ -1967,6 +1967,19 @@ class MarketCSGO:
         except Exception:
             return None, None
 
+    async def check_trade_link(self, trade_link: str):
+    """Проверяет, живая ли ссылка через API Маркета"""
+    params = {"token": self.api_key, "trade_url": trade_link}
+    # У Маркета есть эндпоинт для проверки ссылок
+    response = await self._make_request("test-trade-url", params) 
+    
+    # Если Маркет говорит success: True, значит Стим ссылку принял
+    if response.get("success"):
+        return {"valid": True}
+    else:
+        error_msg = response.get("error", "Неизвестная ошибка Стима")
+        return {"valid": False, "error": error_msg}
+
     async def _make_request(self, endpoint: str, params: dict = None) -> dict:
         if params is None:
             params = {}
@@ -11959,20 +11972,54 @@ async def save_trade_link(
     request_data: TradeLinkUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Сохраняет или обновляет трейд-ссылку пользователя."""
+    """Сохраняет или обновляет трейд-ссылку пользователя с проверкой."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
     
     telegram_id = user_info["id"]
-    
+    trade_link = request_data.trade_link.strip()
+
+    # --- ЭТАП 1: Быстрая проверка синтаксиса (Regex) ---
+    # Проверяем наличие partner и token
+    if not re.search(r"partner=(\d+)&token=([a-zA-Z0-9_-]+)", trade_link):
+        raise HTTPException(
+            status_code=400, 
+            detail="Неверный формат ссылки! Убедитесь, что скопировали её целиком."
+        )
+
+    # --- ЭТАП 2: "Боевая" проверка через API Маркета ---
+    try:
+        # Инициализируем клиент Маркета
+        api_key = os.getenv("MARKET_API_KEY")
+        market_client = MarketCSGO(api_key=api_key)
+        
+        check_res = await market_client.check_trade_link(trade_link)
+        
+        if not check_res.get("success"):
+            error_text = check_res.get("error", "Steam отклонил эту ссылку")
+            # Переводим типичные ошибки для пользователя
+            if "token" in error_text.lower():
+                msg = "Ваш Trade Token устарел. Сгенерируйте новую ссылку в Steam и вставьте её сюда."
+            else:
+                msg = f"Ошибка Steam: {error_text}"
+                
+            raise HTTPException(status_code=400, detail=msg)
+
+    except Exception as e:
+        # Если Маркет лежит или API ключ невалидный, 
+        # лучше залогировать это, но дать юзеру сохранить ссылку (как фолбек)
+        logging.error(f"Ошибка при валидации трейд-ссылки: {e}")
+        # pass # Раскомментируй, если хочешь разрешать сохранение при лагах API
+
+    # --- ЭТАП 3: Сохранение ---
     await supabase.patch(
         "/users",
         params={"telegram_id": f"eq.{telegram_id}"},
-        json={"trade_link": request_data.trade_link}
+        json={"trade_link": trade_link}
     )
     
-    return {"message": "Трейд-ссылка успешно сохранена!"}
+    return {"success": True, "message": "Трейд-ссылка проверена и сохранена!"}
 
 @app.post("/api/v1/admin/events/winners")
 async def get_pending_event_prizes_grouped(
