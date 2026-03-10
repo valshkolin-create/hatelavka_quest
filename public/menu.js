@@ -1131,17 +1131,18 @@ async function main() {
     }
 }
 
-// ЗАПУСК СИСТЕМЫ
-// ЗАПУСК СИСТЕМЫ
 try {
     checkBalance(true); 
 
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
-        Telegram.WebApp.expand(); // Расширяем на всю высоту
+        Telegram.WebApp.expand(); 
         
-        // НОВАЯ ФУНКЦИЯ ТЕЛЕГРАМА: Истинный полный экран (скрывает шапку ТГ)
-        if (Telegram.WebApp.requestFullscreen) {
+        // --- УМНЫЙ FULLSCREEN ---
+        // Проверяем платформу. Если это ПК, веб-версия или macOS - не делаем фуллскрин
+        const isDesktop = ['tdesktop', 'web', 'macos'].includes(Telegram.WebApp.platform);
+        
+        if (!isDesktop && Telegram.WebApp.requestFullscreen) {
             Telegram.WebApp.requestFullscreen();
         }
     } 
