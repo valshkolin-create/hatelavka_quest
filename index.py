@@ -1744,65 +1744,89 @@ async def lifespan(app: FastAPI):
     if global_shop_client: # <--- ДОБАВИТЬ ЗАКРЫТИЕ
         await global_shop_client.aclose()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Выполняется ПРИ СТАРТЕ сервера (до первых пользователей)
+    client = await get_supabase_client()
+    # Делаем холостой пинг, чтобы прогреть SSL-рукопожатие
+    try:
+        await client.get("/settings?limit=1")
+        logging.info("🔥 Соединение с БД прогрето при старте сервера")
+    except Exception:
+        pass
+        
+    yield # Здесь сервер работает и принимает запросы
+    
+    # 2. Выполняется ПРИ ВЫКЛЮЧЕНИИ сервера
+    if _lazy_supabase_client is not None:
+         await _lazy_supabase_client.aclose()
+         logging.info("🔌 Клиент Supabase закрыт")
+
 app = FastAPI(title="Quest Bot API")
 # app.mount("/public", StaticFiles(directory=TEMPLATES_DIR), name="public")
-
+    
 # --- Middlewares ---
 @app.middleware("http")
 async def sleep_mode_check(request: Request, call_next):
     path = request.url.path
     
     # 1. БЕЛЫЙ СПИСОК (Пропускаем служебные запросы без проверки базы)
-    # /api/v1/user/me пропускаем, чтобы внутри функции проверить ID админа
-    # /api/v1/bootstrap пропускаем, чтобы фронтенд узнал, что включен тех. режим
     if path.startswith(("/api/v1/admin", "/admin", "/api/v1/webhooks", "/public", "/favicon.ico", "/api/v1/bootstrap", "/api/v1/user/me")):
         return await call_next(request)
 
-    # 2. АВТО-ОБНОВЛЕНИЕ СТАТУСА ИЗ БАЗЫ (КЭШ 10 СЕКУНД)
-    # Это нужно, чтобы Vercel узнал, что ты нажал кнопку, не перезагружая сервер
+    # 2. АВТО-ОБНОВЛЕНИЕ СТАТУСА ИЗ БАЗЫ (КЭШ 60 СЕКУНД)
     now = time.time()
-    if (now - sleep_cache["last_checked"]) > 60: 
+    if (now - sleep_cache.get("last_checked", 0)) > 60: 
         try:
+            # ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ (Предполагается, что у вас есть функция get_supabase_client или глобальная переменная)
+            # Если глобальной нет, обязательно создайте её один раз при старте приложения
             async with httpx.AsyncClient(
                 base_url=f"{SUPABASE_URL}/rest/v1",
                 headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
                 timeout=5.0
-            ) as client:
+            ) as client: # <-- В ИДЕАЛЕ ЗАМЕНИТЬ ЭТО НА ВАШ ГЛОБАЛЬНЫЙ supabase_client
                 resp = await client.get("/settings", params={"key": "eq.sleep_mode", "select": "value"})
-                if resp.status_code == 200 and resp.json():
-                    data = resp.json()[0].get("value", {})
-                    sleep_cache["is_sleeping"] = data.get("is_sleeping", False)
-                    sleep_cache["wake_up_at"] = data.get("wake_up_at")
-                sleep_cache["last_checked"] = now
+                
+                if resp.status_code == 200:
+                    data_list = resp.json()
+                    if data_list:
+                        data = data_list[0].get("value", {})
+                        sleep_cache["is_sleeping"] = data.get("is_sleeping", False)
+                        sleep_cache["wake_up_at"] = data.get("wake_up_at")
+            
+            # Обновляем таймер даже при ошибке, чтобы не спамить БД каждую миллисекунду, если она легла
+            sleep_cache["last_checked"] = now
         except Exception as e:
+            # Логируем, но не роняем запрос
             print(f"Ошибка обновления sleep_cache: {e}")
+            sleep_cache["last_checked"] = now
 
-    # 3. ПРОВЕРКА ТЕХ. РЕЖИМА
-    if sleep_cache["is_sleeping"]:
+    # 3. Таймер пробуждения (если задан)
+    # Вынес это ВЫШЕ проверки тех. режима, чтобы он сначала "проснулся", а потом пускал
+    wake_up = sleep_cache.get("wake_up_at")
+    if wake_up and now > wake_up:
+        sleep_cache["is_sleeping"] = False
+        sleep_cache["wake_up_at"] = None
+
+    # 4. ПРОВЕРКА ТЕХ. РЕЖИМА
+    if sleep_cache.get("is_sleeping"):
         # Проверяем "пропуск" админа (Cookie или параметр в ссылке)
         has_bypass = (
             request.query_params.get("admin_bypass") == "1" or 
             request.cookies.get("maintenance_bypass") == "1"
         )
 
-        # Если это API (например, попытка купить кейс), и это не белый список
-        if path.startswith("/api/"):
-             # Возвращаем 200 OK (чтобы не было красных ошибок), но говорим JS уходить
-             return JSONResponse(
-                status_code=200, 
-                content={"maintenance": True, "detail": "Maintenance Mode"}
-             )
-        
-        # Если это обычная страница (не главная) и нет пропуска -> РЕДИРЕКТ
-        if path not in ["/", "/index.html"] and not has_bypass:
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="/")
-
-    # 4. Таймер пробуждения (если задан)
-    if sleep_cache["wake_up_at"]:
-        if time.time() > sleep_cache["wake_up_at"]:
-             sleep_cache["is_sleeping"] = False
-             sleep_cache["wake_up_at"] = None
+        if not has_bypass:
+            # Если это API (и это не белый список)
+            if path.startswith("/api/"):
+                 return JSONResponse(
+                    status_code=200, 
+                    content={"maintenance": True, "detail": "Maintenance Mode"}
+                 )
+            
+            # Если это обычная страница (не главная) -> РЕДИРЕКТ
+            if path not in ["/", "/index.html"]:
+                return RedirectResponse(url="/")
 
     return await call_next(request)
 # --- СИСТЕМА УПРАВЛЕНИЯ КЛИЕНТОМ (DEPENDENCY) ---
@@ -1859,20 +1883,25 @@ async def get_supabase_client() -> httpx.AsyncClient:
         
     logging.info("🔌 (Re)Creating global Supabase client...")
     
-    # 🔥 ИЗМЕНЕНИЕ: Добавляем keepalive_expiry=10
-    # Это заставит клиент закрывать соединения, которые висят без дела больше 10 секунд.
-    # Это предотвратит попытки использования "мертвых" соединений.
-    limits = httpx.Limits(max_keepalive_connections=5, max_connections=20, keepalive_expiry=10)
+    # 🔥 ИЗМЕНЕНИЕ: Расширяем пулы и время жизни соединений.
+    # Увеличиваем max_connections до 100, чтобы при наплыве юзеры не выстраивались в очередь.
+    # Увеличиваем keepalive_expiry до 300 (5 минут) — это КРИТИЧЕСКИ ВАЖНО, чтобы не 
+    # тратить по 300-500мс на новое SSL/TCP рукопожатие каждые 10 секунд простоя.
+    limits = httpx.Limits(
+        max_keepalive_connections=50, 
+        max_connections=100, 
+        keepalive_expiry=300
+    )
     
     _lazy_supabase_client = httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=10.0, # 🔥 Уменьшаем таймаут до 10 секунд (15 это много)
+        timeout=10.0, # 🔥 Оставляем 10 секунд, этого более чем достаточно
         limits=limits
     )
     
     return _lazy_supabase_client
-
+    
 # --- Utils ---
 def encode_cookie(value: dict) -> str:
     return base64.urlsafe_b64encode(json.dumps(value).encode("utf-8")).decode("ascii")
@@ -2892,8 +2921,8 @@ async def bootstrap_app(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    🚀 OPTIMIZED: Загружает ВСЕ данные + Статус P2P трейда.
-    Автоматически регистрирует пользователя, если его нет в базе.
+    🚀 OPTIMIZED: Загружает ВСЕ данные + Статус P2P трейда за 1 SQL запрос.
+    Автоматически регистрирует пользователя (через SQL), если его нет в базе.
     Поддерживает гибридную систему (Telegram + VK).
     """
     user_info = None
@@ -2916,7 +2945,7 @@ async def bootstrap_app(
     if not user_info or not telegram_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-   # --- 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА 🛡️ ---
+    # --- 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА 🛡️ ---
     # Проверяем админа (только если ID совпадает с ADMIN_IDS)
     is_admin = telegram_id in ADMIN_IDS
 
@@ -2935,64 +2964,28 @@ async def bootstrap_app(
     # --------------------------------------
     
     try:
-        # 1. Запускаем все запросы ПАРАЛЛЕЛЬНО (Добавили Task I и J)
-        # telegram_id здесь уже правильный (положительный для ТГ, отрицательный для ВК)
+        # Подготавливаем данные для авто-регистрации внутри базы
+        raw_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
+        full_name_tg = clean_user_name_text(raw_full_name) 
+        username_tg = user_info.get("username")
+
+        # 1. Запускаем всего ДВА запроса ПАРАЛЛЕЛЬНО вместо десяти
         results = await asyncio.gather(
             # A. Настройки админа
             get_admin_settings_async_global(),
             
-            # B. Данные пользователя (RPC)
-            supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
-            
-            # C. Список квестов
-            supabase.post("/rpc/get_available_quests_for_user", json={"p_telegram_id": telegram_id}),
-            
-            # D. Недельные цели
-            supabase.post("/rpc/get_user_weekly_goals_status", json={"p_user_id": telegram_id}),
-            
-            # E. Статус Котла
-            supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": "1"}),
-
-            # F. Реферальные данные + СТАТУС TWITCH
-            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "referrer_id, referral_activated_at, bott_internal_id, bott_ref_id, twitch_status, twitch_login"}),
-            
-            # G. Подсчет рефералов
-            supabase.get(
-                "/users", 
-                params={"referrer_id": f"eq.{telegram_id}", "referral_activated_at": "not.is.null", "select": "telegram_id", "limit": "1"},
-                headers={"Prefer": "count=exact"} 
-            ),
-
-            # H. Статус стрима
-            supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
-
-            # I. 🔥 НОВОЕ: Статус P2P трейда (для мгновенного обновления плитки)
-            supabase.get(
-                "/p2p_trades",
-                params={
-                    "user_id": f"eq.{telegram_id}",
-                    "status": "in.(pending,active,review)",
-                    "order": "created_at.desc",
-                    "limit": 1
-                }
-            ),
-
-            # J. 🔥 НОВОЕ: Ищем последний выданный секретный код
-            supabase.get(
-                "/cs_codes", 
-                params={
-                    "assigned_to": f"eq.{telegram_id}", 
-                    "order": "assigned_at.desc", 
-                    "limit": 1,
-                    "select": "code"
-                }
-            ),
+            # B. 🔥 GOD RPC: Берет все данные юзера, квесты, трейды, коды и регистрирует новичков
+            supabase.post("/rpc/get_bootstrap_all_data", json={
+                "p_telegram_id": telegram_id,
+                "p_username": username_tg,
+                "p_full_name": full_name_tg
+            }),
             
             return_exceptions=True
         )
         
-        # Распаковка результатов (добавили code_res в конец)
-        (settings_res, user_res, quests_res, goals_res, cauldron_res, user_extra_res, referral_count_res, stream_res, trade_res, code_res) = results
+        # Распаковка результатов
+        (settings_res, db_res) = results
 
         # --- 1. Обработка Настроек ---
         if isinstance(settings_res, Exception):
@@ -3001,31 +2994,20 @@ async def bootstrap_app(
         else:
             menu_content = settings_res.dict() if hasattr(settings_res, 'dict') else settings_res
 
-        # --- 2. Обработка Пользователя (С АВТО-РЕГИСТРАЦИЕЙ) ---
-        user_data = {}
-        rpc_data = None
-        
-        if not isinstance(user_res, Exception) and user_res.status_code == 200:
-            rpc_data = user_res.json()
+        # Проверка на ошибку базы данных
+        if isinstance(db_res, Exception) or db_res.status_code != 200:
+            error_msg = str(db_res) if isinstance(db_res, Exception) else db_res.text
+            raise Exception(f"Database RPC Error: {error_msg}")
 
-        # 🔥 ЕСЛИ ЮЗЕРА НЕТ — СОЗДАЕМ ЕГО
-        if not rpc_data or not rpc_data.get('profile'):
-            logging.info(f"🆕 Новый пользователь {telegram_id}...")
-            
-            raw_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
-            full_name_tg = clean_user_name_text(raw_full_name) 
-            username_tg = user_info.get("username")
-            
-            await supabase.post(
-                "/users",
-                json={
-                    "telegram_id": telegram_id,
-                    "username": username_tg,
-                    "full_name": full_name_tg
-                },
-                headers={"Prefer": "resolution=merge-duplicates"}
-            )
-            
+        # Достаем огромный JSON со всеми данными
+        db_data = db_res.json()
+
+        # --- 2. Обработка Пользователя (Авто-регистрация уже прошла в SQL) ---
+        rpc_data = db_data.get('dashboard', {}) or {}
+        user_data = rpc_data.get('profile', {}) or {}
+        
+        # Подстраховка: если БД только-только создала юзера и не успела вернуть его в дашборд
+        if not user_data:
             user_data = {
                 "telegram_id": telegram_id,
                 "full_name": full_name_tg,
@@ -3036,133 +3018,95 @@ async def bootstrap_app(
                 "challenge": None,
                 "event_participations": {},
             }
-        else:
-            user_data = rpc_data.get('profile', {}) or {}
-            
-            # --- 🔥 ЛОГИКА КУЛДАУНА ЧЕЛЛЕНДЖА 🔥 ---
-            raw_challenge = rpc_data.get('challenge')
-            
-            if raw_challenge:
-                status = raw_challenge.get('status')
-                claimed_at_str = raw_challenge.get('claimed_at')
 
-                if status == 'expired':
-                    # Если истек — сбрасываем, чтобы дать взять новый
-                    user_data['challenge'] = None
-                
-                elif status == 'claimed' and claimed_at_str:
-                    # Если ЗАБРАН — проверяем, прошло ли время (12 часов)
-                    try:
-                        claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
-                        # Время, когда можно брать следующий
-                        cooldown_end = claimed_at + timedelta(hours=12)
-                        now = datetime.now(timezone.utc)
+        # --- 🔥 ЛОГИКА КУЛДАУНА ЧЕЛЛЕНДЖА 🔥 ---
+        raw_challenge = rpc_data.get('challenge')
+        
+        if raw_challenge:
+            status = raw_challenge.get('status')
+            claimed_at_str = raw_challenge.get('claimed_at')
 
-                        if now < cooldown_end:
-                            # Кулдаун еще идет -> Отправляем данные + время окончания
-                            user_data['challenge'] = raw_challenge
-                            user_data['challenge']['cooldown_until'] = cooldown_end.isoformat()
-                        else:
-                            # Кулдаун прошел -> Сбрасываем, можно брать новый
-                            user_data['challenge'] = None
-                    except Exception as e:
-                        logging.error(f"Date parse error: {e}")
-                        user_data['challenge'] = None
-                else:
-                    # Если pending (активный) — оставляем как есть
-                    user_data['challenge'] = raw_challenge
-            else:
+            if status == 'expired':
+                # Если истек — сбрасываем, чтобы дать взять новый
                 user_data['challenge'] = None
-            # --- КОНЕЦ ЛОГИКИ КУЛДАУНА ---
+            
+            elif status == 'claimed' and claimed_at_str:
+                # Если ЗАБРАН — проверяем, прошло ли время (12 часов)
+                try:
+                    claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
+                    # Время, когда можно брать следующий
+                    cooldown_end = claimed_at + timedelta(hours=12)
+                    now = datetime.now(timezone.utc)
 
-            user_data['event_participations'] = rpc_data.get('event_participations', {})
+                    if now < cooldown_end:
+                        # Кулдаун еще идет -> Отправляем данные + время окончания
+                        user_data['challenge'] = raw_challenge
+                        user_data['challenge']['cooldown_until'] = cooldown_end.isoformat()
+                    else:
+                        # Кулдаун прошел -> Сбрасываем, можно брать новый
+                        user_data['challenge'] = None
+                except Exception as e:
+                    logging.error(f"Date parse error: {e}")
+                    user_data['challenge'] = None
+            else:
+                # Если pending (активный) — оставляем как есть
+                user_data['challenge'] = raw_challenge
+        else:
+            user_data['challenge'] = None
+        # --- КОНЕЦ ЛОГИКИ КУЛДАУНА ---
+
+        user_data['event_participations'] = rpc_data.get('event_participations', {})
 
         # --- Дополнительные поля ---
-        user_data['is_admin'] = telegram_id in ADMIN_IDS
+        user_data['is_admin'] = is_admin
         user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
         user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
         
         # Статус стрима (Task H)
-        user_data['is_stream_online'] = False
-        if not isinstance(stream_res, Exception) and stream_res.status_code == 200:
-            s_data = stream_res.json()
-            if s_data:
-                user_data['is_stream_online'] = s_data[0].get('value', False)
+        user_data['is_stream_online'] = db_data.get('stream_status') or False
+
+        # Реферальные данные (Task F)
+        user_extra = db_data.get('user_extra') or {}
+        user_data.update(user_extra)
 
         # Подписка
         user_data['is_telegram_subscribed'] = True if user_data.get('referral_activated_at') else False
 
-        # Реферальные данные (Task F)
-        if not isinstance(user_extra_res, Exception) and user_extra_res.status_code == 200:
-            extra_data_list = user_extra_res.json()
-            if extra_data_list:
-                user_data.update(extra_data_list[0])
-
         # Счетчик рефералов (Task G)
-        user_data['active_referrals_count'] = 0
-        if not isinstance(referral_count_res, Exception) and referral_count_res.status_code in [200, 206]:
-            content_range = referral_count_res.headers.get("Content-Range")
-            if content_range:
-                try:
-                    count_val = content_range.split('/')[-1]
-                    user_data['active_referrals_count'] = int(count_val) if count_val != '*' else 0
-                except: pass
+        user_data['active_referrals_count'] = db_data.get('ref_count') or 0
 
         # 🔥 ОБРАБОТКА P2P ТРЕЙДА (Task I) 🔥
         active_trade_status = "none"
-        if not isinstance(trade_res, Exception) and trade_res.status_code == 200:
-            tr_data = trade_res.json()
-            if tr_data:
-                trade = tr_data[0]
-                db_status = trade.get("status")
-                
-                # Маппинг статусов P2P
-                if db_status == "pending":
-                    active_trade_status = "creating"
-                elif db_status == "active":
-                    active_trade_status = "confirming"
-                elif db_status == "review":
-                    active_trade_status = "sending"
+        db_status = db_data.get('trade_status')
+        
+        # Маппинг статусов P2P
+        if db_status == "pending":
+            active_trade_status = "creating"
+        elif db_status == "active":
+            active_trade_status = "confirming"
+        elif db_status == "review":
+            active_trade_status = "sending"
         
         # Кладем статус в user_data, чтобы фронт его увидел сразу
         user_data['active_trade_status'] = active_trade_status
 
         # 🔥 ВСТАВЛЯЕМ СЕКРЕТНЫЙ КОД В ПРОФИЛЬ (Task J) 🔥
-        # Если код найден в cs_codes (assigned_to = telegram_id), кладем его в поле active_secret_code
-        if not isinstance(code_res, Exception) and code_res.status_code == 200:
-            c_data = code_res.json()
-            if c_data:
-                user_data['active_secret_code'] = c_data[0]['code']
-            else:
-                user_data['active_secret_code'] = None
-        else:
-            user_data['active_secret_code'] = None
+        user_data['active_secret_code'] = db_data.get('secret_code')
 
         # --- 3. Обработка Квестов (Task C) ---
         quests_list = []
-        if isinstance(quests_res, Exception) or quests_res.status_code != 200:
-            logging.error(f"[Bootstrap] Quests error: {quests_res}")
-        else:
-            raw_quests = quests_res.json()
-            try: quests_list = fill_missing_quest_data(raw_quests)
-            except: quests_list = raw_quests
+        raw_quests = db_data.get('quests') or []
+        try: 
+            quests_list = fill_missing_quest_data(raw_quests)
+        except: 
+            quests_list = raw_quests
 
         # --- 4. Обработка Целей (Task D) ---
-        goals_data = {"system_enabled": menu_content.get('weekly_goals_enabled', False), "goals": []}
-        if isinstance(goals_res, Exception) or goals_res.status_code != 200:
-            logging.error(f"[Bootstrap] Goals error: {goals_res}")
-        else:
-            goals_data.update(goals_res.json())
-            goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
+        goals_data = db_data.get('goals') or {"goals": []}
+        goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
 
         # --- 5. Обработка Котла (Task E) ---
-        cauldron_data = {"is_visible_to_users": False}
-        if isinstance(cauldron_res, Exception) or cauldron_res.status_code != 200:
-            logging.error(f"[Bootstrap] Cauldron error: {cauldron_res}")
-        else:
-            c_list = cauldron_res.json()
-            if c_list and c_list[0].get('content'):
-                cauldron_data = c_list[0]['content']
+        cauldron_data = db_data.get('cauldron') or {"is_visible_to_users": False}
 
         # Возврат полного набора данных
         return {
@@ -3176,7 +3120,6 @@ async def bootstrap_app(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
-
 
 # ==========================================
 # 🛒 УПРАВЛЕНИЕ МАРКЕТОМ И АВТОВЫДАЧЕЙ
