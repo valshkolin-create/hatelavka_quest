@@ -636,7 +636,7 @@ async function initDynamicRaffleSlider() {
                 const pCount = raffle.participants_count || 0;
 
                 // Создаем точки конкретно для этого слайда (они будут внутри info-блока)
-                let dotsHTML = '<div class="mr-dots-container" style="display:flex; gap:4px; margin-top:8px;">';
+                let dotsHTML = '<div class="mr-dots-container">';
                 activeRaffles.forEach((_, dotIndex) => {
                     dotsHTML += `<div class="mr-dot ${dotIndex === index ? 'active' : ''}" style="width:6px; height:6px; border-radius:50%; background: ${dotIndex === index ? rarityColor : 'rgba(255,255,255,0.2)'}; transition: background 0.3s;"></div>`;
                 });
@@ -1138,19 +1138,34 @@ document.getElementById('gift-close-btn')?.addEventListener('click', () => docum
 // ================================================================
 async function main() {
     try {
-        if (!isVk && window.Telegram && !Telegram.WebApp.initData) { if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); return; }
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden'); updateLoading(1);
+        if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
+            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
+            return; 
+        }
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden'); 
+        updateLoading(1);
 
         let bootstrapData = null, fakeP = 1;
         const timer = setInterval(() => { if(fakeP < 80) updateLoading(++fakeP); }, 50);
-        try { bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); } finally { clearInterval(timer); }
+        
+        try { 
+            bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
+        } catch(apiError) {
+            console.error("Ошибка загрузки данных", apiError);
+            // Если сервер не ответил, выводим кнопку перезагрузки прямо на экран
+            document.body.innerHTML = '<div style="display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#ff3b30; font-family:sans-serif;"><i class="fa-solid fa-triangle-exclamation" style="font-size:40px; margin-bottom:15px;"></i><b>Ошибка соединения</b><button onclick="window.location.reload()" style="margin-top:20px; padding:10px 20px; background:#FFD700; color:#000; border:none; border-radius:10px; font-weight:bold;">Перезагрузить</button></div>';
+            return;
+        } finally { 
+            clearInterval(timer); 
+        }
+        
         if (!bootstrapData) throw new Error("Нет данных");
 
-        // 🔥 МГНОВЕННАЯ БЛОКИРОВКА ТЕХ. РАБОТ 🔥
+        // 🔥 МГНОВЕННАЯ И ЖЕЛЕЗОБЕТОННАЯ БЛОКИРОВКА ТЕХ. РАБОТ 🔥
         if (bootstrapData.maintenance) {
-            document.body.innerHTML = '<div style="display:flex; height:100vh; width:100vw; background:#141414; align-items:center; justify-content:center; color:#FFD700; font-weight:bold; font-size:14px;"><i class="fa-solid fa-gear fa-spin" style="margin-right:10px;"></i> Технические работы...</div>';
-            window.location.replace('/'); 
-            return; // Код дальше не пойдет, моргания не будет
+            // z-index: 2147483647 перекроет АБСОЛЮТНО ВСЕ элементы на странице
+            document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Скоро вернемся...</span></div>';
+            return; // Код дальше не пойдет!
         }
 
         await renderFullInterface(bootstrapData);
@@ -1161,7 +1176,7 @@ async function main() {
         updateLoading(100);
         setTimeout(() => { if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); }, 300);
     } catch(e) {
-        if (dom.loadingText) dom.loadingText.textContent = "Ошибка запуска";
+        if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
         setTimeout(() => { if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); }, 2000);
     }
 }
