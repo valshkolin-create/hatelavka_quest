@@ -45,15 +45,16 @@ html, body {
 }
 
 .main-content {
-    height: auto !important; /* Убрали 100vh, который выдавливал контент вниз */
-    flex: 1; /* Магия Flexbox: контент займёт ровно оставшееся на экране место */
+    height: auto !important;
+    flex: 1; /* Позволяем блоку гибко занимать высоту экрана */
     overflow-y: auto !important; 
     -webkit-overflow-scrolling: touch; 
     position: relative;
     z-index: 10;
     display: block;
     box-sizing: border-box;
-    padding: 0 15px 120px; /* Отступы по бокам и снизу для футера */
+    /* Установили 70px сверху! Теперь шторка ничего не перекроет */
+    padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 50px) 15px 120px 15px; 
     opacity: 0; 
     transition: opacity 0.4s ease-in-out;
 }
@@ -65,9 +66,9 @@ html, body {
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    margin-bottom: 10px; 
-    margin-top: 10px; 
-    position: relative; /* <--- ВАЖНО */
+    margin-bottom: 15px; 
+    margin-top: 0; /* Убрали старый отступ, так как теперь отступает main-content */
+    position: relative; 
 }
 .user-info { display: flex; flex-direction: column; }.user-name { 
     font-size: 12px;      /* Уменьшили с 16px до 13px */
