@@ -1082,6 +1082,31 @@ window.submitResetCache = () => {
 // ================================================================
 // ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ (Свайп-защита, P2R, Ивенты кнопок)
 // ================================================================
+
+// 1. Свайп-защита
+document.body.addEventListener('touchmove', (e) => {
+    const isScrollable = e.target.closest('.main-content-scrollable') || e.target.closest('.modal-content') || e.target.closest('.case-contents-grid');
+    if (!isScrollable && e.cancelable) e.preventDefault();
+}, { passive: false });
+
+// 2. ВОТ ФУНКЦИЯ, КОТОРУЮ ТЫ СЛУЧАЙНО УДАЛИЛ:
+function initPullToRefresh() {
+    const content = document.getElementById('main-content'); const ptr = document.getElementById('pull-to-refresh');
+    if (!content || !ptr) return;
+    let startY = 0, distance = 0, isPulling = false;
+    content.addEventListener('touchstart', (e) => { if (content.scrollTop <= 0) { startY = e.touches[0].clientY; isPulling = true; content.style.transition = 'none'; ptr.style.transition = 'none'; } }, { passive: true });
+    content.addEventListener('touchmove', (e) => {
+        if (!isPulling) return; const diff = e.touches[0].clientY - startY;
+        if (diff > 0 && content.scrollTop <= 0) { if (e.cancelable) e.preventDefault(); distance = Math.pow(diff, 0.85); if (distance > 150) distance = 150; content.style.transform = `translateY(${distance}px)`; ptr.style.transform = `translateY(${distance}px)`; }
+    }, { passive: false });
+    content.addEventListener('touchend', () => {
+        if (!isPulling) return; isPulling = false; content.style.transition = 'transform 0.3s ease-out'; ptr.style.transition = 'transform 0.3s ease-out';
+        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); setTimeout(() => window.location.reload(), 500); } 
+        else { content.style.transform = 'translateY(0)'; ptr.style.transform = 'translateY(0)'; } distance = 0;
+    });
+}
+
+// 3. Безопасный клик (из-за которого была прошлая проблема)
 document.body.addEventListener('click', async (event) => {
     // Ищем кнопку безопасно при клике
     const claimSuperBtn = event.target.closest('#claim-super-prize-btn'); 
@@ -1101,7 +1126,6 @@ document.body.addEventListener('click', async (event) => {
         }
     }
 });
-
 
 // Добавляем слушатели на кнопки подарков
 document.getElementById('daily-gift-btn')?.addEventListener('click', () => { document.getElementById('gift-modal-overlay').classList.remove('hidden'); document.getElementById('gift-content-initial').classList.remove('hidden'); document.getElementById('gift-content-result').classList.add('hidden'); });
