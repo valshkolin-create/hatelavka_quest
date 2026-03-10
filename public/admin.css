@@ -1826,3 +1826,9 @@ input:checked + .slider:before {
 #admin-recent-wrapper {
     margin-bottom: 14px !important; /* Меняй цифру: больше — отступ шире, меньше — ближе */
 }
+
+#app-container {
+    /* Берем системный отступ ТГ или браузера и добавляем 60px сверху для надежности */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
+    box-sizing: border-box !important;
+}
