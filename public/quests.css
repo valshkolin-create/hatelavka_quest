@@ -45,7 +45,8 @@ html, body {
 }
 
 .main-content {
-    height: 100vh; 
+    height: auto !important; /* Убрали 100vh, который выдавливал контент вниз */
+    flex: 1; /* Магия Flexbox: контент займёт ровно оставшееся на экране место */
     overflow-y: auto !important; 
     -webkit-overflow-scrolling: touch; 
     position: relative;
@@ -1446,8 +1447,12 @@ body[data-theme="manual"] {
 }
 
 #app-container {
+    /* Оставляем правильный системный отступ для шторки Telegram */
     padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
     box-sizing: border-box !important;
-    height: 100%; /* Заставляем контейнер не вываливаться за экран */
-    overflow: hidden; /* Запрещаем ему растягиваться */
+    
+    /* Делаем контейнер гибким строго по высоте экрана */
+    height: var(--tg-viewport-height, 100vh) !important;
+    display: flex;
+    flex-direction: column;
 }
