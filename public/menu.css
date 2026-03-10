@@ -56,10 +56,10 @@ html, body {
 ========================================== */
 .toggle-container {
     position: fixed;
-    /* Телеграм сам передаст размер шторки, мы отступаем от нее 10px вниз */
     top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 10px);
     left: 50%;
-    transform: translateX(-50%);
+    /* Было -50%, меняем на -40% (или -45%), чтобы сдвинуть правее */
+    transform: translateX(-40%); 
     z-index: 1000;
     display: flex;
     justify-content: center;
@@ -163,7 +163,7 @@ html, body {
     margin-left: -15px !important;       /* Сдвигаем влево */
     border-radius: 0 !important;         /* Убираем закругления */
     border: none !important;
-    border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+    /* border-bottom: 1px solid rgba(255,255,255,0.1) !important; */
     height: 180px !important;
     background: #121212 !important; /* Починили серый фон */
     position: relative;
@@ -471,4 +471,62 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     html.vk-mode .main-content { max-width: 900px !important; margin: 0 auto !important; left: 0 !important; right: 0 !important; } 
     html.vk-mode .floating-bottom-bar { max-width: 900px !important; border-radius: 20px 20px 0 0; bottom: 0; } 
     .slider-container, #main-slider-container { height: 380px !important; }
+}
+
+/* 1. Делаем таймер горизонтальным и аккуратным */
+.mini-raffle-timer {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* 2. Плавный градиент и удаление пульсации фона */
+.mini-raffle-slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 10px;
+    opacity: 0; transition: opacity 0.6s ease;
+    /* Плавный линейный градиент вместо резкого кругового */
+    background: linear-gradient(135deg, rgba(var(--rarity-rgb), 0.15) 0%, #1c1c1e 80%);
+    pointer-events: none; z-index: 5;
+}
+.mini-raffle-slide.active { 
+    opacity: 1; 
+    /* УДАЛЕНА АНИМАЦИЯ glowPulse */
+}
+
+/* 3. Убираем "летающий" скин */
+.mini-raffle-img {
+    position: absolute;
+    right: -5px; 
+    top: 50%;
+    transform: translateY(-50%) rotate(5deg);
+    max-height: 85%;
+    max-width: 50%;
+    object-fit: contain;
+    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8));
+    z-index: 1;
+    /* УДАЛЕНА АНИМАЦИЯ floatSkin */
+}
+
+/* Ограничение ширины для ПК-версии Telegram */
+@media (min-width: 768px) {
+    body, html {
+        background-color: #000; /* Темный фон вокруг приложения на ПК */
+    }
+    body {
+        max-width: 480px; /* Ширина мобильного телефона */
+        margin: 0 auto; /* Центруем */
+        border-left: 1px solid rgba(255,255,255,0.1);
+        border-right: 1px solid rgba(255,255,255,0.1);
+        position: relative;
+    }
+    .floating-bottom-bar {
+        max-width: 460px; /* Чтобы нижнее меню не уезжало за пределы 480px */
+    }
+    .toggle-container {
+        /* Привязываем переключатель к ширине ПК-контейнера */
+        width: 100%;
+        max-width: 480px;
+    }
 }
