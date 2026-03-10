@@ -1211,7 +1211,8 @@ function initSwipeTabs() {
 
 // 1. Свайп-защита
 document.body.addEventListener('touchmove', (e) => {
-    const isScrollable = e.target.closest('.main-content-scrollable') || e.target.closest('.modal-content') || e.target.closest('.case-contents-grid');
+    // Добавили .custom-confirm-box в исключения, чтобы FAQ можно было скроллить!
+    const isScrollable = e.target.closest('.main-content-scrollable') || e.target.closest('.modal-content') || e.target.closest('.case-contents-grid') || e.target.closest('.custom-confirm-box');
     if (!isScrollable && e.cancelable) e.preventDefault();
 }, { passive: false });
 
