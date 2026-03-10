@@ -1590,23 +1590,24 @@ function initCountdown(elementId, updatedAtStr) {
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    // Если даты нет, пишем "Ждем..."
+    // Если даты нет, берем текущее время как временную заглушку, чтобы не висело "Ждем..."
+    let startTime;
     if (!updatedAtStr) {
-        el.innerHTML = "Ждем данные...";
+        console.warn("Таймер: нет даты updated_at для " + elementId);
+        startTime = new Date().getTime(); 
+    } else {
+        startTime = new Date(updatedAtStr.replace(' ', 'T')).getTime();
+    }
+
+    if (isNaN(startTime)) {
+        el.innerHTML = "В ПРОЦЕССЕ";
         return;
     }
 
-    // Нормализация даты: заменяем пробел на 'T', чтобы JS понимал формат
-    const normalizedStr = updatedAtStr.replace(' ', 'T');
-    const updateTime = new Date(normalizedStr).getTime();
-    
-    // Если дата все равно кривая, выводим заглушку
-    if (isNaN(updateTime)) {
-        el.innerHTML = "В процессе...";
-        return;
-    }
+    const expireTime = startTime + (60 * 60 * 1000); // 1 час
 
-    const expireTime = updateTime + (60 * 60 * 1000); // + 60 минут
+    // Очистим старый интервал, если он вдруг есть
+    if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
 
     const timerInterval = setInterval(() => {
         const now = new Date().getTime();
@@ -1620,7 +1621,7 @@ function initCountdown(elementId, updatedAtStr) {
 
         if (distance < 0) {
             clearInterval(timerInterval);
-            currentEl.innerHTML = "ЗАВЕРШЕНИЕ...";
+            currentEl.innerHTML = "ПРОВЕРКА..."; // Вместо "Завершение"
             return;
         }
 
@@ -1629,8 +1630,10 @@ function initCountdown(elementId, updatedAtStr) {
 
         currentEl.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
     }, 1000);
+    
+    el.dataset.intervalId = timerInterval;
 }
-
+    
 function renderInventory(items) {
     const container = dom.inventoryList;
     const infoBadge = dom.inventoryInfoBadge;
