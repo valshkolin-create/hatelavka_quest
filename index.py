@@ -1215,12 +1215,15 @@ from typing import Optional
 from pydantic import BaseModel
 
 class ShopBuyRequest(BaseModel):
-    initData: str = ""
-    item_id: int = 0
-    price: float = 0.0
+    # 1. ОБЯЗАТЕЛЬНЫЕ ПОЛЯ (фронтенд обязан их прислать)
+    initData: str
+    item_id: int
+    price: float
+
+    # 2. ДОПОЛНИТЕЛЬНЫЕ ПОЛЯ (если фронт не пришлет, подставятся эти)
     platform: str = "tg"
-    title: str = "Товар магазина"
-    image_url: str = ""
+    title: Optional[str] = "Товар магазина"
+    image_url: Optional[str] = None
     currency: str = "coins"
     
 # Для массового обновления настроек
@@ -15224,14 +15227,13 @@ async def sync_user_referral(
 
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
-    request_data: ShopBuyRequest,      # Нет дефолта
-    background_tasks: BackgroundTasks, # Нет дефолта (теперь стоит правильно)
-    user_info: dict = Depends(multi_acc_protection), # Есть дефолт (в конце)
-    supabase: httpx.AsyncClient = Depends(get_supabase_client) # Есть дефолт (в конце)
+    request_data: ShopBuyRequest,      # 1. Данные от фронта
+    background_tasks: BackgroundTasks, # 2. Фоновые задачи
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) # 3. База (БЕЗ multi_acc_protection)
 ):
     logging.info("========== [SHOP] ПОКУПКА v13 (VALIDATION + BUY) ==========")
     
-    # 0. Валидация initData
+    # 0. Валидация initData (Она у тебя уже написана идеально!)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
