@@ -663,6 +663,7 @@ async function initDynamicRaffleSlider() {
             
             container.innerHTML = slidesHTML;
 
+
             // Запуск таймеров
             const updateTimers = () => {
                 container.querySelectorAll('.raffle-mini-timer-dyn').forEach(el => {
@@ -671,13 +672,17 @@ async function initDynamicRaffleSlider() {
                         el.innerHTML = "<span style='color:#ff3b30; font-size:10px;'>ЗАВЕРШЕН</span>"; 
                         return; 
                     }
-                    const h = Math.floor(diff / (1000 * 60 * 60));
+                    
+                    // Высчитываем дни, часы, минуты и секунды
+                    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
                     const m = Math.floor((diff / (1000 * 60)) % 60);
                     const s = Math.floor((diff / 1000) % 60);
                     
                     const spans = el.querySelectorAll('span');
                     if (spans.length === 3) {
-                        spans[0].innerText = String(h).padStart(2, '0');
+                        // Если есть дни, добавляем их вместе с часами
+                        spans[0].innerText = d > 0 ? `${d}д ${String(h).padStart(2, '0')}` : String(h).padStart(2, '0');
                         spans[1].innerText = String(m).padStart(2, '0');
                         spans[2].innerText = String(s).padStart(2, '0');
                     }
@@ -1348,41 +1353,29 @@ window.customConfirm = function(message, callback) {
 // FAQ БОТА
 // ================================================================
 window.showFaq = function() {
-    const faqHtml = `<div style="text-align: left; font-size: 13px; line-height: 1.6; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
-        <div style="margin-bottom: 15px;">
-            Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:
-        </div>
+    const faqHtml = `<div style="text-align: left; font-size: 13px; line-height: 1.35; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+        <div>Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:</div>
 
-        <div style="margin-bottom: 15px;">
-            <b style="color: #fff; font-size: 14px;">💰 Валюта и прогресс</b><br>
-            <span style="color: #ffd700;">•</span> <b>Монетки:</b> Твоя основная валюта, с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.<br>
-            <span style="color: #2AABEE;">•</span> <b>Билеты:</b> Это монета активности, открывает возможность пользоваться аукционом и розыгрышами.
-        </div>
+        <div><b style="color: #fff;">💰 Валюта и прогресс</b><br>
+        <span style="color: #ffd700;">•</span> <b>Монетки:</b> Твоя основная валюта, с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.<br>
+        <span style="color: #2AABEE;">•</span> <b>Билеты:</b> Это монета активности, открывает возможность пользоваться аукционом и розыгрышами.</div>
 
-        <div style="margin-bottom: 15px;">
-            <b style="color: #fff; font-size: 14px;">📋 Как зарабатывать</b><br>
-            • <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.<br>
-            • <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.
-        </div>
+        <div><b style="color: #fff;">📋 Как зарабатывать</b><br>
+        • <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.<br>
+        • <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.</div>
 
-        <div style="margin-bottom: 15px;">
-            <b style="color: #fff; font-size: 14px;">🎁 Активности и Ивенты</b><br>
-            Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b> и крути <b>Рулетки</b> за скины.
-        </div>
+        <div><b style="color: #fff;">🎁 Активности и Ивенты</b><br>
+        Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b> и крути <b>Рулетки</b> за скины.</div>
 
-        <div style="margin-bottom: 15px;">
-            <b style="color: #fff; font-size: 14px;">🛒 TRADE IT</b><br>
-            Продавай кейсы в разделе кейсы.<br>
-            ⚠️ <span style="color: #ff3b30; font-weight: 700;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span>
-        </div>
+        <div><b style="color: #fff;">🛒 TRADE IT</b><br>
+        Продавай кейсы в разделе кейсы.<br>
+        ⚠️ <span style="color: #ff3b30; font-weight: 700;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span></div>
 
-        <div style="margin-bottom: 15px; background: rgba(255, 215, 0, 0.1); border-left: 3px solid #ffd700; padding: 10px; border-radius: 4px;">
+        <div style="background: rgba(255, 215, 0, 0.1); border-left: 3px solid #ffd700; padding: 4px 8px; border-radius: 4px; margin: 4px 0;">
             ⚠️ <b style="color: #ffd700;">Помним, что Валя — соло-разработчик, баги это нормально! 😉</b>
         </div>
 
-        <div>
-            <b style="color: #fff; font-size: 14px;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!
-        </div>
+        <div><b style="color: #fff;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!</div>
     </div>`;
 
     showShopModal({
