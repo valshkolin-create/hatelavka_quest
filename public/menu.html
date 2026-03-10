@@ -1,454 +1,409 @@
 <!DOCTYPE html> 
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Меню</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>HateLavka</title>
+    
+    <script>
+    // ЗАПЛАТКА: Игнорируем ошибку querySelector от внешних библиотек
+    (function() {
+        const originalQS = Document.prototype.querySelector;
+        Document.prototype.querySelector = function(selector) {
+            if (selector === document || typeof selector !== 'string') return null;
+            return originalQS.call(this, selector);
+        };
+    })();
+    </script>
 
-  
-  <script>
-  // ЗАПЛАТКА: Игнорируем ошибку querySelector от внешних библиотек
-  (function() {
-      const originalQS = Document.prototype.querySelector;
-      Document.prototype.querySelector = function(selector) {
-        // Если кто-то сует document вместо строки — возвращаем null и не падаем
-        if (selector === document || typeof selector !== 'string') {
-            return null;
-        }
-        return originalQS.call(this, selector);
-      };
-  })();
-</script>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
-  
-  <script>
-    // Если скрипт Telegram не загрузился (блокировщик/интернет), создаем заглушку
-    if (typeof Telegram === 'undefined') {
-      window.Telegram = {
-        WebApp: {
-          initData: '',
-          initDataUnsafe: {},
-          ready: function() { console.log('Telegram Mock Ready'); },
-          expand: function() { console.log('Telegram Mock Expand'); },
-          close: function() {},
-          showAlert: function(msg) { alert(msg); },
-          showConfirm: function(msg, cb) { if(cb) cb(confirm(msg)); },
-          openLink: function(url) { window.open(url, '_blank'); },
-          openTelegramLink: function(url) { window.open(url, '_blank'); },
-          HapticFeedback: { notificationOccurred: function() {} }
-        }
-      };
-    }
-  </script>
-  <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
-  <link rel="stylesheet" href="/menu.css?v=2" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="menu.css">
 </head>
 <body>
-  <div id="loader-overlay" style="display: flex; flex-direction: column; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
-    <div class="spinner"></div>
-    <div id="loading-text" style="color: #fff; margin-top: 15px; font-family: sans-serif; font-weight: bold; font-size: 18px;">0%</div>
-    <div style="width: 200px; height: 4px; background: #333; border-radius: 2px; margin-top: 10px; overflow: hidden;">
-        <div id="loading-bar-fill" style="width: 0%; height: 100%; background: #007aff; transition: width 0.3s ease;"></div>
+    <div id="loader-overlay" class="global-loader-overlay">
+        <div class="spinner-container"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+        <div id="loading-text" style="color: #ffffff; margin-top: 10px; font-weight: 800; font-size: 12px;">Загрузка...</div>
+        <div style="width: 150px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 10px; overflow: hidden;">
+            <div id="loading-bar-fill" style="width: 0%; height: 100%; background: #ffffff; transition: width 0.3s;"></div>
+        </div>
     </div>
-</div>
 
-  <main id="main-content" class="main-content">
-    
-    <div id="pull-to-refresh">
-        <i class="fa-solid fa-rotate-right"></i> </div>
+    <div id="purchase-loader" class="purchase-loader">
+        <i class="fa-solid fa-circle-notch fa-spin loader-spinner"></i>
+        <div class="loader-text" id="loader-text">Оформляем...</div>
+    </div>
 
-    <div class="start-tutorial-btn-wrapper" style="gap: 10px; display: flex; justify-content: center; width: 100%;">
-        <button id="open-bonus-btn" class="hidden" style="background: rgba(255, 215, 0, 0.15); color: #FFD700; border: 1px solid #FFD700; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-            <i class="fa-solid fa-gift"></i> Бонус
-        </button>
+    <div id="side-menu-overlay" class="side-menu-overlay">
+        <div class="side-menu-content">
+            <div class="side-menu-header">
+                <h3 id="fullName">Профиль</h3>
+                <button id="close-menu-btn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <nav class="side-nav">
+                <a href="/profile"><i class="fa-solid fa-user"></i> Мой Профиль</a>
+                <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
+                <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Топ игроков</a>
+                <a href="/settings"><i class="fa-solid fa-gear"></i> Настройки</a>
+                <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
+            </nav>
+        </div>
+    </div>
+
+    <header class="top-header">
+        <div class="logo-wrapper" id="refresh-bot-btn" onclick="window.location.reload();">
+            <img src="https://via.placeholder.com/40x40/2c2c2e/ffffff?text=HL" alt="Logo" class="circle-img">
+        </div>
+
+        <div class="balance-pill" onclick="checkBalance(true)">
+            <button id="refresh-balance-btn" class="refresh-icon"><i class="fa-solid fa-rotate-right" id="refresh-icon"></i></button>
+            <div class="balance-col">
+                <div class="balance-row">
+                    <span id="user-balance">...</span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i>
+                </div>
+                <div class="balance-row">
+                    <span id="ticketStats">...</span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <img src="https://via.placeholder.com/40x40/555555/ffffff?text=U" alt="Avatar" class="circle-img" id="user-avatar" onclick="window.location.href='/profile'">
+            <button id="open-menu-btn" class="icon-btn"><i class="fa-solid fa-bars"></i></button>
+        </div>
+    </header>
+
+    <div id="pull-to-refresh" class="ptr-container">
+        <i class="fa-solid fa-rotate-right"></i>
+    </div>
+
+    <main id="main-content" class="main-content-scrollable">
         
-        <button id="start-tutorial-btn" style="padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 500;">
-            <i class="fa-solid fa-circle-question"></i> Как пользоваться?
-        </button>
-    </div>
-
-    <div id="new-promo-notification" class="promo-notification hidden">
-        <span>🏆 Новый промокод добавлен в ваш профиль!</span>
-        <button id="close-promo-notification" class="promo-notification-close">&times;</button>
-    </div>
-
-    <div class="user-profile">
-      <div class="user-info">
-        <div id="fullName" class="user-name">Загрузка...</div>
-        <a href="/profile" class="profile-link">Мой профиль</a>
-      </div>
-      <div class="stats-block">
-        <div class="social-stats-wrapper">
-          <div class="social-links">
-            <a href="#" onclick="Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); return false;" class="stats-link">
-                <div class="social-icon-wrapper" id="telegram-icon"><i class="fa-brands fa-telegram"></i></div>
-            </a>
-            <a href="#" onclick="Telegram.WebApp.openLink('https://www.twitch.tv/hatelove_ttv'); return false;" class="stats-link">
-                <div class="social-icon-wrapper" id="twitch-icon"><i class="fa-brands fa-twitch"></i></div>
-            </a>
-          </div>
-          <div class="stats-item tickets-item">
-              <span id="ticketStats" class="stats-text">0</span>
-              <div class="stats-icon stats-icon-star"><i class="fa-solid fa-ticket"></i></div>
-              <i class="fa-solid fa-circle-question info-question-icon" id="info-question-icon"></i>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div id="view-dashboard" class="view">
-    
-        <div class="top-banners-layout">
-            <div id="main-slider-container" class="slider-container">
-                <div class="slider-wrapper">
-                    <a href="/raffles" class="slide" data-event="skin_race">
-                        <img id="menu-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Большое количество различных розыгрышей">
-                    </a>
-                    <a id="checkpoint-link" href="/checkpoint" class="slide" data-event="checkpoint" style="text-decoration: none; display: block;">
-                        <img id="checkpoint-banner-img" src="https://i.postimg.cc/PxJWPNC9/1200-324-(1).png" alt="Марафон Чекпоинт" style="width: 100%; display: block;">
-                    </a>
-                </div> 
-                <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
-                <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
-                <div class="slider-dots"></div>
-            </div>
-
-            <div class="side-banners-column">
-                <a href="/auction" class="side-banner" data-event="auction" style="display: none;">
-                    <img id="auction-banner-img" src="https://i.postimg.cc/d0r554hc/1200-600.png?v=2" alt="Аукцион">
-                </a>
-                <a href="/halloween" class="side-banner" data-event="cauldron">
-                    <img id="cauldron-banner-img" src="https://i.postimg.cc/CKKLsnVw/1200-600-hallowen.png" alt="Хэллоуин Ивент">
-                </a>
+        <div class="toggle-container">
+            <div class="toggle-wrapper" id="mode-toggle">
+                <div class="toggle-slider"></div>
+                <div class="toggle-option active" data-target="menu-view">ГЛАВНАЯ</div>
+                <div class="toggle-option" data-target="cases-view">КЕЙСЫ</div>
             </div>
         </div>
-        <div id="weekly-goals-trigger" class="weekly-banner-wrapper">
-            <img id="weekly-goals-banner-img" src="https://i.postimg.cc/PxJWPNC9/1200-324-(1).png" alt="Недельные испытания" />
+
+        <div class="content-wrapper">
             
-            <div id="weekly-goals-badge" class="weekly-reward-badge hidden">
-                <i class="fa-solid fa-gift fa-shake"></i>
-                <span>ЗАДАНИЕ ВЫПОЛНЕНО!</span>
+            <div id="menu-view" class="view-section active">
+                
+                <div id="main-slider-container" class="slider-container" style="display:none;">
+                    <div class="slider-wrapper">
+                        <a href="#" class="slide" data-event="skin_race" style="display:none;"><img src="" id="skin_race-banner-img"></a>
+                        <a href="/auction" class="slide" data-event="auction" style="display:none;"><img src="" id="auction-banner-img"></a>
+                        <a href="#" class="slide" data-event="checkpoint" style="display:none;"><img src="" id="checkpoint-banner-img"></a>
+                        <a href="/halloween" class="slide" data-event="cauldron" style="display:none;"><img src=""></a>
+                    </div>
+                    <div class="slider-controls">
+                        <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
+                        <div class="slider-dots"></div>
+                        <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+
+                <button id="open-bonus-btn" class="hidden premium-exchange-btn" style="margin-bottom: 15px; margin-top: 15px;">
+                    <div class="p2p-icon-box" style="background: rgba(255,215,0,0.2); color: #FFD700;"><i class="fa-solid fa-gift"></i></div>
+                    <div class="p2p-text-box">
+                        <span class="p2p-title" style="color:#FFD700;">Приветственный бонус</span>
+                        <span class="p2p-subtitle">Забери награду за приглашение!</span>
+                    </div>
+                    <div class="p2p-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                </button>
+
+                <div id="weekly-goals-trigger" class="weekly-goals-banner hidden" style="margin-top: 15px;">
+                    <img id="weekly-goals-banner-img" src="https://via.placeholder.com/400x100/1c1c1e/ffffff?text=Weekly+Goals" alt="Weekly Goals" class="weekly-banner-img">
+                    <div class="weekly-goals-overlay-info">
+                        <div class="weekly-goals-texts">
+                            <span class="weekly-goals-title-text">Еженедельные цели</span>
+                            <span class="weekly-goals-sub-text">Выполни все и забери суперприз!</span>
+                        </div>
+                        <div class="weekly-goals-counter-box">
+                            <span id="weekly-modal-counter">0 / 0</span>
+                            <div id="weekly-goals-badge" class="pulse-badge hidden"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-cards-grid" style="margin-top: 15px;">
+                    <div id="shortcut-shop" class="action-card" data-status="none">
+                        <div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+                        <div class="metro-content">
+                            <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
+                            <span class="metro-label">Магазин</span>
+                            <span class="metro-sublabel">Кейсы и предметы</span>
+                        </div>
+                    </div>
+                    
+                    <div id="shortcut-challenge" class="action-card">
+                        <div class="metro-tile-bg-icon"><i class="fa-solid fa-fire"></i></div>
+                        <div class="metro-content">
+                            <div class="metro-icon-main"><i class="fa-solid fa-fire" style="color: #ff9500;"></i></div>
+                            <span class="metro-label">Челлендж</span>
+                            <span id="metro-challenge-status" class="metro-sublabel">0 / 1</span>
+                            <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 5px; overflow: hidden;">
+                                <div id="metro-challenge-fill" style="width: 0%; height: 100%; background: #ff9500; transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="shortcut-quests" class="action-card">
+                        <div class="metro-tile-bg-icon"><i class="fa-solid fa-check-double"></i></div>
+                        <div class="metro-content">
+                            <div class="metro-icon-main"><i class="fa-solid fa-check-double" style="color: #34c759;"></i></div>
+                            <span class="metro-label">Задание</span>
+                            <span id="metro-quest-status" class="metro-sublabel">...</span>
+                            <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 5px; overflow: hidden;">
+                                <div id="metro-quest-fill" style="width: 0%; height: 100%; background: #34c759; transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div> <div id="cases-view" class="view-section">
+                <button onclick="openP2PModal()" class="premium-exchange-btn" id="open-p2p-modal-btn">
+                    <div class="p2p-icon-box"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                    <div class="p2p-text-box">
+                        <span class="p2p-title">Trade-In</span>
+                        <span class="p2p-subtitle">Обмен кейсов на 🟡</span>
+                    </div>
+                    <div class="p2p-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                </button>
+
+                <div id="shop-grid" class="shop-grid">
+                    </div>
+            </div>
+
+        </div>
+    </main>
+
+    <nav class="floating-bottom-bar">
+        <a href="/leaderboard" class="nav-item">
+            <i class="fa-solid fa-trophy"></i><span>Топ</span>
+        </a>
+        <a href="/quests" class="nav-item" id="nav-quests">
+            <i class="fa-solid fa-check-double"></i><span>Задания</span>
+        </a>
+        <a href="/" class="nav-item active" id="nav-dashboard">
+            <i class="fa-solid fa-house"></i><span>Главная</span>
+        </a>
+        <a href="/events" class="nav-item">
+            <i class="fa-solid fa-fire"></i><span>Гринд</span>
+        </a>
+        <a href="/auction" class="nav-item">
+            <i class="fa-solid fa-gavel"></i><span>Аукцион</span>
+        </a>
+    </nav>
+
+    <div id="gift-container" class="hidden" style="position: fixed; right: 20px; bottom: 100px; z-index: 1000;">
+        <button id="daily-gift-btn" class="gift-floating-btn"><i class="fa-solid fa-gift"></i></button>
+    </div>
+
+    <div id="gift-modal-overlay" class="modal hidden">
+        <div class="modal-content" style="text-align: center;">
+            <button id="gift-x-btn" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            <div id="gift-content-initial">
+                <h2 style="color:#FFD700; margin-top:0;">Ежедневный Подарок!</h2>
+                <p style="font-size:12px; color:#8E8E93;">Открой коробку и забери случайную награду.</p>
+                <div style="font-size: 60px; margin: 20px 0; animation: pulse 2s infinite;">🎁</div>
+                <button id="gift-open-btn" class="action-btn btn-buy" style="height: 45px; font-size:14px;">Открыть</button>
+            </div>
+            <div id="gift-content-result" class="hidden">
+                <h2 id="gift-result-title" style="color:#34c759; margin-top:0;">Поздравляем!</h2>
+                <div id="gift-result-icon" style="font-size: 60px; margin: 15px 0;">🎉</div>
+                <p id="gift-result-text" style="font-size:14px; color:#fff; font-weight:bold;"></p>
+                <div id="gift-promo-block" class="hidden" style="margin: 15px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+                    <p style="font-size:11px; color:#8E8E93; margin:0 0 5px;">Личный промокод:</p>
+                    <code id="gift-promo-code" style="color:#FFD700; font-size:16px; font-weight:bold;"></code>
+                </div>
+                <button id="gift-close-btn" class="action-btn btn-secondary-action" style="height: 40px;">Круто!</button>
             </div>
         </div>
+    </div>
 
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0 15px;">
+    <div id="weekly-modal-overlay" class="modal hidden">
+        <div class="modal-content" style="max-height: 85vh; width: 95%;">
+            <div class="modal-header">
+                <h3>Еженедельные задания</h3>
+                <button id="weekly-modal-close-btn" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="weekly-goals-list-container" class="weekly-goals-scroll-area" style="overflow-y: auto; padding-bottom: 20px;">
+                </div>
+        </div>
+    </div>
 
-        <div class="metro-shortcuts-container">
+    <div id="welcome-popup" class="modal hidden">
+        <div class="modal-content" style="text-align: center;">
+            <h2 style="color: #FFD700; margin-top:0;">Приветственный бонус!</h2>
+            <p style="font-size: 12px; color: #8E8E93; margin-bottom: 15px;">Привяжите аккаунты, чтобы забрать награду.</p>
             
-            <div class="metro-tile metro-tile-large" id="shortcut-shop">
-                <div class="metro-tile-bg-icon"><i class="fa-solid fa-cart-shopping"></i></div>
-                <div class="metro-content">
-                    <div class="metro-icon-main"><i class="fa-solid fa-cart-shopping"></i></div>
-                    <span class="metro-label">Магазин</span>
-                    <span class="metro-sublabel">Скины и предметы</span>
+            <div id="step-tg" style="display:flex; align-items:center; justify-content:space-between; background:rgba(0,136,204,0.15); padding:12px; border-radius:12px; margin-bottom:10px; cursor:pointer;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fa-brands fa-telegram" style="color:#0088CC; font-size:24px;"></i>
+                    <div style="text-align:left;">
+                        <div style="color:#fff; font-size:14px; font-weight:bold;">Подписка TG</div>
+                        <div style="color:#aaa; font-size:11px;">Кликни, чтобы подписаться</div>
+                    </div>
                 </div>
+                <i id="icon-tg" class="fa-regular fa-circle" style="color:#aaa;"></i>
             </div>
 
-            <div class="metro-tile metro-tile-small" id="shortcut-challenge">
-                <div class="metro-header">
-                    <i class="fa-solid fa-star"></i> <span>Челлендж</span>
+            <div id="step-twitch" style="background:rgba(145,70,255,0.15); padding:12px; border-radius:12px; margin-bottom:15px;">
                 </div>
-                <div class="metro-info">
-                    <span id="metro-challenge-status">Загрузка...</span>
+
+            <button id="action-btn" class="action-btn btn-buy" style="height: 45px; font-size:14px; margin-bottom:10px;">Проверка...</button>
+            <button id="later-btn" class="action-btn btn-secondary-action">Позже</button>
+        </div>
+    </div>
+
+    <div id="r-modal" class="r-modal-overlay">
+        <div id="r-top-header">
+            <div id="r-case-name" class="r-case-title">КЕЙС</div>
+        </div>
+        <div id="r-area" class="r-game-area">
+            <div class="r-marker"></div>
+            <div class="r-track" id="r-track"></div>
+        </div>
+        <div id="r-bottom-progress">
+            <div class="r-progress-bar" id="r-progress-bar-container">
+                <div class="r-progress-dot"></div><div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div><div class="r-progress-dot"></div>
+                <div class="r-progress-dot"></div> 
+            </div>
+            <div class="r-progress-label" id="r-progress-text">До гаранта</div>
+        </div>
+        <div id="r-win" class="win-screen"></div>
+    </div>
+
+    <div id="case-contents-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 95%; max-height: 90vh;">
+            <div class="modal-header">
+                <h3>Содержимое кейса</h3>
+                <button onclick="closeContentsModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="contents-loader" style="text-align:center; padding:20px; color:#888;">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка скинов...
+            </div>
+            <div id="case-items-list" class="case-contents-grid"></div>
+        </div>
+    </div>
+
+    <div id="replacement-modal" class="modal hidden" style="z-index: 30000 !important;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Выберите замену</h3>
+                <button onclick="closeReplacementModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p style="font-size: 10px; color: #8E8E93; margin: 0;">Оригинала нет, выберите любой скин — отправим его сразу:</p>
+            <div id="replacement-options-list" class="replacement-grid"></div>
+            <button onclick="closeReplacementModal()" class="action-btn btn-secondary-action" style="margin-top: 10px; height: 36px;">Отмена</button>
+        </div>
+    </div>
+
+    <div id="p2p-modal" class="modal hidden">
+        <div class="modal-content" style="max-height: 85vh;">
+            <div class="modal-header">
+                <h3>Обмен Кейсов</h3>
+                <button onclick="closeP2PModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-bottom: 20px;">
+                <div class="bot-connect-banner" onclick="Telegram.WebApp.openTelegramLink('https://t.me/quest_hatelavka_bot?start=start')">
+                    <div class="bot-icon-box"><i class="fa-brands fa-telegram"></i></div>
+                    <div class="bot-text-box">
+                        <h4>Включить уведомления</h4>
+                        <p>Нажми, чтобы бот присылал статус сделки</p>
+                    </div>
+                    <div style="margin-left: auto; color: #fff;"><i class="fa-solid fa-chevron-right"></i></div>
                 </div>
-                <div class="metro-progress-track">
-                    <div class="metro-progress-fill" id="metro-challenge-fill" style="width: 0%"></div>
+
+                <div class="form-group">
+                    <label class="form-label">Выберите кейс</label>
+                    <div class="select-wrapper">
+                        <select id="p2p-case-select" onchange="calculateP2P()" class="p2p-select">
+                            <option value="">Загрузка...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="case-preview" class="case-preview-card">
+                    <img id="preview-img" src="" class="preview-image">
+                    <div id="preview-name" class="preview-title">Название кейса</div>
+                    <div class="preview-price">Цена: <span id="preview-price-text">0</span> 🟡</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Количество</label>
+                    <input type="number" id="p2p-quantity" value="1" min="1" oninput="calculateP2P()" class="p2p-input" placeholder="0">
+                </div>
+                
+                <div class="summary-card">
+                    <div class="summary-row">
+                        <span>Цена за 1 шт:</span>
+                        <span class="mono-num"><span id="p2p-price-per-item">0</span> 🟡</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Вы получите:</span>
+                        <span class="mono-num" style="font-size: 18px;"><span id="p2p-total">0</span> 🟡</span>
+                    </div>
+                </div>
+
+                <button onclick="createP2PTrade()" class="action-btn btn-buy" style="height: 48px; font-size: 16px;">Создать заявку</button>
+                
+                <button id="smart-history-btn" class="history-status-btn" onclick="openHistoryModal()">
+                    <span id="smart-btn-text">История сделок</span>
+                    <div class="btn-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="history-modal-window" class="history-modal">
+        <div class="history-modal-content">
+            <div class="modal-header">
+                <h3>Мои сделки</h3>
+                <button onclick="closeHistoryModal()" class="close-modal"><i class="fa-solid fa-chevron-down"></i></button>
+            </div>
+            <div id="full-history-list" class="history-scroll-area"></div>
+        </div>
+    </div>
+
+    <div id="tutorial-overlay" class="tutorial-overlay hidden">
+        <div id="tutorial-modal" class="tutorial-modal">
+            <h3 id="tutorial-title" style="margin-top:0; color:#FFD700;"></h3>
+            <p id="tutorial-text" style="font-size: 13px; color:#ddd; line-height:1.4;"></p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;">
+                <span id="tutorial-step-counter" style="font-size:11px; color:#888;"></span>
+                <div style="display:flex; gap:10px;">
+                    <button id="tutorial-skip-btn" class="action-btn btn-secondary-action" style="padding: 8px 12px; height: auto;">Пропустить</button>
+                    <button id="tutorial-next-btn" class="action-btn btn-buy" style="padding: 8px 12px; height: auto;">Далее</button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="metro-tile metro-tile-small" id="shortcut-quests">
-                <div class="metro-header">
-                    <i class="fa-solid fa-bolt"></i> <span>Испытание</span>
-                </div>
-                <div class="metro-info">
-                    <span id="metro-quest-status">Выбрать</span>
-                </div>
-                <div class="metro-progress-track">
-                    <div class="metro-progress-fill" id="metro-quest-fill" style="width: 0%"></div>
-                </div>
+    <div id="admin-fab" class="admin-wrapper" style="display: none; bottom: 100px;">
+        <div class="admin-fab-btn toggle" onclick="toggleAdminMenu()"><i class="fa-solid fa-chevron-up"></i></div>
+        <div class="admin-menu-items" id="admin-menu-items">
+            <div class="admin-action-btn" onclick="openPassModal()"><i class="fa-solid fa-trash-can"></i></div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="modal hidden" style="z-index: 10001;">
+        <div class="modal-content" style="text-align: center; max-width: 300px;">
+            <h3 style="margin: 0 0 5px 0; color: #fff;">Admin Access</h3>
+            <p style="margin: 0; color: #8e8e93; font-size: 12px;">Введите код доступа</p>
+            <input type="password" id="admin-pass-input" class="p2p-input" placeholder="••••" inputmode="numeric" style="text-align:center; margin: 15px 0;">
+            <div style="display: flex; gap: 10px;">
+                <button class="action-btn btn-secondary-action" onclick="closePassModal()">Отмена</button>
+                <button class="action-btn btn-buy" onclick="submitResetCache()">OK</button>
             </div>
-
-        </div>
-    </div> <div id="view-shop" class="view hidden">
-        <h2 class="page-title" style="grid-column: 1 / -1;">
-            🛒 Магазин скинов
-            <span class="manual-hint" style="display: block; font-size: 11px; color: #ffffff; text-align: center; margin-top: 6px; margin-bottom: 12px;">
-                Товары загружаются из Bot-t. Оплата звездами.
-            </span>
-        </h2>
-        
-        <div id="shop-container" class="shop-grid">
-            <div class="spinner"></div>
-        </div>
-        
-        <button onclick="location.reload()" class="cancel-btn" style="margin-top: 20px;">Назад в меню</button>
-    </div>
-    
-    <div id="view-quests" class="view quests-container hidden">
-        <h2 class="page-title" style="grid-column: 1 / -1; margin-bottom: 5px;">
-            🎯 Испытания
-        </h2>
-        <span class="manual-hint" style="display: block; font-size: 11px; color: #b0b0b0; text-align: center; margin-bottom: 10px; grid-column: 1 / -1;">
-            Выполняйте, чтобы получать билеты и звезды.
-        </span>
-
-        <div id="challenge-container" style="grid-column: 1 / -1; width: 100%; margin-bottom: 0;"></div>
-        
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
-
-        <button id="quest-choose-btn" class="quest-choose-btn-roulette" style="grid-column: 1 / -1; width: 100%; margin: 0;">
-            НАЧАТЬ ИСПЫТАНИЕ
-        </button>
-        
-        <div id="quest-choose-container" class="quest-choose-container hidden" style="grid-column: 1 / -1; width: 100%; margin-top: 10px;"></div>
-        <div id="active-automatic-quest-container" style="grid-column: 1 / -1; width: 100%; margin-top: 5px;"></div>
-        
-        <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0; grid-column: 1 / -1; width: 100%;">
-
-        <h3 style="grid-column: 1 / -1; font-size: 14px; font-weight: 600; color: #ffcc00; margin: 0 0 8px 0; text-align: center;">
-            📝 Задания с ручной проверкой
-        </h3>
-
-        <div id="manual-quests-list" style="grid-column: 1 / -1; width: 100%;">
-            <div class="spinner"></div>
-        </div>
-
-        <span class="manual-hint" style="display: block; font-size: 11px; color: #666; text-align: center; margin-top: 15px; margin-bottom: 20px; grid-column: 1 / -1;">
-            Награды ищите в разделе <span style="color: #ffc700;">Профиль</span>
-        </span>
-    </div>
-
-  </main>
-
-  <footer class="app-footer">
-    <a href="/leaderboard" id="nav-leaderboard" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div><span>Лидерборд</span></a>
-    <a href="/quests" id="nav-quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
-    <a href="#" id="nav-dashboard" class="footer-item active"><div class="icon-wrapper"><i class="fa-solid fa-house"></i></div><span>Главная</span></a>
-    <a href="/events" class="footer-item"><div class="icon-wrapper"><i <i class="fa-solid fa-fire"></i></div><span>Гринд</span></a>
-    <a href="/auction" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
-        <span>Аукцион</span>
-    </a>
-    <a href="/admin" id="nav-admin" class="footer-item hidden"><div class="icon-wrapper"><i class="fa-solid fa-user-shield"></i></div><span>Админка</span></a>
-  </footer>
-
-  <div id="promocode-overlay" class="promocode-overlay hidden"></div>
-
-  <div id="reward-claimed-overlay" class="prompt-overlay hidden">
-    <div class="prompt-modal">
-        <h3>Награда получена!</h3>
-        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
-            Промокод добавлен в ваш профиль. Вы можете найти все свои награды там.
-        </p>
-        <div class="prompt-actions">
-            <button id="reward-close-btn" class="cancel-btn">Главное меню</button>
-            <a href="/profile" class="confirm-btn">Профиль</a>
         </div>
     </div>
-  </div>
-  <div id="tickets-claimed-overlay" class="prompt-overlay hidden">
-    <div class="prompt-modal">
-        <h3>Билеты получены!</h3>
-        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
-            Билеты за выполнение задания успешно начислены на ваш баланс.
-        </p>
-        <div class="prompt-actions">
-            <button id="tickets-claim-close-btn" class="confirm-btn">Отлично!</button>
-        </div>
-    </div>
-  </div>
-  <div id="info-modal-overlay" class="prompt-overlay hidden">
-    <div class="prompt-modal">
-        <h3>Что такое билеты?</h3>
-        <p style="font-size: 14px; line-height: 1.5; color: var(--text-color-muted);">
-            Выполняйте задания и челленджи, чтобы заработать билеты. Используйте их для участия в розыгрышах ценных призов!
-        </p>
-        <div class="prompt-actions">
-            <button class="confirm-btn" id="info-modal-close-btn">Понятно</button>
-        </div>
-    </div>
-  </div>
-  <div id="schedule-modal-overlay" class="prompt-overlay hidden">
-    <div class="prompt-modal" style="width: 90%; max-width: 400px; padding: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; font-size: 18px;">📅 Расписание стримов</h3>
-            <button id="schedule-modal-close-btn" class="promo-notification-close" style="background: rgba(255,255,255,0.1); width: 30px; height: 30px;">&times;</button>
-        </div>
-        
-        <img src="https://i.postimg.cc/NMw2ByPZ/raspisanie-strimov.jpg" alt="Расписание" style="width: 100%; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-        
-        <button onclick="Telegram.WebApp.openLink('https://www.twitch.tv/hatelove_ttv')" class="confirm-btn" style="width: 100%; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; background-color: #9146ff; color: white; border: none; cursor: pointer; font-size: 14px; font-weight: 600; padding: 12px;">
-            <i class="fa-brands fa-twitch"></i> Перейти на канал
-        </button>
-    </div>
-</div>
 
-  <div id="custom-prompt-overlay" class="prompt-overlay hidden">
-    <div class="prompt-modal">
-        <h3 id="prompt-title">Title</h3>
-        <p>Введите данные для проверки.</p>
-        <input type="text" id="prompt-input" placeholder="Ваш ник или ссылка...">
-        <div class="prompt-actions">
-            <button id="prompt-cancel" class="cancel-btn">Отмена</button>
-            <button id="prompt-confirm" class="confirm-btn">Отправить</button>
-        </div>
-    </div>
-  </div>
-
-  <div id="welcome-popup" class="custom-popup-overlay">
-      <div class="custom-popup">
-          <div style="font-size: 40px; margin-bottom: 10px;">👋</div>
-          <h3>Ты приглашен!</h3>
-          <p style="color:#ccc; font-size:13px; line-height:1.4;">Выполни условия и забери стартовый пак:</p>
-          
-          <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid #FFD700; padding: 15px; border-radius: 12px; margin: 15px 0;">
-              <div style="font-size: 24px; font-weight: 800; color: #FFD700;">+10 ГРИНД МОНЕТ</div>
-              <div style="font-size: 12px; color: #ccc; margin-top:5px;">🚀 +0.20 к Гринду (7 дней)</div>
-              <div style="font-size: 12px; color: #ccc;">🎟️ +1 Билет ежедневно (7 дней)</div>
-          </div>
-
-          <div style="text-align:left; margin-bottom:20px; font-size:14px; color:#aaa; display: flex; flex-direction: column; gap: 15px;">
-              
-              <div>
-                  <div id="step-twitch" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: rgba(145, 70, 255, 0.15); cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
-                      <i class="fa-brands fa-twitch" style="font-size: 20px; color: #9146ff;"></i>
-                      <span style="flex-grow: 1; font-weight: 500; color: #fff;">Привязать Twitch</span>
-                      <i class="status-icon fa-regular fa-circle" id="icon-twitch"></i>
-                  </div>
-                  <div style="font-size: 9px; color: #666; margin-top: 5px; line-height: 1.2; padding-left: 5px;">
-                      *данная авторизация безопасна по всем правилам TwitchAuth, это помогает нам синхронизировать приложение и ваш аккаунт
-                  </div>
-              </div>
-
-              <div id="step-tg" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: rgba(0, 136, 204, 0.15); cursor: pointer; border: 1px solid transparent; transition: all 0.2s;">
-                  <i class="fa-brands fa-telegram" style="font-size: 20px; color: #0088cc;"></i>
-                  <span style="flex-grow: 1; font-weight: 500; color: #fff;">Подписаться на канал</span>
-                  <i class="status-icon fa-regular fa-circle" id="icon-tg"></i>
-              </div>
-
-          </div>
-
-          <div class="popup-actions" style="display:flex; flex-direction:column; gap:10px;">
-              <button id="action-btn" class="popup-btn primary" style="background: #34c759;">
-                  Проверить условия
-              </button>
-              <button id="later-btn" class="popup-btn secondary">Позже</button>
-          </div>
-      </div>
-  </div>
-
-  <div id="tutorial-overlay" class="tutorial-overlay hidden">
-    <div id="tutorial-modal" class="tutorial-modal">
-        <div class="tutorial-modal-header">
-            <h3 id="tutorial-title">Добро пожаловать!</h3>
-            <span id="tutorial-step-counter"></span>
-        </div>
-        <p id="tutorial-text">Давайте быстро пробежимся по основным функциям.</p>
-        <div class="tutorial-modal-actions">
-            <button id="tutorial-skip-btn">Пропустить</button>
-            <button id="tutorial-next-btn">Далее</button>
-        </div>
-    </div>
-  </div>
-  <div id="subscription-success-modal" class="custom-popup-overlay hidden">
-      <div class="custom-popup">
-          <div style="font-size: 40px; margin-bottom: 10px;">🎉</div>
-          <h3>Поздравляем!</h3>
-          <p style="color:#ccc; font-size:13px; line-height:1.4;">
-              Подписка подтверждена.<br>
-              <span style="color: #FFD700; font-weight: bold;">Стартовый пак начислен!</span>
-          </p>
-          
-          <div class="popup-actions" style="display:flex; flex-direction:column; gap:10px;">
-              <a href="/events" class="popup-btn primary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; background: #FFD700; color: #000;">
-                  <i class="fa-solid fa-fire" style="margin-right: 8px;"></i> Перейти в Гринд
-              </a>
-
-              <button id="success-close-btn" class="popup-btn secondary">
-                  🏠 В главное меню
-              </button>
-          </div>
-      </div>
-  </div>
-  <div id="sos-modal-overlay" class="prompt-overlay hidden" style="z-index: 10002;">
-    <div class="prompt-modal" style="width: 90%; max-width: 320px; padding: 24px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px;">
-        
-        <div style="background: #ff3b30; color: white; width: 48px; height: 48px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); letter-spacing: 1px;">
-            SOS
-        </div>
-
-        <h3 style="margin-bottom: 12px; font-size: 20px; color: #fff; font-weight: 700;">Нужна помощь?</h3>
-        
-        <p style="color: #8e8e93; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
-            Не удается привязать аккаунт автоматически?<br>
-            Напишите администратору, он добавит ваш Twitch вручную.
-        </p>
-
-        <div style="display: flex; gap: 10px;">
-            <button id="sos-admin-btn" style="flex: 1; background: #34c759; color: #fff; border: none; border-radius: 12px; height: 44px; font-size: 14px; font-weight: 600; cursor: pointer;">
-                Написать админу
-            </button>
-            
-            <button id="sos-close-btn" style="flex: 1; background: #2c2c2e; color: #fff; border: none; border-radius: 12px; height: 44px; font-size: 14px; font-weight: 600; cursor: pointer;">
-                Закрыть
-            </button>
-        </div>
-    </div>
-  </div>
-
-  <div id="weekly-modal-overlay" class="prompt-overlay hidden" style="align-items: flex-end;">
-    <div class="weekly-modal-content">
-        <div class="weekly-modal-header">
-            <h3 id="weekly-modal-title">Недельные испытания</h3>
-            <span id="weekly-modal-counter" class="weekly-goals-progress-text">0 / 0</span>
-            
-            <button id="weekly-modal-close-btn" class="weekly-modal-close">&times;</button>
-        </div>
-        
-        <div id="weekly-goals-list-container" class="weekly-goals-scroll-area">
-            <div class="spinner"></div>
-        </div>
-    </div>
-</div>
-
-  <div id="gift-container" class="gift-container hidden">
-    <div class="gift-box-wrapper">
-        <div class="gift-message">Тыкни на меня! 👇</div>
-        <img src="https://cdn-icons-png.flaticon.com/512/4213/4213650.png" alt="Gift" class="gift-icon" id="gift-icon-btn">
-    </div>
-</div>
-
-<div id="gift-modal-overlay" class="prompt-overlay hidden" style="z-index: 9999;">
-    <div class="prompt-modal gift-modal-content" style="position: relative;">
-        
-        <button id="gift-x-btn" class="gift-modal-close-x">&times;</button>
-        <div id="gift-content-initial">
-            <h2 style="margin-top:0; color:#FFD700;">🎄 Ежедневный Подарок!</h2>
-            <p>Открой коробку и забери случайную награду.</p>
-            <div class="gift-animation-placeholder">🎁</div>
-            <button id="gift-open-btn" class="claim-reward-button" style="width:100%; margin-top:15px;">
-                Открыть
-            </button>
-        </div>
-        
-        <div id="gift-content-result" class="hidden">
-            <h2 id="gift-result-title" style="margin-top:0; color:#34c759;">Поздравляем!</h2>
-            <div id="gift-result-icon" style="font-size: 60px; margin: 15px 0;">🎉</div>
-            <p id="gift-result-text" style="font-size:14px; color:#ddd;"></p>
-            
-            <div id="gift-promo-block" class="hidden" style="margin: 15px 0; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">
-                <p style="font-size:11px; color:#aaa; margin:0 0 5px;">Личный промокод (добавлен в профиль):</p>
-                <code id="gift-promo-code" style="font-size:16px; font-weight:bold; color:#FFD700; user-select:all;"></code>
-            </div>
-
-            <button id="gift-close-btn" class="perform-quest-button" style="width:100%; margin-top:15px; background:#555;">
-                Круто!
-            </button>
-        </div>
-    </div>
-</div>
-
-  <script src="/public/menu.js?v=5.5_vk_final"></script>
+    <script src="menu.js"></script>
 </body>
 </html>
