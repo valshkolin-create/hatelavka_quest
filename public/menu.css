@@ -225,22 +225,22 @@ html, body {
 /* Тексты слева (Ограничены по ширине, чтобы не лезть на скин) */
 .mini-raffle-info {
     position: relative; z-index: 10;
-    width: 55%; /* Жесткий лимит ширины текста */
+    width: 68%; /* Было 55%, сделали шире */
     display: flex; flex-direction: column; justify-content: center;
 }
 .mini-raffle-name {
-    font-size: 10px; /* Сделали шрифт меньше (был 12px) */
+    font-size: 11px; /* Сделали шрифт чуть крупнее и читабельнее */
     font-weight: 900; 
     color: #fff; 
     line-height: 1.2; 
     margin-bottom: 4px;
     text-shadow: 0 2px 5px rgba(0,0,0,0.8);
     display: -webkit-box; 
-    -webkit-line-clamp: 2; 
+    -webkit-line-clamp: 3; /* Разрешаем до 3 строк, если название ну очень длинное */
     -webkit-box-orient: vertical;
     overflow: hidden; 
     word-break: break-word;
-    padding-right: 35px; /* Защита: текст никогда не наедет на точки справа! */
+    /* Обязательно удали padding-right, если он тут остался с прошлого раза! */
 }
 .mini-raffle-stats { font-size: 9px; color: rgba(255,255,255,0.7); font-weight: 600; margin-bottom: 6px; display: flex; gap: 4px; align-items: center; }
 
