@@ -993,23 +993,6 @@ window.closeRoulette = function() {
 // ================================================================
 // ВЫВОД, ПРОДАЖА И ЗАМЕНА
 // ================================================================
-function showShopModal({ title, subtitle, confirmText, confirmClass, onConfirm }) {
-    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
-    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
-    overlay.innerHTML = `
-        <div class="custom-confirm-box">
-            <h3 class="confirm-title">${title}</h3><p class="confirm-subtitle">${subtitle}</p>
-            <div class="confirm-buttons">
-                <button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>
-                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
-            </div>
-        </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
-    overlay.querySelector('#modal-cancel').onclick = close;
-    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
-}
 
 window.claimItem = async function(itemId) {
     showShopModal({ title: "Вывести в Steam?", subtitle: "Ожидайте трейд в течение 24 часов.", confirmText: "ЗАБРАТЬ", confirmClass: "btn-yellow-modal", onConfirm: async (closeModal) => {
@@ -1305,28 +1288,6 @@ window.showFaq = function() {
     customAlert("Бот позволяет обменивать ненужные скины (Trade-In), участвовать в рулетках и ежедневных розыгрышах.\n\nДля получения призов обязательно привяжите Trade-ссылку в профиле!");
 };
 
-// Обновляем базовый showShopModal, чтобы он понимал параметр showCancel
-function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
-    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
-    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
-    
-    let cancelBtnHtml = showCancel ? `<button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>` : '';
-
-    overlay.innerHTML = `
-        <div class="custom-confirm-box">
-            <h3 class="confirm-title">${title}</h3>
-            <p class="confirm-subtitle" style="white-space: pre-wrap;">${subtitle}</p>
-            <div class="confirm-buttons">
-                ${cancelBtnHtml}
-                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
-            </div>
-        </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
-    if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
-    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
-}
 
 // ================================================================
 // УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ И FAQ
@@ -1387,27 +1348,42 @@ window.customConfirm = function(message, callback) {
 // FAQ БОТА
 // ================================================================
 window.showFaq = function() {
-    const faqHtml = `<div style="text-align: left; font-size: 13px; line-height: 1.5; color: #ddd;">
-Добро пожаловать в HATElavka Чтобы ты не запутался, вот краткий путеводитель:
+    const faqHtml = `<div style="text-align: left; font-size: 13px; line-height: 1.6; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+        <div style="margin-bottom: 15px;">
+            Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:
+        </div>
 
-<b style="color: #fff; font-size: 14px;"> Валюта и прогресс</b>
-• <b>Монетки:</b> Твоя основная валюта с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.
-• <b>Билеты:</b> это монета активности, открывает возможность пользоваться аукционом, розыгрышами.
+        <div style="margin-bottom: 15px;">
+            <b style="color: #fff; font-size: 14px;">💰 Валюта и прогресс</b><br>
+            <span style="color: #ffd700;">•</span> <b>Монетки:</b> Твоя основная валюта, с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.<br>
+            <span style="color: #2AABEE;">•</span> <b>Билеты:</b> Это монета активности, открывает возможность пользоваться аукционом и розыгрышами.
+        </div>
 
-<b style="color: #fff; font-size: 14px;">📋 Как зарабатывать</b>
-• <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.
-• <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.
+        <div style="margin-bottom: 15px;">
+            <b style="color: #fff; font-size: 14px;">📋 Как зарабатывать</b><br>
+            • <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.<br>
+            • <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.
+        </div>
 
-<b style="color: #fff; font-size: 14px;">🎁 Активности и Ивенты</b>
-Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b>, и крути <b>Рулетки</b> за скины.
+        <div style="margin-bottom: 15px;">
+            <b style="color: #fff; font-size: 14px;">🎁 Активности и Ивенты</b><br>
+            Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b> и крути <b>Рулетки</b> за скины.
+        </div>
 
-<b style="color: #fff; font-size: 14px;">🛒 TRADE IT</b>
-Продавай кейсы в разделе кейсы. ⚠️ <span style="color: #ffd700; font-weight: bold;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span>
+        <div style="margin-bottom: 15px;">
+            <b style="color: #fff; font-size: 14px;">🛒 TRADE IT</b><br>
+            Продавай кейсы в разделе кейсы.<br>
+            ⚠️ <span style="color: #ff3b30; font-weight: 700;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span>
+        </div>
 
-⚠️ <span style="color: #ffd700; font-weight: bold;">Помним, что Валя соло разработчик, баги - это нормально!</span>
+        <div style="margin-bottom: 15px; background: rgba(255, 215, 0, 0.1); border-left: 3px solid #ffd700; padding: 10px; border-radius: 4px;">
+            ⚠️ <b style="color: #ffd700;">Помним, что Валя — соло-разработчик, баги это нормально! 😉</b>
+        </div>
 
-<b style="color: #fff; font-size: 14px;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!
-</div>`;
+        <div>
+            <b style="color: #fff; font-size: 14px;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!
+        </div>
+    </div>`;
 
     showShopModal({
         title: "📖 Как работает бот?",
@@ -1418,29 +1394,6 @@ window.showFaq = function() {
         onConfirm: (close) => close()
     });
 };
-// Обновленный showShopModal (умеет скрывать кнопку отмены)
-function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
-    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
-    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
-    
-    let cancelBtnHtml = showCancel ? `<button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>` : '';
-
-    overlay.innerHTML = `
-        <div class="custom-confirm-box">
-            <h3 class="confirm-title">${title}</h3>
-            <p class="confirm-subtitle" style="white-space: pre-wrap;">${subtitle}</p>
-            <div class="confirm-buttons">
-                ${cancelBtnHtml}
-                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
-            </div>
-        </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
-    if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
-    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
-    overlay.onclick = (e) => { if(e.target === overlay && showCancel) close(); };
-}
 
 // ================================================================
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
