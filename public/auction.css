@@ -1027,3 +1027,8 @@ html, body {
     color: #FFD700;
     text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
 }
+#app-container {
+    /* Берем системный отступ ТГ или браузера и добавляем 60px сверху для надежности */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
+    box-sizing: border-box !important;
+}
