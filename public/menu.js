@@ -233,7 +233,7 @@ function setupNewUI() {
 
             // Динамическая подгрузка кейсов при первом клике
             if (targetId === 'view-shop' && !isShopLoaded) {
-                loadCategory(1);
+                loadCategory(2716312);
                 isShopLoaded = true;
             }
         });
