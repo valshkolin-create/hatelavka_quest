@@ -51,28 +51,28 @@ html, body {
 .no-scroll { overflow: hidden !important; }
 
 /* ==========================================
-   ШАПКА СО СКРИНШОТА
+   ШАПКА (ПРЕМИАЛЬНАЯ, КОМПАКТНАЯ)
 ========================================== */
 .top-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 15px; /* Узкие отступы */
+    padding: 10px 16px; /* Аккуратные отступы от краев экрана */
     position: relative;
     z-index: 100;
 }
 
-/* Логотип + Текст */
+/* Логотип + Текст (Ювелирно мелкие) */
 .logo-wrapper {
     display: flex;
     align-items: center;
-    gap: 6px; /* Текст ближе к лого */
+    gap: 6px;
     cursor: pointer;
 }
 .app-logo {
-    width: 32px; /* Вернули аккуратный размер */
-    height: 32px;
-    border-radius: 0; /* Вытащили из круга */
+    width: 28px; /* Мелкий логотип */
+    height: 28px;
+    border-radius: 0;
     background: transparent;
     object-fit: contain;
 }
@@ -82,76 +82,73 @@ html, body {
     justify-content: center;
 }
 .logo-title {
-    font-size: 14px; /* Эстетичный размер */
+    font-size: 13px; /* Строгий размер */
     font-weight: 900;
     color: #fff;
     line-height: 1;
     text-transform: uppercase;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.3px;
 }
 .logo-subtitle {
-    font-size: 8px; /* Мелкая приписка */
-    color: rgba(255,255,255,0.5);
-    font-weight: 700;
+    font-size: 7px; /* Едва заметная приписка */
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 800;
     margin-top: 2px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
-/* ПРАВАЯ ГРУППА (Прижимаем баланс к аватарке) */
+/* ПРАВАЯ ГРУППА: Баланс, Аватар, Бургер прижаты друг к другу */
 .header-right-group {
     display: flex;
     align-items: center;
-    gap: 8px; /* Минимальный отступ между балансом, фоткой и меню */
+    gap: 6px; /* Минимальный отступ для плотности */
 }
 
-/* Расширенный Баланс */
+/* Ультра-компактный Баланс */
 .balance-pill {
-    background: rgba(30, 30, 32, 0.4);
-    backdrop-filter: blur(25px);
+    background: rgba(30, 30, 32, 0.5); /* Легкая затемненность */
+    backdrop-filter: blur(25px); /* Глубокое стекло */
     -webkit-backdrop-filter: blur(25px);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 3px 4px 3px 10px;
-    
-    /* ЭТИ ТРИ СТРОЧКИ НЕ ДАДУТ БЛОКУ СЛОМАТЬСЯ */
+    border-radius: 16px; /* Капсула */
+    padding: 3px 4px 3px 10px; /* Сжали со всех сторон */
     display: flex;
     align-items: center;
     gap: 8px;
-    width: auto; 
-    min-width: max-content; 
-    white-space: nowrap; 
-
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     transition: transform 0.1s, background 0.2s;
+    width: auto; 
+    min-width: max-content; 
+    white-space: nowrap;
 }
-.balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.6); }
+.balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
 
 .balance-col {
     display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
 }
 .balance-row {
     display: flex; align-items: center; gap: 4px;
-    font-size: 10px;
+    font-size: 10px; /* Изящные цифры */
     font-weight: 800; line-height: 1; color: #fff;
-    font-family: 'SF Mono', 'Roboto Mono', monospace;
-    white-space: nowrap; /* Цифры никогда не перенесутся на новую строку */
+    font-family: 'SF Mono', 'Roboto Mono', monospace; /* Ровные табличные цифры */
 }
-/* Кнопка релоада внутри баланса */
+
+/* Кнопка обновления внутри баланса */
 .refresh-icon-wrapper {
-    background: rgba(255, 255, 255, 0.05); /* Едва заметный круг */
-    border: 1px solid rgba(255,255,255,0.03);
-    width: 22px; height: 22px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.02);
+    width: 20px; height: 20px; /* Маленькая крутилка */
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
 }
-#refresh-icon { font-size: 10px; color: #8e8e93; transition: color 0.2s; }
+#refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
 .balance-pill:active #refresh-icon { color: #fff; }
 
-/* Аватарка (в один размер с бургером) */
+/* Аватарка */
 .user-avatar {
-    width: 28px; height: 28px; 
+    width: 28px; height: 28px; /* В один размер с бургером */
     border-radius: 50%;
     object-fit: cover;
     border: 1px solid rgba(255,255,255,0.1);
@@ -160,14 +157,14 @@ html, body {
 
 /* БУРГЕР - НАСТОЯЩЕЕ ЖИДКОЕ СТЕКЛО */
 .glass-burger {
-    width: 28px; height: 28px; /* Маленький и аккуратный */
-    border-radius: 8px; /* Чуть острее углы для стиля */
-    background: rgba(255, 255, 255, 0.02); /* Почти невидимый фон */
-    backdrop-filter: blur(25px); /* Глубокий блюр внутри */
+    width: 28px; height: 28px; /* Компактный квадрат */
+    border-radius: 8px; /* Острые углы = дорого */
+    background: rgba(255, 255, 255, 0.02); /* Почти прозрачный */
+    backdrop-filter: blur(25px); /* Тот самый шарм глубокого блюра */
     -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.08); /* Тончайшая граница стекла */
+    border: 1px solid rgba(255, 255, 255, 0.06);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 4px; /* Узкие просветы между линиями */
+    gap: 3px; /* Тонкие просветы */
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     transition: transform 0.1s, background 0.2s;
@@ -175,10 +172,11 @@ html, body {
 }
 .glass-burger span {
     display: block;
-    width: 14px; /* Короткие эстетичные линии */
-    height: 1.5px; /* Тонкие полоски */
-    background-color: rgba(255,255,255,0.85);
+    width: 12px; /* Короткие линии */
+    height: 1.5px; /* Тонкие линии */
+    background-color: rgba(255, 255, 255, 0.85);
     border-radius: 2px;
+    box-shadow: 0 0 4px rgba(255,255,255,0.2);
 }
 .glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
 
