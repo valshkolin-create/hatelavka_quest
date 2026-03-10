@@ -631,3 +631,15 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 @keyframes shimmer {
     100% { transform: translateX(100%); }
 }
+
+/* ==========================================
+   ФИКС ТРЯСКИ ПРИ СВАЙПАХ
+========================================== */
+html, body {
+    overscroll-behavior-x: none !important;
+}
+
+.main-content-scrollable {
+    overscroll-behavior-x: none !important;
+    overflow-x: hidden !important;
+}
