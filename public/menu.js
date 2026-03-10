@@ -713,6 +713,18 @@ async function renderFullInterface(data) {
     dom.fullName.textContent = userData.full_name || "Профиль";
     if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
 
+    // 👇 ВОТ ЭТОТ БЛОК ДЛЯ ФОТОГРАФИИ 👇
+    const avatarEl = document.getElementById('user-avatar');
+    if (avatarEl) {
+        if (userData.photo_url) {
+            avatarEl.src = userData.photo_url; // Ставим фото из базы
+        } else {
+            // Если фото нет, ставим первую букву имени на темном фоне с желтым текстом
+            const firstLetter = (userData.full_name || "U").charAt(0).toUpperCase();
+            avatarEl.src = `https://placehold.co/64x64/2c2c2e/FFD700?text=${firstLetter}`;
+        }
+    }
+
     checkReferralAndWelcome(userData);
 
     if (menuContent) {
