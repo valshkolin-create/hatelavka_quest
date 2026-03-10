@@ -6619,7 +6619,7 @@ async def get_shop_purchases_details_for_admin(
         history_resp = await supabase.get(
             "/cs_history",
             params={
-                "status": "eq.processing",  # <--- БЫЛО pending, СТАЛО processing
+                "status": "in.(pending,processing)",  # <--- ТЕПЕРЬ ВИДНО ВСЁ
                 "select": "id,user_id,item_id,created_at,cs_items(name,image_url)" 
             }
         )
@@ -6771,50 +6771,69 @@ async def get_pending_counts(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Возвращает количество ожидающих действий."""
+    """(Админ) Возвращает количество ожидающих действий для всех разделов админки."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Считаем заявки на ручные квесты
+        # 1. Считаем заявки на ручные квесты (кнопка "Заявки")
         subs_resp = await supabase.get(
             "/quest_submissions",
             params={"status": "eq.pending", "select": "id"},
             headers={"Prefer": "count=exact"}
         )
-        submission_count = int(subs_resp.headers.get('content-range', '0').split('/')[-1])
+        submission_count = 0
+        if subs_resp.status_code == 200:
+            submission_count = int(subs_resp.headers.get('content-range', '0').split('/')[-1])
 
-        # 2. Получаем все ручные награды разом
+        # 2. Получаем ручные награды (билеты, Чекпоинт и обычные товары магазина)
         manual_rewards_details = await supabase.get(
             "/manual_rewards",
             params={"status": "eq.pending", "select": "source_type, source_description"}
         )
-        manual_rewards_list = manual_rewards_details.json()
+        manual_rewards_list = manual_rewards_details.json() if manual_rewards_details.status_code == 200 else []
 
-        # Фильтруем по типам
-        # Чекпоинт: если в описании есть слово "чекпоинт"
+        # Фильтруем: Чекпоинт (по ключевому слову)
         checkpoint_prize_count = sum(1 for r in manual_rewards_list if r.get("source_description") and "чекпоинт" in r["source_description"].lower())
         
-        # --- НОВОЕ: Магазин: если source_type == 'shop' ---
-        shop_prize_count = sum(1 for r in manual_rewards_list if r.get("source_type") == "shop")
+        # Фильтруем: Обычные товары магазина (по типу source_type)
+        shop_manual_count = sum(1 for r in manual_rewards_list if r.get("source_type") == "shop")
 
-        # 3. Считаем невыданные призы розыгрышей
+        # 3. 🔥 НОВОЕ: Считаем скины из cs_history (Заявки на вывод)
+        # Учитываем и новые (pending), и те, что Кладовщик перевел в ручной режим (processing)
+        history_resp = await supabase.get(
+            "/cs_history",
+            params={
+                "status": "in.(pending,processing)",
+                "select": "id"
+            },
+            headers={"Prefer": "count=exact"}
+        )
+        case_withdrawal_count = 0
+        if history_resp.status_code == 200:
+            case_withdrawal_count = int(history_resp.headers.get('content-range', '0').split('/')[-1])
+
+        # 4. Считаем невыданные призы розыгрышей (внутри JSON страницы events)
         content_resp = await supabase.get(
             "/pages_content",
             params={"page_name": "eq.events", "select": "content", "limit": 1}
         )
         event_prize_count = 0
-        if content_resp.json():
+        if content_resp.status_code == 200 and content_resp.json():
             content = content_resp.json()[0].get('content', {})
             events = content.get("events", [])
+            # Победитель есть, а подтверждения выдачи — нет
             event_prize_count = sum(1 for event in events if 'winner_id' in event and not event.get('prize_sent_confirmed', False))
+
+        # Итоговый счетчик для кнопки "Магазин" = Обычные товары + Скины на вывод
+        total_shop_prizes = shop_manual_count + case_withdrawal_count
 
         return {
             "submissions": submission_count,
             "event_prizes": event_prize_count,
             "checkpoint_prizes": checkpoint_prize_count,
-            "shop_prizes": shop_prize_count # <-- Добавили это поле
+            "shop_prizes": total_shop_prizes
         }
 
     except Exception as e:
