@@ -95,38 +95,53 @@
 
         <div class="content-wrapper">
             
-            <div id="menu-view" class="view-section active">
+            <div id="view-dashboard" class="view-section active">
                 
-                <div id="main-slider-container" class="slider-container" style="display:none;">
+                <div id="main-slider-container" class="slider-container fullscreen-slider" style="display:none;">
                     <div class="slider-wrapper">
-                        <a href="#" class="slide" data-event="skin_race" style="display:none;"><img src="" id="skin_race-banner-img"></a>
-                        <a href="/auction" class="slide" data-event="auction" style="display:none;"><img src="" id="auction-banner-img"></a>
-                        <a href="#" class="slide" data-event="checkpoint" style="display:none;"><img src="" id="checkpoint-banner-img"></a>
-                        <a href="/halloween" class="slide" data-event="cauldron" style="display:none;"><img src=""></a>
-                    </div>
-                    <div class="slider-controls">
-                        <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
-                        <div class="slider-dots"></div>
-                        <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
+                        
+                        <a href="#" class="slide" id="default-banner-slide" style="display:none;">
+                            <img src="https://via.placeholder.com/1200x600/1c1c1e/ffcc00?text=СКОРО+НОВЫЕ+ИВЕНТЫ" alt="Заглушка">
+                        </a>
+
+                        <a href="/halloween" class="slide" data-event="cauldron" style="display:none;">
+                            <img src="" id="cauldron-banner-img" alt="Ивент">
+                        </a>
+                        
+                    </div> 
+                    <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
+                    <div class="slider-dots"></div>
+                </div>
+
+                <div class="start-tutorial-btn-wrapper" style="gap: 10px; display: flex; justify-content: center; width: 100%; margin: 15px 0;">
+                    <button id="open-bonus-btn" class="hidden" style="background: rgba(255, 215, 0, 0.15); color: #FFD700; border: 1px solid #FFD700; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-gift"></i> Бонус
+                    </button>
+                    <button id="start-tutorial-btn" style="background-color: rgba(0, 122, 255, 0.15); border: 1px solid #007aff; color: #007aff; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-circle-question"></i> Как пользоваться?
+                    </button>
+                </div>
+
+                <div id="weekly-goals-trigger" class="weekly-banner-wrapper hidden">
+                    <img id="weekly-goals-banner-img" src="" class="weekly-banner-img" alt="Недельные испытания">
+                    <div id="weekly-goals-badge" class="weekly-reward-badge hidden">
+                        <i class="fa-solid fa-gift fa-shake"></i> ЗАДАНИЕ ВЫПОЛНЕНО!
                     </div>
                 </div>
 
-                <button id="open-bonus-btn" class="hidden premium-exchange-btn" style="margin-bottom: 15px; margin-top: 15px;">
-                    <div class="p2p-icon-box" style="background: rgba(255,215,0,0.2); color: #FFD700;"><i class="fa-solid fa-gift"></i></div>
-                    <div class="p2p-text-box">
-                        <span class="p2p-title" style="color:#FFD700;">Приветственный бонус</span>
-                        <span class="p2p-subtitle">Забери награду за приглашение!</span>
-                    </div>
-                    <div class="p2p-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-                </button>
-                  
-                    <div class="action-cards-grid">
+                <hr style="border-color: rgba(255,255,255,0.05); margin: 15px 0;">
+
+                <div class="action-cards-grid">
                     <a href="/auction" class="flat-card auction-card">
-                        АУКЦИОНЫ
+                        <div class="auction-content">
+                            <i class="fa-solid fa-gavel"></i>
+                            <span>Аукционы</span>
+                        </div>
                     </a>
                     
                     <div class="flat-card mini-raffle-slider-container" id="mini-raffle-slider" onclick="window.location.href='/raffles'">
-                        <span id="default-raffle-text">РОЗЫГРЫШИ</span>
+                        <span id="default-raffle-text" style="font-weight: 800; letter-spacing: 1px;">РОЗЫГРЫШИ</span>
                         </div>
                 </div>
                 
