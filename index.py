@@ -2992,205 +2992,139 @@ async def sync_steam_inventory(
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
 async def get_bootstrap_data(
-    req: InitDataRequest,  # 🔥 ОБЯЗАТЕЛЬНО ПЕРВЫМ (без дефолтного значения)
-    user_info: dict = Depends(multi_acc_protection),  # Теперь наш охранник
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+    req: InitDataRequest,                               # 1. Сначала данные (без =)
+    background_tasks: BackgroundTasks,                   # 2. Задачи фона (без =)
+    user_info: dict = Depends(multi_acc_protection),     # 3. Наш охранник (проверяет абузеров и токен)
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) # 4. База
 ):
     """
-    🚀 OPTIMIZED: Загружает ВСЕ данные + Статус P2P трейда за 1 SQL запрос.
-    Автоматически регистрирует пользователя (через SQL), если его нет в базе.
-    Поддерживает гибридную систему (Telegram + VK).
+    🚀 OPTIMIZED: Загружает ВСЕ данные за 1 SQL запрос.
+    Охранник multi_acc_protection уже проверил юзера на мультиаккаунт и валидность.
     """
-    user_info = None
-    telegram_id = None
-    photo_url = None # ДОБАВЛЕНО: Переменная для аватарки
+    
+    # Мы НЕ пишем user_info = None, данные уже лежат в user_info благодаря Depends!
+    telegram_id = user_info.get("id")
+    photo_url = user_info.get("photo_url")
+    platform = getattr(req, 'platform', 'tg') # Берем платформу из объекта req
 
-    # --- 1. АВТОРИЗАЦИЯ И ОПРЕДЕЛЕНИЕ ID ---
-    if request_data.platform == "vk":
-        # Ветка ВКонтакте: Проверяем подпись VK
-        user_info = is_valid_vk_query(request_data.initData, VK_APP_SECRET)
-        if user_info and "id" in user_info:
-            # Превращаем ID ВКонтакте в отрицательный (-123), чтобы писать в ту же базу
-            telegram_id = -1 * abs(user_info["id"])
-            photo_url = user_info.get("photo_url") # У VK обычно есть фото в параметрах
-    else:
-        # Ветка Telegram: Стандартная проверка
-        user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-        if user_info and "id" in user_info:
-            telegram_id = user_info["id"]
-            # 🔥 ДОБАВЛЕНО: Извлекаем photo_url из Telegram initData
-            photo_url = user_info.get("photo_url") 
-
-    # Если не прошли ни одну проверку
-    if not user_info or not telegram_id:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    # Если мы здесь — значит Depends(multi_acc_protection) пропустил юзера
+    # и он точно авторизован. Доп. проверки не нужны.
 
     # --- 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА 🛡️ ---
-    # Проверяем админа (только если ID совпадает с ADMIN_IDS)
     is_admin = telegram_id in ADMIN_IDS
-
-    # Если режим включен и ты НЕ админ — отдаем 200 OK + maintenance: true
     if sleep_cache["is_sleeping"] and not is_admin:
         return JSONResponse(
             status_code=200, 
             content={"maintenance": True, "detail": "Maintenance Mode"}
         )
-    
-    # --- 🔥 2. ОСТАВИЛИ ВАШ БЛОК ЗДЕСЬ (с защитой для ВК) 🔥 ---
-    # Запускаем проверку Twitch (ник, подписка) в фоне при каждом запуске приложения
-    # Запускаем ТОЛЬКО если это Telegram (у VK нет username в initData)
-    if request_data.platform != "vk":
+
+    # Запускаем обновление Twitch в фоне (только для Telegram)
+    if platform != "vk":
         background_tasks.add_task(silent_update_twitch_user, telegram_id)
-    # --------------------------------------
-    
+
     try:
-        # Подготавливаем данные для авто-регистрации внутри базы
+        # Подготавливаем данные для авто-регистрации
         raw_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
         full_name_tg = clean_user_name_text(raw_full_name) 
         username_tg = user_info.get("username")
 
-        # 1. Запускаем всего ДВА запроса ПАРАЛЛЕЛЬНО вместо десяти
+        # Запускаем параллельные запросы
         results = await asyncio.gather(
-            # A. Настройки админа
             get_admin_settings_async_global(),
-            
-            # B. 🔥 GOD RPC: Берет все данные юзера, квесты, трейды, коды и регистрирует новичков
             supabase.post("/rpc/get_bootstrap_all_data", json={
                 "p_telegram_id": telegram_id,
                 "p_username": username_tg,
                 "p_full_name": full_name_tg,
-                "p_photo_url": photo_url # 🔥 ДОБАВЛЕНО: Передаем photo_url в базу!
+                "p_photo_url": photo_url 
             }),
-            
             return_exceptions=True
         )
         
-        # Распаковка результатов
         (settings_res, db_res) = results
 
-        # --- 1. Обработка Настроек ---
+        # --- Обработка Настроек ---
         if isinstance(settings_res, Exception):
             logging.error(f"[Bootstrap] Settings error: {settings_res}")
             menu_content = {} 
         else:
             menu_content = settings_res.dict() if hasattr(settings_res, 'dict') else settings_res
 
-        # Проверка на ошибку базы данных
+        # --- Обработка БД ---
         if isinstance(db_res, Exception) or db_res.status_code != 200:
             error_msg = str(db_res) if isinstance(db_res, Exception) else db_res.text
             raise Exception(f"Database RPC Error: {error_msg}")
 
-        # Достаем огромный JSON со всеми данными
         db_data = db_res.json()
-
-        # --- 2. Обработка Пользователя (Авто-регистрация уже прошла в SQL) ---
         rpc_data = db_data.get('dashboard', {}) or {}
         user_data = rpc_data.get('profile', {}) or {}
         
-        # Подстраховка: если БД только-только создала юзера и не успела вернуть его в дашборд
+        # Если юзер только что создался
         if not user_data:
             user_data = {
                 "telegram_id": telegram_id,
                 "full_name": full_name_tg,
                 "username": username_tg,
-                "photo_url": photo_url, # 🔥 ДОБАВЛЕНО В ПОДСТРАХОВКУ
+                "photo_url": photo_url,
                 "tickets": 0,
                 "coins": 0,
-                "is_bot_active": False,
                 "challenge": None,
                 "event_participations": {},
             }
 
-        # --- 🔥 ЛОГИКА КУЛДАУНА ЧЕЛЛЕНДЖА 🔥 ---
+        # --- ЛОГИКА КУЛДАУНА ЧЕЛЛЕНДЖА ---
         raw_challenge = rpc_data.get('challenge')
-        
         if raw_challenge:
             status = raw_challenge.get('status')
             claimed_at_str = raw_challenge.get('claimed_at')
-
             if status == 'expired':
-                # Если истек — сбрасываем, чтобы дать взять новый
                 user_data['challenge'] = None
-            
             elif status == 'claimed' and claimed_at_str:
-                # Если ЗАБРАН — проверяем, прошло ли время (12 часов)
                 try:
                     claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
-                    # Время, когда можно брать следующий
                     cooldown_end = claimed_at + timedelta(hours=12)
                     now = datetime.now(timezone.utc)
-
                     if now < cooldown_end:
-                        # Кулдаун еще идет -> Отправляем данные + время окончания
                         user_data['challenge'] = raw_challenge
                         user_data['challenge']['cooldown_until'] = cooldown_end.isoformat()
                     else:
-                        # Кулдаун прошел -> Сбрасываем, можно брать новый
                         user_data['challenge'] = None
-                except Exception as e:
-                    logging.error(f"Date parse error: {e}")
+                except:
                     user_data['challenge'] = None
             else:
-                # Если pending (активный) — оставляем как есть
                 user_data['challenge'] = raw_challenge
         else:
             user_data['challenge'] = None
-        # --- КОНЕЦ ЛОГИКИ КУЛДАУНА ---
 
         user_data['event_participations'] = rpc_data.get('event_participations', {})
-
-        # --- Дополнительные поля ---
         user_data['is_admin'] = is_admin
         user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
         user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
-        
-        # Статус стрима (Task H)
         user_data['is_stream_online'] = db_data.get('stream_status') or False
 
-        # Реферальные данные (Task F)
+        # Рефералы и доп. данные
         user_extra = db_data.get('user_extra') or {}
         user_data.update(user_extra)
-
-        # Подписка
         user_data['is_telegram_subscribed'] = True if user_data.get('referral_activated_at') else False
-
-        # Счетчик рефералов (Task G)
         user_data['active_referrals_count'] = db_data.get('ref_count') or 0
 
-        # 🔥 ОБРАБОТКА P2P ТРЕЙДА (Task I) 🔥
+        # Статус P2P
         active_trade_status = "none"
         db_status = db_data.get('trade_status')
-        
-        # Маппинг статусов P2P
-        if db_status == "pending":
-            active_trade_status = "creating"
-        elif db_status == "active":
-            active_trade_status = "confirming"
-        elif db_status == "review":
-            active_trade_status = "sending"
-        
-        # Кладем статус в user_data, чтобы фронт его увидел сразу
+        if db_status == "pending": active_trade_status = "creating"
+        elif db_status == "active": active_trade_status = "confirming"
+        elif db_status == "review": active_trade_status = "sending"
         user_data['active_trade_status'] = active_trade_status
-
-        # 🔥 ВСТАВЛЯЕМ СЕКРЕТНЫЙ КОД В ПРОФИЛЬ (Task J) 🔥
         user_data['active_secret_code'] = db_data.get('secret_code')
 
-        # --- 3. Обработка Квестов (Task C) ---
-        quests_list = []
-        raw_quests = db_data.get('quests') or []
-        try: 
-            quests_list = fill_missing_quest_data(raw_quests)
-        except: 
-            quests_list = raw_quests
+        # Квесты и Цели
+        quests_list = db_data.get('quests') or []
+        try: quests_list = fill_missing_quest_data(quests_list)
+        except: pass
 
-        # --- 4. Обработка Целей (Task D) ---
         goals_data = db_data.get('goals') or {"goals": []}
         goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
-
-        # --- 5. Обработка Котла (Task E) ---
         cauldron_data = db_data.get('cauldron') or {"is_visible_to_users": False}
 
-        # Возврат полного набора данных
         return {
             "user": user_data,
             "menu": menu_content,
