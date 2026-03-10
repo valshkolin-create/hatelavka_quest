@@ -184,13 +184,15 @@ async function checkBalance(updateUI = true) {
     .then(data => {
         if (updateUI && data) {
             let coins = data.balance || 0; 
-            let displayBalance = (coins / 100).toFixed(0); 
+            // Это добавит красивые пробелы: 40000 -> 40 000
+            let displayBalance = Number((coins / 100).toFixed(0)).toLocaleString('ru-RU');
             const balanceEl = document.getElementById('user-balance');
             if (balanceEl) { balanceEl.style.opacity = '0.5'; setTimeout(() => { balanceEl.textContent = displayBalance; balanceEl.style.opacity = '1'; }, 150); }
 
             let tickets = data.tickets || 0; 
+            let displayTickets = Number(tickets).toLocaleString('ru-RU'); // Добавили эту переменную
             const ticketsEl = document.getElementById('ticketStats');
-            if (ticketsEl) { ticketsEl.style.opacity = '0.5'; setTimeout(() => { ticketsEl.textContent = tickets; ticketsEl.style.opacity = '1'; }, 150); }
+            if (ticketsEl) { ticketsEl.style.opacity = '0.5'; setTimeout(() => { ticketsEl.textContent = displayTickets; ticketsEl.style.opacity = '1'; }, 150); }
         }
     }).catch(err => {}).finally(() => { setTimeout(() => { isBalanceLoading = false; if (iconCoins) iconCoins.classList.remove('fa-spin'); }, 500); });
 }
@@ -578,31 +580,60 @@ if(dom.tutorialSkipBtn) dom.tutorialSkipBtn.onclick = () => { dom.tutorialOverla
 function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0'; }
 
 async function initDynamicRaffleSlider() {
-    const wrapper = document.querySelector('.slider-wrapper'); if (!wrapper) return;
-    const placeholder = wrapper.querySelector('.slide[data-event="skin_race"]'); if (!placeholder) return;
+    const listContainer = document.getElementById('active-raffles-list');
+    if (!listContainer) return;
+
     try {
         const res = await fetch('/api/v1/raffles/active', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(getAuthPayload()) });
         const data = await res.json();
-        const activeRaffles = data.filter(r => r.status === 'active').slice(0, 3);
+        
+        // Берем первые 5 активных розыгрышей
+        const activeRaffles = data.filter(r => r.status === 'active').slice(0, 5);
+
         if (activeRaffles.length > 0) {
+            listContainer.innerHTML = ''; 
             activeRaffles.forEach(raffle => {
-                const s = raffle.settings || {}; const img = s.card_image || s.prize_image || ''; const rarityColor = s.rarity_color || '#ffd700'; 
-                const newSlide = document.createElement('a'); newSlide.href = "/raffles"; newSlide.className = "slide";
-                newSlide.style.setProperty('--rarity-color', rarityColor); newSlide.style.setProperty('--rarity-rgb', hexToRgb(rarityColor));
-                newSlide.innerHTML = `<div class="premium-slide-box"><div class="raffle-badge-top-right"><i class="fa-solid fa-gift"></i> Розыгрыш</div><div class="slide-content-left"><div class="raffle-quality-tag-top"><span>${escapeHTML(s.skin_quality || 'FT')}</span><span style="opacity:0.4; font-size: 8px;">●</span><i class="fa-solid fa-users"></i> ${raffle.participants_count || 0}</div><div class="raffle-item-name-new">${escapeHTML(s.prize_name)}</div><div class="raffle-timer-box-new raffle-full-timer" data-endtime="${raffle.end_time}"><div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">Д</span></div><div class="timer-sep">:</div><div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">Ч</span></div><div class="timer-sep">:</div><div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">М</span></div></div></div><img src="${img}" class="raffle-item-img-new" alt="Skin"></div>`;
-                placeholder.before(newSlide);
+                const s = raffle.settings || {}; 
+                const img = s.card_image || s.prize_image || ''; 
+                const rarityColor = s.rarity_color || '#ffd700'; 
+                
+                const card = document.createElement('a'); 
+                card.href = "/raffles"; 
+                card.className = "raffle-list-card";
+                card.style.setProperty('--rarity-color', rarityColor); 
+                card.style.setProperty('--rarity-rgb', hexToRgb(rarityColor));
+                
+                card.innerHTML = `
+                    <div class="raffle-card-image">
+                        <img src="${img}" alt="Skin">
+                    </div>
+                    <div class="raffle-card-info">
+                        <div class="raffle-quality-tag">
+                            <span style="color: ${rarityColor};">${escapeHTML(s.skin_quality || 'FT')}</span>
+                            <span style="opacity:0.4; font-size: 8px; margin: 0 6px;">●</span>
+                            <i class="fa-solid fa-users" style="color: #8E8E93; margin-right: 4px;"></i> <span style="color: #8E8E93;">${raffle.participants_count || 0}</span>
+                        </div>
+                        <div class="raffle-item-name">${escapeHTML(s.prize_name)}</div>
+                        <div class="raffle-timer-box-new raffle-full-timer" data-endtime="${raffle.end_time}">
+                            <div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">Д</span></div><div class="timer-sep">:</div>
+                            <div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">Ч</span></div><div class="timer-sep">:</div>
+                            <div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">М</span></div><div class="timer-sep" style="color: #ff3b30;">:</div>
+                            <div class="timer-unit-new"><span class="timer-val-new s-v" style="color: #ff3b30;">00</span><span class="timer-lbl-new">С</span></div>
+                        </div>
+                    </div>
+                    <div class="raffle-card-action">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                `;
+                listContainer.appendChild(card);
             });
-            placeholder.remove();
-            setInterval(() => {
-                document.querySelectorAll('.raffle-full-timer').forEach(el => {
-                    const diff = new Date(el.dataset.endtime) - new Date();
-                    if (diff <= 0) { el.innerHTML = "<span style='font-weight:800; color:#ff453a;'>ЗАВЕРШАЕТСЯ</span>"; return; }
-                    const d = Math.floor(diff / (1000 * 60 * 60 * 24)), h = Math.floor((diff / (1000 * 60 * 60)) % 24), m = Math.floor((diff / (1000 * 60)) % 60);
-                    if(el.querySelector('.d-v')) el.querySelector('.d-v').innerText = d; if(el.querySelector('.h-v')) el.querySelector('.h-v').innerText = h; if(el.querySelector('.m-v')) el.querySelector('.m-v').innerText = m;
-                });
-            }, 1000);
+            startSliderTick(); // Запускаем таймеры
+        } else {
+            listContainer.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 16px;">Нет активных розыгрышей</div>';
         }
-    } catch (e) {}
+    } catch (e) {
+        listContainer.innerHTML = '<div style="color:#ff3b30; text-align:center; font-size: 12px;">Ошибка загрузки</div>';
+    }
 }
 
 async function renderFullInterface(data) {
