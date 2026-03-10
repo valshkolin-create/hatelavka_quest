@@ -1541,3 +1541,8 @@ body[data-theme="runcase"] .modal-reward-img {
 body[data-theme="runcase"] .viewer-image {
     filter: brightness(1.25) contrast(1.15);
 }
+#app-container {
+    /* Берем системный отступ ТГ или браузера и добавляем 60px сверху для надежности */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
+    box-sizing: border-box !important;
+}
