@@ -693,7 +693,6 @@ async function initDynamicRaffleSlider() {
                     slides[cur].classList.add('active');
                 }, 4000); 
             }
-        }
     } catch (e) {
         container.innerHTML = '<span style="font-size:13px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
     }
