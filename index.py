@@ -17402,8 +17402,8 @@ async def get_user_raffles(
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     user_id = user_info['id'] if user_info else None
     
-    # 2. Получаем список всех розыгрышей (работает для всех)
-    resp = await supabase.get(
+    # Подготавливаем задачу получения розыгрышей
+    raffles_task = supabase.get(
         "/raffles", 
         params={
             "select": "*, winner:users(full_name, username)", 
@@ -17411,16 +17411,31 @@ async def get_user_raffles(
             "is_visible": "eq.true"
         }
     )
-    raffles = resp.json()
     
-    # 3. Проверяем участие (is_joined)
-    if user_id:
-        for r in raffles:
-            check = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{r['id']}", "user_id": f"eq.{user_id}"})
-            r['is_joined'] = len(check.json()) > 0
-    else:
-        for r in raffles:
-            r['is_joined'] = False
+    # Подготавливаем задачу получения ВСЕХ участий юзера (тянем только ID розыгрыша)
+    async def get_participations():
+        if not user_id:
+            return []
+        resp = await supabase.get(
+            "/raffle_participants", 
+            params={
+                "user_id": f"eq.{user_id}",
+                "select": "raffle_id" 
+            }
+        )
+        return resp.json() if resp.status_code == 200 else []
+
+    # 2. Выполняем оба HTTP-запроса параллельно (это срежет кучу времени)
+    raffles_resp, participations_data = await asyncio.gather(raffles_task, get_participations())
+    
+    raffles = raffles_resp.json() if raffles_resp.status_code == 200 else []
+    
+    # 3. Делаем быстрый Set (множество) из ID розыгрышей, где юзер уже участвует
+    joined_raffle_ids = {p['raffle_id'] for p in participations_data}
+    
+    # 4. Пробегаемся по списку и проставляем статус мгновенно в оперативной памяти
+    for r in raffles:
+        r['is_joined'] = r['id'] in joined_raffle_ids
             
     return raffles
 
