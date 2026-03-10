@@ -59,8 +59,9 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 16px; 
-    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 10px);
-    margin-bottom: 45px; /* Освобождаем место для переключателя ниже */
+    /* Опускаем шапку ниже системных кнопок и имени "Valentin" */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 50px);
+    margin-bottom: 35px; 
     position: relative;
     z-index: 100;
 }
@@ -107,16 +108,16 @@ html, body {
 ========================================== */
 .toggle-container {
     position: fixed;
-    /* Опустили ниже системных кнопок (закрыть/назад) */
-    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 60px);
+    /* Опускаем переключатель так, чтобы он был ровно под шапкой */
+    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 100px);
     left: 50%;
-    /* Теперь центруем идеально! Наезжать на кнопки он больше не будет */
     transform: translateX(-50%); 
     z-index: 1000;
     display: flex;
     justify-content: center;
     margin: 0;
 }
+
 .toggle-wrapper {
     position: relative; display: flex; 
     background: rgba(25, 25, 25, 0.8);
@@ -263,28 +264,37 @@ html, body {
 /* Точки (Перенесены в ПРАВЫЙ ВЕРХНИЙ УГОЛ) */
 .mr-dots-container { 
     position: absolute !important; 
-    top: 8px !important; 
+    top: 12px !important; 
     right: 12px !important; 
     margin: 0 !important;
-    display: flex; gap: 4px; z-index: 10; 
+    display: flex; gap: 4px; z-index: 20; 
 }
 .mr-dot { width: 5px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 50%; transition: 0.3s; }
 .mr-dot.active { background: var(--primary-color); width: 14px; border-radius: 4px; box-shadow: 0 0 8px rgba(255,215,0,0.5); }
-
 
 /* ==========================================
    ПЛАВАЮЩИЙ ФУТЕР
 ========================================== */
 .floating-bottom-bar {
-    position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); 
-    width: 90%; max-width: 400px;
+    position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
+    width: 85%; max-width: 360px; /* Уменьшили ширину */
     background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    display: flex; justify-content: space-around; align-items: center; padding: 10px; z-index: 1000;
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-radius: 35px; /* Более круглые края */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    display: flex; justify-content: space-around; align-items: center; 
+    padding: 6px 12px; /* Уменьшили внутренние отступы */
+    z-index: 1000;
 }
-.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; gap: 4px; padding: 8px 12px; border-radius: var(--radius-pill); transition: all 0.3s ease; }
-.nav-item i { font-size: 20px; }
-.nav-item span { font-size: 10px; font-weight: 600; }
+.nav-item { 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    color: var(--text-muted); text-decoration: none; 
+    gap: 2px; /* Уменьшили расстояние между иконкой и текстом */
+    padding: 6px 10px; 
+    border-radius: var(--radius-pill); transition: all 0.3s ease; 
+}
+.nav-item i { font-size: 18px; } /* Иконки чуть меньше */
+.nav-item span { font-size: 9px; font-weight: 600; }
 .nav-item.active { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
 
 /* ==========================================
@@ -330,17 +340,19 @@ html, body {
 .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
 .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
 
-/* Теперь меню выезжает на весь экран */
 .side-menu-content { 
     position: absolute; top: 0; 
-    right: -100%; /* Полностью прячем за край */
-    width: 100%;  /* Ширина на весь экран */
+    right: -100%; 
+    width: 100%;  
     height: 100%; 
-    background: rgba(28, 28, 30, 0.75); /* Полупрозрачный фон */
-    backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); /* Сочный блюр */
+    background: rgba(28, 28, 30, 0.75); 
+    backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
     transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); 
-    padding: 25px; box-sizing: border-box; display: flex; flex-direction: column;
+    /* Мощный отступ сверху, чтобы меню не залезало под имя и кнопки ТГ */
+    padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 60px) 25px 25px 25px; 
+    box-sizing: border-box; display: flex; flex-direction: column;
 }
+.side-menu-overlay.active .side-menu-content { right: 0; }
 .side-menu-overlay.active .side-menu-content { right: 0; }
 .side-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-top: 10px; }
 .side-nav { display: flex; flex-direction: column; gap: 10px; }
