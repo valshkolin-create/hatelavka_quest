@@ -50,29 +50,52 @@ html, body {
 .no-scroll { overflow: hidden !important; }
 
 /* ==========================================
-   ШАПКА (СТРОГО КАК НА КАРТИНКЕ)
+   ШАПКА (КОМПАКТНАЯ И СТРОГАЯ)
 ========================================== */
 .top-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 20px;
+    padding: 12px 15px; /* Уменьшили отступы */
     position: relative;
     z-index: 100;
 }
 
+/* Логотип + Текст */
 .logo-wrapper {
     display: flex;
     align-items: center;
+    gap: 8px; /* Отступ между картинкой и текстом */
+    cursor: pointer;
 }
-.logo-wrapper img {
-    height: 35px; /* Размер логотипа */
-    width: auto;
-    border-radius: 0;
-    background: transparent;
+.app-logo {
+    width: 32px; /* Уменьшили лого */
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #2c2c2e;
+}
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.logo-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.1;
+    letter-spacing: 0.3px;
+}
+.logo-subtitle {
+    font-size: 8px;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-top: 1px;
+    text-transform: uppercase;
 }
 
-/* Блок баланса АБСОЛЮТНО ПО ЦЕНТРУ */
+/* Блок баланса (Компактный) */
 .balance-pill {
     position: absolute;
     left: 50%;
@@ -81,85 +104,107 @@ html, body {
     background: rgba(30, 30, 30, 0.6);
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
-    border: 1px solid var(--border-glass);
-    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px; /* Чуть менее круглый для серьезности */
     
-    padding: 4px 12px 4px 8px;
+    padding: 4px 6px 4px 10px; /* Сжали со всех сторон */
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     cursor: pointer;
     transition: transform 0.1s;
 }
 .balance-pill:active { transform: scale(0.96) translateX(-50%); }
 
-.refresh-icon {
-    background: none; border: none; color: var(--text-primary);
-    font-size: 20px; cursor: pointer; display: flex; align-items: center;
-}
-
 .balance-col {
-    display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
 }
 .balance-row {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 800; line-height: 1; color: #fff;
+    display: flex; align-items: center; gap: 4px;
+    font-size: 10px; /* Уменьшили цифры */
+    font-weight: 800; line-height: 1; color: #fff;
 }
 
-.header-actions {
-    display: flex; align-items: center; gap: 15px;
+/* Премиальная кнопка релоада */
+.refresh-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; 
+    height: 22px;
+    background: rgba(255, 255, 255, 0.08); /* Легкий фон под иконкой */
+    border-radius: 50%;
 }
-.circle-img {
-    width: 42px; height: 42px;
+#refresh-icon {
+    font-size: 11px;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+.balance-pill:active #refresh-icon {
+    color: #fff; /* Загорается белым при клике */
+}
+
+/* Правая часть */
+.header-actions {
+    display: flex; align-items: center; gap: 12px;
+}
+.user-avatar {
+    width: 28px; /* Сильно уменьшили аватар */
+    height: 28px;
     border-radius: 50%;
     object-fit: cover;
-    background: #fff; /* Белый круг как на скрине */
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
 }
 .icon-btn {
-    background: none; border: none; color: var(--text-primary);
-    font-size: 28px; cursor: pointer;
+    background: none; border: none; color: #fff;
+    font-size: 20px; /* Уменьшили иконку бургера */
+    cursor: pointer;
 }
 
 /* ==========================================
-   ПЕРЕКЛЮЧАТЕЛЬ (ТОГГЛ С НАДПИСЬЮ)
+   ПЕРЕКЛЮЧАТЕЛЬ (ТОГГЛ С ТЕКСТОМ ВНУТРИ)
 ========================================== */
 .toggle-container {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 25px;
-}
-.toggle-container::before {
-    content: 'ВЫБОР МЕНЮ';
-    font-size: 11px;
-    font-weight: 800;
-    color: #fff;
-    margin-bottom: 12px;
-    letter-spacing: 0.5px;
+    justify-content: center;
+    margin-bottom: 15px; /* Сжали отступ снизу */
 }
 
 .toggle-wrapper {
     position: relative;
     display: flex;
-    background: rgba(30, 30, 30, 0.8);
+    background: rgba(25, 25, 25, 0.8);
     border-radius: 12px;
-    border: 1px solid var(--border-glass);
-    width: 150px; /* Компактный размер как на картинке */
-    height: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    width: 170px; 
+    height: 28px; /* Аккуратная высота */
+    padding: 2px;
 }
 .toggle-slider {
     position: absolute; top: 2px; left: 2px;
     width: calc(50% - 2px); height: calc(100% - 4px);
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12); /* Цвет "стеклянного" ползунка */
     border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5); /* Легкая тень для объема */
     transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
     z-index: 1;
 }
 .toggle-option {
     flex: 1; z-index: 2; cursor: pointer;
-    font-size: 0; /* Скрываем текст внутри, оставляем только саму капсулу */
+    font-size: 9px; /* Уменьшили текст */
+    font-weight: 800;
+    color: #666; /* Неактивный текст темнее */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
 }
-.toggle-option.active { color: var(--text-primary); }
+.toggle-option.active { 
+    color: #fff; /* Активный текст белый */
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.3); /* Легкое свечение */
+}
 
 .content-wrapper { position: relative; margin: 0 15px; }
 .view-section { display: none; animation: fadeInScale 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
@@ -171,10 +216,8 @@ html, body {
 }
 
 /* ==========================================
-   МАТОВОЕ СТЕКЛО: РАЗМЕРЫ КАК НА КАРТИНКЕ
+   СЛАЙДЕР И КАРТОЧКИ
 ========================================== */
-
-/* Убираем боковые баннеры, чтобы слайдер был на 100% ширины как на скрине */
 .top-banners-layout {
     display: block !important;
     width: 100% !important;
@@ -182,43 +225,42 @@ html, body {
 }
 .side-banners-column { display: none !important; }
 
-/* 1. ГЛАВНЫЙ СЛАЙДЕР (ОГРОМНЫЙ БЛОК) */
+/* СЛАЙДЕР (Урезали высоту на ~40%) */
 .slider-container, #main-slider-container {
     width: 100%;
-    height: 280px !important; /* Огромная высота */
+    height: 160px !important; /* БЫЛО 280px, СТАЛО 160px */
     
     background: var(--surface-glass) !important;
     backdrop-filter: blur(25px) !important;
     -webkit-backdrop-filter: blur(25px) !important;
     border: 1px solid var(--border-glass) !important;
     border-radius: var(--radius-card) !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4) !important;
     
-    margin-bottom: 16px !important;
+    margin-bottom: 15px !important;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
 }
 
-/* 2. НИЖНИЕ КАРТОЧКИ (АУКЦИОНЫ / РОЗЫГРЫШИ) */
+/* НИЖНИЕ КАРТОЧКИ (АУКЦИОНЫ / РОЗЫГРЫШИ) */
 .action-cards-grid {
     display: grid;
-    /* ИДЕАЛЬНАЯ ПРОПОРЦИЯ: Левая карточка у́же, правая шире */
     grid-template-columns: 0.85fr 1.15fr !important; 
-    gap: 16px !important;
+    gap: 12px !important; /* Чуть сжали расстояние между ними */
     margin-bottom: 20px;
 }
 
 .action-card {
-    height: 140px !important; /* Высокие карточки */
+    height: 120px !important; /* Слегка уменьшили высоту карточек */
     
     background: var(--surface-glass) !important;
     backdrop-filter: blur(25px) !important;
     -webkit-backdrop-filter: blur(25px) !important;
     border: 1px solid var(--border-glass) !important;
     border-radius: var(--radius-card) !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
     
     display: flex;
     flex-direction: column;
@@ -230,24 +272,21 @@ html, body {
     
     color: #fff;
     font-weight: 800;
-    font-size: 15px;
-    text-transform: uppercase;
     position: relative;
     overflow: hidden;
 }
 .action-card:active { transform: scale(0.96); }
 
-/* Если у нас 3 ярлыка в HTML, заставляем их принять форму двух блоков с картинки */
-#shortcut-shop { grid-column: 1; grid-row: 1 / span 2; height: 100% !important; min-height: 140px; }
-#shortcut-challenge { grid-column: 2; grid-row: 1; height: 100% !important; min-height: 62px; }
-#shortcut-quests { grid-column: 2; grid-row: 2; height: 100% !important; min-height: 62px; }
+#shortcut-shop { grid-column: 1; grid-row: 1 / span 2; height: 100% !important; min-height: 120px; }
+#shortcut-challenge { grid-column: 2; grid-row: 1; height: 100% !important; min-height: 54px; }
+#shortcut-quests { grid-column: 2; grid-row: 2; height: 100% !important; min-height: 54px; }
 
-/* Внутренности ярлыков */
-.metro-tile-bg-icon { position: absolute; right: -10%; bottom: -10%; font-size: 80px; opacity: 0.05; color: #fff; pointer-events: none; z-index: 0; }
+/* Внутренности ярлыков (уменьшили шрифты) */
+.metro-tile-bg-icon { position: absolute; right: -10%; bottom: -10%; font-size: 70px; opacity: 0.05; color: #fff; pointer-events: none; z-index: 0; }
 .metro-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; }
-.metro-icon-main { font-size: 26px; margin-bottom: 6px; color: #fff; }
-.metro-label { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #fff; }
-.metro-sublabel { font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 600; margin-top: 4px; }
+.metro-icon-main { font-size: 22px; margin-bottom: 6px; color: #fff; }
+.metro-label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #fff; }
+.metro-sublabel { font-size: 9px; color: rgba(255,255,255,0.6); font-weight: 600; margin-top: 4px; }
 
 /* ==========================================
    ПЛАВАЮЩИЙ ФУТЕР (КАПСУЛА ИЗ СТЕКЛА)
