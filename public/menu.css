@@ -244,8 +244,30 @@ html, body {
 }
 .mini-raffle-stats { font-size: 9px; color: rgba(255,255,255,0.7); font-weight: 600; margin-bottom: 6px; display: flex; gap: 4px; align-items: center; }
 
-/* Таймер */
-.mini-raffle-timer { display: flex; align-items: center; gap: 2px; }
+/* === ТАЙМЕР РОЗЫГРЫШЕЙ (МИКРО-ВЕРСИЯ) === */
+.mini-raffle-timer { 
+    display: flex; 
+    align-items: center; 
+    gap: 2px; 
+    margin-top: 2px; /* Чуть отодвинем от текста сверху */
+}
+
+.mini-raffle-timer span {
+    font-size: 9px; /* Делаем цифры маленькими */
+    font-weight: 800;
+    font-family: 'SF Mono', 'Roboto Mono', monospace; /* Цифры перестанут прыгать по ширине */
+    color: rgba(255, 255, 255, 0.85); /* Слегка приглушенный белый */
+    background: rgba(0, 0, 0, 0.25); /* Аккуратная темная подложка */
+    padding: 1px 4px;
+    border-radius: 4px;
+}
+
+.mini-raffle-timer .timer-sep {
+    font-size: 9px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.4); /* Двоеточия делаем полупрозрачными */
+    margin: 0 1px;
+}
 
 /* Кнопка "Участвовать" (исправлено вылезание стрелки) */
 .mini-raffle-cta {
