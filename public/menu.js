@@ -656,9 +656,8 @@ async function initDynamicRaffleSlider() {
                                 <span>00</span>
                             </div>
                             <div class="mini-raffle-cta" style="margin-top: 6px; font-weight: bold; font-size: 11px;">Участвовать <i class="fa-solid fa-arrow-right"></i></div>
-                            ${dotsHTML} </div>
-                        <img src="${img}" class="mini-raffle-img">
-                    </div>
+                        </div> <img src="${img}" class="mini-raffle-img">
+                        ${dotsHTML} </div>
                 `;
             });
             
@@ -1164,7 +1163,7 @@ async function main() {
         // 🔥 МГНОВЕННАЯ И ЖЕЛЕЗОБЕТОННАЯ БЛОКИРОВКА ТЕХ. РАБОТ 🔥
         if (bootstrapData.maintenance) {
             // z-index: 2147483647 перекроет АБСОЛЮТНО ВСЕ элементы на странице
-            document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Скоро вернемся...</span></div>';
+            document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
             return; // Код дальше не пойдет!
         }
 
