@@ -1215,15 +1215,12 @@ from typing import Optional
 from pydantic import BaseModel
 
 class ShopBuyRequest(BaseModel):
-    # 1. СНАЧАЛА ОБЯЗАТЕЛЬНЫЕ ПОЛЯ (без знака "=")
-    initData: str
-    item_id: int
-    price: float  # Заменил на float для надежности (вдруг цены станут дробными)
-
-    # 2. ЗАТЕМ НЕОБЯЗАТЕЛЬНЫЕ ПОЛЯ (со знаком "=")
+    initData: str = ""
+    item_id: int = 0
+    price: float = 0.0
     platform: str = "tg"
-    title: Optional[str] = "Товар магазина"
-    image_url: Optional[str] = None
+    title: str = "Товар магазина"
+    image_url: str = ""
     currency: str = "coins"
     
 # Для массового обновления настроек
