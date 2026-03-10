@@ -737,46 +737,189 @@ async function renderFullInterface(data) {
 }
 
 // ================================================================
-// КЕЙСЫ (SHOP) И РУЛЕТКА
+// 1В1 ЛОГИКА КЕЙСОВ ИЗ SHOP.HTML
 // ================================================================
+function formatItemName(name) {
+    const splitIndex = name.indexOf('(');
+    if (splitIndex !== -1) {
+        const mainPart = name.substring(0, splitIndex).trim();
+        const subPart = name.substring(splitIndex).trim();
+        return `${escapeHTML(mainPart)}<span class="item-subtitle">${escapeHTML(subPart)}</span>`;
+    }
+    return escapeHTML(name);
+}
+
 async function loadCategory(catId) {
-    const grid = document.getElementById('shop-grid');
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #FFD700;"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px;"></i></div>';
+    const container = document.getElementById('shop-grid');
+    if (!container) return;
+    
+    currentCategoryId = catId;
+
+    if (itemsCache[catId]) {
+        renderItems(itemsCache[catId]);
+        return;
+    }
+
+    // Скелетон 1в1 из shop.html
+    container.innerHTML = Array(6).fill('<div class="shop-item skeleton"></div>').join('');
+
     try {
-        const items = await makeApiRequest('/api/v1/shop/goods', { category_id: catId }, 'POST', true);
-        grid.innerHTML = '';
-        if (!items || !items.length) { grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888;">Пусто</div>'; return; }
+        const response = await fetch('/api/v1/shop/goods', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                initData: window.Telegram?.WebApp?.initData || '',
+                category_id: catId 
+            })
+        });
+        const items = await response.json();
+        itemsCache[catId] = items;
+        renderItems(items);
+    } catch (e) {
+        container.innerHTML = '<div class="empty-msg">Ошибка загрузки. Проверьте интернет.</div>';
+    }
+}
+
+function renderItems(items) {
+    const container = document.getElementById('shop-grid');
+    container.innerHTML = '';
+
+    if (!items || items.length === 0) {
+        container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'shop-item';
         
-        items.forEach(item => {
-            const isCase = (item.name || "").toUpperCase().includes("КЕЙС |") || (item.name || "").toUpperCase().includes("CASE |");
-            const cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '');
-            const safeImg = item.image_url || '';
-            const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        let buttonHtml = '';
+        let stockText = '';
+        let priceText = '';
+        
+        let clickAction = '';
+        let caseOverlayHtml = '';
+
+        const upperName = (item.name || "").toUpperCase();
+        const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
+        
+        const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const safeImg = item.image_url || "";
+
+        if (item.is_folder) {
+            clickAction = `openFolder(${item.id})`;
+        } else if (isCase) {
+            clickAction = `openCaseContents(event, '${safeName}')`; 
+            caseOverlayHtml = `
+                <div class="case-info-overlay">
+                    <span>Посмотреть дроп</span>
+                </div>
+            `;
+        } else {
+            clickAction = `openImageModal('${safeImg}')`;
+        }
+
+        if (item.is_folder) {
+            stockText = ''; 
+            buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
+        } else {
+            let isOutOfStock = false;
             
-            const div = document.createElement('div');
-            div.className = 'shop-item';
-            
-            let btnHtml = '';
             if (isCase) {
-                btnHtml = `<div class="case-buttons-container">
-                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')">Открыть за ${item.price} 🟡</button>
-                    <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')">Открыть за ${item.price * 2} 🎟️</button>
-                </div>`;
+                stockText = ''; 
+                priceText = ''; 
             } else {
-                btnHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">Купить за ${item.price} 🟡</button>`;
+                priceText = `<div class="item-price">${item.price} 🟡️</div>`;
+                if (item.count === null) {
+                    stockText = `<div class="item-stock">∞ шт.</div>`;
+                } else if (item.count === 0) {
+                    isOutOfStock = true;
+                    stockText = `<div class="item-stock out">0 шт.</div>`;
+                } else {
+                    stockText = `<div class="item-stock">${item.count} шт.</div>`;
+                }
             }
 
-            div.innerHTML = `
-                <div class="item-title">${escapeHTML(cleanName)}</div>
-                <div class="item-image-wrapper" onclick="${isCase ? `openCaseContents(event, '${safeName}')` : ''}">
-                    ${isCase ? '<div class="case-info-overlay"><span>Посмотреть дроп</span></div>' : ''}
-                    <img src="${safeImg}" class="item-image ${isCase ? 'case-zoom' : ''} loaded">
+            if (isOutOfStock) {
+                buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
+            } else if (isCase) {
+                buttonHtml = `
+                    <div class="case-buttons-container">
+                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')">
+                            Открыть за ${item.price} 🟡
+                        </button>
+                        <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')">
+                            Открыть за ${item.price * 2} 🎟️
+                        </button>
+                    </div>
+                `;
+            } else {
+                buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">Купить</button>`;
+            }
+        }
+
+        const displayNameHtml = formatItemName(item.name);
+        const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
+
+        if (isCase) {
+            let cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '');
+            const caseTitleHtml = formatItemName(cleanName);
+
+            el.classList.add('case-card');
+            el.style.background = 'transparent'; 
+            el.style.boxShadow = 'none';
+            el.style.border = 'none';
+            
+            el.innerHTML = `
+                <div class="item-title case-top-title">${caseTitleHtml}</div>
+                
+                <div class="item-image-wrapper case-img-wrap" onclick="${clickAction}" style="background: transparent;">
+                    ${caseOverlayHtml}
+                    <img src="${imgUrl}" 
+                         class="item-image case-zoom" decoding="async" 
+                         loading="lazy" 
+                         onload="this.classList.add('loaded')" 
+                         alt="${escapeHTML(item.name)}">
                 </div>
-                <div class="item-info">${btnHtml}</div>
+                
+                <div class="item-info" style="padding: 0 10px 10px 10px; flex-grow: 0;">
+                    ${buttonHtml}
+                </div>
             `;
-            grid.appendChild(div);
-        });
-    } catch (e) { grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30;">Ошибка</div>'; }
+        } else {
+            el.innerHTML = `
+                <div class="item-image-wrapper" onclick="${clickAction}">
+                    <img src="${imgUrl}" 
+                         class="item-image" decoding="async" 
+                         loading="lazy" 
+                         onload="this.classList.add('loaded')" 
+                         alt="${escapeHTML(item.name)}">
+                </div>
+                <div class="item-info">
+                    <div class="item-title">${displayNameHtml}</div>
+                    <div class="item-meta">
+                        ${stockText}
+                        ${priceText}
+                    </div>
+                    ${buttonHtml}
+                </div>
+            `;
+        }
+        
+        fragment.appendChild(el);
+    });
+    
+    container.appendChild(fragment);
+
+    container.querySelectorAll('.case-top-title').forEach(title => {
+        let fontSize = 13; 
+        while (title.scrollWidth > title.offsetWidth && fontSize > 7) {
+            fontSize -= 0.5;
+            title.style.fontSize = fontSize + 'px';
+        }
+    });
 }
 
 async function validateUserTradeLink() {
@@ -1079,6 +1222,48 @@ window.submitResetCache = () => {
 }
 
 // ================================================================
+// СВАЙПЫ МЕЖДУ ВКЛАДКАМИ (ГЛАВНАЯ / КЕЙСЫ)
+// ================================================================
+function initSwipeTabs() {
+    const mainContent = document.getElementById('main-content');
+    if (!mainContent) return;
+    
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    mainContent.addEventListener('touchstart', (e) => {
+        // Игнорируем свайпы на рулетке, слайдерах и горизонтальных списках
+        if (e.target.closest('#main-slider-container') || e.target.closest('.r-game-area') || e.target.closest('.case-contents-grid')) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    mainContent.addEventListener('touchend', (e) => {
+        if (touchStartX === 0) return;
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+
+        const diffX = touchStartX - touchEndX;
+        const diffY = touchStartY - touchEndY;
+
+        // Если свайп горизонтальный и палец прошел больше 60 пикселей
+        if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY)) {
+            const toggleOptions = document.querySelectorAll('.toggle-option');
+            
+            if (diffX > 0) {
+                // Свайп влево (палец идет ←) -> Открываем КЕЙСЫ
+                if (toggleOptions[1]) toggleOptions[1].click();
+            } else {
+                // Свайп вправо (палец идет →) -> Открываем ГЛАВНУЮ
+                if (toggleOptions[0]) toggleOptions[0].click();
+            }
+        }
+        touchStartX = 0; 
+        touchStartY = 0;
+    }, { passive: true });
+}
+
+// ================================================================
 // ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ (Свайп-защита, P2R, Ивенты кнопок)
 // ================================================================
 
@@ -1198,6 +1383,7 @@ try {
     
     setupNewUI();
     initPullToRefresh();
+    initSwipeTabs();
     main();
 
     clearInterval(heartbeatInterval);
