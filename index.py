@@ -89,6 +89,71 @@ _background_supabase_client: Optional[httpx.AsyncClient] = None
 # 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ ДЛЯ БАЛАНСА И ПРОМОКОДОВ (BOT-T)
 # =========================================================================
 
+# --- 1. САМА ПРОВЕРКА (УНИКАЛЬНОСТЬ) ---
+async def enforce_uniqueness(telegram_id: int, supabase: httpx.AsyncClient):
+    """
+    Проверяет, не заняты ли Твич или Трейд-ссылка другими игроками.
+    """
+    # Получаем данные текущего юзера
+    user_res = await supabase.get("/users", params={
+        "telegram_id": f"eq.{telegram_id}", 
+        "select": "trade_link, twitch_id"
+    })
+    
+    # Если юзер новый и его еще нет в базе — пропускаем (он еще ничего не привязал)
+    if user_res.status_code != 200 or not user_res.json():
+        return 
+
+    me = user_res.json()[0]
+    t_link = me.get("trade_link")
+    tw_id = me.get("twitch_id")
+
+    # Собираем список полей для проверки
+    check_filters = []
+    # Проверяем только если ссылка длинная (защита от пустых строк)
+    if t_link and len(str(t_link)) > 20: 
+        check_filters.append(f"trade_link.eq.{t_link}")
+    if tw_id:
+        check_filters.append(f"twitch_id.eq.{tw_id}")
+
+    if not check_filters:
+        return # Нечего проверять
+
+    # Ищем дубликаты среди ДРУГИХ пользователей
+    query_or = ",".join(check_filters)
+    dup_res = await supabase.get("/users", params={
+        "or": f"({query_or})",
+        "telegram_id": f"neq.{telegram_id}",
+        "select": "telegram_id"
+    })
+
+    if dup_res.status_code == 200 and len(dup_res.json()) > 0:
+        duplicate_id = dup_res.json()[0].get('telegram_id')
+        logging.warning(f"🛑 [SECURITY] Блокировка мультиаккаунта! TG:{telegram_id} копирует TG:{duplicate_id}")
+        raise HTTPException(
+            status_code=403, 
+            detail="⚠️ Ошибка безопасности: Эта трейд-ссылка или Twitch уже привязаны к другому аккаунту! Мультиаккаунты запрещены."
+        )
+
+# --- 2. ЗАВИСИМОСТЬ (ОХРАННИК) ---
+async def multi_acc_protection(
+    req: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Инжектится в эндпоинты через Depends.
+    """
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    
+    # Запускаем проверку
+    await enforce_uniqueness(telegram_id, supabase)
+    
+    return user_info
+
 async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str = "Бонус от HATElavka"):
     """
     Начисляет баланс и имитирует системные уведомления Bot-t для пользователя и админа.
@@ -2928,6 +2993,7 @@ async def sync_steam_inventory(
 @app.post("/api/v1/bootstrap")
 async def bootstrap_app(
     request_data: InitDataRequest, 
+    user_info: dict = Depends(multi_acc_protection),
     background_tasks: BackgroundTasks, # <--- 1. ОСТАВИЛИ КАК ЕСТЬ
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
@@ -15038,6 +15104,7 @@ async def sync_user_referral(
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
+    user_info: dict = Depends(multi_acc_protection),
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     logging.info("========== [SHOP] ПОКУПКА v13 (VALIDATION + BUY) ==========")
