@@ -20,21 +20,33 @@
         }
         
         /* --- Общие стили --- */
-        body { 
-            margin: 0; 
-            min-height: 100vh; 
-            background-color: var(--bg-color); 
-            background-image: var(--bg-gradient); 
-            color: var(--text-color); 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            display: flex; 
-            flex-direction: column; 
+        /* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА И ШТОРКИ === */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            /* Фиксируем высоту по размеру экрана ТГ */
+            height: var(--tg-viewport-height, 100%);
+            position: fixed; /* Блокируем системный скролл */
+            overflow: hidden;
+            overscroll-behavior-y: none; /* Убираем эффект "резинки" */
+            
+            background-color: var(--bg-color);
+            background-image: var(--bg-gradient);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
-        .main-content { 
-            flex-grow: 1; 
-            padding: 20px 15px; 
-            overflow-y: auto; 
+
+        .main-content {
+            height: 100%; /* Включаем скролл внутри этого контейнера */
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+            width: 100%;
+            
+            /* 🔥 УМНЫЙ ОТСТУП: Челка ТГ + 15px сверху, 15px по бокам, 40px снизу */
+            padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 15px) 15px 40px 15px;
         }
         .page-header { 
             display: flex; 
