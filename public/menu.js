@@ -110,12 +110,23 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         if (response.status === 204) return null;
         
         const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || result.message || 'Ошибка сервера');
+
+        if (!response.ok) {
+            // 🔥 ПРОВЕРКА НА МУЛЬТИАККАУНТ (Status 403)
+            if (response.status === 403) {
+                const errorMsg = result.detail || "Использование мультиаккаунтов запрещено.";
+                window.showSecurityBlock(errorMsg); // Показываем красное окно
+                throw new Error("Security Block"); // Специальная метка для catch
+            }
+            
+            throw new Error(result.detail || result.message || 'Ошибка сервера');
+        }
         return result;
     } catch (e) {
         if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
-        // 🔥 ФИКС ОШИБКИ "else":
-        if (e.message !== 'Cooldown active' && !isSilent) {
+        
+        // Чтобы окно блокировки не перекрывалось обычным сервисным алертом:
+        if (e.message !== 'Cooldown active' && e.message !== 'Security Block' && !isSilent) {
              customAlert(`Ошибка: ${e.message}`);
         }
         throw e;
@@ -1264,6 +1275,24 @@ document.getElementById('gift-close-btn')?.addEventListener('click', () => docum
 // ================================================================
 // УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ (ВМЕСТО СИСТЕМНЫХ)
 // ================================================================
+// Специальное окно для блокировки абузеров
+window.showSecurityBlock = function(message) {
+    lockAppScroll(); // Блокируем скролл фона
+    showShopModal({
+        title: "🔒 Доступ ограничен",
+        subtitle: `<div style="text-align:center;">
+                      <i class="fa-solid fa-shield-halved" style="font-size:40px; color:#ff3b30; margin-bottom:15px; display:block;"></i>
+                      ${message}
+                   </div>`,
+        confirmText: "ПОДДЕРЖКА",
+        confirmClass: "btn-yellow-modal",
+        showCancel: false, 
+        onConfirm: (close) => {
+            // Отправляем юзера к тебе в личку разбираться
+            window.location.href = "https://t.me/hatelove_twitch"; 
+        }
+    });
+};
 window.customAlert = function(message) {
     showShopModal({
         title: "Внимание",
@@ -1450,11 +1479,14 @@ async function main() {
 
     } catch(e) {
         console.error(e);
-        if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
-        setTimeout(() => { if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); }, 2000);
+        // Если это не наша блокировка безопасности — показываем стандартный экран смерти
+        if (e.message !== "Security Block") {
+            if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
+            setTimeout(() => { 
+                if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
+            }, 2000);
+        }
     }
-}
-
 // ================================================================
 // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ================================================================
