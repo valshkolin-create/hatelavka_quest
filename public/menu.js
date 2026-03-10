@@ -114,9 +114,9 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         return result;
     } catch (e) {
         if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
+        // 🔥 ФИКС ОШИБКИ "else":
         if (e.message !== 'Cooldown active' && !isSilent) {
              customAlert(`Ошибка: ${e.message}`);
-             else customAlert(`Ошибка: ${e.message}`);
         }
         throw e;
     } finally {
@@ -1316,14 +1316,6 @@ function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel 
     overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
 }
 
-Всё собрал! Этот фрагмент полностью заменяет всю нижнюю часть твоего файла menu.js.
-
-Здесь встроены: кастомные диалоговые окна (включая твой старый showShopModal, переписанный для работы со всеми функциями), кнопка FAQ, Синхронная загрузка (экран не мигает, ждет пока загрузятся кейсы с ID 2716312) и сам блок запуска.
-
-Скопируй всё это и замени самый низ файла menu.js (всё, начиная с // ================================================================ перед main() и до самого конца).
-
-JavaScript
-
 // ================================================================
 // УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ И FAQ
 // ================================================================
@@ -1459,9 +1451,12 @@ try {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand(); 
         
-        // --- УМНЫЙ FULLSCREEN ---
-        const isDesktop = ['tdesktop', 'web', 'macos'].includes(Telegram.WebApp.platform);
+        // 🔥 ФИКС СВОРАЧИВАНИЯ ПРИЛОЖЕНИЯ: Запрещаем Telegram закрывать окно по свайпу вниз
+        if (Telegram.WebApp.disableVerticalSwipes) {
+            Telegram.WebApp.disableVerticalSwipes();
+        }
         
+        const isDesktop = ['tdesktop', 'web', 'macos'].includes(Telegram.WebApp.platform);
         if (!isDesktop && Telegram.WebApp.requestFullscreen) {
             Telegram.WebApp.requestFullscreen();
         }
@@ -1469,7 +1464,7 @@ try {
     
     setupNewUI();
     initPullToRefresh();
-    initSwipeTabs(); // <-- Свайпы теперь работают!
+    initSwipeTabs(); 
     main();
 
     clearInterval(heartbeatInterval);
