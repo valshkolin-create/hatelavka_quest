@@ -591,6 +591,9 @@ if(dom.tutorialSkipBtn) dom.tutorialSkipBtn.onclick = () => { dom.tutorialOverla
 // ================================================================
 function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0'; }
 
+// ================================================================
+// СОЧНЫЙ МИНИ-СЛАЙДЕР РОЗЫГРЫШЕЙ В ПРАВОЙ КНОПКЕ
+// ================================================================
 async function initDynamicRaffleSlider() {
     const container = document.getElementById('mini-raffle-slider');
     const defaultText = document.getElementById('default-raffle-text');
@@ -598,9 +601,11 @@ async function initDynamicRaffleSlider() {
 
     try {
         const res = await makeApiRequest('/api/v1/raffles/active', {}, 'POST', true);
+        // Берем до 5 активных розыгрышей
         const activeRaffles = res.filter(r => r.status === 'active').slice(0, 5);
 
         if (activeRaffles.length > 0) {
+            // Прячем дефолтную надпись "РОЗЫГРЫШИ"
             if (defaultText) defaultText.style.display = 'none'; 
             
             let slidesHTML = '';
@@ -627,7 +632,12 @@ async function initDynamicRaffleSlider() {
                                 <span style="opacity: 0.5;">●</span>
                                 <span><i class="fa-solid fa-users"></i> ${pCount}</span>
                             </div>
-                            <div class="mini-raffle-cta">Участвовать <i class="fa-solid fa-arrow-right"></i></div>
+                            <div class="mini-raffle-timer raffle-mini-timer-dyn" data-endtime="${raffle.end_time}">
+                                <span>00</span><div class="timer-sep">:</div>
+                                <span>00</span><div class="timer-sep">:</div>
+                                <span>00</span>
+                            </div>
+                            <div class="mini-raffle-cta" style="margin-top: 6px;">Участвовать <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
                         <img src="${img}" class="mini-raffle-img">
                     </div>
@@ -636,10 +646,33 @@ async function initDynamicRaffleSlider() {
             });
             dotsHTML += '</div>';
             
-            // Вставляем слайды и точки
+            // Вставляем всё в HTML один раз
             container.innerHTML = slidesHTML + dotsHTML;
 
-            // Запускаем перелистывание
+            // 1. Запускаем живой таймер
+            const updateTimers = () => {
+                container.querySelectorAll('.raffle-mini-timer-dyn').forEach(el => {
+                    const diff = new Date(el.dataset.endtime) - new Date();
+                    if (diff <= 0) { 
+                        el.innerHTML = "<span style='color:#ff3b30; font-size:10px;'>ЗАВЕРШЕН</span>"; 
+                        return; 
+                    }
+                    const h = Math.floor(diff / (1000 * 60 * 60));
+                    const m = Math.floor((diff / (1000 * 60)) % 60);
+                    const s = Math.floor((diff / 1000) % 60);
+                    
+                    const spans = el.querySelectorAll('span');
+                    if (spans.length === 3) {
+                        spans[0].innerText = String(h).padStart(2, '0');
+                        spans[1].innerText = String(m).padStart(2, '0');
+                        spans[2].innerText = String(s).padStart(2, '0');
+                    }
+                });
+            };
+            updateTimers(); // Первый вызов сразу
+            setInterval(updateTimers, 1000); // Потом каждую секунду
+
+            // 2. Запускаем перелистывание слайдов
             const slides = container.querySelectorAll('.mini-raffle-slide');
             const dots = container.querySelectorAll('.mr-dot');
             
@@ -658,43 +691,7 @@ async function initDynamicRaffleSlider() {
         }
     } catch (e) {
         console.warn("Raffle mini-slider failed", e);
-    }
-}
-
-            container.innerHTML = slidesHTML;
-
-            // Живой таймер внутри кнопки
-            const updateTimers = () => {
-                container.querySelectorAll('.raffle-mini-timer-dyn').forEach(el => {
-                    const diff = new Date(el.dataset.endtime) - new Date();
-                    if (diff <= 0) { el.innerHTML = "<span style='color:#ff3b30; font-size:10px;'>ЗАВЕРШЕН</span>"; return; }
-                    const h = Math.floor(diff / (1000 * 60 * 60));
-                    const m = Math.floor((diff / (1000 * 60)) % 60);
-                    const s = Math.floor((diff / 1000) % 60);
-                    
-                    const spans = el.querySelectorAll('span');
-                    if (spans.length === 3) {
-                        spans[0].innerText = String(h).padStart(2, '0');
-                        spans[1].innerText = String(m).padStart(2, '0');
-                        spans[2].innerText = String(s).padStart(2, '0');
-                    }
-                });
-            };
-            updateTimers();
-            setInterval(updateTimers, 1000);
-
-            // Плавное перелистывание слайдов
-            const slides = container.querySelectorAll('.mini-raffle-slide');
-            if (slides.length > 1) {
-                let cur = 0;
-                setInterval(() => {
-                    slides[cur].classList.remove('active');
-                    cur = (cur + 1) % slides.length;
-                    slides[cur].classList.add('active');
-                }, 4000); 
-            }
-    } catch (e) {
-        container.innerHTML = '<span style="font-size:13px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
+        container.innerHTML = '<span style="font-size:12px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
     }
 }
 async function renderFullInterface(data) {
@@ -1094,12 +1091,6 @@ function initPullToRefresh() {
     });
 }
 
-document.body.addEventListener('click', async (event) => {
-    if (claimSuperBtn) {
-        claimSuperBtn.disabled = true; claimSuperBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        try { const res = await makeApiRequest('/api/v1/user/weekly_goals/claim_super_prize', {}); if (res.new_ticket_balance) document.getElementById('ticketStats').textContent = res.new_ticket_balance; claimSuperBtn.textContent = 'Получено!'; claimSuperBtn.classList.add('action-btn'); claimSuperBtn.classList.add('btn-disabled'); claimSuperBtn.disabled = true; Telegram.WebApp.showAlert("Суперприз получен!"); } catch(e) { claimSuperBtn.disabled = false; claimSuperBtn.textContent = 'Забрать'; }
-    }
-});
 
 // Добавляем слушатели на кнопки подарков
 document.getElementById('daily-gift-btn')?.addEventListener('click', () => { document.getElementById('gift-modal-overlay').classList.remove('hidden'); document.getElementById('gift-content-initial').classList.remove('hidden'); document.getElementById('gift-content-result').classList.add('hidden'); });
@@ -1141,12 +1132,19 @@ async function main() {
 }
 
 // ЗАПУСК СИСТЕМЫ
+// ЗАПУСК СИСТЕМЫ
 try {
-    checkBalance(true); // <--- Мгновенный запуск баланса (Отлично!)
+    checkBalance(true); 
 
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
-    } // <--- ВОТ ЭТОЙ СКОБКИ У ТЕБЯ НЕ ХВАТАЛО! Без неё код ломается.
+        Telegram.WebApp.expand(); // Расширяем на всю высоту
+        
+        // НОВАЯ ФУНКЦИЯ ТЕЛЕГРАМА: Истинный полный экран (скрывает шапку ТГ)
+        if (Telegram.WebApp.requestFullscreen) {
+            Telegram.WebApp.requestFullscreen();
+        }
+    } 
     
     setupNewUI();
     initPullToRefresh();
