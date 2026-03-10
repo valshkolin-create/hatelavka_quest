@@ -1968,18 +1968,16 @@ class MarketCSGO:
             return None, None
 
     async def check_trade_link(self, trade_link: str):
-    """Проверяет, живая ли ссылка через API Маркета"""
-    params = {"token": self.api_key, "trade_url": trade_link}
-    # У Маркета есть эндпоинт для проверки ссылок
-    response = await self._make_request("test-trade-url", params) 
-    
-    # Если Маркет говорит success: True, значит Стим ссылку принял
-    if response.get("success"):
-        return {"valid": True}
-    else:
-        error_msg = response.get("error", "Неизвестная ошибка Стима")
-        return {"valid": False, "error": error_msg}
-
+        """Проверяет, живая ли ссылка через API Маркета"""
+        # ТУТ ДОЛЖНО БЫТЬ 8 ПРОБЕЛОВ ОТ КРАЯ (если функция внутри класса)
+        params = {"trade_url": trade_link}
+        response = await self._make_request("test-trade-url", params)
+        
+        if response.get("success"):
+            return {"valid": True}
+        else:
+            return {"valid": False, "error": response.get("error", "Ошибка Steam")}
+            
     async def _make_request(self, endpoint: str, params: dict = None) -> dict:
         if params is None:
             params = {}
@@ -15042,7 +15040,7 @@ async def buy_bott_item_proxy(
     request_data: ShopBuyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    logging.info("========== [SHOP] ПОКУПКА v12 (HYBRID: BOT-T + ROULETTE) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v13 (VALIDATION + BUY) ==========")
     
     # 0. Валидация initData
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -15053,7 +15051,6 @@ async def buy_bott_item_proxy(
     price = request_data.price
     item_id = request_data.item_id
     
-    # Получаем название, картинку и ВАЛЮТУ с фронта
     item_title = getattr(request_data, 'title', "") or "Товар"
     item_image = getattr(request_data, 'image_url', "") or ""
     currency = getattr(request_data, 'currency', 'coins')
@@ -15076,6 +15073,40 @@ async def buy_bott_item_proxy(
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
         
     user_record = user_data_list[0]
+    trade_link = user_record.get("trade_link")
+    
+    # =========================================================================
+    # 🔥 НОВЫЙ БЛОК: ПРОВЕРКА ТРЕЙД-ССЫЛКИ (ДО СПИСАНИЯ ДЕНЕГ)
+    # =========================================================================
+    # 1. Проверка на наличие ссылки в принципе
+    if not trade_link or "partner=" not in trade_link or "token=" not in trade_link:
+        raise HTTPException(
+            status_code=400, 
+            detail="⚠️ У вас не привязана Trade-ссылка! Зайдите в Профиль и привяжите Steam Trade Link."
+        )
+
+    # 2. "Боевая" проверка через API Маркета
+    try:
+        market_api_key = os.getenv("MARKET_API_KEY")
+        market_client = MarketCSGO(api_key=market_api_key)
+        
+        check_res = await market_client.check_trade_link(trade_link)
+        
+        if not check_res.get("valid"):
+            # Если Маркет вернул ошибку (например, токен сброшен)
+            error_from_steam = check_res.get("error", "Ссылка недействительна")
+            logging.warning(f"[SHOP] Битая ссылка у {telegram_id}: {error_from_steam}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"⚠️ Steam отклонил вашу ссылку: {error_from_steam}. Обновите её в настройках Steam и в профиле!"
+            )
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        # Если API Маркета упало, мы логируем ошибку, но ПОЗВОЛЯЕМ купить (чтобы не блокировать работу)
+        logging.error(f"[SHOP] Ошибка валидатора Маркета: {e}")
+    # =========================================================================
+
     bott_internal_id = user_record.get("bott_internal_id")
     bott_secret_key = user_record.get("bott_secret_key")
     current_balance_kopecks = user_record.get("bot_t_coins", 0)
@@ -15207,7 +15238,6 @@ async def buy_bott_item_proxy(
                     skin_price = float(skin.get('price_rub', 0))
                     if skin_price >= target_value:
                         final_items.append(skin)
-                        # Защита баланса: режем ультра-дорогие
                         if skin_price >= base_case_price * 5.0:
                             final_weights.append(w * 0.001)
                         elif skin_price >= base_case_price * 1.5:
@@ -15230,18 +15260,17 @@ async def buy_bott_item_proxy(
             # 4. Выбор победителя
             winner = random.choices(final_items, weights=final_weights, k=1)[0]
             
-            # 5. СОЗДАНИЕ ЗАПИСИ (Без немедленной выдачи!)
+            # 5. СОЗДАНИЕ ЗАПИСИ
             history_id = None
             current_code = f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}"
 
             try:
-                # 🔥 Исправлено: добавляем Prefer: return=representation, чтобы получить ID
                 h_res = await supabase.post("/cs_history", json={
                     "user_id": int(telegram_id),
                     "item_id": int(winner['id']),
                     "case_name": str(item_title),
                     "code_used": current_code,
-                    "status": "pending", # <--- Предмет просто лежит и ждет кнопку "Забрать"
+                    "status": "pending", 
                     "lacky": current_lacky,
                     "details": f"Выигрыш: {winner['name']}"
                 }, headers={"Prefer": "return=representation"})
