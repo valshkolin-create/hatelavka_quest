@@ -247,6 +247,18 @@ function setupSlider() {
     const container = document.getElementById('main-slider-container');
     if (!container) return;
 
+    // --- УМНАЯ ЗАГЛУШКА ---
+    // Проверяем, есть ли хоть один активный ивент (исключая саму заглушку)
+    const realSlides = container.querySelectorAll('.slide:not(#default-banner-slide)');
+    const placeholder = document.getElementById('default-banner-slide');
+    const hasActiveEvents = Array.from(realSlides).some(s => s.style.display !== 'none');
+    
+    // Если ивентов нет — показываем заглушку, иначе прячем её
+    if (placeholder) {
+        placeholder.style.display = hasActiveEvents ? 'none' : '';
+    }
+    // ----------------------
+
     const allSlides = container.querySelectorAll('.slide');
     const visibleSlides = Array.from(allSlides).filter(slide => slide.style.display !== 'none');
 
@@ -592,40 +604,63 @@ async function initDynamicRaffleSlider() {
             if (defaultText) defaultText.style.display = 'none'; 
             
             let slidesHTML = '';
+            let dotsHTML = '<div class="mini-raffle-pagination">';
+            
+            const hexToRgb = (hex) => {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0';
+            };
+
             activeRaffles.forEach((raffle, index) => {
                 const s = raffle.settings || {}; 
                 const img = s.card_image || s.prize_image || ''; 
                 const rarityColor = s.rarity_color || '#ffd700'; 
                 const quality = s.skin_quality || 'FT';
                 const pCount = raffle.participants_count || 0;
-                
-                const hexToRgb = (hex) => {
-                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-                    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0';
-                };
 
                 slidesHTML += `
                     <div class="mini-raffle-slide ${index === 0 ? 'active' : ''}" style="--rarity-rgb: ${hexToRgb(rarityColor)};">
-                        
-                        <div class="mini-raffle-top">
-                            <span style="color: ${rarityColor}; text-shadow: 0 0 5px rgba(var(--rarity-rgb), 0.5);">${escapeHTML(quality)}</span>
-                            <span style="opacity: 0.5;">●</span>
-                            <span><i class="fa-solid fa-users"></i> ${pCount}</span>
+                        <div class="mini-raffle-info">
+                            <div class="mini-raffle-name">${escapeHTML(s.prize_name)}</div>
+                            <div class="mini-raffle-stats">
+                                <span style="color: ${rarityColor};">${escapeHTML(quality)}</span>
+                                <span style="opacity: 0.5;">●</span>
+                                <span><i class="fa-solid fa-users"></i> ${pCount}</span>
+                            </div>
+                            <div class="mini-raffle-cta">Участвовать <i class="fa-solid fa-arrow-right"></i></div>
                         </div>
-                        
-                        <div class="mini-raffle-name">${escapeHTML(s.prize_name)}</div>
-                        
-                        <div class="mini-raffle-timer raffle-mini-timer-dyn" data-endtime="${raffle.end_time}">
-                            <span>00</span><div class="timer-sep">:</div>
-                            <span>00</span><div class="timer-sep">:</div>
-                            <span>00</span>
-                        </div>
-                        
                         <img src="${img}" class="mini-raffle-img">
                     </div>
                 `;
+                dotsHTML += `<div class="mr-dot ${index === 0 ? 'active' : ''}"></div>`;
             });
+            dotsHTML += '</div>';
             
+            // Вставляем слайды и точки
+            container.innerHTML = slidesHTML + dotsHTML;
+
+            // Запускаем перелистывание
+            const slides = container.querySelectorAll('.mini-raffle-slide');
+            const dots = container.querySelectorAll('.mr-dot');
+            
+            if (slides.length > 1) {
+                let cur = 0;
+                setInterval(() => {
+                    slides[cur].classList.remove('active');
+                    dots[cur].classList.remove('active');
+                    
+                    cur = (cur + 1) % slides.length;
+                    
+                    slides[cur].classList.add('active');
+                    dots[cur].classList.add('active');
+                }, 4000); 
+            }
+        }
+    } catch (e) {
+        console.warn("Raffle mini-slider failed", e);
+    }
+}
+
             container.innerHTML = slidesHTML;
 
             // Живой таймер внутри кнопки
