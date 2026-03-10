@@ -156,16 +156,24 @@
         color: #34c759; transform: translateY(-2px);
         text-shadow: 0 0 12px rgba(52, 199, 89, 0.6);
     }
+  
     .footer-item.active .icon-wrapper::before {
         content: ''; position: absolute; top: -8px; width: 20px; height: 2px;
         background-color: #34c759; border-radius: 2px;
         box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
     }
+  #app-container {
+    /* Берем системный отступ ТГ или браузера и добавляем 60px сверху для надежности */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
+    box-sizing: border-box !important;
+}
 
     #twitch-period-buttons button[data-period="session"] { order: 1; }
     #twitch-period-buttons button[data-period="week"]    { order: 2; }
     #twitch-period-buttons button[data-period="month"]   { order: 3; }
     #twitch-period-buttons button[data-period="global"]  { order: 4; }
+
+  
 </style>
 </head>
 <body>
