@@ -130,30 +130,11 @@
                         </div>
                     </div>
                     
-                    <div id="shortcut-challenge" class="action-card">
-                        <div class="metro-tile-bg-icon"><i class="fa-solid fa-fire"></i></div>
-                        <div class="metro-content">
-                            <div class="metro-icon-main"><i class="fa-solid fa-fire" style="color: #ff9500;"></i></div>
-                            <span class="metro-label">Челлендж</span>
-                            <span id="metro-challenge-status" class="metro-sublabel">0 / 1</span>
-                            <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 5px; overflow: hidden;">
-                                <div id="metro-challenge-fill" style="width: 0%; height: 100%; background: #ff9500; transition: width 0.3s;"></div>
-                            </div>
+                    <div class="action-card mini-raffle-slider-container" id="mini-raffle-slider" onclick="window.location.href='/raffles'">
+                        <div style="display:flex; height:100%; align-items:center; justify-content:center; color:#FFD700;">
+                            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px;"></i>
                         </div>
                     </div>
-
-                    <div id="shortcut-quests" class="action-card">
-                        <div class="metro-tile-bg-icon"><i class="fa-solid fa-check-double"></i></div>
-                        <div class="metro-content">
-                            <div class="metro-icon-main"><i class="fa-solid fa-check-double" style="color: #34c759;"></i></div>
-                            <span class="metro-label">Задание</span>
-                            <span id="metro-quest-status" class="metro-sublabel">...</span>
-                            <div style="width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 5px; overflow: hidden;">
-                                <div id="metro-quest-fill" style="width: 0%; height: 100%; background: #34c759; transition: width 0.3s;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 
             </div> <div id="cases-view" class="view-section">
                 <button onclick="openP2PModal()" class="premium-exchange-btn" id="open-p2p-modal-btn">
@@ -168,15 +149,6 @@
                 <div id="shop-grid" class="shop-grid">
                     </div>
             </div>
-
-            <div class="dashboard-section-header" style="margin-top: 25px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; padding: 0 5px;">
-                    <h3 style="font-size: 14px; font-weight: 800; color: #fff; margin: 0; text-transform: uppercase;">Текущие розыгрыши</h3>
-                    <a href="/raffles" style="font-size: 11px; color: #FFD700; text-decoration: none; font-weight: 700; display: flex; align-items: center; gap: 4px;">Все <i class="fa-solid fa-chevron-right" style="font-size: 9px;"></i></a>
-                </div>
-                
-                <div id="active-raffles-list" class="raffles-list-container">
-                    <div style="text-align: center; padding: 20px; color: #888;"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
-                </div>
 
         </div>
     </main>
