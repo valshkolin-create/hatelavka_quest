@@ -105,17 +105,23 @@ html, body {
     gap: 8px; /* Минимальный отступ между балансом, фоткой и меню */
 }
 
-/* Ультра-компактный баланс */
+/* Расширенный Баланс */
 .balance-pill {
-    background: rgba(30, 30, 32, 0.4); /* Едва темный фон */
-    backdrop-filter: blur(25px); /* Мощное стекло */
+    background: rgba(30, 30, 32, 0.4);
+    backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 20px; /* Капсула */
-    padding: 3px 4px 3px 10px; /* Очень плотно, справа место под кнопку */
+    border-radius: 20px;
+    padding: 3px 4px 3px 10px;
+    
+    /* ЭТИ ТРИ СТРОЧКИ НЕ ДАДУТ БЛОКУ СЛОМАТЬСЯ */
     display: flex;
     align-items: center;
     gap: 8px;
+    width: auto; 
+    min-width: max-content; 
+    white-space: nowrap; 
+
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     transition: transform 0.1s, background 0.2s;
@@ -127,11 +133,11 @@ html, body {
 }
 .balance-row {
     display: flex; align-items: center; gap: 4px;
-    font-size: 10px; /* Мелкий, аккуратный шрифт */
+    font-size: 10px;
     font-weight: 800; line-height: 1; color: #fff;
-    font-family: 'SF Mono', 'Roboto Mono', monospace; /* Ровные цифры */
+    font-family: 'SF Mono', 'Roboto Mono', monospace;
+    white-space: nowrap; /* Цифры никогда не перенесутся на новую строку */
 }
-
 /* Кнопка релоада внутри баланса */
 .refresh-icon-wrapper {
     background: rgba(255, 255, 255, 0.05); /* Едва заметный круг */
@@ -541,4 +547,113 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     html.vk-mode .main-content { max-width: 900px !important; margin: 0 auto !important; left: 0 !important; right: 0 !important; } 
     html.vk-mode .floating-bottom-bar { max-width: 900px !important; border-radius: 20px 20px 0 0; bottom: 0; } 
     .slider-container, #main-slider-container { height: 380px !important; }
+}
+
+/* ==========================================
+   СПИСОК РОЗЫГРЫШЕЙ ВНИЗУ (RAFFLES LIST)
+========================================== */
+.raffles-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.raffle-list-card {
+    display: flex;
+    align-items: center;
+    background: rgba(30, 30, 32, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 12px 15px;
+    text-decoration: none;
+    transition: transform 0.1s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+.raffle-list-card:active {
+    transform: scale(0.98);
+    background: rgba(40, 40, 42, 0.8);
+}
+
+/* Картинка скина с мягким свечением */
+.raffle-card-image {
+    width: 65px;
+    height: 55px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    position: relative;
+}
+.raffle-card-image::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(var(--rarity-rgb), 0.25) 0%, transparent 70%);
+    z-index: 0;
+    border-radius: 50%;
+}
+.raffle-card-image img {
+    max-width: 120%; /* Чуть вылезает для 3D эффекта */
+    max-height: 120%;
+    object-fit: contain;
+    z-index: 1;
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.6));
+    transform: rotate(5deg);
+}
+
+/* Текстовая информация */
+.raffle-card-info {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.raffle-list-card .raffle-quality-tag {
+    font-size: 9px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.raffle-list-card .raffle-item-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Уменьшенный таймер внутри списка */
+.raffle-list-card .raffle-timer-box-new {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 3px 6px;
+    border-radius: 8px;
+    border: none;
+    margin-top: 0;
+}
+.raffle-list-card .timer-val-new { font-size: 11px; }
+.raffle-list-card .timer-lbl-new { font-size: 6px; }
+.raffle-list-card .timer-sep { font-size: 10px; margin-top: 1px; }
+
+/* Стрелочка перехода справа */
+.raffle-card-action {
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 16px;
+    padding-left: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
