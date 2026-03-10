@@ -1048,11 +1048,13 @@ async function main() {
     }
 }
 
+// ЗАПУСК СИСТЕМЫ
 try {
-    checkBalance(true); // <--- ДОБАВИТЬ ЭТУ СТРОКУ СЮДА
+    checkBalance(true); // <--- Мгновенный запуск баланса (Отлично!)
 
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
+    } // <--- ВОТ ЭТОЙ СКОБКИ У ТЕБЯ НЕ ХВАТАЛО! Без неё код ломается.
     
     setupNewUI();
     initPullToRefresh();
