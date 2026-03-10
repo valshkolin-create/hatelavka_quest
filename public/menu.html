@@ -53,11 +53,14 @@
 
     <header class="top-header">
         <div class="logo-wrapper" id="refresh-bot-btn" onclick="window.location.reload();">
-            <img src="https://via.placeholder.com/40x40/2c2c2e/ffffff?text=HL" alt="Logo" class="circle-img">
+            <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.pngL" alt="Logo" class="app-logo">
+            <div class="logo-text">
+                <span class="logo-title">HATElavka</span>
+                <span class="logo-subtitle">Twitch | Telegram</span>
+            </div>
         </div>
 
         <div class="balance-pill" onclick="checkBalance(true)">
-            <button id="refresh-balance-btn" class="refresh-icon"><i class="fa-solid fa-rotate-right" id="refresh-icon"></i></button>
             <div class="balance-col">
                 <div class="balance-row">
                     <span id="user-balance">...</span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i>
@@ -66,15 +69,18 @@
                     <span id="ticketStats">...</span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i>
                 </div>
             </div>
+            <div class="refresh-icon-wrapper">
+                <i class="fa-solid fa-rotate-right" id="refresh-icon"></i>
+            </div>
         </div>
 
         <div class="header-actions">
-            <img src="https://via.placeholder.com/40x40/555555/ffffff?text=U" alt="Avatar" class="circle-img" id="user-avatar" onclick="window.location.href='/profile'">
+            <img src="https://via.placeholder.com/64x64/555555/ffffff?text=U" alt="Avatar" class="user-avatar" id="user-avatar" onclick="window.location.href='/profile'">
             <button id="open-menu-btn" class="icon-btn"><i class="fa-solid fa-bars"></i></button>
         </div>
     </header>
 
-    <div id="pull-to-refresh" class="ptr-container">
+    <div id="pull-to-refresh">
         <i class="fa-solid fa-rotate-right"></i>
     </div>
 
@@ -83,8 +89,8 @@
         <div class="toggle-container">
             <div class="toggle-wrapper" id="mode-toggle">
                 <div class="toggle-slider"></div>
-                <div class="toggle-option active" data-target="menu-view">ГЛАВНАЯ</div>
-                <div class="toggle-option" data-target="cases-view">КЕЙСЫ</div>
+                <div class="toggle-option active" data-target="view-dashboard">ГЛАВНАЯ</div>
+                <div class="toggle-option" data-target="view-shop">КЕЙСЫ</div>
             </div>
         </div>
 
