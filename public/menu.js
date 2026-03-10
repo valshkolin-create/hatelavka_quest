@@ -233,7 +233,7 @@ function setupNewUI() {
 
             // Динамическая подгрузка кейсов при первом клике
             if (targetId === 'view-shop' && !isShopLoaded) {
-                loadCategory(0);
+                loadCategory(1);
                 isShopLoaded = true;
             }
         });
@@ -739,12 +739,17 @@ async function renderFullInterface(data) {
 // ================================================================
 // 1В1 ЛОГИКА КЕЙСОВ ИЗ SHOP.HTML
 // ================================================================
+
+window.openFolder = function(id) {
+    loadCategory(id);
+};
+
 function formatItemName(name) {
     const splitIndex = name.indexOf('(');
     if (splitIndex !== -1) {
         const mainPart = name.substring(0, splitIndex).trim();
         const subPart = name.substring(splitIndex).trim();
-        return `${escapeHTML(mainPart)}<span class="item-subtitle">${escapeHTML(subPart)}</span>`;
+        return `${escapeHTML(mainPart)}<span class="item-subtitle" style="display:block; margin-top:2px; font-size:10px; color:var(--primary-color);">${escapeHTML(subPart)}</span>`;
     }
     return escapeHTML(name);
 }
@@ -752,31 +757,20 @@ function formatItemName(name) {
 async function loadCategory(catId) {
     const container = document.getElementById('shop-grid');
     if (!container) return;
-    
-    currentCategoryId = catId;
 
     if (itemsCache[catId]) {
         renderItems(itemsCache[catId]);
         return;
     }
 
-    // Скелетон 1в1 из shop.html
-    container.innerHTML = Array(6).fill('<div class="shop-item skeleton"></div>').join('');
+    container.innerHTML = Array(6).fill('<div class="shop-item skeleton" style="height: 180px; background: transparent; border-radius: 12px; animation: pulse 1.5s infinite;"></div>').join('');
 
     try {
-        const response = await fetch('/api/v1/shop/goods', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                initData: window.Telegram?.WebApp?.initData || '',
-                category_id: catId 
-            })
-        });
-        const items = await response.json();
+        const items = await makeApiRequest('/api/v1/shop/goods', { category_id: catId }, 'POST', true);
         itemsCache[catId] = items;
         renderItems(items);
     } catch (e) {
-        container.innerHTML = '<div class="empty-msg">Ошибка загрузки. Проверьте интернет.</div>';
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30; padding: 20px;">Ошибка загрузки</div>';
     }
 }
 
@@ -785,7 +779,7 @@ function renderItems(items) {
     container.innerHTML = '';
 
     if (!items || items.length === 0) {
-        container.innerHTML = '<div class="empty-msg">В этой категории пока пусто.</div>';
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding: 20px;">Пусто</div>';
         return;
     }
 
@@ -795,124 +789,72 @@ function renderItems(items) {
         const el = document.createElement('div');
         el.className = 'shop-item';
         
-        let buttonHtml = '';
-        let stockText = '';
-        let priceText = '';
-        
-        let clickAction = '';
-        let caseOverlayHtml = '';
+        // Убираем фоны и рамки у самой карточки
+        el.style.background = 'transparent'; 
+        el.style.boxShadow = 'none';
+        el.style.border = 'none';
 
+        let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
         const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
-        
         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeImg = item.image_url || "";
+        const cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '').trim();
 
         if (item.is_folder) {
-            clickAction = `openFolder(${item.id})`;
+            // ЕСЛИ ЭТО КАТЕГОРИЯ
+            el.innerHTML = `
+                <div class="item-image-wrapper" onclick="openFolder(${item.id})" style="width: 100%; padding-top: 100%; position: relative; background: transparent; cursor: pointer;">
+                    <img src="${safeImg}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" style="position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
+                </div>
+                <div class="item-info" style="padding: 10px; display: flex; flex-direction: column; flex-grow: 1; gap: 4px; text-align: center; z-index: 8;">
+                    <div class="item-title" style="font-size: 13px; font-weight: 800; color: #fff;">${escapeHTML(cleanName)}</div>
+                    <button class="action-btn btn-folder" onclick="openFolder(${item.id})" style="background: rgba(255, 255, 255, 0.1); color: #fff; width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>
+                </div>
+            `;
         } else if (isCase) {
-            clickAction = `openCaseContents(event, '${safeName}')`; 
-            caseOverlayHtml = `
-                <div class="case-info-overlay">
-                    <span>Посмотреть дроп</span>
+            // ЕСЛИ ЭТО КЕЙС
+            buttonHtml = `
+                <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
+                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть за ${item.price} 🟡</button>
+                    <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть за ${item.price * 2} 🎟️</button>
                 </div>
             `;
-        } else {
-            clickAction = `openImageModal('${safeImg}')`;
-        }
-
-        if (item.is_folder) {
-            stockText = ''; 
-            buttonHtml = `<button class="action-btn btn-folder" onclick="openFolder(${item.id})">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>`;
-        } else {
-            let isOutOfStock = false;
-            
-            if (isCase) {
-                stockText = ''; 
-                priceText = ''; 
-            } else {
-                priceText = `<div class="item-price">${item.price} 🟡️</div>`;
-                if (item.count === null) {
-                    stockText = `<div class="item-stock">∞ шт.</div>`;
-                } else if (item.count === 0) {
-                    isOutOfStock = true;
-                    stockText = `<div class="item-stock out">0 шт.</div>`;
-                } else {
-                    stockText = `<div class="item-stock">${item.count} шт.</div>`;
-                }
-            }
-
-            if (isOutOfStock) {
-                buttonHtml = `<button class="action-btn btn-disabled" disabled>Раскуплено</button>`;
-            } else if (isCase) {
-                buttonHtml = `
-                    <div class="case-buttons-container">
-                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')">
-                            Открыть за ${item.price} 🟡
-                        </button>
-                        <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')">
-                            Открыть за ${item.price * 2} 🎟️
-                        </button>
-                    </div>
-                `;
-            } else {
-                buttonHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')">Купить</button>`;
-            }
-        }
-
-        const displayNameHtml = formatItemName(item.name);
-        const imgUrl = item.image_url || 'https://placehold.co/150?text=No+Image';
-
-        if (isCase) {
-            let cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '');
-            const caseTitleHtml = formatItemName(cleanName);
-
-            el.classList.add('case-card');
-            el.style.background = 'transparent'; 
-            el.style.boxShadow = 'none';
-            el.style.border = 'none';
             
             el.innerHTML = `
-                <div class="item-title case-top-title">${caseTitleHtml}</div>
-                
-                <div class="item-image-wrapper case-img-wrap" onclick="${clickAction}" style="background: transparent;">
-                    ${caseOverlayHtml}
-                    <img src="${imgUrl}" 
-                         class="item-image case-zoom" decoding="async" 
-                         loading="lazy" 
-                         onload="this.classList.add('loaded')" 
-                         alt="${escapeHTML(item.name)}">
+                <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
+                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}')" style="background: transparent; padding-top: 80%;">
+                    <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
+                    <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
                 </div>
-                
-                <div class="item-info" style="padding: 0 10px 10px 10px; flex-grow: 0;">
-                    ${buttonHtml}
-                </div>
+                <div class="item-info" style="padding: 0 10px 10px 10px; flex-grow: 0;">${buttonHtml}</div>
             `;
         } else {
+            // ЕСЛИ ЭТО ОБЫЧНЫЙ ПРЕДМЕТ
+            let stockText = item.count === null ? '∞ шт.' : `${item.count} шт.`;
+            let btnHtml = item.count === 0 
+                ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
+                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Купить за ${item.price} 🟡</button>`;
+            
             el.innerHTML = `
-                <div class="item-image-wrapper" onclick="${clickAction}">
-                    <img src="${imgUrl}" 
-                         class="item-image" decoding="async" 
-                         loading="lazy" 
-                         onload="this.classList.add('loaded')" 
-                         alt="${escapeHTML(item.name)}">
+                <div class="item-image-wrapper" onclick="openCaseContents(event, '${safeName}')" style="width: 100%; padding-top: 100%; position: relative; background: transparent; cursor: pointer;">
+                    <img src="${safeImg}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" style="position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                 </div>
-                <div class="item-info">
-                    <div class="item-title">${displayNameHtml}</div>
-                    <div class="item-meta">
-                        ${stockText}
-                        ${priceText}
+                <div class="item-info" style="padding: 10px; display: flex; flex-direction: column; flex-grow: 1; gap: 4px; text-align: center; z-index: 8;">
+                    <div class="item-title" style="font-size: 11px; font-weight: 600; color: #fff; line-height: 1.2; min-height: 34px; display: flex; align-items: center; justify-content: center;">${formatItemName(cleanName)}</div>
+                    <div class="item-meta" style="display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; margin-bottom: 6px;">
+                        <div class="item-stock" style="color: #8E8E93;">${stockText}</div>
                     </div>
-                    ${buttonHtml}
+                    ${btnHtml}
                 </div>
             `;
         }
-        
         fragment.appendChild(el);
     });
     
     container.appendChild(fragment);
 
+    // Авто-уменьшение шрифта для длинных названий кейсов
     container.querySelectorAll('.case-top-title').forEach(title => {
         let fontSize = 13; 
         while (title.scrollWidth > title.offsetWidth && fontSize > 7) {
