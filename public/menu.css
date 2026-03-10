@@ -657,3 +657,72 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     align-items: center;
     justify-content: center;
 }
+
+/* ==========================================
+   ОБНОВЛЕННАЯ СЕТКА: МАГАЗИН (СЛЕВА) И РОЗЫГРЫШИ (СПРАВА)
+========================================== */
+.action-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr !important; /* Две одинаковые ровные колонки */
+    gap: 12px;
+    height: 140px; /* Высота обеих карточек */
+    margin-bottom: 20px;
+}
+
+#shortcut-shop {
+    grid-column: 1;
+    grid-row: 1;
+    height: 100% !important;
+}
+
+.mini-raffle-slider-container {
+    grid-column: 2;
+    grid-row: 1;
+    height: 100% !important;
+    padding: 0 !important; /* Убираем отступы, чтобы градиент был на всю карточку */
+    position: relative;
+    border-radius: var(--radius-card);
+}
+
+/* Стили для слайдов внутри правой кнопки */
+.mini-raffle-slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 15px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    background: linear-gradient(135deg, rgba(var(--rarity-rgb), 0.25) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+.mini-raffle-slide.active { 
+    opacity: 1; 
+}
+
+.mini-raffle-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #fff;
+    text-align: left;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    z-index: 2;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.mini-raffle-img {
+    position: absolute;
+    right: -10px;
+    bottom: -10px;
+    max-height: 80%;
+    max-width: 75%;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8));
+    z-index: 1;
+    transform: rotate(5deg);
+}
