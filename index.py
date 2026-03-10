@@ -9440,15 +9440,23 @@ async def create_promocodes(
 @app.get("/api/v1/cron/check_tm_trades")
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    АВТОМАТИКА: Проверяет все активные сделки ТМ. 
-    Если прошло > 1 часа — отменяет. Если принято — закрывает.
+    АВТОМАТИКА: Проверяет активные сделки ТМ с защитой от таймаутов.
     """
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
         return {"status": "error", "message": "No TM API key"}
 
-    # Ищем все скины, которые сейчас ждут отправки с Маркета
-    res = await supabase.get("/cs_history", params={"status": "eq.exchanged", "select": "id, updated_at"})
+    # 🔥 ЗАЩИТА №1: Берем только 20 самых старых зависших трейдов за раз
+    # Это спасет от лимитов Vercel, если вдруг зависнет 100 скинов сразу
+    res = await supabase.get(
+        "/cs_history", 
+        params={
+            "status": "eq.exchanged", 
+            "select": "id, updated_at",
+            "order": "updated_at.asc",
+            "limit": "20"
+        }
+    )
     active_trades = res.json() if res.status_code == 200 else []
 
     if not active_trades:
@@ -9457,7 +9465,8 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     now = datetime.now(timezone.utc)
     results_log = []
 
-    async with httpx.AsyncClient() as client:
+    # 🔥 ЗАЩИТА №2: Даем Маркету 15 секунд на ответ вместо 5
+    async with httpx.AsyncClient(timeout=15.0) as client:
         for trade in active_trades:
             trade_id = trade["id"]
             updated_at_str = trade.get("updated_at")
@@ -9466,12 +9475,17 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
             hours_passed = (now - trade_time).total_seconds() / 3600.0
 
-            # Запрашиваем Маркет
-            tm_res = await client.get(f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}")
-            tm_data = tm_res.json()
-
+            # 🔥 ЗАЩИТА №3: Если Маркет упал, скрипт не крашится, а идет дальше
+            try:
+                tm_res = await client.get(f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}")
+                tm_res.raise_for_status() # Проверяем, что нет ошибки 500/502
+                tm_data = tm_res.json()
+            except Exception as e:
+                results_log.append(f"#{trade_id}: API Error -> {str(e)}")
+                continue # Пропускаем этот скин и проверяем следующий
+            
+            # Дальше идет старая логика
             if not tm_data.get("success"):
-                # Если Маркет потерял сделку И прошел 1 час -> Отменяем
                 if hours_passed >= 1.0:
                     await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "pending"})
                     results_log.append(f"#{trade_id}: Timeout/Error -> reverted to pending")
@@ -9480,17 +9494,14 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
             stage = str(tm_data.get("data", {}).get("stage"))
 
             if stage == "2":
-                # УСПЕХ: Юзер забрал скин
                 await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received"})
                 results_log.append(f"#{trade_id}: Success -> received")
                 
             elif stage in ["4", "5"]:
-                # ОТМЕНА ТМ: Маркет сам отменил сделку
                 await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "pending"})
                 results_log.append(f"#{trade_id}: TM Canceled -> reverted to pending")
                 
             elif stage == "1":
-                # В ПРОЦЕССЕ: Если висит больше часа — сбрасываем принудительно
                 if hours_passed >= 1.0:
                     await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "pending"})
                     results_log.append(f"#{trade_id}: 1 Hour Timeout -> reverted to pending")
