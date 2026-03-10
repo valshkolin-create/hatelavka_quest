@@ -580,8 +580,8 @@ if(dom.tutorialSkipBtn) dom.tutorialSkipBtn.onclick = () => { dom.tutorialOverla
 function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0'; }
 
 async function initDynamicRaffleSlider() {
-    const listContainer = document.getElementById('active-raffles-list');
-    if (!listContainer) return;
+    const container = document.getElementById('mini-raffle-slider');
+    if (!container) return;
 
     try {
         const res = await fetch('/api/v1/raffles/active', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(getAuthPayload()) });
@@ -591,48 +591,45 @@ async function initDynamicRaffleSlider() {
         const activeRaffles = data.filter(r => r.status === 'active').slice(0, 5);
 
         if (activeRaffles.length > 0) {
-            listContainer.innerHTML = ''; 
-            activeRaffles.forEach(raffle => {
+            let slidesHTML = '';
+            activeRaffles.forEach((raffle, index) => {
                 const s = raffle.settings || {}; 
                 const img = s.card_image || s.prize_image || ''; 
                 const rarityColor = s.rarity_color || '#ffd700'; 
                 
-                const card = document.createElement('a'); 
-                card.href = "/raffles"; 
-                card.className = "raffle-list-card";
-                card.style.setProperty('--rarity-color', rarityColor); 
-                card.style.setProperty('--rarity-rgb', hexToRgb(rarityColor));
-                
-                card.innerHTML = `
-                    <div class="raffle-card-image">
-                        <img src="${img}" alt="Skin">
-                    </div>
-                    <div class="raffle-card-info">
-                        <div class="raffle-quality-tag">
-                            <span style="color: ${rarityColor};">${escapeHTML(s.skin_quality || 'FT')}</span>
-                            <span style="opacity:0.4; font-size: 8px; margin: 0 6px;">●</span>
-                            <i class="fa-solid fa-users" style="color: #8E8E93; margin-right: 4px;"></i> <span style="color: #8E8E93;">${raffle.participants_count || 0}</span>
-                        </div>
-                        <div class="raffle-item-name">${escapeHTML(s.prize_name)}</div>
-                        <div class="raffle-timer-box-new raffle-full-timer" data-endtime="${raffle.end_time}">
-                            <div class="timer-unit-new"><span class="timer-val-new d-v">00</span><span class="timer-lbl-new">Д</span></div><div class="timer-sep">:</div>
-                            <div class="timer-unit-new"><span class="timer-val-new h-v">00</span><span class="timer-lbl-new">Ч</span></div><div class="timer-sep">:</div>
-                            <div class="timer-unit-new"><span class="timer-val-new m-v">00</span><span class="timer-lbl-new">М</span></div><div class="timer-sep" style="color: #ff3b30;">:</div>
-                            <div class="timer-unit-new"><span class="timer-val-new s-v" style="color: #ff3b30;">00</span><span class="timer-lbl-new">С</span></div>
-                        </div>
-                    </div>
-                    <div class="raffle-card-action">
-                        <i class="fa-solid fa-chevron-right"></i>
+                // Конвертируем HEX в RGB для градиента
+                const hexToRgb = (hex) => {
+                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0';
+                };
+
+                slidesHTML += `
+                    <div class="mini-raffle-slide ${index === 0 ? 'active' : ''}" style="--rarity-rgb: ${hexToRgb(rarityColor)};">
+                        <div class="mini-raffle-name">${escapeHTML(s.prize_name)}</div>
+                        <img src="${img}" class="mini-raffle-img">
                     </div>
                 `;
-                listContainer.appendChild(card);
             });
-            startSliderTick(); // Запускаем таймеры
+            
+            // Вставляем слайды в кнопку
+            container.innerHTML = slidesHTML;
+
+            // Запускаем плавное переключение, если розыгрышей больше одного
+            const slides = container.querySelectorAll('.mini-raffle-slide');
+            if (slides.length > 1) {
+                let cur = 0;
+                setInterval(() => {
+                    slides[cur].classList.remove('active');
+                    cur = (cur + 1) % slides.length;
+                    slides[cur].classList.add('active');
+                }, 4000); // Каждые 4 секунды меняется скин
+            }
         } else {
-            listContainer.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 16px;">Нет активных розыгрышей</div>';
+            // Если нет розыгрышей, просто пишем текст
+            container.innerHTML = '<span style="font-size:14px; font-weight:800; color:#fff; text-transform:uppercase;">РОЗЫГРЫШИ</span>';
         }
     } catch (e) {
-        listContainer.innerHTML = '<div style="color:#ff3b30; text-align:center; font-size: 12px;">Ошибка загрузки</div>';
+        container.innerHTML = '<span style="font-size:12px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
     }
 }
 
