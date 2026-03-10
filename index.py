@@ -17823,13 +17823,13 @@ async def get_user_inventory(
     
     user_id = user_data['id']
 
-    # Берем ВСЕ предметы пользователя
+    # 1. Добавляем updated_at в select
     resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "select": "id, status, created_at, item:cs_items(id, name, image_url, rarity, price)",
-            "order": "created_at.desc" # Сначала новые
+            "select": "id, status, created_at, updated_at, item:cs_items(id, name, image_url, rarity, price)",
+            "order": "created_at.desc"
         }
     )
 
@@ -17841,7 +17841,6 @@ async def get_user_inventory(
         item_data = row.get('item')
         if not item_data: continue
 
-        # Цена из базы = Билеты
         raw_price = item_data.get('price') or 0
         ticket_val = int(float(raw_price))
 
@@ -17853,11 +17852,12 @@ async def get_user_inventory(
             "rarity": item_data['rarity'],
             "price": ticket_val, 
             "status": row['status'],
-            "received_at": row['created_at']
+            "received_at": row['created_at'],
+            # 🔥 ВОТ ЭТО ПОЛЕ ОЖИВАЕТ ТАЙМЕР НА ФРОНТЕ:
+            "updated_at": row.get('updated_at') or row['created_at'] 
         })
 
     return inventory
-
 
 # ==========================================
 # 📦 INVENTORY ACTIONS (RELATIONAL UPDATE)
