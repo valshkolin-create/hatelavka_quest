@@ -1049,6 +1049,11 @@ async function main() {
 }
 
 try {
+    checkBalance(true); // <--- ДОБАВИТЬ ЭТУ СТРОКУ СЮДА
+
+    if (window.Telegram?.WebApp) {
+        Telegram.WebApp.ready();
+    
     setupNewUI();
     initPullToRefresh();
     main();
