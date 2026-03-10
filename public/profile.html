@@ -1590,48 +1590,44 @@ function initCountdown(elementId, updatedAtStr) {
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    // Если даты нет, берем текущее время как временную заглушку, чтобы не висело "Ждем..."
-    let startTime;
-    if (!updatedAtStr) {
-        console.warn("Таймер: нет даты updated_at для " + elementId);
-        startTime = new Date().getTime(); 
-    } else {
-        startTime = new Date(updatedAtStr.replace(' ', 'T')).getTime();
+    // 1. Парсим дату. Добавляем 'Z' в конце, если её нет, чтобы JS понял — это UTC!
+    let dateStr = updatedAtStr.replace(' ', 'T');
+    if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
+        dateStr += 'Z';
     }
-
-    if (isNaN(startTime)) {
-        el.innerHTML = "В ПРОЦЕССЕ";
+    
+    const updateTime = new Date(dateStr).getTime();
+    
+    if (isNaN(updateTime)) {
+        el.innerHTML = "ОБРАБОТКА...";
         return;
     }
 
-    const expireTime = startTime + (60 * 60 * 1000); // 1 час
+    // 2. Ставим лимит (например, 60 минут)
+    const expireTime = updateTime + (60 * 60 * 1000); 
 
-    // Очистим старый интервал, если он вдруг есть
+    // Очистим старый таймер, чтобы они не накладывались друг на друга
     if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
 
-    const timerInterval = setInterval(() => {
-        const now = new Date().getTime();
+    const updateTimer = () => {
+        const now = new Date().getTime(); // Текущее время устройства
         const distance = expireTime - now;
-        const currentEl = document.getElementById(elementId);
-
-        if (!currentEl) {
-            clearInterval(timerInterval);
-            return;
-        }
 
         if (distance < 0) {
-            clearInterval(timerInterval);
-            currentEl.innerHTML = "ПРОВЕРКА..."; // Вместо "Завершение"
+            el.innerHTML = `<span style="color:#34c759;"><i class="fa-solid fa-circle-check"></i> ПРОВЕРКА</span>`;
+            clearInterval(el.dataset.intervalId);
             return;
         }
 
         const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-        currentEl.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
-    }, 1000);
-    
-    el.dataset.intervalId = timerInterval;
+        el.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
+    };
+
+    // Запускаем сразу и вешаем интервал
+    updateTimer();
+    el.dataset.intervalId = setInterval(updateTimer, 1000);
 }
     
 function renderInventory(items) {
