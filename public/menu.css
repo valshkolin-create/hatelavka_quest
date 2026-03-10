@@ -52,14 +52,66 @@ html, body {
 .no-scroll { overflow: hidden !important; }
 
 /* ==========================================
-   ПЕРЕКЛЮЧАТЕЛЬ МЕНЮ (ПОДНЯТ В САМЫЙ ВЕРХ ПОД ЧЕЛКУ)
+   ШАПКА (ОСТАЕТСЯ НАВЕРХУ)
+========================================== */
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px; 
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 10px);
+    margin-bottom: 45px; /* Освобождаем место для переключателя ниже */
+    position: relative;
+    z-index: 100;
+}
+
+/* Логотип + Текст */
+.logo-wrapper { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.app-logo { width: 28px; height: 28px; border-radius: 0; background: transparent; object-fit: contain; }
+.logo-text { display: flex; flex-direction: column; justify-content: center; }
+.logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
+.logo-subtitle { font-size: 7px; color: rgba(255, 255, 255, 0.4); font-weight: 800; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ПРАВАЯ ГРУППА: Баланс, Аватар, Бургер */
+.header-right-group { display: flex; align-items: center; gap: 6px; }
+
+.balance-pill {
+    background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;
+    padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s;
+    width: auto; min-width: max-content; white-space: nowrap;
+}
+.balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
+.balance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.balance-row { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; line-height: 1; color: #fff; font-family: 'SF Mono', 'Roboto Mono', monospace; }
+.refresh-icon-wrapper { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+#refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
+.balance-pill:active #refresh-icon { color: #fff; }
+
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+
+/* БУРГЕР */
+.glass-burger {
+    width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s; padding: 0;
+}
+.glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
+.glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
+
+.start-tutorial-btn-wrapper { display: none !important; }
+
+/* ==========================================
+   ПЕРЕКЛЮЧАТЕЛЬ МЕНЮ (ИДЕАЛЬНО ПО ЦЕНТРУ, НИЖЕ КНОПОК)
 ========================================== */
 .toggle-container {
     position: fixed;
-    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 10px);
+    /* Опустили ниже системных кнопок (закрыть/назад) */
+    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 60px);
     left: 50%;
-    /* Было -50%, меняем на -40% (или -45%), чтобы сдвинуть правее */
-    transform: translateX(-40%); 
+    /* Теперь центруем идеально! Наезжать на кнопки он больше не будет */
+    transform: translateX(-50%); 
     z-index: 1000;
     display: flex;
     justify-content: center;
@@ -92,60 +144,6 @@ html, body {
 }
 .toggle-option.active { color: #fff; text-shadow: 0 0 8px rgba(255, 255, 255, 0.3); }
 
-/* ==========================================
-   ШАПКА (ОПУЩЕНА ПОД ПЕРЕКЛЮЧАТЕЛЬ)
-========================================== */
-.top-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px; 
-    /* Опускаем шапку ниже переключателя */
-    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 55px);
-    position: relative;
-    z-index: 100;
-}
-
-/* Логотип + Текст (Ювелирно мелкие) */
-.logo-wrapper { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.app-logo { width: 28px; height: 28px; border-radius: 0; background: transparent; object-fit: contain; }
-.logo-text { display: flex; flex-direction: column; justify-content: center; }
-.logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
-.logo-subtitle { font-size: 7px; color: rgba(255, 255, 255, 0.4); font-weight: 800; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-/* ПРАВАЯ ГРУППА: Баланс, Аватар, Бургер прижаты друг к другу */
-.header-right-group { display: flex; align-items: center; gap: 6px; }
-
-/* Ультра-компактный Баланс */
-.balance-pill {
-    background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;
-    padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s;
-    width: auto; min-width: max-content; white-space: nowrap;
-}
-.balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
-.balance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-.balance-row { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; line-height: 1; color: #fff; font-family: 'SF Mono', 'Roboto Mono', monospace; }
-.refresh-icon-wrapper { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-#refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
-.balance-pill:active #refresh-icon { color: #fff; }
-
-/* Аватарка */
-.user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
-
-/* БУРГЕР - НАСТОЯЩЕЕ ЖИДКОЕ СТЕКЛО */
-.glass-burger {
-    width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s; padding: 0;
-}
-.glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
-.glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
-
-/* Скрываем кнопки туториала и рефералки */
-.start-tutorial-btn-wrapper { display: none !important; }
-
 .content-wrapper { position: relative; margin: 0 15px; }
 .view-section { display: none; animation: fadeInScale 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
 .view-section.active { display: block; }
@@ -156,20 +154,17 @@ html, body {
 }
 
 /* ==========================================
-   ВЕРХНИЙ СЛАЙДЕР (ОТ КРАЯ ДО КРАЯ, БЕЗ СКРУГЛЕНИЙ)
+   ВЕРХНИЙ СЛАЙДЕР
 ========================================== */
 .fullscreen-slider {
-    width: calc(100% + 30px) !important; /* Растягиваем за пределы padding */
-    margin-left: -15px !important;       /* Сдвигаем влево */
-    border-radius: 0 !important;         /* Убираем закругления */
+    width: calc(100% + 30px) !important;
+    margin-left: -15px !important;
+    border-radius: 0 !important;
     border: none !important;
-    /* border-bottom: 1px solid rgba(255,255,255,0.1) !important; */
     height: 180px !important;
-    background: #121212 !important; /* Починили серый фон */
+    background: #121212 !important;
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     overflow: hidden;
 }
 .fullscreen-slider .slider-wrapper {
@@ -179,9 +174,7 @@ html, body {
     width: 100%; height: 100%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
 }
 .fullscreen-slider .slide img {
-    width: 100%; height: 100%;
-    object-fit: cover; /* Растягивает картинку идеально на весь блок */
-    border-radius: 0 !important;
+    width: 100%; height: 100%; object-fit: cover; border-radius: 0 !important;
 }
 
 /* ==========================================
@@ -189,17 +182,13 @@ html, body {
 ========================================== */
 .action-cards-grid {
     display: grid;
-    grid-template-columns: 0.8fr 1.2fr !important; /* Правая (розыгрыши) шире */
-    gap: 10px;
-    height: 110px; /* Тонкая и аккуратная высота */
-    margin-top: 15px; /* Отступ от слайдера */
-    margin-bottom: 20px;
-    width: 100%;
+    grid-template-columns: 0.8fr 1.2fr !important;
+    gap: 10px; height: 110px; 
+    margin-top: 15px; margin-bottom: 20px; width: 100%;
 }
 
 .flat-card {
-    background: #1c1c1e;
-    border-radius: 18px;
+    background: #1c1c1e; border-radius: 18px;
     display: flex; align-items: center; justify-content: center;
     color: #ffffff; text-decoration: none; position: relative;
     overflow: hidden; transition: transform 0.1s ease;
@@ -207,69 +196,81 @@ html, body {
 }
 .flat-card:active { transform: scale(0.96); }
 
-/* Дизайн левой кнопки (Аукцион) */
 .auction-card { background: linear-gradient(135deg, rgba(255, 149, 0, 0.1) 0%, #1c1c1e 100%); }
 .auction-content { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .auction-content i { font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); }
 .auction-content span { font-size: 13px; font-weight: 800; text-transform: uppercase; }
 
 /* ==========================================
-   СОЧНЫЙ ПРЕМИУМ-СЛАЙДЕР РОЗЫГРЫШЕЙ (ФИКС ВМЕСТИМОСТИ)
+   СОЧНЫЙ ПРЕМИУМ-СЛАЙДЕР РОЗЫГРЫШЕЙ (ПОЛНЫЙ ИДЕАЛ)
 ========================================== */
 #default-raffle-text { position: relative; z-index: 2; letter-spacing: 1px; font-size: 13px; font-weight: 800; }
 
 .mini-raffle-slide {
     position: absolute; inset: 0;
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 10px; /* Аккуратный отступ */
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; 
     opacity: 0; transition: opacity 0.6s ease;
-    background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.4) 0%, #1c1c1e 80%);
+    background: linear-gradient(135deg, rgba(var(--rarity-rgb), 0.15) 0%, #1c1c1e 80%);
     pointer-events: none; z-index: 5;
 }
-.mini-raffle-slide.active { opacity: 1; animation: glowPulse 4s infinite alternate; }
-
-@keyframes glowPulse {
-    0% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.3) 0%, #1c1c1e 80%); }
-    100% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.5) 0%, #1c1c1e 90%); }
-}
+.mini-raffle-slide.active { opacity: 1; }
 
 /* Тексты слева (Ограничены по ширине, чтобы не лезть на скин) */
-.mini-raffle-info { position: relative; z-index: 10; max-width: 55%; text-align: left; }
-.mini-raffle-name { font-size: 12px; font-weight: 900; color: #fff; line-height: 1.1; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.8); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mini-raffle-info {
+    position: relative; z-index: 10;
+    width: 55%; /* Жесткий лимит ширины текста */
+    display: flex; flex-direction: column; justify-content: center;
+}
+.mini-raffle-name {
+    font-size: 12px; font-weight: 900; color: #fff; line-height: 1.1; margin-bottom: 4px;
+    text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; word-break: break-word;
+}
 .mini-raffle-stats { font-size: 9px; color: rgba(255,255,255,0.7); font-weight: 600; margin-bottom: 6px; display: flex; gap: 4px; align-items: center; }
 
+/* Таймер */
+.mini-raffle-timer { display: flex; align-items: center; gap: 2px; }
+
+/* Кнопка "Участвовать" (исправлено вылезание стрелки) */
 .mini-raffle-cta {
-    display: inline-flex; align-items: center; gap: 4px; background: var(--primary-color); color: #000;
-    padding: 4px 10px; border-radius: 20px; font-size: 9px; font-weight: 800; text-transform: uppercase;
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); animation: pulseCTA 2s infinite; margin-top: 4px;
-}
-@keyframes pulseCTA {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255, 215, 0, 0); }
-    100% { transform: scale(1); }
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px; 
+    background: var(--primary-color); color: #000;
+    padding: 5px 12px; border-radius: 20px; font-size: 9px; font-weight: 800; text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); margin-top: 6px;
+    width: max-content; /* Кнопка будет ровно по размеру текста + стрелки */
+    white-space: nowrap; /* Текст не будет переноситься на новую строку */
 }
 
-/* Картинка скина (Ограничена в размерах) */
+/* Картинка скина (Железобетонная позиция, больше не уезжает) */
 .mini-raffle-img {
     position: absolute;
-    right: -5px; 
-    top: 50%;
-    transform: translateY(-50%) rotate(5deg);
-    max-height: 85%; /* Чтобы не вылезало за края */
-    max-width: 50%; /* Чтобы не наезжало на текст */
+    right: -2px; 
+    top: 0; bottom: 0; margin: auto; /* Идеальное центрирование по вертикали без % */
+    max-height: 80%; /* Ограничение по высоте контейнера */
+    max-width: 50%;  /* Защита от наезда на текст */
     object-fit: contain;
     filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8));
     z-index: 1;
     animation: floatSkin 4s ease-in-out infinite;
 }
 @keyframes floatSkin {
-    0%, 100% { transform: translateY(-50%) rotate(5deg); }
-    50% { transform: translateY(calc(-50% - 5px)) rotate(0deg); }
+    0%, 100% { transform: translateY(0) rotate(5deg); }
+    50% { transform: translateY(-6px) rotate(0deg); }
 }
 
-.mini-raffle-pagination { position: absolute; bottom: 6px; left: 10px; display: flex; gap: 4px; z-index: 10; }
-.mr-dot { width: 4px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 50%; transition: 0.3s; }
-.mr-dot.active { background: var(--primary-color); width: 12px; border-radius: 4px; box-shadow: 0 0 8px var(--primary-color); }
+/* Точки (Перенесены в ПРАВЫЙ ВЕРХНИЙ УГОЛ) */
+.mr-dots-container { 
+    position: absolute !important; 
+    top: 8px !important; 
+    right: 12px !important; 
+    margin: 0 !important;
+    display: flex; gap: 4px; z-index: 10; 
+}
+.mr-dot { width: 5px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 50%; transition: 0.3s; }
+.mr-dot.active { background: var(--primary-color); width: 14px; border-radius: 4px; box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+
 
 /* ==========================================
    ПЛАВАЮЩИЙ ФУТЕР
@@ -306,7 +307,6 @@ html, body {
 .btn-buy-tickets { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; }
 .btn-secondary-action { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.05); }
 
-/* Инфо плашка на кейсах */
 .case-info-overlay { position: absolute; top: 80%; left: 0; right: 0; bottom: -200px; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); color: var(--primary-color); font-size: 9px; font-weight: 700; text-transform: uppercase; text-align: center; padding-top: 8px; z-index: 1; pointer-events: none; }
 
 /* ==========================================
@@ -325,17 +325,31 @@ html, body {
 @keyframes premiumPulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); transform: scale(1); } 70% { box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); transform: scale(1); } }
 
 /* ==========================================
-   БОКОВОЕ МЕНЮ И МОДАЛКИ (БАЗА)
+   БОКОВОЕ МЕНЮ (ФУЛЛСКРИН + СИЛЬНЫЙ БЛЮР)
 ========================================== */
-.side-menu-overlay, .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; display: flex; align-items: center; justify-content: center; }
-.side-menu-overlay.active, .modal:not(.hidden) { opacity: 1; pointer-events: auto; }
-.side-menu-content { position: absolute; top: 0; right: -280px; width: 280px; height: 100%; background: #1c1c1e; box-shadow: -10px 0 30px rgba(0,0,0,0.5); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: 20px; box-sizing: border-box; }
+.side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+.side-menu-overlay.active { opacity: 1; pointer-events: auto; }
+
+/* Теперь меню выезжает на весь экран */
+.side-menu-content { 
+    position: absolute; top: 0; 
+    right: -100%; /* Полностью прячем за край */
+    width: 100%;  /* Ширина на весь экран */
+    height: 100%; 
+    background: rgba(28, 28, 30, 0.75); /* Полупрозрачный фон */
+    backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); /* Сочный блюр */
+    transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); 
+    padding: 25px; box-sizing: border-box; display: flex; flex-direction: column;
+}
 .side-menu-overlay.active .side-menu-content { right: 0; }
 .side-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-top: 10px; }
 .side-nav { display: flex; flex-direction: column; gap: 10px; }
-.side-nav a { display: flex; align-items: center; gap: 15px; color: var(--text-primary); text-decoration: none; font-size: 16px; font-weight: 600; padding: 15px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); transition: background 0.2s; }
-.side-nav a:active { background: rgba(255, 255, 255, 0.1); }
+.side-nav a { display: flex; align-items: center; gap: 15px; color: var(--text-primary); text-decoration: none; font-size: 16px; font-weight: 600; padding: 15px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
+.side-nav a:active { background: rgba(255, 255, 255, 0.15); }
 
+/* Модалки */
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; display: flex; align-items: center; justify-content: center; }
+.modal:not(.hidden) { opacity: 1; pointer-events: auto; }
 .modal-content { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.7); padding: 24px; display: flex; flex-direction: column; gap: 16px; transform: scale(0.95); transition: transform 0.2s; max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .modal:not(.hidden) .modal-content { transform: scale(1); }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
@@ -369,7 +383,6 @@ html, body {
 
 .history-status-btn { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #8E8E93; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .history-status-btn.active-trade { background: linear-gradient(135deg, #ffcc00, #ff9500); color: #000; border: none; animation: statusPulse 2s infinite; }
-@keyframes statusPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
 
 .history-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10005; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 .history-modal.active { opacity: 1; pointer-events: auto; }
@@ -473,59 +486,22 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     .slider-container, #main-slider-container { height: 380px !important; }
 }
 
-/* 1. Делаем таймер горизонтальным и аккуратным */
-.mini-raffle-timer {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-
-/* 2. Плавный градиент и удаление пульсации фона */
-.mini-raffle-slide {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 10px;
-    opacity: 0; transition: opacity 0.6s ease;
-    /* Плавный линейный градиент вместо резкого кругового */
-    background: linear-gradient(135deg, rgba(var(--rarity-rgb), 0.15) 0%, #1c1c1e 80%);
-    pointer-events: none; z-index: 5;
-}
-.mini-raffle-slide.active { 
-    opacity: 1; 
-    /* УДАЛЕНА АНИМАЦИЯ glowPulse */
-}
-
-/* 3. Убираем "летающий" скин */
-.mini-raffle-img {
-    position: absolute;
-    right: -5px; 
-    top: 50%;
-    transform: translateY(-50%) rotate(5deg);
-    max-height: 85%;
-    max-width: 50%;
-    object-fit: contain;
-    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8));
-    z-index: 1;
-    /* УДАЛЕНА АНИМАЦИЯ floatSkin */
-}
-
 /* Ограничение ширины для ПК-версии Telegram */
 @media (min-width: 768px) {
     body, html {
-        background-color: #000; /* Темный фон вокруг приложения на ПК */
+        background-color: #000; 
     }
     body {
-        max-width: 480px; /* Ширина мобильного телефона */
-        margin: 0 auto; /* Центруем */
+        max-width: 480px; 
+        margin: 0 auto; 
         border-left: 1px solid rgba(255,255,255,0.1);
         border-right: 1px solid rgba(255,255,255,0.1);
         position: relative;
     }
     .floating-bottom-bar {
-        max-width: 460px; /* Чтобы нижнее меню не уезжало за пределы 480px */
+        max-width: 460px; 
     }
     .toggle-container {
-        /* Привязываем переключатель к ширине ПК-контейнера */
         width: 100%;
         max-width: 480px;
     }
