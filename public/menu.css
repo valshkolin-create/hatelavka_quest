@@ -27,8 +27,9 @@
 }
 
 html, body {
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    height: var(--tg-viewport-height, 100vh); /* Железобетонный фикс для Telegram Mobile */
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     overflow: hidden;
@@ -50,13 +51,13 @@ html, body {
 .no-scroll { overflow: hidden !important; }
 
 /* ==========================================
-   ШАПКА (КОМПАКТНАЯ И СТРОГАЯ)
+   ШАПКА СО СКРИНШОТА
 ========================================== */
 .top-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 15px; /* Уменьшили отступы */
+    padding: 12px 15px;
     position: relative;
     z-index: 100;
 }
@@ -65,15 +66,15 @@ html, body {
 .logo-wrapper {
     display: flex;
     align-items: center;
-    gap: 8px; /* Отступ между картинкой и текстом */
+    gap: 8px;
     cursor: pointer;
 }
 .app-logo {
-    width: 32px; /* Уменьшили лого */
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    background: #2c2c2e;
+    width: 44px; /* Вытащили из кружка, сделали крупнее */
+    height: 44px;
+    border-radius: 0;
+    background: transparent;
+    object-fit: contain;
 }
 .logo-text {
     display: flex;
@@ -81,86 +82,95 @@ html, body {
     justify-content: center;
 }
 .logo-title {
-    font-size: 13px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 900;
     color: #fff;
-    line-height: 1.1;
-    letter-spacing: 0.3px;
-}
-.logo-subtitle {
-    font-size: 8px;
-    color: var(--text-muted);
-    font-weight: 700;
-    margin-top: 1px;
+    line-height: 1;
     text-transform: uppercase;
 }
+.logo-subtitle {
+    font-size: 9px;
+    color: #aaa;
+    font-weight: 700;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
 
-/* Блок баланса (Компактный) */
-.balance-pill {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    
-    background: rgba(30, 30, 30, 0.6);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px; /* Чуть менее круглый для серьезности */
-    
-    padding: 4px 6px 4px 10px; /* Сжали со всех сторон */
+/* ПРАВАЯ ГРУППА: Баланс -> Аватар -> Бургер */
+.header-right-group {
     display: flex;
     align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    transition: transform 0.1s;
+    gap: 10px; /* Отступы между элементами справа */
 }
-.balance-pill:active { transform: scale(0.96) translateX(-50%); }
+
+/* Расширенный Баланс (убрали absolute и left: 50%) */
+.balance-pill {
+    background: rgba(30, 30, 32, 0.6);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px; /* Капсула */
+    padding: 6px 12px 6px 16px; /* Расширили область */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    transition: transform 0.1s, background 0.2s;
+}
+.balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.8); }
 
 .balance-col {
     display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
 }
 .balance-row {
-    display: flex; align-items: center; gap: 4px;
-    font-size: 10px; /* Уменьшили цифры */
-    font-weight: 800; line-height: 1; color: #fff;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 800; line-height: 1; color: #fff;
 }
 
-/* Премиальная кнопка релоада */
 .refresh-icon-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px; 
-    height: 22px;
-    background: rgba(255, 255, 255, 0.08); /* Легкий фон под иконкой */
+    background: rgba(255, 255, 255, 0.08);
+    width: 26px; height: 26px;
     border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
 }
-#refresh-icon {
-    font-size: 11px;
-    color: var(--text-muted);
-    transition: color 0.2s;
-}
-.balance-pill:active #refresh-icon {
-    color: #fff; /* Загорается белым при клике */
-}
+#refresh-icon { font-size: 12px; color: #aaa; transition: color 0.2s; }
+.balance-pill:active #refresh-icon { color: #fff; }
 
-/* Правая часть */
-.header-actions {
-    display: flex; align-items: center; gap: 12px;
-}
+/* Аватарка */
 .user-avatar {
-    width: 28px; /* Сильно уменьшили аватар */
-    height: 28px;
+    width: 38px; height: 38px; /* Сделали крупнее */
     border-radius: 50%;
     object-fit: cover;
     border: 1px solid rgba(255,255,255,0.1);
     cursor: pointer;
 }
-.icon-btn {
-    background: none; border: none; color: #fff;
-    font-size: 20px; /* Уменьшили иконку бургера */
+
+/* БУРГЕР - ЖИДКОЕ СТЕКЛО (3 Полоски) */
+.glass-burger {
+    width: 38px; height: 38px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05); /* Светлое стекло */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px; /* Расстояние между линиями */
     cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: transform 0.1s, background 0.2s;
+    padding: 0;
 }
+.glass-burger span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background-color: #fff;
+    border-radius: 2px;
+    box-shadow: 0 0 5px rgba(255,255,255,0.3);
+}
+.glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.15); }
 
 /* ==========================================
    ПЕРЕКЛЮЧАТЕЛЬ (ТОГГЛ С ТЕКСТОМ ВНУТРИ)
