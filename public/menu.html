@@ -46,6 +46,7 @@
                 <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
                 <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Топ игроков</a>
                 <a href="/settings"><i class="fa-solid fa-gear"></i> Настройки</a>
+                <a href="#" onclick="showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
                 <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
             </nav>
         </div>
@@ -251,16 +252,20 @@
         <div id="r-win" class="win-screen"></div>
     </div>
 
-    <div id="case-contents-modal" class="modal hidden">
-        <div class="modal-content" style="max-width: 95%; max-height: 90vh;">
-            <div class="modal-header">
-                <h3>Содержимое кейса</h3>
+   <div id="case-contents-modal" class="modal hidden">
+        <div class="modal-content" style="width: 90%; max-width: 380px; max-height: 80vh; display: flex; flex-direction: column; padding: 20px; overflow: hidden;">
+            
+            <div class="modal-header" style="flex-shrink: 0; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 18px;">Содержимое</h3>
                 <button onclick="closeContentsModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div id="contents-loader" style="text-align:center; padding:20px; color:#888;">
+            
+            <div id="contents-loader" style="text-align:center; padding:20px; color:#888; flex-shrink: 0;">
                 <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка скинов...
             </div>
-            <div id="case-items-list" class="case-contents-grid"></div>
+            
+            <div id="case-items-list" class="case-contents-grid" style="overflow-y: auto; flex-grow: 1; padding-bottom: 10px; margin: 0; align-content: flex-start;"></div>
+            
         </div>
     </div>
 
