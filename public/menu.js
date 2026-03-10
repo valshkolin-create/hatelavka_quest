@@ -115,8 +115,8 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
     } catch (e) {
         if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
         if (e.message !== 'Cooldown active' && !isSilent) {
-             if (window.Telegram?.WebApp?.showAlert) Telegram.WebApp.showAlert(`Ошибка: ${e.message}`);
-             else alert(`Ошибка: ${e.message}`);
+             customAlert(`Ошибка: ${e.message}`);
+             else customAlert(`Ошибка: ${e.message}`);
         }
         throw e;
     } finally {
@@ -882,7 +882,7 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     const isLinkValid = await validateUserTradeLink();
     if (!isLinkValid) return; 
 
-    Telegram.WebApp.showConfirm(`Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`, async (ok) => {
+    customConfirm(`Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`, async (ok) => {
         if (!ok) return;
         const loader = document.getElementById('purchase-loader');
         if (loader) { loader.querySelector('.loader-text').innerText = "Крутим барабан..."; loader.classList.add('active'); }
@@ -1005,7 +1005,7 @@ window.claimItem = async function(itemId) {
         try {
             const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: itemId }, 'POST');
             if (res && res.status === 'offer_replacement') { closeModal(); if (loader) loader.classList.remove('active'); showReplacementChoice(res.options, itemId); return; }
-            if (res) Telegram.WebApp.showAlert(`✅ Успешно! Ожидайте трейд.`);
+            if (res) customAlert(`✅ Успешно! Ожидайте трейд.`);
             closeModal(); closeRoulette();
         } catch (e) { closeModal(); } finally { if (loader) loader.classList.remove('active'); }
     }});
@@ -1016,7 +1016,7 @@ window.sellForTickets = function(itemId, price) {
         const loader = document.getElementById('purchase-loader'); if (loader) { loader.classList.add('active'); loader.querySelector('.loader-text').innerText = "Продаем..."; }
         try {
             await makeApiRequest('/api/v1/user/inventory/sell', { history_id: itemId }, 'POST');
-            Telegram.WebApp.showAlert(`Успешно! +${price} билетов.`); closeModal(); closeRoulette(); checkBalance(true);
+            customAlert(`Успешно! +${price} билетов.`); closeModal(); closeRoulette(); checkBalance(true);
         } catch (e) { closeModal(); } finally { if (loader) loader.classList.remove('active'); }
     }});
 }
@@ -1053,8 +1053,8 @@ window.initiateReplacementConfirm = (historyId, assetid, itemName) => {
         const loader = document.getElementById('purchase-loader'); if (loader) loader.classList.add('active');
         try {
             const res = await makeApiRequest('/api/v1/user/inventory/confirm_replacement', { history_id: historyId, assetid: assetid }, 'POST');
-            if (res.success) { Telegram.WebApp.showAlert("✅ Успешно! Проверьте Steam Трейды."); closeConfirm(); closeReplacementModal(); closeRoulette(); } 
-            else { Telegram.WebApp.showAlert("❌ " + res.message); closeConfirm(); }
+            if (res.success) { customAlert("✅ Успешно! Проверьте Steam Трейды."); closeConfirm(); closeReplacementModal(); closeRoulette(); } 
+            else { customAlert("❌ " + res.message); closeConfirm(); }
         } catch (e) { closeConfirm(); } finally { if (loader) loader.classList.remove('active'); }
     }});
 }
@@ -1086,10 +1086,10 @@ window.calculateP2P = () => {
 
 window.createP2PTrade = async () => {
     const select = document.getElementById('p2p-case-select'); const quantity = parseInt(document.getElementById('p2p-quantity').value);
-    if (!select.value || quantity <= 0) return Telegram.WebApp.showAlert("Выберите кейс и количество!");
+    if (!select.value || quantity <= 0) return customAlert("Выберите кейс и количество!");
     try {
         await makeApiRequest('/api/v1/p2p/create', { case_id: parseInt(select.value), quantity: quantity }, 'POST');
-        Telegram.WebApp.showAlert("✅ Заявка создана! Ждите подтверждения админа.");
+        customAlert("✅ Заявка создана! Ждите подтверждения админа.");
         select.value = ""; document.getElementById('p2p-quantity').value = 1; window.calculateP2P(); loadP2PHistoryData(); checkActiveTradesBackground();
     } catch(e) {}
 }
@@ -1130,9 +1130,9 @@ async function loadP2PHistoryData() {
 }
 
 window.confirmP2PSent = (tradeId) => {
-    Telegram.WebApp.showConfirm("Вы точно передали предмет в Steam?", async (ok) => {
+    customConfirm("Вы точно передали предмет в Steam?", async (ok) => {
         if (!ok) return;
-        try { await makeApiRequest('/api/v1/p2p/confirm_sent', { trade_id: parseInt(tradeId) }, 'POST'); Telegram.WebApp.showAlert("Отлично! Админ проверит поступление и начислит монеты."); loadP2PHistoryData(); checkActiveTradesBackground(); } catch (e) {}
+        try { await makeApiRequest('/api/v1/p2p/confirm_sent', { trade_id: parseInt(tradeId) }, 'POST'); customAlert("Отлично! Админ проверит поступление и начислит монеты."); loadP2PHistoryData(); checkActiveTradesBackground(); } catch (e) {}
     });
 }
 
@@ -1160,7 +1160,7 @@ window.openPassModal = () => { document.getElementById('password-modal').classLi
 window.closePassModal = () => { document.getElementById('password-modal').classList.add('hidden'); }
 window.submitResetCache = () => {
     const pw = document.getElementById('admin-pass-input').value; if(!pw) return; closePassModal(); toggleAdminMenu();
-    makeApiRequest('/api/v1/admin/shop/reset_cache', { password: pw }, 'POST').then(() => { Telegram.WebApp.showAlert("✅ Кэш очищен"); }).catch(()=>{});
+    makeApiRequest('/api/v1/admin/shop/reset_cache', { password: pw }, 'POST').then(() => { customAlert("✅ Кэш очищен"); }).catch(()=>{});
 }
 
 // ================================================================
@@ -1245,7 +1245,7 @@ document.body.addEventListener('click', async (event) => {
             claimSuperBtn.textContent = 'Получено!'; 
             claimSuperBtn.classList.add('action-btn', 'btn-disabled'); 
             claimSuperBtn.disabled = true; 
-            if(window.Telegram?.WebApp) Telegram.WebApp.showAlert("Суперприз получен!"); 
+            if(window.Telegram?.WebApp) customAlert("Суперприз получен!"); 
         } catch(e) { 
             claimSuperBtn.disabled = false; 
             claimSuperBtn.textContent = 'Забрать'; 
@@ -1259,8 +1259,130 @@ document.getElementById('gift-open-btn')?.addEventListener('click', async () => 
 document.getElementById('gift-x-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 document.getElementById('gift-close-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 
+
 // ================================================================
-// ГЛАВНЫЙ ЗАПУСК
+// УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ (ВМЕСТО СИСТЕМНЫХ)
+// ================================================================
+window.customAlert = function(message) {
+    showShopModal({
+        title: "Внимание",
+        subtitle: message,
+        confirmText: "ПОНЯТНО",
+        confirmClass: "btn-yellow-modal",
+        showCancel: false, // Отключаем кнопку "Отмена" для обычных уведомлений
+        onConfirm: (close) => close()
+    });
+};
+
+window.customConfirm = function(message, callback) {
+    showShopModal({
+        title: "Подтверждение",
+        subtitle: message,
+        confirmText: "ДА",
+        confirmClass: "btn-yellow-modal",
+        showCancel: true,
+        onConfirm: (close) => {
+            close();
+            if (callback) callback(true);
+        }
+    });
+};
+
+// Функция для FAQ
+window.showFaq = function() {
+    customAlert("Бот позволяет обменивать ненужные скины (Trade-In), участвовать в рулетках и ежедневных розыгрышах.\n\nДля получения призов обязательно привяжите Trade-ссылку в профиле!");
+};
+
+// Обновляем базовый showShopModal, чтобы он понимал параметр showCancel
+function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
+    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
+    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+    
+    let cancelBtnHtml = showCancel ? `<button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>` : '';
+
+    overlay.innerHTML = `
+        <div class="custom-confirm-box">
+            <h3 class="confirm-title">${title}</h3>
+            <p class="confirm-subtitle" style="white-space: pre-wrap;">${subtitle}</p>
+            <div class="confirm-buttons">
+                ${cancelBtnHtml}
+                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+    if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
+    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
+}
+
+Всё собрал! Этот фрагмент полностью заменяет всю нижнюю часть твоего файла menu.js.
+
+Здесь встроены: кастомные диалоговые окна (включая твой старый showShopModal, переписанный для работы со всеми функциями), кнопка FAQ, Синхронная загрузка (экран не мигает, ждет пока загрузятся кейсы с ID 2716312) и сам блок запуска.
+
+Скопируй всё это и замени самый низ файла menu.js (всё, начиная с // ================================================================ перед main() и до самого конца).
+
+JavaScript
+
+// ================================================================
+// УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ И FAQ
+// ================================================================
+window.customAlert = function(message) {
+    showShopModal({
+        title: "Внимание",
+        subtitle: message,
+        confirmText: "ПОНЯТНО",
+        confirmClass: "btn-yellow-modal",
+        showCancel: false, // Без кнопки "Отмена"
+        onConfirm: (close) => close()
+    });
+};
+
+window.customConfirm = function(message, callback) {
+    showShopModal({
+        title: "Подтверждение",
+        subtitle: message,
+        confirmText: "ДА",
+        confirmClass: "btn-yellow-modal",
+        showCancel: true,
+        onConfirm: (close) => {
+            close();
+            if (callback) callback(true);
+        }
+    });
+};
+
+// Функция для FAQ
+window.showFaq = function() {
+    customAlert("Бот позволяет обменивать ненужные скины (Trade-In), участвовать в рулетках и ежедневных розыгрышах.\n\nДля получения призов обязательно привяжите Trade-ссылку в Профиле!");
+};
+
+// Обновленный showShopModal (умеет скрывать кнопку отмены)
+function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
+    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
+    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+    
+    let cancelBtnHtml = showCancel ? `<button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>` : '';
+
+    overlay.innerHTML = `
+        <div class="custom-confirm-box">
+            <h3 class="confirm-title">${title}</h3>
+            <p class="confirm-subtitle" style="white-space: pre-wrap;">${subtitle}</p>
+            <div class="confirm-buttons">
+                ${cancelBtnHtml}
+                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+    if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
+    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
+    overlay.onclick = (e) => { if(e.target === overlay && showCancel) close(); };
+}
+
+// ================================================================
+// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
 async function main() {
     try {
@@ -1268,17 +1390,22 @@ async function main() {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
             return; 
         }
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden'); 
-        updateLoading(1);
+        
+        // 1. Показываем лоадер с самого начала
+        if (dom.loaderOverlay) {
+            dom.loaderOverlay.classList.remove('hidden');
+            dom.loaderOverlay.style.opacity = '1';
+        }
+        updateLoading(10); 
 
-        let bootstrapData = null, fakeP = 1;
+        let bootstrapData = null, fakeP = 10;
         const timer = setInterval(() => { if(fakeP < 80) updateLoading(++fakeP); }, 50);
         
+        // 2. Грузим базу
         try { 
             bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
         } catch(apiError) {
             console.error("Ошибка загрузки данных", apiError);
-            // Если сервер не ответил, выводим кнопку перезагрузки прямо на экран
             document.body.innerHTML = '<div style="display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#ff3b30; font-family:sans-serif;"><i class="fa-solid fa-triangle-exclamation" style="font-size:40px; margin-bottom:15px;"></i><b>Ошибка соединения</b><button onclick="window.location.reload()" style="margin-top:20px; padding:10px 20px; background:#FFD700; color:#000; border:none; border-radius:10px; font-weight:bold;">Перезагрузить</button></div>';
             return;
         } finally { 
@@ -1289,24 +1416,42 @@ async function main() {
 
         // 🔥 МГНОВЕННАЯ И ЖЕЛЕЗОБЕТОННАЯ БЛОКИРОВКА ТЕХ. РАБОТ 🔥
         if (bootstrapData.maintenance) {
-            // z-index: 2147483647 перекроет АБСОЛЮТНО ВСЕ элементы на странице
             document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
-            return; // Код дальше не пойдет!
+            return; 
         }
 
+        // 3. Рендерим шапку
         await renderFullInterface(bootstrapData);
+        updateLoading(50);
+
+        // 4. Ждем розыгрыши
         await initDynamicRaffleSlider();
         setupSlider();
-        checkActiveTradesBackground();
+        updateLoading(70);
 
+        // 5. ЖДЕМ КЕЙСЫ (По твоему ID) И P2P
+        await loadCategory(2716312); 
+        checkActiveTradesBackground();
         updateLoading(100);
-        setTimeout(() => { if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); }, 300);
+
+        // 6. ВСЁ ГОТОВО - ПЛАВНО ОТКРЫВАЕМ ЭКРАН
+        setTimeout(() => { 
+            if (dom.loaderOverlay) {
+                dom.loaderOverlay.style.opacity = '0';
+                setTimeout(() => dom.loaderOverlay.classList.add('hidden'), 400); // Скрываем после затухания
+            }
+        }, 300);
+
     } catch(e) {
+        console.error(e);
         if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
         setTimeout(() => { if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); }, 2000);
     }
 }
 
+// ================================================================
+// ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// ================================================================
 try {
     checkBalance(true); 
 
@@ -1315,7 +1460,6 @@ try {
         Telegram.WebApp.expand(); 
         
         // --- УМНЫЙ FULLSCREEN ---
-        // Проверяем платформу. Если это ПК, веб-версия или macOS - не делаем фуллскрин
         const isDesktop = ['tdesktop', 'web', 'macos'].includes(Telegram.WebApp.platform);
         
         if (!isDesktop && Telegram.WebApp.requestFullscreen) {
@@ -1325,7 +1469,7 @@ try {
     
     setupNewUI();
     initPullToRefresh();
-    initSwipeTabs();
+    initSwipeTabs(); // <-- Свайпы теперь работают!
     main();
 
     clearInterval(heartbeatInterval);
