@@ -2991,10 +2991,9 @@ async def sync_steam_inventory(
         
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
-async def bootstrap_app(
-    request_data: InitDataRequest, 
-    user_info: dict = Depends(multi_acc_protection),
-    background_tasks: BackgroundTasks, # <--- 1. ОСТАВИЛИ КАК ЕСТЬ
+async def get_bootstrap_data(
+    req: InitDataRequest,  # 🔥 ОБЯЗАТЕЛЬНО ПЕРВЫМ (без дефолтного значения)
+    user_info: dict = Depends(multi_acc_protection),  # Теперь наш охранник
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
@@ -15103,9 +15102,10 @@ async def sync_user_referral(
 
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
-    request_data: ShopBuyRequest,
-    user_info: dict = Depends(multi_acc_protection),
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+    request_data: ShopBuyRequest,      # Нет дефолта
+    background_tasks: BackgroundTasks, # Нет дефолта (теперь стоит правильно)
+    user_info: dict = Depends(multi_acc_protection), # Есть дефолт (в конце)
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) # Есть дефолт (в конце)
 ):
     logging.info("========== [SHOP] ПОКУПКА v13 (VALIDATION + BUY) ==========")
     
