@@ -1211,15 +1211,20 @@ class EventsPageContentUpdate(BaseModel):
     content: dict
 
 # Модели для запросов
+from typing import Optional
+from pydantic import BaseModel
+
 class ShopBuyRequest(BaseModel):
+    # 1. СНАЧАЛА ОБЯЗАТЕЛЬНЫЕ ПОЛЯ (без знака "=")
     initData: str
-    platform: str = "tg"  # <--- Добавлено!
     item_id: int
-    price: int
-    # 👇 Новые поля, чтобы сохранить красоту в админку
+    price: float  # Заменил на float для надежности (вдруг цены станут дробными)
+
+    # 2. ЗАТЕМ НЕОБЯЗАТЕЛЬНЫЕ ПОЛЯ (со знаком "=")
+    platform: str = "tg"
     title: Optional[str] = "Товар магазина"
     image_url: Optional[str] = None
-    currency: str = "coins" # <--- НОВОЕ: Теперь FastAPI "видит" валюту!
+    currency: str = "coins"
     
 # Для массового обновления настроек
 class UserSettingsBatch(BaseModel):
