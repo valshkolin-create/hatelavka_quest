@@ -2927,6 +2927,7 @@ async def bootstrap_app(
     """
     user_info = None
     telegram_id = None
+    photo_url = None # ДОБАВЛЕНО: Переменная для аватарки
 
     # --- 1. АВТОРИЗАЦИЯ И ОПРЕДЕЛЕНИЕ ID ---
     if request_data.platform == "vk":
@@ -2935,11 +2936,14 @@ async def bootstrap_app(
         if user_info and "id" in user_info:
             # Превращаем ID ВКонтакте в отрицательный (-123), чтобы писать в ту же базу
             telegram_id = -1 * abs(user_info["id"])
+            photo_url = user_info.get("photo_url") # У VK обычно есть фото в параметрах
     else:
         # Ветка Telegram: Стандартная проверка
         user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
         if user_info and "id" in user_info:
             telegram_id = user_info["id"]
+            # 🔥 ДОБАВЛЕНО: Извлекаем photo_url из Telegram initData
+            photo_url = user_info.get("photo_url") 
 
     # Если не прошли ни одну проверку
     if not user_info or not telegram_id:
@@ -2978,7 +2982,8 @@ async def bootstrap_app(
             supabase.post("/rpc/get_bootstrap_all_data", json={
                 "p_telegram_id": telegram_id,
                 "p_username": username_tg,
-                "p_full_name": full_name_tg
+                "p_full_name": full_name_tg,
+                "p_photo_url": photo_url # 🔥 ДОБАВЛЕНО: Передаем photo_url в базу!
             }),
             
             return_exceptions=True
@@ -3012,6 +3017,7 @@ async def bootstrap_app(
                 "telegram_id": telegram_id,
                 "full_name": full_name_tg,
                 "username": username_tg,
+                "photo_url": photo_url, # 🔥 ДОБАВЛЕНО В ПОДСТРАХОВКУ
                 "tickets": 0,
                 "coins": 0,
                 "is_bot_active": False,
