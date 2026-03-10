@@ -424,7 +424,6 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
         logging.info(f"[STOREKEEPER] План А: Пробуем купить на Маркете: {market_search_name}")
         
-        # 🔥 ИСПРАВЛЕНО: Теперь берем правильный ключ с Vercel
         TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
         market = MarketCSGO(api_key=TM_API_KEY)
         
@@ -442,11 +441,29 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             )
             return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
         else:
+            # 🔥 УМНЫЙ ПЕРЕХВАТЧИК ОШИБОК МАРКЕТА 🔥
+            error_code = market_res.get("code")
+            # Коды ошибок, которые означают проблему с аккаунтом пользователя (а не с наличием предмета)
+            # 3, 8, 12: проблема с ссылкой. 5: скрыт инвентарь. 6: бан. 7: нет гуарда. 20: лаги стима. 21: фулл инвентарь.
+            if error_code in [3, 5, 6, 7, 8, 12, 20, 21]:
+                err = market_res.get("error", "Неизвестная ошибка")
+                logging.error(f"[STOREKEEPER] 🛑 Критическая ошибка аккаунта юзера: Код {error_code} ({err})")
+                
+                # МГНОВЕННО прерываем функцию и передаем ошибку в withdraw_inventory_item
+                return {
+                    "success": False, 
+                    "is_user_trade_error": True, # Сигнал для withdraw_inventory_item
+                    "market_error_code": error_code,
+                    "error": err,
+                    "message": "Ошибка доставки"
+                }
+
+            # Если ошибка другая (например, нет нужной цены или предмета), идем к Плану Б (Склад)
             err = market_res.get("error", "Неизвестная ошибка")
-            logging.warning(f"[STOREKEEPER] Маркет не справился ({err}). Идем к плану Б (Склад)...")
+            logging.warning(f"[STOREKEEPER] Маркет не справился (Код: {error_code}, Ошибка: {err}). Идем к плану Б (Склад)...")
     else:
         logging.warning(f"[STOREKEEPER] План А пропущен (нет англ. названия): {market_search_name}")
-
+        
     # ==========================================
     # 🔥 СПЕЦНАЗ: РАНДОМНЫЙ ДЕШЕВЫЙ ЛУТ (СКЛАД) 🔥
     # ==========================================
@@ -12160,7 +12177,7 @@ async def save_trade_link(
     request_data: TradeLinkUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Сохраняет или обновляет трейд-ссылку пользователя с проверкой."""
+    """Сохраняет или обновляет трейд-ссылку пользователя с проверкой Regex."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
@@ -12168,44 +12185,24 @@ async def save_trade_link(
     telegram_id = user_info["id"]
     trade_link = request_data.trade_link.strip()
 
-    # --- ЭТАП 1: Быстрая проверка синтаксиса (Regex) ---
-    # Проверяем наличие partner и token
-    if not re.search(r"partner=(\d+)&token=([a-zA-Z0-9_-]+)", trade_link):
+    # --- ЭТАП 1: Жесткая проверка синтаксиса (Regex) ---
+    pattern = r"^https?://steamcommunity\.com/tradeoffer/new/\?partner=\d+&token=[a-zA-Z0-9_-]+$"
+    if not re.match(pattern, trade_link):
         raise HTTPException(
             status_code=400, 
-            detail="Неверный формат ссылки! Убедитесь, что скопировали её целиком."
+            detail="Неверный формат! Ссылка должна выглядеть так: https://steamcommunity.com/tradeoffer/new/?partner=...&token=..."
         )
 
-    # --- ЭТАП 2: "Боевая" проверка через API Маркета ---
-    try:
-        # Инициализируем клиент Маркета
-        api_key = os.getenv("MARKET_API_KEY")
-        market_client = MarketCSGO(api_key=api_key)
-        
-        check_res = await market_client.check_trade_link(trade_link)
-        
-        if not check_res.get("success"):
-            error_text = check_res.get("error", "Steam отклонил эту ссылку")
-            # Переводим типичные ошибки для пользователя
-            if "token" in error_text.lower():
-                msg = "Ваш Trade Token устарел. Сгенерируйте новую ссылку в Steam и вставьте её сюда."
-            else:
-                msg = f"Ошибка Steam: {error_text}"
-                
-            raise HTTPException(status_code=400, detail=msg)
-
-    except Exception as e:
-        # Если Маркет лежит или API ключ невалидный, 
-        # лучше залогировать это, но дать юзеру сохранить ссылку (как фолбек)
-        logging.error(f"Ошибка при валидации трейд-ссылки: {e}")
-        # pass # Раскомментируй, если хочешь разрешать сохранение при лагах API
-
-    # --- ЭТАП 3: Сохранение ---
-    await supabase.patch(
+    # --- ЭТАП 2: Сохранение ---
+    resp = await supabase.patch(
         "/users",
         params={"telegram_id": f"eq.{telegram_id}"},
         json={"trade_link": trade_link}
     )
+    
+    if resp.status_code not in [200, 204]:
+        logging.error(f"Ошибка БД при сохранении ссылки {telegram_id}: {resp.text}")
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении в базу данных")
     
     return {"success": True, "message": "Трейд-ссылка проверена и сохранена!"}
 
@@ -15267,35 +15264,14 @@ async def buy_bott_item_proxy(
     trade_link = user_record.get("trade_link")
     
     # =========================================================================
-    # 🔥 НОВЫЙ БЛОК: ПРОВЕРКА ТРЕЙД-ССЫЛКИ (ДО СПИСАНИЯ ДЕНЕГ)
+    # 🔥 ПРОВЕРКА ТРЕЙД-ССЫЛКИ (ДО СПИСАНИЯ ДЕНЕГ)
     # =========================================================================
-    # 1. Проверка на наличие ссылки в принципе
+    # Проверка на наличие ссылки в принципе (без запросов к API Маркета)
     if not trade_link or "partner=" not in trade_link or "token=" not in trade_link:
         raise HTTPException(
             status_code=400, 
             detail="⚠️ У вас не привязана Trade-ссылка! Зайдите в Профиль и привяжите Steam Trade Link."
         )
-
-    # 2. "Боевая" проверка через API Маркета
-    try:
-        market_api_key = os.getenv("MARKET_API_KEY")
-        market_client = MarketCSGO(api_key=market_api_key)
-        
-        check_res = await market_client.check_trade_link(trade_link)
-        
-        if not check_res.get("valid"):
-            # Если Маркет вернул ошибку (например, токен сброшен)
-            error_from_steam = check_res.get("error", "Ссылка недействительна")
-            logging.warning(f"[SHOP] Битая ссылка у {telegram_id}: {error_from_steam}")
-            raise HTTPException(
-                status_code=400, 
-                detail=f"⚠️ Steam отклонил вашу ссылку: {error_from_steam}. Обновите её в настройках Steam и в профиле!"
-            )
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        # Если API Маркета упало, мы логируем ошибку, но ПОЗВОЛЯЕМ купить (чтобы не блокировать работу)
-        logging.error(f"[SHOP] Ошибка валидатора Маркета: {e}")
     # =========================================================================
 
     bott_internal_id = user_record.get("bott_internal_id")
@@ -18394,11 +18370,8 @@ async def withdraw_inventory_item(
         target_price_rub = 0.0
         
     item_condition = item_data.get('condition')
-    # Достаем английское название для Маркета
     market_hash_name = item_data.get('market_hash_name')
 
-    # 🔥 ПРЕДОХРАНИТЕЛЬ: Проверяем, можно ли вообще отправить этот скин на Маркет
-    # Если названия нет или там кириллица — сразу переходим к выбору замен (Этап 3)
     has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
 
     if has_english_name:
@@ -18407,15 +18380,41 @@ async def withdraw_inventory_item(
         # ==========================================
         delivery_res = await fulfill_item_delivery(
             user_id=user_id,
-            target_name=item_name,                 # Русское для логов/склада
+            target_name=item_name,                 
             target_price_rub=target_price_rub,
             trade_url=trade_link,
             supabase=supabase,
             history_id=req.history_id, 
             target_condition=item_condition,
-            target_market_name=market_hash_name    # 🔥 Английское для Market.CSGO
+            target_market_name=market_hash_name    
         )
         
+        # 🔥🔥🔥 НОВЫЙ БЛОК: ЖЕЛЕЗОБЕТОННЫЙ ПЕРЕХВАТ ОШИБОК СТИМА 🔥🔥🔥
+        # Если Маркет обнаружил проблему с аккаунтом юзера (бан, скрыт инвентарь и т.д.)
+        if not delivery_res.get("success") and delivery_res.get("is_user_trade_error"):
+            error_code = delivery_res.get("market_error_code")
+            error_msg = delivery_res.get("error", "Неизвестная ошибка")
+            
+            # Расшифровываем коды ошибок для юзера (из доков Market CSGO)
+            if error_code in [3, 8, 12]:
+                detail_msg = "⚠️ Ваша трейд-ссылка недействительна или устарела. Обновите её в профиле!"
+            elif error_code == 5:
+                detail_msg = "🔒 Ваш инвентарь скрыт настройками приватности Steam. Откройте его и попробуйте снова."
+            elif error_code == 6:
+                detail_msg = "🚫 На вашем аккаунте Steam висит Трейд-бан."
+            elif error_code == 7:
+                detail_msg = "📱 У вас не привязан мобильный аутентификатор Steam Guard."
+            elif error_code == 21:
+                detail_msg = "📦 Ваш инвентарь CS2 переполнен (максимум 1000 предметов)."
+            elif error_code == 20:
+                detail_msg = "⏳ Серверы Steam сейчас лагают. Попробуйте вывести скин через 10 минут."
+            else:
+                detail_msg = f"Ошибка вывода: {error_msg} (Код: {error_code})"
+
+            # Блокируем вывод, предмет остается в статусе pending
+            raise HTTPException(status_code=400, detail=detail_msg)
+        # 🔥🔥🔥 КОНЕЦ БЛОКА 🔥🔥🔥
+
         # --- СЛУЧАЙ 1: Успешная покупка на Маркете (ТМ) ---
         market_msg = "Предмет куплен на Маркете и скоро будет отправлен!"
         if delivery_res.get("success") and delivery_res.get("message") == market_msg:
@@ -18435,15 +18434,12 @@ async def withdraw_inventory_item(
             
             if trade_res and trade_res.get("success"):
                 t_id = str(trade_res.get("tradeofferid"))
-                # Обновляем статус: трейд улетел
                 await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                     "status": "sent",
                     "tradeofferid": t_id 
                 })
                 return {"success": True, "message": "Трейд отправлен! Подтвердите получение в Steam."}
             else:
-                # 🔥 ИСПРАВЛЕНО: Если Стим выдал ошибку/null, мы НЕ уходим в ручной режим.
-                # Снимаем резерв с предмета и даем коду провалиться ниже к выбору замен юзером.
                 err_msg = trade_res.get('error', 'Steam Error')
                 logging.error(f"[COURIER] Сбой при выдаче оригинала: {err_msg}. Снимаем резерв и идем к заменам.")
                 
@@ -18451,12 +18447,10 @@ async def withdraw_inventory_item(
                     params={"assetid": f"eq.{real_skin['assetid']}"}, 
                     json={"is_reserved": False}
                 )
-                # Код продолжает выполнение к Этапу 3
 
     # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН
     # ==========================================
-    # Сюда попадем, если нет англ. названия, Маркет не нашел скин или Стим выдал null
     replacements = await get_replacement_options(target_price_rub, target_price_base, supabase)
     
     if replacements:
@@ -18470,7 +18464,6 @@ async def withdraw_inventory_item(
     # ==========================================
     # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
     # ==========================================
-    # Если даже замен не нашли (склад совсем пустой)
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "processing"})
     
     ADMIN_NOTIFY_CHAT_ID = os.getenv("ADMIN_NOTIFY_CHAT_ID")
@@ -18482,7 +18475,6 @@ async def withdraw_inventory_item(
                 f"🔫 <b>{item_name}</b>\n"
                 f"💰 Бюджет: {target_price_rub} руб. ({target_price_base} монеты)"
             )
-            # await bot.send_message(chat_id=int(ADMIN_NOTIFY_CHAT_ID), text=log_text, parse_mode="HTML")
         except: pass
             
     return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
