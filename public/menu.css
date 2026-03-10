@@ -697,88 +697,161 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 }
 
 /* ==========================================
-   МИНИ-СЛАЙДЕР РОЗЫГРЫШЕЙ (ПРЕМИУМ ДАННЫЕ)
+   ВЕРХНИЙ СЛАЙДЕР (ОТ КРАЯ ДО КРАЯ, БЕЗ СКРУГЛЕНИЙ)
 ========================================== */
-#default-raffle-text {
-    position: relative;
-    z-index: 2;
-    letter-spacing: 1px;
+.fullscreen-slider {
+    width: calc(100% + 30px) !important; /* Растягиваем за пределы padding */
+    margin-left: -15px !important;       /* Сдвигаем влево */
+    border-radius: 0 !important;         /* Убираем закругления */
+    border: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+    height: 180px !important;
+    background: #000 !important;
+}
+.fullscreen-slider .slide img {
+    border-radius: 0 !important; /* Картинка тоже без закруглений */
+    object-fit: cover;
+    object-position: center;
 }
 
+/* ==========================================
+   ТОНКИЕ ВЫТЯНУТЫЕ КАРТОЧКИ СНИЗУ
+========================================== */
+.action-cards-grid {
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr !important; /* Правая (розыгрыши) шире */
+    gap: 10px;
+    height: 120px; /* Тонкая и аккуратная высота */
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.flat-card {
+    background: #1c1c1e;
+    border-radius: 18px; /* Оставляем красивые скругления внизу */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.1s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.flat-card:active { transform: scale(0.96); }
+
+/* Дизайн левой кнопки (Аукцион) */
+.auction-card {
+    background: linear-gradient(135deg, rgba(255, 149, 0, 0.1) 0%, #1c1c1e 100%);
+}
+.auction-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.auction-content i { font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); }
+.auction-content span { font-size: 13px; font-weight: 800; text-transform: uppercase; }
+
+/* ==========================================
+   СОЧНЫЙ ПРЕМИУМ-СЛАЙДЕР РОЗЫГРЫШЕЙ
+========================================== */
 .mini-raffle-slide {
     position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between; /* Разносит элементы к верхнему и нижнему краю */
-    padding: 10px 12px; /* Компактные отступы */
+    justify-content: center;
+    padding: 12px 16px;
     opacity: 0;
-    transition: opacity 0.5s ease;
-    background: linear-gradient(135deg, rgba(var(--rarity-rgb), 0.25) 0%, #242424 70%);
+    transition: opacity 0.6s ease;
+    /* Яркое радиальное свечение из правого верхнего угла (как на референсе) */
+    background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.4) 0%, #1c1c1e 70%);
     pointer-events: none;
     z-index: 5;
 }
+.mini-raffle-slide.active { opacity: 1; animation: glowPulse 4s infinite alternate; }
 
-.mini-raffle-slide.active {
-    opacity: 1;
+@keyframes glowPulse {
+    0% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.3) 0%, #1c1c1e 70%); }
+    100% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.5) 0%, #1c1c1e 80%); }
 }
 
-/* Верхняя строка: Качество и Люди */
-.mini-raffle-top {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 9px;
-    font-weight: 700;
-    color: #aaa;
-    z-index: 2;
-}
-
-/* Название скина */
-.mini-raffle-name {
-    font-size: 12px;
-    font-weight: 800;
-    color: #fff;
-    text-align: left;
-    line-height: 1.1;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    z-index: 2;
+/* Тексты слева */
+.mini-raffle-info {
+    position: relative;
+    z-index: 10;
     max-width: 60%;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    text-align: left;
 }
 
-/* Аккуратный таймер */
-.mini-raffle-timer {
-    display: flex;
-    gap: 4px;
-    background: rgba(0,0,0,0.5);
-    padding: 3px 8px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.05);
-    width: fit-content;
-    z-index: 2;
-    backdrop-filter: blur(5px);
+.mini-raffle-name {
+    font-size: 16px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.mini-raffle-timer span {
-    font-family: 'SF Mono', 'Roboto Mono', monospace;
-    font-size: 11px;
+
+.mini-raffle-stats {
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex; gap: 6px; align-items: center;
+}
+
+/* Кнопка "УЧАСТВОВАТЬ" */
+.mini-raffle-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--primary-color);
+    color: #000;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 10px;
     font-weight: 800;
-    color: var(--primary-color);
+    text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+    animation: pulseCTA 2s infinite;
 }
-.mini-raffle-timer .timer-sep { color: #888; font-size: 10px; margin-top: 1px; font-weight: bold; }
+@keyframes pulseCTA {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255, 215, 0, 0); }
+    100% { transform: scale(1); }
+}
 
-/* Картинка скина */
+/* Картинка скина (парит справа) */
 .mini-raffle-img {
     position: absolute;
-    right: -10px;
+    right: -15px;
     top: 50%;
-    transform: translateY(-50%) rotate(5deg);
-    max-height: 110%;
+    transform: translateY(-50%);
+    max-height: 100%;
     max-width: 55%;
     object-fit: contain;
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.7));
+    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8));
     z-index: 1;
+    animation: floatSkin 4s ease-in-out infinite;
 }
+@keyframes floatSkin {
+    0%, 100% { transform: translateY(-50%) rotate(5deg); }
+    50% { transform: translateY(calc(-50% - 8px)) rotate(0deg); }
+}
+
+/* Точки внизу (Как на референсе) */
+.mini-raffle-pagination {
+    position: absolute;
+    bottom: 8px;
+    left: 16px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+}
+.mr-dot { width: 6px; height: 6px; background: rgba(255,255,255,0.2); border-radius: 50%; transition: 0.3s; }
+.mr-dot.active { background: var(--primary-color); width: 14px; border-radius: 4px; box-shadow: 0 0 8px var(--primary-color); }
