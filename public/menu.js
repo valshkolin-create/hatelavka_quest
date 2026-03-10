@@ -336,78 +336,6 @@ function setupSlider() {
     showSlide(currentSlideIndex); resetSlideInterval();
 }
 
-// ================================================================
-// ЕЖЕНЕДЕЛЬНЫЕ ЦЕЛИ, ЯРЛЫКИ И БОНУСЫ
-// ================================================================
-function renderWeeklyGoals(data) {
-    const listContainer = dom.weeklyGoalsListContainer;
-    const triggerContainer = dom.weeklyGoalsTrigger;
-    const badgeElement = dom.weeklyGoalsBadge;
-    const counterElement = dom.weeklyModalCounter;
-
-    const isAdmin = userData && userData.is_admin;
-    const shouldShow = data && data.system_enabled;
-
-    if (!data || (!shouldShow && !isAdmin) || !data.goals || data.goals.length === 0) {
-        if (triggerContainer) triggerContainer.classList.add('hidden');
-        return;
-    }
-    if (triggerContainer) triggerContainer.classList.remove('hidden');
-    if (counterElement) counterElement.textContent = `${data.completed_goals} / ${data.total_goals}`;
-
-    let hasUnclaimedReward = false;
-    if (data.goals.some(g => g.is_complete && g.reward_type === 'tickets' && !g.small_reward_claimed)) hasUnclaimedReward = true;
-    if (data.super_prize_ready_to_claim && !data.super_prize_claimed) hasUnclaimedReward = true;
-
-    if (badgeElement) {
-        if (hasUnclaimedReward) badgeElement.classList.remove('hidden');
-        else badgeElement.classList.add('hidden');
-    }
-
-    if (!listContainer) return;
-    const goalsHtml = data.goals.map(goal => {
-        if (goal.small_reward_claimed) return ''; 
-        const progress = goal.current_progress || 0;
-        const target = goal.target_value || 1;
-        const percent = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
-        const isCompleted = goal.is_complete || false;
-
-        let buttonHtml = '';
-        if (goal.reward_type === 'tickets' && goal.reward_value > 0) {
-            if (isCompleted) buttonHtml = `<button class="action-btn btn-buy claim-task-reward-btn" style="width: auto; padding: 0 15px;" data-goal-id="${goal.id}">Забрать</button>`;
-            else buttonHtml = `<button class="action-btn btn-disabled" style="width: auto; padding: 0 15px;" disabled>+${goal.reward_value} 🎟️</button>`;
-        }
-
-        return `
-            <div class="weekly-goal-item ${isCompleted ? 'completed' : ''}" style="background: #2c2c2e; padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                <h3 style="margin: 0 0 10px; font-size: 14px; color: #fff;">${escapeHTML(goal.title)}</h3>
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px;">
-                    <div style="flex-grow: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; position: relative;">
-                        <div style="width: ${percent}%; height: 100%; background: #ffcc00; transition: width 0.3s;"></div>
-                    </div>
-                    <span style="font-size: 12px; color: #8e8e93; font-weight: 800;">${Math.floor(percent)}%</span>
-                </div>
-                <div style="margin-top: 10px; text-align: right;">${buttonHtml}</div>
-            </div>`;
-    }).join('');
-
-    let superPrizeHtml = '';
-    if (data.total_goals > 0) {
-        const prizeInfo = data.super_prize_info;
-        let prizeButtonHtml = '';
-        if (data.super_prize_claimed) prizeButtonHtml = `<button class="action-btn btn-disabled" disabled>Суперприз получен!</button>`;
-        else if (data.super_prize_ready_to_claim) prizeButtonHtml = `<button id="claim-super-prize-btn" class="action-btn btn-buy">Забрать Суперприз!</button>`;
-        else prizeButtonHtml = `<button class="action-btn btn-disabled" disabled>Выполните все задания</button>`;
-
-        superPrizeHtml = `
-            <div style="background: linear-gradient(135deg, rgba(255,215,0,0.1), transparent); border: 1px solid rgba(255,215,0,0.3); padding: 15px; border-radius: 16px; margin-top: 15px; text-align: center;">
-                <h2 style="margin: 0 0 10px; color: #ffcc00; font-size: 16px;">${escapeHTML(prizeInfo.super_prize_description || 'Главный приз')}</h2>
-                ${prizeButtonHtml}
-            </div>`;
-    }
-    listContainer.innerHTML = `<div class="weekly-goals-container">${goalsHtml}${superPrizeHtml}</div>`;
-}
-
 function updateShortcutStatuses(userData, allQuests) {
     const chalStatus = document.getElementById('metro-challenge-status');
     const chalFill = document.getElementById('metro-challenge-fill');
@@ -686,11 +614,9 @@ async function renderFullInterface(data) {
     if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
 
     checkReferralAndWelcome(userData);
-    renderWeeklyGoals(data.weekly_goals);
 
     if (menuContent) {
          if (menuContent.bonus_gift_enabled !== undefined) bonusGiftEnabled = menuContent.bonus_gift_enabled;
-         if (menuContent.weekly_goals_banner_url) { const wImg = document.getElementById('weekly-goals-banner-img'); if (wImg) wImg.src = menuContent.weekly_goals_banner_url; }
          const setupSlide = (id, enabled, url, link) => {
              const slide = document.querySelector(`[data-event="${id}"]`);
              if (slide) {
@@ -1056,7 +982,7 @@ window.submitResetCache = () => {
 // ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ (Свайп-защита, P2R, Ивенты кнопок)
 // ================================================================
 document.body.addEventListener('touchmove', (e) => {
-    const isScrollable = e.target.closest('.main-content-scrollable') || e.target.closest('.modal-content') || e.target.closest('.case-contents-grid') || e.target.closest('.weekly-goals-scroll-area');
+    const isScrollable = e.target.closest('.main-content-scrollable') || e.target.closest('.modal-content') || e.target.closest('.case-contents-grid');
     if (!isScrollable && e.cancelable) e.preventDefault();
 }, { passive: false });
 
@@ -1077,12 +1003,6 @@ function initPullToRefresh() {
 }
 
 document.body.addEventListener('click', async (event) => {
-    const claimTaskBtn = event.target.closest('.claim-task-reward-btn');
-    const claimSuperBtn = event.target.closest('#claim-super-prize-btn');
-    if (claimTaskBtn) {
-        claimTaskBtn.disabled = true; claimTaskBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        try { const res = await makeApiRequest('/api/v1/user/weekly_goals/claim_task', { goal_id: claimTaskBtn.dataset.goalId }); if (res.new_ticket_balance !== undefined) document.getElementById('ticketStats').textContent = res.new_ticket_balance; claimTaskBtn.closest('.weekly-goal-item').style.display='none'; Telegram.WebApp.showAlert("Награда получена!"); } catch(e) { claimTaskBtn.disabled = false; claimTaskBtn.textContent = 'Ошибка'; }
-    }
     if (claimSuperBtn) {
         claimSuperBtn.disabled = true; claimSuperBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
         try { const res = await makeApiRequest('/api/v1/user/weekly_goals/claim_super_prize', {}); if (res.new_ticket_balance) document.getElementById('ticketStats').textContent = res.new_ticket_balance; claimSuperBtn.textContent = 'Получено!'; claimSuperBtn.classList.add('action-btn'); claimSuperBtn.classList.add('btn-disabled'); claimSuperBtn.disabled = true; Telegram.WebApp.showAlert("Суперприз получен!"); } catch(e) { claimSuperBtn.disabled = false; claimSuperBtn.textContent = 'Забрать'; }
