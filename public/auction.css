@@ -974,9 +974,10 @@ body.browser-view {
 /* === ЗАЩИТА ОТ СВОРАЧИВАНИЯ (FIXED BODY) === */
 html, body {
     margin: 0;
-    padding: 0; /* Убираем отступы отсюда */
+    padding: 0;
     width: 100%;
-    height: 100%;
+    /* Используем переменную ТГ для точной высоты экрана */
+    height: var(--tg-viewport-height, 100%); 
     position: fixed; /* Блокируем скролл страницы */
     overflow: hidden; 
     overscroll-behavior-y: none;
@@ -990,18 +991,17 @@ html, body {
 }
 
 /* === КОНТЕЙНЕР ДЛЯ СКРОЛЛА === */
-/* === 2. ДОБАВЬ ЭТОТ БЛОК НИЖЕ === */
 #main-content {
-    height: 100vh; 
+    height: 100%; /* Занимаем ровно 100% от высоты body */
     overflow-y: auto !important; /* Скролл теперь тут */
     -webkit-overflow-scrolling: touch; 
     position: relative;
     z-index: 10;
     display: block;
-    
-    /* Переносим отступы, которые были в body, сюда */
     box-sizing: border-box;
-    padding: 10px 10px 120px; 
+    
+    /* Умный отступ: челка ТГ + 10px сверху, 10px по бокам, 120px снизу */
+    padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 10px) 10px 120px; 
     
     will-change: transform;
     background: transparent;
