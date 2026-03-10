@@ -1353,30 +1353,29 @@ window.customConfirm = function(message, callback) {
 // FAQ БОТА
 // ================================================================
 window.showFaq = function() {
-    const faqHtml = `<div style="text-align: left; font-size: 13px; line-height: 1.35; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
-        <div>Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:</div>
-
-        <div><b style="color: #fff;">💰 Валюта и прогресс</b><br>
-        <span style="color: #ffd700;">•</span> <b>Монетки:</b> Твоя основная валюта, с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.<br>
-        <span style="color: #2AABEE;">•</span> <b>Билеты:</b> Это монета активности, открывает возможность пользоваться аукционом и розыгрышами.</div>
-
-        <div><b style="color: #fff;">📋 Как зарабатывать</b><br>
-        • <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.<br>
-        • <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.</div>
-
-        <div><b style="color: #fff;">🎁 Активности и Ивенты</b><br>
-        Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b> и крути <b>Рулетки</b> за скины.</div>
-
-        <div><b style="color: #fff;">🛒 TRADE IT</b><br>
-        Продавай кейсы в разделе кейсы.<br>
-        ⚠️ <span style="color: #ff3b30; font-weight: 700;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span></div>
-
-        <div style="background: rgba(255, 215, 0, 0.1); border-left: 3px solid #ffd700; padding: 4px 8px; border-radius: 4px; margin: 4px 0;">
-            ⚠️ <b style="color: #ffd700;">Помним, что Валя — соло-разработчик, баги это нормально! 😉</b>
-        </div>
-
-        <div><b style="color: #fff;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!</div>
-    </div>`;
+    const faqHtml = '<div style="text-align: left; font-size: 13px; line-height: 1.35; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">' +
+        '<div>Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:</div><br>' +
+        
+        '<div><b style="color: #fff;">💰 Валюта и прогресс</b><br>' +
+        '<span style="color: #ffd700;">•</span> <b>Монетки:</b> Твоя основная валюта, с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.<br>' +
+        '<span style="color: #2AABEE;">•</span> <b>Билеты:</b> Это монета активности, открывает возможность пользоваться аукционом и розыгрышами.</div><br>' +
+        
+        '<div><b style="color: #fff;">📋 Как зарабатывать</b><br>' +
+        '• <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.<br>' +
+        '• <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.</div><br>' +
+        
+        '<div><b style="color: #fff;">🎁 Активности и Ивенты</b><br>' +
+        'Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b> и крути <b>Рулетки</b> за скины.</div><br>' +
+        
+        '<div><b style="color: #fff;">🛒 TRADE IT</b><br>' +
+        'Продавай кейсы в разделе кейсы.<br>' +
+        '⚠️ <span style="color: #ff3b30; font-weight: 700;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span></div>' +
+        
+        '<div style="background: rgba(255, 215, 0, 0.1); border-left: 3px solid #ffd700; padding: 6px 10px; border-radius: 4px; margin: 8px 0;">' +
+        '⚠️ <b style="color: #ffd700;">Помним, что Валя — соло-разработчик, баги это нормально! 😉</b></div>' +
+        
+        '<div><b style="color: #fff;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!</div>' +
+    '</div>';
 
     showShopModal({
         title: "📖 Как работает бот?",
@@ -1387,7 +1386,6 @@ window.showFaq = function() {
         onConfirm: (close) => close()
     });
 };
-
 // ================================================================
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
