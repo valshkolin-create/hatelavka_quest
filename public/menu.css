@@ -2,13 +2,13 @@
    ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И БАЗА
 ========================================== */
 :root {
-    --bg-main: #121212; /* Глубокий темный фон как на скрине */
-    --surface-glass: rgba(255, 255, 255, 0.12); /* Идеальное матовое стекло */
+    --bg-main: #121212; 
+    --surface-glass: rgba(255, 255, 255, 0.12); 
     --border-glass: rgba(255, 255, 255, 0.06);
     --text-primary: #ffffff;
     --text-muted: #8e8e93;
     --radius-pill: 40px;
-    --radius-card: 24px; /* Огромные скругления как на картинке */
+    --radius-card: 24px; 
     --primary-color: #ffd700;
 
     /* Рулетка */
@@ -26,10 +26,11 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+/* ФУЛЛСКРИН ФИКС (С УЧЕТОМ ТЕЛЕГРАМА) */
 html, body {
     width: 100vw;
     height: 100vh;
-    height: var(--tg-viewport-height, 100vh); /* Железобетонный фикс для Telegram Mobile */
+    height: var(--tg-viewport-height, 100vh); 
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     overflow: hidden;
@@ -46,183 +47,104 @@ html, body {
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 140px; /* Отступ под плавающий футер */
+    padding-bottom: 140px; 
 }
 .no-scroll { overflow: hidden !important; }
 
 /* ==========================================
-   ШАПКА (ПРЕМИАЛЬНАЯ, КОМПАКТНАЯ)
-========================================== */
-.top-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px; /* Аккуратные отступы от краев экрана */
-    position: relative;
-    z-index: 100;
-}
-
-/* Логотип + Текст (Ювелирно мелкие) */
-.logo-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-}
-.app-logo {
-    width: 28px; /* Мелкий логотип */
-    height: 28px;
-    border-radius: 0;
-    background: transparent;
-    object-fit: contain;
-}
-.logo-text {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-.logo-title {
-    font-size: 13px; /* Строгий размер */
-    font-weight: 900;
-    color: #fff;
-    line-height: 1;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-.logo-subtitle {
-    font-size: 7px; /* Едва заметная приписка */
-    color: rgba(255, 255, 255, 0.4);
-    font-weight: 800;
-    margin-top: 2px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* ПРАВАЯ ГРУППА: Баланс, Аватар, Бургер прижаты друг к другу */
-.header-right-group {
-    display: flex;
-    align-items: center;
-    gap: 6px; /* Минимальный отступ для плотности */
-}
-
-/* Ультра-компактный Баланс */
-.balance-pill {
-    background: rgba(30, 30, 32, 0.5); /* Легкая затемненность */
-    backdrop-filter: blur(25px); /* Глубокое стекло */
-    -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px; /* Капсула */
-    padding: 3px 4px 3px 10px; /* Сжали со всех сторон */
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    transition: transform 0.1s, background 0.2s;
-    width: auto; 
-    min-width: max-content; 
-    white-space: nowrap;
-}
-.balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
-
-.balance-col {
-    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
-}
-.balance-row {
-    display: flex; align-items: center; gap: 4px;
-    font-size: 10px; /* Изящные цифры */
-    font-weight: 800; line-height: 1; color: #fff;
-    font-family: 'SF Mono', 'Roboto Mono', monospace; /* Ровные табличные цифры */
-}
-
-/* Кнопка обновления внутри баланса */
-.refresh-icon-wrapper {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.02);
-    width: 20px; height: 20px; /* Маленькая крутилка */
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-}
-#refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
-.balance-pill:active #refresh-icon { color: #fff; }
-
-/* Аватарка */
-.user-avatar {
-    width: 28px; height: 28px; /* В один размер с бургером */
-    border-radius: 50%;
-    object-fit: cover;
-    border: 1px solid rgba(255,255,255,0.1);
-    cursor: pointer;
-}
-
-/* БУРГЕР - НАСТОЯЩЕЕ ЖИДКОЕ СТЕКЛО */
-.glass-burger {
-    width: 28px; height: 28px; /* Компактный квадрат */
-    border-radius: 8px; /* Острые углы = дорого */
-    background: rgba(255, 255, 255, 0.02); /* Почти прозрачный */
-    backdrop-filter: blur(25px); /* Тот самый шарм глубокого блюра */
-    -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 3px; /* Тонкие просветы */
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    transition: transform 0.1s, background 0.2s;
-    padding: 0;
-}
-.glass-burger span {
-    display: block;
-    width: 12px; /* Короткие линии */
-    height: 1.5px; /* Тонкие линии */
-    background-color: rgba(255, 255, 255, 0.85);
-    border-radius: 2px;
-    box-shadow: 0 0 4px rgba(255,255,255,0.2);
-}
-.glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
-
-/* ==========================================
-   ПЕРЕКЛЮЧАТЕЛЬ (ТОГГЛ С ТЕКСТОМ ВНУТРИ)
+   ПЕРЕКЛЮЧАТЕЛЬ МЕНЮ (ПОДНЯТ В САМЫЙ ВЕРХ ПОД ЧЕЛКУ)
 ========================================== */
 .toggle-container {
+    position: fixed;
+    /* Телеграм сам передаст размер шторки, мы отступаем от нее 10px вниз */
+    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
     display: flex;
     justify-content: center;
-    margin-bottom: 15px; /* Сжали отступ снизу */
+    margin: 0;
 }
-
 .toggle-wrapper {
-    position: relative;
-    display: flex;
+    position: relative; display: flex; 
     background: rgba(25, 25, 25, 0.8);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.06);
     width: 170px; 
-    height: 28px; /* Аккуратная высота */
+    height: 28px; 
     padding: 2px;
+    backdrop-filter: blur(10px);
 }
 .toggle-slider {
     position: absolute; top: 2px; left: 2px;
     width: calc(50% - 2px); height: calc(100% - 4px);
-    background: rgba(255, 255, 255, 0.12); /* Цвет "стеклянного" ползунка */
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5); /* Легкая тень для объема */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
     z-index: 1;
 }
 .toggle-option {
     flex: 1; z-index: 2; cursor: pointer;
-    font-size: 9px; /* Уменьшили текст */
-    font-weight: 800;
-    color: #666; /* Неактивный текст темнее */
+    font-size: 9px; font-weight: 800; color: #666; 
+    display: flex; align-items: center; justify-content: center;
+    letter-spacing: 0.5px; transition: all 0.3s ease;
+}
+.toggle-option.active { color: #fff; text-shadow: 0 0 8px rgba(255, 255, 255, 0.3); }
+
+/* ==========================================
+   ШАПКА (ОПУЩЕНА ПОД ПЕРЕКЛЮЧАТЕЛЬ)
+========================================== */
+.top-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
+    padding: 10px 16px; 
+    /* Опускаем шапку ниже переключателя */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 10px)) + 55px);
+    position: relative;
+    z-index: 100;
 }
-.toggle-option.active { 
-    color: #fff; /* Активный текст белый */
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.3); /* Легкое свечение */
+
+/* Логотип + Текст (Ювелирно мелкие) */
+.logo-wrapper { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.app-logo { width: 28px; height: 28px; border-radius: 0; background: transparent; object-fit: contain; }
+.logo-text { display: flex; flex-direction: column; justify-content: center; }
+.logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
+.logo-subtitle { font-size: 7px; color: rgba(255, 255, 255, 0.4); font-weight: 800; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ПРАВАЯ ГРУППА: Баланс, Аватар, Бургер прижаты друг к другу */
+.header-right-group { display: flex; align-items: center; gap: 6px; }
+
+/* Ультра-компактный Баланс */
+.balance-pill {
+    background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;
+    padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s;
+    width: auto; min-width: max-content; white-space: nowrap;
 }
+.balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
+.balance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.balance-row { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; line-height: 1; color: #fff; font-family: 'SF Mono', 'Roboto Mono', monospace; }
+.refresh-icon-wrapper { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+#refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
+.balance-pill:active #refresh-icon { color: #fff; }
+
+/* Аватарка */
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+
+/* БУРГЕР - НАСТОЯЩЕЕ ЖИДКОЕ СТЕКЛО */
+.glass-burger {
+    width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s; padding: 0;
+}
+.glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
+.glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
+
+/* Скрываем кнопки туториала и рефералки */
+.start-tutorial-btn-wrapper { display: none !important; }
 
 .content-wrapper { position: relative; margin: 0 15px; }
 .view-section { display: none; animation: fadeInScale 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
@@ -234,99 +156,132 @@ html, body {
 }
 
 /* ==========================================
-   СЛАЙДЕР И КАРТОЧКИ
+   ВЕРХНИЙ СЛАЙДЕР (ОТ КРАЯ ДО КРАЯ, БЕЗ СКРУГЛЕНИЙ)
 ========================================== */
-.top-banners-layout {
-    display: block !important;
-    width: 100% !important;
-    margin: 0 !important;
-}
-.side-banners-column { display: none !important; }
-
-/* СЛАЙДЕР (Урезали высоту на ~40%) */
-.slider-container, #main-slider-container {
-    width: 100%;
-    height: 160px !important; /* БЫЛО 280px, СТАЛО 160px */
-    
-    background: var(--surface-glass) !important;
-    backdrop-filter: blur(25px) !important;
-    -webkit-backdrop-filter: blur(25px) !important;
-    border: 1px solid var(--border-glass) !important;
-    border-radius: var(--radius-card) !important;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.4) !important;
-    
-    margin-bottom: 15px !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-}
-
-/* НИЖНИЕ КАРТОЧКИ (АУКЦИОНЫ / РОЗЫГРЫШИ) */
-.action-cards-grid {
-    display: grid;
-    grid-template-columns: 0.85fr 1.15fr !important; 
-    gap: 12px !important; /* Чуть сжали расстояние между ними */
-    margin-bottom: 20px;
-}
-
-.action-card {
-    height: 120px !important; /* Слегка уменьшили высоту карточек */
-    
-    background: var(--surface-glass) !important;
-    backdrop-filter: blur(25px) !important;
-    -webkit-backdrop-filter: blur(25px) !important;
-    border: 1px solid var(--border-glass) !important;
-    border-radius: var(--radius-card) !important;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
-    
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    cursor: pointer;
-    transition: transform 0.1s;
-    
-    color: #fff;
-    font-weight: 800;
+.fullscreen-slider {
+    width: calc(100% + 30px) !important; /* Растягиваем за пределы padding */
+    margin-left: -15px !important;       /* Сдвигаем влево */
+    border-radius: 0 !important;         /* Убираем закругления */
+    border: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+    height: 180px !important;
+    background: #121212 !important; /* Починили серый фон */
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
 }
-.action-card:active { transform: scale(0.96); }
-
-#shortcut-shop { grid-column: 1; grid-row: 1 / span 2; height: 100% !important; min-height: 120px; }
-#shortcut-challenge { grid-column: 2; grid-row: 1; height: 100% !important; min-height: 54px; }
-#shortcut-quests { grid-column: 2; grid-row: 2; height: 100% !important; min-height: 54px; }
-
-/* Внутренности ярлыков (уменьшили шрифты) */
-.metro-tile-bg-icon { position: absolute; right: -10%; bottom: -10%; font-size: 70px; opacity: 0.05; color: #fff; pointer-events: none; z-index: 0; }
-.metro-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; }
-.metro-icon-main { font-size: 22px; margin-bottom: 6px; color: #fff; }
-.metro-label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #fff; }
-.metro-sublabel { font-size: 9px; color: rgba(255,255,255,0.6); font-weight: 600; margin-top: 4px; }
+.fullscreen-slider .slider-wrapper {
+    width: 100%; height: 100%; display: flex; transition: transform 0.5s ease-out;
+}
+.fullscreen-slider .slide {
+    width: 100%; height: 100%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.fullscreen-slider .slide img {
+    width: 100%; height: 100%;
+    object-fit: cover; /* Растягивает картинку идеально на весь блок */
+    border-radius: 0 !important;
+}
 
 /* ==========================================
-   ПЛАВАЮЩИЙ ФУТЕР (КАПСУЛА ИЗ СТЕКЛА)
+   ТОНКИЕ ВЫТЯНУТЫЕ КАРТОЧКИ СНИЗУ
+========================================== */
+.action-cards-grid {
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr !important; /* Правая (розыгрыши) шире */
+    gap: 10px;
+    height: 110px; /* Тонкая и аккуратная высота */
+    margin-top: 15px; /* Отступ от слайдера */
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.flat-card {
+    background: #1c1c1e;
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: #ffffff; text-decoration: none; position: relative;
+    overflow: hidden; transition: transform 0.1s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.flat-card:active { transform: scale(0.96); }
+
+/* Дизайн левой кнопки (Аукцион) */
+.auction-card { background: linear-gradient(135deg, rgba(255, 149, 0, 0.1) 0%, #1c1c1e 100%); }
+.auction-content { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.auction-content i { font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); }
+.auction-content span { font-size: 13px; font-weight: 800; text-transform: uppercase; }
+
+/* ==========================================
+   СОЧНЫЙ ПРЕМИУМ-СЛАЙДЕР РОЗЫГРЫШЕЙ (ФИКС ВМЕСТИМОСТИ)
+========================================== */
+#default-raffle-text { position: relative; z-index: 2; letter-spacing: 1px; font-size: 13px; font-weight: 800; }
+
+.mini-raffle-slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 10px; /* Аккуратный отступ */
+    opacity: 0; transition: opacity 0.6s ease;
+    background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.4) 0%, #1c1c1e 80%);
+    pointer-events: none; z-index: 5;
+}
+.mini-raffle-slide.active { opacity: 1; animation: glowPulse 4s infinite alternate; }
+
+@keyframes glowPulse {
+    0% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.3) 0%, #1c1c1e 80%); }
+    100% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.5) 0%, #1c1c1e 90%); }
+}
+
+/* Тексты слева (Ограничены по ширине, чтобы не лезть на скин) */
+.mini-raffle-info { position: relative; z-index: 10; max-width: 55%; text-align: left; }
+.mini-raffle-name { font-size: 12px; font-weight: 900; color: #fff; line-height: 1.1; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.8); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mini-raffle-stats { font-size: 9px; color: rgba(255,255,255,0.7); font-weight: 600; margin-bottom: 6px; display: flex; gap: 4px; align-items: center; }
+
+.mini-raffle-cta {
+    display: inline-flex; align-items: center; gap: 4px; background: var(--primary-color); color: #000;
+    padding: 4px 10px; border-radius: 20px; font-size: 9px; font-weight: 800; text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); animation: pulseCTA 2s infinite; margin-top: 4px;
+}
+@keyframes pulseCTA {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255, 215, 0, 0); }
+    100% { transform: scale(1); }
+}
+
+/* Картинка скина (Ограничена в размерах) */
+.mini-raffle-img {
+    position: absolute;
+    right: -5px; 
+    top: 50%;
+    transform: translateY(-50%) rotate(5deg);
+    max-height: 85%; /* Чтобы не вылезало за края */
+    max-width: 50%; /* Чтобы не наезжало на текст */
+    object-fit: contain;
+    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8));
+    z-index: 1;
+    animation: floatSkin 4s ease-in-out infinite;
+}
+@keyframes floatSkin {
+    0%, 100% { transform: translateY(-50%) rotate(5deg); }
+    50% { transform: translateY(calc(-50% - 5px)) rotate(0deg); }
+}
+
+.mini-raffle-pagination { position: absolute; bottom: 6px; left: 10px; display: flex; gap: 4px; z-index: 10; }
+.mr-dot { width: 4px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 50%; transition: 0.3s; }
+.mr-dot.active { background: var(--primary-color); width: 12px; border-radius: 4px; box-shadow: 0 0 8px var(--primary-color); }
+
+/* ==========================================
+   ПЛАВАЮЩИЙ ФУТЕР
 ========================================== */
 .floating-bottom-bar {
     position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); 
     width: 90%; max-width: 400px;
-    
-    background: rgba(40, 40, 40, 0.85); /* Темное стекло */
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1); 
-    border-radius: 40px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    
-    display: flex; justify-content: space-around; align-items: center; 
-    padding: 10px; z-index: 1000;
+    background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    display: flex; justify-content: space-around; align-items: center; padding: 10px; z-index: 1000;
 }
-.nav-item { 
-    display: flex; flex-direction: column; align-items: center; justify-content: center; 
-    color: var(--text-muted); text-decoration: none; gap: 4px; 
-    padding: 8px 12px; border-radius: var(--radius-pill); transition: all 0.3s ease; 
-}
+.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; gap: 4px; padding: 8px 12px; border-radius: var(--radius-pill); transition: all 0.3s ease; }
 .nav-item i { font-size: 20px; }
 .nav-item span { font-size: 10px; font-weight: 600; }
 .nav-item.active { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
@@ -335,11 +290,7 @@ html, body {
    КЕЙСЫ (SHOP) СЕТКА
 ========================================== */
 .shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 10px 0; }
-.shop-item { 
-    background: var(--surface-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
-    overflow: hidden; display: flex; flex-direction: column; position: relative; transition: transform 0.1s; 
-}
+.shop-item { background: var(--surface-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid var(--border-glass); box-shadow: 0 4px 15px rgba(0,0,0,0.3); overflow: hidden; display: flex; flex-direction: column; position: relative; transition: transform 0.1s; }
 .shop-item:active { transform: scale(0.98); }
 .item-image-wrapper { width: 100%; padding-top: 100%; position: relative; background: transparent; cursor: pointer; }
 .item-image { position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s; }
@@ -372,31 +323,6 @@ html, body {
 @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
 .premium-exchange-btn.has-active-trade { background: linear-gradient(135deg, #ff3b30, #ff9500); animation: premiumPulse 2s infinite; box-shadow: 0 0 20px rgba(255, 59, 48, 0.4); }
 @keyframes premiumPulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); transform: scale(1); } 70% { box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); transform: scale(1); } }
-
-/* ==========================================
-   ВНУТРЕННОСТИ СЛАЙДЕРА (ДЛЯ ДИНАМИКИ)
-========================================== */
-.slider-wrapper { display: flex; width: 100%; height: 100%; transition: transform 0.5s ease-out; }
-.slide { width: 100%; height: 100%; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; }
-.slide img { width: 100%; height: 100%; object-fit: cover; }
-.slider-controls { position: absolute; bottom: 15px; left: 0; width: 100%; display: flex; justify-content: center; align-items: center; gap: 15px; pointer-events: none; z-index: 10; }
-.slider-dots { display: flex; gap: 6px; pointer-events: auto; }
-.dot { width: 6px; height: 6px; background: rgba(255,255,255,0.3); border-radius: 50%; border: none; padding: 0; transition: 0.3s; }
-.dot.active { background: #fff; width: 14px; border-radius: 4px; }
-.slider-arrow { background: rgba(0,0,0,0.5); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; pointer-events: auto; backdrop-filter: blur(4px); }
-
-/* Динамический розыгрыш */
-.premium-slide-box { padding: 20px; display: flex; align-items: center; justify-content: space-between; height: 100%; width: 100%; background: linear-gradient(135deg, rgba(var(--rarity-rgb), 0.2) 0%, transparent 100%); }
-.raffle-badge-top-right { position: absolute; top: 12px; right: 12px; background: var(--rarity-color); color: #000; font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 8px; text-transform: uppercase; }
-.slide-content-left { display: flex; flex-direction: column; gap: 6px; width: 65%; z-index: 5; }
-.raffle-quality-tag-top { font-size: 11px; color: #aaa; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-.raffle-item-name-new { font-size: 20px; font-weight: 800; line-height: 1.1; text-transform: uppercase; text-shadow: 0 2px 8px rgba(0,0,0,0.8); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.raffle-timer-box-new { display: flex; gap: 6px; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 12px; width: fit-content; border: 1px solid rgba(255,255,255,0.1); margin-top: 10px; backdrop-filter: blur(5px); }
-.timer-unit-new { display: flex; flex-direction: column; align-items: center; }
-.timer-val-new { font-size: 16px; font-weight: 800; color: #fff; font-family: monospace; }
-.timer-lbl-new { font-size: 8px; color: #aaa; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
-.timer-sep { color: rgba(255,255,255,0.4); font-weight: 800; }
-.raffle-item-img-new { position: absolute; right: -20px; bottom: 10px; max-width: 65%; max-height: 90%; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); z-index: 1; pointer-events: none; }
 
 /* ==========================================
    БОКОВОЕ МЕНЮ И МОДАЛКИ (БАЗА)
@@ -546,310 +472,3 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     html.vk-mode .floating-bottom-bar { max-width: 900px !important; border-radius: 20px 20px 0 0; bottom: 0; } 
     .slider-container, #main-slider-container { height: 380px !important; }
 }
-
-/* ==========================================
-   СПИСОК РОЗЫГРЫШЕЙ ВНИЗУ (RAFFLES LIST)
-========================================== */
-.raffles-list-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.raffle-list-card {
-    display: flex;
-    align-items: center;
-    background: rgba(30, 30, 32, 0.6);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    padding: 12px 15px;
-    text-decoration: none;
-    transition: transform 0.1s, background 0.2s;
-    position: relative;
-    overflow: hidden;
-}
-.raffle-list-card:active {
-    transform: scale(0.98);
-    background: rgba(40, 40, 42, 0.8);
-}
-
-/* Картинка скина с мягким свечением */
-.raffle-card-image {
-    width: 65px;
-    height: 55px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 15px;
-    position: relative;
-}
-.raffle-card-image::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle, rgba(var(--rarity-rgb), 0.25) 0%, transparent 70%);
-    z-index: 0;
-    border-radius: 50%;
-}
-.raffle-card-image img {
-    max-width: 120%; /* Чуть вылезает для 3D эффекта */
-    max-height: 120%;
-    object-fit: contain;
-    z-index: 1;
-    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.6));
-    transform: rotate(5deg);
-}
-
-/* Текстовая информация */
-.raffle-card-info {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.raffle-list-card .raffle-quality-tag {
-    font-size: 9px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-}
-
-.raffle-list-card .raffle-item-name {
-    font-size: 13px;
-    font-weight: 800;
-    color: #fff;
-    line-height: 1.2;
-    margin-bottom: 8px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-/* Уменьшенный таймер внутри списка */
-.raffle-list-card .raffle-timer-box-new {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 3px 6px;
-    border-radius: 8px;
-    border: none;
-    margin-top: 0;
-}
-.raffle-list-card .timer-val-new { font-size: 11px; }
-.raffle-list-card .timer-lbl-new { font-size: 6px; }
-.raffle-list-card .timer-sep { font-size: 10px; margin-top: 1px; }
-
-/* Стрелочка перехода справа */
-.raffle-card-action {
-    color: rgba(255, 255, 255, 0.2);
-    font-size: 16px;
-    padding-left: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* ==========================================
-   ТОНКИЕ ВЫТЯНУТЫЕ КАРТОЧКИ (АУКЦИОНЫ / РОЗЫГРЫШИ)
-========================================== */
-.action-cards-grid {
-    display: grid;
-    grid-template-columns: 0.8fr 1.2fr !important; /* Правая часть шире под данные */
-    gap: 12px;
-    height: 95px; /* Делаем тоньше по вертикали! */
-    margin-bottom: 20px;
-    width: 100%;
-}
-
-.flat-card {
-    background: #242424; /* Дорогой матовый темно-серый */
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 800;
-    text-transform: uppercase;
-    text-decoration: none;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.1s ease;
-    border: 1px solid rgba(255, 255, 255, 0.05); /* Легкая стеклянная фаска */
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-}
-
-.flat-card:active {
-    transform: scale(0.96);
-}
-
-.auction-card {
-    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%), #242424;
-}
-
-/* ==========================================
-   ВЕРХНИЙ СЛАЙДЕР (ОТ КРАЯ ДО КРАЯ, БЕЗ СКРУГЛЕНИЙ)
-========================================== */
-.fullscreen-slider {
-    width: calc(100% + 30px) !important; /* Растягиваем за пределы padding */
-    margin-left: -15px !important;       /* Сдвигаем влево */
-    border-radius: 0 !important;         /* Убираем закругления */
-    border: none !important;
-    border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-    height: 180px !important;
-    background: #000 !important;
-}
-.fullscreen-slider .slide img {
-    border-radius: 0 !important; /* Картинка тоже без закруглений */
-    object-fit: cover;
-    object-position: center;
-}
-
-/* ==========================================
-   ТОНКИЕ ВЫТЯНУТЫЕ КАРТОЧКИ СНИЗУ
-========================================== */
-.action-cards-grid {
-    display: grid;
-    grid-template-columns: 0.8fr 1.2fr !important; /* Правая (розыгрыши) шире */
-    gap: 10px;
-    height: 120px; /* Тонкая и аккуратная высота */
-    margin-bottom: 20px;
-    width: 100%;
-}
-
-.flat-card {
-    background: #1c1c1e;
-    border-radius: 18px; /* Оставляем красивые скругления внизу */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ffffff;
-    text-decoration: none;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.1s ease;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-}
-.flat-card:active { transform: scale(0.96); }
-
-/* Дизайн левой кнопки (Аукцион) */
-.auction-card {
-    background: linear-gradient(135deg, rgba(255, 149, 0, 0.1) 0%, #1c1c1e 100%);
-}
-.auction-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-.auction-content i { font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); }
-.auction-content span { font-size: 13px; font-weight: 800; text-transform: uppercase; }
-
-/* ==========================================
-   СОЧНЫЙ ПРЕМИУМ-СЛАЙДЕР РОЗЫГРЫШЕЙ
-========================================== */
-.mini-raffle-slide {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 12px 16px;
-    opacity: 0;
-    transition: opacity 0.6s ease;
-    /* Яркое радиальное свечение из правого верхнего угла (как на референсе) */
-    background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.4) 0%, #1c1c1e 70%);
-    pointer-events: none;
-    z-index: 5;
-}
-.mini-raffle-slide.active { opacity: 1; animation: glowPulse 4s infinite alternate; }
-
-@keyframes glowPulse {
-    0% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.3) 0%, #1c1c1e 70%); }
-    100% { background: radial-gradient(circle at 85% 15%, rgba(var(--rarity-rgb), 0.5) 0%, #1c1c1e 80%); }
-}
-
-/* Тексты слева */
-.mini-raffle-info {
-    position: relative;
-    z-index: 10;
-    max-width: 60%;
-    text-align: left;
-}
-
-.mini-raffle-name {
-    font-size: 16px;
-    font-weight: 900;
-    color: #fff;
-    line-height: 1.1;
-    margin-bottom: 4px;
-    text-shadow: 0 2px 5px rgba(0,0,0,0.8);
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-
-.mini-raffle-stats {
-    font-size: 10px;
-    color: rgba(255,255,255,0.7);
-    font-weight: 600;
-    margin-bottom: 8px;
-    display: flex; gap: 6px; align-items: center;
-}
-
-/* Кнопка "УЧАСТВОВАТЬ" */
-.mini-raffle-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--primary-color);
-    color: #000;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
-    animation: pulseCTA 2s infinite;
-}
-@keyframes pulseCTA {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255, 215, 0, 0); }
-    100% { transform: scale(1); }
-}
-
-/* Картинка скина (парит справа) */
-.mini-raffle-img {
-    position: absolute;
-    right: -15px;
-    top: 50%;
-    transform: translateY(-50%);
-    max-height: 100%;
-    max-width: 55%;
-    object-fit: contain;
-    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8));
-    z-index: 1;
-    animation: floatSkin 4s ease-in-out infinite;
-}
-@keyframes floatSkin {
-    0%, 100% { transform: translateY(-50%) rotate(5deg); }
-    50% { transform: translateY(calc(-50% - 8px)) rotate(0deg); }
-}
-
-/* Точки внизу (Как на референсе) */
-.mini-raffle-pagination {
-    position: absolute;
-    bottom: 8px;
-    left: 16px;
-    display: flex;
-    gap: 4px;
-    z-index: 10;
-}
-.mr-dot { width: 6px; height: 6px; background: rgba(255,255,255,0.2); border-radius: 50%; transition: 0.3s; }
-.mr-dot.active { background: var(--primary-color); width: 14px; border-radius: 4px; box-shadow: 0 0 8px var(--primary-color); }
