@@ -897,7 +897,7 @@ async function validateUserTradeLink() {
     if (loader) { loader.querySelector('.loader-text').innerText = "Проверка профиля..."; loader.classList.add('active'); }
     try {
         const res = await makeApiRequest('/api/v1/user/me', {}, 'POST', true);
-        const tLink = res?.trade_link || "";
+        const tLink = (res && res.trade_link) ? res.trade_link : "";
         if (!tLink.includes("partner=") || !tLink.includes("token=")) {
             Telegram.WebApp.showPopup({ title: '❌ Нет трейд-ссылки', message: 'Зайдите в Профиль и привяжите Trade-ссылку Steam!', buttons: [{ id: 'ok', type: 'default', text: 'Понятно' }] });
             return false; 
@@ -1486,6 +1486,8 @@ async function main() {
                 if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
             }, 2000);
         }
+    }
+}
 // ================================================================
 // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ================================================================
@@ -1515,4 +1517,6 @@ try {
     clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 30000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshDataSilently(); });
-} catch (e) { console.error("Global init error", e); }
+} catch (e) { 
+    console.error("Global init error", e); 
+}
