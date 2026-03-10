@@ -538,27 +538,25 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 
 /* Название кейса сверху */
 .case-top-title {
-    padding: 10px 5px 0 5px;
-    font-size: 13px; /* Стартовый размер шрифта */
-    font-weight: 800;
-    color: #fff;
-    text-align: center;
-    text-transform: uppercase;
-    line-height: 1.1;
-    position: relative;
-    z-index: 4;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-    white-space: nowrap; 
-    overflow: visible; /* Текст не прячется, скрипт его уменьшит */
-    display: block;
+    padding: 10px 10px 5px 10px !important;
+    font-size: 13px !important; 
+    font-weight: 900 !important;
+    color: #fff !important;
+    text-align: center !important;
+    text-transform: uppercase !important;
+    line-height: 1.2 !important;
+    /* УБРАЛИ position: relative и z-index, чтобы текст не наслаивался */
+    display: block !important;
+    white-space: normal !important; /* Разрешаем перенос длинных названий */
+    text-shadow: none !important;
 }
 
-/* Приписка в названии */
 .case-top-title .item-subtitle {
-    font-size: 11px;
-    color: var(--primary-color);
-    font-weight: 700;
-    margin-top: 4px;
+    font-size: 11px !important;
+    color: var(--primary-color) !important;
+    font-weight: 700 !important;
+    display: block !important;
+    margin-top: 2px !important;
 }
 
 /* Контейнер картинки кейса */
