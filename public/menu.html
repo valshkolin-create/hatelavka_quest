@@ -79,6 +79,8 @@
         </div>
     </header>
 
+    
+
     <div id="pull-to-refresh">
         <i class="fa-solid fa-rotate-right"></i>
     </div>
@@ -136,18 +138,26 @@
                         </div>
                 </div>
                 
-            </div> <div id="cases-view" class="view-section">
-                <button onclick="openP2PModal()" class="premium-exchange-btn" id="open-p2p-modal-btn">
-                    <div class="p2p-icon-box"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
-                    <div class="p2p-text-box">
-                        <span class="p2p-title">Trade-In</span>
-                        <span class="p2p-subtitle">Обмен кейсов на 🟡</span>
-                    </div>
-                    <div class="p2p-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-                </button>
+            </div> <div id="view-shop" class="view-section">
+                <div class="shop-actions" style="padding: 0 16px;">
+                    <button onclick="openP2PModal()" class="premium-exchange-btn" id="open-p2p-modal-btn">
+                        <div class="p2p-icon-box">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                        </div>
+                        
+                        <div class="p2p-text-box">
+                            <span class="p2p-title">Trade-In</span>
+                            <span class="p2p-subtitle">Обмен кейсов на 🟡</span>
+                        </div>
 
-                <div id="shop-grid" class="shop-grid">
-                    </div>
+                        <div class="p2p-arrow">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </div>
+                    </button>
+                </div>
+
+                <div id="shop-grid" class="shop-grid"></div>
+            </div>
             </div>
 
         </div>
