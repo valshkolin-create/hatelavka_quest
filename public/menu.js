@@ -581,23 +581,24 @@ function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})
 
 async function initDynamicRaffleSlider() {
     const container = document.getElementById('mini-raffle-slider');
+    const defaultText = document.getElementById('default-raffle-text');
     if (!container) return;
 
     try {
-        const res = await fetch('/api/v1/raffles/active', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(getAuthPayload()) });
-        const data = await res.json();
-        
-        // Берем первые 5 активных розыгрышей
-        const activeRaffles = data.filter(r => r.status === 'active').slice(0, 5);
+        const res = await makeApiRequest('/api/v1/raffles/active', {}, 'POST', true);
+        const activeRaffles = res.filter(r => r.status === 'active').slice(0, 5);
 
         if (activeRaffles.length > 0) {
+            if (defaultText) defaultText.style.display = 'none'; 
+            
             let slidesHTML = '';
             activeRaffles.forEach((raffle, index) => {
                 const s = raffle.settings || {}; 
                 const img = s.card_image || s.prize_image || ''; 
                 const rarityColor = s.rarity_color || '#ffd700'; 
+                const quality = s.skin_quality || 'FT';
+                const pCount = raffle.participants_count || 0;
                 
-                // Конвертируем HEX в RGB для градиента
                 const hexToRgb = (hex) => {
                     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
                     return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0';
@@ -605,16 +606,49 @@ async function initDynamicRaffleSlider() {
 
                 slidesHTML += `
                     <div class="mini-raffle-slide ${index === 0 ? 'active' : ''}" style="--rarity-rgb: ${hexToRgb(rarityColor)};">
+                        
+                        <div class="mini-raffle-top">
+                            <span style="color: ${rarityColor}; text-shadow: 0 0 5px rgba(var(--rarity-rgb), 0.5);">${escapeHTML(quality)}</span>
+                            <span style="opacity: 0.5;">●</span>
+                            <span><i class="fa-solid fa-users"></i> ${pCount}</span>
+                        </div>
+                        
                         <div class="mini-raffle-name">${escapeHTML(s.prize_name)}</div>
+                        
+                        <div class="mini-raffle-timer raffle-mini-timer-dyn" data-endtime="${raffle.end_time}">
+                            <span>00</span><div class="timer-sep">:</div>
+                            <span>00</span><div class="timer-sep">:</div>
+                            <span>00</span>
+                        </div>
+                        
                         <img src="${img}" class="mini-raffle-img">
                     </div>
                 `;
             });
             
-            // Вставляем слайды в кнопку
             container.innerHTML = slidesHTML;
 
-            // Запускаем плавное переключение, если розыгрышей больше одного
+            // Живой таймер внутри кнопки
+            const updateTimers = () => {
+                container.querySelectorAll('.raffle-mini-timer-dyn').forEach(el => {
+                    const diff = new Date(el.dataset.endtime) - new Date();
+                    if (diff <= 0) { el.innerHTML = "<span style='color:#ff3b30; font-size:10px;'>ЗАВЕРШЕН</span>"; return; }
+                    const h = Math.floor(diff / (1000 * 60 * 60));
+                    const m = Math.floor((diff / (1000 * 60)) % 60);
+                    const s = Math.floor((diff / 1000) % 60);
+                    
+                    const spans = el.querySelectorAll('span');
+                    if (spans.length === 3) {
+                        spans[0].innerText = String(h).padStart(2, '0');
+                        spans[1].innerText = String(m).padStart(2, '0');
+                        spans[2].innerText = String(s).padStart(2, '0');
+                    }
+                });
+            };
+            updateTimers();
+            setInterval(updateTimers, 1000);
+
+            // Плавное перелистывание слайдов
             const slides = container.querySelectorAll('.mini-raffle-slide');
             if (slides.length > 1) {
                 let cur = 0;
@@ -622,17 +656,13 @@ async function initDynamicRaffleSlider() {
                     slides[cur].classList.remove('active');
                     cur = (cur + 1) % slides.length;
                     slides[cur].classList.add('active');
-                }, 4000); // Каждые 4 секунды меняется скин
+                }, 4000); 
             }
-        } else {
-            // Если нет розыгрышей, просто пишем текст
-            container.innerHTML = '<span style="font-size:14px; font-weight:800; color:#fff; text-transform:uppercase;">РОЗЫГРЫШИ</span>';
         }
     } catch (e) {
-        container.innerHTML = '<span style="font-size:12px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
+        container.innerHTML = '<span style="font-size:13px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
     }
 }
-
 async function renderFullInterface(data) {
     userData = data.user || {}; allQuests = data.quests || [];
     const menuContent = data.menu;
