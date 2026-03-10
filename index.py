@@ -5679,24 +5679,138 @@ async def reject_cs_history_reward(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    reward_id = request_data.get("reward_id")
-    if not reward_id:
+    raw_reward_id = request_data.get("reward_id")
+    if not raw_reward_id:
         raise HTTPException(status_code=400, detail="ID не передан")
+
+    # 🔥 ЗАЩИТА ОТ СТРОК: Очищаем префикс 'case_', если он есть
+    try:
+        # Убираем "case_" и превращаем в число
+        clean_id = int(str(raw_reward_id).replace("case_", "").replace("manual_", ""))
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Неверный формат ID: {raw_reward_id}")
 
     # 🔥 ЛОГИКА: Возвращаем статус 'pending'.
     # Это значит: скин не удаляется, а просто возвращается в инвентарь юзера как "новый".
     # Юзер снова увидит кнопки "Забрать" и "Обменять".
     resp = await supabase.patch(
         "/cs_history",
-        params={"id": f"eq.{reward_id}"},
+        params={"id": f"eq.{clean_id}"},
         json={"status": "pending"}
     )
 
     if resp.status_code not in [200, 204]:
-        logging.error(f"Ошибка БД при отклонении кейса {reward_id}: {resp.text}")
+        logging.error(f"Ошибка БД при отклонении кейса {clean_id}: {resp.text}")
         raise HTTPException(status_code=500, detail="Ошибка при обновлении БД")
 
     return {"status": "ok", "message": "Заявка отклонена, скин возвращен в инвентарь пользователя"}
+
+@app.post("/api/v1/admin/shop_purchases/details")
+async def get_shop_purchases_details_for_admin(
+    request_data: PendingActionRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Возвращает список: обычные покупки и ЗАЯВКИ НА ВЫВОД скинов."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # 1. Получаем обычные покупки (билеты и т.д.) из manual_rewards
+        # Тут оставляем pending, так как это покупки за баллы
+        rewards_resp = await supabase.get(
+            "/manual_rewards",
+            params={
+                "status": "eq.pending",
+                "source_type": "eq.shop", 
+                "select": "id,user_id,reward_details,source_description,created_at"
+            }
+        )
+        shop_rewards = rewards_resp.json() if rewards_resp.status_code == 200 else []
+
+        # 2. ПОЛУЧАЕМ ЗАЯВКИ НА ВЫВОД ИЗ cs_history
+        history_resp = await supabase.get(
+            "/cs_history",
+            params={
+                # 🔥 ИСПРАВЛЕНИЕ: Ищем ТОЛЬКО статус 'processing' (ожидает ручной выдачи)
+                "status": "eq.processing",  
+                "select": "id,user_id,item_id,created_at,cs_items(name,image_url)" 
+            }
+        )
+        case_purchases = history_resp.json() if history_resp.status_code == 200 else []
+
+        if not shop_rewards and not case_purchases:
+            return []
+
+        # 3. Собираем всех уникальных пользователей
+        user_ids = {r["user_id"] for r in shop_rewards} | {c["user_id"] for c in case_purchases}
+        
+        users_data = {}
+        if user_ids:
+            users_resp = await supabase.get(
+                "/users",
+                params={
+                    "telegram_id": f"in.({','.join(map(str, user_ids))})",
+                    "select": "telegram_id,full_name,trade_link,username"
+                }
+            )
+            users_data = {u["telegram_id"]: u for u in users_resp.json()}
+
+        final_list = []
+
+        # 4. Обрабатываем обычные товары
+        for reward in shop_rewards:
+            user_details = users_data.get(reward["user_id"], {})
+            raw_desc = reward.get("source_description", "")
+            
+            image_url = "https://placehold.co/100?text=Item"
+            if raw_desc and "|" in raw_desc:
+                parts = raw_desc.split("|")
+                if len(parts) > 1 and parts[1].strip().startswith("http"):
+                    image_url = parts[1].strip()
+
+            final_list.append({
+                "id": f"manual_{reward['id']}", 
+                "real_id": reward["id"],
+                "type": "manual",
+                "user_id": reward.get("user_id"),
+                "title": reward.get("reward_details"), 
+                "user_full_name": user_details.get("full_name", "N/A"),
+                "user_username": user_details.get("username"),
+                "user_trade_link": user_details.get("trade_link"),
+                "created_at": reward.get("created_at"),
+                "image_url": image_url,
+                "won_skin_name": None
+            })
+
+        # 5. Обрабатываем заявки на вывод скинов
+        for case in case_purchases:
+            user_details = users_data.get(case["user_id"], {})
+            skin_data = case.get("cs_items", {}) 
+
+            final_list.append({
+                "id": f"case_{case['id']}", 
+                "real_id": case["id"],
+                "type": "case", # Фронтенд админки должен понимать этот тип
+                "user_id": case.get("user_id"),
+                # 🔥 Меняем заголовок, чтобы админ понимал, что это вывод
+                "title": "ЗАЯВКА НА ВЫВОД 📤", 
+                "user_full_name": user_details.get("full_name", "N/A"),
+                "user_username": user_details.get("username"),
+                "user_trade_link": user_details.get("trade_link"),
+                "created_at": case.get("created_at"),
+                "image_url": skin_data.get("image_url"), 
+                "won_skin_name": skin_data.get("name"),
+                "won_skin_image": skin_data.get("image_url")
+            })
+
+        # Сортируем всё вместе по дате (новые сверху)
+        final_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return final_list
+
+    except Exception as e:
+        logging.error(f"Ошибка при получении покупок магазина: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось загрузить покупки")
     
 @app.post("/api/v1/admin/p2p/cancel")
 async def admin_p2p_cancel(
@@ -6625,11 +6739,11 @@ async def get_shop_purchases_details_for_admin(
         shop_rewards = rewards_resp.json() if rewards_resp.status_code == 200 else []
 
         # 2. ПОЛУЧАЕМ ЗАЯВКИ НА ВЫВОД ИЗ cs_history
-        # 🔥 ИЗМЕНЕНИЕ: Ищем статус 'processing' (это те, кто нажал "Забрать")
         history_resp = await supabase.get(
             "/cs_history",
             params={
-                "status": "in.(pending,processing)",  # <--- ТЕПЕРЬ ВИДНО ВСЁ
+                # 🔥 ИСПРАВЛЕНИЕ: Ищем ТОЛЬКО статус 'processing' (ожидает ручной выдачи)
+                "status": "eq.processing",  
                 "select": "id,user_id,item_id,created_at,cs_items(name,image_url)" 
             }
         )
@@ -6811,11 +6925,11 @@ async def get_pending_counts(
         shop_manual_count = sum(1 for r in manual_rewards_list if r.get("source_type") == "shop")
 
         # 3. 🔥 НОВОЕ: Считаем скины из cs_history (Заявки на вывод)
-        # Учитываем и новые (pending), и те, что Кладовщик перевел в ручной режим (processing)
         history_resp = await supabase.get(
             "/cs_history",
             params={
-                "status": "in.(pending,processing)",
+                # 🔥 ИСПРАВЛЕНИЕ: Считаем ТОЛЬКО те, что упали в ручной режим
+                "status": "eq.processing",
                 "select": "id"
             },
             headers={"Prefer": "count=exact"}
