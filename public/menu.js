@@ -615,14 +615,16 @@ function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})
 // ================================================================
 // СОЧНЫЙ МИНИ-СЛАЙДЕР РОЗЫГРЫШЕЙ В ПРАВОЙ КНОПКЕ
 // ================================================================
+let raffleSlideInterval = null;
+let raffleTimersInterval = null;
+
 async function initDynamicRaffleSlider() {
     const container = document.getElementById('mini-raffle-slider');
     if (!container) return;
 
-    try {
-        const data = await makeApiRequest('/api/v1/raffles/active', {}, 'POST', true);
-        
-        // БЕЗОПАСНО ИЩЕМ МАССИВ (на случай если API возвращает объект)
+    // --- ВНУТРЕННЯЯ ФУНКЦИЯ ДЛЯ ОТРИСОВКИ ---
+    const renderRaffles = (data) => {
+        // БЕЗОПАСНО ИЩЕМ МАССИВ
         let arr = [];
         if (Array.isArray(data)) arr = data;
         else if (data && Array.isArray(data.raffles)) arr = data.raffles;
@@ -646,7 +648,7 @@ async function initDynamicRaffleSlider() {
                 const quality = s.skin_quality || 'FT';
                 const pCount = raffle.participants_count || 0;
 
-                // Создаем точки конкретно для этого слайда (они будут внутри info-блока)
+                // Создаем точки
                 let dotsHTML = '<div class="mr-dots-container">';
                 activeRaffles.forEach((_, dotIndex) => {
                     dotsHTML += `<div class="mr-dot ${dotIndex === index ? 'active' : ''}" style="width:6px; height:6px; border-radius:50%; background: ${dotIndex === index ? rarityColor : 'rgba(255,255,255,0.2)'}; transition: background 0.3s;"></div>`;
@@ -674,6 +676,9 @@ async function initDynamicRaffleSlider() {
             
             container.innerHTML = slidesHTML;
 
+            // Очищаем старые интервалы (защита при обновлении кэша)
+            if (raffleTimersInterval) clearInterval(raffleTimersInterval);
+            if (raffleSlideInterval) clearInterval(raffleSlideInterval);
 
             // Запуск таймеров
             const updateTimers = () => {
@@ -684,7 +689,6 @@ async function initDynamicRaffleSlider() {
                         return; 
                     }
                     
-                    // Высчитываем дни, часы, минуты и секунды
                     const d = Math.floor(diff / (1000 * 60 * 60 * 24));
                     const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
                     const m = Math.floor((diff / (1000 * 60)) % 60);
@@ -692,7 +696,6 @@ async function initDynamicRaffleSlider() {
                     
                     const spans = el.querySelectorAll('span');
                     if (spans.length === 3) {
-                        // Если есть дни, добавляем их вместе с часами
                         spans[0].innerText = d > 0 ? `${d}д ${String(h).padStart(2, '0')}` : String(h).padStart(2, '0');
                         spans[1].innerText = String(m).padStart(2, '0');
                         spans[2].innerText = String(s).padStart(2, '0');
@@ -700,13 +703,13 @@ async function initDynamicRaffleSlider() {
                 });
             };
             updateTimers();
-            setInterval(updateTimers, 1000);
+            raffleTimersInterval = setInterval(updateTimers, 1000);
 
             // Перелистывание слайдов
             const slides = container.querySelectorAll('.mini-raffle-slide');
             if (slides.length > 1) {
                 let cur = 0;
-                setInterval(() => {
+                raffleSlideInterval = setInterval(() => {
                     slides[cur].classList.remove('active');
                     cur = (cur + 1) % slides.length;
                     slides[cur].classList.add('active');
@@ -715,9 +718,25 @@ async function initDynamicRaffleSlider() {
         } else {
             container.innerHTML = '<span style="font-size:14px; font-weight:800; color:#fff; text-transform:uppercase;">РОЗЫГРЫШИ</span>';
         }
+    };
+    // --- КОНЕЦ ВНУТРЕННЕЙ ФУНКЦИИ ---
+
+    // 1. Пытаемся моментально отрендерить из кэша
+    const cachedRaffles = localStorage.getItem('raffle_cache_v1');
+    if (cachedRaffles) {
+        try { renderRaffles(JSON.parse(cachedRaffles)); } catch(e) {}
+    }
+
+    // 2. Тихо запрашиваем свежие данные с сервера
+    try {
+        const data = await makeApiRequest('/api/v1/raffles/active', {}, 'POST', true);
+        localStorage.setItem('raffle_cache_v1', JSON.stringify(data));
+        renderRaffles(data); // Перерисовываем с новыми данными
     } catch (e) {
         console.warn("Raffle mini-slider error:", e);
-        container.innerHTML = '<span style="font-size:12px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
+        if (!cachedRaffles) {
+            container.innerHTML = '<span style="font-size:12px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
+        }
     }
 }
 
@@ -786,19 +805,29 @@ async function loadCategory(catId) {
     const container = document.getElementById('shop-grid');
     if (!container) return;
 
-    if (itemsCache[catId]) {
-        renderItems(itemsCache[catId]);
-        return;
+    // 1. Пытаемся моментально отрендерить из кэша
+    const localCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
+    if (localCache[catId]) {
+        itemsCache[catId] = localCache[catId];
+        renderItems(localCache[catId]);
+    } else if (!itemsCache[catId]) {
+        // Если кэша нет вообще — показываем скелетоны (анимацию загрузки)
+        container.innerHTML = Array(6).fill('<div class="shop-item skeleton" style="height: 180px; background: transparent; border-radius: 12px; animation: pulse 1.5s infinite;"></div>').join('');
     }
 
-    container.innerHTML = Array(6).fill('<div class="shop-item skeleton" style="height: 180px; background: transparent; border-radius: 12px; animation: pulse 1.5s infinite;"></div>').join('');
-
     try {
-        const items = await makeApiRequest('/api/v1/shop/goods', { category_id: catId }, 'POST', true);
+        // 2. В ФОНЕ запрашиваем свежие данные с сервера
+        const items = await makeApiRequest('/api/v1/shop/goods', { category_id: catId }, 'POST', true); // isSilent = true
+        
+        // 3. Обновляем память и тихо перерисовываем
         itemsCache[catId] = items;
-        renderItems(items);
+        localCache[catId] = items;
+        localStorage.setItem('shop_items_cache', JSON.stringify(localCache));
+        renderItems(items); 
     } catch (e) {
-        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30; padding: 20px;">Ошибка загрузки</div>';
+        if (!itemsCache[catId]) {
+            container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30; padding: 20px;">Ошибка загрузки</div>';
+        }
     }
 }
 
@@ -1426,25 +1455,52 @@ async function main() {
             return; 
         }
         
-        // 1. Показываем лоадер с самого начала
-        if (dom.loaderOverlay) {
-            dom.loaderOverlay.classList.remove('hidden');
-            dom.loaderOverlay.style.opacity = '1';
-        }
-        updateLoading(10); 
-
-        let bootstrapData = null, fakeP = 10;
-        const timer = setInterval(() => { if(fakeP < 80) updateLoading(++fakeP); }, 50);
+        let isCached = false;
+        const cachedBootstrap = localStorage.getItem('main_bootstrap_cache_v1');
         
-        // 2. Грузим базу
+        // 1. ПРОБУЕМ ЗАГРУЗИТЬСЯ ИЗ КЭША (БЕЗ ЛОАДЕРА)
+        if (cachedBootstrap) {
+            try {
+                const parsedData = JSON.parse(cachedBootstrap);
+                // Пропускаем кэш только если нет тех. работ
+                if (!parsedData.maintenance) { 
+                    await renderFullInterface(parsedData);
+                    isCached = true;
+                    // МГНОВЕННО скрываем экран загрузки
+                    if (dom.loaderOverlay) {
+                        dom.loaderOverlay.style.opacity = '0';
+                        dom.loaderOverlay.classList.add('hidden');
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // Если кэша нет — показываем экран загрузки
+        let fakeP = 10;
+        let timer = null;
+        if (!isCached) {
+            if (dom.loaderOverlay) {
+                dom.loaderOverlay.classList.remove('hidden');
+                dom.loaderOverlay.style.opacity = '1';
+            }
+            updateLoading(10); 
+            timer = setInterval(() => { if(fakeP < 80) updateLoading(++fakeP); }, 50);
+        }
+        
+        // 2. ФОНОВЫЙ ЗАПРОС СВЕЖИХ ДАННЫХ (Тихий)
+        let bootstrapData = null;
         try { 
+            // isSilent = true скрывает спам лоадером
             bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
+            localStorage.setItem('main_bootstrap_cache_v1', JSON.stringify(bootstrapData));
         } catch(apiError) {
             console.error("Ошибка загрузки данных", apiError);
-            document.body.innerHTML = '<div style="display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#ff3b30; font-family:sans-serif;"><i class="fa-solid fa-triangle-exclamation" style="font-size:40px; margin-bottom:15px;"></i><b>Ошибка соединения</b><button onclick="window.location.reload()" style="margin-top:20px; padding:10px 20px; background:#FFD700; color:#000; border:none; border-radius:10px; font-weight:bold;">Перезагрузить</button></div>';
+            if (!isCached) { // Ошибку показываем, только если пустой экран
+                document.body.innerHTML = '<div style="display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#ff3b30; font-family:sans-serif;"><i class="fa-solid fa-triangle-exclamation" style="font-size:40px; margin-bottom:15px;"></i><b>Ошибка соединения</b><button onclick="window.location.reload()" style="margin-top:20px; padding:10px 20px; background:#FFD700; color:#000; border:none; border-radius:10px; font-weight:bold;">Перезагрузить</button></div>';
+            }
             return;
         } finally { 
-            clearInterval(timer); 
+            if (timer) clearInterval(timer); 
         }
         
         if (!bootstrapData) throw new Error("Нет данных");
@@ -1455,32 +1511,31 @@ async function main() {
             return; 
         }
 
-        // 3. Рендерим шапку
+        // 3. ТИХО ОБНОВЛЯЕМ ИНТЕРФЕЙС (Если что-то изменилось)
         await renderFullInterface(bootstrapData);
-        updateLoading(50);
+        if(!isCached) updateLoading(50);
 
-        // 4. Ждем розыгрыши
+        // 4. ТИХО ОБНОВЛЯЕМ РОЗЫГРЫШИ И СЛАЙДЕРЫ
         await initDynamicRaffleSlider();
         setupSlider();
-        updateLoading(70);
+        if(!isCached) updateLoading(70);
 
-        // 5. ЖДЕМ КЕЙСЫ (По твоему ID) И P2P
+        // 5. ЖДЕМ КЕЙСЫ И P2P
         await loadCategory(2716312); 
         checkActiveTradesBackground();
-        updateLoading(100);
+        if(!isCached) updateLoading(100);
 
-        // 6. ВСЁ ГОТОВО - ПЛАВНО ОТКРЫВАЕМ ЭКРАН
-        setTimeout(() => { 
-            if (dom.loaderOverlay) {
+        // 6. ЕСЛИ БЫЛ ЛОАДЕР — ПЛАВНО ОТКРЫВАЕМ ЭКРАН
+        if (!isCached && dom.loaderOverlay) {
+            setTimeout(() => { 
                 dom.loaderOverlay.style.opacity = '0';
-                setTimeout(() => dom.loaderOverlay.classList.add('hidden'), 400); // Скрываем после затухания
-            }
-        }, 300);
+                setTimeout(() => dom.loaderOverlay.classList.add('hidden'), 400); 
+            }, 300);
+        }
 
     } catch(e) {
         console.error(e);
-        // Если это не наша блокировка безопасности — показываем стандартный экран смерти
-        if (e.message !== "Security Block") {
+        if (e.message !== "Security Block" && !isCached) { 
             if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
             setTimeout(() => { 
                 if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
