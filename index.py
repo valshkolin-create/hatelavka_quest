@@ -15298,7 +15298,8 @@ async def buy_bott_item_proxy(
     background_tasks: BackgroundTasks, # 2. Фоновые задачи
     supabase: httpx.AsyncClient = Depends(get_supabase_client) # 3. База (БЕЗ multi_acc_protection)
 ):
-    logging.info("========== [SHOP] ПОКУПКА v13 (VALIDATION + BUY) ==========")
+    import asyncio
+    logging.info("========== [SHOP] ПОКУПКА v13 (FAST + ASYNC) ==========")
     
     # 0. Валидация initData (Она у тебя уже написана идеально!)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -15336,13 +15337,11 @@ async def buy_bott_item_proxy(
     # =========================================================================
     # 🔥 ПРОВЕРКА ТРЕЙД-ССЫЛКИ (ДО СПИСАНИЯ ДЕНЕГ)
     # =========================================================================
-    # Проверка на наличие ссылки в принципе (без запросов к API Маркета)
     if not trade_link or "partner=" not in trade_link or "token=" not in trade_link:
         raise HTTPException(
             status_code=400, 
             detail="⚠️ У вас не привязана Trade-ссылка! Зайдите в Профиль и привяжите Steam Trade Link."
         )
-    # =========================================================================
 
     bott_internal_id = user_record.get("bott_internal_id")
     bott_secret_key = user_record.get("bott_secret_key")
@@ -15352,211 +15351,176 @@ async def buy_bott_item_proxy(
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
 
-    bott_order_id = 0
-
     # =========================================================================
-    # 2 & 3. ПРОВЕРКА БАЛАНСА И СПИСАНИЕ
+    # 2. ПРОВЕРКА БАЛАНСА И ЛОКАЛЬНОЕ СПИСАНИЕ
     # =========================================================================
     if currency == 'tickets':
         if current_tickets < price:
             raise HTTPException(status_code=400, detail="Недостаточно билетов!")
-            
-        new_tickets = current_tickets - price
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{telegram_id}"},
-            json={"tickets": new_tickets} 
-        )
-        logging.info(f"[SHOP] Списаны билеты. Было: {current_tickets}, Стало: {new_tickets}")
-
+        new_balance = current_tickets - price
+        update_col = "tickets"
     else:
         if current_balance_kopecks < (price * 100):
             raise HTTPException(status_code=400, detail="Недостаточно средств!")
-
-        # Создаем заказ в Bot-T для учета
-        url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
-        payload = {
-            "bot_id": int(BOTT_BOT_ID),
-            "category_id": item_id,
-            "count": 1,
-            "user_id": int(bott_internal_id),
-            "secret_user_key": bott_secret_key
-        }
-
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            try:
-                resp = await client.post(url, json=payload)
-                if resp.status_code != 200:
-                    logging.error(f"[SHOP] Bot-T Error {resp.status_code}: {resp.text}")
-                    raise HTTPException(status_code=500, detail="Ошибка магазина Bot-T")
-                
-                resp_json = resp.json()
-                if resp_json.get("result") is False:
-                    err_msg = resp_json.get("message", "Ошибка покупки")
-                    raise HTTPException(status_code=400, detail=f"Bot-T: {err_msg}")
-                
-                bott_order_data = resp_json.get("data", {})
-                bott_order_id = bott_order_data.get("id", 0)
-                
-            except HTTPException as he:
-                raise he
-            except Exception as e:
-                logging.error(f"[SHOP] Critical Bot-T request fail: {e}")
-                raise HTTPException(status_code=500, detail="Сбой связи с магазином")
-
         new_balance = current_balance_kopecks - (price * 100)
+        update_col = "bot_t_coins"
+
+    # Списываем баланс В БД (Это быстро)
+    try:
         await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
-            json={"bot_t_coins": new_balance} 
+            json={update_col: new_balance} 
         )
+    except Exception as e:
+        logging.error(f"Ошибка списания баланса: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка проведения транзакции")
+
+    # 🔥 ФОНОВАЯ ЗАДАЧА: Отправка данных в Bot-T 🔥
+    if currency != 'tickets':
+        async def send_to_bott_bg(b_id, cat_id, u_id, sec_key):
+            url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
+            payload = {
+                "bot_id": int(b_id), "category_id": cat_id, "count": 1,
+                "user_id": int(u_id), "secret_user_key": sec_key
+            }
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(url, json=payload)
+                    # Логируем ответ для дебага, но юзер уже не ждет
+                    logging.info(f"[Bot-T BG] Response: {resp.status_code}")
+            except Exception as e:
+                logging.error(f"[Bot-T BG Error]: {e}")
+                
+        background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key)
 
     # =========================================================================
-    # 🎰 ЛОГИКА РУЛЕТКИ (КЕЙСЫ)
+    # 🎰 ЛОГИКА РУЛЕТКИ (КЕЙСЫ) - ПАРАЛЛЕЛЬНОЕ ЧТЕНИЕ
     # =========================================================================
     if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
-        logging.info(f"[SHOP] Открытие кейса: {item_title} для юзера {telegram_id}")
         
-        try:
-            # 1. Достаем последний Lacky
-            last_spin_resp = await supabase.get(
+        async def fetch_lacky():
+            resp = await supabase.get(
                 "/cs_history",
-                params={
-                    "user_id": f"eq.{telegram_id}",
-                    "case_name": f"eq.{item_title}",
-                    "order": "created_at.desc",
-                    "limit": "1",
-                    "select": "lacky"
-                }
+                params={"user_id": f"eq.{telegram_id}", "case_name": f"eq.{item_title}", "order": "created_at.desc", "limit": "1", "select": "lacky"}
             )
-            last_spin_data = last_spin_resp.json()
-            
-            last_lacky = 0
-            if isinstance(last_spin_data, list) and len(last_spin_data) > 0:
-                last_lacky = int(last_spin_data[0].get("lacky", 0))
+            data = resp.json()
+            return int(data[0].get("lacky", 0)) if data and isinstance(data, list) else 0
 
-            current_lacky = last_lacky + 1
-            if current_lacky > 5:
-                current_lacky = 1 
-                
-            logging.info(f"[SHOP] Юзер {telegram_id} | Кейс '{item_title}' | Крутка: {current_lacky}/5")
-
-            # 2. Получаем содержимое кейса
-            contents_resp = await supabase.get(
+        async def fetch_contents():
+            resp = await supabase.get(
                 "/cs_case_contents", 
-                params={
-                    "case_tag": f"eq.{item_title}",
-                    "select": "chance_weight, item:cs_items(*)"
-                }
+                params={"case_tag": f"eq.{item_title}", "select": "chance_weight, item:cs_items(*)"}
             )
-            rows = contents_resp.json()
-            
-            if not rows or not isinstance(rows, list):
-                raise HTTPException(status_code=500, detail="Кейс не настроен в базе.")
+            return resp.json()
 
-            all_items = []
-            weights = []
-            for row in rows:
-                skin = row.get('item')
-                if skin and skin.get('is_active', True):
-                    all_items.append(skin)
-                    weights.append(float(row.get('chance_weight', 10)))
-
-            # 3. Умная логика (Pity System)
-            base_case_price = float(price) / 2.0 if currency == 'tickets' else float(price)
-            target_value = base_case_price * 0.70 if currency == 'tickets' else base_case_price * 0.66
-            
-            final_items = []
-            final_weights = []
-
-            if current_lacky == 5:
-                logging.info(f"[SHOP] ГАРАНТ! Ищем скины >= {target_value}.")
-                for skin, w in zip(all_items, weights):
-                    skin_price = float(skin.get('price_rub', 0))
-                    if skin_price >= target_value:
-                        final_items.append(skin)
-                        if skin_price >= base_case_price * 5.0:
-                            final_weights.append(w * 0.001)
-                        elif skin_price >= base_case_price * 1.5:
-                            final_weights.append(w * 0.1)
-                        else:
-                            final_weights.append(w * 5.0) 
-                
-                if not final_items:
-                    final_items, final_weights = all_items, weights
-            else:
-                pity_multiplier = 1.0 + (current_lacky * 0.1)
-                for skin, w in zip(all_items, weights):
-                    skin_price = float(skin.get('price_rub', 0))
-                    final_items.append(skin)
-                    if target_value <= skin_price < base_case_price * 1.5:
-                        final_weights.append(w * pity_multiplier)
-                    else:
-                        final_weights.append(w)
-
-            # 4. Выбор победителя
-            winner = random.choices(final_items, weights=final_weights, k=1)[0]
-            
-            # 5. СОЗДАНИЕ ЗАПИСИ
-            history_id = None
-            current_code = f"BOTT_{bott_order_id}" if currency == 'coins' else f"TICKET_{int(time.time())}"
-
-            try:
-                h_res = await supabase.post("/cs_history", json={
-                    "user_id": int(telegram_id),
-                    "item_id": int(winner['id']),
-                    "case_name": str(item_title),
-                    "code_used": current_code,
-                    "status": "pending", 
-                    "lacky": current_lacky,
-                    "details": f"Выигрыш: {winner['name']}"
-                }, headers={"Prefer": "return=representation"})
-                
-                h_data = h_res.json()
-                if h_data and isinstance(h_data, list):
-                    history_id = h_data[0].get('id')
-                    logging.info(f"[SHOP] Запись создана! HistoryID: {history_id}")
-            except Exception as e:
-                logging.error(f"[SHOP] Ошибка создания записи: {e}")
-
-            # 6. Ответ фронтенду
-            roulette_strip = random.choices(all_items, weights=weights, k=80)
-            roulette_strip[60] = winner 
-            
-            winner_output = winner.copy()
-            winner_output['id'] = history_id 
-            winner_output['real_item_id'] = winner['id'] 
-
-            return {
-                "status": "ok",
-                "winner": winner_output,
-                "roulette_strip": roulette_strip,
-                "history_id": history_id,
-                "lacky": current_lacky,
-                "messages": [f"Выпало: {winner['name']}"]
-            }
-
+        # 🔥 ПАРАЛЛЕЛЬНО ЧИТАЕМ LACKY И КЕЙС 🔥
+        try:
+            last_lacky, rows = await asyncio.gather(fetch_lacky(), fetch_contents())
         except Exception as e:
-            logging.error(f"[SHOP] Ошибка кейса: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logging.error(f"[SHOP] Ошибка чтения кейса/lacky: {e}")
+            raise HTTPException(status_code=500, detail="Ошибка загрузки данных рулетки")
+
+        if not rows or not isinstance(rows, list):
+            raise HTTPException(status_code=500, detail="Кейс не настроен в базе.")
+
+        current_lacky = last_lacky + 1
+        if current_lacky > 5: current_lacky = 1 
+
+        all_items = []
+        weights = []
+        for row in rows:
+            skin = row.get('item')
+            if skin and skin.get('is_active', True):
+                all_items.append(skin)
+                weights.append(float(row.get('chance_weight', 10)))
+
+        # 3. Умная логика (Pity System)
+        base_case_price = float(price) / 2.0 if currency == 'tickets' else float(price)
+        target_value = base_case_price * 0.70 if currency == 'tickets' else base_case_price * 0.66
+        
+        final_items = []
+        final_weights = []
+
+        if current_lacky == 5:
+            for skin, w in zip(all_items, weights):
+                skin_price = float(skin.get('price_rub', 0))
+                if skin_price >= target_value:
+                    final_items.append(skin)
+                    if skin_price >= base_case_price * 5.0: final_weights.append(w * 0.001)
+                    elif skin_price >= base_case_price * 1.5: final_weights.append(w * 0.1)
+                    else: final_weights.append(w * 5.0) 
+            if not final_items:
+                final_items, final_weights = all_items, weights
+        else:
+            pity_multiplier = 1.0 + (current_lacky * 0.1)
+            for skin, w in zip(all_items, weights):
+                skin_price = float(skin.get('price_rub', 0))
+                final_items.append(skin)
+                if target_value <= skin_price < base_case_price * 1.5:
+                    final_weights.append(w * pity_multiplier)
+                else:
+                    final_weights.append(w)
+
+        # 4. Выбор победителя
+        winner = random.choices(final_items, weights=final_weights, k=1)[0]
+        
+        # 5. СОЗДАНИЕ ЗАПИСИ
+        history_id = None
+        # Мы больше не ждем ответ от Bot-T, генерим код на основе таймстампа
+        current_code = f"BUY_{int(time.time())}_{random.randint(100,999)}"
+
+        try:
+            h_res = await supabase.post("/cs_history", json={
+                "user_id": int(telegram_id),
+                "item_id": int(winner['id']),
+                "case_name": str(item_title),
+                "code_used": current_code,
+                "status": "pending", 
+                "lacky": current_lacky,
+                "source": "shop",
+                "details": f"Выигрыш: {winner['name']}"
+            }, headers={"Prefer": "return=representation"})
+            
+            h_data = h_res.json()
+            if h_data and isinstance(h_data, list):
+                history_id = h_data[0].get('id')
+        except Exception as e:
+            logging.error(f"[SHOP] Ошибка создания записи: {e}")
+            raise HTTPException(status_code=500, detail="Ошибка сохранения выигрыша")
+
+        # 6. Ответ фронтенду
+        roulette_strip = random.choices(all_items, weights=weights, k=80)
+        roulette_strip[60] = winner 
+        
+        winner_output = winner.copy()
+        winner_output['id'] = history_id 
+        winner_output['real_item_id'] = winner['id'] 
+
+        return {
+            "status": "ok",
+            "winner": winner_output,
+            "roulette_strip": roulette_strip,
+            "history_id": history_id,
+            "lacky": current_lacky,
+            "messages": [f"Выпало: {winner['name']}"]
+        }
 
     # =========================================================================
     # ЛОГИКА ОБЫЧНОГО ТОВАРА
     # =========================================================================
     else:
         try:
-            safe_order_id = bott_order_id if bott_order_id else 0
-            source_desc = f"{item_title}|{item_image}|{safe_order_id}"
+            # Отправка в manual_rewards в фоне
+            async def log_manual_reward_bg(uid, title, img):
+                 await supabase.post("/manual_rewards", json={
+                    "user_id": uid, "status": "pending", "source_type": "shop",
+                    "reward_details": title, "source_description": f"{title}|{img}|fast_buy"
+                 })
+            background_tasks.add_task(log_manual_reward_bg, telegram_id, item_title, item_image)
 
-            await supabase.post("/manual_rewards", json={
-                "user_id": telegram_id,
-                "status": "pending",
-                "source_type": "shop",
-                "reward_details": item_title,
-                "source_description": source_desc
-            })
         except Exception as e:
-            logging.error(f"Ошибка лога: {e}")
+            logging.error(f"Ошибка фона ручного лога: {e}")
 
         return {"message": "Покупка успешна! Товар будет выдан модератором."}
         
