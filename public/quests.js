@@ -1583,6 +1583,107 @@ function setPlatformTheme(platform) {
     }
 }
 
+// ==========================================
+// ГЛОБАЛЬНАЯ НАВИГАЦИЯ, СВАЙПЫ И КНОПКА "НАЗАД"
+// ==========================================
+
+// Умное переключение вкладок (не срабатывает, если мы уже на ней)
+function safeSwitchTab(platform) {
+    const currentTheme = document.body.getAttribute('data-theme');
+    if (currentTheme === platform) return; // ЗАЩИТА: Если уже тут, игнорируем свайп/клик
+
+    const switchEl = document.getElementById(`view-${platform}`);
+    if (switchEl) switchEl.checked = true;
+    setPlatformTheme(platform);
+}
+
+// Обработчик системной кнопки "Назад"
+function handleGlobalBack() {
+    let closedAny = false;
+
+    // 1. Проверяем динамические попапы (Ошибки, Безопасно, Буст и тд)
+    const injectedPopups = document.querySelectorAll('.popup-overlay');
+    injectedPopups.forEach(p => {
+        if (p.style.opacity !== '0' && p.style.display !== 'none') {
+            p.remove();
+            closedAny = true;
+        }
+    });
+
+    // 2. Проверяем красивое окно с гридом (Telegram/Twitch Испытания)
+    if (dom.modalOverlay && dom.modalOverlay.classList.contains('active')) {
+        closeUniversalModal();
+        closedAny = true;
+    }
+
+    // 3. Проверяем статические модалки
+    const staticModals = [
+        dom.promptOverlay, dom.infoModalOverlay, dom.scheduleModal, 
+        dom.rewardClaimedOverlay, dom.ticketsClaimedOverlay
+    ];
+    staticModals.forEach(m => {
+        if (m && !m.classList.contains('hidden')) {
+            m.classList.add('hidden');
+            closedAny = true;
+        }
+    });
+
+    // Если мы закрыли хоть одно окно — остаемся на странице
+    if (closedAny) return;
+
+    // Если окон нет — возвращаемся в меню
+    if (window.history.length > 1 && document.referrer) {
+        window.history.back();
+    } else {
+        window.location.href = '/menu';
+    }
+}
+
+// Настройка жестов (Свайпы)
+function setupGestures() {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const SWIPE_THRESHOLD = 80; // Минимальная длина свайпа
+
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+
+        // Если открыто какое-либо окно — блокируем свайпы
+        if (document.querySelector('.popup-overlay, .prompt-overlay:not(.hidden), .active')) {
+            return; 
+        }
+
+        // ГОРИЗОНТАЛЬНЫЕ СВАЙПЫ
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (diffX < -SWIPE_THRESHOLD) {
+                // Свайп ВЛЕВО (<-) -> Twitch
+                safeSwitchTab('twitch');
+            } else if (diffX > SWIPE_THRESHOLD) {
+                // Свайп ВПРАВО (->) -> Telegram
+                safeSwitchTab('telegram');
+            }
+        } 
+        // ВЕРТИКАЛЬНЫЕ СВАЙПЫ
+        else if (Math.abs(diffY) > Math.abs(diffX)) {
+            // Свайп ВНИЗ (v) -> Ручная проверка
+            // Важное условие: срабатывает только если страница находится в самом верху, 
+            // чтобы не мешать обычному чтению списка (скроллу вниз)
+            if (diffY > SWIPE_THRESHOLD && dom.mainContent.scrollTop <= 10) {
+                safeSwitchTab('manual');
+            }
+        }
+    }, { passive: true });
+}
+
 function initUnifiedSwitcher() {
     const radios = document.querySelectorAll('input[name="view"]');
     radios.forEach(radio => {
@@ -1786,11 +1887,16 @@ async function main() {
         // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
         // =========================================================================
         // =========================================================================
-    // 👇👇👇 ЛОГИКА ПЕРЕКЛЮЧЕНИЯ И ОТКРЫТИЯ (SMART ROUTING) 👇👇👇
-    // =========================================================================
-    const urlParams = new URLSearchParams(window.location.search);
-    const openCommand = urlParams.get('open'); // Параметр ?open=...
-    const viewCommand = urlParams.get('view'); // Параметр ?view=... (из menu.js)
+    // ВНУТРИ main() УДАЛИ ЭТИ СТРОКИ:
+    // Функция для безопасного переключения вкладки
+    const safeSwitchTab = (platform) => {
+        const switchEl = document.getElementById(`view-${platform}`);
+        if (switchEl) {
+            switchEl.checked = true;
+            // setPlatformTheme определена выше в твоем коде
+            if (typeof setPlatformTheme === 'function') setPlatformTheme(platform);
+        }
+    };
 
     // Функция для безопасного переключения вкладки
     const safeSwitchTab = (platform) => {
@@ -1927,6 +2033,14 @@ function initPullToRefresh() {
     // 2. Авто-проверка профиля при возврате
     // --- СОБЫТИЯ ---
 function setupEventListeners() {
+    // === НОВОЕ: Включаем кнопку Назад и свайпы ===
+    if (window.Telegram && Telegram.WebApp.BackButton) {
+        Telegram.WebApp.BackButton.show();
+        Telegram.WebApp.BackButton.offClick(handleGlobalBack); // Очистка дублей
+        Telegram.WebApp.BackButton.onClick(handleGlobalBack);
+    }
+    setupGestures();
+    // ==============================================
     // 1. Вибрация в футере
     const footer = document.querySelector('.app-footer');
     if (footer) {
