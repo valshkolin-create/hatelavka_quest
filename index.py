@@ -15302,14 +15302,13 @@ async def sync_user_referral(
 
 @app.post("/api/v1/shop/buy")
 async def buy_bott_item_proxy(
-    request_data: ShopBuyRequest,      # 1. Данные от фронта
-    background_tasks: BackgroundTasks, # 2. Фоновые задачи
-    supabase: httpx.AsyncClient = Depends(get_supabase_client) # 3. База (БЕЗ multi_acc_protection)
+    request_data: ShopBuyRequest,      
+    background_tasks: BackgroundTasks, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ):
     import asyncio
-    logging.info("========== [SHOP] ПОКУПКА v13 (FAST + ASYNC) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v14 (STRICT BALANCE) ==========")
     
-    # 0. Валидация initData (Она у тебя уже написана идеально!)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -15322,13 +15321,13 @@ async def buy_bott_item_proxy(
     item_image = getattr(request_data, 'image_url', "") or ""
     currency = getattr(request_data, 'currency', 'coins')
 
-    # 1. Получаем данные юзера из БД
+    # 1. Получаем данные юзера
     try:
         user_db_resp = await supabase.get(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}",
-                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link" 
+                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link,is_banned" 
             }
         )
         user_data_list = user_db_resp.json()
@@ -15340,11 +15339,13 @@ async def buy_bott_item_proxy(
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
         
     user_record = user_data_list[0]
+
+    # 🔥 ПРОВЕРКА НА БАН 🔥
+    if user_record.get("is_banned"):
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован за нарушение правил.")
+
     trade_link = user_record.get("trade_link")
     
-    # =========================================================================
-    # 🔥 ПРОВЕРКА ТРЕЙД-ССЫЛКИ (ДО СПИСАНИЯ ДЕНЕГ)
-    # =========================================================================
     if not trade_link or "partner=" not in trade_link or "token=" not in trade_link:
         raise HTTPException(
             status_code=400, 
@@ -15353,14 +15354,15 @@ async def buy_bott_item_proxy(
 
     bott_internal_id = user_record.get("bott_internal_id")
     bott_secret_key = user_record.get("bott_secret_key")
-    current_balance_kopecks = user_record.get("bot_t_coins", 0)
-    current_tickets = user_record.get("tickets", 0)
+    # Преобразуем балансы в числа, чтобы избежать ошибок типов
+    current_balance_kopecks = float(user_record.get("bot_t_coins", 0))
+    current_tickets = int(user_record.get("tickets", 0))
 
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
 
     # =========================================================================
-    # 2. ПРОВЕРКА БАЛАНСА И ЛОКАЛЬНОЕ СПИСАНИЕ
+    # 2. ЖЕСТКАЯ ПРОВЕРКА БАЛАНСА И СИНХРОННОЕ СПИСАНИЕ
     # =========================================================================
     if currency == 'tickets':
         if current_tickets < price:
@@ -15373,18 +15375,28 @@ async def buy_bott_item_proxy(
         new_balance = current_balance_kopecks - (price * 100)
         update_col = "bot_t_coins"
 
-    # Списываем баланс В БД (Это быстро)
+    # 🔥 СПИСЫВАЕМ И ЖДЕМ ОТВЕТА БАЗЫ ПЕРЕД ТЕМ КАК КРУТИТЬ 🔥
     try:
-        await supabase.patch(
+        patch_resp = await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
-            json={update_col: new_balance} 
+            json={update_col: new_balance},
+            headers={"Prefer": "return=representation"} # Просим вернуть обновленную строку
         )
+        patch_data = patch_resp.json()
+        
+        # Если база не вернула данные, значит списание не прошло
+        if not patch_data or isinstance(patch_data, dict) and "message" in patch_data:
+            logging.error(f"[SHOP] Ошибка списания: {patch_data}")
+            raise HTTPException(status_code=500, detail="Транзакция отклонена базой данных")
+            
+        logging.info(f"[SHOP] Баланс списан: {update_col} -> {new_balance}")
+        
     except Exception as e:
-        logging.error(f"Ошибка списания баланса: {e}")
+        logging.error(f"Ошибка проведения транзакции: {e}")
         raise HTTPException(status_code=500, detail="Ошибка проведения транзакции")
 
-    # 🔥 ФОНОВАЯ ЗАДАЧА: Отправка данных в Bot-T 🔥
+    # 🔥 ФОНОВАЯ ЗАДАЧА: Отправка данных в Bot-T (только если за коины) 🔥
     if currency != 'tickets':
         async def send_to_bott_bg(b_id, cat_id, u_id, sec_key):
             url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
@@ -15395,7 +15407,6 @@ async def buy_bott_item_proxy(
             try:
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     resp = await client.post(url, json=payload)
-                    # Логируем ответ для дебага, но юзер уже не ждет
                     logging.info(f"[Bot-T BG] Response: {resp.status_code}")
             except Exception as e:
                 logging.error(f"[Bot-T BG Error]: {e}")
@@ -15403,7 +15414,7 @@ async def buy_bott_item_proxy(
         background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key)
 
     # =========================================================================
-    # 🎰 ЛОГИКА РУЛЕТКИ (КЕЙСЫ) - ПАРАЛЛЕЛЬНОЕ ЧТЕНИЕ
+    # 🎰 ЛОГИКА РУЛЕТКИ (КЕЙСЫ)
     # =========================================================================
     if "КЕЙС" in item_title.upper() or "CASE" in item_title.upper():
         
@@ -15422,7 +15433,6 @@ async def buy_bott_item_proxy(
             )
             return resp.json()
 
-        # 🔥 ПАРАЛЛЕЛЬНО ЧИТАЕМ LACKY И КЕЙС 🔥
         try:
             last_lacky, rows = await asyncio.gather(fetch_lacky(), fetch_contents())
         except Exception as e:
@@ -15443,7 +15453,6 @@ async def buy_bott_item_proxy(
                 all_items.append(skin)
                 weights.append(float(row.get('chance_weight', 10)))
 
-        # 3. Умная логика (Pity System)
         base_case_price = float(price) / 2.0 if currency == 'tickets' else float(price)
         target_value = base_case_price * 0.70 if currency == 'tickets' else base_case_price * 0.66
         
@@ -15470,12 +15479,9 @@ async def buy_bott_item_proxy(
                 else:
                     final_weights.append(w)
 
-        # 4. Выбор победителя
         winner = random.choices(final_items, weights=final_weights, k=1)[0]
         
-        # 5. СОЗДАНИЕ ЗАПИСИ
         history_id = None
-        # Мы больше не ждем ответ от Bot-T, генерим код на основе таймстампа
         current_code = f"BUY_{int(time.time())}_{random.randint(100,999)}"
 
         try:
@@ -15497,7 +15503,6 @@ async def buy_bott_item_proxy(
             logging.error(f"[SHOP] Ошибка создания записи: {e}")
             raise HTTPException(status_code=500, detail="Ошибка сохранения выигрыша")
 
-        # 6. Ответ фронтенду
         roulette_strip = random.choices(all_items, weights=weights, k=80)
         roulette_strip[60] = winner 
         
@@ -15514,12 +15519,8 @@ async def buy_bott_item_proxy(
             "messages": [f"Выпало: {winner['name']}"]
         }
 
-    # =========================================================================
-    # ЛОГИКА ОБЫЧНОГО ТОВАРА
-    # =========================================================================
     else:
         try:
-            # Отправка в manual_rewards в фоне
             async def log_manual_reward_bg(uid, title, img):
                  await supabase.post("/manual_rewards", json={
                     "user_id": uid, "status": "pending", "source_type": "shop",
