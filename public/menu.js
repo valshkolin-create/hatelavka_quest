@@ -1694,25 +1694,28 @@ try {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand(); 
         
-        // 🔥 ФИКС СВОРАЧИВАНИЯ ПРИЛОЖЕНИЯ: Запрещаем Telegram закрывать окно по свайпу вниз
+        // Запрещаем Telegram закрывать окно по свайпу вниз
         if (Telegram.WebApp.disableVerticalSwipes) {
             Telegram.WebApp.disableVerticalSwipes();
         }
         
+        // 🔥 УМНЫЙ ДЕТЕКТОР ПЛАТФОРМЫ 🔥
         const platform = Telegram.WebApp.platform || 'unknown';
-        // Строгая проверка: если это ПК-версии (и точно НЕ ios, НЕ android)
-        const isDesktop = ['tdesktop', 'macos', 'weba', 'webk', 'web'].includes(platform) 
-                          && platform !== 'ios' 
-                          && platform !== 'android';
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        if (isDesktop) {
-            // Добавляем класс ТОЛЬКО для компьютеров
-            document.body.classList.add('desktop-mode'); 
-        } else if (Telegram.WebApp.requestFullscreen) {
-            // Для телефонов запрашиваем полный экран
+        if (platform === 'ios') {
+            document.body.classList.add('ios-mode'); // Оставляем огромные отступы
+        } else if (platform === 'android') {
+            document.body.classList.add('android-mode'); // Делаем отступы средними для лопат
+        } else if (['tdesktop', 'macos'].includes(platform) || (['weba', 'webk', 'web'].includes(platform) && !isMobileDevice)) {
+            document.body.classList.add('desktop-mode'); // Прибиваем к самому верху
+        }
+
+        // Запрашиваем фуллскрин только на телефонах
+        if (!document.body.classList.contains('desktop-mode') && Telegram.WebApp.requestFullscreen) {
             Telegram.WebApp.requestFullscreen();
         }
-    } 
+    }
     
     setupNewUI();
     initPullToRefresh();
