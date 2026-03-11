@@ -437,7 +437,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             market_res = await market.buy_for_user(
                 hash_name=market_search_name, 
                 trade_link=trade_url, 
-                history_id=unique_market_id # 🔥 Отправляем уникальный ID вместо обычного history_id
+                custom_id=unique_market_id # 🔥 Отправляем уникальный ID вместо обычного history_id
             )
             
             if market_res.get("success"):
