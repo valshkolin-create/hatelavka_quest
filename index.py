@@ -9591,7 +9591,7 @@ async def create_promocodes(
         raise HTTPException(status_code=500, detail="Не удалось добавить промокоды.")
 # --- АДМИНСКИЕ ПРОМОКОДЫ  ---  
 
-@app.get("/api/v1/cron/check_tm_trades/")  # Добавил слеш в конце для защиты от 301
+@app.get("/api/v1/cron/check_tm_trades")  # Добавил слеш в конце для защиты от 301
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
     АВТОМАТИКА: Проверяет активные сделки ТМ и закрывает те, что висят дольше 20 минут.
