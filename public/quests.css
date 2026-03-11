@@ -25,36 +25,52 @@
 }
 
 /* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА И ФОНА === */
+/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА И ФОНА === */
 html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
+    height: 100%; /* Убрали 100vh, так как в ТГ он багует с клавиатурой */
     position: fixed; 
     top: 0; left: 0; right: 0; bottom: 0;
     overflow: hidden; 
     background-color: var(--bg-color);
-    background-image: var(--bg-gradient); /* Теперь это переменная! */
+    background-image: var(--bg-gradient);
     background-size: cover;
     background-repeat: no-repeat;
-    max-width: 100vw;
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--text-color);
-    transition: background-image 0.5s ease; /* Плавная смена фона */
+    transition: background-image 0.5s ease;
+}
+
+#app-container {
+    /* Оставляем отступ только здесь, чтобы он не дублировался */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
+    box-sizing: border-box !important;
+    
+    /* Используем 100% вместо 100vh */
+    height: 100% !important; 
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Важно, чтобы контейнер не вываливался за экран */
 }
 
 .main-content {
-    height: auto !important;
-    flex: 1; /* Позволяем блоку гибко занимать высоту экрана */
+    flex: 1; /* Растягивается на всё доступное место */
+    min-height: 0; /* МАГИЧЕСКОЕ СВОЙСТВО: заставляет скролл работать во flex-контейнере */
+    height: 100%; 
     overflow-y: auto !important; 
     -webkit-overflow-scrolling: touch; 
     position: relative;
     z-index: 10;
     display: block;
     box-sizing: border-box;
-    /* Установили 70px сверху! Теперь шторка ничего не перекроет */
-    padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 50px) 15px 120px 15px; 
+    
+    /* Убрали верхний padding, так как он теперь в #app-container */
+    padding: 0px 15px 120px 15px; 
+    
     opacity: 0; 
     transition: opacity 0.4s ease-in-out;
 }
