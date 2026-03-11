@@ -18492,7 +18492,7 @@ async def sell_inventory_item(
         params={
             "id": f"eq.{req.history_id}", 
             "user_id": f"eq.{user_id}", 
-            "status": "eq.pending", 
+            "status": "in.(pending,failed,available)", 
             "select": "id, item:cs_items(price)" # Берем цену из связанной таблицы cs_items
         }
     )
@@ -18805,7 +18805,7 @@ async def withdraw_inventory_item(
         params={
             "id": f"eq.{req.history_id}",
             "user_id": f"eq.{user_id}",
-            "status": "eq.pending",
+            "status": "in.(pending,failed,available)",
             # 🔥 ДОБАВЛЯЕМ SOURCE В SELECT 🔥
             "select": "id, source, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
         }
@@ -18945,10 +18945,10 @@ async def withdraw_inventory_item(
     return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
     
 # 4. Подтверждение выбора замены пользователем
-@app.post("/api/v1/user/inventory/confirm_replacement")
+@@app.post("/api/v1/user/inventory/confirm_replacement")
 async def confirm_replacement(
     req: ReplacementConfirmRequest,
-    background_tasks: BackgroundTasks, # Добавляем для фоновых задач
+    background_tasks: BackgroundTasks, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     import re
@@ -18981,17 +18981,16 @@ async def confirm_replacement(
     })
 
     # --- 3. ЗАПУСКАЕМ ФОНОВУЮ ЛОГИКУ ---
-    # Передаем всё необходимое в фоновую функцию
     background_tasks.add_task(
         process_replacement_logic, 
         req, user_info, trade_link, supabase
     )
 
-    # Моментальный ответ пользователю
     return {
         "success": True, 
         "message": "Заявка на замену принята! Процесс запущен, следите за статусом в профиле."
     }
+
 
 async def process_replacement_logic(req, user_info, trade_link, supabase):
     import re
@@ -19006,6 +19005,8 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
     is_market_item = str(req.assetid).startswith("MARKET_")
     replaced_price = 0.0
     selected_item = None
+    m_name = ""
+    item_name_ru = ""
 
     if is_market_item:
         m_name = str(req.assetid).replace("MARKET_", "")
@@ -19013,7 +19014,7 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
         m_cache = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{m_name}"})
         if m_cache.status_code == 200 and len(m_cache.json()) > 0:
             replaced_price = m_cache.json()[0].get('price_rub', 0.0)
-        logging.info(f"[BG-REPLACEMENT] Юзер {user_id} гибрид: {m_name}")
+        logging.info(f"[BG-REPLACEMENT] Юзер {user_id} выбрал с маркета: {m_name}")
     else:
         check_asset = await supabase.get("/steam_inventory_cache", params={
             "assetid": f"eq.{req.assetid}", 
@@ -19021,9 +19022,8 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
         })
         asset_rows = check_asset.json()
         if not asset_rows:
-            # Если уже зарезервировано кем-то другим
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                "status": "failed", "details": "Ошибка: предмет уже занят."
+                "status": "failed", "details": "Ошибка: предмет со склада уже занят кем-то другим."
             })
             return
 
@@ -19032,12 +19032,16 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
         item_name_ru = selected_item.get('name_ru') or m_name
         replaced_price = selected_item.get('price_rub', 0.0)
 
-        # Резервируем
+        # Резервируем складской предмет как страховку
         await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{req.assetid}"}, json={"is_reserved": True})
+        logging.info(f"[BG-REPLACEMENT] Юзер {user_id} выбрал складское: {m_name}. НО СНАЧАЛА ИДЕМ НА МАРКЕТ!")
 
-    # --- ПЛАН А: МАРКЕТ ---
+    # ==========================================
+    # ПЛАН А: МАРКЕТ (ВЫСШИЙ ПРИОРИТЕТ)
+    # ==========================================
     tm_api_key = os.getenv("CSGO_MARKET_API_KEY")
     buy_success = False
+    market_error_log = "API ключ Маркета не найден на сервере (Vercel)"
     
     if tm_api_key:
         market = MarketCSGO(api_key=tm_api_key)
@@ -19050,6 +19054,11 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
         if buy_res.get("success"):
             buy_success = True
             custom_id = buy_res.get("custom_id")
+            
+            # 🔥 ВАЖНО: Если мы купили на маркете, а предмет изначально был со склада - снимаем с него бронь!
+            if not is_market_item and selected_item:
+                await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{req.assetid}"}, json={"is_reserved": False})
+
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "market_pending",
                 "tradeofferid": str(custom_id),
@@ -19058,13 +19067,19 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                 "details": f"Замена куплена на Маркете: {item_name_ru}"
             })
             return 
+        else:
+            market_error_log = buy_res.get("error", "Неизвестный отказ Маркета")
+            logging.warning(f"[BG-REPLACEMENT] Маркет ОТКАЗАЛ в покупке {m_name}. Причина: {market_error_log}.")
 
-    # --- ПЛАН Б: СКЛАД ---
+    # ==========================================
+    # ПЛАН Б: СКЛАД (ЕСЛИ МАРКЕТ ОТКАЗАЛ)
+    # ==========================================
     trade_res = None
-    err_log = "Market API failed"
+    err_log = f"Market Error: {market_error_log}"
 
     if not buy_success:
-        if not is_market_item:
+        if not is_market_item and selected_item:
+            logging.info(f"[BG-REPLACEMENT] План Б: Запускаем курьера для выдачи со склада.")
             trade_res = await send_steam_trade_offer(
                 account_id=selected_item["account_id"],
                 assetid=selected_item["assetid"],
@@ -19082,13 +19097,15 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                     "details": f"Замена выдана со склада бота: {item_name_ru}"
                 })
                 return
+            else:
+                steam_err = trade_res.get('error', 'Steam Error Null')
+                err_log = f"Market: {market_error_log} | Steam: {steam_err}"
+        elif is_market_item:
+            err_log = f"Market Error: {market_error_log} | На складе такого нет."
 
-    # --- ПЛАН В: РУЧНОЙ РЕЖИМ ---
-    if trade_res and trade_res.get('error'):
-        err_log = trade_res.get('error')
-    elif is_market_item:
-        err_log = "Market item buy failed, no warehouse fallback"
-
+    # ==========================================
+    # ПЛАН В: РУЧНОЙ РЕЖИМ (ФИНАЛ)
+    # ==========================================
     logging.error(f"[BG-REPLACEMENT] Перевод #{req.history_id} в ручной режим. Ошибка: {err_log}")
 
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
@@ -19103,7 +19120,7 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
     if admin_chat:
         try:
             alert_text = (
-                f"🚨 <b>РУЧНАЯ ВЫДАЧА</b>\n"
+                f"🚨 <b>РУЧНАЯ ВЫДАЧА (ЗАМЕНА)</b>\n"
                 f"Автоматика не справилась.\n"
                 f"👤 {full_name}\n"
                 f"🔫 Скин: {item_name_ru}\n"
