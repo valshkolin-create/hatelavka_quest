@@ -18469,7 +18469,78 @@ async def check_trade_status_endpoint(
         print(f"TM API ERROR: {e}")
         return JSONResponse({"success": False, "message": f"Ошибка связи с ТМ: {str(e)}"})
 
+
+
 # 2. Обменять скин на билеты (FIX 400 ERROR)
+
+@app.post("/api/v1/user/inventory/sell")
+async def sell_inventory_item(
+    req: InventorySellRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Auth failed")
+
+    user_id = user_data['id']
+    
+    # 🔥 ЖЕЛЕЗНЫЙ ЩИТ: Рубим забаненных до того, как они продадут скин 🔥
+    await verify_user_not_banned(user_id, supabase)
+    
+    print(f"[SELL] Запрос обмена: User={user_id}, HistoryID={req.history_id}")
+
+    # 1. Проверяем предмет через JOIN с библиотекой предметов
+    # Мы берем запись из истории и "подтягиваем" цену из cs_items
+    check_resp = await supabase.get(
+        "/cs_history",
+        params={
+            "id": f"eq.{req.history_id}", 
+            "user_id": f"eq.{user_id}", 
+            "status": "eq.pending", 
+            "select": "id, item:cs_items(price)" # Берем цену из связанной таблицы cs_items
+        }
+    )
+    
+    rows = check_resp.json()
+    
+    # ЛОГИ ДЛЯ ОТЛАДКИ
+    if not rows:
+        print(f"[SELL] ОШИБКА: Предмет не найден или статус не pending. Ответ БД: {check_resp.text}")
+        raise HTTPException(status_code=400, detail="Предмет недоступен для обмена (возможно, уже продан)")
+    
+    # 2. Считаем билеты (берем цену из присоединенного объекта 'item')
+    try:
+        # В новой схеме данные предмета лежат в ключе 'item'
+        item_data = rows[0].get('item', {})
+        raw_price = item_data.get('price', 0)
+        # Превращаем "100" -> 100.0 -> 100
+        tickets_amount = int(float(raw_price))
+    except Exception as e:
+        print(f"[SELL] Ошибка парсинга цены: {e}")
+        tickets_amount = 0
+
+    if tickets_amount < 1: 
+        tickets_amount = 1 # Минимум 1 билет
+
+    print(f"[SELL] Начисляем {tickets_amount} билетов")
+
+    # 3. Меняем статус на 'exchanged' (предмет продан системе)
+    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "exchanged"})
+
+    # 4. Начисляем билеты юзеру
+    try:
+        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": tickets_amount})
+    except Exception as e:
+        print(f"[SELL] Ошибка RPC, пробуем патч. {e}")
+        # Фолбэк (ручное обновление баланса билетов)
+        u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+        if u_res.json():
+            curr = u_res.json()[0].get('tickets', 0)
+            safe_curr = int(curr) if curr else 0
+            await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": safe_curr + tickets_amount})
+
+    return {"success": True, "message": f"Обменяно на {tickets_amount} билетов!"}
+
 @app.get("/api/v1/cron/check_tm_trades")
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
