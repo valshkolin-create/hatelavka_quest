@@ -18386,60 +18386,57 @@ async def check_trade_status_endpoint(
     if not items or len(items) == 0:
         return JSONResponse({"success": False, "message": "Предмет не найден в вашей истории"})
         
-    item = items[0]
-    
-    # ⚠️ КРИТИЧЕСКИЙ МОМЕНТ: 
-    # При покупке на Маркете ты ДОЛЖЕН был отправить custom_id = id этой записи.
+    item = db_items[0]
     custom_id = str(item.get("id")) 
 
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=12.0) as client:
             # Запрашиваем инфу у Маркета
             tm_res = await client.get(
                 f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_id}"
             )
             tm_data = tm_res.json()
             
-            # Логируем для отладки (потом можно убрать)
             print(f"DEBUG TM FOR ITEM {custom_id}: {tm_data}")
 
             if not tm_data.get("success"):
-                # Если Маркет говорит, что такой покупки нет
                 return {
                     "success": False, 
-                    "message": "Маркет еще не обработал покупку. Подождите 1-2 минуты."
+                    "message": "Маркет еще не обработал покупку. Подождите немного."
                 }
             
-            # Берем стадию (stage)
-            stage = str(tm_data.get("data", {}).get("stage"))
+            # Извлекаем данные из вложенного объекта 'data'
+            trade_info = tm_data.get("data", {})
+            stage = str(trade_info.get("stage"))
+            # settlement > 0 — это 100% успех, даже если stage еще "1"
+            settlement = int(trade_info.get("settlement") or 0)
             
             # =========================================================
-            # ЛОГИКА СТАТУСОВ
+            # ЛОГИКА СТАТУСОВ (С ФИКСОМ SETTLEMENT)
             # =========================================================
             
-            if stage == "2":
-                # TRADE_STAGE_ITEM_GIVEN - Скин физически передан юзеру!
+            if settlement > 0 or stage == "2":
+                # УСПЕХ: Юзер принял трейд (или он в процессе завершения)
                 await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}"}, 
                     json={"status": "received"}
                 )
                 return {
                     "success": True, 
-                    "message": "Скин успешно выдан! Проверьте инвентарь Steam.", 
+                    "message": "Скин успешно выдан! Проверьте Steam.", 
                     "new_status": "received"
                 }
                 
             elif stage == "5":
-                # TRADE_STAGE_TIMED_OUT - Трейд отменен/протух.
-                # Возвращаем статус 'available', чтобы юзер мог нажать "Забрать" еще раз
+                # ОТМЕНА: Время вышло или трейд отклонен
                 await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}"}, 
                     json={"status": "available"}
                 )
                 
-                # Если у тебя была бронь в кэше твоего инвентаря - снимаем
+                # Снимаем резерв, если он был
                 if item.get("assetid"):
                     await supabase.patch("/steam_inventory_cache", 
                         params={"assetid": f"eq.{item['assetid']}"}, 
@@ -18448,27 +18445,26 @@ async def check_trade_status_endpoint(
                     
                 return {
                     "success": True, 
-                    "message": "Трейд был отменен Маркетом. Предмет снова доступен для вывода.", 
+                    "message": "Трейд был отменен. Предмет снова доступен для вывода.", 
                     "new_status": "available"
                 }
                 
             elif stage == "1":
-                # TRADE_STAGE_NEW - Оффер создан, но не принят
+                # ОЖИДАНИЕ: Оффер висит в Steam
                 return {
                     "success": False, 
-                    "message": "Оффер отправлен! Вам нужно ПРИНЯТЬ его в Steam."
+                    "message": "Скин отправлен! Подождите немного и попробуйте вновь."
                 }
             
             else:
-                # Другие стадии (например, ожидание бота)
                 return {
                     "success": False, 
-                    "message": f"Статус трейда: в обработке (Код {stage}). Подождите..."
+                    "message": f"Статус трейда: обрабатывается (Код {stage})."
                 }
                 
     except Exception as e:
         print(f"TM API ERROR: {e}")
-        return JSONResponse({"success": False, "message": "Ошибка связи с Маркетом. Попробуйте позже."})
+        return JSONResponse({"success": False, "message": f"Ошибка связи с ТМ: {str(e)}"})
 
 # 2. Обменять скин на билеты (FIX 400 ERROR)
 @app.post("/api/v1/user/inventory/sell")
