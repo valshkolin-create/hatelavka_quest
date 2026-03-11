@@ -19039,29 +19039,35 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
     # ==========================================
     # ПЛАН А: МАРКЕТ (ВЫСШИЙ ПРИОРИТЕТ)
     # ==========================================
+    import time # 🔥 Добавляем импорт времени
+    
     tm_api_key = os.getenv("CSGO_MARKET_API_KEY")
     buy_success = False
     market_error_log = "API ключ Маркета не найден на сервере (Vercel)"
     
     if tm_api_key:
         market = MarketCSGO(api_key=tm_api_key)
+        
+        # 🔥 Генерируем уникальный ID, чтобы Маркет не ругался на дубликаты заявок
+        unique_market_id = f"{req.history_id}_{int(time.time())}"
+        
         buy_res = await market.buy_for_user(
             hash_name=m_name, 
             trade_link=trade_link, 
-            history_id=req.history_id
+            history_id=unique_market_id # 🔥 Отправляем уникальный ID
         )
         
         if buy_res.get("success"):
             buy_success = True
-            custom_id = buy_res.get("custom_id")
+            custom_id = buy_res.get("custom_id") # Маркет вернет наш unique_market_id
             
-            # 🔥 ВАЖНО: Если мы купили на маркете, а предмет изначально был со склада - снимаем с него бронь!
+            # Если мы купили на маркете, а предмет изначально был со склада - снимаем с него бронь!
             if not is_market_item and selected_item:
                 await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{req.assetid}"}, json={"is_reserved": False})
 
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "market_pending",
-                "tradeofferid": str(custom_id),
+                "tradeofferid": str(custom_id), # Сохраняем этот уникальный ID в базу для трекинга
                 "replaced_name": m_name,
                 "replaced_price": replaced_price,
                 "details": f"Замена куплена на Маркете: {item_name_ru}"
