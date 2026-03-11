@@ -3060,7 +3060,15 @@ async def sync_steam_inventory(
             "templates_updated": len(unique_pairs),
             "bot_details": bot_stats
         }
-        
+
+    # 👇 ДОБАВЬ ВОТ ЭТИ 6 СТРОК 👇
+    except Exception as e:
+        return {
+            "success": False, 
+            "error": str(e), 
+            "traceback": traceback.format_exc()
+        }
+
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
 async def get_bootstrap_data(
