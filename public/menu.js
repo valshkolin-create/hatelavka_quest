@@ -111,34 +111,47 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         
         const result = await response.json();
 
-        if (!response.ok) {
-            // 🔥 1. АБСОЛЮТНАЯ БЛОКИРОВКА ПОВЕРХ ВСЕГО (БАН) 🔥
+       if (!response.ok) {
+            // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
+            // Убрали таймер выхода. Теперь юзер "заперт" в этом окне.
             if (response.status === 403 && result.detail === "BANNED") {
                 document.body.innerHTML = `
-                    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 9999999999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 20px; box-sizing: border-box;">
-                        <i class="fa-solid fa-skull-crossbones" style="font-size: 80px; margin-bottom: 20px;"></i>
-                        <h1 style="font-size: 26px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase;">ДОСТУП ЗАКРЫТ</h1>
-                        <p style="color: #fff; font-size: 15px; line-height: 1.5; margin-bottom: 30px;">
+                    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
+                        <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
+                        <h1 style="font-size: 32px; font-weight: 900; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px;">Доступ закрыт</h1>
+                        <p style="color: #fff; font-size: 16px; line-height: 1.6; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
                             Твой аккаунт перманентно заблокирован за использование уязвимостей системы.
                         </p>
+                        <div style="height: 2px; width: 50px; background: #ff3b30; margin-bottom: 30px; opacity: 0.5;"></div>
+                        <p style="color: #888; font-size: 12px; text-transform: uppercase; font-weight: 700;">Разблокировка невозможна</p>
                     </div>
+                    <style>
+                        @keyframes banPulse {
+                            0% { transform: scale(1); opacity: 1; }
+                            50% { transform: scale(1.1); opacity: 0.7; }
+                            100% { transform: scale(1); opacity: 1; }
+                        }
+                    </style>
                 `;
                 document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed'; // Замораживаем экран
+
                 if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                setTimeout(() => { if (window.Telegram?.WebApp) Telegram.WebApp.close(); }, 3000);
+                
                 throw new Error("USER_BANNED");
             }
 
-            // 🔥 2. СБРОС ТРЕЙД-ССЫЛКИ ИЛИ ТВИТЧА (ДУБЛИКАТЫ) 🔥
+            // 🛡️ 2. ДУБЛИКАТЫ (400 DUPLICATE_TRADE_LINK / DUPLICATE_TWITCH)
             if (response.status === 400 && (result.detail === "DUPLICATE_TRADE_LINK" || result.detail === "DUPLICATE_TWITCH")) {
                 let msg = result.detail === "DUPLICATE_TRADE_LINK"
                     ? "Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите правильную ссылку ниже."
                     : "Этот Twitch-аккаунт уже привязан к другому пользователю! Обратитесь в поддержку.";
+                
                 window.showSecurityBlock(msg);
                 throw new Error("Security Block");
             }
 
-            // Старая проверка на мультиаккаунт (для совместимости)
+            // Обычная проверка на 403 (другие ограничения)
             if (response.status === 403) {
                 window.showSecurityBlock(result.detail || "Доступ ограничен.");
                 throw new Error("Security Block");
@@ -150,8 +163,9 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
     } catch (e) {
         if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
         
-        // Чтобы всплывающие окна не перекрывались мелкими алертами:
-        if (e.message !== 'Cooldown active' && e.message !== 'Security Block' && e.message !== 'USER_BANNED' && !isSilent) {
+        // 🔥 ВАЖНО: Если это Бан или Блок, НЕ показываем стандартный customAlert поверх нашего окна
+        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED'];
+        if (!silentErrors.includes(e.message) && !isSilent) {
              customAlert(`Ошибка: ${e.message}`);
         }
         throw e;
@@ -1354,10 +1368,7 @@ document.getElementById('gift-x-btn')?.addEventListener('click', () => document.
 document.getElementById('gift-close-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 
 
-// ================================================================
-// УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ (ВМЕСТО СИСТЕМНЫХ)
-// ================================================================
-// Специальное окно для блокировки абузеров
+
 // Специальное окно для блокировки абузеров (с возможностью смены Trade-ссылки)
 window.showSecurityBlock = function(message) {
     lockAppScroll(); 
@@ -1607,95 +1618,86 @@ async function main() {
             updateLoading(10); 
         }
 
-        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (Синхронный старт запросов)
+        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО
         let bootstrapData, rafflesData, shopData, p2pData;
-        try {
-            [bootstrapData, rafflesData, shopData, p2pData] = await Promise.all([
-                makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-                makeApiRequest('/api/v1/raffles/active', {}, 'POST', true),
-                makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true),
-                makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true)
-            ]);
+        
+        // Эти запросы выкинут ошибку Security Block или USER_BANNED, если что-то не так
+        [bootstrapData, rafflesData, shopData, p2pData] = await Promise.all([
+            makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
+            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true),
+            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true),
+            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true)
+        ]);
 
-            if (!isCached) updateLoading(60); // Данные скачаны, грузим картинки
+        if (!isCached) updateLoading(60);
 
-            // Мгновенный блок техработ
-            if (bootstrapData && bootstrapData.maintenance) {
-                document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
-                return; 
-            }
-
-            // === 🔥 НОВОЕ: ПРЕДЗАГРУЗКА КАРТИНОК 🔥 ===
-            if (!isCached) {
-                let imagesToLoad = [];
-                
-                // 1. Собираем картинки из главного баннера (если включено)
-                if (bootstrapData && bootstrapData.menu) {
-                    if (bootstrapData.menu.skin_race_enabled && bootstrapData.menu.menu_banner_url) imagesToLoad.push(bootstrapData.menu.menu_banner_url);
-                    if (bootstrapData.menu.auction_enabled && bootstrapData.menu.auction_banner_url) imagesToLoad.push(bootstrapData.menu.auction_banner_url);
-                    if (bootstrapData.menu.checkpoint_enabled && bootstrapData.menu.checkpoint_banner_url) imagesToLoad.push(bootstrapData.menu.checkpoint_banner_url);
-                }
-
-                // 2. Собираем картинки ПЕРВЫХ 4 КЕЙСОВ магазина
-                if (shopData && Array.isArray(shopData)) {
-                    const topItems = shopData.slice(0, 4);
-                    topItems.forEach(item => {
-                        if (item.image_url) imagesToLoad.push(item.image_url);
-                    });
-                }
-
-                // Запускаем скачивание картинок в память устройства
-                // Ждем максимум 2 секунды, чтобы не повесить лоадер навсегда при медленном интернете
-                await Promise.race([
-                    preloadImages(imagesToLoad),
-                    new Promise(resolve => setTimeout(resolve, 2000))
-                ]);
-                
-                updateLoading(90);
-            }
-            // ==========================================
-
-            // Сохраняем свежий кэш
-            if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
-            if (rafflesData) localStorage.setItem('cache_raffles', JSON.stringify(rafflesData));
-            if (p2pData) localStorage.setItem('cache_p2p', JSON.stringify(p2pData));
-            if (shopData) {
-                const newShopCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
-                newShopCache[2716312] = shopData;
-                localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
-            }
-
-            // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД
-            if (bootstrapData) await renderFullInterface(bootstrapData);
-            if (rafflesData) initDynamicRaffleSlider(rafflesData);
-            if (shopData) loadCategory(2716312, shopData);
-            if (p2pData) checkActiveTradesBackground(p2pData);
-            setupSlider();
-
-            if (!isCached) updateLoading(100);
-
-            // Плавное скрытие лоадера, если он был
-            if (!isCached && dom.loaderOverlay) {
-                setTimeout(() => { 
-                    dom.loaderOverlay.style.opacity = '0';
-                    setTimeout(() => dom.loaderOverlay.classList.add('hidden'), 400); 
-                }, 300);
-            }
-
-        } catch (apiError) {
-            console.error("Network sync error", apiError);
-            if (!isCached) {
-                document.body.innerHTML = '<div style="display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#ff3b30; font-family:sans-serif;"><i class="fa-solid fa-triangle-exclamation" style="font-size:40px; margin-bottom:15px;"></i><b>Ошибка соединения</b><button onclick="window.location.reload()" style="margin-top:20px; padding:10px 20px; background:#FFD700; color:#000; border:none; border-radius:10px; font-weight:bold;">Перезагрузить</button></div>';
-            }
+        // Мгновенный блок техработ
+        if (bootstrapData && bootstrapData.maintenance) {
+            document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
+            return; 
         }
-    } catch(e) {
-        console.error("Critical error in main:", e);
-        if (e.message === "Security Block") return;
-        if (!document.querySelector('.shop-item')) { // Если интерфейс вообще пустой
-            if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
+
+        // === 🔥 ПРЕДЗАГРУЗКА КАРТИНОК 🔥 ===
+        if (!isCached) {
+            let imagesToLoad = [];
+            if (bootstrapData && bootstrapData.menu) {
+                if (bootstrapData.menu.skin_race_enabled && bootstrapData.menu.menu_banner_url) imagesToLoad.push(bootstrapData.menu.menu_banner_url);
+                if (bootstrapData.menu.auction_enabled && bootstrapData.menu.auction_banner_url) imagesToLoad.push(bootstrapData.menu.auction_banner_url);
+                if (bootstrapData.menu.checkpoint_enabled && bootstrapData.menu.checkpoint_banner_url) imagesToLoad.push(bootstrapData.menu.checkpoint_banner_url);
+            }
+            if (shopData && Array.isArray(shopData)) {
+                shopData.slice(0, 4).forEach(item => { if (item.image_url) imagesToLoad.push(item.image_url); });
+            }
+            await Promise.race([ preloadImages(imagesToLoad), new Promise(resolve => setTimeout(resolve, 2000)) ]);
+            updateLoading(90);
+        }
+
+        // Сохраняем свежий кэш
+        if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
+        if (rafflesData) localStorage.setItem('cache_raffles', JSON.stringify(rafflesData));
+        if (p2pData) localStorage.setItem('cache_p2p', JSON.stringify(p2pData));
+        if (shopData) {
+            const newShopCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
+            newShopCache[2716312] = shopData;
+            localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
+        }
+
+        // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД
+        if (bootstrapData) await renderFullInterface(bootstrapData);
+        if (rafflesData) initDynamicRaffleSlider(rafflesData);
+        if (shopData) loadCategory(2716312, shopData);
+        if (p2pData) checkActiveTradesBackground(p2pData);
+        setupSlider();
+
+        if (!isCached) updateLoading(100);
+
+        if (!isCached && dom.loaderOverlay) {
             setTimeout(() => { 
-                if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
-            }, 2000);
+                dom.loaderOverlay.style.opacity = '0';
+                setTimeout(() => dom.loaderOverlay.classList.add('hidden'), 400); 
+            }, 300);
+        }
+
+    } catch (e) {
+        console.error("Critical error in main:", e);
+        
+        // 🔥 БЕТОННЫЙ ФИКС: Если это блок ИЛИ бан — мгновенно выходим и ничего не рисуем поверх!
+        if (e.message === "Security Block" || e.message === "USER_BANNED") {
+            if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+            return; 
+        }
+
+        // Если это обычная ошибка сети (и интерфейс не загружен)
+        if (!document.querySelector('.shop-item')) { 
+            if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
+            document.body.innerHTML = `
+                <div style="display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#ff3b30; font-family:sans-serif; text-align:center; padding:20px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size:40px; margin-bottom:15px;"></i>
+                    <b style="font-size:18px;">Ошибка соединения</b>
+                    <p style="color:#888; margin-top:10px;">Проверьте интернет и попробуйте снова</p>
+                    <button onclick="window.location.reload()" style="margin-top:25px; padding:12px 24px; background:#FFD700; color:#000; border:none; border-radius:12px; font-weight:900; text-transform:uppercase;">Перезагрузить</button>
+                </div>
+            `;
         }
     }
 }
@@ -1709,24 +1711,21 @@ try {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand(); 
         
-        // Запрещаем Telegram закрывать окно по свайпу вниз
         if (Telegram.WebApp.disableVerticalSwipes) {
             Telegram.WebApp.disableVerticalSwipes();
         }
         
-        // 🔥 УМНЫЙ ДЕТЕКТОР ПЛАТФОРМЫ 🔥
         const platform = Telegram.WebApp.platform || 'unknown';
         const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         if (platform === 'ios') {
-            document.body.classList.add('ios-mode'); // Оставляем огромные отступы
+            document.body.classList.add('ios-mode');
         } else if (platform === 'android') {
-            document.body.classList.add('android-mode'); // Делаем отступы средними для лопат
+            document.body.classList.add('android-mode');
         } else if (['tdesktop', 'macos'].includes(platform) || (['weba', 'webk', 'web'].includes(platform) && !isMobileDevice)) {
-            document.body.classList.add('desktop-mode'); // Прибиваем к самому верху
+            document.body.classList.add('desktop-mode');
         }
 
-        // Запрашиваем фуллскрин только на телефонах
         if (!document.body.classList.contains('desktop-mode') && Telegram.WebApp.requestFullscreen) {
             Telegram.WebApp.requestFullscreen();
         }
@@ -1735,11 +1734,23 @@ try {
     setupNewUI();
     initPullToRefresh();
     initSwipeTabs(); 
+
+    // Запускаем основную логику
     main();
 
     clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 30000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshDataSilently(); });
+
 } catch (e) { 
     console.error("Global init error", e); 
+    
+    // 🔥 БЕТОННЫЙ ЩИТ: Если это блокировка, не даем коду идти дальше
+    if (e.message === "Security Block" || e.message === "USER_BANNED") {
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+        // Никаких алертов или перерисовок! Окно уже показано из makeApiRequest
+    } else {
+        // Только если это обычная ошибка, показываем стандартное уведомление
+        customAlert("Критическая ошибка при запуске. Попробуйте перезагрузить приложение.");
+    }
 }
