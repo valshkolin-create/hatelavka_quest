@@ -4930,6 +4930,14 @@ async def make_auction_bid(
 
 # --- P2P SYSTEM ---
 
+@app.get("/api/v1/ping")
+async def keep_alive_ping():
+    """
+    Эндпоинт-пустышка. 
+    Его единственная цель — чтобы Vercel и Supabase Client не спали.
+    """
+    return {"status": "ok", "message": "Backend is warm and ready, bro!"}
+
 @app.get("/api/v1/shop/case_contents")
 async def get_case_contents(
     case_name: str, 
