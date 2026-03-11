@@ -779,9 +779,8 @@
 
     <main class="main-content">
         <div class="page-header">
-            <a href="#" id="header-back-btn" class="back-button">
-                <i class="fa-solid fa-chevron-left"></i> Назад
-            </a>
+            <div style="width: 50px;"></div> 
+            
             <h1 id="profileName" class="page-header-title">Профиль</h1>
             <div style="width: 50px;"></div> 
         </div>
@@ -1075,6 +1074,56 @@
         shareRefLinkBtn: document.getElementById('share-ref-link-btn')
     };
 
+    // === УМНАЯ КНОПКА НАЗАД И ЗАКРЫТИЕ ОКОН ===
+function handleGlobalBack() {
+    // 1. Проверяем, открыты ли мелкие попапы (например, Trade Link или "Безопасно?")
+    const openPopup = document.querySelector('.custom-popup-overlay.visible');
+    if (openPopup && openPopup.id !== 'loader-overlay') {
+        openPopup.classList.remove('visible');
+        return; // Останавливаем выполнение, чтобы не выйти со страницы
+    }
+
+    // 2. Проверяем, открыты ли полноэкранные модалки (Инвентарь, Промокоды)
+    const openModal = document.querySelector('.custom-modal.visible');
+    if (openModal) {
+        openModal.classList.remove('visible');
+        return;
+    }
+
+    // 3. Если все окна закрыты, идем на предыдущую страницу (откуда пришли)
+    if (window.history.length > 1 && document.referrer) {
+        window.history.back();
+    } else {
+        window.location.href = '/menu'; // Резервный возврат, если истории нет
+    }
+}
+
+// === ЛОГИКА СВАЙПА СЛЕВА НАПРАВО (ЖЕСТ "НАЗАД") ===
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+
+    // Проверяем, что пользователь свайпает по горизонтали, а не скроллит вниз
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+        // diffX > 70 означает, что палец прошел слева направо (стандартный жест "Назад")
+        // (Если нужен свайп справа налево, поменяй условие на diffX < -70)
+        if (diffX > 70) {
+            handleGlobalBack(); 
+        }
+    }
+}, { passive: true });
+
     // Проверка Steam Trade ссылки в реальном времени
 // Проверка Steam Trade ссылки в реальном времени
 if (dom.popupTradeLinkInput) {
@@ -1261,20 +1310,20 @@ function renderRewards(rewards) {
     const listContainer = document.getElementById('promocodes-list-container');
     const promoBtnInfo = document.getElementById('promo-btn-info');
     
-    // Логика модалок
+   // Логика модалок
     const modalPromos = document.getElementById('modal-promocodes');
     const btnOpen = document.getElementById('btn-open-promocodes');
     if (btnOpen) {
         btnOpen.onclick = () => {
             modalPromos.classList.add('visible');
-            if (tg.BackButton) {
-                tg.BackButton.show();
-                tg.BackButton.onClick(() => { modalPromos.classList.remove('visible'); tg.BackButton.hide(); });
-            }
         };
     }
     const closePromos = document.getElementById('close-modal-promocodes');
-    if (closePromos) closePromos.onclick = () => { modalPromos.classList.remove('visible'); if(tg.BackButton) tg.BackButton.hide(); };
+    if (closePromos) {
+        closePromos.onclick = () => { 
+            modalPromos.classList.remove('visible'); 
+        };
+    }
 
     const modalSecret = document.getElementById('modal-secret');
     const btnSecret = document.getElementById('btn-open-secret');
@@ -1953,24 +2002,21 @@ window.checkTradeStatus = async function(historyId) {
         await loadData(); 
     }
 
-    // Функция загрузки данных
-    async function loadData(isSilent = false) {
-    if (!isSilent) showLoader();
-    try {
-        // Фоновые задачи: запускаем, но не ждём их завершения
-        if (!isSilent) {
-            makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
-            makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
-        }
+    // 3. Настройка кнопки "Назад"
+const headerBackBtn = document.getElementById('header-back-btn');
+if (headerBackBtn) {
+    headerBackBtn.addEventListener('click', (e) => { 
+        e.preventDefault(); 
+        handleGlobalBack(); 
+    });
+}
 
-        // 🔥 ГЛАВНЫЙ СЕКРЕТ УСКОРЕНИЯ: запускаем все 4 запроса ОДНОВРЕМЕННО 🔥
-        // Используем isSilent=true для каждого, чтобы лоадер не мигал
-        const [bootstrapData, rewards, inventory, userSettings] = await Promise.all([
-            makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-            makeApiRequest("/api/v1/user/rewards", {}, 'POST', true),
-            makeApiRequest("/api/v1/user/inventory", {}, 'POST', true),
-            makeApiRequest("/api/v1/user/settings/get", {}, 'POST', true)
-        ]);
+// Включаем системную кнопку Telegram ВСЕГДА
+if (tg.BackButton) {
+    tg.BackButton.show(); // Меняем "Закрыть" (крестик) на "Назад"
+    tg.BackButton.offClick(handleGlobalBack); // Очищаем дубли
+    tg.BackButton.onClick(handleGlobalBack);
+}
 
         // Объединяем данные, как и было
         const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
