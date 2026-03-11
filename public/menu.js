@@ -815,46 +815,89 @@ async function initDynamicRaffleSlider(preloadedData = null) {
 }
 
 async function renderFullInterface(data) {
-    userData = data.user || {}; allQuests = data.quests || [];
+    userData = data.user || {}; 
+    allQuests = data.quests || [];
     const menuContent = data.menu;
 
-    if (document.getElementById('ticketStats')) document.getElementById('ticketStats').textContent = userData.tickets || 0;
+    if (document.getElementById('ticketStats')) {
+        document.getElementById('ticketStats').textContent = userData.tickets || 0;
+    }
     dom.fullName.textContent = userData.full_name || "Профиль";
     if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
 
-    // 👇 ВОТ ЭТОТ БЛОК ДЛЯ ФОТОГРАФИИ 👇
+    // 👇 БЕТОННЫЙ БЛОК ДЛЯ ФОТОГРАФИИ (С ЗАЩИТОЙ ОТ ERR_TIMED_OUT) 👇
     const avatarEl = document.getElementById('user-avatar');
     if (avatarEl) {
-        if (userData.photo_url) {
-            avatarEl.src = userData.photo_url; // Ставим фото из базы
-        } else {
-            // Если фото нет, ставим первую букву имени на темном фоне с желтым текстом
+        // Функция для моментальной установки заглушки
+        const setAvatarPlaceholder = (el) => {
             const firstLetter = (userData.full_name || "U").charAt(0).toUpperCase();
-            avatarEl.src = `https://placehold.co/64x64/2c2c2e/FFD700?text=${firstLetter}`;
+            el.src = `https://placehold.co/64x64/2c2c2e/FFD700?text=${firstLetter}`;
+            el.onerror = null; // Защита от бесконечного цикла
+        };
+
+        // 1. Если картинка не загрузится (ошибка сети или 404)
+        avatarEl.onerror = function() {
+            console.warn("Аватарка ТГ заблокирована или не найдена. Ставим заглушку.");
+            setAvatarPlaceholder(this);
+        };
+
+        // 2. ЗАЩИТА ОТ ТАЙМАУТА: если за 4 секунды фото не пришло — рубим ожидание
+        const imgTimeout = setTimeout(() => {
+            if (!avatarEl.complete || avatarEl.naturalWidth === 0) {
+                console.warn("Таймаут загрузки аватарки. Ставим заглушку.");
+                setAvatarPlaceholder(avatarEl);
+            }
+        }, 4000);
+
+        // Если загрузилось вовремя — отменяем таймер
+        avatarEl.onload = () => clearTimeout(imgTimeout);
+
+        // 3. Пытаемся загрузить фото
+        if (userData.photo_url) {
+            avatarEl.src = userData.photo_url;
+        } else {
+            setAvatarPlaceholder(avatarEl);
         }
     }
 
     checkReferralAndWelcome(userData);
 
     if (menuContent) {
-         if (menuContent.bonus_gift_enabled !== undefined) bonusGiftEnabled = menuContent.bonus_gift_enabled;
-         const setupSlide = (id, enabled, url, link) => {
-             const slide = document.querySelector(`[data-event="${id}"]`);
-             if (slide) {
-                 const show = enabled || userData.is_admin; slide.style.display = show ? '' : 'none';
-                 if (show) { if (link) slide.href = link; if (url) { const img = slide.querySelector('img'); if (img) img.src = url; } }
-             }
-         };
-         setupSlide('skin_race', menuContent.skin_race_enabled, menuContent.menu_banner_url);
-         setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || (menuContent.auction_slide_data ? menuContent.auction_slide_data.image_url : null), '/auction');
-         setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
+        if (menuContent.bonus_gift_enabled !== undefined) bonusGiftEnabled = menuContent.bonus_gift_enabled;
+        const setupSlide = (id, enabled, url, link) => {
+            const slide = document.querySelector(`[data-event="${id}"]`);
+            if (slide) {
+                const show = enabled || userData.is_admin; 
+                slide.style.display = show ? '' : 'none';
+                if (show) { 
+                    if (link) slide.href = link; 
+                    if (url) { 
+                        const img = slide.querySelector('img'); 
+                        if (img) img.src = url; 
+                    } 
+                }
+            }
+        };
+        setupSlide('skin_race', menuContent.skin_race_enabled, menuContent.menu_banner_url);
+        setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || (menuContent.auction_slide_data ? menuContent.auction_slide_data.image_url : null), '/auction');
+        setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
     }
+
     const eventSlide = document.querySelector('[data-event="cauldron"]');
-    if (eventSlide && data.cauldron) { const show = data.cauldron.is_visible_to_users || userData.is_admin; eventSlide.style.display = show ? '' : 'none'; if (show && data.cauldron.banner_image_url) eventSlide.querySelector('img').src = data.cauldron.banner_image_url; }
+    if (eventSlide && data.cauldron) { 
+        const show = data.cauldron.is_visible_to_users || userData.is_admin; 
+        eventSlide.style.display = show ? '' : 'none'; 
+        if (show && data.cauldron.banner_image_url) {
+            eventSlide.querySelector('img').src = data.cauldron.banner_image_url;
+        }
+    }
 
     updateShortcutStatuses(userData, allQuests);
     updateShopTile(userData.active_trade_status || 'none');
-    setTimeout(() => { if (typeof checkGift === 'function') checkGift(); }, 1000);
+    
+    setTimeout(() => { 
+        if (typeof checkGift === 'function') checkGift(); 
+    }, 1000);
 }
 
 // ================================================================
