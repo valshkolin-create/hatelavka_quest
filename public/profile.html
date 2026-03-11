@@ -75,6 +75,27 @@
             text-decoration: none; 
         }
 
+        #notification-area {
+    position: fixed;
+    /* Умный отступ сверху с учетом челки айфона */
+    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 10px);
+    left: 10px;
+    right: 10px;
+    z-index: 99999; /* Самое важное: делаем выше всех модалок (у них 10000) */
+    pointer-events: none; /* Чтобы прозрачный контейнер не мешал кликать по экрану */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#notification-area > div {
+    /* Возвращаем кликабельность самим плашкам уведомлений, если нужно */
+    pointer-events: auto;
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+}
+
         /* --- Карточки настроек --- */
         .card-container { 
             display: flex; 
