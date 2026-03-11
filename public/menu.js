@@ -135,6 +135,25 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
     }
 }
 
+// Предзагрузка массива картинок
+function preloadImages(urls) {
+    const promises = urls.map(url => {
+        return new Promise((resolve, reject) => {
+            if (!url) {
+                resolve();
+                return;
+            }
+            const img = new Image();
+            img.src = url;
+            // Если картинка загрузилась или произошла ошибка — идём дальше (чтобы не зависнуть)
+            img.onload = resolve;
+            img.onerror = resolve; 
+        });
+    });
+    // Ждем загрузки всех переданных картинок
+    return Promise.all(promises);
+}
+
 // ================================================================
 // HEARTBEAT (ФОНОВОЕ ОБНОВЛЕНИЕ)
 // ================================================================
@@ -1505,13 +1524,43 @@ async function main() {
                 makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true)
             ]);
 
-            if (!isCached) updateLoading(80);
+            if (!isCached) updateLoading(60); // Данные скачаны, грузим картинки
 
             // Мгновенный блок техработ
             if (bootstrapData && bootstrapData.maintenance) {
                 document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
                 return; 
             }
+
+            // === 🔥 НОВОЕ: ПРЕДЗАГРУЗКА КАРТИНОК 🔥 ===
+            if (!isCached) {
+                let imagesToLoad = [];
+                
+                // 1. Собираем картинки из главного баннера (если включено)
+                if (bootstrapData && bootstrapData.menu) {
+                    if (bootstrapData.menu.skin_race_enabled && bootstrapData.menu.menu_banner_url) imagesToLoad.push(bootstrapData.menu.menu_banner_url);
+                    if (bootstrapData.menu.auction_enabled && bootstrapData.menu.auction_banner_url) imagesToLoad.push(bootstrapData.menu.auction_banner_url);
+                    if (bootstrapData.menu.checkpoint_enabled && bootstrapData.menu.checkpoint_banner_url) imagesToLoad.push(bootstrapData.menu.checkpoint_banner_url);
+                }
+
+                // 2. Собираем картинки ПЕРВЫХ 4 КЕЙСОВ магазина
+                if (shopData && Array.isArray(shopData)) {
+                    const topItems = shopData.slice(0, 4);
+                    topItems.forEach(item => {
+                        if (item.image_url) imagesToLoad.push(item.image_url);
+                    });
+                }
+
+                // Запускаем скачивание картинок в память устройства
+                // Ждем максимум 2 секунды, чтобы не повесить лоадер навсегда при медленном интернете
+                await Promise.race([
+                    preloadImages(imagesToLoad),
+                    new Promise(resolve => setTimeout(resolve, 2000))
+                ]);
+                
+                updateLoading(90);
+            }
+            // ==========================================
 
             // Сохраняем свежий кэш
             if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
