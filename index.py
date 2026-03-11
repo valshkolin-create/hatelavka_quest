@@ -18356,8 +18356,12 @@ async def check_trade_status_endpoint(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    import os
+    from datetime import datetime, timezone
+    
     body = await request.json()
     history_id = body.get("history_id")
+    
     # Твоя проверка авторизации
     user_data = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
     
@@ -18376,13 +18380,15 @@ async def check_trade_status_endpoint(
         return JSONResponse({"success": False, "message": "Предмет не найден в вашей истории"})
         
     item = db_items[0] 
-    custom_id = str(item.get("id")) 
+    
+    # 🔥 ИСПРАВЛЕНИЕ ЗДЕСЬ: Берем уникальный ID из поля tradeofferid, который мы сохраняли при покупке
+    custom_id = str(item.get("tradeofferid")) if item.get("tradeofferid") else str(item.get("id"))
 
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     
     try:
         async with httpx.AsyncClient(timeout=12.0) as client:
-            # Запрашиваем инфу у Маркета
+            # Запрашиваем инфу у Маркета по правильному длинному ID
             tm_res = await client.get(
                 f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_id}"
             )
@@ -18393,7 +18399,7 @@ async def check_trade_status_endpoint(
             if not tm_data.get("success"):
                 return {
                     "success": False, 
-                    "message": "Маркет еще не обработал покупку. Подождите немного."
+                    "message": "Маркет еще не обработал покупку или предмет не найден."
                 }
             
             trade_info = tm_data.get("data", {})
