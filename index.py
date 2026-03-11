@@ -17786,8 +17786,8 @@ async def get_user_raffles(
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     user_id = user_info['id'] if user_info else None
     
-    # Подготавливаем задачу получения розыгрышей
-    raffles_task = supabase.get(
+    # 2. Получаем активные розыгрыши (ждем завершения запроса)
+    raffles_resp = await supabase.get(
         "/raffles", 
         params={
             "select": "*, winner:users(full_name, username)", 
@@ -17795,31 +17795,27 @@ async def get_user_raffles(
             "is_visible": "eq.true"
         }
     )
+    raffles = raffles_resp.json() if raffles_resp.status_code == 200 else []
     
-    # Подготавливаем задачу получения ВСЕХ участий юзера (тянем только ID розыгрыша)
-    async def get_participations():
-        if not user_id:
-            return []
-        resp = await supabase.get(
+    # 3. Получаем участия пользователя (если он авторизован)
+    participations_data = []
+    if user_id:
+        participations_resp = await supabase.get(
             "/raffle_participants", 
             params={
                 "user_id": f"eq.{user_id}",
                 "select": "raffle_id" 
             }
         )
-        return resp.json() if resp.status_code == 200 else []
+        if participations_resp.status_code == 200:
+            participations_data = participations_resp.json()
 
-    # 2. Выполняем оба HTTP-запроса параллельно (это срежет кучу времени)
-    raffles_resp, participations_data = await asyncio.gather(raffles_task, get_participations())
+    # 4. Делаем быстрый Set (множество) из ID розыгрышей, где юзер уже участвует
+    joined_raffle_ids = {p.get('raffle_id') for p in participations_data}
     
-    raffles = raffles_resp.json() if raffles_resp.status_code == 200 else []
-    
-    # 3. Делаем быстрый Set (множество) из ID розыгрышей, где юзер уже участвует
-    joined_raffle_ids = {p['raffle_id'] for p in participations_data}
-    
-    # 4. Пробегаемся по списку и проставляем статус мгновенно в оперативной памяти
+    # 5. Пробегаемся по списку и проставляем статус в оперативной памяти
     for r in raffles:
-        r['is_joined'] = r['id'] in joined_raffle_ids
+        r['is_joined'] = r.get('id') in joined_raffle_ids
             
     return raffles
 
