@@ -1699,12 +1699,17 @@ try {
             Telegram.WebApp.disableVerticalSwipes();
         }
         
-        const isDesktop = ['tdesktop', 'web', 'macos'].includes(Telegram.WebApp.platform);
+        const platform = Telegram.WebApp.platform || 'unknown';
+        // Строгая проверка: если это ПК-версии (и точно НЕ ios, НЕ android)
+        const isDesktop = ['tdesktop', 'macos', 'weba', 'webk', 'web'].includes(platform) 
+                          && platform !== 'ios' 
+                          && platform !== 'android';
+        
         if (isDesktop) {
-            // 🔥 НОВОЕ: Добавляем класс, если это ПК
+            // Добавляем класс ТОЛЬКО для компьютеров
             document.body.classList.add('desktop-mode'); 
-        }
-        if (!isDesktop && Telegram.WebApp.requestFullscreen) {
+        } else if (Telegram.WebApp.requestFullscreen) {
+            // Для телефонов запрашиваем полный экран
             Telegram.WebApp.requestFullscreen();
         }
     } 
