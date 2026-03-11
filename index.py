@@ -16018,6 +16018,55 @@ STAT_MAPPING = {
     "challenges_total": "completed_challenges_count"
 }
 
+@app.get("/api/admin/sync_all_images")
+async def sync_all_csgo_images(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Защита, чтобы кто попало не запустил
+    if token != "твой_секретный_пароль":
+        return {"success": False, "message": "Access denied"}
+        
+    import asyncio
+    
+    # 1. Скачиваем базу всех скинов CS2 (это займет пару секунд)
+    url = "http://csgobackpack.net/api/GetItemsList/v2/?no_prices=1&no_details=1"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=60.0)
+            data = resp.json()
+            
+            if not data.get("success"):
+                return {"success": False, "message": "Ошибка API Backpack"}
+                
+            items_list = data.get("items_list", {})
+            
+            payload = []
+            # 2. Перебираем все 20 000+ предметов
+            for market_hash_name, details in items_list.items():
+                icon_url = details.get("icon_url")
+                
+                # Если у предмета есть картинка, готовим к отправке в БД
+                if icon_url:
+                    payload.append({
+                        "market_hash_name": market_hash_name,
+                        "icon_url": icon_url
+                    })
+            
+            # 3. Заливаем в Supabase пачками по 500 штук
+            inserted = 0
+            for i in range(0, len(payload), 500):
+                await supabase.post(
+                    "/skin_images_dict", 
+                    json=payload[i:i+500], 
+                    headers={"Prefer": "resolution=merge-duplicates"}
+                )
+                inserted += len(payload[i:i+500])
+                await asyncio.sleep(0.1) # Даем базе продохнуть
+                
+            return {"success": True, "message": f"Словарь успешно заполнен! Добавлено {inserted} картинок."}
+            
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 @app.get("/api/v1/advent/state")
 async def get_advent_state(telegram_id: int, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # 1. Получаем настройки (чтобы узнать дату старта)
