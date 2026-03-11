@@ -1969,6 +1969,7 @@ async def enforce_uniqueness(telegram_id: int, supabase: httpx.AsyncClient):
         )
 
 # --- 2. ЗАВИСИМОСТЬ (ОХРАННИК) ---
+# --- 2. ЗАВИСИМОСТЬ (ОХРАННИК) ---
 async def multi_acc_protection(
     req: InitDataRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -1976,13 +1977,20 @@ async def multi_acc_protection(
     """
     Инжектится в эндпоинты через Depends.
     """
+    import logging # На всякий случай, если не импортирован на этом уровне
+
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
     
-    # Запускаем проверку
+    # 🔥 БЕЛЫЙ СПИСОК ДЛЯ АДМИНОВ 🔥
+    if telegram_id in ADMIN_IDS:
+        logging.info(f"🛡️ [SECURITY] Админ TG:{telegram_id} прошел мимо проверки на мультиаккаунт.")
+        return user_info # Отдаем данные сразу, пропускаем проверки
+    
+    # Запускаем проверку для обычных смертных
     await enforce_uniqueness(telegram_id, supabase)
     
     return user_info
