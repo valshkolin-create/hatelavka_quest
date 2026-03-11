@@ -16026,12 +16026,23 @@ async def sync_all_csgo_images(token: str, supabase: httpx.AsyncClient = Depends
         
     import asyncio
     
-    # 1. Скачиваем базу всех скинов CS2 (это займет пару секунд)
-    url = "http://csgobackpack.net/api/GetItemsList/v2/?no_prices=1&no_details=1"
+    # 1. МЕНЯЕМ НА HTTPS!
+    url = "https://csgobackpack.net/api/GetItemsList/v2/?no_prices=1&no_details=1"
     
     try:
+        # 2. ПРИТВОРЯЕМСЯ БРАУЗЕРОМ (защита от Cloudflare)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
+        
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=60.0)
+            resp = await client.get(url, headers=headers, timeout=60.0)
+            
+            # Добавил дебаг, чтобы если сайт упал, мы увидели реальную причину
+            if resp.status_code != 200:
+                return {"success": False, "message": f"Сайт вернул код {resp.status_code}", "body": resp.text[:200]}
+            
             data = resp.json()
             
             if not data.get("success"):
@@ -16040,27 +16051,25 @@ async def sync_all_csgo_images(token: str, supabase: httpx.AsyncClient = Depends
             items_list = data.get("items_list", {})
             
             payload = []
-            # 2. Перебираем все 20 000+ предметов
+            # 3. Перебираем все предметы
             for market_hash_name, details in items_list.items():
                 icon_url = details.get("icon_url")
                 
-                # Если у предмета есть картинка, готовим к отправке в БД
                 if icon_url:
                     payload.append({
                         "market_hash_name": market_hash_name,
                         "icon_url": icon_url
                     })
             
-            # 3. Заливаем в Supabase пачками по 500 штук
+            # 4. Заливаем пачками по 1000 штук (БЕЗ ПАУЗ, ЧТОБЫ УСПЕТЬ В ЛИМИТЫ VERCEL)
             inserted = 0
-            for i in range(0, len(payload), 500):
+            for i in range(0, len(payload), 1000):
                 await supabase.post(
                     "/skin_images_dict", 
-                    json=payload[i:i+500], 
+                    json=payload[i:i+1000], 
                     headers={"Prefer": "resolution=merge-duplicates"}
                 )
-                inserted += len(payload[i:i+500])
-                await asyncio.sleep(0.1) # Даем базе продохнуть
+                inserted += len(payload[i:i+1000])
                 
             return {"success": True, "message": f"Словарь успешно заполнен! Добавлено {inserted} картинок."}
             
@@ -18517,24 +18526,51 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     market_resp = await supabase.get("/market_cache", params=market_params)
     market_data = market_resp.json() if market_resp.status_code == 200 else []
 
-    if isinstance(market_data, list):
+    if isinstance(market_data, list) and market_data:
+        # 1. Отбираем имена скинов, которых еще нет в уникальном списке (со склада)
+        market_names_to_fetch = [
+            item.get('market_hash_name') for item in market_data 
+            if item.get('market_hash_name') and item.get('market_hash_name') not in unique_items
+        ]
+        
+        images_dict = {}
+        
+        # 2. Мгновенно достаем картинки из словаря одним запросом
+        if market_names_to_fetch:
+            names_for_query = ",".join([f'"{name}"' for name in market_names_to_fetch])
+            img_resp = await supabase.get("/skin_images_dict", params={"market_hash_name": f"in.({names_for_query})"})
+            
+            if img_resp.status_code == 200:
+                images_dict = {img['market_hash_name']: img['icon_url'] for img in img_resp.json()}
+
+        # 3. Собираем финальные объекты для фронтенда
         for item in market_data:
             name = item.get('market_hash_name')
-            # Добавляем только если такого скина еще нет на складе ботов
-            if name and name not in unique_items:
-                # Генерируем ссылку на картинку на лету для фронтенда
-                encoded_name = urllib.parse.quote(name)
+            if name and name in market_names_to_fetch:
+                
+                # Достаем хэш из нашего словаря
+                img_hash = images_dict.get(name)
+                
+                # Собираем идеальную ссылку Steam. Защита: если API дало сразу полную ссылку, не дублируем домен.
+                if img_hash:
+                    if img_hash.startswith("http"):
+                        final_icon_url = img_hash
+                    else:
+                        final_icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/300fx300f"
+                else:
+                    final_icon_url = "" # Заглушка, если картинки почему-то нет
+
                 unique_items[name] = {
                     "assetid": f"MARKET_{name}", # 🔥 СПЕЦИАЛЬНЫЙ МАРКЕР ДЛЯ ФРОНТА И БЭКА 🔥
                     "type": "market",
                     "market_hash_name": name,
-                    "name_ru": name, # С маркета тянем англ. название, так как русского там нет
+                    "name_ru": name, # С маркета тянем англ. название
                     "price_rub": item["price_rub"],
-                    "icon_url": f"https://api.steamapis.com/image/item/730/{encoded_name}",
+                    "icon_url": final_icon_url, # 🔥 ТЕПЕРЬ ТУТ 100% ОРИГИНАЛЬНАЯ КАРТИНКА STEAM 🔥
                     "condition": "-", 
                     "rarity": "common"
                 }
-    
+
     # Собираем все уникальные предметы (боты + маркет) в один список
     final_pool = list(unique_items.values())
     
