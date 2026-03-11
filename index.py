@@ -18822,6 +18822,7 @@ async def withdraw_inventory_item(
 @app.post("/api/v1/user/inventory/confirm_replacement")
 async def confirm_replacement(
     req: ReplacementConfirmRequest,
+    background_tasks: BackgroundTasks, # Добавляем для фоновых задач
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     import re
@@ -18843,63 +18844,77 @@ async def confirm_replacement(
     
     user_info = u_list[0]
     trade_link = user_info.get('trade_link')
-    full_name = user_info.get('full_name', 'User')
-    username = user_info.get('username', 'NoName')
 
     if not trade_link:
         return {"success": False, "message": "⚠️ Сначала укажите Trade Link в профиле!"}
 
-    # --- 3. ПРОВЕРЯЕМ ОТКУДА ПРЕДМЕТ (МАРКЕТ ИЛИ СКЛАД) ---
+    # Сразу ставим статус "В обработке", чтобы юзер видел прогресс
+    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+        "status": "processing",
+        "details": "Заявка принята, запускаем ботов..."
+    })
+
+    # --- 3. ЗАПУСКАЕМ ФОНОВУЮ ЛОГИКУ ---
+    # Передаем всё необходимое в фоновую функцию
+    background_tasks.add_task(
+        process_replacement_logic, 
+        req, user_info, trade_link, supabase
+    )
+
+    # Моментальный ответ пользователю
+    return {
+        "success": True, 
+        "message": "Заявка на замену принята! Процесс запущен, следите за статусом в профиле."
+    }
+
+async def process_replacement_logic(req, user_info, trade_link, supabase):
+    import re
+    import os
+    import logging
+    
+    user_id = user_info.get('telegram_id')
+    full_name = user_info.get('full_name', 'User')
+    username = user_info.get('username', 'NoName')
+    
+    # --- ПРОВЕРЯЕМ ОТКУДА ПРЕДМЕТ ---
     is_market_item = str(req.assetid).startswith("MARKET_")
     replaced_price = 0.0
+    selected_item = None
 
     if is_market_item:
-        # Это гибридный предмет с Маркета!
         m_name = str(req.assetid).replace("MARKET_", "")
         item_name_ru = m_name
-        
-        # Получаем цену из гибридного кэша, чтобы сохранить ее для фронтенда
         m_cache = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{m_name}"})
         if m_cache.status_code == 200 and len(m_cache.json()) > 0:
             replaced_price = m_cache.json()[0].get('price_rub', 0.0)
-
-        selected_item = None # Склада нет
-        logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал гибридный скин с Маркета: {m_name}")
-        
+        logging.info(f"[BG-REPLACEMENT] Юзер {user_id} гибрид: {m_name}")
     else:
-        # СТАРАЯ ЛОГИКА ДЛЯ СКЛАДА
         check_asset = await supabase.get("/steam_inventory_cache", params={
             "assetid": f"eq.{req.assetid}", 
             "is_reserved": "eq.false"
         })
         asset_rows = check_asset.json()
-        
-        if not asset_rows or not isinstance(asset_rows, list):
-            return {"success": False, "message": "Этот скин уже забрали. Выберите другой из списка!"}
+        if not asset_rows:
+            # Если уже зарезервировано кем-то другим
+            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                "status": "failed", "details": "Ошибка: предмет уже занят."
+            })
+            return
 
         selected_item = asset_rows[0]
         m_name = selected_item.get('market_hash_name', '')
         item_name_ru = selected_item.get('name_ru') or m_name
         replaced_price = selected_item.get('price_rub', 0.0)
 
-        # Защита от кривых данных
-        if not m_name or bool(re.search('[а-яА-Я]', m_name)):
-            return {"success": False, "message": "Ошибка конфигурации скина (RU name). Выберите другой."}
+        # Резервируем
+        await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{req.assetid}"}, json={"is_reserved": True})
 
-        # Резервируем сразу
-        await supabase.patch("/steam_inventory_cache", 
-            params={"assetid": f"eq.{req.assetid}"}, 
-            json={"is_reserved": True}
-        )
-        logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал замену со склада: {m_name}")
-
-    # --- 4. ПЛАН А: ПОКУПКА НА МАРКЕТЕ (ПРИОРИТЕТ) ---
+    # --- ПЛАН А: МАРКЕТ ---
     tm_api_key = os.getenv("CSGO_MARKET_API_KEY")
     buy_success = False
     
     if tm_api_key:
         market = MarketCSGO(api_key=tm_api_key)
-        
         buy_res = await market.buy_for_user(
             hash_name=m_name, 
             trade_link=trade_link, 
@@ -18909,7 +18924,6 @@ async def confirm_replacement(
         if buy_res.get("success"):
             buy_success = True
             custom_id = buy_res.get("custom_id")
-            # 🔥 ОБНОВЛЯЕМ ИСТОРИЮ, ДОБАВЛЯЯ ИМЯ И ЦЕНУ ЗАМЕНЫ 🔥
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "market_pending",
                 "tradeofferid": str(custom_id),
@@ -18917,20 +18931,14 @@ async def confirm_replacement(
                 "replaced_price": replaced_price,
                 "details": f"Замена куплена на Маркете: {item_name_ru}"
             })
-            return {"success": True, "message": "Замена закуплена на Маркете! Ожидайте отправку трейда."}
-        else:
-            logging.warning(f"[REPLACEMENT] Маркет не смог купить: {buy_res.get('error')}. Пробуем План Б.")
+            return 
 
-    # --- 5. ПЛАН Б: ОТПРАВКА СО СКЛАДА (FALLBACK) ---
+    # --- ПЛАН Б: СКЛАД ---
     trade_res = None
-    err_log = "Market API failed for Market-only item"
+    err_log = "Market API failed"
 
     if not buy_success:
-        if is_market_item:
-            # Если это скин чисто с маркета, и Маркет упал — бота у нас нет, падаем в ручной режим
-            pass 
-        else:
-            # Отправляем своего бота
+        if not is_market_item:
             trade_res = await send_steam_trade_offer(
                 account_id=selected_item["account_id"],
                 assetid=selected_item["assetid"],
@@ -18938,30 +18946,30 @@ async def confirm_replacement(
                 supabase=supabase
             )
 
-        if trade_res and trade_res.get("success"):
-            t_id = str(trade_res.get("tradeofferid"))
-            # 🔥 ОБНОВЛЯЕМ ИСТОРИЮ 🔥
-            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                "status": "sent",
-                "tradeofferid": t_id,
-                "replaced_name": m_name,
-                "replaced_price": replaced_price,
-                "details": f"Замена выдана со склада бота: {item_name_ru}"
-            })
-            return {"success": True, "message": "Замена отправлена! Принимайте трейд в Steam.", "tradeofferid": t_id}
+            if trade_res and trade_res.get("success"):
+                t_id = str(trade_res.get("tradeofferid"))
+                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                    "status": "sent",
+                    "tradeofferid": t_id,
+                    "replaced_name": m_name,
+                    "replaced_price": replaced_price,
+                    "details": f"Замена выдана со склада бота: {item_name_ru}"
+                })
+                return
 
-    # --- 6. ПЛАН В: РУЧНОЙ РЕЖИМ (ФИНАЛ) ---
+    # --- ПЛАН В: РУЧНОЙ РЕЖИМ ---
     if trade_res and trade_res.get('error'):
         err_log = trade_res.get('error')
-        
-    logging.error(f"[REPLACEMENT] Автоматика бессильна. Перевод #{req.history_id} в ручной режим. Ошибка: {err_log}")
+    elif is_market_item:
+        err_log = "Market item buy failed, no warehouse fallback"
 
-    # 🔥 ОБНОВЛЯЕМ ИСТОРИЮ ДАЖЕ ДЛЯ РУЧНОГО РЕЖИМА 🔥
+    logging.error(f"[BG-REPLACEMENT] Перевод #{req.history_id} в ручной режим. Ошибка: {err_log}")
+
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
         "status": "processing",
         "replaced_name": m_name,
         "replaced_price": replaced_price,
-        "details": f"Выбрана замена: {item_name_ru}. ТРЕБУЕТСЯ РУЧНАЯ ВЫДАЧА (API Error: {err_log})"
+        "details": f"Выбрана замена: {item_name_ru}. ТРЕБУЕТСЯ РУЧНАЯ ВЫДАЧА ({err_log})"
     })
 
     # Уведомление админу
@@ -18969,19 +18977,14 @@ async def confirm_replacement(
     if admin_chat:
         try:
             alert_text = (
-                f"🚨 <b>РУЧНАЯ ВЫДАЧА ЗАМЕНЫ</b>\n"
-                f"Автоматика не справилась (Стим вернул null или Маркет пуст).\n"
-                f"👤 {full_name} (@{username})\n"
-                f"🔫 Скин: <b>{item_name_ru}</b>\n"
-                f"🐞 Лог: <code>{err_log}</code>"
+                f"🚨 <b>РУЧНАЯ ВЫДАЧА</b>\n"
+                f"Автоматика не справилась.\n"
+                f"👤 {full_name}\n"
+                f"🔫 Скин: {item_name_ru}\n"
+                f"🐞 Лог: {err_log}"
             )
-            # Здесь вызов функции отправки в ТГ
+            # await send_telegram_msg(admin_chat, alert_text) # Твоя функция отправки
         except: pass
-
-    return {
-        "success": True, 
-        "message": "Заявка на замену принята! Менеджер отправит скин вам вручную в ближайшее время."
-    }
     
 # 4. Подтвердить получение (Статус -> received)
 app.post("/api/v1/user/inventory/confirm")
