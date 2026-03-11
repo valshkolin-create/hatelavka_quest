@@ -18314,12 +18314,12 @@ async def get_user_inventory(
     
     user_id = user_data['id']
 
-    # 1. Добавляем updated_at в select
+    # 1. 🔥 ДОБАВИЛИ replaced_name И replaced_price В SELECT 🔥
     resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "select": "id, status, created_at, updated_at, item:cs_items(id, name, image_url, rarity, price)",
+            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, item:cs_items(id, name, image_url, rarity, price)",
             "order": "created_at.desc"
         }
     )
@@ -18344,12 +18344,15 @@ async def get_user_inventory(
             "price": ticket_val, 
             "status": row['status'],
             "received_at": row['created_at'],
-            # 🔥 ВОТ ЭТО ПОЛЕ ОЖИВАЕТ ТАЙМЕР НА ФРОНТЕ:
-            "updated_at": row.get('updated_at') or row['created_at'] 
+            "updated_at": row.get('updated_at') or row['created_at'],
+            
+            # 🔥 ВОТ ЭТИ ПОЛЯ ТЕПЕРЬ ЛЕТЯТ НА ФРОНТЕНД ДЛЯ ЗАМЕНЫ 🔥
+            "replaced_name": row.get('replaced_name'),
+            "replaced_price": row.get('replaced_price')
         })
 
     return inventory
-
+    
 # ==========================================
 # 📦 INVENTORY ACTIONS (RELATIONAL UPDATE)
 # ==========================================
