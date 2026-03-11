@@ -1622,6 +1622,10 @@ try {
         }
         
         const isDesktop = ['tdesktop', 'web', 'macos'].includes(Telegram.WebApp.platform);
+        if (isDesktop) {
+            // 🔥 НОВОЕ: Добавляем класс, если это ПК
+            document.body.classList.add('desktop-mode'); 
+        }
         if (!isDesktop && Telegram.WebApp.requestFullscreen) {
             Telegram.WebApp.requestFullscreen();
         }
