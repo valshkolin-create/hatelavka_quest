@@ -18277,6 +18277,7 @@ async def check_trade_status_endpoint(
             tm_data = tm_res.json()
             
             # Проверяем, нашел ли Маркет эту покупку
+            print(f"DEBUG TM RESPONSE: {tm_data}") # <-- добавь это
             if not tm_data.get("success"):
                 error_msg = tm_data.get("error", "Неизвестная ошибка ТМ")
                 return {"success": False, "message": f"Ошибка Маркета: {error_msg}"}
