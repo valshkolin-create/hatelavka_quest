@@ -779,10 +779,13 @@
 
     <main class="main-content">
         <div class="page-header">
-            <div style="width: 50px;"></div> 
+            <a href="#" id="header-back-btn" class="back-button" style="display: none;">
+                <i class="fa-solid fa-chevron-left"></i> Назад
+            </a>
             
             <h1 id="profileName" class="page-header-title">Профиль</h1>
-            <div style="width: 50px;"></div> 
+            
+            <div id="header-spacer" style="width: 50px; display: none;"></div> 
         </div>
 
         <div id="notification-area"></div>
@@ -1982,12 +1985,26 @@ window.checkTradeStatus = async function(historyId) {
         }
 
         // 3. Настройка кнопки "Назад" (если кто-то нажмет HTML-стрелочку)
+        // 3. Настройка кнопки "Назад"
         const headerBackBtn = document.getElementById('header-back-btn');
-        if (headerBackBtn) {
-            headerBackBtn.addEventListener('click', (e) => { 
-                e.preventDefault(); 
-                handleGlobalBack(); 
-            });
+        const headerSpacer = document.getElementById('header-spacer');
+        
+        // Включаем системную кнопку Telegram ВСЕГДА (если она поддерживается)
+        if (tg.BackButton && tg.platform !== 'tdesktop' && tg.platform !== 'web' && tg.platform !== 'macos') {
+            tg.BackButton.show(); 
+            tg.BackButton.offClick(handleGlobalBack); 
+            tg.BackButton.onClick(handleGlobalBack);
+        } else {
+            // Если мы на десктопе или в вебе (системной кнопки нет) — показываем HTML-кнопку
+            if (headerBackBtn) {
+                headerBackBtn.style.display = 'flex';
+                if (headerSpacer) headerSpacer.style.display = 'block'; // Центруем заголовок
+                
+                headerBackBtn.addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    handleGlobalBack(); 
+                });
+            }
         }
 
         // 4. Включаем системную кнопку Telegram ВСЕГДА
