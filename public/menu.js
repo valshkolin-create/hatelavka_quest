@@ -1155,8 +1155,19 @@ window.closeRoulette = function() {
 // ================================================================
 
 window.claimItem = async function(itemId) {
-    showShopModal({ title: "Вывести в Steam?", subtitle: "Ожидайте трейд в течение 24 часов.", confirmText: "ЗАБРАТЬ", confirmClass: "btn-yellow-modal", onConfirm: async (closeModal) => {
-        const loader = document.getElementById('purchase-loader'); if (loader) { loader.classList.add('active'); loader.querySelector('.loader-text').innerText = "Создаем заявку..."; }
+    showShopModal({ title: "Вывести в Steam?", subtitle: "Ожидайте трейд в течение 10 минут.", confirmText: "ЗАБРАТЬ", confirmClass: "btn-yellow-modal", onConfirm: async (closeModal) => {
+        const loader = document.getElementById('purchase-loader'); 
+        const loaderText = loader ? loader.querySelector('.loader-text') : null;
+        
+        if (loader && loaderText) { 
+            loader.classList.add('active'); 
+            loaderText.innerText = "Подключаемся к продавцу..."; 
+            
+            // 🔥 Делаем лоадер "живым" 🔥
+            setTimeout(() => { if (loader.classList.contains('active')) loaderText.innerText = "Ищем лучшую цену..."; }, 4000);
+            setTimeout(() => { if (loader.classList.contains('active')) loaderText.innerText = "Вспоминаем про промокод HATElove на сайте topskin..."; }, 9000);
+            setTimeout(() => { if (loader.classList.contains('active')) loaderText.innerText = "Почти готово..."; }, 14000);
+        }
         try {
             const res = await makeApiRequest('/api/v1/user/inventory/withdraw', { history_id: itemId }, 'POST');
             if (res && res.status === 'offer_replacement') { closeModal(); if (loader) loader.classList.remove('active'); showReplacementChoice(res.options, itemId); return; }
