@@ -15825,29 +15825,50 @@ async def get_user_settings_api(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает настройки и статус активности бота."""
+    """Возвращает настройки и статус активности бота с защитой от разрыва соединения."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
-        # Возвращаем дефолт, чтобы профиль не ломался, если что-то не так с авторизацией
         return {"is_bot_active": False}
     
     telegram_id = user_info["id"]
     
-    # Запрашиваем статус активности и настройки
-    resp = await supabase.get(
-        "/users", 
-        params={
-            "telegram_id": f"eq.{telegram_id}",
-            "select": "is_bot_active,notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
-        }
-    )
+    # Конфиг для "бетонности"
+    max_retries = 2
+    timeout_settings = httpx.Timeout(10.0, read=20.0) # Даем 20 сек на чтение данных
     
-    data = resp.json()
-    if not data:
-        return {"is_bot_active": False}
-        
-    return data[0]
+    for attempt in range(max_retries + 1):
+        try:
+            resp = await supabase.get(
+                "/users", 
+                params={
+                    "telegram_id": f"eq.{telegram_id}",
+                    "select": "is_bot_active,notify_auction_start,notify_auction_outbid,notify_auction_end,notify_rewards,notify_stream_start,notify_daily_grind,notify_dnd_enabled"
+                },
+                timeout=timeout_settings
+            )
+            
+            # Если Supabase ответил кодом 4xx или 5xx, это выкинет исключение
+            resp.raise_for_status()
+            
+            data = resp.json()
+            if not data or len(data) == 0:
+                return {"is_bot_active": False}
+                
+            return data[0]
 
+        except (ReadError, RemoteProtocolError, ConnectTimeout) as e:
+            if attempt < max_retries:
+                logging.warning(f"[Settings] Попытка {attempt + 1} провалена (разрыв сети), пробуем снова...")
+                await asyncio.sleep(0.5) # Микро-пауза перед повтором
+                continue
+            else:
+                logging.error(f"[Settings] Критическая ошибка чтения Supabase после повторов: {e}")
+                return {"is_bot_active": False, "error": "database_timeout"}
+        
+        except Exception as e:
+            logging.error(f"[Settings] Неизвестная ошибка: {e}")
+            return {"is_bot_active": False}
+            
 @app.post("/api/v1/user/settings/update")
 async def update_user_setting_api(
     request_data: UserSettingsUpdate,
