@@ -1853,25 +1853,24 @@ function renderInventory(items) {
 
     items.forEach(item => {
         const status = (item.status || 'available').toLowerCase();
+        const rData = getRarityData(item.rarity); 
         
-        // 🔥 ЛОГИКА ЗАМЕНЫ 🔥
+        // 🔥 НОВАЯ МЕХАНИКА ЗАМЕНЫ 🔥
         const isReplaced = !!item.replaced_name; 
         const displayName = isReplaced ? item.replaced_name : item.name;
-        // Если бэк отдает новую картинку (replaced_image_url), берем её, иначе старую
         const displayImg = item.replaced_image_url || item.image_url; 
         const ticketVal = isReplaced && item.replaced_price ? item.replaced_price : (item.price || 0);
 
-        const rData = getRarityData(item.rarity); 
+        // Плашка, если скин был заменен
+        const replacedBadge = isReplaced 
+            ? `<div style="color: #FFD700; font-size: 8px; font-weight: 800; margin-bottom: 3px; text-transform: uppercase;"><i class="fa-solid fa-rotate"></i> Выдана замена</div>` 
+            : '';
+
         const timerElementId = `timer-${item.history_id}`;
 
         let rightContentHtml = '';
         let cardOpacity = '1';
         let statusLabel = '';
-
-        // Плашка, которая покажет юзеру, что произошла замена
-        const replacedBadge = isReplaced 
-            ? `<div style="color: #FFD700; font-size: 8px; font-weight: 800; margin-bottom: 2px; text-transform: uppercase;"><i class="fa-solid fa-rotate"></i> Выдана замена</div>` 
-            : '';
 
         if (status === 'auto_queued') {
             statusLabel = '<span style="color:#00c0e3; font-size:9px;">ПОИСК СКИНА В БАЗЕ</span>';
@@ -1933,10 +1932,10 @@ function renderInventory(items) {
             if (status === 'failed' || status === 'canceled') {
                 statusLabel = '<span style="color:#ff3b30; font-size:9px;"><i class="fa-solid fa-rotate-left"></i> ОТМЕНЕНО (МОЖНО ПОВТОРИТЬ)</span>';
             } else {
-                statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДЛЯ ВЫВОДА</span>';
+                statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДО ВЫВОДА</span>';
             }
 
-            // 🔥 Передаем актуальное имя (оригинал или замену) в функции 🔥
+            // Передаем обновленное имя (displayName) и цену в билетах (ticketVal)
             rightContentHtml = `
                 <button id="withdraw-btn-${item.history_id}" onclick="withdrawItem(${item.history_id}, '${displayName.replace(/'/g, "\\'")}')" style="
                     background: #34c759; color: #000; border: none;
