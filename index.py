@@ -9594,8 +9594,8 @@ async def create_promocodes(
 @app.get("/api/v1/cron/check_tm_trades")  # Добавил слеш в конце для защиты от 301
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    АВТОМАТИКА: Синхронизирует статусы с Маркетом. 
-    Чистит 'failed', удаляет фантомов и соблюдает лимит 10 минут.
+    АВТОМАТИКА: Синхронизирует статусы. 
+    Фантомов — удаляет. Ошибки Маркета — откатывает в available.
     """
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
@@ -9605,13 +9605,10 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     now = datetime.now(timezone.utc)
 
     # =========================================================
-    # ФАЗА 0: ОЧИСТКА МУСОРА (УДАЛЯЕМ FAILED И ФАНТОМОВ)
+    # ФАЗА 0: ГИГИЕНА (УДАЛЯЕМ ТОЛЬКО БИТЫЕ ССЫЛКИ)
     # =========================================================
     try:
-        # 1. Удаляем всё, что уже в статусе failed
-        await supabase.delete("/cs_history", params={"status": "eq.failed"})
-        
-        # 2. Удаляем "фантомов" (записи без связи с cs_items, которые дают ошибку [SELL])
+        # Ищем записи без связи с магазином (фантомы)
         clean_res = await supabase.get(
             "/cs_history", 
             params={
@@ -9621,7 +9618,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         )
         if clean_res.status_code == 200:
             for rec in clean_res.json():
-                if not rec.get("item"):
+                if not rec.get("item"): # Если предмет удален из cs_items
                     await supabase.delete("/cs_history", params={"id": f"eq.{rec['id']}"})
                     results_log.append(f"CLEANUP: Deleted phantom #{rec['id']}")
     except Exception as e:
@@ -9642,13 +9639,12 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     active_trades = res.json() if res.status_code == 200 else []
 
     if not active_trades and not results_log:
-        return {"status": "ok", "message": "Нет активных трейдов для синхронизации"}
+        return {"status": "ok", "message": "Чисто"}
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(timeout=10.0) as client: # Чуть уменьшил таймаут для скорости
         for trade in active_trades:
             trade_id = trade["id"]
             updated_at_str = trade.get("updated_at")
-            
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
             minutes_passed = (now - trade_time).total_seconds() / 60
 
@@ -9658,9 +9654,8 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 )
                 
                 if tm_res.status_code != 200:
-                    if minutes_passed > 15: 
+                    if minutes_passed > 15:
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: TM API Silent -> available")
                     continue
 
                 tm_data = tm_res.json()
@@ -9668,52 +9663,32 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 
                 if not tm_data.get("success") or not trade_info:
                     if minutes_passed > 10:
-                        # Если за 10 минут покупка не появилась — удаляем, чтобы не мозолила глаз
-                        await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
-                        results_log.append(f"#{trade_id}: Not found on TM -> DELETED")
+                        # Если нет на Маркете — откатываем в доступные
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
                     continue
 
                 stage = str(trade_info.get("stage"))
                 settlement = int(trade_info.get("settlement") or 0)
 
-                # ПРАВИЛО №1: УСПЕХ (Settlement или Stage 2)
+                # ПРАВИЛО №1: УСПЕХ
                 if settlement > 0 or stage == "2":
                     update_payload = {"status": "received"}
-                    # Авто-подтяжка картинки, если её нет
+                    # Добавляем картинку по classid, если в истории её нет
                     if not trade.get("image_url") and trade_info.get("classid"):
                         update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
                     
                     await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json=update_payload)
-                    results_log.append(f"#{trade_id}: Success -> received")
+                    results_log.append(f"#{trade_id}: received")
 
-                # ПРАВИЛО №2: ЖЕСТКАЯ ОТМЕНА ОТ МАРКЕТА (УДАЛЯЕМ)
-                elif stage in ["4", "5"]:
-                    await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
-                    results_log.append(f"#{trade_id}: TM Canceled -> DELETED")
+                # ПРАВИЛО №2: ОТМЕНА/ТАЙМАУТ -> available (НЕ УДАЛЯЕМ)
+                elif stage in ["4", "5"] or (minutes_passed >= 10 and settlement == 0):
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
+                    results_log.append(f"#{trade_id}: available")
 
-                # ПРАВИЛО №3: ТАЙМ-АУТ 10 МИНУТ (Stage 1)
-                elif stage == "1":
-                    if minutes_passed >= 10:
-                        # Время вышло — удаляем из инвентаря
-                        await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
-                        results_log.append(f"#{trade_id}: 10m Timeout -> DELETED")
-                    else:
-                        results_log.append(f"#{trade_id}: Still waiting ({int(minutes_passed)}m)")
-                
-                else:
-                    if minutes_passed > 20:
-                        await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
-                        results_log.append(f"#{trade_id}: Unknown Timeout -> DELETED")
-
-            except Exception as e:
-                results_log.append(f"#{trade_id}: Error -> {str(e)}")
+            except Exception:
                 continue
 
-    return {
-        "status": "ok", 
-        "processed": len(active_trades), 
-        "details": results_log
-    }
+    return {"status": "ok", "details": results_log}
     
 @app.get("/api/v1/cron/trigger_draws")
 async def trigger_draws(
