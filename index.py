@@ -2939,24 +2939,56 @@ async def sync_steam_inventory(
             print(f"Критическая ошибка загрузки цен: {e}")
 
         # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ВИТРИНА ЛАВКИ) ---
-        # Мы берем скачанный прайс и обновляем цены для всех предметов в магазине разом
         try:
-            items_res = await supabase.get("/cs_items", params={"select": "market_hash_name"})
+            # 🔥 ДОБАВИЛИ ЗАПРОС ID И CONDITION 🔥
+            items_res = await supabase.get("/cs_items", params={"select": "id, market_hash_name, condition"})
             shop_items = items_res.json()
+            
             if shop_items and isinstance(shop_items, list):
-                shop_hash_names = list(set([i['market_hash_name'] for i in shop_items if i.get('market_hash_name')]))
+                # Словарь для перевода твоих коротких качеств в формат Маркета
+                cond_map = {
+                    "FN": " (Factory New)", 
+                    "MW": " (Minimal Wear)",
+                    "FT": " (Field-Tested)", 
+                    "WW": " (Well-Worn)", 
+                    "BS": " (Battle-Scarred)"
+                }
+                
                 market_cache_payload = []
-                for h_name in shop_hash_names:
-                    m_price = market_prices_rub.get(h_name, 0.0)
+                unique_names_to_sync = set()
+                
+                for item in shop_items:
+                    base_name = item.get('market_hash_name')
+                    if not base_name: continue
+                    
+                    full_name = base_name
+                    
+                    # 🛠 УМНАЯ СКЛЕЙКА: Если в имени нет скобок, но есть condition
+                    if "(" not in base_name and item.get("condition") in cond_map:
+                        full_name = f"{base_name}{cond_map[item['condition']]}"
+                        
+                        # Бонус: Сразу отправляем команду в БД исправить имя в cs_items навсегда!
+                        asyncio.create_task(
+                            supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json={"market_hash_name": full_name})
+                        )
+
+                    if full_name in unique_names_to_sync: 
+                        continue
+                    unique_names_to_sync.add(full_name)
+
+                    # Ищем цену по ПОЛНОМУ имени
+                    m_price = market_prices_rub.get(full_name, 0.0)
                     market_cache_payload.append({
-                        "market_hash_name": h_name,
+                        "market_hash_name": full_name,
                         "price_rub": m_price,
                         "is_available": m_price > 0,
                         "last_sync": "now()"
                     })
-                # Заливаем пачками по 100 штук
+                
+                # Заливаем пачками по 100
                 for i in range(0, len(market_cache_payload), 100):
                     await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
+                print(f"[SYNC] market_cache обновлен для {len(market_cache_payload)} товаров. Умная склейка отработала.")
         except Exception as e:
             print(f"Ошибка обновления market_cache: {e}")
 
