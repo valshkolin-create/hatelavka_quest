@@ -1768,32 +1768,43 @@ function initCountdown(elementId, updatedAtStr) {
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    // 1. Парсим дату. Добавляем 'Z' в конце, если её нет, чтобы JS понял — это UTC!
+    // Парсим дату (UTC)
     let dateStr = updatedAtStr.replace(' ', 'T');
     if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
         dateStr += 'Z';
     }
     
     const updateTime = new Date(dateStr).getTime();
-    
     if (isNaN(updateTime)) {
         el.innerHTML = "ОБРАБОТКА...";
         return;
     }
 
-    // 2. Ставим лимит (например, 60 минут)
-    const expireTime = updateTime + (60 * 60 * 1000); 
+    // 🔥 СТАВИМ ЗАКОННЫЕ 10 МИНУТ 🔥
+    const expireTime = updateTime + (10 * 60 * 1000); 
+    const historyId = elementId.replace('timer-', '');
 
-    // Очистим старый таймер, чтобы они не накладывались друг на друга
-    if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
+    // Функция для получения остатка времени
+    const getDistance = () => expireTime - new Date().getTime();
 
+    // 🛑 СЦЕНАРИЙ 1: Юзер зашел, а время УЖЕ вышло (до загрузки страницы)
+    if (getDistance() < 0) {
+        el.innerHTML = `<span style="color:#ffcc00; font-size:10px;"><i class="fa-solid fa-clock"></i> ВРЕМЯ ВЫШЛО</span>`;
+        if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
+        return; // Интервал не запускаем, ждем когда юзер сам нажмет кнопку
+    }
+
+    // 🟢 СЦЕНАРИЙ 2: Время еще есть, запускаем таймер
     const updateTimer = () => {
-        const now = new Date().getTime(); // Текущее время устройства
-        const distance = expireTime - now;
+        const distance = getDistance();
 
         if (distance < 0) {
-            el.innerHTML = `<span style="color:#34c759;"><i class="fa-solid fa-circle-check"></i> ПРОВЕРКА</span>`;
+            // Таймер дошел до нуля прямо на глазах у юзера!
+            el.innerHTML = `<span style="color:#34c759; font-size:10px;"><i class="fa-solid fa-circle-notch fa-spin-fast"></i> ПРОВЕРЯЕМ...</span>`;
             clearInterval(el.dataset.intervalId);
+            
+            // Запускаем автопроверку (юзеру не нужно кликать)
+            checkTradeStatus(historyId);
             return;
         }
 
@@ -1803,7 +1814,7 @@ function initCountdown(elementId, updatedAtStr) {
         el.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
     };
 
-    // Запускаем сразу и вешаем интервал
+    if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
     updateTimer();
     el.dataset.intervalId = setInterval(updateTimer, 1000);
 }
