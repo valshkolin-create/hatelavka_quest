@@ -18423,11 +18423,11 @@ async def withdraw_inventory_item(
     if not user_data:
         raise HTTPException(status_code=401, detail="Auth failed")
 
-    # Достаем ID юзера
-    telegram_id = user_data["id"]
+    # 🔥 НАЗЫВАЕМ ПЕРЕМЕННУЮ user_id, КАК ПРОСИТ ТВОЙ КОД НИЖЕ 🔥
+    user_id = user_data["id"]
 
-    # 🔥 БЛОКИРОВКА ПОВЕРХ ВСЕГО: Никакого вывода для забаненных 🔥
-    await verify_user_not_banned(telegram_id, supabase)
+    # ЛЮТАЯ БЛОКИРОВКА ПОВЕРХ ВСЕГО
+    await verify_user_not_banned(user_id, supabase))
 
     # 1. Получаем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
