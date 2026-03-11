@@ -1853,13 +1853,25 @@ function renderInventory(items) {
 
     items.forEach(item => {
         const status = (item.status || 'available').toLowerCase();
+        
+        // 🔥 ЛОГИКА ЗАМЕНЫ 🔥
+        const isReplaced = !!item.replaced_name; 
+        const displayName = isReplaced ? item.replaced_name : item.name;
+        // Если бэк отдает новую картинку (replaced_image_url), берем её, иначе старую
+        const displayImg = item.replaced_image_url || item.image_url; 
+        const ticketVal = isReplaced && item.replaced_price ? item.replaced_price : (item.price || 0);
+
         const rData = getRarityData(item.rarity); 
-        const ticketVal = item.price || 0;
         const timerElementId = `timer-${item.history_id}`;
 
         let rightContentHtml = '';
         let cardOpacity = '1';
         let statusLabel = '';
+
+        // Плашка, которая покажет юзеру, что произошла замена
+        const replacedBadge = isReplaced 
+            ? `<div style="color: #FFD700; font-size: 8px; font-weight: 800; margin-bottom: 2px; text-transform: uppercase;"><i class="fa-solid fa-rotate"></i> Выдана замена</div>` 
+            : '';
 
         if (status === 'auto_queued') {
             statusLabel = '<span style="color:#00c0e3; font-size:9px;">ПОИСК СКИНА В БАЗЕ</span>';
@@ -1924,8 +1936,9 @@ function renderInventory(items) {
                 statusLabel = '<span style="color:#aaa; font-size:9px;">ДОСТУПНО ДЛЯ ВЫВОДА</span>';
             }
 
+            // 🔥 Передаем актуальное имя (оригинал или замену) в функции 🔥
             rightContentHtml = `
-                <button id="withdraw-btn-${item.history_id}" onclick="withdrawItem(${item.history_id}, '${item.name.replace(/'/g, "\\'")}')" style="
+                <button id="withdraw-btn-${item.history_id}" onclick="withdrawItem(${item.history_id}, '${displayName.replace(/'/g, "\\'")}')" style="
                     background: #34c759; color: #000; border: none;
                     font-size: 11px; font-weight: 800; padding: 10px 0; 
                     border-radius: 8px; cursor: pointer; width: 100%;
@@ -1953,12 +1966,13 @@ function renderInventory(items) {
 
         el.innerHTML = `
             <div style="width: 70px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                <img src="${item.image_url}" style="max-width: 90%; max-height: 90%; object-fit: contain;" loading="lazy" decoding="async">
+                <img src="${displayImg}" style="max-width: 90%; max-height: 90%; object-fit: contain;" loading="lazy" decoding="async">
             </div>
 
             <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+                ${replacedBadge}
                 <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; line-height: 1.2;">
-                    ${item.name}
+                    ${displayName}
                 </div>
                 <div style="font-size: 10px; color: ${rData.color}; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; letter-spacing: 0.3px;">
                     ${rData.name}
