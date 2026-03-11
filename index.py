@@ -9594,113 +9594,98 @@ async def create_promocodes(
 @app.get("/api/v1/cron/check_tm_trades")  # Добавил слеш в конце для защиты от 301
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    АВТОМАТИКА: Проверяет активные сделки ТМ и закрывает те, что висят дольше 20 минут.
+    АВТОМАТИКА: Синхронизирует статусы с Маркетом. 
+    Если скин выдан — ставит 'received'. Если завис или отменен — ставит 'failed'.
     """
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
         return {"status": "error", "message": "No TM API key"}
 
-    # 1. Берем зависшие трейды. 
-    # ВНИМАНИЕ: Проверь, какой статус у "висяков". Если не 'exchanged', замени ниже.
+    # 1. Берем только "активные" трейды, которые висят в профилях
+    # Ищем статусы, которые считаются "в процессе"
     res = await supabase.get(
         "/cs_history", 
         params={
-            "status": "eq.exchanged", # Поменяй на статус 'pending' или 'created', если нужно
+            "status": "in.(exchanged,pending,waiting,processing)", 
             "select": "id, updated_at, status",
             "order": "updated_at.asc",
-            "limit": "20"
+            "limit": "25" # Ограничение, чтобы Vercel не упал по таймауту
         }
     )
-    
     active_trades = res.json() if res.status_code == 200 else []
 
     if not active_trades:
-        return {"status": "ok", "message": "Нет активных трейдов для проверки"}
+        return {"status": "ok", "message": "Нет активных трейдов для синхронизации"}
 
     now = datetime.now(timezone.utc)
     results_log = []
 
-    for trade in active_trades:
-        trade_id = trade.get("id")
-        updated_at_str = trade.get("updated_at")
-
-        if not updated_at_str:
-            continue
-
-        # Превращаем строку времени из базы в объект datetime
-        # Supabase обычно возвращает '2026-03-11T14:24:09.856Z'
-        updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
-        
-        # Считаем разницу в минутах
-        diff = now - updated_at
-        minutes_passed = diff.total_seconds() / 60
-
-        # 🔥 Если трейд висит дольше 20 минут — закрываем как неудачный
-        if minutes_passed > 20:
-            update_res = await supabase.patch(
-                "/cs_history",
-                params={"id": f"eq.{trade_id}"},
-                json={
-                    "status": "failed", 
-                    "error_log": f"Auto-closed by cron: hanging for {int(minutes_passed)} min"
-                }
-            )
-            
-            if update_res.status_code in [200, 204]:
-                results_log.append(f"Trade {trade_id} CLOSED (was hanging {int(minutes_passed)}m)")
-            else:
-                results_log.append(f"Trade {trade_id} ERROR while closing: {update_res.text}")
-        else:
-            results_log.append(f"Trade {trade_id} is still fresh ({int(minutes_passed)}m passed)")
-
-    return {
-        "status": "ok", 
-        "checked_at": now.isoformat(),
-        "processed": results_log
-    }
-
-    # 🔥 ЗАЩИТА №2: Даем Маркету 15 секунд на ответ вместо 5
     async with httpx.AsyncClient(timeout=15.0) as client:
         for trade in active_trades:
             trade_id = trade["id"]
             updated_at_str = trade.get("updated_at")
             
-            # Считаем, сколько времени висит трейд
+            # Считаем время жизни трейда
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
-            hours_passed = (now - trade_time).total_seconds() / 3600.0
+            minutes_passed = (now - trade_time).total_seconds() / 60
 
-            # 🔥 ЗАЩИТА №3: Если Маркет упал, скрипт не крашится, а идет дальше
             try:
-                tm_res = await client.get(f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}")
-                tm_res.raise_for_status() # Проверяем, что нет ошибки 500/502
+                # 2. Опрашиваем Маркет по нашему ID (custom_id = id записи в базе)
+                tm_res = await client.get(
+                    f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}"
+                )
+                
+                # Если Маркет вообще не отвечает по этому предмету долгое время
+                if tm_res.status_code != 200:
+                    if minutes_passed > 120: # 2 часа тишины
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "failed"})
+                        results_log.append(f"#{trade_id}: TM Silent 2h -> failed")
+                    continue
+
                 tm_data = tm_res.json()
+                trade_info = tm_data.get("data", {})
+                
+                # Если покупка не найдена в системе Маркета больше часа
+                if not tm_data.get("success") or not trade_info:
+                    if minutes_passed > 60:
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "failed"})
+                        results_log.append(f"#{trade_id}: Not found on TM 1h -> failed")
+                    continue
+
+                stage = str(trade_info.get("stage"))
+                settlement = int(trade_info.get("settlement") or 0)
+
+                # 3. ГЛАВНАЯ ЛОГИКА (как в ручной проверке)
+                
+                if settlement > 0 or stage == "2":
+                    # Скин точно ушел юзеру. Закрываем сделку.
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received"})
+                    results_log.append(f"#{trade_id}: Success (settlement/stage2) -> received")
+
+                elif stage in ["4", "5"]:
+                    # Маркет подтвердил отмену. Помечаем как провал.
+                    # В этом случае деньги вернулись тебе на баланс Маркета.
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "failed"})
+                    results_log.append(f"#{trade_id}: TM Canceled (stage {stage}) -> failed")
+
+                elif stage == "1":
+                    # Если висит в "ожидании" больше 1 часа — считаем провалом.
+                    # Лучше пусть потом ноет, чем трейд будет висеть вечно.
+                    if minutes_passed >= 60:
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "failed"})
+                        results_log.append(f"#{trade_id}: Timeout 1h in stage 1 -> failed")
+                    else:
+                        results_log.append(f"#{trade_id}: Still waiting ({int(minutes_passed)}m)")
+
             except Exception as e:
-                results_log.append(f"#{trade_id}: API Error -> {str(e)}")
-                continue # Пропускаем этот скин и проверяем следующий
-            
-            # Дальше идет старая логика
-            if not tm_data.get("success"):
-                if hours_passed >= 1.0:
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "pending"})
-                    results_log.append(f"#{trade_id}: Timeout/Error -> reverted to pending")
+                results_log.append(f"#{trade_id}: Error -> {str(e)}")
                 continue
-            
-            stage = str(tm_data.get("data", {}).get("stage"))
 
-            if stage == "2":
-                await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received"})
-                results_log.append(f"#{trade_id}: Success -> received")
-                
-            elif stage in ["4", "5"]:
-                await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "pending"})
-                results_log.append(f"#{trade_id}: TM Canceled -> reverted to pending")
-                
-            elif stage == "1":
-                if hours_passed >= 1.0:
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "pending"})
-                    results_log.append(f"#{trade_id}: 1 Hour Timeout -> reverted to pending")
-
-    return {"status": "ok", "processed": len(active_trades), "log": results_log}
+    return {
+        "status": "ok", 
+        "processed": len(active_trades), 
+        "details": results_log
+    }
 
 @app.get("/api/v1/cron/trigger_draws")
 async def trigger_draws(
