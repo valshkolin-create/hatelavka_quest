@@ -732,3 +732,14 @@ html, body {
         top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
     }
 }
+/* ==========================================
+   ФИКС ДЛЯ ПК-ВЕРСИИ (DESKTOP / WEB / MACOS)
+========================================== */
+/* Эти стили включатся только если скрипт подтвердит, что мы на ПК */
+body.desktop-mode .top-header {
+    padding-top: 15px !important; /* Прибиваем шапку к самому верху */
+}
+
+body.desktop-mode .toggle-container {
+    top: 65px !important; /* Ставим переключатель ровно под шапкой */
+}
