@@ -18945,7 +18945,7 @@ async def withdraw_inventory_item(
     return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
     
 # 4. Подтверждение выбора замены пользователем
-@@app.post("/api/v1/user/inventory/confirm_replacement")
+@app.post("/api/v1/user/inventory/confirm_replacement")
 async def confirm_replacement(
     req: ReplacementConfirmRequest,
     background_tasks: BackgroundTasks, 
