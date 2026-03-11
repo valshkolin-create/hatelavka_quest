@@ -59,8 +59,10 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 16px; 
-    /* Обновленный расчет для iOS + Android */
-    padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px);
+    
+    /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛОК (iPhone/Android): Учитывает челку + 55px */
+    padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
+    
     margin-bottom: 35px; 
     position: relative;
     z-index: 100;
@@ -108,8 +110,10 @@ html, body {
 ========================================== */
 .toggle-container {
     position: fixed;
-    /* Обновленный расчет */
-    top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 105px);
+    
+    /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛОК: Учитывает челку + 105px */
+    top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 105px) !important;
+    
     left: 50%;
     transform: translateX(-50%); 
     z-index: 1000;
@@ -735,11 +739,11 @@ html, body {
 /* ==========================================
    ФИКС ДЛЯ ПК-ВЕРСИИ (DESKTOP / WEB / MACOS)
 ========================================== */
-/* Эти стили включатся только если скрипт подтвердит, что мы на ПК */
+/* Эти стили сработают ТОЛЬКО если скрипт подтвердит, что это 100% компьютер */
 body.desktop-mode .top-header {
-    padding-top: 15px !important; /* Прибиваем шапку к самому верху */
+    padding-top: 15px !important; /* Убираем расчеты челки, прижимаем к верху */
 }
 
 body.desktop-mode .toggle-container {
-    top: 65px !important; /* Ставим переключатель ровно под шапкой */
+    top: 65px !important; /* Ставим аккуратно под шапку */
 }
