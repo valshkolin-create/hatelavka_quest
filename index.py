@@ -2147,7 +2147,7 @@ class MarketCSGO:
             return price_in_kopecks
         return None
 
-    async def buy_for_user(self, hash_name: str, trade_link: str, history_id: int): 
+    async def buy_for_user(self, hash_name: str, trade_link: str, custom_id: str): 
         partner, token = self.parse_trade_link(trade_link)
         if not partner or not token:
             return {"success": False, "error": "Неверная трейд-ссылка"}
@@ -2156,9 +2156,7 @@ class MarketCSGO:
         if not price:
             return {"success": False, "error": "Предмет не найден в продаже"}
 
-        # 🔥 ДЕЛАЕМ ID УНИКАЛЬНЫМ, ЧТОБЫ МАРКЕТ НЕ РУГАЛСЯ НА ДУБЛИКАТЫ 🔥
-        # Обрезаем до 40 символов, т.к. API Маркета принимает максимум 50
-        custom_id = f"{history_id}_{int(time.time())}"[:40] 
+        # Удалили генерацию времени! Используем тот custom_id, который передали в функцию.
 
         params = {
             "hash_name": hash_name,
@@ -18370,9 +18368,8 @@ async def check_trade_status_endpoint(
     body = await request.json()
     history_id = body.get("history_id")
     
-    # Твоя проверка авторизации
+    # Проверка авторизации
     user_data = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
-    
     if not user_data:
         return JSONResponse({"success": False, "message": "Auth failed"}, status_code=401)
 
@@ -18383,44 +18380,58 @@ async def check_trade_status_endpoint(
     })
     
     db_items = res.json() 
-    
     if not db_items or len(db_items) == 0:
         return JSONResponse({"success": False, "message": "Предмет не найден в вашей истории"})
         
     item = db_items[0] 
     
-    # 🔥 ИСПРАВЛЕНИЕ ЗДЕСЬ: Берем уникальный ID из поля tradeofferid, который мы сохраняли при покупке
+    # Берем уникальный ID (с временем), который мы сохраняли в базу
     custom_id = str(item.get("tradeofferid")) if item.get("tradeofferid") else str(item.get("id"))
 
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     
     try:
-        async with httpx.AsyncClient(timeout=12.0) as client:
-            # Запрашиваем инфу у Маркета по правильному длинному ID
+        # Увеличиваем таймаут, так как Маркет может долго «думать»
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 🔥 ИСПОЛЬЗУЕМ PARAMS ДЛЯ БЕЗОПАСНОСТИ 🔥
             tm_res = await client.get(
-                f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_id}"
+                "https://market.csgo.com/api/v2/get-buy-info-by-custom-id",
+                params={
+                    "key": TM_API_KEY,
+                    "custom_id": custom_id
+                }
             )
             tm_data = tm_res.json()
             
             print(f"DEBUG TM FOR ITEM {custom_id}: {tm_data}")
 
+            # =========================================================
+            # ОБРАБОТКА ОШИБОК И ЗАДЕРЖКИ ИНДЕКСАЦИИ
+            # =========================================================
             if not tm_data.get("success"):
+                # Если Маркет говорит "not found", значит ID еще не проиндексирован (нужно подождать 30-60 сек)
+                if tm_data.get("error") == "not found":
+                    return {
+                        "success": False, 
+                        "message": "⌛ Маркет обрабатывает сделку. Информация появится через минуту. Не переживайте, скин уже в пути!"
+                    }
+                
                 return {
                     "success": False, 
-                    "message": "Маркет еще не обработал покупку или предмет не найден."
+                    "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
                 }
             
+            # Если успех — вытаскиваем данные
             trade_info = tm_data.get("data", {})
             stage = str(trade_info.get("stage"))
             settlement = int(trade_info.get("settlement") or 0)
             
-            # Считаем время с момента покупки на Маркете
             tm_buy_time = int(trade_info.get("time") or 0)
             now_ts = int(datetime.now(timezone.utc).timestamp())
             seconds_passed = now_ts - tm_buy_time
             
             # =========================================================
-            # ЛОГИКА УСПЕХА (SETTLEMENT / STAGE 2)
+            # ЛОГИКА УСПЕХА (Предмет передан или расчет завершен)
             # =========================================================
             if settlement > 0 or stage == "2":
                 await supabase.patch("/cs_history", 
@@ -18429,28 +18440,27 @@ async def check_trade_status_endpoint(
                 )
                 return {
                     "success": True, 
-                    "message": "Скин успешно выдан! Приятной игры.", 
+                    "message": "✅ Скин успешно выдан! Приятной игры.", 
                     "new_status": "received"
                 }
                 
             # =========================================================
-            # ЛОГИКА ОТМЕНЫ (STAGE 4/5 ИЛИ 10 МИНУТ ПРОШЛО)
+            # ЛОГИКА ОТМЕНЫ (Ошибка или истекло время 10 мин)
             # =========================================================
             elif stage in ["4", "5"] or (seconds_passed > 600 and settlement == 0):
-                # Если Маркет отменил ИЛИ прошло 10 минут без settlement
                 await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}"}, 
                     json={"status": "available"}
                 )
                 
-                # Снимаем резерв склада
+                # Снимаем резерв, если это был предмет со склада
                 if item.get("assetid"):
                     await supabase.patch("/steam_inventory_cache", 
                         params={"assetid": f"eq.{item['assetid']}"}, 
                         json={"is_reserved": False}
                     )
                 
-                msg = "Трейд был отменен. Предмет снова доступен." if stage in ["4", "5"] else "Время на принятие трейда (10 мин) истекло. Попробуйте еще раз."
+                msg = "Трейд был отменен. Предмет снова доступен для вывода." if stage in ["4", "5"] else "Время ожидания (10 мин) истекло. Попробуйте еще раз."
                 return {
                     "success": True, 
                     "message": msg, 
@@ -18458,27 +18468,24 @@ async def check_trade_status_endpoint(
                 }
                 
             # =========================================================
-            # ОЖИДАНИЕ (STAGE 1 В ПРЕДЕЛАХ 10 МИНУТ)
+            # ОЖИДАНИЕ (Трейд создан, ждем действий)
             # =========================================================
             elif stage == "1":
-                time_left = int((600 - seconds_passed) / 60)
-                if time_left < 1: time_left = 1
-                
+                time_left = max(1, int((600 - seconds_passed) / 60))
                 return {
                     "success": False, 
-                    "message": f"Оффер отправлен! У вас есть {time_left} мин., чтобы принять его в Steam."
+                    "message": f"Оффер отправлен! У вас есть около {time_left} мин., чтобы принять его в Steam."
                 }
             
             else:
                 return {
                     "success": False, 
-                    "message": f"Статус трейда: обрабатывается (Код {stage})."
+                    "message": f"Статус: обрабатывается (Код {stage})."
                 }
                 
     except Exception as e:
         print(f"TM API ERROR: {e}")
-        return JSONResponse({"success": False, "message": f"Ошибка связи с ТМ: {str(e)}"})
-
+        return JSONResponse({"success": False, "message": "Временная ошибка связи с Маркетом. Попробуйте позже."})
 
 
 # 2. Обменять скин на билеты (FIX 400 ERROR)
