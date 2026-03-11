@@ -341,10 +341,11 @@ async def get_roulette_strip(winner_item, count=30):
         logging.error(f"Error generating strip: {e}")
         return [winner_item] * count
 
-async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, history_id: int, target_condition: str = None, target_market_name: str = None):
+async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, history_id: int, target_condition: str = None, target_market_name: str = None, source: str = "shop"):
     """
-    Ищет предмет: Сначала на Маркете (Приоритет, по market_hash_name), 
-    затем на складе (или замену по name).
+    Ищет предмет: 
+    Если source == 'shop' -> Строго на Маркете (Приоритет, по market_hash_name).
+    Если source == 'twitch' -> Строго на складе (в кэше ботов) или замену.
     """
     import re
     import logging
@@ -357,7 +358,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
         return {"success": False, "error": "invalid_url", "message": "Неверная ссылка на обмен"}
 
     cond_text = f" (Качество: {target_condition})" if target_condition else ""
-    logging.info(f"[STOREKEEPER] Заказ принят: {target_name}{cond_text} (Бюджет: {target_price_rub} руб.)")
+    logging.info(f"[STOREKEEPER] Заказ принят: {target_name}{cond_text} (Бюджет: {target_price_rub} руб. | Источник: {source})")
 
     real_skin = None
     target_lower = target_name.lower()
@@ -419,141 +420,138 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             market_search_name = market_search_name or target_name
 
     # ==========================================
-    # 🛒 ПЛАН "А": ПОКУПКА НА МАРКЕТЕ (ПРИОРИТЕТ)
+    # 🛒 ЛАВКА: ТОЛЬКО МАРКЕТ (PURE MARKET)
     # ==========================================
-    if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
-        logging.info(f"[STOREKEEPER] План А: Пробуем купить на Маркете: {market_search_name}")
-        
-        TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
-        market = MarketCSGO(api_key=TM_API_KEY)
-        
-        market_res = await market.buy_for_user(
-            hash_name=market_search_name, 
-            trade_link=trade_url, 
-            history_id=history_id
-        )
-        
-        if market_res.get("success"):
-            logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {history_id}")
-            await supabase.patch("/cs_history", 
-                params={"id": f"eq.{history_id}"}, 
-                json={"status": "market_pending"}
+    if source == "shop":
+        if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
+            logging.info(f"[STOREKEEPER] Лавка: Пробуем купить на Маркете: {market_search_name}")
+            
+            TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
+            market = MarketCSGO(api_key=TM_API_KEY)
+            
+            market_res = await market.buy_for_user(
+                hash_name=market_search_name, 
+                trade_link=trade_url, 
+                history_id=history_id
             )
-            return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
-        else:
-            # 🔥 УМНЫЙ ПЕРЕХВАТЧИК ОШИБОК МАРКЕТА 🔥
-            error_code = market_res.get("code")
-            # Коды ошибок, которые означают проблему с аккаунтом пользователя (а не с наличием предмета)
-            # 3, 8, 12: проблема с ссылкой. 5: скрыт инвентарь. 6: бан. 7: нет гуарда. 20: лаги стима. 21: фулл инвентарь.
-            if error_code in [3, 5, 6, 7, 8, 12, 20, 21]:
+            
+            if market_res.get("success"):
+                logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {history_id}")
+                await supabase.patch("/cs_history", 
+                    params={"id": f"eq.{history_id}"}, 
+                    json={"status": "market_pending"}
+                )
+                return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
+            else:
+                # 🔥 УМНЫЙ ПЕРЕХВАТЧИК ОШИБОК МАРКЕТА 🔥
+                error_code = market_res.get("code")
+                # 3, 8, 12: проблема с ссылкой. 5: скрыт инвентарь. 6: бан. 7: нет гуарда. 20: лаги стима. 21: фулл инвентарь.
+                if error_code in [3, 5, 6, 7, 8, 12, 20, 21]:
+                    err = market_res.get("error", "Неизвестная ошибка")
+                    logging.error(f"[STOREKEEPER] 🛑 Критическая ошибка аккаунта юзера: Код {error_code} ({err})")
+                    return {
+                        "success": False, 
+                        "is_user_trade_error": True, 
+                        "market_error_code": error_code,
+                        "error": err,
+                        "message": "Ошибка доставки"
+                    }
+
                 err = market_res.get("error", "Неизвестная ошибка")
-                logging.error(f"[STOREKEEPER] 🛑 Критическая ошибка аккаунта юзера: Код {error_code} ({err})")
-                
-                # МГНОВЕННО прерываем функцию и передаем ошибку в withdraw_inventory_item
-                return {
-                    "success": False, 
-                    "is_user_trade_error": True, # Сигнал для withdraw_inventory_item
-                    "market_error_code": error_code,
-                    "error": err,
-                    "message": "Ошибка доставки"
-                }
-
-            # Если ошибка другая (например, нет нужной цены или предмета), идем к Плану Б (Склад)
-            err = market_res.get("error", "Неизвестная ошибка")
-            logging.warning(f"[STOREKEEPER] Маркет не справился (Код: {error_code}, Ошибка: {err}). Идем к плану Б (Склад)...")
-    else:
-        logging.warning(f"[STOREKEEPER] План А пропущен (нет англ. названия): {market_search_name}")
-        
-    # ==========================================
-    # 🔥 СПЕЦНАЗ: РАНДОМНЫЙ ДЕШЕВЫЙ ЛУТ (СКЛАД) 🔥
-    # ==========================================
-    if "1 наклейка" in target_lower or "рандомная наклейка" in target_lower:
-        logging.info("[STOREKEEPER] Ищем самую дешевую наклейку в кэше...")
-        stock_res = await supabase.get("/steam_inventory_cache", params={
-            "market_hash_name": "ilike.%Наклейка %",
-            "is_reserved": "eq.false",
-            "order": "price_rub.asc",
-            "limit": 1
-        })
-        stock_data = stock_res.json()
-        if stock_data and len(stock_data) > 0:
-            real_skin = stock_data[0]
-            logging.info(f"[STOREKEEPER] Нашли рандомную наклейку: {real_skin['market_hash_name']}")
-
-    elif "сувенирный ширп" in target_lower:
-        logging.info("[STOREKEEPER] Ищем самый дешевый сувенир в кэше...")
-        stock_res = await supabase.get("/steam_inventory_cache", params={
-            "market_hash_name": "ilike.%Сувенирный %",
-            "is_reserved": "eq.false",
-            "order": "price_rub.asc",
-            "limit": 1
-        })
-        stock_data = stock_res.json()
-        if stock_data and len(stock_data) > 0:
-            real_skin = stock_data[0]
-            logging.info(f"[STOREKEEPER] Нашли рандомный сувенир: {real_skin['market_hash_name']}")
-
-    # ==========================================
-    # 📦 ОБЫЧНЫЙ ПОИСК ПО СКЛАДУ
-    # ==========================================
-    if not real_skin:
-        # Ищем по name_ru в кэше
-        search_params = {
-            "name_ru": f"eq.{target_name}",
-            "is_reserved": "eq.false",
-            "limit": 1
-        }
-        
-        if target_condition:
-            search_params["condition"] = f"eq.{target_condition}"
-
-        stock_res = await supabase.get("/steam_inventory_cache", params=search_params)
-        stock_data = stock_res.json()
-
-        if stock_data and len(stock_data) > 0:
-            real_skin = stock_data[0]
-            logging.info(f"[STOREKEEPER] Найден оригинал на складе! AssetID: {real_skin['assetid']}")
+                logging.warning(f"[STOREKEEPER] Маркет не справился (Код: {error_code}, Ошибка: {err}). Возвращаем ошибку для замен.")
+                return {"success": False, "is_user_trade_error": False, "error": "market_failed"}
         else:
-            # План "В": Умная замена (±7% от цены)
-            if target_price_rub > 0:
-                min_p, max_p = target_price_rub * 0.93, target_price_rub * 1.07
-                logging.info(f"[STOREKEEPER] Ищем замену на складе от {min_p:.2f} до {max_p:.2f} руб.")
-                
-                alt_res = await supabase.get("/steam_inventory_cache", params={
-                    "is_reserved": "eq.false",
-                    "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
-                    "order": "price_rub.asc",
-                    "limit": 1
-                })
-                
-                alts = alt_res.json()
-                if alts and len(alts) > 0:
-                    real_skin = alts[0]
-                    logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']}")
+            logging.warning(f"[STOREKEEPER] Лавка: Пропущено (нет англ. названия): {market_search_name}")
+            return {"success": False, "is_user_trade_error": False, "error": "no_english_name"}
 
     # ==========================================
-    # 📦 ФИНАЛИЗАЦИЯ
+    # 🎮 ТВИЧ: ТОЛЬКО ЛОКАЛЬНЫЙ СКЛАД БОТОВ
     # ==========================================
-    if real_skin:
-        await supabase.patch("/steam_inventory_cache", 
-            params={"assetid": f"eq.{real_skin['assetid']}"}, 
-            json={"is_reserved": True}
-        )
-
-        delivery_payload = {
-            "user_id": user_id,
-            "assetid": real_skin["assetid"],
-            "account_id": real_skin["account_id"],
-            "trade_url": trade_url,
-            "trade_status": "pending",
-            "market_hash_name": real_skin["market_hash_name"],
-            "history_id": history_id 
-        }
+    elif source == "twitch":
+        logging.info(f"[STOREKEEPER] Твич: Ищем физический предмет в Кэше ботов...")
         
-        await supabase.post("/user_winnings", json=delivery_payload)
-        await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "pending"})
+        # --- СПЕЦНАЗ: РАНДОМНЫЙ ДЕШЕВЫЙ ЛУТ ---
+        if "наклейка" in target_lower or "sticker" in target_lower:
+            logging.info("[STOREKEEPER] Ищем любую дешевую наклейку в кэше...")
+            stock_res = await supabase.get("/steam_inventory_cache", params={
+                "or": "(name_ru.ilike.%Наклейка%,market_hash_name.ilike.%Sticker%)",
+                "is_reserved": "eq.false",
+                "order": "price_rub.asc",
+                "limit": 1
+            })
+            stock_data = stock_res.json()
+            if stock_data and len(stock_data) > 0:
+                real_skin = stock_data[0]
+                logging.info(f"[STOREKEEPER] Нашли рандомную наклейку: {real_skin['market_hash_name']}")
 
-        return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован на складе"}
+        elif "сувенир" in target_lower or "souvenir" in target_lower:
+            logging.info("[STOREKEEPER] Ищем любой дешевый сувенир в кэше...")
+            stock_res = await supabase.get("/steam_inventory_cache", params={
+                "or": "(name_ru.ilike.%Сувенир%,market_hash_name.ilike.%Souvenir%)",
+                "is_reserved": "eq.false",
+                "order": "price_rub.asc",
+                "limit": 1
+            })
+            stock_data = stock_res.json()
+            if stock_data and len(stock_data) > 0:
+                real_skin = stock_data[0]
+                logging.info(f"[STOREKEEPER] Нашли рандомный сувенир: {real_skin['market_hash_name']}")
+
+        # --- ОБЫЧНЫЙ ПОИСК ПО СКЛАДУ ---
+        if not real_skin:
+            search_params = {
+                "name_ru": f"ilike.%{target_name}%",
+                "is_reserved": "eq.false",
+                "limit": 1
+            }
+            if target_condition:
+                search_params["condition"] = f"eq.{target_condition}"
+
+            stock_res = await supabase.get("/steam_inventory_cache", params=search_params)
+            stock_data = stock_res.json()
+
+            if stock_data and len(stock_data) > 0:
+                real_skin = stock_data[0]
+                logging.info(f"[STOREKEEPER] Найден оригинал на складе! AssetID: {real_skin['assetid']}")
+            else:
+                # План "В": Умная замена (±7% от цены)
+                if target_price_rub > 0:
+                    min_p, max_p = target_price_rub * 0.93, target_price_rub * 1.07
+                    logging.info(f"[STOREKEEPER] Ищем замену на складе от {min_p:.2f} до {max_p:.2f} руб.")
+                    
+                    alt_res = await supabase.get("/steam_inventory_cache", params={
+                        "is_reserved": "eq.false",
+                        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
+                        "order": "price_rub.asc",
+                        "limit": 1
+                    })
+                    
+                    alts = alt_res.json()
+                    if alts and len(alts) > 0:
+                        real_skin = alts[0]
+                        logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']}")
+
+        # --- ФИНАЛИЗАЦИЯ ДЛЯ ТВИЧА ---
+        if real_skin:
+            await supabase.patch("/steam_inventory_cache", 
+                params={"assetid": f"eq.{real_skin['assetid']}"}, 
+                json={"is_reserved": True}
+            )
+
+            delivery_payload = {
+                "user_id": user_id,
+                "assetid": real_skin["assetid"],
+                "account_id": real_skin["account_id"],
+                "trade_url": trade_url,
+                "trade_status": "pending",
+                "market_hash_name": real_skin["market_hash_name"],
+                "history_id": history_id 
+            }
+            
+            await supabase.post("/user_winnings", json=delivery_payload)
+            await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "pending"})
+
+            return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован на складе"}
 
     logging.error(f"[STOREKEEPER] Везде пусто для {target_name}!")
     return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
@@ -2862,14 +2860,13 @@ async def sync_steam_inventory(
                         await asyncio.sleep(3)
                 return last_resp
 
-            resp_en = await safe_get(url_en)
+            # Запускаем запросы EN и RU параллельно для экономии времени
+            resp_en, resp_ru = await asyncio.gather(safe_get(url_en), safe_get(url_ru))
+
             if not resp_en or resp_en.status_code != 200:
                 err_code = resp_en.status_code if resp_en else "Network Error"
                 return {"bot_id": bot_id, "error": f"Steam EN Error: {err_code}", "items": []}
 
-            await asyncio.sleep(2.5) 
-
-            resp_ru = await safe_get(url_ru)
             if not resp_ru or resp_ru.status_code != 200:
                 err_code = resp_ru.status_code if resp_ru else "Network Error"
                 return {"bot_id": bot_id, "error": f"Steam RU Error: {err_code}", "items": []}
@@ -2902,8 +2899,8 @@ async def sync_steam_inventory(
                     desc_map[key] = {
                         "name_ru": desc.get("market_name", desc.get("name", "Неизвестно")),
                         "hash_name_en": en_desc_map.get(key, desc.get("market_hash_name", "")),
-                        "condition": CONDITION_MAP.get(raw_cond, "-"),
-                        "rarity": RARITY_COLOR_MAP.get(rarity_col, "common"),
+                        "condition": CONDITION_MAP.get(raw_cond, "-"), # Используем твой глобальный маппинг
+                        "rarity": RARITY_COLOR_MAP.get(rarity_col, "common"), # И твой маппинг редкости
                         "icon_url": f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url_large') or desc.get('icon_url')}/512fx512f" if (desc.get("icon_url_large") or desc.get("icon_url")) else ""
                     }
 
@@ -2914,9 +2911,7 @@ async def sync_steam_inventory(
                     bot_items.append({
                         "assetid": asset["assetid"],
                         "account_id": bot_id,
-                        # market_hash_name теперь всегда на АНГЛИЙСКОМ для API Маркета
                         "market_hash_name": info["hash_name_en"],
-                        # name_ru для отображения в интерфейсе
                         "name_ru": info["name_ru"],
                         "condition": info["condition"],
                         "rarity": info["rarity"],
@@ -2931,7 +2926,7 @@ async def sync_steam_inventory(
             tasks = [fetch_bot_inventory(client, bot) for bot in bots]
             bot_results = await asyncio.gather(*tasks)
 
-        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (по английским именам)
+        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
         market_prices_rub = {}
         try:
             async with httpx.AsyncClient() as client:
@@ -2943,10 +2938,33 @@ async def sync_steam_inventory(
         except Exception as e:
             print(f"Критическая ошибка загрузки цен: {e}")
 
-        # 4. ОБРАБОТКА, РАСЧЕТ ТИКЕТОВ И СОХРАНЕНИЕ В КЭШ
+        # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ВИТРИНА ЛАВКИ) ---
+        # Мы берем скачанный прайс и обновляем цены для всех предметов в магазине разом
+        try:
+            items_res = await supabase.get("/cs_items", params={"select": "market_hash_name"})
+            shop_items = items_res.json()
+            if shop_items and isinstance(shop_items, list):
+                shop_hash_names = list(set([i['market_hash_name'] for i in shop_items if i.get('market_hash_name')]))
+                market_cache_payload = []
+                for h_name in shop_hash_names:
+                    m_price = market_prices_rub.get(h_name, 0.0)
+                    market_cache_payload.append({
+                        "market_hash_name": h_name,
+                        "price_rub": m_price,
+                        "is_available": m_price > 0,
+                        "last_sync": "now()"
+                    })
+                # Заливаем пачками по 100 штук
+                for i in range(0, len(market_cache_payload), 100):
+                    await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
+        except Exception as e:
+            print(f"Ошибка обновления market_cache: {e}")
+
+        # 4. ОБРАБОТКА, РАСЧЕТ ТИКЕТОВ И СОХРАНЕНИЕ В КЭШ БОТОВ
         total_synced = 0
         bot_stats = {}
-        unique_pairs = {} # Для обновления таблицы cs_items (name_ru -> market_hash_name)
+        unique_pairs = {} 
+        db_tasks = [] # Список задач для параллельного выполнения в БД
 
         for res_data in bot_results:
             bot_id = res_data["bot_id"]
@@ -2956,7 +2974,6 @@ async def sync_steam_inventory(
                 
             bot_inventory = []
             for item in res_data["items"]:
-                # Ищем цену по английскому имени (market_hash_name)
                 p_rub = market_prices_rub.get(item["market_hash_name"], 0.0)
                 
                 if p_rub == 0.0:
@@ -2971,31 +2988,35 @@ async def sync_steam_inventory(
                 item["price_rub"] = p_rub
                 item["tickets"] = tickets_count
                 
-                # Запоминаем связку для Шага 5
                 unique_pairs[item["name_ru"]] = item["market_hash_name"]
-                
                 bot_inventory.append(item)
 
             if bot_inventory:
-                await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+                # Очищаем старый инвентарь бота и заливаем новый (готовим задачи)
+                db_tasks.append(supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}"))
                 for i in range(0, len(bot_inventory), 50):
-                    chunk = bot_inventory[i:i+50]
-                    await supabase.post("/steam_inventory_cache", json=chunk)
+                    db_tasks.append(supabase.post("/steam_inventory_cache", json=bot_inventory[i:i+50]))
                 
                 total_synced += len(bot_inventory)
                 bot_stats[bot_id] = f"Успешно: {len(bot_inventory)} предметов."
             else:
                 bot_stats[bot_id] = "Инвентарь пуст."
 
-        # --- 🚀 ШАГ 5: АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ CS_ITEMS ---
-        # Проходим по всем найденным связкам и обновляем английские имена в магазине
+        # Выполняем все операции с кэшем инвентаря разом
+        if db_tasks:
+            await asyncio.gather(*db_tasks)
+
+        # --- 🚀 ШАГ 5: УСКОРЕННАЯ СИНХРОНИЗАЦИЯ CS_ITEMS ---
         if unique_pairs:
-            print(f"[SYNC] Обновление market_hash_name для {len(unique_pairs)} предметов в cs_items...")
-            for ru_name, en_name in unique_pairs.items():
-                await supabase.patch("/cs_items", 
-                    params={"name": f"eq.{ru_name}"}, 
-                    json={"market_hash_name": en_name}
-                )
+            print(f"[SYNC] Ускоренное обновление market_hash_name для {len(unique_pairs)} предметов...")
+            # Создаем список задач на обновление
+            update_tasks = [
+                supabase.patch("/cs_items", params={"name": f"eq.{ru_name}"}, json={"market_hash_name": en_name})
+                for ru_name, en_name in unique_pairs.items()
+            ]
+            # Запускаем пачками по 30, чтобы не превысить лимиты API Supabase
+            for i in range(0, len(update_tasks), 30):
+                await asyncio.gather(*update_tasks[i:i+30])
 
         return {
             "success": True, 
@@ -4206,8 +4227,9 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                         "user_id": user_id,
                         "case_name": f"Рулетка: {reward_title}",
                         "status": "pending",
+                        "source": "twitch", # 🔥 ДОБАВЛЕНО: Флаг источника для Кладовщика
                         "details": f"Скин: {winner_skin_name}"
-                    })
+                    }, headers={"Prefer": "return=representation"}) # 🔥 ДОБАВЛЕНО: Для гарантии возврата ID
                     h_data = h_res.json()
                     if h_data and isinstance(h_data, list):
                         history_id = h_data[0].get('id')
@@ -4228,7 +4250,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                             target_price_rub=0.0, 
                             trade_url=trade_link, 
                             supabase=supabase,
-                            history_id=history_id # <--- Передаем ID для связи с ТМ/Складом
+                            history_id=history_id, # <--- Передаем ID для связи с ТМ/Складом
+                            source="twitch" # 🔥 ДОБАВЛЕНО: Флаг источника
                         )
                         
                         if deliv_res.get("success"):
@@ -4412,8 +4435,9 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                             "user_id": user_id,
                             "case_name": f"Twitch: {reward_title}",
                             "status": "pending",
+                            "source": "twitch", # 🔥 ДОБАВЛЕНО: Флаг источника для Кладовщика
                             "details": f"Запрос: {reward_title}"
-                        })
+                        }, headers={"Prefer": "return=representation"}) # 🔥 ДОБАВЛЕНО: Для гарантии возврата ID
                         h_data = h_res.json()
                         if h_data and isinstance(h_data, list):
                             history_id = h_data[0].get('id')
@@ -4429,7 +4453,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                             target_price_rub=0.0, 
                             trade_url=trade_link, 
                             supabase=supabase,
-                            history_id=history_id # <--- ТЕПЕРЬ ВСЁ ОК
+                            history_id=history_id, # <--- ТЕПЕРЬ ВСЁ ОК
+                            source="twitch" # 🔥 ДОБАВЛЕНО: Флаг источника
                         )
                         
                         if deliv_res.get("success"):
@@ -18342,14 +18367,15 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет из истории
+   # 2. Получаем предмет из истории
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "id": f"eq.{req.history_id}",
             "user_id": f"eq.{user_id}",
             "status": "eq.pending",
-            "select": "id, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
+            # 🔥 ДОБАВЛЯЕМ SOURCE В SELECT 🔥
+            "select": "id, source, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
         }
     )
     
@@ -18358,7 +18384,13 @@ async def withdraw_inventory_item(
     if isinstance(rows, dict) or not rows or not isinstance(rows, list):
         raise HTTPException(status_code=404, detail="Предмет не найден или уже в обработке")
 
-    item_data = rows[0].get('item', {})
+    history_record = rows[0]
+    item_data = history_record.get('item', {})
+    
+    # 🔥 ВЫТАСКИВАЕМ SOURCE ИЗ БАЗЫ 🔥
+    # Если поля нет (старые записи), по умолчанию считаем, что это Лавка
+    item_source = history_record.get('source', 'shop') 
+    
     item_name = item_data.get('name', 'Неизвестный предмет')
     
     # Цены
@@ -18386,7 +18418,8 @@ async def withdraw_inventory_item(
             supabase=supabase,
             history_id=req.history_id, 
             target_condition=item_condition,
-            target_market_name=market_hash_name    
+            target_market_name=market_hash_name,
+            source=item_source # 🔥 ТЕПЕРЬ КЛАДОВЩИК ЗНАЕТ, ОТКУДА ПРИШЕЛ ЗАКАЗ! 🔥
         )
         
         # 🔥🔥🔥 НОВЫЙ БЛОК: ЖЕЛЕЗОБЕТОННЫЙ ПЕРЕХВАТ ОШИБОК СТИМА 🔥🔥🔥
