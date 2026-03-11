@@ -9591,26 +9591,27 @@ async def create_promocodes(
         raise HTTPException(status_code=500, detail="Не удалось добавить промокоды.")
 # --- АДМИНСКИЕ ПРОМОКОДЫ  ---  
 
-@app.get("/api/v1/cron/check_tm_trades")
+@app.get("/api/v1/cron/check_tm_trades/")  # Добавил слеш в конце для защиты от 301
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    АВТОМАТИКА: Проверяет активные сделки ТМ с защитой от таймаутов.
+    АВТОМАТИКА: Проверяет активные сделки ТМ и закрывает те, что висят дольше 20 минут.
     """
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
         return {"status": "error", "message": "No TM API key"}
 
-    # 🔥 ЗАЩИТА №1: Берем только 20 самых старых зависших трейдов за раз
-    # Это спасет от лимитов Vercel, если вдруг зависнет 100 скинов сразу
+    # 1. Берем зависшие трейды. 
+    # ВНИМАНИЕ: Проверь, какой статус у "висяков". Если не 'exchanged', замени ниже.
     res = await supabase.get(
         "/cs_history", 
         params={
-            "status": "eq.exchanged", 
-            "select": "id, updated_at",
+            "status": "eq.exchanged", # Поменяй на статус 'pending' или 'created', если нужно
+            "select": "id, updated_at, status",
             "order": "updated_at.asc",
             "limit": "20"
         }
     )
+    
     active_trades = res.json() if res.status_code == 200 else []
 
     if not active_trades:
@@ -9618,6 +9619,45 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
     now = datetime.now(timezone.utc)
     results_log = []
+
+    for trade in active_trades:
+        trade_id = trade.get("id")
+        updated_at_str = trade.get("updated_at")
+
+        if not updated_at_str:
+            continue
+
+        # Превращаем строку времени из базы в объект datetime
+        # Supabase обычно возвращает '2026-03-11T14:24:09.856Z'
+        updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+        
+        # Считаем разницу в минутах
+        diff = now - updated_at
+        minutes_passed = diff.total_seconds() / 60
+
+        # 🔥 Если трейд висит дольше 20 минут — закрываем как неудачный
+        if minutes_passed > 20:
+            update_res = await supabase.patch(
+                "/cs_history",
+                params={"id": f"eq.{trade_id}"},
+                json={
+                    "status": "failed", 
+                    "error_log": f"Auto-closed by cron: hanging for {int(minutes_passed)} min"
+                }
+            )
+            
+            if update_res.status_code in [200, 204]:
+                results_log.append(f"Trade {trade_id} CLOSED (was hanging {int(minutes_passed)}m)")
+            else:
+                results_log.append(f"Trade {trade_id} ERROR while closing: {update_res.text}")
+        else:
+            results_log.append(f"Trade {trade_id} is still fresh ({int(minutes_passed)}m passed)")
+
+    return {
+        "status": "ok", 
+        "checked_at": now.isoformat(),
+        "processed": results_log
+    }
 
     # 🔥 ЗАЩИТА №2: Даем Маркету 15 секунд на ответ вместо 5
     async with httpx.AsyncClient(timeout=15.0) as client:
