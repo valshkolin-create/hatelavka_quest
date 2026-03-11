@@ -1897,17 +1897,6 @@ async function main() {
             if (typeof setPlatformTheme === 'function') setPlatformTheme(platform);
         }
     };
-
-    // Функция для безопасного переключения вкладки
-    const safeSwitchTab = (platform) => {
-        const switchEl = document.getElementById(`view-${platform}`);
-        if (switchEl) {
-            switchEl.checked = true;
-            // setPlatformTheme определена выше в твоем коде
-            if (typeof setPlatformTheme === 'function') setPlatformTheme(platform);
-        }
-    };
-
     // 1. Сначала проверяем, есть ли активный квест (ПРАВИЛО 3)
     if (userData.active_quest_id) {
         // Если квест уже взят, мы ИГНОРИРУЕМ команду открытия меню выбора (openCommand)
