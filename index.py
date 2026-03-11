@@ -16021,7 +16021,7 @@ STAT_MAPPING = {
 @app.get("/api/admin/sync_all_images")
 async def sync_all_csgo_images(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # Защита, чтобы кто попало не запустил
-    if token != "твой_секретный_пароль":
+    if token != "9f8a7b6c5d4e3f2g1h":
         return {"success": False, "message": "Access denied"}
         
     import asyncio
