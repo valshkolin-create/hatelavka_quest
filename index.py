@@ -18962,6 +18962,30 @@ async def confirm_replacement(
     
     user_id = user_data['id']
 
+    # ==========================================
+    # 🔥 ЖЕЛЕЗНЫЙ ЩИТ ОТ БЕСКОНЕЧНОГО ФАРМА 🔥
+    # ==========================================
+    # Достаем заявку и проверяем ее текущий статус
+    check_resp = await supabase.get("/cs_history", params={
+        "id": f"eq.{req.history_id}",
+        "user_id": f"eq.{user_id}"
+    })
+    
+    history_rows = check_resp.json()
+    if not history_rows or not isinstance(history_rows, list) or len(history_rows) == 0:
+        return {"success": False, "message": "❌ Заявка не найдена."}
+        
+    current_status = history_rows[0].get("status")
+    
+    # Если статус НЕ 'pending', НЕ 'failed' и НЕ 'offer_replacement' - шлем лесом!
+    # Это значит, что предмет УЖЕ в обработке (processing), выдан (sent) или куплен (market_pending).
+    allowed_statuses = ["pending", "failed", "offer_replacement", "available"]
+    
+    if current_status not in allowed_statuses:
+        logging.warning(f"[SCAM ALERT] Юзер {user_id} пытается зафармить замену! Статус заявки: {current_status}")
+        return {"success": False, "message": "⚠️ Эта замена уже обрабатывается или была выдана!"}
+    # ==========================================
+
     # --- 2. ПОЛУЧАЕМ ДАННЫЕ ЮЗЕРА ---
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
     u_list = user_res.json()
@@ -18974,7 +18998,7 @@ async def confirm_replacement(
     if not trade_link:
         return {"success": False, "message": "⚠️ Сначала укажите Trade Link в профиле!"}
 
-    # Сразу ставим статус "В обработке", чтобы юзер видел прогресс
+    # Сразу ставим статус "В обработке", чтобы юзер видел прогресс и НЕ СМОГ запустить еще раз
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
         "status": "processing",
         "details": "Заявка принята, запускаем ботов..."
@@ -18990,7 +19014,6 @@ async def confirm_replacement(
         "success": True, 
         "message": "Заявка на замену принята! Процесс запущен, следите за статусом в профиле."
     }
-
 
 async def process_replacement_logic(req, user_info, trade_link, supabase):
     import re
