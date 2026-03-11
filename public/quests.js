@@ -1897,6 +1897,11 @@ async function main() {
             if (typeof setPlatformTheme === 'function') setPlatformTheme(platform);
         }
     };
+    // === ДОБАВЛЯЕМ ЧТЕНИЕ ПАРАМЕТРОВ URL ===
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewCommand = urlParams.get('view');
+    const openCommand = urlParams.get('open');
+    // ========================================
     // 1. Сначала проверяем, есть ли активный квест (ПРАВИЛО 3)
     if (userData.active_quest_id) {
         // Если квест уже взят, мы ИГНОРИРУЕМ команду открытия меню выбора (openCommand)
