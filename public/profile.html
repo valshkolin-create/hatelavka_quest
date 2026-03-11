@@ -2436,7 +2436,14 @@ window.closeReplacementModal = function() {
 window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
     // Используем окно подтверждения из профиля (showCustomConfirmHTML)
     showCustomConfirmHTML(`Забрать "${itemName}"?`, async (closeConfirmWindow) => {
+        
+        // 🔥 ШАГ 1: МГНОВЕННО закрываем все окна
+        closeConfirmWindow(); 
+        closeReplacementModal();
+
+        // 🔥 ШАГ 2: Включаем лоадер (он будет крутиться поверх профиля)
         showLoader();
+
         try {
             // Отправляем запрос на бэкенд
             const res = await makeApiRequest('/api/v1/user/inventory/confirm_replacement', {
@@ -2446,8 +2453,6 @@ window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
 
             if (res && res.success) {
                 showNotification("✅ Успешно! Трейд отправлен.", "success");
-                closeConfirmWindow(); 
-                closeReplacementModal();
                 
                 // Мгновенно меняем кнопку в инвентаре на "В ОЧЕРЕДИ"
                 const actionsDiv = document.getElementById(`actions-${historyId}`);
@@ -2463,13 +2468,13 @@ window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
                 // Фоновое обновление списка
                 setTimeout(() => { loadData(true); }, 800);
             } else {
+                // Если сервер вернул ошибку, показываем алерт (он вылезет поверх профиля)
                 showCustomAlert("❌ " + (res.message || "Ошибка замены"), true);
-                closeConfirmWindow();
             }
         } catch (e) {
             showCustomAlert("Ошибка: " + e.message, true);
-            closeConfirmWindow();
         } finally {
+            // В любом случае выключаем лоадер
             hideLoader();
         }
     }, "ЗАБРАТЬ", "#ffcc00"); // Желтая кнопка "Забрать"
