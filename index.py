@@ -1922,6 +1922,18 @@ async def get_supabase_client() -> httpx.AsyncClient:
     
     return _lazy_supabase_client
 
+async def verify_user_not_banned(telegram_id: int, supabase: httpx.AsyncClient):
+    """
+    Железобетонная проверка на бан. 
+    Если юзер забанен — убиваем запрос мгновенно (403 Forbidden).
+    """
+    res = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "is_banned"})
+    data = res.json()
+    
+    if data and data[0].get("is_banned") is True:
+        logging.warning(f"⛔ Заблокированный юзер {telegram_id} пытался выполнить запрос!")
+        raise HTTPException(status_code=403, detail="BANNED")
+
 # --- 1. САМА ПРОВЕРКА (УНИКАЛЬНОСТЬ) ---
 async def enforce_uniqueness(telegram_id: int, supabase: httpx.AsyncClient):
     """
@@ -11164,11 +11176,17 @@ async def start_challenge_v3(req: ChallengeStartRequest):
 
 
 @app.post("/api/challenges/claim")
-async def claim_challenge_reward_v3(req: ChallengeClaimRequest):
+async def claim_challenge_reward_v3(
+    req: ChallengeClaimRequest,
+    async_supabase: httpx.AsyncClient = Depends(get_supabase_client) # 🔥 ДОБАВЛЯЕМ АСИНХРОННЫЙ КЛИЕНТ 🔥
+):
     """Выдача награды (Мульти-выдача: Билеты + Монеты + Скин)."""
     user = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user: raise HTTPException(status_code=401)
     user_id = user['id']
+
+    # 🔥 ЖЕЛЕЗНЫЙ ЩИТ: Рубим забаненных ДО получения контрактов 🔥
+    await verify_user_not_banned(user_id, async_supabase)
     
     # 1. Получаем контракт (СИНХРОННО)
     contract_res = supabase.table("user_contracts").select("*, challenge_templates(*)").eq("user_id", user_id).eq("template_id", req.template_id).execute()
@@ -12522,6 +12540,9 @@ async def claim_free_ticket(
 
     telegram_id = user_info["id"]
 
+    # 🔥 ЖЕЛЕЗНЫЙ ЩИТ: Никаких халявных билетов для забаненных 🔥
+    await verify_user_not_banned(telegram_id, supabase)
+
     try:
         # 1. Забираем билет через твою SQL-функцию
         # Она проверит 24ч кулдаун и начислит +1 (или +2, если сработала логика в SQL)
@@ -12574,7 +12595,10 @@ async def claim_free_ticket(
 
     except httpx.HTTPStatusError as e:
         # Если SQL вернул ошибку (например, COOLDOWN)
-        error_details = e.response.json().get("message", "Не удалось получить билет.")
+        try:
+            error_details = e.response.json().get("message", "Не удалось получить билет.")
+        except:
+            error_details = "Не удалось получить билет."
         logging.warning(f"Ошибка получения билета {telegram_id}: {error_details}")
         raise HTTPException(status_code=400, detail=error_details)
         
@@ -14448,12 +14472,16 @@ async def claim_grind_reward_endpoint(
     Пользователь забирает ежедневную награду.
     ИСПРАВЛЕНО: Убрано двойное ожидание задач (double await fix).
     ДОБАВЛЕНО: Подсчет рефералов (+0.1 за каждого).
+    ЗАЩИЩЕНО: Проверка на бан перед выдачей награды.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     telegram_id = user_info["id"]
+
+    # 🔥 ЖЕЛЕЗНЫЙ ЩИТ: Рубим забаненных до того, как они получат халяву 🔥
+    await verify_user_not_banned(telegram_id, supabase)
 
     try:
         # 1. ЗАПУСКАЕМ ЗАДАЧИ (но НЕ ждем их тут!)
@@ -15307,13 +15335,18 @@ async def buy_bott_item_proxy(
     supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ):
     import asyncio
-    logging.info("========== [SHOP] ПОКУПКА v14 (STRICT BALANCE) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v14 (STRICT BALANCE + BAN CHECK) ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
+
+    # 🔥 СТАВИМ ВЫШИБАЛУ ПРЯМО НА ВХОДЕ 🔥
+    # Если юзер в бане, функция выкинет 403, и весь код ниже просто не выполнится
+    await verify_user_not_banned(telegram_id, supabase)
+    
     price = request_data.price
     item_id = request_data.item_id
     
@@ -15367,12 +15400,14 @@ async def buy_bott_item_proxy(
     if currency == 'tickets':
         if current_tickets < price:
             raise HTTPException(status_code=400, detail="Недостаточно билетов!")
-        new_balance = current_tickets - price
+        # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
+        new_balance = int(current_tickets - price)
         update_col = "tickets"
     else:
         if current_balance_kopecks < (price * 100):
             raise HTTPException(status_code=400, detail="Недостаточно средств!")
-        new_balance = current_balance_kopecks - (price * 100)
+        # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
+        new_balance = int(current_balance_kopecks - (price * 100))
         update_col = "bot_t_coins"
 
     # 🔥 СПИСЫВАЕМ И ЖДЕМ ОТВЕТА БАЗЫ ПЕРЕД ТЕМ КАК КРУТИТЬ 🔥
@@ -15381,7 +15416,7 @@ async def buy_bott_item_proxy(
             "/users",
             params={"telegram_id": f"eq.{telegram_id}"},
             json={update_col: new_balance},
-            headers={"Prefer": "return=representation"} # Просим вернуть обновленную строку
+            headers={"Prefer": "return=representation"}
         )
         patch_data = patch_resp.json()
         
@@ -18242,7 +18277,7 @@ async def check_trade_status_endpoint(
         return JSONResponse({"success": False, "message": f"Ошибка связи с ТМ: {str(e)}"})
 
 # 2. Обменять скин на билеты (FIX 400 ERROR)
-@app.post("/api/v1/user/inventory/sell")
+@@app.post("/api/v1/user/inventory/sell")
 async def sell_inventory_item(
     req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -18252,6 +18287,9 @@ async def sell_inventory_item(
         raise HTTPException(status_code=401, detail="Auth failed")
 
     user_id = user_data['id']
+    
+    # 🔥 ЖЕЛЕЗНЫЙ ЩИТ: Рубим забаненных до того, как они продадут скин 🔥
+    await verify_user_not_banned(user_id, supabase)
     
     print(f"[SELL] Запрос обмена: User={user_id}, HistoryID={req.history_id}")
 
@@ -18367,8 +18405,12 @@ async def withdraw_inventory_item(
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data:
         raise HTTPException(status_code=401, detail="Auth failed")
-        
-    user_id = user_data['id']
+
+    # Достаем ID юзера
+    telegram_id = user_data["id"]
+
+    # 🔥 БЛОКИРОВКА ПОВЕРХ ВСЕГО: Никакого вывода для забаненных 🔥
+    await verify_user_not_banned(telegram_id, supabase)
 
     # 1. Получаем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
