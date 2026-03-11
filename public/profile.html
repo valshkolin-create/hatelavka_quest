@@ -320,8 +320,8 @@
             transform: translateY(100%);
             transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
             
-            /* ИСПРАВЛЕНИЕ: Используем безопасную зону (челку) вместо высоты экрана */
-            padding-top: var(--tg-content-safe-area-inset-top, 20px); 
+            /* 🔥 ФИКС: Добавили + 50px для системных кнопок Telegram (Назад/Закрыть) */
+            padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 50px); 
             
             box-sizing: border-box;
         }
