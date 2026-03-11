@@ -3109,20 +3109,20 @@ async def sync_steam_inventory(
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
 async def get_bootstrap_data(
-    req: InitDataRequest,                               # 1. Сначала данные (без =)
-    background_tasks: BackgroundTasks,                   # 2. Задачи фона (без =)
-    user_info: dict = Depends(multi_acc_protection),     # 3. Наш охранник (проверяет абузеров и токен)
-    supabase: httpx.AsyncClient = Depends(get_supabase_client) # 4. База
+    req: InitDataRequest,
+    background_tasks: BackgroundTasks,
+    user_info: dict = Depends(multi_acc_protection),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """
-    🚀 OPTIMIZED: Загружает ВСЕ данные за 1 SQL запрос.
-    Охранник multi_acc_protection уже проверил юзера на мультиаккаунт и валидность.
-    """
-    
-    # Мы НЕ пишем user_info = None, данные уже лежат в user_info благодаря Depends!
     telegram_id = user_info.get("id")
+    
+    # 🔥🔥🔥 ВОТ ОН, ТВОЙ КАПКАН! 🔥🔥🔥
+    # Добавляем эту строку прямо сюда. Если юзер в бане, 
+    # функция выкинет 403 ошибку, и код ниже НЕ выполнится.
+    await verify_user_not_banned(telegram_id, supabase)
+
     photo_url = user_info.get("photo_url")
-    platform = getattr(req, 'platform', 'tg') # Берем платформу из объекта req
+    platform = getattr(req, 'platform', 'tg')
 
     # Если мы здесь — значит Depends(multi_acc_protection) пропустил юзера
     # и он точно авторизован. Доп. проверки не нужны.
