@@ -1969,74 +1969,75 @@ window.checkTradeStatus = async function(historyId) {
         const isAuthHandled = sessionStorage.getItem('auth_handled_session');
 
         if (startParam === 'auth_success' && !isAuthHandled) {
-            // Ставим метку: "Уведомление показано, больше не показывать пока не закроет апп"
             sessionStorage.setItem('auth_handled_session', 'true');
-            
             showNotification('✅ Авторизация успешна!', 'success');
             
-            // --- ПРОВЕРКА: ОТКУДА ПРИШЕЛ ЮЗЕР ---
             const source = localStorage.getItem('auth_source');
-            
-            // Если в памяти НЕТ 'profile', значит он пришел из МЕНЮ -> Кидаем обратно в Меню
             if (source !== 'profile') {
                 setTimeout(() => {
-                    // Возврат на главную
                     window.location.href = '/'; 
                 }, 1000);
             }
-            
-            // Чистим мусор в памяти
             localStorage.removeItem('auth_source');
         }
 
-        // 3. Настройка кнопки "Назад"
-        function goBack() {
-            if (window.history.length > 1 && document.referrer) window.history.back();
-            else window.location.href = '/menu';
-        }
+        // 3. Настройка кнопки "Назад" (если кто-то нажмет HTML-стрелочку)
         const headerBackBtn = document.getElementById('header-back-btn');
-        if (headerBackBtn) headerBackBtn.addEventListener('click', (e) => { e.preventDefault(); goBack(); });
-        if(tg.BackButton) tg.BackButton.onClick(goBack);
+        if (headerBackBtn) {
+            headerBackBtn.addEventListener('click', (e) => { 
+                e.preventDefault(); 
+                handleGlobalBack(); 
+            });
+        }
 
-        // 4. Загрузка данных (ВЫЗЫВАЕМ ОДИН РАЗ ЗДЕСЬ)
+        // 4. Включаем системную кнопку Telegram ВСЕГДА
+        if (tg.BackButton) {
+            tg.BackButton.show(); // Меняем "Закрыть" (крестик) на "Назад"
+            tg.BackButton.offClick(handleGlobalBack); // Очищаем дубли
+            tg.BackButton.onClick(handleGlobalBack);
+        }
+
+        // 5. Загрузка данных
         await loadData(); 
     }
 
-    // 3. Настройка кнопки "Назад"
-const headerBackBtn = document.getElementById('header-back-btn');
-if (headerBackBtn) {
-    headerBackBtn.addEventListener('click', (e) => { 
-        e.preventDefault(); 
-        handleGlobalBack(); 
-    });
-}
+    // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ ---
+    async function loadData(isSilent = false) {
+        if (!isSilent) showLoader();
+        try {
+            // Фоновые задачи
+            if (!isSilent) {
+                makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
+                makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
+            }
 
-// Включаем системную кнопку Telegram ВСЕГДА
-if (tg.BackButton) {
-    tg.BackButton.show(); // Меняем "Закрыть" (крестик) на "Назад"
-    tg.BackButton.offClick(handleGlobalBack); // Очищаем дубли
-    tg.BackButton.onClick(handleGlobalBack);
-}
+            // Запускаем запросы одновременно
+            const [bootstrapData, rewards, inventory, userSettings] = await Promise.all([
+                makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
+                makeApiRequest("/api/v1/user/rewards", {}, 'POST', true),
+                makeApiRequest("/api/v1/user/inventory", {}, 'POST', true),
+                makeApiRequest("/api/v1/user/settings/get", {}, 'POST', true)
+            ]);
 
-        // Объединяем данные, как и было
-        const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
+            // Объединяем данные
+            const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
 
-        if (dom.profileName) {
-            dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+            if (dom.profileName) {
+                dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
+            }
+            
+            // Быстрый рендер
+            renderSettingsList(fullUserData); 
+            renderRewards(rewards);
+            renderInventory(inventory);
+
+        } catch (e) {
+            console.error(e);
+            if (!isSilent) showCustomAlert("Ошибка соединения с сервером", true);
+        } finally {
+            if (!isSilent) hideLoader();
         }
-        
-        // Быстрый рендер
-        renderSettingsList(fullUserData); 
-        renderRewards(rewards);
-        renderInventory(inventory);
-
-    } catch (e) {
-        console.error(e);
-        if (!isSilent) showCustomAlert("Ошибка соединения с сервером", true);
-    } finally {
-        if (!isSilent) hideLoader();
     }
-}
     
     // Функция отрисовки настроек (сокращена для краткости, берется из старого кода)
     function renderSettingsList(userData) {
