@@ -2996,7 +2996,6 @@ async def sync_steam_inventory(
         total_synced = 0
         bot_stats = {}
         unique_pairs = {} 
-        db_tasks = [] # Список задач для параллельного выполнения в БД
 
         for res_data in bot_results:
             bot_id = res_data["bot_id"]
@@ -3024,44 +3023,42 @@ async def sync_steam_inventory(
                 bot_inventory.append(item)
 
             if bot_inventory:
-                # Очищаем старый инвентарь бота и заливаем новый (готовим задачи)
-                db_tasks.append(supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}"))
+                # 🔥 ПРАВКА 1: СНАЧАЛА УДАЛЯЕМ И ЖДЕМ ЗАВЕРШЕНИЯ (Защита от гонки)
+                try:
+                    await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
+                except Exception as e:
+                    print(f"Ошибка очистки инвентаря бота {bot_id}: {e}")
+                
+                # Готовим задачи на вставку
+                insert_tasks = []
                 for i in range(0, len(bot_inventory), 50):
-                    db_tasks.append(supabase.post("/steam_inventory_cache", json=bot_inventory[i:i+50]))
+                    insert_tasks.append(supabase.post("/steam_inventory_cache", json=bot_inventory[i:i+50]))
+                
+                # 🔥 ПРАВКА 2: ВСТАВЛЯЕМ ПАЧКАМИ ПО 5 ЗАПРОСОВ (Защита от httpx.ReadError)
+                for i in range(0, len(insert_tasks), 5):
+                    await asyncio.gather(*insert_tasks[i:i+5])
                 
                 total_synced += len(bot_inventory)
                 bot_stats[bot_id] = f"Успешно: {len(bot_inventory)} предметов."
             else:
                 bot_stats[bot_id] = "Инвентарь пуст."
 
-        # Выполняем все операции с кэшем инвентаря разом
-        if db_tasks:
-            await asyncio.gather(*db_tasks)
-
         # --- 🚀 ШАГ 5: УСКОРЕННАЯ СИНХРОНИЗАЦИЯ CS_ITEMS ---
         if unique_pairs:
-            print(f"[SYNC] Ускоренное обновление market_hash_name для {len(unique_pairs)} предметов...")
-            # Создаем список задач на обновление
+            print(f"[SYNC] Обновление market_hash_name для {len(unique_pairs)} предметов...")
             update_tasks = [
                 supabase.patch("/cs_items", params={"name": f"eq.{ru_name}"}, json={"market_hash_name": en_name})
                 for ru_name, en_name in unique_pairs.items()
             ]
-            # Запускаем пачками по 30, чтобы не превысить лимиты API Supabase
-            for i in range(0, len(update_tasks), 30):
-                await asyncio.gather(*update_tasks[i:i+30])
+            # 🔥 ПРАВКА 3: Уменьшаем пачку с 30 до 10, чтобы Supabase не сбрасывал соединение
+            for i in range(0, len(update_tasks), 10):
+                await asyncio.gather(*update_tasks[i:i+10])
 
         return {
             "success": True, 
             "total_items_synced": total_synced,
             "templates_updated": len(unique_pairs),
             "bot_details": bot_stats
-        }
-
-    except Exception as e:
-        return {
-            "success": False, 
-            "error": str(e), 
-            "traceback": traceback.format_exc()
         }
         
 # Новый эндпоинт для быстрой загрузки всего сразу
