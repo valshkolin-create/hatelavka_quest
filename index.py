@@ -9595,49 +9595,70 @@ async def create_promocodes(
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
     АВТОМАТИКА: Синхронизирует статусы с Маркетом. 
-    Приоритет: settlement > 0. Лимит ожидания: 10 минут.
+    Чистит 'failed', удаляет фантомов и соблюдает лимит 10 минут.
     """
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
         return {"status": "error", "message": "No TM API key"}
 
-    # 1. Берем только "активные" трейды, которые висят в профилях
+    results_log = []
+    now = datetime.now(timezone.utc)
+
+    # =========================================================
+    # ФАЗА 0: ОЧИСТКА МУСОРА (УДАЛЯЕМ FAILED И ФАНТОМОВ)
+    # =========================================================
+    try:
+        # 1. Удаляем всё, что уже в статусе failed
+        await supabase.delete("/cs_history", params={"status": "eq.failed"})
+        
+        # 2. Удаляем "фантомов" (записи без связи с cs_items, которые дают ошибку [SELL])
+        clean_res = await supabase.get(
+            "/cs_history", 
+            params={
+                "status": "eq.pending",
+                "select": "id, item:cs_items(id)"
+            }
+        )
+        if clean_res.status_code == 200:
+            for rec in clean_res.json():
+                if not rec.get("item"):
+                    await supabase.delete("/cs_history", params={"id": f"eq.{rec['id']}"})
+                    results_log.append(f"CLEANUP: Deleted phantom #{rec['id']}")
+    except Exception as e:
+        results_log.append(f"Cleanup error: {str(e)}")
+
+    # =========================================================
+    # ФАЗА 1: ПРОВЕРКА АКТИВНЫХ ТРЕЙДОВ
+    # =========================================================
     res = await supabase.get(
         "/cs_history", 
         params={
             "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
-            "select": "id, updated_at, status",
+            "select": "id, updated_at, status, image_url",
             "order": "updated_at.asc",
             "limit": "25" 
         }
     )
     active_trades = res.json() if res.status_code == 200 else []
 
-    if not active_trades:
+    if not active_trades and not results_log:
         return {"status": "ok", "message": "Нет активных трейдов для синхронизации"}
-
-    now = datetime.now(timezone.utc)
-    results_log = []
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         for trade in active_trades:
             trade_id = trade["id"]
             updated_at_str = trade.get("updated_at")
             
-            # Считаем время жизни трейда в базе
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
             minutes_passed = (now - trade_time).total_seconds() / 60
 
             try:
-                # 2. Опрашиваем Маркет по нашему ID (custom_id = id записи в базе)
                 tm_res = await client.get(
                     f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}"
                 )
                 
-                # Если Маркет не отвечает по этому предмету (ошибка сервера ТМ)
                 if tm_res.status_code != 200:
                     if minutes_passed > 15: 
-                        # Если 15 минут тишины от API — откатываем, чтобы не висело
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
                         results_log.append(f"#{trade_id}: TM API Silent -> available")
                     continue
@@ -9645,44 +9666,44 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 tm_data = tm_res.json()
                 trade_info = tm_data.get("data", {})
                 
-                # Если покупка вообще не найдена в системе Маркета
                 if not tm_data.get("success") or not trade_info:
                     if minutes_passed > 10:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: Not found on TM 10m -> available")
+                        # Если за 10 минут покупка не появилась — удаляем, чтобы не мозолила глаз
+                        await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
+                        results_log.append(f"#{trade_id}: Not found on TM -> DELETED")
                     continue
 
                 stage = str(trade_info.get("stage"))
                 settlement = int(trade_info.get("settlement") or 0)
 
-                # 3. ГЛАВНАЯ ЛОГИКА СИНХРОНИЗАЦИИ
-                
                 # ПРАВИЛО №1: УСПЕХ (Settlement или Stage 2)
                 if settlement > 0 or stage == "2":
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received"})
-                    results_log.append(f"#{trade_id}: Success (settlement/stage2) -> received")
+                    update_payload = {"status": "received"}
+                    # Авто-подтяжка картинки, если её нет
+                    if not trade.get("image_url") and trade_info.get("classid"):
+                        update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
+                    
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json=update_payload)
+                    results_log.append(f"#{trade_id}: Success -> received")
 
-                # ПРАВИЛО №2: ЖЕСТКАЯ ОТМЕНА ОТ МАРКЕТА
+                # ПРАВИЛО №2: ЖЕСТКАЯ ОТМЕНА ОТ МАРКЕТА (УДАЛЯЕМ)
                 elif stage in ["4", "5"]:
-                    # Деньги вернулись на баланс ТМ, возвращаем предмет в 'available'
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                    results_log.append(f"#{trade_id}: TM Canceled (stage {stage}) -> available")
+                    await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
+                    results_log.append(f"#{trade_id}: TM Canceled -> DELETED")
 
                 # ПРАВИЛО №3: ТАЙМ-АУТ 10 МИНУТ (Stage 1)
                 elif stage == "1":
                     if minutes_passed >= 10:
-                        # Человек не принял трейд за 10 минут. Отменяем "зависшую" сделку в боте.
-                        # Ставим 'available', чтобы юзер мог нажать кнопку заново.
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: 10m Timeout in stage 1 -> available")
+                        # Время вышло — удаляем из инвентаря
+                        await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
+                        results_log.append(f"#{trade_id}: 10m Timeout -> DELETED")
                     else:
                         results_log.append(f"#{trade_id}: Still waiting ({int(minutes_passed)}m)")
                 
                 else:
-                    # Для всех остальных стадий проверяем время
                     if minutes_passed > 20:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: 20m Unknown Stage Timeout -> available")
+                        await supabase.delete("/cs_history", params={"id": f"eq.{trade_id}"})
+                        results_log.append(f"#{trade_id}: Unknown Timeout -> DELETED")
 
             except Exception as e:
                 results_log.append(f"#{trade_id}: Error -> {str(e)}")
@@ -9693,7 +9714,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         "processed": len(active_trades), 
         "details": results_log
     }
-
+    
 @app.get("/api/v1/cron/trigger_draws")
 async def trigger_draws(
     request: Request,
