@@ -707,3 +707,28 @@ html, body {
     overscroll-behavior-x: none !important;
     overflow-x: hidden !important;
 }
+/* ==========================================
+   ФИКС ДЛЯ "ЛОПАТ" (ОЧЕНЬ ВЫТЯНУТЫХ ANDROID-СМАРТФОНОВ)
+========================================== */
+/* Срабатывает только на устройствах с высотой экрана больше 820px (длинные телефоны) */
+@media screen and (min-height: 820px) {
+    .top-header {
+        /* Уменьшаем огромную прибавку +55px до аккуратных +15px */
+        padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 15px) !important;
+    }
+    
+    .toggle-container {
+        /* Соответственно подтягиваем наверх и переключатель (было +105px) */
+        top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 65px) !important;
+    }
+}
+
+/* Для самых экстремально длинных экранов (соотношение 20:9 и выше) */
+@media screen and (min-aspect-ratio: 1/2.1) and (min-height: 850px) {
+    .top-header {
+        padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 5px) !important;
+    }
+    .toggle-container {
+        top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
+    }
+}
