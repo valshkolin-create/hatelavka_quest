@@ -18427,7 +18427,7 @@ async def withdraw_inventory_item(
     user_id = user_data["id"]
 
     # ЛЮТАЯ БЛОКИРОВКА ПОВЕРХ ВСЕГО
-    await verify_user_not_banned(user_id, supabase))
+    await verify_user_not_banned(user_id, supabase)
 
     # 1. Получаем данные юзера
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
