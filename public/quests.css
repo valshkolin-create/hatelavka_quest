@@ -24,16 +24,17 @@
     --telegram-color: #0088CC;
 }
 
-/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА И ФОНА === */
-/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА И ФОНА === */
+
+/* === ЖЕЛЕЗОБЕТОННЫЙ ФИКС СКРОЛЛА И ШТОРКИ === */
 html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%; /* Убрали 100vh, так как в ТГ он багует с клавиатурой */
+    height: 100%; /* Используем 100%, чтобы не баговало с клавиатурой */
     position: fixed; 
     top: 0; left: 0; right: 0; bottom: 0;
-    overflow: hidden; 
+    overflow: hidden; /* Жестко блокируем скролл самой страницы (резинку) */
+    
     background-color: var(--bg-color);
     background-image: var(--bg-gradient);
     background-size: cover;
@@ -42,35 +43,38 @@ html, body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--text-color);
     transition: background-image 0.5s ease;
-}
-
-#app-container {
-    /* Оставляем отступ только здесь, чтобы он не дублировался */
-    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
-    box-sizing: border-box !important;
     
-    /* Используем 100% вместо 100vh */
-    height: 100% !important; 
-    width: 100%;
+    /* Делаем body flex-контейнером */
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Важно, чтобы контейнер не вываливался за экран */
+}
+
+/* Если #app-container есть в HTML, он должен вести себя так же, как body. 
+   Если его нет, этот код просто ничего не сделает (не помешает). */
+#app-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
 }
 
 .main-content {
-    flex: 1; /* Растягивается на всё доступное место */
-    min-height: 0; /* МАГИЧЕСКОЕ СВОЙСТВО: заставляет скролл работать во flex-контейнере */
-    height: 100%; 
+    flex: 1; /* Растягивает блок на всю свободную высоту экрана */
+    width: 100%;
+    min-height: 0; /* Магическое свойство: разблокирует скролл внутри flex-блока */
     overflow-y: auto !important; 
-    -webkit-overflow-scrolling: touch; 
-    position: relative;
-    z-index: 10;
-    display: block;
+    -webkit-overflow-scrolling: touch; /* Плавный скролл на iPhone */
     box-sizing: border-box;
     
-    /* Убрали верхний padding, так как он теперь в #app-container */
-    padding: 0px 15px 120px 15px; 
+    /* 🔥 ВОЗВРАЩАЕМ ОТСТУП ОТ СИСТЕМНОЙ КНОПКИ "НАЗАД" 🔥 */
+    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 50px) !important;
+    padding-left: 15px;
+    padding-right: 15px;
+    padding-bottom: 120px; /* Отступ для нижнего меню */
     
+    position: relative;
+    z-index: 10;
     opacity: 0; 
     transition: opacity 0.4s ease-in-out;
 }
