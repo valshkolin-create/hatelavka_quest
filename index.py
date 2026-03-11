@@ -419,27 +419,35 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             # В случае ошибки оставляем что было, чтобы не падать
             market_search_name = market_search_name or target_name
 
-    # ==========================================
+   # ==========================================
     # 🛒 ЛАВКА: ТОЛЬКО МАРКЕТ (PURE MARKET)
     # ==========================================
     if source == "shop":
         if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
             logging.info(f"[STOREKEEPER] Лавка: Пробуем купить на Маркете: {market_search_name}")
             
+            import time # 🔥 Добавляем импорт времени для генерации ID
+            
             TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
             market = MarketCSGO(api_key=TM_API_KEY)
+            
+            # 🔥 Генерируем уникальный ID для Маркета, чтобы избежать ошибки дубликатов
+            unique_market_id = f"sh_{history_id}_{int(time.time())}"[:40]
             
             market_res = await market.buy_for_user(
                 hash_name=market_search_name, 
                 trade_link=trade_url, 
-                history_id=history_id
+                history_id=unique_market_id # 🔥 Отправляем уникальный ID вместо обычного history_id
             )
             
             if market_res.get("success"):
-                logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {history_id}")
+                logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {unique_market_id}")
                 await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}"}, 
-                    json={"status": "market_pending"}
+                    json={
+                        "status": "market_pending",
+                        "tradeofferid": unique_market_id # 🔥 Сохраняем уникальный ID в базу
+                    }
                 )
                 return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
             else:
