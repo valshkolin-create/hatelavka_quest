@@ -1333,51 +1333,129 @@ document.getElementById('gift-close-btn')?.addEventListener('click', () => docum
 // УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ (ВМЕСТО СИСТЕМНЫХ)
 // ================================================================
 // Специальное окно для блокировки абузеров
+// Специальное окно для блокировки абузеров (с возможностью смены Trade-ссылки)
 window.showSecurityBlock = function(message) {
     lockAppScroll(); // Блокируем скролл фона
-    showShopModal({
-        title: "🔒 Доступ ограничен",
-        subtitle: `<div style="text-align:center;">
-                      <i class="fa-solid fa-shield-halved" style="font-size:40px; color:#ff3b30; margin-bottom:15px; display:block;"></i>
-                      ${message}
-                   </div>`,
-        confirmText: "ПОДДЕРЖКА",
-        confirmClass: "btn-yellow-modal",
-        showCancel: false, 
-        onConfirm: (close) => {
-            // Отправляем юзера к тебе в личку разбираться
-            window.location.href = "https://t.me/hatelove_twitch"; 
+    
+    // Удаляем старое окно, если оно зависло
+    const old = document.getElementById('security-trade-modal');
+    if (old) old.remove();
+
+    // Создаем новое кастомное окно
+    const overlay = document.createElement('div');
+    overlay.id = 'security-trade-modal';
+    overlay.className = 'custom-confirm-overlay';
+    
+    overlay.innerHTML = `
+        <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 340px;">
+            <i class="fa-solid fa-shield-halved" style="font-size:44px; color:#ff3b30; margin-bottom:15px; display:block; filter: drop-shadow(0 0 10px rgba(255, 59, 48, 0.4));"></i>
+            <h3 class="confirm-title" style="color: #ff3b30; font-size: 20px; margin-bottom: 10px;">Доступ ограничен</h3>
+            <div class="confirm-subtitle" style="margin-bottom: 20px; font-size: 13px; color: #ddd; line-height: 1.4;">${message}</div>
+            
+            <div style="text-align: left; margin-bottom: 20px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <label style="font-size: 11px; color: #8e8e93; font-weight: 600; margin-bottom: 8px; display: block;">Если проблема в ссылке, обновите её:</label>
+                <input type="url" id="security-trade-input" placeholder="https://steamcommunity.com/tradeoffer/new/..." style="width: 100%; background: #2c2c2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 12px; border-radius: 10px; font-size: 12px; outline: none; box-sizing: border-box; transition: border-color 0.2s;">
+                <div style="text-align: right; margin-top: 6px;">
+                    <a href="https://steamcommunity.com/id/me/tradeoffers/privacy#trade_offer_access_url" target="_blank" style="font-size: 11px; color: #2AABEE; text-decoration: none; font-weight: 500;"><i class="fa-solid fa-circle-question"></i> Где найти?</a>
+                </div>
+            </div>
+
+            <div class="confirm-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="confirm-btn btn-yellow-modal" id="security-save-btn" style="width: 100%; padding: 14px; font-size: 14px;">Сохранить и продолжить</button>
+                <button class="confirm-btn btn-cancel-modal" id="security-support-btn" style="width: 100%; background: rgba(255,255,255,0.05); color: #8e8e93; padding: 14px; font-size: 13px;">Написать в поддержку</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    // Плавное появление
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+
+    const saveBtn = overlay.querySelector('#security-save-btn');
+    const input = overlay.querySelector('#security-trade-input');
+    
+    // Подсветка поля красным, если ссылка введена неправильно
+    input.addEventListener('input', (e) => {
+        let val = e.target.value.trim();
+        // Фикс двойного https://
+        if (val.includes("https://") && !val.startsWith("https://")) {
+            val = val.substring(val.indexOf("https://"));
+            input.value = val;
+        }
+        
+        if (val.length > 20 && (!val.startsWith("https://steamcommunity.com") || !val.includes("partner=") || !val.includes("token="))) {
+            input.style.borderColor = '#ff3b30';
+        } else {
+            input.style.borderColor = 'rgba(255,255,255,0.1)';
         }
     });
-};
-window.customAlert = function(message) {
-    showShopModal({
-        title: "Внимание",
-        subtitle: message,
-        confirmText: "ПОНЯТНО",
-        confirmClass: "btn-yellow-modal",
-        showCancel: false, // Отключаем кнопку "Отмена" для обычных уведомлений
-        onConfirm: (close) => close()
-    });
-};
 
-window.customConfirm = function(message, callback) {
-    showShopModal({
-        title: "Подтверждение",
-        subtitle: message,
-        confirmText: "ДА",
-        confirmClass: "btn-yellow-modal",
-        showCancel: true,
-        onConfirm: (close) => {
-            close();
-            if (callback) callback(true);
+    // Логика сохранения новой ссылки
+    saveBtn.onclick = async () => {
+        const v = input.value.trim();
+        
+        // Жесткая проверка формата перед отправкой
+        if (!v.startsWith("https://steamcommunity.com/tradeoffer/new") || !v.includes("partner=") || !v.includes("token=")) {
+            input.style.borderColor = '#ff3b30';
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerText = "Неверный формат ссылки!";
+            saveBtn.style.background = "#ff3b30";
+            saveBtn.style.color = "#fff";
+            
+            // Возвращаем кнопку в исходное состояние через 2 сек
+            setTimeout(() => {
+                saveBtn.innerHTML = originalText;
+                saveBtn.style.background = "#ffcc00";
+                saveBtn.style.color = "#000";
+            }, 2000);
+            return;
         }
-    });
-};
 
-// Функция для FAQ
-window.showFaq = function() {
-    customAlert("Бот позволяет обменивать ненужные скины (Trade-In), участвовать в рулетках и ежедневных розыгрышах.\n\nДля получения призов обязательно привяжите Trade-ссылку в профиле!");
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+
+        try {
+            // Прямой запрос (чтобы обойти глобальный перехватчик 403 в makeApiRequest)
+            const payload = getAuthPayload();
+            const response = await fetch('/api/v1/user/trade_link/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trade_link: v, ...payload })
+            });
+
+            if (!response.ok) throw new Error("Save failed");
+            
+            saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Сохранено!';
+            saveBtn.style.background = "#34c759";
+            saveBtn.style.color = "#fff";
+            
+            // Перезагружаем страницу через секунду, чтобы сбросить блокировку и пустить юзера в меню
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+
+        } catch (e) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = "Ошибка сохранения";
+            saveBtn.style.background = "#ff3b30";
+            saveBtn.style.color = "#fff";
+            
+            setTimeout(() => {
+                saveBtn.innerText = "Сохранить и продолжить";
+                saveBtn.style.background = "#ffcc00";
+                saveBtn.style.color = "#000";
+            }, 2000);
+        }
+    };
+
+    // Логика кнопки Поддержки
+    overlay.querySelector('#security-support-btn').onclick = () => {
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.openTelegramLink("https://t.me/hatelove_twitch");
+        } else {
+            window.location.href = "https://t.me/hatelove_twitch";
+        }
+    };
 };
 
 
