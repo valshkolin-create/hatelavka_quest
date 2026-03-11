@@ -618,7 +618,7 @@ function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})
 let raffleSlideInterval = null;
 let raffleTimersInterval = null;
 
-async function initDynamicRaffleSlider() {
+async function initDynamicRaffleSlider(preloadedData = null) {
     const container = document.getElementById('mini-raffle-slider');
     if (!container) return;
 
@@ -721,17 +721,23 @@ async function initDynamicRaffleSlider() {
     };
     // --- КОНЕЦ ВНУТРЕННЕЙ ФУНКЦИИ ---
 
-    // 1. Пытаемся моментально отрендерить из кэша
+    // Если данные переданы из синхронного запуска Promise.all, рисуем сразу
+    if (preloadedData) {
+        renderRaffles(preloadedData);
+        return;
+    }
+
+    // Иначе пытаемся моментально отрендерить из кэша
     const cachedRaffles = localStorage.getItem('raffle_cache_v1');
     if (cachedRaffles) {
         try { renderRaffles(JSON.parse(cachedRaffles)); } catch(e) {}
     }
 
-    // 2. Тихо запрашиваем свежие данные с сервера
+    // Тихо запрашиваем свежие данные с сервера
     try {
         const data = await makeApiRequest('/api/v1/raffles/active', {}, 'POST', true);
         localStorage.setItem('raffle_cache_v1', JSON.stringify(data));
-        renderRaffles(data); // Перерисовываем с новыми данными
+        renderRaffles(data); 
     } catch (e) {
         console.warn("Raffle mini-slider error:", e);
         if (!cachedRaffles) {
@@ -801,33 +807,31 @@ function formatItemName(name) {
     return escapeHTML(name);
 }
 
-async function loadCategory(catId) {
+async function loadCategory(catId, preloadedData = null) {
     const container = document.getElementById('shop-grid');
     if (!container) return;
 
-    // 1. Пытаемся моментально отрендерить из кэша
-    const localCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
-    if (localCache[catId]) {
-        itemsCache[catId] = localCache[catId];
-        renderItems(localCache[catId]);
-    } else if (!itemsCache[catId]) {
-        // Если кэша нет вообще — показываем скелетоны (анимацию загрузки)
-        container.innerHTML = Array(6).fill('<div class="shop-item skeleton" style="height: 180px; background: transparent; border-radius: 12px; animation: pulse 1.5s infinite;"></div>').join('');
+    // Если данные переданы напрямую (из Promise.all или кэша) — рендерим мгновенно
+    if (preloadedData) {
+        itemsCache[catId] = preloadedData;
+        renderItems(preloadedData);
+        return;
     }
 
+    // Если это клик по папке (запрос на лету)
+    if (itemsCache[catId]) {
+        renderItems(itemsCache[catId]);
+        return;
+    }
+
+    container.innerHTML = Array(6).fill('<div class="shop-item skeleton" style="height: 180px; background: transparent; border-radius: 12px; animation: pulse 1.5s infinite;"></div>').join('');
+
     try {
-        // 2. В ФОНЕ запрашиваем свежие данные с сервера
-        const items = await makeApiRequest('/api/v1/shop/goods', { category_id: catId }, 'POST', true); // isSilent = true
-        
-        // 3. Обновляем память и тихо перерисовываем
+        const items = await makeApiRequest('/api/v1/shop/goods', { category_id: catId }, 'POST', true);
         itemsCache[catId] = items;
-        localCache[catId] = items;
-        localStorage.setItem('shop_items_cache', JSON.stringify(localCache));
         renderItems(items); 
     } catch (e) {
-        if (!itemsCache[catId]) {
-            container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30; padding: 20px;">Ошибка загрузки</div>';
-        }
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30; padding: 20px;">Ошибка загрузки</div>';
     }
 }
 
@@ -1176,9 +1180,14 @@ window.confirmP2PSent = (tradeId) => {
     });
 }
 
-async function checkActiveTradesBackground() {
+async function checkActiveTradesBackground(preloadedTrades = null) {
     try {
-        const trades = await makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true);
+        let trades = preloadedTrades;
+        if (!trades) {
+            trades = await makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true);
+        }
+        if(!trades) return;
+
         const activeTrades = trades.filter(t => ['pending', 'active', 'review'].includes(t.status)).sort((a, b) => ({'active':1,'review':2,'pending':3}[a.status] - {'active':1,'review':2,'pending':3}[b.status]));
         const btn = document.getElementById('open-p2p-modal-btn'); if (!btn) return;
         if (activeTrades.length > 0) {
@@ -1456,86 +1465,91 @@ async function main() {
         }
         
         let isCached = false;
-        const cachedBootstrap = localStorage.getItem('main_bootstrap_cache_v1');
         
-        // 1. ПРОБУЕМ ЗАГРУЗИТЬСЯ ИЗ КЭША (БЕЗ ЛОАДЕРА)
-        if (cachedBootstrap) {
-            try {
-                const parsedData = JSON.parse(cachedBootstrap);
-                // Пропускаем кэш только если нет тех. работ
-                if (!parsedData.maintenance) { 
-                    await renderFullInterface(parsedData);
-                    isCached = true;
-                    // МГНОВЕННО скрываем экран загрузки
-                    if (dom.loaderOverlay) {
-                        dom.loaderOverlay.style.opacity = '0';
-                        dom.loaderOverlay.classList.add('hidden');
-                    }
-                }
-            } catch(e) {}
-        }
+        // 1. Читаем ВЕСЬ кэш
+        const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || 'null');
+        const cachedRaffles = JSON.parse(localStorage.getItem('cache_raffles') || 'null');
+        const cachedShopRaw = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
+        const cachedShop = cachedShopRaw[2716312];
+        const cachedP2P = JSON.parse(localStorage.getItem('cache_p2p') || 'null');
 
-        // Если кэша нет — показываем экран загрузки
-        let fakeP = 10;
-        let timer = null;
-        if (!isCached) {
+        // Если ВСЁ есть в кэше — рисуем мгновенно (Stale-While-Revalidate)
+        if (cachedBootstrap && !cachedBootstrap.maintenance && cachedRaffles && cachedShop) {
+            await renderFullInterface(cachedBootstrap);
+            initDynamicRaffleSlider(cachedRaffles);
+            loadCategory(2716312, cachedShop);
+            checkActiveTradesBackground(cachedP2P);
+            setupSlider();
+            
+            isCached = true;
+            if (dom.loaderOverlay) {
+                dom.loaderOverlay.style.opacity = '0';
+                dom.loaderOverlay.classList.add('hidden');
+            }
+        } else {
+            // Иначе показываем лоадер
             if (dom.loaderOverlay) {
                 dom.loaderOverlay.classList.remove('hidden');
                 dom.loaderOverlay.style.opacity = '1';
             }
             updateLoading(10); 
-            timer = setInterval(() => { if(fakeP < 80) updateLoading(++fakeP); }, 50);
         }
-        
-        // 2. ФОНОВЫЙ ЗАПРОС СВЕЖИХ ДАННЫХ (Тихий)
-        let bootstrapData = null;
-        try { 
-            // isSilent = true скрывает спам лоадером
-            bootstrapData = await makeApiRequest("/api/v1/bootstrap", {}, 'POST', true); 
-            localStorage.setItem('main_bootstrap_cache_v1', JSON.stringify(bootstrapData));
-        } catch(apiError) {
-            console.error("Ошибка загрузки данных", apiError);
-            if (!isCached) { // Ошибку показываем, только если пустой экран
+
+        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (Синхронный старт запросов)
+        let bootstrapData, rafflesData, shopData, p2pData;
+        try {
+            [bootstrapData, rafflesData, shopData, p2pData] = await Promise.all([
+                makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
+                makeApiRequest('/api/v1/raffles/active', {}, 'POST', true),
+                makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true),
+                makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true)
+            ]);
+
+            if (!isCached) updateLoading(80);
+
+            // Мгновенный блок техработ
+            if (bootstrapData && bootstrapData.maintenance) {
+                document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
+                return; 
+            }
+
+            // Сохраняем свежий кэш
+            if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
+            if (rafflesData) localStorage.setItem('cache_raffles', JSON.stringify(rafflesData));
+            if (p2pData) localStorage.setItem('cache_p2p', JSON.stringify(p2pData));
+            if (shopData) {
+                const newShopCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
+                newShopCache[2716312] = shopData;
+                localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
+            }
+
+            // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД
+            if (bootstrapData) await renderFullInterface(bootstrapData);
+            if (rafflesData) initDynamicRaffleSlider(rafflesData);
+            if (shopData) loadCategory(2716312, shopData);
+            if (p2pData) checkActiveTradesBackground(p2pData);
+            setupSlider();
+
+            if (!isCached) updateLoading(100);
+
+            // Плавное скрытие лоадера, если он был
+            if (!isCached && dom.loaderOverlay) {
+                setTimeout(() => { 
+                    dom.loaderOverlay.style.opacity = '0';
+                    setTimeout(() => dom.loaderOverlay.classList.add('hidden'), 400); 
+                }, 300);
+            }
+
+        } catch (apiError) {
+            console.error("Network sync error", apiError);
+            if (!isCached) {
                 document.body.innerHTML = '<div style="display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#ff3b30; font-family:sans-serif;"><i class="fa-solid fa-triangle-exclamation" style="font-size:40px; margin-bottom:15px;"></i><b>Ошибка соединения</b><button onclick="window.location.reload()" style="margin-top:20px; padding:10px 20px; background:#FFD700; color:#000; border:none; border-radius:10px; font-weight:bold;">Перезагрузить</button></div>';
             }
-            return;
-        } finally { 
-            if (timer) clearInterval(timer); 
         }
-        
-        if (!bootstrapData) throw new Error("Нет данных");
-
-        // 🔥 МГНОВЕННАЯ И ЖЕЛЕЗОБЕТОННАЯ БЛОКИРОВКА ТЕХ. РАБОТ 🔥
-        if (bootstrapData.maintenance) {
-            document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
-            return; 
-        }
-
-        // 3. ТИХО ОБНОВЛЯЕМ ИНТЕРФЕЙС (Если что-то изменилось)
-        await renderFullInterface(bootstrapData);
-        if(!isCached) updateLoading(50);
-
-        // 4. ТИХО ОБНОВЛЯЕМ РОЗЫГРЫШИ И СЛАЙДЕРЫ
-        await initDynamicRaffleSlider();
-        setupSlider();
-        if(!isCached) updateLoading(70);
-
-        // 5. ЖДЕМ КЕЙСЫ И P2P
-        await loadCategory(2716312); 
-        checkActiveTradesBackground();
-        if(!isCached) updateLoading(100);
-
-        // 6. ЕСЛИ БЫЛ ЛОАДЕР — ПЛАВНО ОТКРЫВАЕМ ЭКРАН
-        if (!isCached && dom.loaderOverlay) {
-            setTimeout(() => { 
-                dom.loaderOverlay.style.opacity = '0';
-                setTimeout(() => dom.loaderOverlay.classList.add('hidden'), 400); 
-            }, 300);
-        }
-
     } catch(e) {
-        console.error(e);
-        if (e.message !== "Security Block" && !isCached) { 
+        console.error("Critical error in main:", e);
+        if (e.message === "Security Block") return;
+        if (!document.querySelector('.shop-item')) { // Если интерфейс вообще пустой
             if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
             setTimeout(() => { 
                 if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
