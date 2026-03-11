@@ -113,33 +113,43 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
 
        if (!response.ok) {
             // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
-            // Убрали таймер выхода. Теперь юзер "заперт" в этом окне.
-            if (response.status === 403 && result.detail === "BANNED") {
-                document.body.innerHTML = `
-                    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
-                        <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
-                        <h1 style="font-size: 32px; font-weight: 900; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px;">Доступ закрыт</h1>
-                        <p style="color: #fff; font-size: 16px; line-height: 1.6; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
-                            Твой аккаунт перманентно заблокирован за использование уязвимостей системы.
-                        </p>
-                        <div style="height: 2px; width: 50px; background: #ff3b30; margin-bottom: 30px; opacity: 0.5;"></div>
-                        <p style="color: #888; font-size: 12px; text-transform: uppercase; font-weight: 700;">Разблокировка невозможна</p>
-                    </div>
-                    <style>
-                        @keyframes banPulse {
-                            0% { transform: scale(1); opacity: 1; }
-                            50% { transform: scale(1.1); opacity: 0.7; }
-                            100% { transform: scale(1); opacity: 1; }
-                        }
-                    </style>
-                `;
-                document.body.style.overflow = 'hidden';
-                document.body.style.position = 'fixed'; // Замораживаем экран
+if (response.status === 403 && result.detail === "BANNED") {
+    document.body.innerHTML = `
+        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
+            <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
+            
+            <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
+            
+            <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
+                Твой аккаунт заблокирован за нарушение правил системы.
+            </p>
 
-                if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                
-                throw new Error("USER_BANNED");
+            <a href="https://t.me/hatelovettv" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
+                <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
+            </a>
+
+            <p style="color: #555; font-size: 11px; margin-top: 25px; line-height: 1.4;">
+                Если ты считаешь, что это произошло по ошибке,<br>напиши в поддержку для разбора ситуации.
+            </p>
+        </div>
+        <style>
+            @keyframes banPulse {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.05); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
             }
+        </style>
+    `;
+    
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+    }
+    
+    throw new Error("USER_BANNED");
+}
 
             // 🛡️ 2. ДУБЛИКАТЫ (400 DUPLICATE_TRADE_LINK / DUPLICATE_TWITCH)
             if (response.status === 400 && (result.detail === "DUPLICATE_TRADE_LINK" || result.detail === "DUPLICATE_TWITCH")) {
