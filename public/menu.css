@@ -712,38 +712,30 @@ html, body {
     overflow-x: hidden !important;
 }
 /* ==========================================
-   ФИКС ДЛЯ "ЛОПАТ" (ОЧЕНЬ ВЫТЯНУТЫХ ANDROID-СМАРТФОНОВ)
-========================================== */
-/* Срабатывает только на устройствах с высотой экрана больше 820px (длинные телефоны) */
-@media screen and (min-height: 820px) {
-    .top-header {
-        /* Уменьшаем огромную прибавку +55px до аккуратных +15px */
-        padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 15px) !important;
-    }
-    
-    .toggle-container {
-        /* Соответственно подтягиваем наверх и переключатель (было +105px) */
-        top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 65px) !important;
-    }
-}
-
-/* Для самых экстремально длинных экранов (соотношение 20:9 и выше) */
-@media screen and (min-aspect-ratio: 1/2.1) and (min-height: 850px) {
-    .top-header {
-        padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 5px) !important;
-    }
-    .toggle-container {
-        top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
-    }
-}
 /* ==========================================
-   ФИКС ДЛЯ ПК-ВЕРСИИ (DESKTOP / WEB / MACOS)
+   УМНЫЕ ОТСТУПЫ (IOS / ANDROID / DESKTOP)
 ========================================== */
-/* Эти стили сработают ТОЛЬКО если скрипт подтвердит, что это 100% компьютер */
-body.desktop-mode .top-header {
-    padding-top: 15px !important; /* Убираем расчеты челки, прижимаем к верху */
+
+/* 1. БАЗОВЫЙ ОТСТУП (Для iOS - учитывает огромную челку и толстую шторку) */
+.top-header {
+    padding-top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 55px) !important;
+}
+.toggle-container {
+    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 105px) !important;
 }
 
+/* 2. ANDROID-ВЕРСИЯ (Шторка тоньше, челка аккуратнее) */
+body.android-mode .top-header {
+    padding-top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 20px) !important;
+}
+body.android-mode .toggle-container {
+    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 70px) !important;
+}
+
+/* 3. ПК-ВЕРСИЯ (DESKTOP / WEB - нет никаких шторок) */
+body.desktop-mode .top-header {
+    padding-top: 15px !important;
+}
 body.desktop-mode .toggle-container {
-    top: 65px !important; /* Ставим аккуратно под шапку */
+    top: 65px !important;
 }
