@@ -2965,17 +2965,33 @@ async def sync_steam_inventory(
 
         # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
         market_prices_rub = {}
+        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ СКИНЫ ДЛЯ ЗАМЕН 🔥
+        
         try:
             async with httpx.AsyncClient() as client:
                 price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=30.0)
                 if price_resp.status_code == 200:
                     market_data = price_resp.json()
                     for item in market_data.get("items", []):
-                        market_prices_rub[item["market_hash_name"]] = float(item["price"])
+                        m_name = item["market_hash_name"]
+                        price = float(item["price"])
+                        volume = int(item.get("volume", 0)) # Продажи за 24ч
+                        
+                        market_prices_rub[m_name] = price
+                        
+                        # 🔥 ОТБИРАЕМ КАНДИДАТОВ НА ЗАМЕНУ (Цена 20-3000 руб, популярные)
+                        if 20 <= price <= 3000 and volume > 5:
+                            if "Sticker" not in m_name and "Graffiti" not in m_name and "Capsule" not in m_name:
+                                popular_market_items.append({
+                                    "market_hash_name": m_name,
+                                    "price_rub": price,
+                                    "is_available": True,
+                                    "last_sync": "now()"
+                                })
         except Exception as e:
             print(f"Критическая ошибка загрузки цен: {e}")
 
-        # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ВИТРИНА ЛАВКИ) ---
+        # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ВИТРИНА + МАРКЕТ) ---
         try:
             # 🔥 ДОБАВИЛИ ЗАПРОС ID И CONDITION 🔥
             items_res = await supabase.get("/cs_items", params={"select": "id, market_hash_name, condition"})
@@ -3022,10 +3038,20 @@ async def sync_steam_inventory(
                         "last_sync": "now()"
                     })
                 
+                # 🔥 ДОБРАСЫВАЕМ ГЛОБАЛЬНЫЕ СКИНЫ (ПРИОРИТЕТ 2) 🔥
+                import random
+                random.shuffle(popular_market_items)
+                extra_items = popular_market_items[:1000] # Берем 1000 случайных ликвидных скинов
+                
+                for ext_item in extra_items:
+                    if ext_item["market_hash_name"] not in unique_names_to_sync:
+                        market_cache_payload.append(ext_item)
+                        unique_names_to_sync.add(ext_item["market_hash_name"])
+                
                 # Заливаем пачками по 100
                 for i in range(0, len(market_cache_payload), 100):
                     await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
-                print(f"[SYNC] market_cache обновлен для {len(market_cache_payload)} товаров. Умная склейка отработала.")
+                print(f"[SYNC] market_cache обновлен для {len(market_cache_payload)} товаров. Гибридная склейка отработала.")
         except Exception as e:
             print(f"Ошибка обновления market_cache: {e}")
 
@@ -3105,7 +3131,6 @@ async def sync_steam_inventory(
             "error": str(e), 
             "traceback": traceback.format_exc()
         }
-
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
 async def get_bootstrap_data(
@@ -18383,8 +18408,9 @@ async def sell_inventory_item(
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ЗАМЕН ---
 async def get_replacement_options(target_price_rub: float, target_price_base: float, supabase: httpx.AsyncClient, limit: int = 4):
-    """Ищет 4 РАЗНЫХ предмета в кэше ботов в строгом диапазоне цены +/- 10%"""
+    """Ищет РАЗНЫЕ предметы на складе ботов И на Маркете в диапазоне цены +/- 10%"""
     import random
+    import urllib.parse
     
     # --- 🛡️ ЗАЩИТА ОТ ДЕШЕВОГО МУСОРА ---
     # Если цена в рублях 0 (или не прогрузилась), высчитываем её из базовой цены (билетов)
@@ -18398,31 +18424,72 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     min_p = target_price_rub * 0.9
     max_p = target_price_rub * 1.1
     
-    # --- ИСПРАВЛЕННЫЙ ЗАПРОС ---
-    # Упаковываем ОБА условия в один жесткий фильтр AND
-    params = {
+    unique_items = {}
+
+    # ==========================================
+    # 📦 ЗАПРОС 1: СКЛАД БОТОВ (Приоритет)
+    # ==========================================
+    bot_params = {
         "is_reserved": "eq.false",
         "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
         "select": "assetid, name_ru, market_hash_name, icon_url, price_rub, condition, rarity",
-        "limit": "100" 
+        "limit": "50" 
     }
     
-    resp = await supabase.get("/steam_inventory_cache", params=params)
-    data = resp.json()
-    
-    if not data or not isinstance(data, list):
-        return []
+    bot_resp = await supabase.get("/steam_inventory_cache", params=bot_params)
+    bot_data = bot_resp.json() if bot_resp.status_code == 200 else []
 
-    # Фильтруем предметы, чтобы они не повторялись (убираем кучу одинаковых наклеек)
-    unique_items = {}
-    for item in data:
-        name = item['name_ru']
-        if name not in unique_items:
-            unique_items[name] = item
+    if isinstance(bot_data, list):
+        for item in bot_data:
+            # Фильтруем предметы, чтобы они не повторялись
+            name = item.get('market_hash_name') or item.get('name_ru')
+            if name and name not in unique_items:
+                unique_items[name] = {
+                    "assetid": str(item["assetid"]), # Обычный assetid для склада
+                    "type": "bot",
+                    "market_hash_name": item.get("market_hash_name", name),
+                    "name_ru": item.get("name_ru", name),
+                    "price_rub": item["price_rub"],
+                    "icon_url": item.get("icon_url", ""),
+                    "condition": item.get("condition", "-"),
+                    "rarity": item.get("rarity", "common")
+                }
+
+    # ==========================================
+    # 🌍 ЗАПРОС 2: ГЛОБАЛЬНЫЙ МАРКЕТ (Из нашего кэша)
+    # ==========================================
+    market_params = {
+        "is_available": "eq.true",
+        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
+        "select": "market_hash_name, price_rub",
+        "limit": "50" 
+    }
     
+    market_resp = await supabase.get("/market_cache", params=market_params)
+    market_data = market_resp.json() if market_resp.status_code == 200 else []
+
+    if isinstance(market_data, list):
+        for item in market_data:
+            name = item.get('market_hash_name')
+            # Добавляем только если такого скина еще нет на складе ботов
+            if name and name not in unique_items:
+                # Генерируем ссылку на картинку на лету для фронтенда
+                encoded_name = urllib.parse.quote(name)
+                unique_items[name] = {
+                    "assetid": f"MARKET_{name}", # 🔥 СПЕЦИАЛЬНЫЙ МАРКЕР ДЛЯ ФРОНТА И БЭКА 🔥
+                    "type": "market",
+                    "market_hash_name": name,
+                    "name_ru": name, # С маркета тянем англ. название, так как русского там нет
+                    "price_rub": item["price_rub"],
+                    "icon_url": f"https://api.steamapis.com/image/item/730/{encoded_name}",
+                    "condition": "-", 
+                    "rarity": "common"
+                }
+    
+    # Собираем все уникальные предметы (боты + маркет) в один список
     final_pool = list(unique_items.values())
     
-    # Перемешиваем и отдаем 4 РАЗНЫХ предмета
+    # Перемешиваем и отдаем запрошенный лимит (по умолчанию 4 РАЗНЫХ предмета)
     random.shuffle(final_pool)
     return final_pool[:limit]
 
@@ -18638,39 +18705,57 @@ async def confirm_replacement(
     if not trade_link:
         return {"success": False, "message": "⚠️ Сначала укажите Trade Link в профиле!"}
 
-    # --- 3. ПРОВЕРЯЕМ ДОСТУПНОСТЬ ПРЕДМЕТА В КЭШЕ ---
-    check_asset = await supabase.get("/steam_inventory_cache", params={
-        "assetid": f"eq.{req.assetid}", 
-        "is_reserved": "eq.false"
-    })
-    asset_rows = check_asset.json()
-    
-    if not asset_rows or not isinstance(asset_rows, list):
-        return {"success": False, "message": "Этот скин уже забрали. Выберите другой из списка!"}
+    # --- 3. ПРОВЕРЯЕМ ОТКУДА ПРЕДМЕТ (МАРКЕТ ИЛИ СКЛАД) ---
+    is_market_item = str(req.assetid).startswith("MARKET_")
+    replaced_price = 0.0
 
-    selected_item = asset_rows[0]
-    m_name = selected_item.get('market_hash_name', '')
-    item_name_ru = selected_item.get('name_ru') or m_name
+    if is_market_item:
+        # Это гибридный предмет с Маркета!
+        m_name = str(req.assetid).replace("MARKET_", "")
+        item_name_ru = m_name
+        
+        # Получаем цену из гибридного кэша, чтобы сохранить ее для фронтенда
+        m_cache = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{m_name}"})
+        if m_cache.status_code == 200 and len(m_cache.json()) > 0:
+            replaced_price = m_cache.json()[0].get('price_rub', 0.0)
 
-    # Защита от кривых данных (только латиница для Маркета)
-    if not m_name or bool(re.search('[а-яА-Я]', m_name)):
-        return {"success": False, "message": "Ошибка конфигурации скина (RU name). Выберите другой."}
+        selected_item = None # Склада нет
+        logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал гибридный скин с Маркета: {m_name}")
+        
+    else:
+        # СТАРАЯ ЛОГИКА ДЛЯ СКЛАДА
+        check_asset = await supabase.get("/steam_inventory_cache", params={
+            "assetid": f"eq.{req.assetid}", 
+            "is_reserved": "eq.false"
+        })
+        asset_rows = check_asset.json()
+        
+        if not asset_rows or not isinstance(asset_rows, list):
+            return {"success": False, "message": "Этот скин уже забрали. Выберите другой из списка!"}
 
-    # Резервируем сразу, чтобы убрать из списка доступных замен
-    await supabase.patch("/steam_inventory_cache", 
-        params={"assetid": f"eq.{req.assetid}"}, 
-        json={"is_reserved": True}
-    )
+        selected_item = asset_rows[0]
+        m_name = selected_item.get('market_hash_name', '')
+        item_name_ru = selected_item.get('name_ru') or m_name
+        replaced_price = selected_item.get('price_rub', 0.0)
+
+        # Защита от кривых данных
+        if not m_name or bool(re.search('[а-яА-Я]', m_name)):
+            return {"success": False, "message": "Ошибка конфигурации скина (RU name). Выберите другой."}
+
+        # Резервируем сразу
+        await supabase.patch("/steam_inventory_cache", 
+            params={"assetid": f"eq.{req.assetid}"}, 
+            json={"is_reserved": True}
+        )
+        logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал замену со склада: {m_name}")
 
     # --- 4. ПЛАН А: ПОКУПКА НА МАРКЕТЕ (ПРИОРИТЕТ) ---
-    logging.info(f"[REPLACEMENT] Юзер {user_id} выбрал замену через Маркет: {m_name}")
-    
     tm_api_key = os.getenv("CSGO_MARKET_API_KEY")
+    buy_success = False
+    
     if tm_api_key:
         market = MarketCSGO(api_key=tm_api_key)
         
-        # Используем твой метод buy_for_user
-        # Он сам спарсит трейд-ссылку и найдет лучшую цену
         buy_res = await market.buy_for_user(
             hash_name=m_name, 
             trade_link=trade_link, 
@@ -18678,10 +18763,14 @@ async def confirm_replacement(
         )
         
         if buy_res.get("success"):
+            buy_success = True
             custom_id = buy_res.get("custom_id")
+            # 🔥 ОБНОВЛЯЕМ ИСТОРИЮ, ДОБАВЛЯЯ ИМЯ И ЦЕНУ ЗАМЕНЫ 🔥
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "market_pending",
                 "tradeofferid": str(custom_id),
+                "replaced_name": m_name,
+                "replaced_price": replaced_price,
                 "details": f"Замена куплена на Маркете: {item_name_ru}"
             })
             return {"success": True, "message": "Замена закуплена на Маркете! Ожидайте отправку трейда."}
@@ -18689,30 +18778,45 @@ async def confirm_replacement(
             logging.warning(f"[REPLACEMENT] Маркет не смог купить: {buy_res.get('error')}. Пробуем План Б.")
 
     # --- 5. ПЛАН Б: ОТПРАВКА СО СКЛАДА (FALLBACK) ---
-    # Если на Маркете нет или ошибка — пробуем отправить своего бота
-    trade_res = await send_steam_trade_offer(
-        account_id=selected_item["account_id"],
-        assetid=selected_item["assetid"],
-        trade_url=trade_link,
-        supabase=supabase
-    )
+    trade_res = None
+    err_log = "Market API failed for Market-only item"
 
-    if trade_res and trade_res.get("success"):
-        t_id = str(trade_res.get("tradeofferid"))
-        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-            "status": "sent",
-            "tradeofferid": t_id,
-            "details": f"Замена выдана со склада бота: {item_name_ru}"
-        })
-        return {"success": True, "message": "Замена отправлена! Принимайте трейд в Steam.", "tradeofferid": t_id}
+    if not buy_success:
+        if is_market_item:
+            # Если это скин чисто с маркета, и Маркет упал — бота у нас нет, падаем в ручной режим
+            pass 
+        else:
+            # Отправляем своего бота
+            trade_res = await send_steam_trade_offer(
+                account_id=selected_item["account_id"],
+                assetid=selected_item["assetid"],
+                trade_url=trade_link,
+                supabase=supabase
+            )
+
+        if trade_res and trade_res.get("success"):
+            t_id = str(trade_res.get("tradeofferid"))
+            # 🔥 ОБНОВЛЯЕМ ИСТОРИЮ 🔥
+            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                "status": "sent",
+                "tradeofferid": t_id,
+                "replaced_name": m_name,
+                "replaced_price": replaced_price,
+                "details": f"Замена выдана со склада бота: {item_name_ru}"
+            })
+            return {"success": True, "message": "Замена отправлена! Принимайте трейд в Steam.", "tradeofferid": t_id}
 
     # --- 6. ПЛАН В: РУЧНОЙ РЕЖИМ (ФИНАЛ) ---
-    # Если Стим вернул null (из-за кэша) или Маркет/Бот не сработали
-    err_log = trade_res.get('error', 'Steam null') if trade_res else "Market/Inventory failed"
+    if trade_res and trade_res.get('error'):
+        err_log = trade_res.get('error')
+        
     logging.error(f"[REPLACEMENT] Автоматика бессильна. Перевод #{req.history_id} в ручной режим. Ошибка: {err_log}")
 
+    # 🔥 ОБНОВЛЯЕМ ИСТОРИЮ ДАЖЕ ДЛЯ РУЧНОГО РЕЖИМА 🔥
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
         "status": "processing",
+        "replaced_name": m_name,
+        "replaced_price": replaced_price,
         "details": f"Выбрана замена: {item_name_ru}. ТРЕБУЕТСЯ РУЧНАЯ ВЫДАЧА (API Error: {err_log})"
     })
 
