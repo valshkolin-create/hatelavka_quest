@@ -1154,6 +1154,60 @@ if (dom.popupTradeLinkInput) {
     const showLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden'); };
     const hideLoader = () => { if(dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); };
 
+    // 🔥 ВСТАВЛЯЙ СЮДА (Перед makeApiRequest) 🔥
+window.showSecurityBlock = function(message) {
+    if(dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    const old = document.getElementById('security-trade-modal');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'security-trade-modal';
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.98); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-family: sans-serif;";
+    
+    overlay.innerHTML = `
+        <div style="padding: 24px 20px; width: 90%; max-width: 340px; background: #1c1c1e; border-radius: 20px; border: 1px solid rgba(255,59,48,0.4); text-align: center; box-shadow: 0 0 50px rgba(0,0,0,1);">
+            <i class="fa-solid fa-shield-halved" style="font-size:48px; color:#ff3b30; margin-bottom:15px; display:block;"></i>
+            <h3 style="color: #ff3b30; font-size: 22px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Защита активна</h3>
+            <div style="margin-bottom: 20px; font-size: 14px; color: #fff; line-height: 1.4; opacity: 0.9;">${message}</div>
+            
+            <div style="text-align: left; margin-bottom: 20px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1);">
+                <label style="font-size: 11px; color: #ffd700; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">Укажите ВАШУ ссылку:</label>
+                <input type="url" id="security-trade-input" placeholder="https://steamcommunity.com/tradeoffer/new/..." style="width: 100%; background: #000; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 10px; font-size: 12px; outline: none; box-sizing: border-box;">
+            </div>
+
+            <button id="security-save-btn" style="width: 100%; padding: 16px; background: #ffcc00; color: #000; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; cursor: pointer;">Сохранить и войти</button>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    const saveBtn = overlay.querySelector('#security-save-btn');
+    const input = overlay.querySelector('#security-trade-input');
+
+    saveBtn.onclick = async () => {
+        const v = input.value.trim();
+        if (!v.includes("partner=") || !v.includes("token=")) {
+            input.style.borderColor = "#ff3b30";
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+            return;
+        }
+        saveBtn.disabled = true;
+        saveBtn.innerText = "ПРОВЕРКА...";
+        try {
+            const res = await fetch('/api/v1/user/trade_link/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trade_link: v, initData: tg.initData })
+            });
+            if (res.ok) window.location.reload();
+            else throw new Error();
+        } catch (e) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = "ОШИБКА. ПОВТОРИ";
+        }
+    };
+};
+
     function showNotification(message, type = 'info') {
         const container = document.getElementById('notification-area');
         if (!container) return;
@@ -1205,21 +1259,62 @@ if (dom.popupTradeLinkInput) {
     }
 
     async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
-        if (!isSilent) showLoader();
-        try {
-            const response = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, initData: tg.initData }) });
-            if (response.status === 204) return null;
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.detail || 'Ошибка сервера');
-            return result;
-        } catch (e) { 
-            if(!isSilent) tg.showAlert(`Ошибка: ${e.message}`); 
-            throw e; 
-        } finally { 
-            if (!isSilent) hideLoader(); 
-        }
-    }
+    if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
+    try {
+        const response = await fetch(url, { 
+            method: method, 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ ...body, initData: tg.initData }) 
+        });
 
+        if (response.status === 204) return null;
+        const result = await response.json();
+
+        if (!response.ok) {
+            // 💀 1. ВЕЧНЫЙ ЭКРАН БАНА
+            if (response.status === 403 && result.detail === "BANNED") {
+                document.body.innerHTML = `
+                    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
+                        <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
+                        <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
+                        <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
+                            Твой аккаунт заблокирован за нарушение правил системы.
+                        </p>
+                        <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
+                            <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
+                        </a>
+                    </div>
+                    <style>@keyframes banPulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }</style>
+                `;
+                document.body.style.overflow = 'hidden';
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                throw new Error("USER_BANNED");
+            }
+
+            // 🛡️ 2. ДУБЛИКАТЫ TRADE LINK
+            if (response.status === 400 && result.detail === "DUPLICATE_TRADE_LINK") {
+                window.showSecurityBlock("Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите свою.");
+                throw new Error("Security Block");
+            }
+
+            // Обычная проверка на 403 (другие ограничения)
+            if (response.status === 403) {
+                window.showSecurityBlock(result.detail || "Доступ ограничен.");
+                throw new Error("Security Block");
+            }
+
+            throw new Error(result.detail || 'Ошибка сервера');
+        }
+        return result;
+    } catch (e) { 
+        if (e.message !== 'Security Block' && e.message !== 'USER_BANNED' && !isSilent) {
+            tg.showAlert(`Ошибка: ${e.message}`); 
+        }
+        throw e; 
+    } finally { 
+        if (!isSilent) hideLoader(); 
+    }
+}
     // --- УНИВЕРСАЛЬНОЕ ОКНО (с поддержкой одной кнопки) ---
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30', showCancel = true) {
         const overlay = document.createElement('div'); 
