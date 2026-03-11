@@ -712,11 +712,10 @@ html, body {
     overflow-x: hidden !important;
 }
 /* ==========================================
-/* ==========================================
    УМНЫЕ ОТСТУПЫ (IOS / ANDROID / DESKTOP)
 ========================================== */
 
-/* 1. БАЗОВЫЙ ОТСТУП (Для iOS - учитывает огромную челку и толстую шторку) */
+/* 1. БАЗОВЫЙ ОТСТУП (Для iOS - работает идеально со шторками и челками) */
 .top-header {
     padding-top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 55px) !important;
 }
@@ -724,12 +723,15 @@ html, body {
     top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 105px) !important;
 }
 
-/* 2. ANDROID-ВЕРСИЯ (Шторка тоньше, челка аккуратнее) */
+/* 2. ANDROID-ВЕРСИЯ (Железобетонный фикс) 
+   У Telegram на Android переменная safe-area часто слетает в 0. 
+   Поэтому даем жесткий отступ (+68px), который перекрывает системную шторку на любой диагонали.
+   Если шторки у юзера нет - это будет просто аккуратный отступ от края экрана. */
 body.android-mode .top-header {
-    padding-top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 20px) !important;
+    padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 68px) !important;
 }
 body.android-mode .toggle-container {
-    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 70px) !important;
+    top: calc(var(--tg-content-safe-area-inset-top, 0px) + 118px) !important;
 }
 
 /* 3. ПК-ВЕРСИЯ (DESKTOP / WEB - нет никаких шторок) */
