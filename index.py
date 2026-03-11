@@ -18376,17 +18376,19 @@ async def check_trade_status_endpoint(
     if not user_data:
         return JSONResponse({"success": False, "message": "Auth failed"}, status_code=401)
 
-    # 1. Достаем запись из истории
+   # 1. Достаем запись из истории
     res = await supabase.get("/cs_history", params={
         "id": f"eq.{history_id}", 
         "user_id": f"eq.{user_data['id']}"
     })
     
-    items = res.json()
-    if not items or len(items) == 0:
+    # Исправлено: используем одно имя db_items везде
+    db_items = res.json() 
+    
+    if not db_items or len(db_items) == 0:
         return JSONResponse({"success": False, "message": "Предмет не найден в вашей истории"})
         
-    item = db_items[0]
+    item = db_items[0] # Теперь NameError не будет
     custom_id = str(item.get("id")) 
 
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
