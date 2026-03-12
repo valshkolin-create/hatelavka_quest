@@ -16,12 +16,8 @@
             --danger: #ff4d4d;
             --text: #ffffff;
             --text-sec: #aaaaaa;
-            
-            /* Rarity Colors */
             --r-blue: #4b69ff;
             --r-purple: #8847ff;
-            --r-pink: #d32ce6;
-            --r-red: #eb4b4b;
             --r-gold: #ffd700;
         }
 
@@ -32,16 +28,13 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* HEADER */
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
         .back-btn { 
             background: none; border: none; color: var(--text-sec); font-size: 16px; 
             cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; 
-            opacity: 1; pointer-events: auto; transition: opacity 0.2s;
         }
         .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
 
-        /* CONTENT CARDS */
         .step-card {
             background: var(--card-bg); border: 1px solid var(--card-border);
             border-radius: 16px; padding: 20px; margin-bottom: 15px;
@@ -50,7 +43,6 @@
         .step-title { font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
         .step-title.blue { color: var(--r-blue); }
         .step-title.purple { color: var(--r-purple); }
-        .step-title.green { color: var(--action); }
         .step-title.gold { color: var(--r-gold); }
 
         .instruction { font-size: 13px; color: var(--text-sec); line-height: 1.5; margin-bottom: 10px; }
@@ -74,7 +66,6 @@
             padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center;
         }
 
-        /* BUTTONS */
         .admin-action-btn {
             border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
@@ -97,7 +88,7 @@
 <body>
 
     <div class="page-header">
-        <a href="/admin" class="back-btn"><i class="fa-solid fa-chevron-left"></i> Назад</a>
+        <button class="back-btn" onclick="window.history.back()"><i class="fa-solid fa-chevron-left"></i> Назад</button>
         <h1 class="page-title">Мастер переезда</h1>
         <div style="width: 60px;"></div> 
     </div>
@@ -109,7 +100,7 @@
 
     <div class="step-card">
         <h3 class="step-title blue"><i class="fa-solid fa-server"></i> Шаг 1: Переменные (.env)</h3>
-        <div class="instruction">Скопируй свои ключи из безопасного места и вставь в настройки Vercel (Settings -> Environment Variables). Проверь, что ничего не забыл:</div>
+        <div class="instruction">Скопируй свои ключи из безопасного места и вставь в настройки Vercel. Проверь, что ничего не забыл:</div>
         
         <div class="env-list">
             <div><i class="fa-solid fa-database"></i> DATABASE_URL</div>
@@ -135,17 +126,42 @@
     <div class="step-card">
         <h3 class="step-title purple"><i class="fa-solid fa-screwdriver-wrench"></i> Шаг 2: Ручные настройки</h3>
         
-        <div class="instruction"><b>1. Кнопка Menu в ТГ:</b><br>Открой @BotFather > <code>/mybots</code> > Bot Settings > Menu Button.<br>Установи туда текущий домен.</div>
-        <div style="height: 10px;"></div>
+        <div class="instruction">
+            <b>1. Mini Apps в BotFather:</b><br>
+            <i>(Главную кнопку Menu бот теперь обновляет сам!)</i><br>
+            Для остальных зайти в @BotFather -> <code>/mybots</code> -> Твой бот -> <b>Web Apps</b>. <br>Вот готовые ссылки (просто скопируй):
+        </div>
+        
+        <div class="env-list" style="color: #fff;">
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">app:</b> <span class="mig-app-link">/</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">halloween:</b> <span class="mig-app-link">/halloween</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">auction:</b> <span class="mig-app-link">/auction</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">shop:</b> <span class="mig-app-link">/shop</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">grind:</b> <span class="mig-app-link">/grind</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">quests:</b> <span class="mig-app-link">/quests</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">roulette:</b> <span class="mig-app-link">/roulette</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">profile:</b> <span class="mig-app-link">/profile</span></div>
+            <div><i class="fa-solid fa-link"></i> <b style="color:var(--primary); width: 80px; display:inline-block;">raffles:</b> <span class="mig-app-link">/raffles</span></div>
+        </div>
+
+        <div style="height: 15px;"></div>
+        
         <div class="instruction"><b>2. Twitch Auth:</b><br>В <a href="https://dev.twitch.tv/console/apps" target="_blank" style="color:var(--r-blue);">консоли Twitch</a> измени <b>OAuth Redirect URI</b> на:</div>
         <div class="code-snippet" id="twitch-redirect">загрузка...</div>
-        <div style="height: 10px;"></div>
-        <div class="instruction"><b>3. Фоновые задачи:</b><br>Зайди в cron-job.org и обнови URL задачи (не забудь дописать <code>?secret=...</code>).</div>
+        
+        <div style="height: 15px;"></div>
+        
+        <div class="instruction"><b>3. Фоновые задачи:</b><br>Зайди в cron-job.org и обнови URL задач (не забудь дописать <code>?secret=...</code>).</div>
+
+        <div style="height: 15px;"></div>
+        
+        <div class="instruction"><b>4. Bot-T (Кнопка Web App):</b><br>Зайди в <a href="https://bot-t.com/lk/common/route?bot_id=233790&route_id=3587796" target="_blank" style="color:var(--action);">настройки маршрута Bot-T</a> и поменяй URL запуска на:</div>
+        <div class="code-snippet" id="bot-t-url">загрузка...</div>
     </div>
 
     <div class="step-card" style="border-color: var(--action);">
-        <h3 class="step-title gold"><i class="fa-solid fa-wand-magic-sparkles"></i> Шаг 3: Синхронизация</h3>
-        <div class="instruction">Нажми кнопку ниже. Сервер автоматически удалит старые вебхуки и привяжет бота и слушатели Twitch к новому домену.</div>
+        <h3 class="step-title gold"><i class="fa-solid fa-wand-magic-sparkles"></i> Шаг 3: Автоматика</h3>
+        <div class="instruction">Бот сам удалит старые вебхуки, привяжет новые слушатели Twitch и обновит главную кнопку Menu. В конце он напишет тебе в ЛС!</div>
         
         <button id="run-btn" class="admin-action-btn btn-save" onclick="runMigration()">
             <i class="fa-solid fa-rotate"></i> ВЫПОЛНИТЬ ФИКС
@@ -158,21 +174,28 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Подставляем текущий домен
+        // Подставляем текущий домен во все шпаргалки
         const domain = window.location.hostname;
-        document.getElementById('current-domain').innerText = `https://${domain}`;
-        document.getElementById('twitch-redirect').innerText = `https://${domain}/api/v1/auth/twitch_oauth`;
+        const currentUrl = `https://${domain}`;
+        
+        document.getElementById('current-domain').innerText = currentUrl;
+        document.getElementById('twitch-redirect').innerText = `${currentUrl}/api/v1/auth/twitch_oauth`;
+        document.getElementById('bot-t-url').innerText = `${currentUrl}/`;
 
-        // Настройка нативной кнопки назад (если доступна)
+        // Генерируем ссылки для BotFather
+        document.querySelectorAll('.mig-app-link').forEach(el => {
+            const path = el.innerText;
+            el.innerText = `${currentUrl}${path}`;
+        });
+
         if (tg.BackButton) {
             tg.BackButton.show();
-            tg.BackButton.onClick(() => { window.location.href = '/admin'; });
+            tg.BackButton.onClick(() => { window.history.back(); });
         }
 
         async function runMigration() {
             if (!tg.initData) return alert("Запустите через Telegram!");
 
-            // Просим подтверждение перед запуском
             tg.showConfirm("Привязать вебхуки (TG и Twitch) к этому домену?", async (ok) => {
                 if (!ok) return;
 
