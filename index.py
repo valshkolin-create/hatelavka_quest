@@ -9625,12 +9625,16 @@ async def create_promocodes(
         raise HTTPException(status_code=500, detail="Не удалось добавить промокоды.")
 # --- АДМИНСКИЕ ПРОМОКОДЫ  ---  
 
-@app.get("/api/v1/cron/check_tm_trades")  # Добавил слеш в конце для защиты от 301
+@app.get("/api/v1/cron/check_tm_trades") 
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
     АВТОМАТИКА: Синхронизирует статусы. 
     Фантомов — удаляет. Ошибки Маркета — откатывает в available.
     """
+    import os
+    from datetime import datetime, timezone
+    from dateutil import parser # Убедись, что это импортировано, если не было глобально
+
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
         return {"status": "error", "message": "No TM API key"}
@@ -9675,7 +9679,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     if not active_trades and not results_log:
         return {"status": "ok", "message": "Чисто"}
 
-    async with httpx.AsyncClient(timeout=10.0) as client: # Чуть уменьшил таймаут для скорости
+    async with httpx.AsyncClient(timeout=10.0) as client: 
         for trade in active_trades:
             trade_id = trade["id"]
             updated_at_str = trade.get("updated_at")
@@ -9687,18 +9691,21 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}"
                 )
                 
+                # 🔥 ИСПРАВЛЕНО: Ждем 35 минут, если Маркет вообще не отвечает
                 if tm_res.status_code != 200:
-                    if minutes_passed > 15:
+                    if minutes_passed > 35:
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
+                        results_log.append(f"#{trade_id}: available (TM API Error timeout)")
                     continue
 
                 tm_data = tm_res.json()
                 trade_info = tm_data.get("data", {})
                 
+                # 🔥 ИСПРАВЛЕНО: Ждем 35 минут, если Маркет говорит, что такого ID нет
                 if not tm_data.get("success") or not trade_info:
-                    if minutes_passed > 10:
-                        # Если нет на Маркете — откатываем в доступные
+                    if minutes_passed > 35:
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
+                        results_log.append(f"#{trade_id}: available (TM not found timeout)")
                     continue
 
                 stage = str(trade_info.get("stage"))
@@ -9715,7 +9722,9 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     results_log.append(f"#{trade_id}: received")
 
                 # ПРАВИЛО №2: ОТМЕНА/ТАЙМАУТ -> available (НЕ УДАЛЯЕМ)
-                elif stage in ["4", "5"] or (minutes_passed >= 10 and settlement == 0):
+                # 🔥 ИСПРАВЛЕНО: Если продавец отменил (stage 4 или 5) - откатываем сразу. 
+                # 🔥 А если просто висит (settlement == 0) - ждем 35 минут.
+                elif stage in ["4", "5"] or (minutes_passed >= 35 and settlement == 0):
                     await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
                     results_log.append(f"#{trade_id}: available")
 
@@ -18576,6 +18585,9 @@ async def check_trade_status_endpoint(
 
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     
+    # Для обновления таймера, если сделка отменена
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
     try:
         # Увеличиваем таймаут, так как Маркет может долго «думать»
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -18595,7 +18607,7 @@ async def check_trade_status_endpoint(
             # ОБРАБОТКА ОШИБОК И ЗАДЕРЖКИ ИНДЕКСАЦИИ
             # =========================================================
             if not tm_data.get("success"):
-                # Если Маркет говорит "not found", значит ID еще не проиндексирован (нужно подождать 30-60 сек)
+                # Если Маркет говорит "not found", значит ID еще не проиндексирован
                 if tm_data.get("error") == "not found":
                     return {
                         "success": False, 
@@ -18620,9 +18632,15 @@ async def check_trade_status_endpoint(
             # ЛОГИКА УСПЕХА (Предмет передан или расчет завершен)
             # =========================================================
             if settlement > 0 or stage == "2":
+                update_payload = {"status": "received"}
+                
+                # Заодно подтянем красивую картинку с маркета, если ее нет
+                if not item.get("image_url") and trade_info.get("classid"):
+                    update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
+
                 await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}"}, 
-                    json={"status": "received"}
+                    json=update_payload
                 )
                 return {
                     "success": True, 
@@ -18631,12 +18649,13 @@ async def check_trade_status_endpoint(
                 }
                 
             # =========================================================
-            # ЛОГИКА ОТМЕНЫ (Ошибка или истекло время 10 мин)
+            # ЛОГИКА ОТМЕНЫ (Ошибка или истекло время 35 мин)
             # =========================================================
-            elif stage in ["4", "5"] or (seconds_passed > 600 and settlement == 0):
+            # 🔥 МЕНЯЕМ 600 СЕКУНД НА 2100 (35 МИНУТ) 🔥
+            elif stage in ["4", "5"] or (seconds_passed > 2100 and settlement == 0):
                 await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}"}, 
-                    json={"status": "available"}
+                    json={"status": "available", "updated_at": now_iso} # Обновляем время!
                 )
                 
                 # Снимаем резерв, если это был предмет со склада
@@ -18646,7 +18665,7 @@ async def check_trade_status_endpoint(
                         json={"is_reserved": False}
                     )
                 
-                msg = "Трейд был отменен. Предмет снова доступен для вывода." if stage in ["4", "5"] else "Время ожидания (10 мин) истекло. Попробуйте еще раз."
+                msg = "Трейд был отменен продавцом Маркета. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло. Маркет не смог выдать предмет, попробуйте еще раз."
                 return {
                     "success": True, 
                     "message": msg, 
@@ -18657,7 +18676,8 @@ async def check_trade_status_endpoint(
             # ОЖИДАНИЕ (Трейд создан, ждем действий)
             # =========================================================
             elif stage == "1":
-                time_left = max(1, int((600 - seconds_passed) / 60))
+                # 🔥 РАСЧЕТ ДЛЯ ЮЗЕРА НА БАЗЕ 30 МИНУТ (1800 секунд) 🔥
+                time_left = max(1, int((1800 - seconds_passed) / 60))
                 return {
                     "success": False, 
                     "message": f"Оффер отправлен! У вас есть около {time_left} мин., чтобы принять его в Steam."
@@ -18672,7 +18692,6 @@ async def check_trade_status_endpoint(
     except Exception as e:
         print(f"TM API ERROR: {e}")
         return JSONResponse({"success": False, "message": "Временная ошибка связи с Маркетом. Попробуйте позже."})
-
 
 # 2. Обменять скин на билеты (FIX 400 ERROR)
 
@@ -18980,6 +18999,7 @@ async def withdraw_inventory_item(
     import re
     import logging
     import os
+    from datetime import datetime, timedelta, timezone # 🔥 ДОБАВИЛИ ИМПОРТЫ ВРЕМЕНИ
 
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data:
@@ -19006,28 +19026,59 @@ async def withdraw_inventory_item(
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-   # 2. Получаем предмет из истории
+    # 2. Получаем предмет из истории
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "id": f"eq.{req.history_id}",
             "user_id": f"eq.{user_id}",
-            "status": "in.(pending,failed,available)",
-            # 🔥 ДОБАВЛЯЕМ SOURCE В SELECT 🔥
-            "select": "id, source, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
+            # 🔥 УБРАЛИ фильтр status=in.(...), чтобы самим проверять статусы и время!
+            "select": "id, status, updated_at, source, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
         }
     )
     
     rows = check_resp.json()
 
     if isinstance(rows, dict) or not rows or not isinstance(rows, list):
-        raise HTTPException(status_code=404, detail="Предмет не найден или уже в обработке")
+        raise HTTPException(status_code=404, detail="Предмет не найден")
 
     history_record = rows[0]
+    current_status = history_record.get('status')
+    updated_at_str = history_record.get('updated_at')
+    
+    # ==========================================
+    # 🕒 БЛОК ПРОВЕРКИ ТАЙМЕРА (30 МИНУТ)
+    # ==========================================
+    processing_statuses = ["market_pending", "auto_queued", "sent", "offer_sent"]
+    
+    if current_status in processing_statuses:
+        if updated_at_str:
+            # Безопасный парсинг времени из БД (обычно оно в UTC)
+            time_str = updated_at_str.replace("Z", "+00:00")
+            if "+" not in time_str and not re.search(r"-\d{2}:\d{2}$", time_str):
+                time_str += "+00:00"
+                
+            try:
+                updated_dt = datetime.fromisoformat(time_str)
+                # 🔥 ЕСЛИ ПРОШЛО МЕНЬШЕ 30 МИНУТ - БЛОКИРУЕМ
+                if datetime.now(timezone.utc) - updated_dt < timedelta(minutes=30):
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="⏳ Трейд уже находится в очереди отправки. Пожалуйста, подождите 30 минут."
+                    )
+            except Exception as e:
+                logging.error(f"Time parse error: {e}")
+                
+    # Если статус не позволяет вывод (например, юзер уже продал или вывел скин)
+    valid_for_withdraw = ["pending", "failed", "available"]
+    if current_status not in valid_for_withdraw and current_status not in processing_statuses:
+        raise HTTPException(status_code=400, detail="Этот предмет нельзя вывести (уже продан или получен).")
+
+    # ==========================================
+
     item_data = history_record.get('item', {})
     
-    # 🔥 ВЫТАСКИВАЕМ SOURCE ИЗ БАЗЫ 🔥
-    # Если поля нет (старые записи), по умолчанию считаем, что это Лавка
+    # ВЫТАСКИВАЕМ SOURCE ИЗ БАЗЫ
     item_source = history_record.get('source', 'shop') 
     
     item_name = item_data.get('name', 'Неизвестный предмет')
@@ -19044,6 +19095,9 @@ async def withdraw_inventory_item(
     market_hash_name = item_data.get('market_hash_name')
 
     has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
+    
+    # Текущее время для обновления таймера в базе
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     if has_english_name:
         # ==========================================
@@ -19058,7 +19112,7 @@ async def withdraw_inventory_item(
             history_id=req.history_id, 
             target_condition=item_condition,
             target_market_name=market_hash_name,
-            source=item_source # 🔥 ТЕПЕРЬ КЛАДОВЩИК ЗНАЕТ, ОТКУДА ПРИШЕЛ ЗАКАЗ! 🔥
+            source=item_source # ТЕПЕРЬ КЛАДОВЩИК ЗНАЕТ, ОТКУДА ПРИШЕЛ ЗАКАЗ!
         )
         
         # 🔥🔥🔥 НОВЫЙ БЛОК: ЖЕЛЕЗОБЕТОННЫЙ ПЕРЕХВАТ ОШИБОК СТИМА 🔥🔥🔥
@@ -19079,7 +19133,7 @@ async def withdraw_inventory_item(
             elif error_code == 21:
                 detail_msg = "📦 Ваш инвентарь CS2 переполнен (максимум 1000 предметов)."
             elif error_code == 20:
-                detail_msg = "⏳ Серверы Steam сейчас лагают. Попробуйте вывести скин через 10 минут."
+                detail_msg = "⏳ Серверы Steam сейчас лагают. Попробуйте вывести скин через 30 минут."
             else:
                 detail_msg = f"Ошибка вывода: {error_msg} (Код: {error_code})"
 
@@ -19090,6 +19144,8 @@ async def withdraw_inventory_item(
         # --- СЛУЧАЙ 1: Успешная покупка на Маркете (ТМ) ---
         market_msg = "Предмет куплен на Маркете и скоро будет отправлен!"
         if delivery_res.get("success") and delivery_res.get("message") == market_msg:
+            # (Функция fulfill_item_delivery внутри себя должна ставить updated_at, 
+            #  но можно и здесь обновить для надежности, если она этого не делает).
             return {"success": True, "message": "Предмет закуплен на Маркете! Следите за статусом в профиле."}
 
         # --- СЛУЧАЙ 2: Предмет найден на твоем складе ---
@@ -19108,7 +19164,8 @@ async def withdraw_inventory_item(
                 t_id = str(trade_res.get("tradeofferid"))
                 await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                     "status": "sent",
-                    "tradeofferid": t_id 
+                    "tradeofferid": t_id,
+                    "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ВРЕМЯ (Чтобы таймер начался на 30 мин)
                 })
                 return {"success": True, "message": "Трейд отправлен! Подтвердите получение в Steam."}
             else:
@@ -19136,7 +19193,10 @@ async def withdraw_inventory_item(
     # ==========================================
     # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
     # ==========================================
-    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={"status": "processing"})
+    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+        "status": "processing",
+        "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ВРЕМЯ
+    })
     
     ADMIN_NOTIFY_CHAT_ID = os.getenv("ADMIN_NOTIFY_CHAT_ID")
     if ADMIN_NOTIFY_CHAT_ID:
@@ -19147,6 +19207,7 @@ async def withdraw_inventory_item(
                 f"🔫 <b>{item_name}</b>\n"
                 f"💰 Бюджет: {target_price_rub} руб. ({target_price_base} монеты)"
             )
+            # Отправка уведомления админу (код отправки, видимо, где-то дальше в твоем приложении)
         except: pass
             
     return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
@@ -19161,6 +19222,7 @@ async def confirm_replacement(
     import re
     import os
     import logging
+    from datetime import datetime, timezone # 🔥 ДОБАВЛЕНО ДЛЯ ТАЙМЕРА
 
     # --- 1. ПРОВЕРКА АВТОРИЗАЦИИ ---
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
@@ -19205,10 +19267,14 @@ async def confirm_replacement(
     if not trade_link:
         return {"success": False, "message": "⚠️ Сначала укажите Trade Link в профиле!"}
 
+    # 🔥 ГЕНЕРИРУЕМ ТЕКУЩЕЕ ВРЕМЯ ДЛЯ ТАЙМЕРА 30 МИНУТ
+    now_iso = datetime.now(timezone.utc).isoformat()
+
     # Сразу ставим статус "В обработке", чтобы юзер видел прогресс и НЕ СМОГ запустить еще раз
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
         "status": "processing",
-        "details": "Заявка принята, запускаем ботов..."
+        "details": "Заявка принята, запускаем ботов...",
+        "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ТАЙМЕР НА 30 МИНУТ В БАЗЕ
     })
 
     # --- 3. ЗАПУСКАЕМ ФОНОВУЮ ЛОГИКУ ---
@@ -19229,8 +19295,11 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
     import time
     import httpx
     import traceback
+    from datetime import datetime, timezone # 🔥 ДОБАВЛЕНО ДЛЯ ТАЙМЕРА
     
     try:
+        now_iso = datetime.now(timezone.utc).isoformat() # 🔥 ГЕНЕРИРУЕМ ВРЕМЯ
+
         user_id = user_info.get('telegram_id')
         full_name = user_info.get('full_name', 'User')
         username = user_info.get('username', 'NoName')
@@ -19257,7 +19326,9 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
             asset_rows = check_asset.json()
             if not asset_rows:
                 await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                    "status": "failed", "details": "Ошибка: предмет со склада уже занят кем-то другим."
+                    "status": "failed", 
+                    "details": "Ошибка: предмет со склада уже занят кем-то другим.",
+                    "updated_at": now_iso # 🔥 ТАЙМЕР
                 })
                 return
 
@@ -19330,7 +19401,8 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                                     "tradeofferid": unique_market_id,
                                     "replaced_name": m_name,
                                     "replaced_price": replaced_price,
-                                    "details": f"Замена куплена на Маркете (ID: {market_item_id}): {item_name_ru}"
+                                    "details": f"Замена куплена на Маркете (ID: {market_item_id}): {item_name_ru}",
+                                    "updated_at": now_iso # 🔥 ТАЙМЕР
                                 })
                                 return 
                             
@@ -19346,7 +19418,8 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                                     "tradeofferid": unique_market_id,
                                     "replaced_name": m_name,
                                     "replaced_price": replaced_price,
-                                    "details": f"Замена подтверждена по уникальному ID: {item_name_ru}"
+                                    "details": f"Замена подтверждена по уникальному ID: {item_name_ru}",
+                                    "updated_at": now_iso # 🔥 ТАЙМЕР
                                 })
                                 return
                             else:
@@ -19389,7 +19462,8 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                         "tradeofferid": t_id,
                         "replaced_name": m_name,
                         "replaced_price": replaced_price,
-                        "details": f"Замена выдана со склада бота: {item_name_ru}"
+                        "details": f"Замена выдана со склада бота: {item_name_ru}",
+                        "updated_at": now_iso # 🔥 ТАЙМЕР
                     })
                     return
                 else:
@@ -19407,22 +19481,25 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
             "status": "processing",
             "replaced_name": m_name,
             "replaced_price": replaced_price,
-            "details": f"Выбрана замена: {item_name_ru}. ТРЕБУЕТСЯ РУЧНАЯ ВЫДАЧА ({err_log})"
+            "details": f"Выбрана замена: {item_name_ru}. ТРЕБУЕТСЯ РУЧНАЯ ВЫДАЧА ({err_log})",
+            "updated_at": now_iso # 🔥 ТАЙМЕР
         })
 
     except Exception as e:
         # 🔥 ЖЕЛЕЗНЫЙ ПЕРЕХВАТ ЛЮБЫХ ОШИБОК 🔥
+        now_iso = datetime.now(timezone.utc).isoformat()
         err_msg = str(e)
         logging.error(f"💥 КРИТИЧЕСКАЯ ОШИБКА ФОНА #{req.history_id}: {err_msg}")
         logging.error(traceback.format_exc())
         
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
             "status": "failed",
-            "details": f"Сбой автоматики: {err_msg[:100]}..."
+            "details": f"Сбой автоматики: {err_msg[:100]}...",
+            "updated_at": now_iso # 🔥 ТАЙМЕР
         })
     
 # 4. Подтвердить получение (Статус -> received)
-app.post("/api/v1/user/inventory/confirm")
+@app.post("/api/v1/user/inventory/confirm")
 async def confirm_inventory_item(
     req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -19437,10 +19514,10 @@ async def confirm_inventory_item(
         params={
             "id": f"eq.{req.history_id}", 
             "user_id": f"eq.{user_data['id']}", 
-            "status": "in.(sent,offer_sent)" # <--- ИСПРАВЛЕНО: Учитывает оба статуса отправки
+            "status": "in.(sent,offer_sent)"
         },
         json={"status": "received"},
-        headers={"Prefer": "return=representation"} # <--- ИСПРАВЛЕНО: Запрашиваем ответ от БД
+        headers={"Prefer": "return=representation"}
     )
     
     updated_data = res.json()
@@ -19455,40 +19532,63 @@ async def confirm_inventory_item(
     return {"success": True, "message": "Отлично! Скин получен."}
 
 # ==========================================
-# 🕒 АВТО-ПОДТВЕРЖДЕНИЕ ЧЕРЕЗ 1 ЧАС (НОВОЕ)
+# 🕒 ФОНОВАЯ ЧИСТКА ЗАВИСШИХ И СТАРЫХ ОФФЕРОВ
 # ==========================================
 async def auto_confirm_old_offers(supabase_client: httpx.AsyncClient):
-    """
-    Ищет все трейды со статусом sent/offer_sent/market_pending, которые висят без изменений 
-    дольше 1 часа, и автоматически переводит их в статус received.
-    """
     import logging
     from datetime import datetime, timezone, timedelta
 
-    # Вычисляем порог: текущее время минус 1 час
-    # Благодаря вашему триггеру в БД, updated_at всегда актуален
-    one_hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    now_utc = datetime.now(timezone.utc)
+    
+    # 1. Порог для ЗАВИСШИХ (35 минут — даем 5 минут запаса поверх 30-минутного таймера фронтенда)
+    stuck_threshold = (now_utc - timedelta(minutes=35)).isoformat()
+    
+    # 2. Порог для ОТПРАВЛЕННЫХ, которые юзер забыл подтвердить (1 час)
+    one_hour_ago = (now_utc - timedelta(hours=1)).isoformat()
     
     try:
-        # Патчим таблицу cs_history
-        res = await supabase_client.patch(
+        # --- ЧАСТЬ 1: ОСВОБОЖДАЕМ ЗАВИСШИЕ ТРЕЙДЫ ---
+        # Если Маркет или бот затупил, возвращаем предмет юзеру, чтобы он мог вывести заново
+        res_stuck = await supabase_client.patch(
             "/cs_history",
             params={
-                # 🔥 Добавили market_pending в список для авто-завершения
-                "status": "in.(sent,offer_sent,market_pending)",
-                "updated_at": f"lte.{one_hour_ago}" 
+                "status": "in.(market_pending,processing,auto_queued)",
+                "updated_at": f"lte.{stuck_threshold}" 
             },
-            json={"status": "received"},
-            headers={"Prefer": "return=representation"} # Запрашиваем ответ, чтобы знать, сколько строк изменилось
+            json={
+                "status": "available", 
+                "updated_at": now_utc.isoformat() # Обновляем время, чтобы было видно когда откатилось
+            },
+            headers={"Prefer": "return=representation"}
         )
         
-        if res.status_code == 200:
-            count = len(res.json())
-            if count > 0:
-                logging.info(f"[CRON] Авто-подтверждение: закрыто {count} старых сделок.")
+        if res_stuck.status_code == 200:
+            count_stuck = len(res_stuck.json())
+            if count_stuck > 0:
+                logging.info(f"[CRON] Авто-отмена: {count_stuck} зависших сделок возвращено в 'available'.")
+
+        # --- ЧАСТЬ 2: АВТО-ПОДТВЕРЖДАЕМ УСПЕШНО ОТПРАВЛЕННЫЕ ---
+        # Если бот скинул трейд, прошел час, а юзер не нажал кнопку у нас на сайте
+        res_sent = await supabase_client.patch(
+            "/cs_history",
+            params={
+                "status": "in.(sent,offer_sent)",
+                "updated_at": f"lte.{one_hour_ago}" 
+            },
+            json={
+                "status": "received", 
+                "updated_at": now_utc.isoformat()
+            },
+            headers={"Prefer": "return=representation"}
+        )
+        
+        if res_sent.status_code == 200:
+            count_sent = len(res_sent.json())
+            if count_sent > 0:
+                logging.info(f"[CRON] Авто-подтверждение: успешно закрыто {count_sent} старых сделок.")
         
     except Exception as e:
-        logging.error(f"[CRON] Ошибка авто-подтверждения: {e}")
+        logging.error(f"[CRON] Ошибка фоновых задач: {e}")
     
 # ==========================================
 # ⚡ ТЕЛЕГРАМ ЗАДАНИЯ И РЕАКЦИИ
