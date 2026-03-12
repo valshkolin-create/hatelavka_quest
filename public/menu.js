@@ -955,6 +955,18 @@ function renderItems(items) {
         return;
     }
 
+    // 🔥 ДОБАВЛЕНА СОРТИРОВКА: Сначала папки, затем предметы от дешевых к дорогим 🔥
+    items.sort((a, b) => {
+        // 1. Папки всегда идут первыми
+        if (a.is_folder && !b.is_folder) return -1;
+        if (!a.is_folder && b.is_folder) return 1;
+        
+        // 2. Сортировка кейсов/предметов по цене по возрастанию (самые дешевые - первые)
+        const priceA = parseFloat(a.price) || 0;
+        const priceB = parseFloat(b.price) || 0;
+        return priceA - priceB;
+    });
+
     const fragment = document.createDocumentFragment();
 
     items.forEach(item => {
