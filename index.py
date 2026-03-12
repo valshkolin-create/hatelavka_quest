@@ -19979,7 +19979,7 @@ async def admin_auto_generate_case(request: Request):
     return {"status": "ok", "message": f"Сгенерировано и добавлено {saved_count} скинов!"}
 
 # 3. Сохранить (Умное сохранение: Скин + Связь)
-@@app.post("/api/v1/admin/cases/save_item")
+@app.post("/api/v1/admin/cases/save_item")
 async def admin_save_case_item(request: Request):
     data = await request.json()
     item_id = data.get("id")
