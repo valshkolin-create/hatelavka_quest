@@ -17242,7 +17242,8 @@ async def run_system_migration(
 # --- РОУТ ДЛЯ СТРАНИЦЫ ПЕРЕЕЗДА ---
 @app.get("/admin_transit")
 async def admin_transit_page():
-    with open("templates/admin_transit.html", "r", encoding="utf-8") as f: # Укажи свой путь к HTML
+    # Читаем файл именно из папки public!
+    with open("public/admin_transit.html", "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
 # --- СПЕЦИАЛЬНЫЙ ЭНДПОИНТ ДЛЯ ВКЛЮЧЕНИЯ РЕАКЦИЙ ---
