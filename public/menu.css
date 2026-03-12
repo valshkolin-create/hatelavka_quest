@@ -535,13 +535,22 @@ html, body {
 }
 .content-quality { font-size: 8px; color: #888; background: rgba(255,255,255,0.05); padding: 1px 4px; border-radius: 4px; margin-top: 2px; }
 
-.replacement-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-.replacement-card { background: #1c1c1e; border-radius: 14px; padding: 10px; border: 1px solid rgba(255,255,255,0.1); text-align: center; display: flex; flex-direction: column; align-items: center; height: 170px; justify-content: space-between; overflow: hidden; cursor: pointer; transition: transform 0.1s; position: relative; }
-.replacement-card img { width: 85%; height: 90px; object-fit: contain; filter: drop-shadow(0 8px 15px rgba(0,0,0,0.5)); transform: scale(1.15); z-index: 2; }
-.replacement-card.is-sticker img { transform: scale(2.0); transform-origin: center 35%; }
-.replacement-text-zone { width: 100%; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; flex-grow: 1; }
-.replacement-name { font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase; text-shadow: 0 1px 3px #000; min-height: 33px; }
-.replacement-condition { font-size: 9px; color: #8E8E93; font-weight: 700; }
+.replacement-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; max-height: 60vh; overflow-y: auto; padding-bottom: 10px; }
+.replacement-card { background: #1c1c1e; border-radius: 14px; padding: 10px; border: 1px solid rgba(255,255,255,0.1); text-align: center; display: flex; flex-direction: column; align-items: center; height: 185px; justify-content: space-between; overflow: hidden; cursor: pointer; transition: transform 0.1s; position: relative; }
+.replacement-card:active { transform: scale(0.96); }
+
+/* НОВАЯ ОБЕРТКА КАРТИНКИ: Идеально вписывает любой размер */
+.replacement-image-wrapper { width: 100%; height: 95px; display: flex; align-items: center; justify-content: center; margin-top: 5px; z-index: 2; }
+.replacement-image-wrapper img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 15px rgba(0,0,0,0.5)); transition: transform 0.2s ease; }
+.replacement-card:active .replacement-image-wrapper img { transform: scale(1.1) translateZ(0); }
+
+/* ТЕКСТОВАЯ ЗОНА И НОВЫЙ ТИП ПРЕДМЕТА */
+.replacement-text-zone { width: 100%; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; flex-grow: 1; padding-bottom: 2px; }
+.replacement-type { font-size: 8px; color: #8E8E93; text-transform: uppercase; font-weight: 800; margin-bottom: 3px; letter-spacing: 0.5px; }
+.replacement-name { font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase; text-shadow: 0 1px 3px #000; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.1; }
+.replacement-condition { font-size: 9px; color: #8E8E93; font-weight: 700; margin-top: 4px; }
+
+/* СВЕЧЕНИЯ ОСТАЛИСЬ ТВОИ */
 .replacement-card::after { content: ''; position: absolute; top:0; left:0; width:100%; height:100%; opacity: 0.25; z-index: 0; pointer-events: none; }
 .replacement-card.blue::after { background: radial-gradient(circle at 50% 40%, var(--rarity-blue) 0%, transparent 75%); }
 .replacement-card.purple::after { background: radial-gradient(circle at 50% 40%, var(--rarity-purple) 0%, transparent 75%); }
