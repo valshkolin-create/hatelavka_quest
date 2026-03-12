@@ -9628,7 +9628,7 @@ async def create_promocodes(
 @app.get("/api/v1/cron/check_tm_trades") 
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    АВТОМАТИКА: Синхронизирует статусы. 
+    АВТОМАТИКА: Синхронизирует статусы Маркета (TM). 
     Фантомов — удаляет. Ошибки Маркета — откатывает в available.
     """
     import os
@@ -9641,12 +9641,12 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
     results_log = []
     now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
 
     # =========================================================
     # ФАЗА 0: ГИГИЕНА (УДАЛЯЕМ ТОЛЬКО БИТЫЕ ССЫЛКИ)
     # =========================================================
     try:
-        # Ищем записи без связи с магазином (фантомы)
         clean_res = await supabase.get(
             "/cs_history", 
             params={
@@ -9656,50 +9656,46 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         )
         if clean_res.status_code == 200:
             for rec in clean_res.json():
-                if not rec.get("item"): # Если предмет удален из cs_items
+                if not rec.get("item"):
                     await supabase.delete("/cs_history", params={"id": f"eq.{rec['id']}"})
                     results_log.append(f"CLEANUP: Deleted phantom #{rec['id']}")
     except Exception as e:
         results_log.append(f"Cleanup error: {str(e)}")
 
     # =========================================================
-    # ФАЗА 1: ПРОВЕРКА АКТИВНЫХ ТРЕЙДОВ
+    # ФАЗА 1: ПРОВЕРКА АКТИВНЫХ ТРЕЙДОВ МАРКЕТА
     # =========================================================
+    # Запрашиваем ТОЛЬКО статусы, которые относятся к Маркету (market_pending)
     res = await supabase.get(
         "/cs_history", 
         params={
-            "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
-            # 🔥 ИСПРАВЛЕНИЕ 1: ДОБАВЛЯЕМ tradeofferid В ВЫБОРКУ ИЗ БАЗЫ 🔥
-            "select": "id, updated_at, status, image_url, tradeofferid",
+            "status": "eq.market_pending", 
+            "select": "id, updated_at, status, tradeofferid", # Идеально совпадает с твоим JSON
             "order": "updated_at.asc",
             "limit": "25" 
         }
     )
     
-    # 🔥 ИСПРАВЛЕНИЕ 2: Если база упала, возвращаем текст ошибки, а не "Чисто"
     if res.status_code != 200:
         return {"status": "error", "message": f"Ошибка БД: {res.text}"}
         
     active_trades = res.json()
 
     if not active_trades and not results_log:
-        return {"status": "ok", "message": "Чисто. Нет активных трейдов."}
+        return {"status": "ok", "message": "Чисто. Нет активных трейдов на Маркете."}
 
     async with httpx.AsyncClient(timeout=10.0) as client: 
         for trade in active_trades:
             trade_id = trade["id"]
             
-            # 🔥 ИСПРАВЛЕНИЕ 3: БЕРЕМ ПРАВИЛЬНЫЙ УНИКАЛЬНЫЙ custom_id 🔥
-            custom_id = trade.get("tradeofferid") or str(trade_id)
+            # Достаем уникальный ID Маркета из поля tradeofferid
+            custom_id = trade.get("tradeofferid")
+            if not custom_id:
+                continue # Если ID нет, Маркету нечего проверять
             
             updated_at_str = trade.get("updated_at")
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
             minutes_passed = (now - trade_time).total_seconds() / 60
-
-            # 🔥 ИСПРАВЛЕНИЕ 4: Проверяем Маркет ТОЛЬКО для предметов Маркета!
-            # Иначе крон будет ошибочно отменять складские трейды (processing/pending)
-            if trade.get("status") != "market_pending":
-                continue
 
             try:
                 # Отправляем запрос на Маркет
@@ -9708,36 +9704,34 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     params={"key": TM_API_KEY, "custom_id": custom_id}
                 )
                 
+                # 1. Если Маркет лежит или тупит
                 if tm_res.status_code != 200:
                     if minutes_passed > 35:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: available (TM API timeout)")
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available", "updated_at": now_iso})
+                        results_log.append(f"#{trade_id}: available (TM API timeout > 35m)")
                     continue
 
                 tm_data = tm_res.json()
                 trade_info = tm_data.get("data", {})
                 
+                # 2. Если Маркет не знает такую сделку
                 if not tm_data.get("success") or not trade_info:
                     if minutes_passed > 35:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: available (TM not found)")
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available", "updated_at": now_iso})
+                        results_log.append(f"#{trade_id}: available (TM not found > 35m)")
                     continue
 
                 stage = str(trade_info.get("stage"))
                 settlement = int(trade_info.get("settlement") or 0)
 
-                # ПРАВИЛО №1: УСПЕХ (Передано)
+                # ПРАВИЛО №1: УСПЕХ (Передано юзеру)
                 if settlement > 0 or stage == "2":
-                    update_payload = {"status": "received"}
-                    if not trade.get("image_url") and trade_info.get("classid"):
-                        update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
-                    
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json=update_payload)
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received", "updated_at": now_iso})
                     results_log.append(f"#{trade_id}: received (stage {stage})")
 
-                # ПРАВИЛО №2: ОТМЕНА (Продавец отменил или время вышло)
+                # ПРАВИЛО №2: ОТМЕНА (Продавец отменил или 35 минут прошло без движений)
                 elif stage in ["4", "5"] or (minutes_passed >= 35 and settlement == 0):
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available", "updated_at": now_iso})
                     results_log.append(f"#{trade_id}: available (stage {stage}, mins: {minutes_passed:.1f})")
 
             except Exception as e:
