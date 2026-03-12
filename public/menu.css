@@ -42,14 +42,25 @@ html, body {
 .hidden { display: none !important; }
 
 /* Область контента со скроллом */
+/* Область контента со скроллом */
 .main-content-scrollable {
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 140px; 
+    /* УБИРАЕМ padding-bottom, он глючит на сенсоре */
+    padding-bottom: 0; 
 }
-.no-scroll { overflow: hidden !important; }
+
+/* ДОБАВЛЯЕМ РАСПОРКУ: Она физически удлиняет скролл изнутри */
+.main-content-scrollable::after {
+    content: '';
+    display: block;
+    height: 160px; /* Твои 140px + 20px на всякий случай для сенсора */
+    width: 100%;
+    flex-shrink: 0;
+    pointer-events: none;
+}
 
 /* ==========================================
    ШАПКА (ОСТАЕТСЯ НАВЕРХУ)
