@@ -1829,7 +1829,7 @@ function initCountdown(elementId, updatedAtStr) {
     }
 
     // 🔥 СТАВИМ ЗАКОННЫЕ 10 МИНУТ 🔥
-    const expireTime = updateTime + (10 * 60 * 1000); 
+    const expireTime = updateTime + (30 * 60 * 1000); 
     const historyId = elementId.replace('timer-', '');
 
     // Функция для получения остатка времени
@@ -2042,6 +2042,16 @@ function renderInventory(items) {
 window.withdrawItem = function(historyId, itemName) {
     if (isUpdating) return;
 
+    // 🔒 НОВАЯ ЗАЩИТА: 30 минут
+    const lockKey = `claim_lock_${historyId}`;
+    const lockTimestamp = localStorage.getItem(lockKey);
+    const lockTimeLimit = 30 * 60 * 1000; // 30 минут в миллисекундах
+
+    if (lockTimestamp && (Date.now() - lockTimestamp < lockTimeLimit)) {
+        showNotification("⏳ Трейд уже в очереди! Steam может тупить, подождите еще немного.", "info");
+        return;
+    }
+
     showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (closeConfirm) => {
         isUpdating = true;
         
@@ -2063,6 +2073,8 @@ window.withdrawItem = function(historyId, itemName) {
                     openReplacementModal(historyId, res.options);
                 }
             } else if (res && res.success) {
+                // 🔒 Трейд УШЕЛ в очередь! Ставим блокировку на 15 минут
+                localStorage.setItem(lockKey, Date.now());
                 showNotification(res.message, "success");
             }
             
@@ -2122,8 +2134,22 @@ window.confirmReceived = function(historyId) {
 // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
 // =========================================================
 // --- ФУНКЦИЯ ПРОВЕРКИ СТАТУСА НА МАРКЕТЕ (ТМ) ---
+// Объект для хранения времени последнего нажатия кнопки "Проверить" (в памяти)
+const checkCooldowns = {};
+
+// --- ФУНКЦИЯ ПРОВЕРКИ СТАТУСА НА МАРКЕТЕ (ТМ) ---
 window.checkTradeStatus = async function(historyId) {
-    if (isUpdating) return; // Защита: если запрос уже идет, ничего не делаем
+    if (isUpdating) return; // Защита от двойного клика
+
+    // 🛡️ АНТИ-СПАМ: проверяем, прошло ли 60 секунд с прошлого нажатия
+    const now = Date.now();
+    if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 60000)) { // 60000 мс = 1 минута
+        showNotification("⏳ Проверять статус можно раз в минуту. Подождите немного.", "info");
+        return;
+    }
+    
+    // Записываем время текущего нажатия
+    checkCooldowns[historyId] = now;
 
     // Находим кнопку и иконку внутри неё
     const btn = document.getElementById(`check-btn-${historyId}`);
@@ -2142,7 +2168,7 @@ window.checkTradeStatus = async function(historyId) {
             showNotification(res.message, "success");
             await loadData(true); // Мгновенно обновляем инвентарь
         } else {
-            showNotification(res.message || "Оффер еще не принят. Ждем вас в Steam!", "info");
+            showNotification(res.message || "Оффер еще не принят. Посмотрите в своем стиме", "info");
         }
     } catch (e) {
         showNotification("Ошибка: " + e.message, "error");
@@ -2728,6 +2754,9 @@ window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
             }, 'POST', true);
 
             if (res && res.success) {
+                // 🔒 УСПЕШНО! Ставим блокировку, чтобы не спамили после замены
+                localStorage.setItem(`claim_lock_${historyId}`, Date.now());
+
                 showNotification("✅ Успешно! Трейд отправлен.", "success");
                 
                 // Мгновенно меняем кнопку в инвентаре на "В ОЧЕРЕДИ"
@@ -2755,7 +2784,7 @@ window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
         }
     }, "ЗАБРАТЬ", "#ffcc00"); // Желтая кнопка "Забрать"
 }
-
+    
 </script>
 </body>
 </html>
