@@ -19900,19 +19900,17 @@ async def admin_auto_generate_case(request: Request):
     data = await request.json()
     case_tag = data.get("case_tag")
     total_budget_rub = float(data.get("budget_rub", 1000))
-    mode = data.get("mode", "full") # Читаем режим!
+    mode = data.get("mode", "full") # 🔥 Читаем режим: 'full' или 'single'
 
     if not case_tag or total_budget_rub <= 0:
         raise HTTPException(status_code=400, detail="Неверные параметры")
 
     if mode == "single":
-        # 🔥 ОДИНОЧНАЯ ЗАМЕНА (Берет ровно 100% бюджета на 1 предмет)
+        # 🔥 РЕЖИМ ЗАМЕНЫ: 100% бюджета уходит на 1 предмет
         weight = float(data.get("chance_weight", 0.01))
-        structure = [
-            {"tier": "single", "pct": 1.0, "count": 1, "weight": weight}
-        ]
+        structure = [{"tier": "single", "pct": 1.0, "count": 1, "weight": weight}]
     else:
-        # 🔥 ПОЛНАЯ СБОРКА С ДИНАМИЧЕСКИМ РАСПРЕДЕЛЕНИЕМ
+        # 🔥 РЕЖИМ СБОРКИ КЕЙСА: Собираем по настройкам
         top_count = int(data.get("top_count", 1))
         mid_count = int(data.get("mid_count", 3))
         cheap_count = int(data.get("cheap_count", 6))
@@ -19927,16 +19925,14 @@ async def admin_auto_generate_case(request: Request):
             {"tier": "cheap", "base_pct": 0.25, "count": cheap_count, "weight": cheap_weight},
         ]
         
-        # Считаем сумму активных процентов (чтобы понять, сколько корзин участвует)
+        # Считаем сумму процентов (чтобы можно было собирать кейс без массовки или без боссов)
         active_pct_sum = sum(t["base_pct"] for t in raw_structure if t["count"] > 0)
-        
         if active_pct_sum <= 0:
             raise HTTPException(status_code=400, detail="Укажите количество скинов больше нуля!")
 
         structure = []
         for t in raw_structure:
             if t["count"] > 0:
-                # Нормализуем процент! Если стоит только Топ, его 0.45 превратятся в 1.0 (100%)
                 normalized_pct = t["base_pct"] / active_pct_sum
                 structure.append({
                     "tier": t["tier"],
@@ -19949,45 +19945,44 @@ async def admin_auto_generate_case(request: Request):
     used_names = set() 
 
     for tier in structure:
-        # Цена одного предмета в категории
+        # Идеальная цена для ОДНОГО предмета в корзине
         target_price = (total_budget_rub * tier["pct"]) / tier["count"]
-        min_p = target_price * 0.7  # Разброс -30%
-        max_p = target_price * 1.3  # Разброс +30%
 
         for _ in range(tier["count"]):
+            # Ищем любые скины вокруг нашей цены (от 50% до 150%)
+            min_p = target_price * 0.5
+            max_p = target_price * 1.5
+
             market_res = supabase.table("market_cache")\
                 .select("market_hash_name, price_rub, rarity")\
                 .gte("price_rub", min_p)\
                 .lte("price_rub", max_p)\
                 .eq("is_available", True)\
-                .limit(100)\
+                .limit(200)\
                 .execute()
             
             items = market_res.data
             
-            # Если жесткий лимит не нашел предметов, делаем фоллбэк (ищем пошире)
+            # Если нет скинов в диапазоне, берем ВООБЩЕ все доступные скины
             if not items:
-                market_res_fallback = supabase.table("market_cache")\
+                fallback_res = supabase.table("market_cache")\
                     .select("market_hash_name, price_rub, rarity")\
-                    .gte("price_rub", target_price * 0.5)\
-                    .lte("price_rub", target_price * 1.5)\
                     .eq("is_available", True)\
-                    .limit(100)\
                     .execute()
-                items = market_res_fallback.data
-                if not items:
-                    continue
+                items = fallback_res.data
+                if not items: continue
 
-            import random
-            random.shuffle(items)
-            selected_item = None
-            for item in items:
-                if item["market_hash_name"] not in used_names:
-                    selected_item = item
-                    break
+            # 🔥 УМНЫЙ ПОИСК 🔥: Сортируем так, чтобы предмет с самой близкой к target_price ценой был первым!
+            available_items = [i for i in items if i["market_hash_name"] not in used_names]
             
-            if not selected_item:
-                selected_item = items[0]
+            if not available_items:
+                available_items = items # Разрешаем дубликат, если уникальных больше нет
+
+            # Сортируем по разнице цен (чем ближе к идеалу, тем лучше)
+            available_items.sort(key=lambda x: abs(x["price_rub"] - target_price))
+
+            # Берем самый подходящий предмет
+            selected_item = available_items[0]
 
             used_names.add(selected_item["market_hash_name"])
             
@@ -19999,7 +19994,7 @@ async def admin_auto_generate_case(request: Request):
             })
 
     if not generated_items:
-        raise HTTPException(status_code=400, detail="Не удалось подобрать скины на эту сумму")
+        raise HTTPException(status_code=400, detail="В базе нет подходящих предметов!")
 
     # 4. Вытягиваем картинки
     names_list = [item["market_hash_name"] for item in generated_items]
@@ -20008,7 +20003,6 @@ async def admin_auto_generate_case(request: Request):
 
     # 5. Обрабатываем и сохраняем
     saved_count = 0
-    import re
     for item in generated_items:
         raw_name = item["market_hash_name"]
         
@@ -20040,7 +20034,7 @@ async def admin_auto_generate_case(request: Request):
                     "quantity": 1,
                     "is_active": True,
                     "boost_percent": 0.0,
-                    "price": int(item["price_rub"] * 0.6),
+                    "price": int(item["price_rub"] * 0.6), # Авто-расчет билетов 60%
                     "case_tag": case_tag,
                     "price_rub": float(item["price_rub"]),
                     "market_hash_name": raw_name
