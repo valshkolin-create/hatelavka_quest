@@ -711,7 +711,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 170px;
+            height: 180px; /* 🔥 Увеличили высоту со 170px до 180px */
             justify-content: space-between;
             overflow: hidden;
             z-index: 1;
@@ -742,7 +742,25 @@
         
         /* Умный зум для мелких предметов (наклеек, граффити) */
         .replacement-card.is-small-item img {
-            transform: scale(1.6) translateZ(0); 
+            /* 🔥 Снизили масштаб до 1.4 и сдвинули наклейку ВВЕРХ на 8px */
+            transform: scale(1.4) translateY(-8px) translateZ(0); 
+        }
+
+        .replacement-card.is-small-item:active img { 
+            /* 🔥 Скорректировали зум при нажатии, чтобы тоже был сдвиг вверх */
+            transform: scale(1.5) translateY(-8px) translateZ(0); 
+        }
+
+        .replacement-text-zone {
+            width: 100%;
+            z-index: 3; /* 🔥 Вытягиваем текст ВСЕГДА поверх картинки */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            flex-grow: 1;
+            padding-bottom: 5px;
+            margin-top: auto; /* 🔥 Отталкиваем текст вниз */
         }
         
         .replacement-card:active img { transform: scale(1.2) translateZ(0); }
