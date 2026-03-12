@@ -202,6 +202,9 @@
         <div class="fab-option" onclick="promptAutoGenerate()" style="color: var(--primary); border-color: var(--primary);">
             <span>Автосборка кейса</span> <i class="fa-solid fa-bolt"></i>
         </div>
+        <div class="fab-option" onclick="clearCase()" style="color: var(--danger); border-color: var(--danger);">
+            <span>Очистить кейс</span> <i class="fa-solid fa-trash-can"></i>
+        </div>
         <div class="fab-option" onclick="openLibrarySearch()">
             <span>Найти на складе</span> <i class="fa-solid fa-box-open"></i>
         </div>
@@ -283,7 +286,7 @@
                     </div>
                     <div style="flex:1">
                         <label class="form-label">Редкость (Свечение)</label>
-                        <select name="rarity" class="form-select">
+                        <select name="rarity" id="inp-rarity" class="form-select">
                             <option value="common">White (Ширп)</option>
                             <option value="blue">Blue (Армейское)</option>
                             <option value="purple">Purple (Запрещ.)</option>
@@ -294,7 +297,7 @@
                     </div>
                     <div style="flex:1">
                         <label class="form-label">Износ (Поиск)</label>
-                        <select name="condition" class="form-select">
+                        <select name="condition" id="inp-condition" class="form-select">
                             <option value="">Нет (Наклейка)</option>
                             <option value="FN">FN (Прямо с завода)</option>
                             <option value="MW">MW (Немного поношенное)</option>
@@ -521,6 +524,21 @@
             }
         }
 
+        // 🔥 УМНЫЙ АНАЛИЗАТОР РЕДКОСТИ (Фолбэк) 🔥
+        function guessRarity(name, price) {
+            const n = name.toLowerCase();
+            // Ножи и перчатки всегда Gold
+            if (n.includes('knife') || n.includes('нож') || n.includes('karambit') || n.includes('bayonet') || n.includes('shadow daggers') || n.includes('gloves') || n.includes('перчатки') || n.includes('wraps') || n.includes('bloodhound')) {
+                return 'gold';
+            }
+            // Примерная оценка по цене для остальных скинов
+            if (price >= 1500) return 'red';
+            if (price >= 500) return 'pink';
+            if (price >= 150) return 'purple';
+            if (price >= 20) return 'blue';
+            return 'common'; // Ширп
+        }
+
         // --- АВТОЗАПОЛНЕНИЕ ФОРМЫ ---
         function selectFromCache(jsonStr) {
             const item = JSON.parse(decodeURIComponent(jsonStr));
@@ -543,13 +561,25 @@
             // 2. Заполняем поля
             form.name.value = cleanName;
             form.image_url.value = item.image_url || '';
-            form.price_rub.value = item.price_rub || 0;
+            const realPriceRub = item.price_rub || 0;
+            form.price_rub.value = realPriceRub;
             
-            // 3. Билеты = Рублям (округляем до целых, чтобы не было копеек в билетах)
-            form.price.value = Math.ceil(item.price_rub || 0);
+            // 🔥 3. Билеты = 60% от реальной цены (Рублей) 🔥
+            form.price.value = Math.ceil(realPriceRub * 0.6);
             
             // 4. Проставляем износ (если он есть) или пустоту для наклеек
             form.condition.value = item.condition || '';
+
+            // 🔥 5. Умное определение редкости (берем из БД крона, либо угадываем) 🔥
+            const rarity = item.rarity || guessRarity(item.market_hash_name, realPriceRub);
+            
+            // Защита: проверяем, есть ли такое value в select
+            const raritySelect = document.getElementById('inp-rarity');
+            if (Array.from(raritySelect.options).some(opt => opt.value === rarity)) {
+                raritySelect.value = rarity;
+            } else {
+                raritySelect.value = 'blue'; // фолбэк
+            }
             
             updatePreview();
             tg.HapticFeedback.notificationOccurred('success');
@@ -647,6 +677,37 @@
                 } finally {
                     loadItems(currentCase);
                     loadCases(); 
+                }
+            });
+        }
+
+        // 🔥 РОТАЦИЯ (ОЧИСТКА КЕЙСА) 🔥
+        function clearCase() {
+            toggleFab();
+            tg.showConfirm("ВНИМАНИЕ! Вы точно хотите удалить ВСЕ скины из этого кейса?\n(Они удалятся только отсюда, из глобальной базы они не пропадут)", async (ok) => {
+                if (!ok) return;
+                
+                const cont = document.getElementById('itemsContainer');
+                cont.innerHTML = '<div style="text-align:center; padding:40px; color:var(--danger);"><i class="fa-solid fa-trash fa-fade fa-2x"></i><br><br>Очистка...</div>';
+
+                try {
+                    const res = await fetch('/api/v1/admin/cases/clear', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ case_tag: currentCase })
+                    });
+                    
+                    if (res.ok) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        tg.showAlert("Кейс успешно очищен!");
+                    } else {
+                        tg.showAlert("Ошибка при очистке");
+                    }
+                } catch(e) {
+                    tg.showAlert("Сбой сервера");
+                } finally {
+                    loadItems(currentCase);
+                    loadCases();
                 }
             });
         }
