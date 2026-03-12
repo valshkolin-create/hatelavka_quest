@@ -719,27 +719,34 @@
             transition: transform 0.1s ease;
         }
         .replacement-card:active { transform: scale(0.96); }
+
+        /* Новая обертка для фиксации размера всех картинок */
+        .replacement-img-wrapper {
+            width: 100%;
+            height: 85px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 5px;
+            z-index: 2;
+        }
         
         .replacement-card img {
-            width: 85%;
-            height: 90px; 
+            width: 100%;
+            height: 100%; 
             object-fit: contain;
             filter: drop-shadow(0 8px 15px rgba(0,0,0,0.5));
-            z-index: 2;
-            margin-top: 5px;
-            transform: scale(1.15) translateZ(0); 
+            transform: scale(1.1) translateZ(0); 
             transition: transform 0.2s ease;
         }
         
-        /* Особый зум для наклеек */
-        .replacement-card.is-sticker img {
-            transform: scale(2.0) translateZ(0) !important; 
-            transform-origin: center 35%; 
-            margin-top: 10px; 
+        /* Умный зум для мелких предметов (наклеек, граффити) */
+        .replacement-card.is-small-item img {
+            transform: scale(1.6) translateZ(0); 
         }
         
-        .replacement-card:active img { transform: scale(1.25) translateZ(0); }
-        .replacement-card.is-sticker:active img { transform: scale(2.1) translateZ(0) !important; }
+        .replacement-card:active img { transform: scale(1.2) translateZ(0); }
+        .replacement-card.is-small-item:active img { transform: scale(1.7) translateZ(0); }
 
         .replacement-text-zone {
             width: 100%;
@@ -750,16 +757,27 @@
             flex-grow: 1;
             padding-bottom: 5px;
         }
+
+        /* Стиль для типа предмета (Наклейка, Граффити и т.д.) */
+        .replacement-type {
+            font-size: 8px;
+            color: #8E8E93;
+            text-transform: uppercase;
+            font-weight: 800;
+            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+        }
+
         .replacement-name {
             font-size: 10px;
             font-weight: 800;
             color: #fff;
             line-height: 1.1;
             display: -webkit-box;
-            -webkit-line-clamp: 3;
+            -webkit-line-clamp: 2; /* 2 строки, так как добавили сверху тип */
             -webkit-box-orient: vertical;
             overflow: hidden;
-            min-height: 33px;
+            min-height: 22px;
             text-shadow: 0 1px 3px rgba(0,0,0,0.8);
             text-transform: uppercase;
         }
@@ -2620,15 +2638,27 @@ window.openReplacementModal = function(historyId, options) {
         else if (r.includes('red')) rClass = 'red';
         else if (r.includes('gold')) rClass = 'gold';
 
-        const cleanName = item.name_ru.split('|').pop().trim();
-        const isSticker = item.name_ru.toLowerCase().includes('наклейка');
-        const stickerClass = isSticker ? 'is-sticker' : '';
+        // 1. Разбиваем название на Тип и Имя (Наклейка | Задира -> Тип: Наклейка, Имя: Задира)
+        const nameParts = item.name_ru.split('|');
+        const itemType = nameParts.length > 1 ? nameParts[0].trim() : '';
+        const cleanName = nameParts.length > 1 ? nameParts.slice(1).join('|').trim() : item.name_ru.trim();
+        
         const safeName = item.name_ru.replace(/'/g, "");
 
+        // 2. Умное определение мелких предметов для зума
+        const lowerType = itemType.toLowerCase();
+        let sizeClass = '';
+        if (lowerType.includes('наклейка') || lowerType.includes('граффити') || lowerType.includes('нашивка') || lowerType.includes('значок')) {
+            sizeClass = 'is-small-item';
+        }
+
         return `
-            <div class="replacement-card ${rClass} ${stickerClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeName}')">
-                <img src="${item.icon_url}" loading="lazy">
+            <div class="replacement-card ${rClass} ${sizeClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeName}')">
+                <div class="replacement-img-wrapper">
+                    <img src="${item.icon_url}" loading="lazy">
+                </div>
                 <div class="replacement-text-zone">
+                    ${itemType ? `<div class="replacement-type">${itemType}</div>` : ''}
                     <div class="replacement-name">${cleanName}</div>
                     <div class="replacement-condition">${item.condition || '-'}</div>
                 </div>
