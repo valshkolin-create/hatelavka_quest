@@ -16060,94 +16060,76 @@ async def sync_all_csgo_images(token: str, supabase: httpx.AsyncClient = Depends
         
     import asyncio
     
-    # 1. Ссылки на статические файлы (GitHub Pages, никакого Cloudflare и лимитов)
-    base_url = "https://bymykel.github.io/CSGO-API/api/en/"
+    # 1. Ссылки на статические файлы с уже готовыми market_hash_name и вечными картинками
+    base_url = "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/"
     files_to_fetch = [
-        "skins.json", "stickers.json", "crates.json", 
-        "agents.json", "collectibles.json", "music_kits.json",
-        "keys.json", "patches.json", "graffiti.json"
+        "skins_not_grouped.json", 
+        "stickers.json", 
+        "crates.json", 
+        "agents.json", 
+        "collectibles.json", 
+        "music_kits.json",
+        "keys.json", 
+        "patches.json", 
+        "graffiti.json"
     ]
     
     try:
-        # Нам больше не нужно притворяться браузером
         headers = {"Accept": "application/json"}
         payload = []
         
         async with httpx.AsyncClient() as client:
-            # 2. Загружаем все файлы параллельно для максимальной скорости
+            # 2. Качаем все 9 файлов параллельно
             tasks = [client.get(f"{base_url}{f}", headers=headers, timeout=30.0) for f in files_to_fetch]
             responses = await asyncio.gather(*tasks, return_exceptions=True)
             
+            successful_files = 0
+            
             # 3. Перебираем ответы от каждого файла
-            for resp in responses:
+            for f, resp in zip(files_to_fetch, responses):
                 if isinstance(resp, Exception) or resp.status_code != 200:
                     continue # Игнорируем ошибки скачивания отдельного файла
                     
+                successful_files += 1
                 data = resp.json()
                 
+                # 4. Вытаскиваем готовые данные
                 for item in data:
-                    base_name = item.get("name")
+                    # В этих JSON-ах автор уже всё собрал в market_hash_name
+                    market_name = item.get("market_hash_name")
                     icon_url = item.get("image")
                     
-                    if not base_name or not icon_url:
+                    if not market_name or not icon_url:
                         continue
-                        
-                    wears = item.get("wears", [])
                     
-                    # Если это предмет без износа (наклейка, кейс, агент или ванильный нож)
-                    if not wears:
-                        payload.append({"market_hash_name": base_name, "icon_url": icon_url})
-                        
-                        # Ванильные ножи могут быть StatTrak (звезда ставится перед StatTrak™)
-                        if item.get("stattrak"):
-                            st_name = f"★ StatTrak™ {base_name[2:]}" if base_name.startswith("★ ") else f"StatTrak™ {base_name}"
-                            payload.append({"market_hash_name": st_name, "icon_url": icon_url})
-                        continue
-                        
-                    # Если это скин, генерируем все варианты износа для маркета
-                    for wear_obj in wears:
-                        wear_name = wear_obj.get("name")
-                        
-                        # Обычная версия (например: AK-47 | Redline (Field-Tested))
-                        payload.append({
-                            "market_hash_name": f"{base_name} ({wear_name})", 
-                            "icon_url": icon_url
-                        })
-                        
-                        # StatTrak™ версия
-                        if item.get("stattrak"):
-                            if base_name.startswith("★ "):
-                                st_name = f"★ StatTrak™ {base_name[2:]} ({wear_name})"
-                            else:
-                                st_name = f"StatTrak™ {base_name} ({wear_name})"
-                            payload.append({"market_hash_name": st_name, "icon_url": icon_url})
-                            
-                        # Souvenir версия
-                        if item.get("souvenir"):
-                            payload.append({
-                                "market_hash_name": f"Souvenir {base_name} ({wear_name})", 
-                                "icon_url": icon_url
-                            })
+                    payload.append({
+                        "market_hash_name": market_name, 
+                        "icon_url": icon_url
+                    })
 
-        # Убираем дубликаты на всякий случай, если API отдал пересекающиеся данные
+        # Защита: если GitHub недоступен и скачалось 0 файлов
+        if successful_files == 0:
+             return {"success": False, "message": "Не удалось скачать файлы. GitHub недоступен."}
+
+        # 5. Убираем дубликаты на всякий случай
         unique_payload = {item['market_hash_name']: item for item in payload}.values()
         final_payload = list(unique_payload)
 
-        # 4. Заливаем пачками по 3000 штук
+        # 6. Заливаем пачками по 3000 штук (быстро, чтобы Vercel не убил процесс)
         inserted = 0
-        for i in range(0, len(final_payload), 3000): # <-- Вот тут меняем
+        for i in range(0, len(final_payload), 3000):
             await supabase.post(
                 "/skin_images_dict", 
-                json=final_payload[i:i+3000],        # <-- И тут
+                json=final_payload[i:i+3000], 
                 headers={"Prefer": "resolution=merge-duplicates"}
             )
-            inserted += len(final_payload[i:i+3000]) # <-- И тут
+            inserted += len(final_payload[i:i+3000])
             
-        return {"success": True, "message": f"Словарь успешно заполнен! Сгенерировано и добавлено {inserted} комбинаций."}
+        return {"success": True, "message": f"Словарь успешно заполнен! Добавлено {inserted} картинок (скачано файлов: {successful_files})."}
         
     except Exception as e:
         return {"success": False, "message": f"Ошибка выполнения: {str(e)}"}
-
+        
 @app.get("/api/v1/advent/state")
 async def get_advent_state(telegram_id: int, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # 1. Получаем настройки (чтобы узнать дату старта)
