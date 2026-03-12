@@ -350,6 +350,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     import re
     import logging
     import os
+    import asyncio # 🔥 ДОБАВЛЕНО ДЛЯ ТАЙМАУТА МАРКЕТА
 
     # 1. Проверка адреса доставки (Trade URL)
     trade_pattern = r"partner=(\d+)&token=([a-zA-Z0-9_-]+)"
@@ -437,11 +438,22 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             else:
                 unique_market_id = f"sh_{history_id}_{int(time.time())}"[:40]
             
-            market_res = await market.buy_for_user(
-                hash_name=market_search_name, 
-                trade_link=trade_url, 
-                custom_id=unique_market_id # 🔥 Отправляем наш защищенный ID
-            )
+            # 🔥 ЖЕСТКОЕ ОГРАНИЧЕНИЕ 12 СЕКУНД ДЛЯ МАРКЕТА 🔥
+            try:
+                market_res = await asyncio.wait_for(
+                    market.buy_for_user(
+                        hash_name=market_search_name, 
+                        trade_link=trade_url, 
+                        custom_id=unique_market_id 
+                    ),
+                    timeout=12.0
+                )
+            except asyncio.TimeoutError:
+                logging.warning(f"[STOREKEEPER] ⏳ Таймаут 12с от Маркета при попытке купить {market_search_name}")
+                market_res = {"success": False, "error": "market_timeout", "code": 999}
+            except Exception as e:
+                logging.error(f"[STOREKEEPER] Ошибка вызова Маркета: {e}")
+                market_res = {"success": False, "error": str(e), "code": 999}
             
             if market_res.get("success"):
                 logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {unique_market_id}")
@@ -567,6 +579,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     logging.error(f"[STOREKEEPER] Везде пусто для {target_name}!")
     return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
     
+
 # =======================================================
 # 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
 async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
@@ -686,7 +699,8 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
 
     except httpx.TimeoutException:
         logging.error("[COURIER] Сбой соединения: Steam не отвечает (Таймаут 15с).")
-        return {"success": False, "error": "Steam завис и не отвечает. Попробуйте позже."}
+        # 🔥 ВОТ ТУТ МЫ ОТДАЕМ steam_timeout=True 🔥
+        return {"success": False, "error": "Steam завис и не отвечает. Попробуйте позже.", "steam_timeout": True}
     except Exception as e:
         logging.error(f"[COURIER] Сбой соединения: {str(e)}")
         return {"success": False, "error": "Сбой соединения со Steam"}
@@ -19009,6 +19023,7 @@ async def withdraw_inventory_item(
     import re
     import logging
     import os
+    import httpx
     from datetime import datetime, timedelta, timezone 
 
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
@@ -19170,6 +19185,16 @@ async def withdraw_inventory_item(
                 })
                 return {"success": True, "message": "Трейд отправлен! Подтвердите получение в Steam."}
             else:
+                # 🔥 ЕСЛИ СТИМ ОТВАЛИЛСЯ ПО ТАЙМАУТУ - НЕ СНИМАЕМ РЕЗЕРВ И НЕ ИДЕМ В ЗАМЕНЫ 🔥
+                if trade_res.get("steam_timeout"):
+                    logging.warning(f"[COURIER] Таймаут от Steam. Сохраняем резерв, так как трейд мог создаться.")
+                    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                        "status": "processing",
+                        "updated_at": now_iso
+                    })
+                    return {"success": True, "message": "Steam долго обрабатывает трейд. Пожалуйста, подождите пару минут и проверьте инвентарь или историю обменов Steam."}
+
+                # Если это ОБЫЧНАЯ ошибка (например, бан трейда), тогда снимаем резерв
                 err_msg = trade_res.get('error', 'Steam Error')
                 logging.error(f"[COURIER] Сбой при выдаче оригинала: {err_msg}. Снимаем резерв.")
                 
@@ -19177,6 +19202,35 @@ async def withdraw_inventory_item(
                     params={"assetid": f"eq.{real_skin['assetid']}"}, 
                     json={"is_reserved": False}
                 )
+
+        # ==========================================
+        # 🔥 ИНЪЕКЦИЯ ПРОВЕРКИ МАРКЕТА (Защита от двойной отправки) 🔥
+        # ==========================================
+        if not delivery_res.get("success"):
+            market_key = os.getenv("CS_MARKET_API_KEY")
+            if market_key:
+                try:
+                    check_url = f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={market_key}&custom_id={unique_market_id}"
+                    async with httpx.AsyncClient() as client:
+                        m_resp = await client.get(check_url, timeout=5.0)
+                        
+                        if m_resp.status_code == 200:
+                            m_data = m_resp.json()
+                            
+                            # Если success: true и есть данные, Маркет ВЗЯЛ заказ в работу
+                            if m_data.get("success") and "data" in m_data:
+                                stage = str(m_data["data"].get("stage"))
+                                # stage 1 = Новый, stage 2 = Передан (или передается)
+                                if stage in ["1", "2"]:
+                                    logging.info(f"[MARKET SYNC] Спасли от двойной покупки! Заказ {unique_market_id} уже обрабатывается Маркетом.")
+                                    
+                                    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                                        "status": "market_pending",
+                                        "updated_at": now_iso
+                                    })
+                                    return {"success": True, "message": "Предмет закуплен на Маркете и летит к вам! Ожидайте трейд."}
+                except Exception as e:
+                    logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
 
     # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН
