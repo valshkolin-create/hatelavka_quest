@@ -1167,7 +1167,7 @@ window.closeRoulette = function() {
 // ================================================================
 
 window.claimItem = async function(itemId) {
-    showShopModal({ title: "Вывести в Steam?", subtitle: "Ожидайте трейд в течение 10 минут.", confirmText: "ЗАБРАТЬ", confirmClass: "btn-yellow-modal", onConfirm: async (closeModal) => {
+    showShopModal({ title: "Вывести в Steam?", subtitle: "Ожидайте трейд в течение 30 минут.", confirmText: "ЗАБРАТЬ", confirmClass: "btn-yellow-modal", onConfirm: async (closeModal) => {
         const loader = document.getElementById('purchase-loader'); 
         const loaderText = loader ? loader.querySelector('.loader-text') : null;
         
