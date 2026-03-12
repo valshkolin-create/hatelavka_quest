@@ -754,38 +754,50 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
+            align-items: center; /* Центрируем всё по горизонтали */
             flex-grow: 1;
             padding-bottom: 5px;
         }
 
-        /* Стиль для типа предмета (Наклейка, Граффити и т.д.) */
+        /* Стиль для типа предмета (Наклейка, Сувенирный ПП-19 и т.д.) */
         .replacement-type {
-            font-size: 8px;
+            font-size: 7.5px; /* Уменьшили, чтобы длинные пушки влезали лучше */
             color: #8E8E93;
             text-transform: uppercase;
             font-weight: 800;
             margin-bottom: 2px;
             letter-spacing: 0.5px;
-        }
-
-        .replacement-name {
-            font-size: 10px;
-            font-weight: 800;
-            color: #fff;
             line-height: 1.1;
+            text-align: center;
             display: -webkit-box;
-            -webkit-line-clamp: 2; /* 2 строки, так как добавили сверху тип */
+            -webkit-line-clamp: 2; /* Максимум 2 строки для типа */
             -webkit-box-orient: vertical;
             overflow: hidden;
-            min-height: 22px;
+        }
+
+        /* Стиль для самого названия скина */
+        .replacement-name {
+            font-size: 9px; /* Сделали чуть меньше и аккуратнее */
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.2;
+            text-align: center;
+            display: -webkit-box;
+            -webkit-line-clamp: 3; /* Теперь влезает до 3 строк (для длинных скинов) */
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 32px; /* Фиксируем высоту блока, чтобы карточки не прыгали */
             text-shadow: 0 1px 3px rgba(0,0,0,0.8);
             text-transform: uppercase;
+            margin-bottom: 2px;
         }
+        
+        /* Стиль для качества (FT, MW, -) */
         .replacement-condition {
-            font-size: 9px;
+            font-size: 8px; /* Компактное качество */
             color: #8E8E93;
             font-weight: 700;
-            margin-top: 2px;
+            margin-top: auto; /* Магия: всегда прижимает качество к самому низу карточки! */
         }
         
         /* Glow эффекты */
