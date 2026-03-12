@@ -100,6 +100,11 @@
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; backdrop-filter: blur(5px); }
         .modal-active { display: flex; }
         .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        /* ЦЕНТРОВАННОЕ МОДАЛЬНОЕ ОКНО */
+        .center-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .center-modal.active { display: flex; }
+        .center-box { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); }
 
         .form-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; }
         
@@ -112,6 +117,13 @@
         .form-input:focus { border-color: var(--primary); }
         .form-row { display: flex; gap: 10px; }
         
+        /* СТИЛИ ДЛЯ ПОЛЗУНКОВ И ИНПУТОВ ГЕНЕРАТОРА */
+        .gen-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+        .gen-col { display: flex; flex-direction: column; flex: 1; gap: 5px; }
+        .gen-slider { flex: 1; }
+        .gen-num-input { width: 50px; background: #000; border: 1px solid var(--card-border); color: var(--primary); font-weight: bold; text-align: center; padding: 4px; border-radius: 6px; font-size: 12px; outline: none; }
+        .gen-num-input:focus { border-color: var(--primary); }
+
         /* PREVIEW */
         .preview-box {
             background: #000; border-radius: 12px; padding: 15px; text-align: center;
@@ -147,6 +159,10 @@
         .btn-delete:active { background: rgba(255, 59, 48, 0.25); }
 
         .icon-btn { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,0.1); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        
+        /* КНОПКА РОТАЦИИ 1 ПРЕДМЕТА */
+        .btn-reroll { background: rgba(255, 215, 0, 0.15); color: var(--primary); border: 1px solid rgba(255, 215, 0, 0.3); }
+        .btn-reroll:active { background: rgba(255, 215, 0, 0.25); }
 
         /* FAB */
         .fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 90; display: none; flex-direction: column; gap: 10px; align-items: flex-end; }
@@ -199,7 +215,7 @@
     </div>
 
     <div class="fab-container" id="fabMenu">
-        <div class="fab-option" onclick="promptAutoGenerate()" style="color: var(--primary); border-color: var(--primary);">
+        <div class="fab-option" onclick="openGeneratorModal()" style="color: var(--primary); border-color: var(--primary);">
             <span>Автосборка кейса</span> <i class="fa-solid fa-bolt"></i>
         </div>
         <div class="fab-option" onclick="clearCase()" style="color: var(--danger); border-color: var(--danger);">
@@ -213,6 +229,65 @@
         </div>
         <div class="fab-main" onclick="toggleFab()">
             <i class="fa-solid fa-plus"></i>
+        </div>
+    </div>
+
+    <div id="modal-generator" class="center-modal">
+        <div class="center-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h3 style="margin:0; color:var(--primary);"><i class="fa-solid fa-bolt"></i> Нейро-сборка</h3>
+                <button onclick="closeGeneratorModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <label class="form-label" style="color:#fff; font-weight:bold;">Общий бюджет кейса (Руб)</label>
+            <input type="number" id="gen-budget" class="form-input" value="1000" style="margin-bottom:15px; font-size: 16px; font-weight: bold; color: var(--primary);">
+
+            <div class="gen-row">
+                <div class="gen-col">
+                    <span style="font-size:11px; color:#ff4d4d; font-weight:bold;">🔥 ТОП (Боссы)</span>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <span style="font-size:10px; color:#888;">Шт:</span>
+                        <input type="number" id="gen-top-count" class="gen-num-input" value="1" min="0" oninput="syncSlider('gen-top-count', 'gen-top-count-sl')">
+                        <input type="range" id="gen-top-count-sl" class="gen-slider" value="1" min="0" max="10" oninput="syncInput('gen-top-count-sl', 'gen-top-count')">
+                    </div>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <span style="font-size:10px; color:#888;">Шанс:</span>
+                        <input type="number" id="gen-top-weight" class="gen-num-input" value="0.01" step="0.01" style="width:60px;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="gen-row">
+                <div class="gen-col">
+                    <span style="font-size:11px; color:#d32ce6; font-weight:bold;">💜 СРЕДНИЕ (Окупаемость)</span>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <span style="font-size:10px; color:#888;">Шт:</span>
+                        <input type="number" id="gen-mid-count" class="gen-num-input" value="3" min="0" oninput="syncSlider('gen-mid-count', 'gen-mid-count-sl')">
+                        <input type="range" id="gen-mid-count-sl" class="gen-slider" value="3" min="0" max="20" oninput="syncInput('gen-mid-count-sl', 'gen-mid-count')">
+                    </div>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <span style="font-size:10px; color:#888;">Шанс:</span>
+                        <input type="number" id="gen-mid-weight" class="gen-num-input" value="1.0" step="0.1" style="width:60px;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="gen-row">
+                <div class="gen-col">
+                    <span style="font-size:11px; color:#4b69ff; font-weight:bold;">💙 ШИРП (Массовка)</span>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <span style="font-size:10px; color:#888;">Шт:</span>
+                        <input type="number" id="gen-cheap-count" class="gen-num-input" value="6" min="0" oninput="syncSlider('gen-cheap-count', 'gen-cheap-count-sl')">
+                        <input type="range" id="gen-cheap-count-sl" class="gen-slider" value="6" min="0" max="50" oninput="syncInput('gen-cheap-count-sl', 'gen-cheap-count')">
+                    </div>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <span style="font-size:10px; color:#888;">Шанс:</span>
+                        <input type="number" id="gen-cheap-weight" class="gen-num-input" value="10.0" step="0.5" style="width:60px;">
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="executeAutoGenerate()" class="admin-action-btn btn-save" style="margin-top: 10px;">СОБРАТЬ КЕЙС</button>
         </div>
     </div>
 
@@ -310,9 +385,10 @@
 
                 <input type="hidden" name="case_tag">
 
-                <div class="btn-action-row">
-                    <button type="button" id="btn-delete" class="admin-action-btn btn-delete" onclick="deleteItem()">УДАЛИТЬ</button>
-                    <button type="submit" class="admin-action-btn btn-save">СОХРАНИТЬ</button>
+                <div class="btn-action-row" style="flex-wrap: wrap;">
+                    <button type="button" id="btn-delete" class="admin-action-btn btn-delete" style="flex: 1; min-width: 100px;" onclick="deleteItem()">УДАЛИТЬ</button>
+                    <button type="button" id="btn-reroll" class="admin-action-btn btn-reroll" style="flex: 1; min-width: 100px;" onclick="rerollSingleItem()"><i class="fa-solid fa-bolt"></i> ЗАМЕНИТЬ</button>
+                    <button type="submit" class="admin-action-btn btn-save" style="flex: 1; min-width: 100px;">СОХРАНИТЬ</button>
                 </div>
             </form>
         </div>
@@ -326,6 +402,10 @@
         let searchTimeout = null;
 
         loadCases();
+
+        // СИНХРОНИЗАЦИЯ ПОЛЗУНКОВ В МОДАЛКЕ
+        function syncInput(sliderId, inputId) { document.getElementById(inputId).value = document.getElementById(sliderId).value; }
+        function syncSlider(inputId, sliderId) { document.getElementById(sliderId).value = document.getElementById(inputId).value; }
 
         function handleBack() {
             if (currentCase) {
@@ -445,6 +525,9 @@
                     return;
                 }
 
+                // СОРТИРУЕМ ОТ ДЕШЕВОГО К ДОРОГОМУ
+                items.sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0));
+
                 let html = '<div class="items-grid">';
                 items.forEach(item => {
                     const safeJson = encodeURIComponent(JSON.stringify(item));
@@ -524,19 +607,16 @@
             }
         }
 
-        // 🔥 УМНЫЙ АНАЛИЗАТОР РЕДКОСТИ (Фолбэк) 🔥
         function guessRarity(name, price) {
             const n = name.toLowerCase();
-            // Ножи и перчатки всегда Gold
             if (n.includes('knife') || n.includes('нож') || n.includes('karambit') || n.includes('bayonet') || n.includes('shadow daggers') || n.includes('gloves') || n.includes('перчатки') || n.includes('wraps') || n.includes('bloodhound')) {
                 return 'gold';
             }
-            // Примерная оценка по цене для остальных скинов
             if (price >= 1500) return 'red';
             if (price >= 500) return 'pink';
             if (price >= 150) return 'purple';
             if (price >= 20) return 'blue';
-            return 'common'; // Ширп
+            return 'common'; 
         }
 
         // --- АВТОЗАПОЛНЕНИЕ ФОРМЫ ---
@@ -544,41 +624,29 @@
             const item = JSON.parse(decodeURIComponent(jsonStr));
             
             closeModal('modal-library');
-            openEditor(null); // Открываем пустую форму редактора
+            openEditor(null);
             
             const form = document.getElementById('edit-form');
-            
-            // Запоминаем оригинальное название для Маркета
             form.market_hash_name.value = item.market_hash_name;
 
-            // 1. Очищаем название от приписки (После полевых испытаний) и т.д.
             let cleanName = item.market_hash_name;
             const conditionMatch = cleanName.match(/(.*?)\s+\([^)]+\)$/);
-            if (conditionMatch) {
-                cleanName = conditionMatch[1]; // Берем всё до скобок
-            }
+            if (conditionMatch) cleanName = conditionMatch[1]; 
             
-            // 2. Заполняем поля
             form.name.value = cleanName;
             form.image_url.value = item.image_url || '';
             const realPriceRub = item.price_rub || 0;
             form.price_rub.value = realPriceRub;
             
-            // 🔥 3. Билеты = 60% от реальной цены (Рублей) 🔥
             form.price.value = Math.ceil(realPriceRub * 0.6);
-            
-            // 4. Проставляем износ (если он есть) или пустоту для наклеек
             form.condition.value = item.condition || '';
 
-            // 🔥 5. Умное определение редкости (берем из БД крона, либо угадываем) 🔥
             const rarity = item.rarity || guessRarity(item.market_hash_name, realPriceRub);
-            
-            // Защита: проверяем, есть ли такое value в select
             const raritySelect = document.getElementById('inp-rarity');
             if (Array.from(raritySelect.options).some(opt => opt.value === rarity)) {
                 raritySelect.value = rarity;
             } else {
-                raritySelect.value = 'blue'; // фолбэк
+                raritySelect.value = 'blue'; 
             }
             
             updatePreview();
@@ -590,12 +658,13 @@
             const modal = document.getElementById('modal-editor');
             const form = document.getElementById('edit-form');
             const delBtn = document.getElementById('btn-delete');
+            const rerollBtn = document.getElementById('btn-reroll');
 
             if (jsonStr) {
                 const item = JSON.parse(decodeURIComponent(jsonStr));
                 form.id.value = item.id;
                 form.link_id.value = item.link_id || ''; 
-                form.market_hash_name.value = item.market_hash_name || item.name; // Загружаем полное имя
+                form.market_hash_name.value = item.market_hash_name || item.name; 
                 
                 form.name.value = item.name;
                 form.image_url.value = item.image_url;
@@ -608,7 +677,7 @@
                 form.case_tag.value = currentCase; 
                 
                 delBtn.style.display = 'flex';
-                delBtn.innerText = "УБРАТЬ ИЗ КЕЙСА";
+                rerollBtn.style.display = 'flex'; // Показываем кнопку замены
             } else {
                 form.reset();
                 form.id.value = '';
@@ -616,15 +685,17 @@
                 form.market_hash_name.value = '';
                 form.case_tag.value = currentCase;
                 form.rarity.value = 'blue';
-                form.condition.value = 'FT'; // По умолчанию ставим FT для новых
+                form.condition.value = 'FT'; 
                 form.chance_weight.value = 10;
                 delBtn.style.display = 'none';
+                rerollBtn.style.display = 'none'; // Прячем кнопку замены для новых
             }
             updatePreview();
             modal.classList.add('modal-active');
         }
 
         function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
+        function closeGeneratorModal() { document.getElementById('modal-generator').classList.remove('active'); }
 
         function updatePreview() {
             const img = document.getElementById('inp-img').value || 'https://placehold.co/100';
@@ -633,21 +704,36 @@
             document.getElementById('p-price').innerText = (document.getElementById('inp-price').value || 0) + ' 🟡';
         }
 
-        // --- АВТОГЕНЕРАЦИЯ КЕЙСА ---
-        function promptAutoGenerate() {
-            toggleFab(); 
-            
-            let budgetInput = prompt("Введите бюджет кейса в рублях (например: 1000)\nБот сам подберет скины разной редкости на эту сумму:", "1000");
-            
-            if (!budgetInput) return;
-            
-            let budget = parseFloat(budgetInput.replace(',', '.'));
+        // --- УМНАЯ АВТОГЕНЕРАЦИЯ (ВЫЗОВ МОДАЛКИ) ---
+        function openGeneratorModal() {
+            toggleFab();
+            document.getElementById('modal-generator').classList.add('active');
+        }
+
+        // --- ОТПРАВКА ДАННЫХ ИЗ МОДАЛКИ ---
+        function executeAutoGenerate() {
+            let budget = parseFloat(document.getElementById('gen-budget').value);
             if (isNaN(budget) || budget <= 0) {
-                tg.showAlert("Пожалуйста, введите корректную сумму больше нуля.");
+                tg.showAlert("Бюджет должен быть больше нуля!");
                 return;
             }
 
-            tg.showConfirm(`Сгенерировать кейс на ${budget} руб.?\nЭто займет пару секунд.`, async (ok) => {
+            // Собираем данные
+            const payload = {
+                case_tag: currentCase,
+                mode: "full",
+                budget_rub: budget,
+                top_count: parseInt(document.getElementById('gen-top-count').value),
+                top_weight: parseFloat(document.getElementById('gen-top-weight').value),
+                mid_count: parseInt(document.getElementById('gen-mid-count').value),
+                mid_weight: parseFloat(document.getElementById('gen-mid-weight').value),
+                cheap_count: parseInt(document.getElementById('gen-cheap-count').value),
+                cheap_weight: parseFloat(document.getElementById('gen-cheap-weight').value)
+            };
+
+            closeGeneratorModal();
+
+            tg.showConfirm(`Запустить сборку на ${budget} руб.?\nЭто займет пару секунд.`, async (ok) => {
                 if (!ok) return;
                 
                 const cont = document.getElementById('itemsContainer');
@@ -657,10 +743,7 @@
                     const res = await fetch('/api/v1/admin/cases/auto_generate', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            case_tag: currentCase,
-                            budget_rub: budget
-                        })
+                        body: JSON.stringify(payload)
                     });
                     
                     const data = await res.json();
@@ -681,7 +764,58 @@
             });
         }
 
-        // 🔥 РОТАЦИЯ (ОЧИСТКА КЕЙСА) 🔥
+        // 🔥 ОДИНОЧНАЯ ЗАМЕНА СКИНА 🔥
+        function rerollSingleItem() {
+            const form = document.getElementById('edit-form');
+            const targetPriceRub = parseFloat(form.price_rub.value);
+            const targetWeight = parseFloat(form.chance_weight.value);
+            const linkId = form.link_id.value;
+            const itemId = form.id.value;
+
+            if (!targetPriceRub || targetPriceRub <= 0) {
+                tg.showAlert("У скина должна быть цена в рублях для поиска замены!");
+                return;
+            }
+
+            tg.showConfirm(`Найти другой скин за ~${targetPriceRub} руб.?\nТекущий скин будет удален из кейса.`, async (ok) => {
+                if (!ok) return;
+                
+                closeModal('modal-editor');
+                const cont = document.getElementById('itemsContainer');
+                cont.innerHTML = '<div style="text-align:center; padding:40px; color:var(--primary);"><i class="fa-solid fa-rotate fa-spin fa-2x"></i><br><br>Ищем замену...</div>';
+
+                try {
+                    // 1. Удаляем старый линк
+                    await fetch('/api/v1/admin/cases/delete_item', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({link_id: linkId, id: itemId, case_tag: currentCase})
+                    });
+
+                    // 2. Генерируем 1 новый предмет с теми же параметрами
+                    const res = await fetch('/api/v1/admin/cases/auto_generate', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            case_tag: currentCase,
+                            mode: "single",
+                            budget_rub: targetPriceRub,
+                            chance_weight: targetWeight
+                        })
+                    });
+
+                    if (res.ok) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                    } else {
+                        tg.showAlert("Не удалось найти скин на замену.");
+                    }
+                } catch(e) {
+                    tg.showAlert("Сбой при замене");
+                } finally {
+                    loadItems(currentCase);
+                    loadCases();
+                }
+            });
+        }
+
         function clearCase() {
             toggleFab();
             tg.showConfirm("ВНИМАНИЕ! Вы точно хотите удалить ВСЕ скины из этого кейса?\n(Они удалятся только отсюда, из глобальной базы они не пропадут)", async (ok) => {
@@ -729,7 +863,7 @@
                 rarity: form.rarity.value,
                 condition: form.condition.value || null, 
                 case_tag: form.case_tag.value,
-                market_hash_name: form.market_hash_name.value || form.name.value // Отправляем оригинальное имя для Маркета
+                market_hash_name: form.market_hash_name.value || form.name.value
             };
 
             try {
@@ -757,7 +891,6 @@
             tg.showConfirm("Убрать скин?", async (ok) => {
                 if (!ok) return; 
                 
-                // Передаем и link_id, и case_tag (для фолбэка на бэкенде)
                 const payload = linkId ? {link_id: linkId} : {id: itemId, case_tag: currentCase};
 
                 try {
