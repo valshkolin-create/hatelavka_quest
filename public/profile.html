@@ -1901,6 +1901,12 @@ function renderInventory(items) {
 
     items.forEach(item => {
         const status = (item.status || 'available').toLowerCase();
+
+        // 🔥 ДОБАВЛЕНО ТОЛЬКО ЭТО: Снимаем локальную блокировку кнопки, если статус позволяет
+        if (status === 'available' || status === 'failed' || status === 'canceled' || status === 'received') {
+            localStorage.removeItem(`claim_lock_${item.history_id}`);
+        }
+        
         const rData = getRarityData(item.rarity); 
         
         // 🔥 НОВАЯ МЕХАНИКА ЗАМЕНЫ 🔥
