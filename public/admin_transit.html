@@ -3,151 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <title>Мастер переезда</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
+        :root {
+            --bg: #0f0f0f;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #ffd700;
+            --action: #28a745;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+            --text-sec: #aaaaaa;
+            
+            /* Rarity Colors */
+            --r-blue: #4b69ff;
+            --r-purple: #8847ff;
+            --r-pink: #d32ce6;
+            --r-red: #eb4b4b;
+            --r-gold: #ffd700;
+        }
+
         body {
-            margin: 0; padding: 20px;
-            background-color: #000; color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px; padding-bottom: 100px;
             -webkit-tap-highlight-color: transparent;
         }
-        h1 { margin-top: 0; font-size: 24px; color: #FFD700; display: flex; align-items: center; gap: 10px; }
-        .domain-box {
-            background: rgba(42, 171, 238, 0.15); border-left: 4px solid #2AABEE;
-            padding: 12px; border-radius: 8px; margin-bottom: 25px;
-            font-size: 14px; word-break: break-all;
+
+        /* HEADER */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .back-btn { 
+            background: none; border: none; color: var(--text-sec); font-size: 16px; 
+            cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; 
+            opacity: 1; pointer-events: auto; transition: opacity 0.2s;
         }
+        .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
+
+        /* CONTENT CARDS */
         .step-card {
-            background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 14px; padding: 15px; margin-bottom: 15px;
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 20px; margin-bottom: 15px;
         }
-        .step-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #34c759; display: flex; align-items: center; gap: 8px; }
-        .env-list {
-            background: #000; padding: 10px; border-radius: 8px;
-            font-family: monospace; font-size: 12px; color: #ffcc00;
-            max-height: 150px; overflow-y: auto; margin-bottom: 10px;
-        }
-        .env-list div { margin-bottom: 4px; }
-        .instruction { font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 10px; }
-        .code-snippet { background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px; color: #fff; font-family: monospace; font-size: 11px; }
         
-        .action-btn {
-            background: linear-gradient(135deg, #34c759, #28a745);
-            color: #000; border: none; width: 100%; padding: 16px;
-            border-radius: 12px; font-size: 16px; font-weight: 900;
-            cursor: pointer; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.3);
-            display: flex; justify-content: center; align-items: center; gap: 10px;
-            transition: transform 0.1s;
+        .step-title { font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .step-title.blue { color: var(--r-blue); }
+        .step-title.purple { color: var(--r-purple); }
+        .step-title.green { color: var(--action); }
+        .step-title.gold { color: var(--r-gold); }
+
+        .instruction { font-size: 13px; color: var(--text-sec); line-height: 1.5; margin-bottom: 10px; }
+        
+        .env-list {
+            background: rgba(0,0,0,0.4); padding: 12px; border-radius: 10px;
+            font-family: monospace; font-size: 12px; color: var(--primary);
+            max-height: 180px; overflow-y: auto; margin-top: 10px; border: 1px solid rgba(255,255,255,0.05);
         }
-        .action-btn:active { transform: scale(0.96); }
-        .action-btn:disabled { opacity: 0.5; pointer-events: none; }
+        .env-list div { margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+        .env-list div i { color: var(--text-sec); font-size: 10px; }
+        
+        .code-snippet { 
+            background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 8px; 
+            color: #fff; font-family: monospace; font-size: 12px; word-break: break-all;
+            display: inline-block; border: 1px solid var(--card-border); margin-top: 5px;
+        }
+
+        .domain-box {
+            background: rgba(42, 171, 238, 0.1); border: 1px solid rgba(42, 171, 238, 0.3);
+            padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center;
+        }
+
+        /* BUTTONS */
+        .admin-action-btn {
+            border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+            transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .btn-save { 
+            background: linear-gradient(135deg, #ffd700, #ffaa00); 
+            color: #000; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); margin-top: 15px;
+        }
+        .btn-save:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-save:disabled { opacity: 0.5; pointer-events: none; }
+
+        #log-output {
+            margin-top: 15px; font-size: 12px; color: var(--text-sec); font-family: monospace; white-space: pre-wrap;
+            background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; display: none; border: 1px solid var(--card-border);
+        }
+        #log-output.visible { display: block; }
     </style>
 </head>
 <body>
 
-    <h1><i class="fa-solid fa-truck-fast"></i> Чек-лист переезда</h1>
-    
+    <div class="page-header">
+        <a href="/admin" class="back-btn"><i class="fa-solid fa-chevron-left"></i> Назад</a>
+        <h1 class="page-title">Мастер переезда</h1>
+        <div style="width: 60px;"></div> 
+    </div>
+
     <div class="domain-box">
-        Новый домен: <br>
+        <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 5px;">Новый домен хостинга:</div>
         <b id="current-domain" style="color: #fff; font-size: 16px;">загрузка...</b>
     </div>
 
     <div class="step-card">
-        <div class="step-title"><i class="fa-solid fa-1"></i> Переменные окружения (.env)</div>
-        <div class="instruction">Убедись, что в новом Vercel прописаны ВСЕ эти ключи:</div>
+        <h3 class="step-title blue"><i class="fa-solid fa-server"></i> Шаг 1: Переменные (.env)</h3>
+        <div class="instruction">Скопируй свои ключи из безопасного места и вставь в настройки Vercel (Settings -> Environment Variables). Проверь, что ничего не забыл:</div>
+        
         <div class="env-list">
-            <div>DATABASE_URL</div>
-            <div>TELEGRAM_BOT_TOKEN</div>
-            <div>TRUSTED_BOT_TOKEN</div>
-            <div>CSGO_MARKET_API_KEY</div>
-            <div>TWITCH_CLIENT_ID</div>
-            <div>TWITCH_CLIENT_SECRET</div>
-            <div>TWITCH_WEBHOOK_SECRET</div>
-            <div>WIZEBOT_API_KEY</div>
-            <div>CRON_SECRET</div>
-            <div>CRON_API_KEY</div>
-            <div>CRON_JOB_ID</div>
-            <div>ADMIN_TELEGRAM_IDS</div>
-            <div>APP_SHORT_NAME</div>
-            <div>BOT_USERNAME</div>
-            <div>TG_QUEST_SURNAME</div>
-            <div>TG_QUEST_BIO_LINK</div>
-            <div>TG_QUEST_CHANNEL_ID</div>
+            <div><i class="fa-solid fa-database"></i> DATABASE_URL</div>
+            <div><i class="fa-solid fa-robot"></i> TELEGRAM_BOT_TOKEN</div>
+            <div><i class="fa-solid fa-shield-halved"></i> TRUSTED_BOT_TOKEN</div>
+            <div><i class="fa-solid fa-cart-shopping"></i> CSGO_MARKET_API_KEY</div>
+            <div><i class="fa-brands fa-twitch"></i> TWITCH_CLIENT_ID</div>
+            <div><i class="fa-brands fa-twitch"></i> TWITCH_CLIENT_SECRET</div>
+            <div><i class="fa-solid fa-lock"></i> TWITCH_WEBHOOK_SECRET</div>
+            <div><i class="fa-solid fa-gamepad"></i> WIZEBOT_API_KEY</div>
+            <div><i class="fa-solid fa-clock"></i> CRON_SECRET</div>
+            <div><i class="fa-solid fa-key"></i> CRON_API_KEY</div>
+            <div><i class="fa-solid fa-hashtag"></i> CRON_JOB_ID</div>
+            <div><i class="fa-solid fa-users-gear"></i> ADMIN_TELEGRAM_IDS</div>
+            <div><i class="fa-solid fa-font"></i> APP_SHORT_NAME</div>
+            <div><i class="fa-solid fa-at"></i> BOT_USERNAME</div>
+            <div><i class="fa-solid fa-list-check"></i> TG_QUEST_SURNAME</div>
+            <div><i class="fa-solid fa-link"></i> TG_QUEST_BIO_LINK</div>
+            <div><i class="fa-brands fa-telegram"></i> TG_QUEST_CHANNEL_ID</div>
         </div>
     </div>
 
     <div class="step-card">
-        <div class="step-title"><i class="fa-solid fa-2"></i> Ручные настройки</div>
+        <h3 class="step-title purple"><i class="fa-solid fa-screwdriver-wrench"></i> Шаг 2: Ручные настройки</h3>
         
-        <div class="instruction"><b>1. BotFather:</b> Открой @BotFather > <code>/mybots</code> > Bot Settings > Menu Button. Вставь новый домен.</div>
-        
-        <div class="instruction" style="margin-top: 15px;"><b>2. Twitch Console:</b> В <a href="https://dev.twitch.tv/console/apps" style="color:#2AABEE;">настройках приложения</a> измени <b>OAuth Redirect URI</b> на:</div>
+        <div class="instruction"><b>1. Кнопка Menu в ТГ:</b><br>Открой @BotFather > <code>/mybots</code> > Bot Settings > Menu Button.<br>Установи туда текущий домен.</div>
+        <div style="height: 10px;"></div>
+        <div class="instruction"><b>2. Twitch Auth:</b><br>В <a href="https://dev.twitch.tv/console/apps" target="_blank" style="color:var(--r-blue);">консоли Twitch</a> измени <b>OAuth Redirect URI</b> на:</div>
         <div class="code-snippet" id="twitch-redirect">загрузка...</div>
-
-        <div class="instruction" style="margin-top: 15px;"><b>3. Cron-задачи:</b> Обнови URL в cron-job.org. Не забудь добавить <code>?secret=ТВОЙ_CRON_SECRET</code></div>
+        <div style="height: 10px;"></div>
+        <div class="instruction"><b>3. Фоновые задачи:</b><br>Зайди в cron-job.org и обнови URL задачи (не забудь дописать <code>?secret=...</code>).</div>
     </div>
 
-    <div class="step-card" style="border-color: #34c759;">
-        <div class="step-title" style="color: #FFD700;"><i class="fa-solid fa-wand-magic-sparkles"></i> Автоматическая привязка</div>
-        <div class="instruction">Нажми кнопку ниже. Бот сам удалит старые вебхуки Telegram и EventSub Twitch, и привяжет их к новому домену.</div>
+    <div class="step-card" style="border-color: var(--action);">
+        <h3 class="step-title gold"><i class="fa-solid fa-wand-magic-sparkles"></i> Шаг 3: Синхронизация</h3>
+        <div class="instruction">Нажми кнопку ниже. Сервер автоматически удалит старые вебхуки и привяжет бота и слушатели Twitch к новому домену.</div>
         
-        <button id="run-btn" class="action-btn" onclick="runMigration()">
-            <i class="fa-solid fa-rotate"></i> СИНХРОНИЗИРОВАТЬ
+        <button id="run-btn" class="admin-action-btn btn-save" onclick="runMigration()">
+            <i class="fa-solid fa-rotate"></i> ВЫПОЛНИТЬ ФИКС
         </button>
-        <div id="log-output" style="margin-top: 15px; font-size: 12px; color: #ccc; font-family: monospace; white-space: pre-wrap;"></div>
+        
+        <div id="log-output"></div>
     </div>
 
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
 
-    const domain = window.location.hostname;
-    document.getElementById('current-domain').innerText = `https://${domain}`;
-    document.getElementById('twitch-redirect').innerText = `https://${domain}/api/v1/auth/twitch_oauth`;
+        // Подставляем текущий домен
+        const domain = window.location.hostname;
+        document.getElementById('current-domain').innerText = `https://${domain}`;
+        document.getElementById('twitch-redirect').innerText = `https://${domain}/api/v1/auth/twitch_oauth`;
 
-    if (tg.BackButton) {
-        tg.BackButton.show();
-        tg.BackButton.onClick(() => { window.history.back(); });
-    }
-
-    async function runMigration() {
-        if (!tg.initData) return alert("Запустите через Telegram!");
-
-        const btn = document.getElementById('run-btn');
-        const log = document.getElementById('log-output');
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ВЫПОЛНЯЕТСЯ...';
-        log.innerHTML = "Подключение к серверу...";
-
-        try {
-            const response = await fetch('/api/v1/admin/system/migrate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                tg.HapticFeedback.notificationOccurred('success');
-                log.innerHTML = `<span style="color:#34c759;">УСПЕШНО!</span>\n\n${data.messages.join('\n')}`;
-                btn.innerHTML = '<i class="fa-solid fa-check"></i> ГОТОВО';
-            } else {
-                tg.HapticFeedback.notificationOccurred('error');
-                log.innerHTML = `<span style="color:#ff3b30;">ОШИБКА:</span>\n${data.detail || data.message}`;
-                btn.innerHTML = 'ПОВТОРИТЬ';
-                btn.disabled = false;
-            }
-        } catch (e) {
-            tg.HapticFeedback.notificationOccurred('error');
-            log.innerHTML = `<span style="color:#ff3b30;">КРИТИЧЕСКАЯ ОШИБКА:</span>\n${e.message}`;
-            btn.innerHTML = 'ПОВТОРИТЬ';
-            btn.disabled = false;
+        // Настройка нативной кнопки назад (если доступна)
+        if (tg.BackButton) {
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => { window.location.href = '/admin'; });
         }
-    }
-</script>
+
+        async function runMigration() {
+            if (!tg.initData) return alert("Запустите через Telegram!");
+
+            // Просим подтверждение перед запуском
+            tg.showConfirm("Привязать вебхуки (TG и Twitch) к этому домену?", async (ok) => {
+                if (!ok) return;
+
+                const btn = document.getElementById('run-btn');
+                const log = document.getElementById('log-output');
+                
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> СИНХРОНИЗАЦИЯ...';
+                
+                log.classList.add('visible');
+                log.innerHTML = "Подключение к серверу...";
+
+                try {
+                    const response = await fetch('/api/v1/admin/system/migrate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData: tg.initData })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        log.innerHTML = `<span style="color:var(--action);">[УСПЕШНО]</span>\n\n${data.messages.join('\n')}`;
+                        btn.innerHTML = '<i class="fa-solid fa-check-double"></i> ГОТОВО';
+                        btn.style.background = "linear-gradient(135deg, #28a745, #218838)";
+                        btn.style.color = "#fff";
+                    } else {
+                        tg.HapticFeedback.notificationOccurred('error');
+                        log.innerHTML = `<span style="color:var(--danger);">[ОШИБКА]</span>\n${data.detail || data.message}`;
+                        btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> ПОВТОРИТЬ';
+                        btn.disabled = false;
+                    }
+                } catch (e) {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    log.innerHTML = `<span style="color:var(--danger);">[СБОЙ СЕТИ]</span>\n${e.message}`;
+                    btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> ПОВТОРИТЬ';
+                    btn.disabled = false;
+                }
+            });
+        }
+    </script>
 </body>
 </html>
