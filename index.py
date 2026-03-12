@@ -9633,7 +9633,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     """
     import os
     from datetime import datetime, timezone
-    from dateutil import parser # Убедись, что это импортировано, если не было глобально
+    from dateutil import parser
 
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
@@ -9669,66 +9669,79 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         "/cs_history", 
         params={
             "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
-            "select": "id, updated_at, status, image_url",
+            # 🔥 ИСПРАВЛЕНИЕ 1: ДОБАВЛЯЕМ tradeofferid В ВЫБОРКУ ИЗ БАЗЫ 🔥
+            "select": "id, updated_at, status, image_url, tradeofferid",
             "order": "updated_at.asc",
             "limit": "25" 
         }
     )
-    active_trades = res.json() if res.status_code == 200 else []
+    
+    # 🔥 ИСПРАВЛЕНИЕ 2: Если база упала, возвращаем текст ошибки, а не "Чисто"
+    if res.status_code != 200:
+        return {"status": "error", "message": f"Ошибка БД: {res.text}"}
+        
+    active_trades = res.json()
 
     if not active_trades and not results_log:
-        return {"status": "ok", "message": "Чисто"}
+        return {"status": "ok", "message": "Чисто. Нет активных трейдов."}
 
     async with httpx.AsyncClient(timeout=10.0) as client: 
         for trade in active_trades:
             trade_id = trade["id"]
+            
+            # 🔥 ИСПРАВЛЕНИЕ 3: БЕРЕМ ПРАВИЛЬНЫЙ УНИКАЛЬНЫЙ custom_id 🔥
+            custom_id = trade.get("tradeofferid") or str(trade_id)
+            
             updated_at_str = trade.get("updated_at")
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
             minutes_passed = (now - trade_time).total_seconds() / 60
 
+            # 🔥 ИСПРАВЛЕНИЕ 4: Проверяем Маркет ТОЛЬКО для предметов Маркета!
+            # Иначе крон будет ошибочно отменять складские трейды (processing/pending)
+            if trade.get("status") != "market_pending":
+                continue
+
             try:
+                # Отправляем запрос на Маркет
                 tm_res = await client.get(
-                    f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}"
+                    "https://market.csgo.com/api/v2/get-buy-info-by-custom-id",
+                    params={"key": TM_API_KEY, "custom_id": custom_id}
                 )
                 
-                # 🔥 ИСПРАВЛЕНО: Ждем 35 минут, если Маркет вообще не отвечает
                 if tm_res.status_code != 200:
                     if minutes_passed > 35:
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: available (TM API Error timeout)")
+                        results_log.append(f"#{trade_id}: available (TM API timeout)")
                     continue
 
                 tm_data = tm_res.json()
                 trade_info = tm_data.get("data", {})
                 
-                # 🔥 ИСПРАВЛЕНО: Ждем 35 минут, если Маркет говорит, что такого ID нет
                 if not tm_data.get("success") or not trade_info:
                     if minutes_passed > 35:
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: available (TM not found timeout)")
+                        results_log.append(f"#{trade_id}: available (TM not found)")
                     continue
 
                 stage = str(trade_info.get("stage"))
                 settlement = int(trade_info.get("settlement") or 0)
 
-                # ПРАВИЛО №1: УСПЕХ
+                # ПРАВИЛО №1: УСПЕХ (Передано)
                 if settlement > 0 or stage == "2":
                     update_payload = {"status": "received"}
-                    # Добавляем картинку по classid, если в истории её нет
                     if not trade.get("image_url") and trade_info.get("classid"):
                         update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
                     
                     await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json=update_payload)
-                    results_log.append(f"#{trade_id}: received")
+                    results_log.append(f"#{trade_id}: received (stage {stage})")
 
-                # ПРАВИЛО №2: ОТМЕНА/ТАЙМАУТ -> available (НЕ УДАЛЯЕМ)
-                # 🔥 ИСПРАВЛЕНО: Если продавец отменил (stage 4 или 5) - откатываем сразу. 
-                # 🔥 А если просто висит (settlement == 0) - ждем 35 минут.
+                # ПРАВИЛО №2: ОТМЕНА (Продавец отменил или время вышло)
                 elif stage in ["4", "5"] or (minutes_passed >= 35 and settlement == 0):
                     await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                    results_log.append(f"#{trade_id}: available")
+                    results_log.append(f"#{trade_id}: available (stage {stage}, mins: {minutes_passed:.1f})")
 
-            except Exception:
+            except Exception as e:
+                results_log.append(f"#{trade_id}: EXCEPTION {str(e)}")
                 continue
 
     return {"status": "ok", "details": results_log}
