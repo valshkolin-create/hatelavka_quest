@@ -29,7 +29,6 @@
 /* ФУЛЛСКРИН ФИКС (С УЧЕТОМ ТЕЛЕГРАМА) */
 html, body {
     width: 100vw;
-    /* Исключаем баг 100vh на мобилках, используем 100dvh и стабильную высоту ТГ */
     height: 100dvh;
     height: var(--tg-viewport-stable-height, var(--tg-viewport-height, 100dvh)); 
     position: fixed;
@@ -38,6 +37,10 @@ html, body {
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    
+    /* НОВЫЕ СТРОКИ: Делаем body гибкой колонкой */
+    display: flex;
+    flex-direction: column;
 }
 
 .hidden { display: none !important; }
@@ -70,6 +73,7 @@ html, body {
 
 .no-scroll { overflow: hidden !important; }
 
+
 /* ==========================================
    ШАПКА (ОСТАЕТСЯ НАВЕРХУ)
 ========================================== */
@@ -78,13 +82,13 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 16px; 
-    
-    /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛОК (iPhone/Android): Учитывает челку + 55px */
     padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
-    
     margin-bottom: 35px; 
     position: relative;
     z-index: 100;
+    
+    /* НОВАЯ СТРОКА: Шапка всегда держит свой размер */
+    flex-shrink: 0; 
 }
 
 /* Логотип + Текст */
@@ -739,9 +743,17 @@ html, body {
     overscroll-behavior-x: none !important;
 }
 
+/* Область контента со скроллом */
 .main-content-scrollable {
-    overscroll-behavior-x: none !important;
-    overflow-x: hidden !important;
+    /* НОВАЯ СТРОКА: Контейнер занимает всё свободное место ПОД шапкой */
+    flex: 1; 
+    
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    
+    /* Возвращаем твой любимый отступ, он теперь 100% будет виден */
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 20px)); 
 }
 /* ==========================================
    УМНЫЕ ОТСТУПЫ (IOS / ANDROID / DESKTOP)
