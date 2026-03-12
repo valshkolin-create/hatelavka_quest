@@ -19895,50 +19895,66 @@ async def admin_get_case_items(request: Request):
     # Сортируем по цене (дорогие сверху)
     return sorted(flat_data, key=lambda x: x.get('price', 0), reverse=True)
 
-from fastapi import Request, HTTPException
-
 @app.post("/api/v1/admin/cases/auto_generate")
 async def admin_auto_generate_case(request: Request):
     data = await request.json()
     case_tag = data.get("case_tag")
     total_budget_rub = float(data.get("budget_rub", 1000))
+    mode = data.get("mode", "full") # Читаем режим!
 
     if not case_tag or total_budget_rub <= 0:
         raise HTTPException(status_code=400, detail="Неверные параметры")
 
-    # 1. Принимаем настройки количества с фронта (или ставим дефолт: всего 10 предметов)
-    top_count = int(data.get("top_count", 1))       # Самый дорогой дроп
-    mid_count = int(data.get("mid_count", 3))       # Средний дроп
-    cheap_count = int(data.get("cheap_count", 6))   # Массовка
+    if mode == "single":
+        # 🔥 ОДИНОЧНАЯ ЗАМЕНА (Берет ровно 100% бюджета на 1 предмет)
+        weight = float(data.get("chance_weight", 0.01))
+        structure = [
+            {"tier": "single", "pct": 1.0, "count": 1, "weight": weight}
+        ]
+    else:
+        # 🔥 ПОЛНАЯ СБОРКА С ДИНАМИЧЕСКИМ РАСПРЕДЕЛЕНИЕМ
+        top_count = int(data.get("top_count", 1))
+        mid_count = int(data.get("mid_count", 3))
+        cheap_count = int(data.get("cheap_count", 6))
 
-    # Принимаем шансы для каждого ценового уровня (с поддержкой 0.01)
-    top_weight = float(data.get("top_weight", 0.01))
-    mid_weight = float(data.get("mid_weight", 1.0))
-    cheap_weight = float(data.get("cheap_weight", 10.0))
+        top_weight = float(data.get("top_weight", 0.01))
+        mid_weight = float(data.get("mid_weight", 1.0))
+        cheap_weight = float(data.get("cheap_weight", 10.0))
 
-    # 2. Перестраиваем логику: теперь мы опираемся на ЦЕНУ внутри кейса, а не на цвет!
-    # pct - это процент от ОБЩЕГО бюджета, выделенный на всю категорию
-    structure = [
-        {"tier": "top",   "pct": 0.45, "count": top_count,   "weight": top_weight},
-        {"tier": "mid",   "pct": 0.30, "count": mid_count,   "weight": mid_weight},
-        {"tier": "cheap", "pct": 0.25, "count": cheap_count, "weight": cheap_weight},
-    ]
+        raw_structure = [
+            {"tier": "top",   "base_pct": 0.45, "count": top_count,   "weight": top_weight},
+            {"tier": "mid",   "base_pct": 0.30, "count": mid_count,   "weight": mid_weight},
+            {"tier": "cheap", "base_pct": 0.25, "count": cheap_count, "weight": cheap_weight},
+        ]
+        
+        # Считаем сумму активных процентов (чтобы понять, сколько корзин участвует)
+        active_pct_sum = sum(t["base_pct"] for t in raw_structure if t["count"] > 0)
+        
+        if active_pct_sum <= 0:
+            raise HTTPException(status_code=400, detail="Укажите количество скинов больше нуля!")
+
+        structure = []
+        for t in raw_structure:
+            if t["count"] > 0:
+                # Нормализуем процент! Если стоит только Топ, его 0.45 превратятся в 1.0 (100%)
+                normalized_pct = t["base_pct"] / active_pct_sum
+                structure.append({
+                    "tier": t["tier"],
+                    "pct": normalized_pct,
+                    "count": t["count"],
+                    "weight": t["weight"]
+                })
 
     generated_items = []
-    used_names = set() # Чтобы скины не повторялись в одном кейсе
+    used_names = set() 
 
-    # 3. Собираем скины по ценовым корзинам
     for tier in structure:
-        if tier["count"] <= 0:
-            continue
-
-        # Вычисляем идеальную цену для ОДНОГО предмета в этой категории
+        # Цена одного предмета в категории
         target_price = (total_budget_rub * tier["pct"]) / tier["count"]
         min_p = target_price * 0.7  # Разброс -30%
         max_p = target_price * 1.3  # Разброс +30%
 
         for _ in range(tier["count"]):
-            # Ищем скины в кэше маркета в этом ценовом диапазоне
             market_res = supabase.table("market_cache")\
                 .select("market_hash_name, price_rub, rarity")\
                 .gte("price_rub", min_p)\
@@ -19948,10 +19964,20 @@ async def admin_auto_generate_case(request: Request):
                 .execute()
             
             items = market_res.data
+            
+            # Если жесткий лимит не нашел предметов, делаем фоллбэк (ищем пошире)
             if not items:
-                continue # Если ничего не нашли, пропускаем
+                market_res_fallback = supabase.table("market_cache")\
+                    .select("market_hash_name, price_rub, rarity")\
+                    .gte("price_rub", target_price * 0.5)\
+                    .lte("price_rub", target_price * 1.5)\
+                    .eq("is_available", True)\
+                    .limit(100)\
+                    .execute()
+                items = market_res_fallback.data
+                if not items:
+                    continue
 
-            # Перемешиваем и ищем уникальный скин
             import random
             random.shuffle(items)
             selected_item = None
@@ -19961,52 +19987,42 @@ async def admin_auto_generate_case(request: Request):
                     break
             
             if not selected_item:
-                selected_item = items[0] # Если всё занято, берем первый попавшийся
+                selected_item = items[0]
 
             used_names.add(selected_item["market_hash_name"])
             
             generated_items.append({
                 "market_hash_name": selected_item["market_hash_name"],
                 "price_rub": selected_item["price_rub"],
-                "rarity": selected_item.get("rarity", "blue"), # Визуальный цвет сохраняем оригинальный!
-                "chance_weight": tier["weight"]                # А шанс ставим строго по его позиции в кейсе!
+                "rarity": selected_item.get("rarity", "blue"),
+                "chance_weight": tier["weight"]
             })
 
     if not generated_items:
         raise HTTPException(status_code=400, detail="Не удалось подобрать скины на эту сумму")
 
-    # 4. Вытягиваем картинки одним запросом
+    # 4. Вытягиваем картинки
     names_list = [item["market_hash_name"] for item in generated_items]
-    img_res = supabase.table("skin_images_dict")\
-        .select("market_hash_name, icon_url")\
-        .in_("market_hash_name", names_list)\
-        .execute()
-    
+    img_res = supabase.table("skin_images_dict").select("market_hash_name, icon_url").in_("market_hash_name", names_list).execute()
     images_dict = {img['market_hash_name']: img['icon_url'] for img in img_res.data}
 
-    # 5. Обрабатываем и сохраняем в базу (cs_items + cs_case_contents)
+    # 5. Обрабатываем и сохраняем
     saved_count = 0
     import re
     for item in generated_items:
         raw_name = item["market_hash_name"]
         
-        # Парсим название и качество
         clean_name = raw_name
         condition = "-"
         cond_match = re.search(r"(.*?)\s+\(([^)]+)\)$", raw_name)
         if cond_match:
             clean_name = cond_match.group(1).strip()
-            # Конвертируем англ. качество в короткое
             raw_cond = cond_match.group(2)
             cond_map = {"Factory New": "FN", "Minimal Wear": "MW", "Field-Tested": "FT", "Well-Worn": "WW", "Battle-Scarred": "BS"}
             condition = cond_map.get(raw_cond, raw_cond)
 
-        # Собираем ссылку на картинку
         img_hash = images_dict.get(raw_name, "")
-        if img_hash and not img_hash.startswith("http"):
-            icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/300fx300f"
-        else:
-            icon_url = img_hash or "https://placehold.co/100"
+        icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/300fx300f" if img_hash and not img_hash.startswith("http") else (img_hash or "https://placehold.co/100")
 
         skin_id = None
         try:
@@ -20015,23 +20031,21 @@ async def admin_auto_generate_case(request: Request):
             if existing_skin.data:
                 skin_id = existing_skin.data[0]['id']
             else:
-                # Формируем Payload скина (ПОЛНЫЙ)
                 item_payload = {
                     "name": clean_name,
                     "image_url": icon_url,
                     "rarity": item["rarity"],
                     "condition": condition,
-                    "chance_weight": float(item["chance_weight"]), # Поддержка 0.01
+                    "chance_weight": float(item["chance_weight"]), 
                     "quantity": 1,
                     "is_active": True,
                     "boost_percent": 0.0,
-                    "price": int(item["price_rub"] * 0.6), # Билеты = 60% от рублей
+                    "price": int(item["price_rub"] * 0.6),
                     "case_tag": case_tag,
                     "price_rub": float(item["price_rub"]),
                     "market_hash_name": raw_name
                 }
 
-                # Создаем скин глобально
                 res_item = supabase.table("cs_items").insert(item_payload).execute()
                 if res_item.data:
                     skin_id = res_item.data[0]['id']
@@ -20039,11 +20053,10 @@ async def admin_auto_generate_case(request: Request):
             if skin_id:
                 existing_link = supabase.table("cs_case_contents").select("id").eq("case_tag", case_tag).eq("item_id", skin_id).execute()
                 if not existing_link.data:
-                    # Привязываем к кейсу
                     link_payload = {
                         "case_tag": case_tag,
                         "item_id": skin_id,
-                        "chance_weight": float(item["chance_weight"]) # Поддержка 0.01
+                        "chance_weight": float(item["chance_weight"])
                     }
                     supabase.table("cs_case_contents").insert(link_payload).execute()
                     saved_count += 1
