@@ -2869,6 +2869,17 @@ async def sync_steam_inventory(
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
+    # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ (Для предметов, которых нет на ботах)
+    def guess_backend_rarity(name: str, price: float) -> str:
+        n = name.lower()
+        if any(k in n for k in ['knife', 'нож', 'karambit', 'bayonet', 'shadow daggers', 'gloves', 'перчатки', 'wraps', 'bloodhound', 'talon', 'butterfly']):
+            return 'gold'
+        if price >= 1500: return 'red'
+        if price >= 500: return 'pink'
+        if price >= 150: return 'purple'
+        if price >= 20: return 'blue'
+        return 'common'
+
     try:
         # 1. Получаем ВСЕХ активных ботов из базы
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
@@ -2969,6 +2980,14 @@ async def sync_steam_inventory(
             tasks = [fetch_bot_inventory(client, bot) for bot in bots]
             bot_results = await asyncio.gather(*tasks)
 
+        # 🔥 СОБИРАЕМ 100% ТОЧНЫЕ РЕДКОСТИ С БОТОВ 🔥
+        known_rarities = {}
+        for res in bot_results:
+            for item in res.get("items", []):
+                m_name = item.get("market_hash_name")
+                if m_name:
+                    known_rarities[m_name] = item.get("rarity", "blue")
+
         # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
         market_prices_rub = {}
         popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ СКИНЫ ДЛЯ ЗАМЕН 🔥
@@ -2988,9 +3007,13 @@ async def sync_steam_inventory(
                         # 🔥 ОТБИРАЕМ КАНДИДАТОВ НА ЗАМЕНУ (Цена 20-3000 руб, популярные)
                         if 20 <= price <= 3000 and volume > 5:
                             if "Sticker" not in m_name and "Graffiti" not in m_name and "Capsule" not in m_name:
+                                # Определяем редкость для Маркета
+                                final_rarity = known_rarities.get(m_name) or guess_backend_rarity(m_name, price)
+                                
                                 popular_market_items.append({
                                     "market_hash_name": m_name,
                                     "price_rub": price,
+                                    "rarity": final_rarity, # 🔥 ПИШЕМ РЕДКОСТЬ
                                     "is_available": True,
                                     "last_sync": "now()"
                                 })
@@ -2999,8 +3022,8 @@ async def sync_steam_inventory(
 
         # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ВИТРИНА + МАРКЕТ) ---
         try:
-            # 🔥 ДОБАВИЛИ ЗАПРОС ID И CONDITION 🔥
-            items_res = await supabase.get("/cs_items", params={"select": "id, market_hash_name, condition"})
+            # 🔥 ДОБАВИЛИ ЗАПРОС ID, CONDITION И RARITY 🔥
+            items_res = await supabase.get("/cs_items", params={"select": "id, market_hash_name, condition, rarity"})
             shop_items = items_res.json()
             
             if shop_items and isinstance(shop_items, list):
@@ -3037,9 +3060,14 @@ async def sync_steam_inventory(
 
                     # Ищем цену по ПОЛНОМУ имени
                     m_price = market_prices_rub.get(full_name, 0.0)
+                    
+                    # 🔥 Сохраняем редкость из базы витрины, ботов или угадываем
+                    final_rarity = item.get("rarity") or known_rarities.get(full_name) or guess_backend_rarity(full_name, m_price)
+
                     market_cache_payload.append({
                         "market_hash_name": full_name,
                         "price_rub": m_price,
+                        "rarity": final_rarity, # 🔥 ПИШЕМ РЕДКОСТЬ В БАЗУ
                         "is_available": m_price > 0,
                         "last_sync": "now()"
                     })
@@ -19758,6 +19786,22 @@ async def admin_cases_search_cache(
     except Exception as e:
         print(f"⚠️ Ошибка в search_cache: {e}")
         return []
+
+@app.post("/api/v1/admin/cases/clear")
+async def admin_clear_case(request: Request):
+    body = await request.json()
+    case_tag = body.get("case_tag")
+    
+    if not case_tag:
+        raise HTTPException(status_code=400, detail="Не указан case_tag")
+        
+    try:
+        # Удаляем ВСЕ связи для этого кейса (скины в cs_items остаются целыми)
+        supabase.table("cs_case_contents").delete().eq("case_tag", case_tag).execute()
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Clear Case Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # 5. Поиск предметов по всей базе (библиотека)
 @app.post("/api/v1/admin/cases/search_items")
