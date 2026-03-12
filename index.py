@@ -17163,30 +17163,53 @@ async def run_system_migration(
 ):
     # 1. Проверяем, что нажал админ
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_data or user_data['id'] not in ADMIN_IDS: # Убедись, что переменная ADMIN_IDS импортирована
+    if not user_data or user_data['id'] not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    # 2. Получаем текущий домен (куда переехали)
+    admin_tg_id = user_data['id'] # Запоминаем ID админа для финального пинга
     current_host = request.headers.get("host")
+    
     if not current_host:
         return {"success": False, "message": "Не удалось определить Host"}
         
     dynamic_web_app_url = f"https://{current_host}"
     results = []
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
 
-    # --- ФИКС TELEGRAM ---
+    # ==========================================
+    # ФИКС TELEGRAM (ВЕБХУК + КНОПКА МЕНЮ)
+    # ==========================================
     try:
         webhook_url = f"{dynamic_web_app_url}/api/v1/webhook"
-        # Добавь сюда все нужные апдейты, включая каналы
         updates = ["message", "callback_query", "chat_member", "my_chat_member", "message_reaction", "message_reaction_count", "channel_post", "edited_channel_post"]
         
+        # Перепривязываем вебхук (чтобы бот начал получать сообщения на новый домен)
         await bot.delete_webhook()
         await bot.set_webhook(url=webhook_url, allowed_updates=updates, drop_pending_updates=True)
         results.append("✅ Telegram: Вебхук успешно обновлен.")
+
+        # УБИЙЦА BOTFATHER: Автоматически меняем ссылку в главной кнопке "Меню" (слева от чата)
+        async with httpx.AsyncClient() as client:
+            menu_payload = {
+                "menu_button": {
+                    "type": "web_app",
+                    "text": "Открыть приложение",
+                    "web_app": {
+                        "url": f"{dynamic_web_app_url}/" 
+                    }
+                }
+            }
+            menu_res = await client.post(f"https://api.telegram.org/bot{bot_token}/setChatMenuButton", json=menu_payload)
+            if menu_res.status_code == 200:
+                results.append("✅ Telegram: Главная кнопка Menu (Web App) привязана к новому домену!")
+            else:
+                results.append("⚠️ Telegram: Не удалось обновить кнопку Menu автоматически.")
     except Exception as e:
         results.append(f"❌ Telegram: Ошибка ({str(e)})")
 
-    # --- ФИКС TWITCH ---
+    # ==========================================
+    # ФИКС TWITCH (EVENTSUB)
+    # ==========================================
     try:
         async with httpx.AsyncClient() as client:
             token_resp = await client.post(
@@ -17207,8 +17230,8 @@ async def run_system_migration(
 
                 # Ищем ID админа для подписок
                 broadcaster_id = None
-                for admin_id in ADMIN_IDS:
-                    u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "twitch_id"})
+                for a_id in ADMIN_IDS:
+                    u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{a_id}", "select": "twitch_id"})
                     if u_resp.json() and u_resp.json()[0].get("twitch_id"):
                         broadcaster_id = u_resp.json()[0]["twitch_id"]
                         break
@@ -17216,7 +17239,7 @@ async def run_system_migration(
                 if broadcaster_id:
                     callback_url = f"{dynamic_web_app_url}/api/v1/webhooks/twitch"
                     
-                    # Сносим старые
+                    # Сносим старые подписки на старый домен
                     subs_resp = await client.get("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers)
                     if subs_resp.status_code == 200:
                         for sub in subs_resp.json().get("data", []):
@@ -17236,6 +17259,20 @@ async def run_system_migration(
                 results.append("❌ Twitch: Ошибка авторизации.")
     except Exception as e:
         results.append(f"❌ Twitch: Ошибка ({str(e)})")
+
+    # ==========================================
+    # СИМПТОМ ЖИЗНИ: Пинг админу в ЛС
+    # ==========================================
+    try:
+        ping_text = f"🚀 <b>Шеф, переезд завершен!</b>\n\nНовый домен: <code>{dynamic_web_app_url}</code>\n\nВебхуки перехвачены, бот проснулся на новом сервере и готов к работе."
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={"chat_id": admin_tg_id, "text": ping_text, "parse_mode": "HTML"}
+            )
+        results.append("✅ Симптом жизни: Уведомление об успешном переезде отправлено вам в ЛС!")
+    except Exception as e:
+        results.append(f"⚠️ Симптом жизни: Не удалось отправить уведомление в ЛС ({str(e)})")
 
     return {"success": True, "domain": dynamic_web_app_url, "messages": results}
 
