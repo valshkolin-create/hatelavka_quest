@@ -199,6 +199,9 @@
     </div>
 
     <div class="fab-container" id="fabMenu">
+        <div class="fab-option" onclick="promptAutoGenerate()" style="color: var(--primary); border-color: var(--primary);">
+            <span>Автосборка кейса</span> <i class="fa-solid fa-bolt"></i>
+        </div>
         <div class="fab-option" onclick="openLibrarySearch()">
             <span>Найти на складе</span> <i class="fa-solid fa-box-open"></i>
         </div>
@@ -244,6 +247,7 @@
             <form id="edit-form" class="admin-form" onsubmit="event.preventDefault(); saveItem();">
                 <input type="hidden" name="id">
                 <input type="hidden" name="link_id"> 
+                <input type="hidden" name="market_hash_name" id="inp-market-hash"> 
                 
                 <label class="form-label">Картинка</label>
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -486,7 +490,6 @@
             cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем на складе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
 
             try {
-                // Идем в наш новый эндпоинт, который ищет по steam_inventory_cache
                 const res = await fetch('/api/v1/admin/cases/search_cache', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({query: q})
@@ -527,6 +530,9 @@
             
             const form = document.getElementById('edit-form');
             
+            // Запоминаем оригинальное название для Маркета
+            form.market_hash_name.value = item.market_hash_name;
+
             // 1. Очищаем название от приписки (После полевых испытаний) и т.д.
             let cleanName = item.market_hash_name;
             const conditionMatch = cleanName.match(/(.*?)\s+\([^)]+\)$/);
@@ -559,14 +565,15 @@
                 const item = JSON.parse(decodeURIComponent(jsonStr));
                 form.id.value = item.id;
                 form.link_id.value = item.link_id || ''; 
+                form.market_hash_name.value = item.market_hash_name || item.name; // Загружаем полное имя
                 
                 form.name.value = item.name;
                 form.image_url.value = item.image_url;
                 form.price.value = item.price;
-                form.price_rub.value = item.price_rub || 0; // Загружаем рубли
+                form.price_rub.value = item.price_rub || 0; 
                 form.chance_weight.value = item.chance_weight;
                 form.rarity.value = item.rarity;
-                form.condition.value = item.condition || ''; // Учитываем пустой condition
+                form.condition.value = item.condition || ''; 
                 
                 form.case_tag.value = currentCase; 
                 
@@ -576,6 +583,7 @@
                 form.reset();
                 form.id.value = '';
                 form.link_id.value = '';
+                form.market_hash_name.value = '';
                 form.case_tag.value = currentCase;
                 form.rarity.value = 'blue';
                 form.condition.value = 'FT'; // По умолчанию ставим FT для новых
@@ -595,6 +603,54 @@
             document.getElementById('p-price').innerText = (document.getElementById('inp-price').value || 0) + ' 🟡';
         }
 
+        // --- АВТОГЕНЕРАЦИЯ КЕЙСА ---
+        function promptAutoGenerate() {
+            toggleFab(); 
+            
+            let budgetInput = prompt("Введите бюджет кейса в рублях (например: 1000)\nБот сам подберет скины разной редкости на эту сумму:", "1000");
+            
+            if (!budgetInput) return;
+            
+            let budget = parseFloat(budgetInput.replace(',', '.'));
+            if (isNaN(budget) || budget <= 0) {
+                tg.showAlert("Пожалуйста, введите корректную сумму больше нуля.");
+                return;
+            }
+
+            tg.showConfirm(`Сгенерировать кейс на ${budget} руб.?\nЭто займет пару секунд.`, async (ok) => {
+                if (!ok) return;
+                
+                const cont = document.getElementById('itemsContainer');
+                cont.innerHTML = '<div style="text-align:center; padding:40px; color:var(--primary);"><i class="fa-solid fa-bolt fa-fade fa-2x"></i><br><br>Нейросеть собирает кейс...</div>';
+                
+                try {
+                    const res = await fetch('/api/v1/admin/cases/auto_generate', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            case_tag: currentCase,
+                            budget_rub: budget
+                        })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        tg.showAlert(data.message || "Кейс успешно сгенерирован!");
+                    } else {
+                        tg.HapticFeedback.notificationOccurred('error');
+                        tg.showAlert("Ошибка: " + (data.detail || "Не удалось собрать кейс"));
+                    }
+                } catch(e) {
+                    tg.showAlert("Сбой сервера при генерации");
+                } finally {
+                    loadItems(currentCase);
+                    loadCases(); 
+                }
+            });
+        }
+
         async function saveItem() {
             const form = document.getElementById('edit-form');
             
@@ -607,11 +663,12 @@
                 name: form.name.value,
                 image_url: form.image_url.value,
                 price: parseFloat(priceVal) || 0,
-                price_rub: parseFloat(priceRubVal) || 0, // Отправляем рубли на бэк
+                price_rub: parseFloat(priceRubVal) || 0, 
                 chance_weight: parseFloat(weightVal) || 0,
                 rarity: form.rarity.value,
-                condition: form.condition.value || null, // Если пусто — шлем null
-                case_tag: form.case_tag.value
+                condition: form.condition.value || null, 
+                case_tag: form.case_tag.value,
+                market_hash_name: form.market_hash_name.value || form.name.value // Отправляем оригинальное имя для Маркета
             };
 
             try {
@@ -639,7 +696,8 @@
             tg.showConfirm("Убрать скин?", async (ok) => {
                 if (!ok) return; 
                 
-                const payload = linkId ? {link_id: linkId} : {id: itemId};
+                // Передаем и link_id, и case_tag (для фолбэка на бэкенде)
+                const payload = linkId ? {link_id: linkId} : {id: itemId, case_tag: currentCase};
 
                 try {
                     await fetch('/api/v1/admin/cases/delete_item', {
