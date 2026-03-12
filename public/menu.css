@@ -29,8 +29,9 @@
 /* ФУЛЛСКРИН ФИКС (С УЧЕТОМ ТЕЛЕГРАМА) */
 html, body {
     width: 100vw;
-    height: 100vh;
-    height: var(--tg-viewport-height, 100vh); 
+    /* Исключаем баг 100vh на мобилках, используем 100dvh и стабильную высоту ТГ */
+    height: 100dvh;
+    height: var(--tg-viewport-stable-height, var(--tg-viewport-height, 100dvh)); 
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     overflow: hidden;
@@ -42,13 +43,16 @@ html, body {
 .hidden { display: none !important; }
 
 /* Область контента со скроллом */
+/* Область контента со скроллом */
 .main-content-scrollable {
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 140px; 
+    /* Умный отступ: 140px + системная зона снизу */
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 20px)); 
 }
+
 .no-scroll { overflow: hidden !important; }
 
 /* ==========================================
@@ -315,14 +319,18 @@ html, body {
    ПЛАВАЮЩИЙ ФУТЕР
 ========================================== */
 .floating-bottom-bar {
-    position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
-    width: 85%; max-width: 360px; /* Уменьшили ширину */
+    position: fixed; 
+    /* Добавляем безопасную зону снизу */
+    bottom: calc(15px + env(safe-area-inset-bottom, 0px)); 
+    left: 50%; 
+    transform: translateX(-50%); 
+    width: 85%; max-width: 360px;
     background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1); 
-    border-radius: 35px; /* Более круглые края */
+    border-radius: 35px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     display: flex; justify-content: space-around; align-items: center; 
-    padding: 6px 12px; /* Уменьшили внутренние отступы */
+    padding: 6px 12px;
     z-index: 1000;
 }
 .nav-item { 
