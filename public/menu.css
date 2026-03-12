@@ -29,50 +29,27 @@
 /* ФУЛЛСКРИН ФИКС (С УЧЕТОМ ТЕЛЕГРАМА) */
 html, body {
     width: 100vw;
-    height: 100dvh;
-    height: var(--tg-viewport-stable-height, var(--tg-viewport-height, 100dvh)); 
+    height: 100vh;
+    height: var(--tg-viewport-height, 100vh); 
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     overflow: hidden;
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    
-    /* НОВЫЕ СТРОКИ: Делаем body гибкой колонкой */
-    display: flex;
-    flex-direction: column;
 }
 
 .hidden { display: none !important; }
 
 /* Область контента со скроллом */
 .main-content-scrollable {
-    /* Привязываем жестко к краям, убираем глючный height: 100% */
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: none !important;
-    /* УБРАЛИ padding-bottom, так как он ломает расчет скролла */
+    padding-bottom: 140px; 
 }
-
-/* Создаем невидимую физическую распорку в самом конце скролла */
-.main-content-scrollable::after {
-    content: '';
-    display: block;
-    /* Тот самый нужный тебе отступ */
-    height: calc(140px + env(safe-area-inset-bottom, 20px));
-    width: 100%;
-    flex-shrink: 0;
-    pointer-events: none;
-}
-
 .no-scroll { overflow: hidden !important; }
-
 
 /* ==========================================
    ШАПКА (ОСТАЕТСЯ НАВЕРХУ)
@@ -82,13 +59,13 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 16px; 
+    
+    /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛОК (iPhone/Android): Учитывает челку + 55px */
     padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
+    
     margin-bottom: 35px; 
     position: relative;
     z-index: 100;
-    
-    /* НОВАЯ СТРОКА: Шапка всегда держит свой размер */
-    flex-shrink: 0; 
 }
 
 /* Логотип + Текст */
@@ -338,18 +315,14 @@ html, body {
    ПЛАВАЮЩИЙ ФУТЕР
 ========================================== */
 .floating-bottom-bar {
-    position: fixed; 
-    /* Добавляем безопасную зону снизу */
-    bottom: calc(15px + env(safe-area-inset-bottom, 0px)); 
-    left: 50%; 
-    transform: translateX(-50%); 
-    width: 85%; max-width: 360px;
+    position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
+    width: 85%; max-width: 360px; /* Уменьшили ширину */
     background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1); 
-    border-radius: 35px;
+    border-radius: 35px; /* Более круглые края */
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     display: flex; justify-content: space-around; align-items: center; 
-    padding: 6px 12px;
+    padding: 6px 12px; /* Уменьшили внутренние отступы */
     z-index: 1000;
 }
 .nav-item { 
@@ -743,17 +716,9 @@ html, body {
     overscroll-behavior-x: none !important;
 }
 
-/* Область контента со скроллом */
 .main-content-scrollable {
-    /* НОВАЯ СТРОКА: Контейнер занимает всё свободное место ПОД шапкой */
-    flex: 1; 
-    
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    
-    /* Возвращаем твой любимый отступ, он теперь 100% будет виден */
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 20px)); 
+    overscroll-behavior-x: none !important;
+    overflow-x: hidden !important;
 }
 /* ==========================================
    УМНЫЕ ОТСТУПЫ (IOS / ANDROID / DESKTOP)
