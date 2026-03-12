@@ -23,6 +23,7 @@
     { "src": "/profile", "dest": "/public/profile.html" },
     { "src": "/admin", "dest": "/public/admin.html" },
     { "src": "/events", "dest": "/public/events.html" },
+    { "src": "/admin_transit", "dest": "/public/admin_transit.html" },
     { "src": "/checkpoint", "dest": "/public/checkpoint.html" },
     { "src": "/roulette.html", "dest": "/public/roulette.html" },
     { "src": "/halloween", "dest": "/public/halloween.html" },
