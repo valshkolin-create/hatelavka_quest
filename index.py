@@ -19851,31 +19851,198 @@ async def admin_get_case_items(request: Request):
     # Сортируем по цене (дорогие сверху)
     return sorted(flat_data, key=lambda x: x.get('price', 0), reverse=True)
 
+@app.post("/api/v1/admin/cases/auto_generate")
+async def admin_auto_generate_case(request: Request):
+    data = await request.json()
+    case_tag = data.get("case_tag")
+    total_budget_rub = float(data.get("budget_rub", 1000))
+
+    if not case_tag or total_budget_rub <= 0:
+        raise HTTPException(status_code=400, detail="Неверные параметры")
+
+    # 1. Задаем структуру идеального кейса (Пирамида редкостей)
+    # pct - процент от общего бюджета на ОДИН предмет из категории
+    structure = [
+        {"rarity": "red",    "pct": 0.45, "count": 1, "weight": 1},
+        {"rarity": "pink",   "pct": 0.20, "count": 1, "weight": 5},
+        {"rarity": "purple", "pct": 0.08, "count": 2, "weight": 15},
+        {"rarity": "blue",   "pct": 0.04, "count": 5, "weight": 60},
+    ]
+
+    generated_items = []
+    used_names = set() # Чтобы скины не повторялись в одном кейсе
+
+    # 2. Собираем скины по корзинам
+    for tier in structure:
+        target_price = total_budget_rub * tier["pct"]
+        min_p = target_price * 0.8  # разброс -20%
+        max_p = target_price * 1.2  # разброс +20%
+
+        for _ in range(tier["count"]):
+            # Ищем скины в кэше маркета в этом ценовом диапазоне
+            market_res = supabase.table("market_cache")\
+                .select("market_hash_name, price_rub")\
+                .gte("price_rub", min_p)\
+                .lte("price_rub", max_p)\
+                .eq("is_available", True)\
+                .limit(50)\
+                .execute()
+            
+            items = market_res.data
+            if not items:
+                continue # Если ничего не нашли, пропускаем (хотя при нормальной базе такого не будет)
+
+            # Перемешиваем и ищем уникальный скин
+            random.shuffle(items)
+            selected_item = None
+            for item in items:
+                if item["market_hash_name"] not in used_names:
+                    selected_item = item
+                    break
+            
+            if not selected_item:
+                selected_item = items[0] # Если всё занято, берем первый попавшийся
+
+            used_names.add(selected_item["market_hash_name"])
+            
+            generated_items.append({
+                "market_hash_name": selected_item["market_hash_name"],
+                "price_rub": selected_item["price_rub"],
+                "rarity": tier["rarity"],
+                "chance_weight": tier["weight"]
+            })
+
+    if not generated_items:
+        raise HTTPException(status_code=400, detail="Не удалось подобрать скины на эту сумму")
+
+    # 3. Вытягиваем картинки одним запросом (как в твоем get_replacement_options)
+    names_list = [item["market_hash_name"] for item in generated_items]
+    img_res = supabase.table("skin_images_dict")\
+        .select("market_hash_name, icon_url")\
+        .in_("market_hash_name", names_list)\
+        .execute()
+    
+    images_dict = {img['market_hash_name']: img['icon_url'] for img in img_res.data}
+
+    # 4. Обрабатываем и сохраняем в базу (cs_items + cs_case_contents)
+    saved_count = 0
+    for item in generated_items:
+        raw_name = item["market_hash_name"]
+        
+        # Парсим название и качество
+        clean_name = raw_name
+        condition = "-"
+        cond_match = re.search(r"(.*?)\s+\(([^)]+)\)$", raw_name)
+        if cond_match:
+            clean_name = cond_match.group(1).strip()
+            # Конвертируем англ. качество в короткое (опционально, можно и так оставить)
+            raw_cond = cond_match.group(2)
+            cond_map = {"Factory New": "FN", "Minimal Wear": "MW", "Field-Tested": "FT", "Well-Worn": "WW", "Battle-Scarred": "BS"}
+            condition = cond_map.get(raw_cond, raw_cond)
+
+        # Собираем ссылку на картинку
+        img_hash = images_dict.get(raw_name, "")
+        if img_hash and not img_hash.startswith("http"):
+            icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/300fx300f"
+        else:
+            icon_url = img_hash or "https://placehold.co/100"
+
+        # Формируем Payload скина
+        item_payload = {
+            "name": clean_name,
+            "image_url": icon_url,
+            "price": int(item["price_rub"]), # Билеты = Рубли (округленно)
+            "price_rub": item["price_rub"],
+            "rarity": item["rarity"],
+            "condition": condition,
+            "is_active": True
+        }
+
+        try:
+            # Создаем скин глобально
+            res_item = supabase.table("cs_items").insert(item_payload).execute()
+            if res_item.data:
+                new_id = res_item.data[0]['id']
+                
+                # Привязываем к кейсу
+                link_payload = {
+                    "case_tag": case_tag,
+                    "item_id": new_id,
+                    "chance_weight": item["chance_weight"]
+                }
+                supabase.table("cs_case_contents").insert(link_payload).execute()
+                saved_count += 1
+        except Exception as e:
+            print(f"Ошибка сохранения {clean_name}: {e}")
+            continue
+
+    return {"status": "ok", "message": f"Сгенерировано и добавлено {saved_count} скинов!"}
+
 # 3. Сохранить (Умное сохранение: Скин + Связь)
-@app.post("/api/v1/admin/cases/save_item")
+@@app.post("/api/v1/admin/cases/save_item")
 async def admin_save_case_item(request: Request):
     data = await request.json()
     item_id = data.get("id")
     case_tag = data.get("case_tag")
     
-    # Данные самого скина (общие для всех кейсов)
+    market_hash_name = data.get("market_hash_name") or data["name"]
+
+    # -----------------------------------------------------
+    # 🖼️ 1. МАГИЯ КАРТИНОК: Ищем в skin_images_dict
+    # -----------------------------------------------------
+    icon_url = data.get("image_url", "")
+    
+    if market_hash_name:
+        img_res = supabase.table("skin_images_dict").select("icon_url").eq("market_hash_name", market_hash_name).execute()
+        
+        if img_res.data and img_res.data[0].get("icon_url"):
+            img_hash = img_res.data[0]["icon_url"]
+            # Если в базе лежит просто хэш, собираем полную ссылку Steam
+            if not img_hash.startswith("http"):
+                icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/300fx300f"
+            else:
+                icon_url = img_hash
+
+    # Если картинку вообще нигде не нашли, ставим заглушку, чтобы фронт не ломался
+    if not icon_url:
+        icon_url = "https://placehold.co/100"
+
+    # -----------------------------------------------------
+    # 💰 2. МАГИЯ ЦЕН: Ищем актуальную цену в market_cache
+    # -----------------------------------------------------
+    price_rub = float(data.get("price_rub", 0))
+    
+    # Если цена пришла нулевая (или мы хотим её жестко обновить), лезем в кэш маркета
+    if market_hash_name and price_rub <= 0:
+        price_res = supabase.table("market_cache").select("price_rub").eq("market_hash_name", market_hash_name).execute()
+        if price_res.data and price_res.data[0].get("price_rub"):
+            price_rub = float(price_res.data[0]["price_rub"])
+
+    # Считаем билеты (округляем рубли вверх, либо берем то, что передал админ)
+    price_tickets = data.get("price")
+    if not price_tickets or float(price_tickets) <= 0:
+        price_tickets = int(price_rub) # 1 рубль = 1 билет
+
+    # -----------------------------------------------------
+    # 💾 3. СОБИРАЕМ И СОХРАНЯЕМ
+    # -----------------------------------------------------
     item_payload = {
         "name": data["name"],
-        "image_url": data["image_url"],
-        "price": data["price"], # Это билеты
-        "price_rub": data.get("price_rub", 0), # <--- ВОТ ЭТА МАГИЧЕСКАЯ СТРОЧКА! Теперь рубли сохранятся.
-        "rarity": data["rarity"],
+        "image_url": icon_url,          # Взяли из словаря!
+        "price": price_tickets,         # Авто-расчет!
+        "price_rub": price_rub,         # Взяли с Маркета!
+        "rarity": data.get("rarity", "blue"),
         "condition": data.get("condition", "FN"),
+        "market_hash_name": market_hash_name,
         "is_active": True
     }
 
     try:
-        # Мы используем библиотеку supabase-py, тут синтаксис через .table()...
         if item_id:
-            # 1. Обновляем сам скин (глобально)
+            # Обновляем скин глобально
             supabase.table("cs_items").update(item_payload).eq("id", item_id).execute()
             
-            # 2. Обновляем шанс в текущем кейсе (таблица связей)
+            # Обновляем шанс в текущем кейсе
             supabase.table("cs_case_contents")\
                 .update({"chance_weight": data["chance_weight"]})\
                 .eq("item_id", item_id)\
@@ -19884,17 +20051,15 @@ async def admin_save_case_item(request: Request):
                 
             return {"status": "ok"}
         else:
-            # СОЗДАНИЕ С НУЛЯ
-            # 1. Создаем скин
+            # Создаем с нуля
             res_item = supabase.table("cs_items").insert(item_payload).execute()
             
-            # Проверяем, что данные пришли успешно
             if not res_item.data:
                 raise Exception("Ошибка при создании записи в cs_items")
                 
             new_id = res_item.data[0]['id']
             
-            # 2. Создаем связь с кейсом
+            # Привязываем к кейсу
             link_payload = {
                 "case_tag": case_tag,
                 "item_id": new_id,
@@ -19906,7 +20071,6 @@ async def admin_save_case_item(request: Request):
             
     except Exception as e:
         print(f"Save Error: {e}")
-        # Выводим подробную ошибку в консоль, чтобы знать если колонка не найдена
         raise HTTPException(status_code=500, detail=str(e))
 
 # 4. Удалить (Разрываем связь, скин остается в базе)
@@ -19914,22 +20078,30 @@ async def admin_save_case_item(request: Request):
 async def admin_delete_case_item(request: Request):
     body = await request.json()
     
-    # Фронт теперь должен присылать link_id (если есть) или id + case_tag
     link_id = body.get("link_id") 
+    item_id = body.get("id")
+    case_tag = body.get("case_tag") # Ждем с фронта для фолбэка
     
     try:
         if link_id:
-            # Удаляем конкретную связь по ID
+            # Идеальный сценарий: Удаляем конкретную связь по ID
             supabase.table("cs_case_contents").delete().eq("id", link_id).execute()
+            
+        elif item_id and case_tag:
+            # Надежный фолбэк: удаляем по уникальной связке Скин + Кейс
+            supabase.table("cs_case_contents").delete()\
+                .eq("item_id", item_id)\
+                .eq("case_tag", case_tag)\
+                .execute()
+                
         else:
-            # Фолбэк (на всякий случай)
-            item_id = body.get("id")
-            # Тут нужен case_tag, чтобы знать откуда удалять, если нет link_id
-            # Но лучше полагаться на link_id с фронта (я его добавил в JS)
-            pass
+            # Если фронт прислал совсем пустой запрос
+            raise Exception("Недостаточно данных для удаления: нужен link_id или id+case_tag")
             
         return {"status": "ok"}
+        
     except Exception as e:
+        print(f"Delete Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
         
 @app.post("/api/v1/tg/challenge/status")
