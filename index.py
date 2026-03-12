@@ -17153,6 +17153,98 @@ async def check_telegram_profile(
     except Exception as e:
         return JSONResponse({"error": str(e)}, status=500)
 
+
+# --- МАСТЕР ПЕРЕЕЗДА (АВТОМАТИКА) ---
+@app.post("/api/v1/admin/system/migrate")
+async def run_system_migration(
+    req: InitDataRequest,
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверяем, что нажал админ
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data or user_data['id'] not in ADMIN_IDS: # Убедись, что переменная ADMIN_IDS импортирована
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. Получаем текущий домен (куда переехали)
+    current_host = request.headers.get("host")
+    if not current_host:
+        return {"success": False, "message": "Не удалось определить Host"}
+        
+    dynamic_web_app_url = f"https://{current_host}"
+    results = []
+
+    # --- ФИКС TELEGRAM ---
+    try:
+        webhook_url = f"{dynamic_web_app_url}/api/v1/webhook"
+        # Добавь сюда все нужные апдейты, включая каналы
+        updates = ["message", "callback_query", "chat_member", "my_chat_member", "message_reaction", "message_reaction_count", "channel_post", "edited_channel_post"]
+        
+        await bot.delete_webhook()
+        await bot.set_webhook(url=webhook_url, allowed_updates=updates, drop_pending_updates=True)
+        results.append("✅ Telegram: Вебхук успешно обновлен.")
+    except Exception as e:
+        results.append(f"❌ Telegram: Ошибка ({str(e)})")
+
+    # --- ФИКС TWITCH ---
+    try:
+        async with httpx.AsyncClient() as client:
+            token_resp = await client.post(
+                "https://id.twitch.tv/oauth2/token",
+                data={
+                    "client_id": TWITCH_CLIENT_ID,
+                    "client_secret": TWITCH_CLIENT_SECRET,
+                    "grant_type": "client_credentials"
+                }
+            )
+            if token_resp.status_code == 200:
+                access_token = token_resp.json()["access_token"]
+                headers = {
+                    "Client-ID": TWITCH_CLIENT_ID,
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+
+                # Ищем ID админа для подписок
+                broadcaster_id = None
+                for admin_id in ADMIN_IDS:
+                    u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "twitch_id"})
+                    if u_resp.json() and u_resp.json()[0].get("twitch_id"):
+                        broadcaster_id = u_resp.json()[0]["twitch_id"]
+                        break
+                
+                if broadcaster_id:
+                    callback_url = f"{dynamic_web_app_url}/api/v1/webhooks/twitch"
+                    
+                    # Сносим старые
+                    subs_resp = await client.get("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers)
+                    if subs_resp.status_code == 200:
+                        for sub in subs_resp.json().get("data", []):
+                            await client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
+                    
+                    # Ставим новые
+                    for event_type in ["channel.channel_points_custom_reward_redemption.add", "stream.online", "stream.offline"]:
+                        await client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json={
+                            "type": event_type, "version": "1",
+                            "condition": {"broadcaster_user_id": broadcaster_id},
+                            "transport": {"method": "webhook", "callback": callback_url, "secret": TWITCH_WEBHOOK_SECRET}
+                        })
+                    results.append("✅ Twitch: Подписки EventSub успешно пересозданы.")
+                else:
+                    results.append("⚠️ Twitch: Пропущен (У админа не привязан Twitch).")
+            else:
+                results.append("❌ Twitch: Ошибка авторизации.")
+    except Exception as e:
+        results.append(f"❌ Twitch: Ошибка ({str(e)})")
+
+    return {"success": True, "domain": dynamic_web_app_url, "messages": results}
+
+# --- РОУТ ДЛЯ СТРАНИЦЫ ПЕРЕЕЗДА ---
+@app.get("/admin_transit")
+async def admin_transit_page():
+    with open("templates/admin_transit.html", "r", encoding="utf-8") as f: # Укажи свой путь к HTML
+        return HTMLResponse(content=f.read())
+
 # --- СПЕЦИАЛЬНЫЙ ЭНДПОИНТ ДЛЯ ВКЛЮЧЕНИЯ РЕАКЦИЙ ---
 @app.get("/api/v1/admin/fix_webhook")
 async def fix_webhook_settings():
