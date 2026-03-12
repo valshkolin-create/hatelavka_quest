@@ -889,7 +889,7 @@
             <div style="background: rgba(0, 122, 255, 0.15); border: 1px solid rgba(0, 122, 255, 0.3); border-radius: 12px; padding: 12px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                 <i class="fa-solid fa-clock" style="color: #007aff; font-size: 20px;"></i>
                 <div style="font-size: 12px; color: #fff; line-height: 1.3;">
-                    <b>Вывод скинов:</b> Обработка занимает до 24 часов.<br>
+                    <b>Вывод скинов:</b> Обработка занимает до 10 минут.<br>
                     <span style="opacity: 0.7;">Не хотите ждать? Обменяйте скин на билеты.</span>
                 </div>
             </div>
@@ -1881,7 +1881,7 @@ function renderInventory(items) {
 
         // Плашка, если скин был заменен
         const replacedBadge = isReplaced 
-            ? `<div style="color: #FFD700; font-size: 8px; font-weight: 800; margin-bottom: 3px; text-transform: uppercase;"><i class="fa-solid fa-rotate"></i> Выдана замена</div>` 
+            ? `<div style="color: #FFD700; font-size: 8px; font-weight: 800; margin-bottom: 3px; text-transform: uppercase;"><i class="fa-solid fa-rotate"></i> Запрошена замена</div>` 
             : '';
 
         const timerElementId = `timer-${item.history_id}`;
