@@ -1119,6 +1119,7 @@
 <script>
     const tg = window.Telegram.WebApp;
     let isUpdating = false; // 🔥 Добавляем сюда
+    let inventoryRefreshInterval = null;
 
     
 
@@ -2575,12 +2576,28 @@ window.checkTradeStatus = async function(historyId) {
     if (dom.btnOpenInventory) {
         dom.btnOpenInventory.onclick = () => {
             dom.modalInventory.classList.add('visible');
+
+            // 🔥 ЗАПУСКАЕМ АВТО-ОБНОВЛЕНИЕ (раз в 30 секунд)
+            if (!inventoryRefreshInterval) {
+                inventoryRefreshInterval = setInterval(() => {
+                    if (typeof loadData === 'function') {
+                        loadData(true); // Обновляем без лоадера
+                    }
+                }, 30000); 
+            }
+
             // Показываем кнопку "Назад" в самом Телеграме
             if (tg.BackButton) {
                  tg.BackButton.show();
                  tg.BackButton.onClick(() => { 
                      dom.modalInventory.classList.remove('visible'); 
                      tg.BackButton.hide(); 
+
+                     // 🛑 ОСТАНАВЛИВАЕМ ОБНОВЛЕНИЕ при нажатии "Назад"
+                     if (inventoryRefreshInterval) {
+                         clearInterval(inventoryRefreshInterval);
+                         inventoryRefreshInterval = null;
+                     }
                  });
             }
         };
@@ -2589,19 +2606,15 @@ window.checkTradeStatus = async function(historyId) {
     if (dom.btnCloseInventory) {
         dom.btnCloseInventory.onclick = () => {
             dom.modalInventory.classList.remove('visible');
+
+            // 🛑 ОСТАНАВЛИВАЕМ ОБНОВЛЕНИЕ при закрытии крестиком
+            if (inventoryRefreshInterval) {
+                clearInterval(inventoryRefreshInterval);
+                inventoryRefreshInterval = null;
+            }
+
             // Скрываем нативную кнопку назад при закрытии крестиком
             if (tg.BackButton) tg.BackButton.hide();
-        };
-    }
-
-    if (dom.deleteAllRewardsBtn) {
-        dom.deleteAllRewardsBtn.onclick = () => {
-            showCustomConfirmHTML("Удалить ВСЕ награды?", async (c) => {
-                 await makeApiRequest('/api/v1/user/promocodes/delete-all');
-                 await makeApiRequest('/api/v1/user/grants/delete-all');
-                 renderRewards([]);
-                 c();
-            });
         };
     }
     // Логика кнопки "Удалить историю" (ВНУТРИ МОДАЛКИ ПРОМОКОДОВ)
