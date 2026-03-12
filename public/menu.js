@@ -1204,16 +1204,39 @@ window.openCaseContents = async function(event, caseName) {
 window.closeContentsModal = () => document.getElementById('case-contents-modal').classList.add('hidden');
 
 window.showReplacementChoice = function(options, historyId) {
-    const modal = document.getElementById('replacement-modal'); const container = document.getElementById('replacement-options-list');
+    const modal = document.getElementById('replacement-modal'); 
+    const container = document.getElementById('replacement-options-list');
+    
     container.innerHTML = options.map(item => {
         let r = (item.rarity || '').toLowerCase(), rClass = 'blue';
-        if (r.includes('purple')) rClass = 'purple'; else if (r.includes('pink')) rClass = 'pink'; else if (r.includes('red')) rClass = 'red'; else if (r.includes('gold')) rClass = 'gold';
-        const isSticker = item.name_ru.toLowerCase().includes('наклейка') ? 'is-sticker' : '';
-        return `<div class="replacement-card ${rClass} ${isSticker}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${item.name_ru.replace(/'/g, "")}')"><img src="${item.icon_url}" loading="lazy"><div class="replacement-text-zone"><div class="replacement-name">${escapeHTML(item.name_ru.split('|').pop().trim())}</div><div class="replacement-condition">${escapeHTML(item.condition || '-')}</div></div></div>`;
+        if (r.includes('purple')) rClass = 'purple'; 
+        else if (r.includes('pink')) rClass = 'pink'; 
+        else if (r.includes('red')) rClass = 'red'; 
+        else if (r.includes('gold')) rClass = 'gold';
+        
+        // Разбиваем имя на Тип (Наклейка/Граффити) и Название
+        const parts = item.name_ru.split('|');
+        const itemType = parts.length > 1 ? parts[0].trim() : ''; 
+        const itemName = parts.length > 1 ? parts[1].trim() : item.name_ru;
+        const safeFullName = item.name_ru.replace(/'/g, "");
+
+        return `<div class="replacement-card ${rClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeFullName}')">
+            <div class="replacement-image-wrapper">
+                <img src="${item.icon_url}" loading="lazy">
+            </div>
+            <div class="replacement-text-zone">
+                ${itemType ? `<div class="replacement-type">${escapeHTML(itemType)}</div>` : ''}
+                <div class="replacement-name">${escapeHTML(itemName)}</div>
+                <div class="replacement-condition">${escapeHTML(item.condition || '-')}</div>
+            </div>
+        </div>`;
     }).join('');
+    
     modal.classList.remove('hidden');
 }
+
 window.closeReplacementModal = () => document.getElementById('replacement-modal').classList.add('hidden');
+
 window.initiateReplacementConfirm = (historyId, assetid, itemName) => {
     showShopModal({ title: "Подтвердить выбор?", subtitle: `Вы выбрали "${itemName}". Трейд отправится моментально.`, confirmText: "ЗАБРАТЬ", confirmClass: "btn-yellow-modal", onConfirm: async (closeConfirm) => {
         const loader = document.getElementById('purchase-loader'); if (loader) loader.classList.add('active');
