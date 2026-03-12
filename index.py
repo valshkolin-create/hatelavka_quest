@@ -19925,7 +19925,7 @@ async def admin_auto_generate_case(request: Request):
         for _ in range(tier["count"]):
             # Ищем скины в кэше маркета в этом ценовом диапазоне
             market_res = supabase.table("market_cache")\
-                .select("market_hash_name, price_rub")\
+                .select("market_hash_name, price_rub, rarity")\
                 .gte("price_rub", min_p)\
                 .lte("price_rub", max_p)\
                 .eq("is_available", True)\
@@ -19937,6 +19937,7 @@ async def admin_auto_generate_case(request: Request):
                 continue # Если ничего не нашли, пропускаем (хотя при нормальной базе такого не будет)
 
             # Перемешиваем и ищем уникальный скин
+            import random
             random.shuffle(items)
             selected_item = None
             for item in items:
@@ -19952,7 +19953,7 @@ async def admin_auto_generate_case(request: Request):
             generated_items.append({
                 "market_hash_name": selected_item["market_hash_name"],
                 "price_rub": selected_item["price_rub"],
-                "rarity": tier["rarity"],
+                "rarity": selected_item.get("rarity", "blue"),
                 "chance_weight": tier["weight"]
             })
 
@@ -19970,6 +19971,7 @@ async def admin_auto_generate_case(request: Request):
 
     # 4. Обрабатываем и сохраняем в базу (cs_items + cs_case_contents)
     saved_count = 0
+    import re
     for item in generated_items:
         raw_name = item["market_hash_name"]
         
@@ -19991,37 +19993,51 @@ async def admin_auto_generate_case(request: Request):
         else:
             icon_url = img_hash or "https://placehold.co/100"
 
-        # Формируем Payload скина
-        item_payload = {
-            "name": clean_name,
-            "image_url": icon_url,
-            "price": int(item["price_rub"]), # Билеты = Рубли (округленно)
-            "price_rub": item["price_rub"],
-            "rarity": item["rarity"],
-            "condition": condition,
-            "is_active": True
-        }
-
+        skin_id = None
         try:
-            # Создаем скин глобально
-            res_item = supabase.table("cs_items").insert(item_payload).execute()
-            if res_item.data:
-                new_id = res_item.data[0]['id']
-                
-                # Привязываем к кейсу
-                link_payload = {
+            existing_skin = supabase.table("cs_items").select("id").eq("market_hash_name", raw_name).limit(1).execute()
+            
+            if existing_skin.data:
+                skin_id = existing_skin.data[0]['id']
+            else:
+                # Формируем Payload скина (ПОЛНЫЙ)
+                item_payload = {
+                    "name": clean_name,
+                    "image_url": icon_url,
+                    "rarity": item["rarity"],
+                    "condition": condition,
+                    "chance_weight": item["chance_weight"],
+                    "quantity": 1,
+                    "is_active": True,
+                    "boost_percent": 0,
+                    "price": int(item["price_rub"] * 0.6), # Билеты = 60% от рублей
                     "case_tag": case_tag,
-                    "item_id": new_id,
-                    "chance_weight": item["chance_weight"]
+                    "price_rub": item["price_rub"],
+                    "market_hash_name": raw_name
                 }
-                supabase.table("cs_case_contents").insert(link_payload).execute()
-                saved_count += 1
+
+                # Создаем скин глобально
+                res_item = supabase.table("cs_items").insert(item_payload).execute()
+                if res_item.data:
+                    skin_id = res_item.data[0]['id']
+
+            if skin_id:
+                existing_link = supabase.table("cs_case_contents").select("id").eq("case_tag", case_tag).eq("item_id", skin_id).execute()
+                if not existing_link.data:
+                    # Привязываем к кейсу
+                    link_payload = {
+                        "case_tag": case_tag,
+                        "item_id": skin_id,
+                        "chance_weight": item["chance_weight"]
+                    }
+                    supabase.table("cs_case_contents").insert(link_payload).execute()
+                    saved_count += 1
         except Exception as e:
             print(f"Ошибка сохранения {clean_name}: {e}")
             continue
 
     return {"status": "ok", "message": f"Сгенерировано и добавлено {saved_count} скинов!"}
-
+    
 # 3. Сохранить (Умное сохранение: Скин + Связь)
 @app.post("/api/v1/admin/cases/save_item")
 async def admin_save_case_item(request: Request):
@@ -20062,10 +20078,10 @@ async def admin_save_case_item(request: Request):
         if price_res.data and price_res.data[0].get("price_rub"):
             price_rub = float(price_res.data[0]["price_rub"])
 
-    # Считаем билеты (округляем рубли вверх, либо берем то, что передал админ)
+    # Считаем билеты (60% от рублей)
     price_tickets = data.get("price")
     if not price_tickets or float(price_tickets) <= 0:
-        price_tickets = int(price_rub) # 1 рубль = 1 билет
+        price_tickets = int(price_rub * 0.6)
 
     # -----------------------------------------------------
     # 💾 3. СОБИРАЕМ И СОХРАНЯЕМ
@@ -20073,12 +20089,16 @@ async def admin_save_case_item(request: Request):
     item_payload = {
         "name": data["name"],
         "image_url": icon_url,          # Взяли из словаря!
-        "price": price_tickets,         # Авто-расчет!
+        "price": price_tickets,         # Авто-расчет 60%!
         "price_rub": price_rub,         # Взяли с Маркета!
         "rarity": data.get("rarity", "blue"),
         "condition": data.get("condition", "FN"),
-        "market_hash_name": market_hash_name,
-        "is_active": True
+        "chance_weight": data.get("chance_weight", 10), # Строго по структуре БД
+        "quantity": data.get("quantity", 1),            # Строго по структуре БД
+        "is_active": data.get("is_active", True),       # Строго по структуре БД
+        "boost_percent": data.get("boost_percent", 0),  # Строго по структуре БД
+        "case_tag": case_tag,                           # Строго по структуре БД
+        "market_hash_name": market_hash_name
     }
 
     try:
