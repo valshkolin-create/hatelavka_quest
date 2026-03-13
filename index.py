@@ -2140,45 +2140,66 @@ class MarketCSGO:
         import httpx
         import urllib.parse
         import logging
+        import asyncio # 🔥 Нужен для паузы между попытками
 
         if params is None:
             params = {}
         params['key'] = self.api_key
         
-        # 🔥 Обходим особенность httpx: Маркету нужны пробелы строго как %20
         query_parts = []
         for k, v in params.items():
-            # quote с safe='' кодирует всё, пробелы становятся %20, а не плюсами
             query_parts.append(f"{k}={urllib.parse.quote(str(v), safe='')}")
             
         query_string = "&".join(query_parts)
         url = f"{self.base_url}/{endpoint}?{query_string}"
         
-        async with httpx.AsyncClient() as client:
-            try:
-                # logging.info(f"[MARKET DEBUG] URL запроса: {url}") # Раскомментируй, чтобы видеть готовую ссылку в логах
-                response = await client.get(url, timeout=15.0)
-                
-                # 🔥 НОВАЯ БРОНЯ: Проверяем статус-код сервера ДО попытки парсинга JSON
-                if response.status_code != 200:
-                    logging.error(f"[MARKET API] Сервер Маркета вернул ошибку {response.status_code} для {endpoint}.")
-                    # Возвращаем понятный словарь, чтобы код выше понял, что это ошибка API
-                    return {"success": False, "error": f"http_error_{response.status_code}"}
-                
-                # 🔥 БРОНЯ ПАРСЕРА: Пытаемся безопасно прочитать JSON
-                try:
-                    return response.json()
-                except ValueError: # Это перехватит ошибку json.decoder.JSONDecodeError (char 0)
-                    logging.error(f"[MARKET API] Маркет отдал невалидный JSON для {endpoint}. Первые 100 символов: {response.text[:100]}")
-                    return {"success": False, "error": "invalid_json_response"}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
 
-            except httpx.TimeoutException:
-                logging.error(f"[MARKET API] Таймаут соединения при запросе {endpoint}.")
-                return {"success": False, "error": "timeout"}
-            except Exception as e:
-                logging.error(f"[MARKET API] Системная ошибка запроса {endpoint}: {e}")
-                # 👇 Вот тут не хватало закрывающей скобки в конце
-                return {"success": False, "error": str(e)}
+        # 🔥 АВТО-ПОВТОРЫ (Защита от лимитов Маркета)
+        max_retries = 3
+        
+        async with httpx.AsyncClient() as client:
+            for attempt in range(max_retries):
+                try:
+                    response = await client.get(url, headers=headers, timeout=15.0)
+                    
+                    # Если Маркет ругается на спам или лагает (502, 503, 429)
+                    if response.status_code in [502, 503, 504, 429]:
+                        if attempt < max_retries - 1:
+                            logging.warning(f"[MARKET API] Лимит/Лаг ({response.status_code}). Ждем 2 сек и повторяем (Попытка {attempt + 2}/{max_retries})...")
+                            await asyncio.sleep(2.0) # Спим 2 секунды перед повтором
+                            continue # Пробуем еще раз
+                        else:
+                            logging.error(f"[MARKET API] Сервер Маркета окончательно сдался ({response.status_code}) для {endpoint}.")
+                            return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
+
+                    # Если другая ошибка (например, 400, 403)
+                    if response.status_code != 200:
+                        logging.error(f"[MARKET API] Ошибка {response.status_code} для {endpoint}.")
+                        return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
+                    
+                    # Пытаемся безопасно прочитать JSON
+                    try:
+                        return response.json()
+                    except ValueError:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(1.0)
+                            continue
+                        logging.error(f"[MARKET API] Маркет отдал мусор вместо JSON для {endpoint}.")
+                        return {"success": False, "error": "invalid_json_response"}
+
+                except httpx.TimeoutException:
+                    if attempt < max_retries - 1:
+                        logging.warning(f"[MARKET API] Таймаут. Повторяем ({attempt + 2}/{max_retries})...")
+                        await asyncio.sleep(1.5)
+                        continue
+                    return {"success": False, "error": "timeout"}
+                except Exception as e:
+                    logging.error(f"[MARKET API] Системная ошибка запроса {endpoint}: {e}")
+                    return {"success": False, "error": str(e)}
 
     async def get_lowest_price(self, hash_name: str):
         import logging
