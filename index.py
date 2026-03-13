@@ -2126,14 +2126,15 @@ class MarketCSGO:
             return {"valid": False, "error": response.get("error", "Ошибка Steam")}
             
     async def _make_request(self, endpoint: str, params: dict = None) -> dict:
+        import httpx
+        import urllib.parse
+        import logging
+
         if params is None:
             params = {}
         params['key'] = self.api_key
         
         # 🔥 Обходим особенность httpx: Маркету нужны пробелы строго как %20
-        import urllib.parse
-        import logging
-        
         query_parts = []
         for k, v in params.items():
             # quote с safe='' кодирует всё, пробелы становятся %20, а не плюсами
@@ -2146,10 +2147,26 @@ class MarketCSGO:
             try:
                 # logging.info(f"[MARKET DEBUG] URL запроса: {url}") # Раскомментируй, чтобы видеть готовую ссылку в логах
                 response = await client.get(url, timeout=15.0)
-                return response.json()
+                
+                # 🔥 НОВАЯ БРОНЯ: Проверяем статус-код сервера ДО попытки парсинга JSON
+                if response.status_code != 200:
+                    logging.error(f"[MARKET API] Сервер Маркета вернул ошибку {response.status_code} для {endpoint}.")
+                    # Возвращаем понятный словарь, чтобы код выше понял, что это ошибка API
+                    return {"success": False, "error": f"http_error_{response.status_code}"}
+                
+                # 🔥 БРОНЯ ПАРСЕРА: Пытаемся безопасно прочитать JSON
+                try:
+                    return response.json()
+                except ValueError: # Это перехватит ошибку json.decoder.JSONDecodeError (char 0)
+                    logging.error(f"[MARKET API] Маркет отдал невалидный JSON для {endpoint}. Первые 100 символов: {response.text[:100]}")
+                    return {"success": False, "error": "invalid_json_response"}
+
+            except httpx.TimeoutException:
+                logging.error(f"[MARKET API] Таймаут соединения при запросе {endpoint}.")
+                return {"success": False, "error": "timeout"}
             except Exception as e:
-                logging.error(f"[MARKET API] Ошибка запроса {endpoint}: {e}")
-                return {"success": False, "error": str(e)}
+                logging.error(f"[MARKET API] Системная ошибка запроса {endpoint}: {e}")
+                return {"success": False, "error": str(e)
 
     async def get_lowest_price(self, hash_name: str):
         import logging
