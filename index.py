@@ -2059,21 +2059,29 @@ def decode_cookie(value: str | None) -> dict | None:
     except Exception: return None
 
 def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
+    import urllib.parse
+    import logging
+    import hmac
+    import hashlib
+    import json
+
     try:
-        # --- 🔍 DEBUG LOGS ---
         if not init_data:
             logging.error("❌ Validation Error: initData is EMPTY or None!")
             return None
-            
-        # Логируем первые 50 символов, чтобы понять, что пришло (не паля весь хеш)
-        # logging.info(f"🔍 Validating initData (start): {init_data[:50]}...") 
-        # ---------------------
 
-        parsed_data = dict(parse_qsl(init_data))
-        
+        # 🔥 1. БЕЗОПАСНЫЙ ПАРСИНГ: Не используем parse_qsl, чтобы не сломать 
+        # символы '+' и пустые значения у некоторых пользователей.
+        parsed_data = {}
+        for pair in init_data.split('&'):
+            if '=' not in pair:
+                continue
+            k, v = pair.split('=', 1)
+            # Используем строгий unquote, он оставляет плюсы плюсами
+            parsed_data[urllib.parse.unquote(k)] = urllib.parse.unquote(v)
+            
         if "hash" not in parsed_data:
-            # 🔥 ВОТ ТУТ МЫ УВИДИМ, ЧТО ПРИШЛО, ЕСЛИ НЕТ ХЕША
-            logging.error(f"❌ Validation Error: 'hash' not found. Raw data: {init_data}")
+            logging.error(f"❌ Validation Error: 'hash' not found. Raw data: {init_data[:100]}")
             return None
             
         received_hash = parsed_data.pop("hash")
@@ -2083,18 +2091,21 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
         
         for token in valid_tokens:
             if not token: continue
-            secret_key = hmac.new("WebAppData".encode(), token.encode(), hashlib.sha256).digest()
+            
+            secret_key = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
             calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
             
             if calculated_hash == received_hash:
                 return json.loads(parsed_data.get("user", "{}"))
                 
-        logging.error("❌ HASH MISMATCH - Подпись не совпала (проверьте BOT_TOKEN).")
+        # Если дошли сюда, ни один токен не подошел
+        logging.error("❌ HASH MISMATCH - Подпись не совпала. Проверьте токены.")
         return None
+        
     except Exception as e:
         logging.error(f"Error checking hash: {e}")
         return None
-
+        
 # ⬇️⬇️⬇️ ВСТАВЛЯЕМ КЛАСС МАРКЕТА СЮДА ⬇️⬇️⬇️
 
 class MarketCSGO:
