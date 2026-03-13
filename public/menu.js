@@ -1199,7 +1199,7 @@ window.sellForTickets = function(itemId, price) {
     }});
 }
 
-window.openCaseContents = async function(event, caseName, casePrice) {
+window.openCaseContents = async function(event, caseName, casePriceCoins) {
     if (event) event.stopPropagation();
     
     const modal = document.getElementById('case-contents-modal'); 
@@ -1222,21 +1222,22 @@ window.openCaseContents = async function(event, caseName, casePrice) {
     try {
         const data = await makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(caseName)}`, {}, 'GET', true);
         
-        // Сортируем предметы от дорогих к дешевым
-        data.sort((a,b) => (parseFloat(b.price)||0) - (parseFloat(a.price)||0));
+        // Сортируем предметы по РУБЛЕВОЙ цене от дорогих к дешевым
+        data.sort((a,b) => (parseFloat(b.price_rub) || 0) - (parseFloat(a.price_rub) || 0));
 
-        // --- МАТЕМАТИЧЕСКИЙ ПОДСЧЕТ ШАНСА ПО ВЕСАМ ---
+        // --- ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ ПОДСЧЕТ ПО РУБЛЯМ ---
         let totalWeight = 0;
         let profitableWeight = 0;
         
         data.forEach(item => {
-            const itemPrice = parseFloat(item.price) || 0;
+            // Берем именно рублевую цену скина из БД
+            const itemPriceRub = parseFloat(item.price_rub) || 0;
             const weight = parseFloat(item.chance_weight) || 0;
             
             totalWeight += weight;
             
-            // Если цена предмета больше цены кейса — это чистый окуп
-            if (casePrice && itemPrice > casePrice) {
+            // Если рублевая цена скина больше базовой цены кейса (в монетах) — это окуп
+            if (casePriceCoins && itemPriceRub > casePriceCoins) {
                 profitableWeight += weight;
             }
         });
@@ -1249,20 +1250,35 @@ window.openCaseContents = async function(event, caseName, casePrice) {
         
         // Рендерим плашку со статистикой
         statsBlock.innerHTML = `
-            <div style="background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 8px;">
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 6px;">
                     <div style="text-align: center;">
-                        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Базовый шанс окупа</div>
-                        <div style="font-size: 18px; font-weight: 900; color: ${profitChance > 10 ? '#34c759' : '#ffcc00'}; text-shadow: 0 0 10px rgba(52, 199, 89, 0.3);">${profitChance}%</div>
+                        <div style="font-size: 9px; color: #8e8e93; text-transform: uppercase; margin-bottom: 2px;">Шанс окупа (в 🟡)</div>
+                        <div style="font-size: 16px; font-weight: 900; color: ${profitChance > 10 ? '#34c759' : '#ffcc00'}; text-shadow: 0 0 10px rgba(52, 199, 89, 0.3);">${profitChance}%</div>
                     </div>
-                    <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.1);"></div>
+                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.1);"></div>
                     <div style="text-align: center;">
-                        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Цена кейса</div>
-                        <div style="font-size: 18px; font-weight: 900; color: #fff;">${casePrice || '?'} 🟡</div>
+                        <div style="font-size: 9px; color: #8e8e93; text-transform: uppercase; margin-bottom: 2px;">Цена кейса</div>
+                        <div style="font-size: 16px; font-weight: 900; color: #fff;">${casePriceCoins || '?'} 🟡</div>
                     </div>
                 </div>
-                <div style="text-align: center; font-size: 10px; color: #ffcc00; font-weight: 700; background: rgba(255, 204, 0, 0.1); padding: 4px; border-radius: 6px;">
-                    🔥 С учетом Гаранта шанс на окуп возрастает!
+                
+                <div style="background: rgba(0, 0, 0, 0.2); border-radius: 8px; padding: 8px; margin-top: 8px;">
+                    <div style="font-size: 9px; font-weight: 800; color: #8e8e93; text-transform: uppercase; margin-bottom: 6px; text-align: center; letter-spacing: 0.5px;">Справка по кейсам</div>
+                    <div style="font-size: 9px; color: #ccc; line-height: 1.4; display: flex; flex-direction: column; gap: 5px;">
+                        <div style="display: flex; align-items: flex-start; gap: 5px;">
+                            <i class="fa-solid fa-circle-exclamation" style="color: #ffd700; font-size: 10px; margin-top: 1px;"></i>
+                            <span><b>Окупаемость</b> рассчитывается строго от цены кейса в <b>монетах (🟡)</b>. Цена скинов указана в рублях (₽).</span>
+                        </div>
+                        <div style="display: flex; align-items: flex-start; gap: 5px;">
+                            <i class="fa-solid fa-ticket" style="color: #2AABEE; font-size: 10px; margin-top: 1px;"></i>
+                            <span><b>Билеты (🎟️)</b> — валюта активности. Их ценность не привязана напрямую к реальной стоимости скинов на рынке.</span>
+                        </div>
+                        <div style="display: flex; align-items: flex-start; gap: 5px;">
+                            <i class="fa-solid fa-shield-halved" style="color: #34c759; font-size: 10px; margin-top: 1px;"></i>
+                            <span><b>Система Гаранта:</b> на 5-е открытие шанс на окуп математически повышается, а дешевый дроп отсекается.</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -1276,12 +1292,12 @@ window.openCaseContents = async function(event, caseName, casePrice) {
             else if (r.includes('red')) rClass = 'red'; 
             else if (r.includes('gold')) rClass = 'gold';
 
-            // Подсвечиваем цену предмета зеленым (если окуп) или красным (если минус)
-            const itemPrice = parseFloat(item.price) || 0;
-            const isProfitable = casePrice && (itemPrice > casePrice);
+            // Цена в рублях
+            const itemPriceRub = parseFloat(item.price_rub) || 0;
+            const isProfitable = casePriceCoins && (itemPriceRub > casePriceCoins);
             const priceColor = isProfitable ? '#34c759' : '#ff3b30';
             
-            // Если предмет окупаемый, добавим ему легкое свечение для привлечения внимания
+            // Если предмет окупаемый, добавляем зеленое свечение
             const glowStyle = isProfitable ? `box-shadow: 0 0 10px rgba(52, 199, 89, 0.2); border: 1px solid rgba(52, 199, 89, 0.3);` : '';
 
             return `
@@ -1289,7 +1305,7 @@ window.openCaseContents = async function(event, caseName, casePrice) {
                     <img src="${item.image_url}" loading="lazy">
                     <div class="content-name">${item.name.split('|').pop().trim()}</div>
                     <div class="content-quality">${item.condition || 'FN'}</div>
-                    <div style="margin-top: 6px; font-size: 12px; font-weight: 800; color: ${priceColor};">${itemPrice} 🟡</div>
+                    <div style="margin-top: 6px; font-size: 12px; font-weight: 800; color: ${priceColor};">${itemPriceRub} ₽</div>
                 </div>
             `;
         }).join('');
