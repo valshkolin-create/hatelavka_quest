@@ -1007,7 +1007,7 @@ function renderItems(items) {
             
             el.innerHTML = `
                 <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
-                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}')" style="background: transparent; padding-top: 80%;">
+                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${item.price})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
                 </div>
@@ -1199,19 +1199,106 @@ window.sellForTickets = function(itemId, price) {
     }});
 }
 
-window.openCaseContents = async function(event, caseName) {
+window.openCaseContents = async function(event, caseName, casePrice) {
     if (event) event.stopPropagation();
-    const modal = document.getElementById('case-contents-modal'); const list = document.getElementById('case-items-list'); const loader = document.getElementById('contents-loader');
-    modal.classList.remove('hidden'); loader.style.display = 'block'; list.innerHTML = '';
+    
+    const modal = document.getElementById('case-contents-modal'); 
+    const list = document.getElementById('case-items-list'); 
+    const loader = document.getElementById('contents-loader');
+    
+    // Блок для статистики
+    let statsBlock = document.getElementById('case-stats-block');
+    if (!statsBlock) {
+        statsBlock = document.createElement('div');
+        statsBlock.id = 'case-stats-block';
+        list.parentNode.insertBefore(statsBlock, list);
+    }
+
+    modal.classList.remove('hidden'); 
+    loader.style.display = 'block'; 
+    list.innerHTML = '';
+    statsBlock.innerHTML = '';
+
     try {
         const data = await makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(caseName)}`, {}, 'GET', true);
+        
+        // Сортируем предметы от дорогих к дешевым
         data.sort((a,b) => (parseFloat(b.price)||0) - (parseFloat(a.price)||0));
+
+        // --- МАТЕМАТИЧЕСКИЙ ПОДСЧЕТ ШАНСА ПО ВЕСАМ ---
+        let totalWeight = 0;
+        let profitableWeight = 0;
+        
+        data.forEach(item => {
+            const itemPrice = parseFloat(item.price) || 0;
+            const weight = parseFloat(item.chance_weight) || 0;
+            
+            totalWeight += weight;
+            
+            // Если цена предмета больше цены кейса — это чистый окуп
+            if (casePrice && itemPrice > casePrice) {
+                profitableWeight += weight;
+            }
+        });
+
+        // Считаем реальный процент
+        let profitChance = 0;
+        if (totalWeight > 0) {
+            profitChance = ((profitableWeight / totalWeight) * 100).toFixed(1);
+        }
+        
+        // Рендерим плашку со статистикой
+        statsBlock.innerHTML = `
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 8px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Базовый шанс окупа</div>
+                        <div style="font-size: 18px; font-weight: 900; color: ${profitChance > 10 ? '#34c759' : '#ffcc00'}; text-shadow: 0 0 10px rgba(52, 199, 89, 0.3);">${profitChance}%</div>
+                    </div>
+                    <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.1);"></div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Цена кейса</div>
+                        <div style="font-size: 18px; font-weight: 900; color: #fff;">${casePrice || '?'} 🟡</div>
+                    </div>
+                </div>
+                <div style="text-align: center; font-size: 10px; color: #ffcc00; font-weight: 700; background: rgba(255, 204, 0, 0.1); padding: 4px; border-radius: 6px;">
+                    🔥 С учетом Гаранта шанс на окуп возрастает!
+                </div>
+            </div>
+        `;
+
+        // Рендерим сами предметы
         list.innerHTML = data.map(item => {
-            let rClass = 'blue'; const r = (item.rarity || '').toLowerCase();
-            if (r.includes('purple')) rClass = 'purple'; else if (r.includes('pink')) rClass = 'pink'; else if (r.includes('red')) rClass = 'red'; else if (r.includes('gold')) rClass = 'gold';
-            return `<div class="content-item ${rClass}"><img src="${item.image_url}" loading="lazy"><div class="content-name">${item.name.split('|').pop().trim()}</div><div class="content-quality">${item.condition || 'FN'}</div></div>`;
+            let rClass = 'blue'; 
+            const r = (item.rarity || '').toLowerCase();
+            if (r.includes('purple')) rClass = 'purple'; 
+            else if (r.includes('pink')) rClass = 'pink'; 
+            else if (r.includes('red')) rClass = 'red'; 
+            else if (r.includes('gold')) rClass = 'gold';
+
+            // Подсвечиваем цену предмета зеленым (если окуп) или красным (если минус)
+            const itemPrice = parseFloat(item.price) || 0;
+            const isProfitable = casePrice && (itemPrice > casePrice);
+            const priceColor = isProfitable ? '#34c759' : '#ff3b30';
+            
+            // Если предмет окупаемый, добавим ему легкое свечение для привлечения внимания
+            const glowStyle = isProfitable ? `box-shadow: 0 0 10px rgba(52, 199, 89, 0.2); border: 1px solid rgba(52, 199, 89, 0.3);` : '';
+
+            return `
+                <div class="content-item ${rClass}" style="position: relative; ${glowStyle}">
+                    <img src="${item.image_url}" loading="lazy">
+                    <div class="content-name">${item.name.split('|').pop().trim()}</div>
+                    <div class="content-quality">${item.condition || 'FN'}</div>
+                    <div style="margin-top: 6px; font-size: 12px; font-weight: 800; color: ${priceColor};">${itemPrice} 🟡</div>
+                </div>
+            `;
         }).join('');
-    } catch (e) { list.innerHTML = `<div style="text-align:center; grid-column:1/-1; color:#ff453a;">Ошибка</div>`; } finally { loader.style.display = 'none'; }
+        
+    } catch (e) { 
+        list.innerHTML = `<div style="text-align:center; grid-column:1/-1; color:#ff453a; padding: 20px;">Ошибка загрузки содержимого</div>`; 
+    } finally { 
+        loader.style.display = 'none'; 
+    }
 }
 window.closeContentsModal = () => document.getElementById('case-contents-modal').classList.add('hidden');
 
