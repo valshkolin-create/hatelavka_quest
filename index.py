@@ -2136,7 +2136,7 @@ class MarketCSGO:
         else:
             return {"valid": False, "error": response.get("error", "Ошибка Steam")}
             
- async def _make_request(self, endpoint: str, params: dict = None) -> dict:
+    async def _make_request(self, endpoint: str, params: dict = None) -> dict:
         import httpx
         import urllib.parse
         import logging
