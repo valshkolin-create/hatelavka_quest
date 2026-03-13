@@ -19259,7 +19259,7 @@ async def withdraw_inventory_item(
         # 🔥 ИНЪЕКЦИЯ ПРОВЕРКИ МАРКЕТА (Защита от двойной отправки) 🔥
         # ==========================================
         if not delivery_res.get("success"):
-            market_key = os.getenv("CS_MARKET_API_KEY")
+            market_key = os.getenv("CSGO_MARKET_API_KEY")
             if market_key:
                 try:
                     # 🔥 ЗАМЕНЯЕМ СЫРОЙ HTTPX НА НАШ КЛАСС
