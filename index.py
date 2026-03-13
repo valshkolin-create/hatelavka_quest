@@ -2204,7 +2204,7 @@ class MarketCSGO:
                     logging.error(f"[MARKET API] Системная ошибка {endpoint}: {e}")
                     return {"success": False, "error": str(e)}
                     
- async def get_lowest_price(self, hash_name: str):
+    async def get_lowest_price(self, hash_name: str):
         import logging
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
         
