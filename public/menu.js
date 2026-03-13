@@ -1225,36 +1225,37 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
         // Сортируем предметы по РУБЛЕВОЙ цене от дорогих к дешевым
         data.sort((a,b) => (parseFloat(b.price_rub) || 0) - (parseFloat(a.price_rub) || 0));
 
-        // --- ТОЧНЫЙ МАТЕМАТИЧЕСКИЙ ПОДСЧЕТ ПО РУБЛЯМ ---
+       // --- "ПРИУКРАШЕННЫЙ" МАТЕМАТИЧЕСКИЙ ПОДСЧЕТ ---
         let totalWeight = 0;
-        let profitableWeight = 0;
+        let goodDropWeight = 0;
         
         data.forEach(item => {
-            // Берем именно рублевую цену скина из БД
             const itemPriceRub = parseFloat(item.price_rub) || 0;
             const weight = parseFloat(item.chance_weight) || 0;
             
             totalWeight += weight;
             
-            // Если рублевая цена скина больше базовой цены кейса (в монетах) — это окуп
-            if (casePriceCoins && itemPriceRub > casePriceCoins) {
-                profitableWeight += weight;
+            // Считаем "годным дропом" всё, что стоит больше 40% от цены кейса. 
+            // Это поднимет визуальный процент до комфортных значений (15-30%+)
+            if (casePriceCoins && itemPriceRub >= (casePriceCoins * 0.4)) {
+                goodDropWeight += weight;
             }
         });
 
-        // Считаем реальный процент
+        // Считаем красивый процент
         let profitChance = 0;
         if (totalWeight > 0) {
-            profitChance = ((profitableWeight / totalWeight) * 100).toFixed(1);
+            profitChance = ((goodDropWeight / totalWeight) * 100).toFixed(1);
         }
         
-        // Рендерим плашку со статистикой
+        // Рендерим плашку со статистикой и правилами
         statsBlock.innerHTML = `
-            <div style="background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 6px;">
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 16px;">
+                
+                <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 12px;">
                     <div style="text-align: center;">
-                        <div style="font-size: 9px; color: #8e8e93; text-transform: uppercase; margin-bottom: 2px;">Шанс окупа (в 🟡)</div>
-                        <div style="font-size: 16px; font-weight: 900; color: ${profitChance > 10 ? '#34c759' : '#ffcc00'}; text-shadow: 0 0 10px rgba(52, 199, 89, 0.3);">${profitChance}%</div>
+                        <div style="font-size: 9px; color: #8e8e93; text-transform: uppercase; margin-bottom: 2px;">Шанс на годный дроп</div>
+                        <div style="font-size: 16px; font-weight: 900; color: ${profitChance > 15 ? '#34c759' : '#ffcc00'}; text-shadow: 0 0 10px rgba(52, 199, 89, 0.2);">${profitChance}%</div>
                     </div>
                     <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.1);"></div>
                     <div style="text-align: center;">
@@ -1263,21 +1264,25 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                     </div>
                 </div>
                 
-                <div style="background: rgba(0, 0, 0, 0.2); border-radius: 8px; padding: 8px; margin-top: 8px;">
-                    <div style="font-size: 9px; font-weight: 800; color: #8e8e93; text-transform: uppercase; margin-bottom: 6px; text-align: center; letter-spacing: 0.5px;">Справка по кейсам</div>
-                    <div style="font-size: 9px; color: #ccc; line-height: 1.4; display: flex; flex-direction: column; gap: 5px;">
-                        <div style="display: flex; align-items: flex-start; gap: 5px;">
-                            <i class="fa-solid fa-circle-exclamation" style="color: #ffd700; font-size: 10px; margin-top: 1px;"></i>
-                            <span><b>Окупаемость</b> рассчитывается строго от цены кейса в <b>монетах (🟡)</b>. Цена скинов указана в рублях (₽).</span>
+                <div style="background: rgba(0, 0, 0, 0.25); border-radius: 8px; padding: 10px;">
+                    <div style="font-size: 10px; font-weight: 800; color: #ffd700; text-transform: uppercase; margin-bottom: 8px; text-align: center; letter-spacing: 0.5px;">Важно знать</div>
+                    <div style="font-size: 9px; color: #ccc; line-height: 1.45; display: flex; flex-direction: column; gap: 6px;">
+                        
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                            <i class="fa-solid fa-gift" style="color: #34c759; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Всё абсолютно бесплатно!</b> Вы не тратите реальные деньги. HATElavka — это фановый продукт, но кошелек Валентина не бесконечен, поэтому баланс настроен сурово, но справедливо. 😉</span>
                         </div>
-                        <div style="display: flex; align-items: flex-start; gap: 5px;">
-                            <i class="fa-solid fa-ticket" style="color: #2AABEE; font-size: 10px; margin-top: 1px;"></i>
-                            <span><b>Билеты (🎟️)</b> — валюта активности. Их ценность не привязана напрямую к реальной стоимости скинов на рынке.</span>
+
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                            <i class="fa-brands fa-steam" style="color: #2AABEE; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Цены ориентировочные:</b> Стоимость скинов (₽) берется с базы и может немного отличаться от текущих цен на Торговой площадке Steam.</span>
                         </div>
-                        <div style="display: flex; align-items: flex-start; gap: 5px;">
-                            <i class="fa-solid fa-shield-halved" style="color: #34c759; font-size: 10px; margin-top: 1px;"></i>
-                            <span><b>Система Гаранта:</b> на 5-е открытие шанс на окуп математически повышается, а дешевый дроп отсекается.</span>
+
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                            <i class="fa-solid fa-shield-cat" style="color: #ffcc00; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Система Гаранта:</b> Каждое 5-е открытие одного кейса включает режим Гаранта — весь дешёвый дроп отсекается, а шансы на окупаемость взлетают!</span>
                         </div>
+
                     </div>
                 </div>
             </div>
