@@ -427,7 +427,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
         if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
             logging.info(f"[STOREKEEPER] Лавка: Пробуем купить на Маркете: {market_search_name}")
             
-            import time # 🔥 Добавляем импорт времени для генерации ID
+            import time 
             
             TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
             market = MarketCSGO(api_key=TM_API_KEY)
@@ -443,6 +443,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                 market_res = await asyncio.wait_for(
                     market.buy_for_user(
                         hash_name=market_search_name, 
+                        max_price_rub=target_price_rub, # 🔥 ИНЪЕКЦИЯ: ПЕРЕДАЕМ БЮДЖЕТ ДЛЯ БЫСТРОЙ ПОКУПКИ
                         trade_link=trade_url, 
                         custom_id=unique_market_id 
                     ),
@@ -2203,31 +2204,37 @@ class MarketCSGO:
             
         return {"price": None}
 
-    async def buy_for_user(self, hash_name: str, trade_link: str, custom_id: str): 
+    async def buy_for_user(self, hash_name: str, max_price_rub: float, trade_link: str, custom_id: str): 
+        import logging
         partner, token = self.parse_trade_link(trade_link)
         if not partner or not token:
             return {"success": False, "error": "Неверная трейд-ссылка"}
 
-        price_data = await self.get_lowest_price(hash_name)
-        
-        # 🔥 Перехватываем лаги Маркета и отдаем наверх
-        if isinstance(price_data, dict) and "error" in price_data:
-            err_code = price_data.get("code", 502)
-            return {"success": False, "error": f"Маркет недоступен ({price_data['error']})", "code": err_code}
-
-        price = price_data.get("price")
-        if not price:
-            return {"success": False, "error": "Предмет не найден в продаже"}
+        # 🔥 МАГИЯ ЗДЕСЬ: Сразу переводим наш максимальный бюджет в копейки
+        # Если скин стоит дешевле, Маркет сам купит его по минимальной цене!
+        price_in_kopecks = int(max_price_rub * 100)
 
         params = {
             "hash_name": hash_name,
-            "price": price, 
+            "price": price_in_kopecks, 
             "partner": partner,
             "token": token,
             "custom_id": custom_id
         }
         
+        logging.info(f"[MARKET] Прямой выкуп '{hash_name}' с бюджетом до {max_price_rub} руб. (custom_id: {custom_id})")
+        
         response = await self._make_request("buy-for", params)
+        
+        # 🔥 Перехватываем ошибки от нашего "Терминатора" в _make_request
+        if isinstance(response, dict) and not response.get("success") and "error" in response:
+            err_str = response.get("error", "")
+            if err_str.startswith("status_"):
+                err_code = int(err_str.split("_")[1])
+                return {"success": False, "error": f"Маркет недоступен (HTTP {err_code})", "code": err_code}
+            elif err_str == "timeout_limit":
+                return {"success": False, "error": "Маркет завис (Таймаут)", "code": 504}
+
         response['custom_id'] = custom_id 
         return response
 
