@@ -2138,88 +2138,92 @@ class MarketCSGO:
         else:
             return {"valid": False, "error": response.get("error", "Ошибка Steam")}
             
-    async def _make_request(self, endpoint: str, params: dict = None) -> dict:
-        import httpx
-        import urllib.parse
-        import logging
-        import asyncio # 🔥 Нужен для паузы между попытками
-        import json # 🔥 Добавили для безопасного парсинга
-        import random # 🔥 Добавили для генерации случайных задержек (Jitter)
+   async def _make_request(self, endpoint: str, params: dict = None) -> dict:
+    import httpx
+    import urllib.parse
+    import logging
+    import asyncio 
+    import json 
+    import random 
 
-        if params is None:
-            params = {}
-        params['key'] = self.api_key
+    # --- НАСТРОЙКИ ASTROPROXY ---
+    # Замени ПОРТ на цифры из кабинета, например: node-ru-229.astroproxy.com:10555
+    PROXY_URL = "http://HatelovestreamertO5:bf0127fM6@node-ru-229.astroproxy.com:10065"
+    # Сюда вставь ссылку для смены IP (которая начинается на https://astroproxy.com/api/changeIp...)
+    CHANGE_IP_URL = "https://astroproxy.com/api/v1/ports/6522473/newip?token=3d054951f258a93f"
+
+    if params is None:
+        params = {}
+    params['key'] = self.api_key
+    
+    query_parts = []
+    for k, v in params.items():
+        query_parts.append(f"{k}={urllib.parse.quote(str(v), safe='')}")
         
-        # Обходим особенность httpx: Маркету нужны пробелы строго как %20
-        query_parts = []
-        for k, v in params.items():
-            query_parts.append(f"{k}={urllib.parse.quote(str(v), safe='')}")
-            
-        query_string = "&".join(query_parts)
-        url = f"{self.base_url}/{endpoint}?{query_string}"
-        
-        # Маскировка под обычный браузер (защита от Cloudflare)
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "application/json"
-        }
+    query_string = "&".join(query_parts)
+    url = f"{self.base_url}/{endpoint}?{query_string}"
+    
+    # Маскировка под Windows (как мы и выбрали в профиле Astroproxy)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
 
-        # 🔥 АВТО-ПОВТОРЫ (Оптимизировано)
-        max_retries = 4
-        
-        async with httpx.AsyncClient() as client:
-            for attempt in range(max_retries):
-                try:
-                    response = await client.get(url, headers=headers, timeout=8.0)
-                    
-                    # 🔥 ЧИТАЕМ СЫРОЙ ОТВЕТ СРАЗУ, чтобы он был доступен для логов
-                    raw_text = response.text 
-                    
-                    if response.status_code in [502, 503, 504, 429]:
-                        if attempt < max_retries - 1:
-                            # 🔥 ДОБАВЛЯЕМ JITTER (СЛУЧАЙНЫЙ РАЗБРОС) 🔥
-                            base_wait = 1.5 * (attempt + 1)
-                            jitter = random.uniform(0.2, 1.5)
-                            wait_time = base_wait + jitter
-                            
-                            logging.warning(f"[MARKET API] Лаг ({response.status_code}). Ждем {wait_time:.2f}с. Повтор {attempt + 2}/{max_retries}...")
-                            await asyncio.sleep(wait_time) 
-                            continue 
-                        else:
-                            # 🔥 ВЫВОДИМ СЫРОЙ ОТВЕТ ЗДЕСЬ (обрезаем до 500 символов, чтобы не забить логи Vercel)
-                            logging.error(f"[MARKET API] Сервер сдался ({response.status_code}) для {endpoint}. Тело ответа: \n{raw_text[:500]}")
-                            return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
-
-                    if response.status_code != 200:
-                        # 🔥 И ЗДЕСЬ ТОЖЕ
-                        logging.error(f"[MARKET API] Ошибка {response.status_code} для {endpoint}. Тело: {raw_text[:200]}")
-                        return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
-                    
-                    # Жесткий перехват JSON
-                    try:
-                        if not raw_text.strip():
-                            raise ValueError("Пустой ответ от сервера")
-                        return json.loads(raw_text)
-                        
-                    except (ValueError, json.JSONDecodeError):
-                        if attempt < max_retries - 1:
-                            logging.warning(f"[MARKET API] Маркет отдал не JSON. Ждем 2с и повторяем...")
-                            await asyncio.sleep(2.0)
-                            continue
-                        logging.error(f"[MARKET API] Маркет окончательно отдал мусор для {endpoint}. Ответ: {raw_text[:100]}...")
-                        return {"success": False, "error": "invalid_json_response"}
-
-                except httpx.TimeoutException:
+    max_retries = 4
+    
+    # 🔥 Теперь клиент создается с использованием прокси
+    async with httpx.AsyncClient(proxies=PROXY_URL, headers=headers) as client:
+        for attempt in range(max_retries):
+            try:
+                # Увеличили общий таймаут, так как резидентные прокси могут чуть дольше "думать"
+                response = await client.get(url, timeout=15.0)
+                raw_text = response.text 
+                
+                if response.status_code in [502, 503, 504, 429, 403]:
                     if attempt < max_retries - 1:
-                        # 🔥 JITTER ДЛЯ ТАЙМАУТОВ 🔥
-                        timeout_wait = random.uniform(0.5, 1.5)
-                        logging.warning(f"[MARKET API] Таймаут. Ждем {timeout_wait:.2f}с. Повторяем {attempt + 2}/{max_retries}...")
-                        await asyncio.sleep(timeout_wait)
+                        base_wait = 2.0 * (attempt + 1)
+                        jitter = random.uniform(0.5, 2.0)
+                        wait_time = base_wait + jitter
+                        
+                        logging.warning(f"[MARKET API] Лаг ({response.status_code}) через ПРОКСИ. Ждем {wait_time:.2f}с. Повтор {attempt + 2}/{max_retries}...")
+                        await asyncio.sleep(wait_time) 
+                        continue 
+                    else:
+                        logging.error(f"[MARKET API] Сервер сдался даже через прокси. Ошибка: {response.status_code}")
+                        # Если все попытки провалены — даем команду сменить IP для следующего заказа
+                        logging.info("[PROXY] Принудительная ротация IP...")
+                        try:
+                            async with httpx.AsyncClient() as rotator:
+                                await rotator.get(CHANGE_IP_URL)
+                        except: pass
+                        return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
+
+                if response.status_code != 200:
+                    logging.error(f"[MARKET API] Ошибка {response.status_code}. Тело: {raw_text[:200]}")
+                    return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
+                
+                try:
+                    if not raw_text.strip():
+                        raise ValueError("Пустой ответ")
+                    return json.loads(raw_text)
+                    
+                except (ValueError, json.JSONDecodeError):
+                    if attempt < max_retries - 1:
+                        logging.warning(f"[MARKET API] Не JSON. Ждем 2с...")
+                        await asyncio.sleep(2.0)
                         continue
-                    return {"success": False, "error": "timeout", "code": 504}
-                except Exception as e:
-                    logging.error(f"[MARKET API] Системная ошибка {endpoint}: {e}")
-                    return {"success": False, "error": str(e)}
+                    return {"success": False, "error": "invalid_json_response"}
+
+            except httpx.TimeoutException:
+                if attempt < max_retries - 1:
+                    timeout_wait = random.uniform(1.0, 3.0)
+                    logging.warning(f"[MARKET API] Таймаут прокси. Ждем {timeout_wait:.2f}с. Повтор {attempt + 2}/{max_retries}...")
+                    await asyncio.sleep(timeout_wait)
+                    continue
+                return {"success": False, "error": "timeout", "code": 504}
+            except Exception as e:
+                logging.error(f"[MARKET API] Системная ошибка: {e}")
+                return {"success": False, "error": str(e)}
                     
     async def get_lowest_price(self, hash_name: str):
         import logging
