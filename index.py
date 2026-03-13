@@ -2169,37 +2169,39 @@ class MarketCSGO:
         async with httpx.AsyncClient() as client:
             for attempt in range(max_retries):
                 try:
-                    # Увеличили таймаут до 8 секунд для "тяжелых" ответов Маркета
                     response = await client.get(url, headers=headers, timeout=8.0)
+                    
+                    # 🔥 ЧИТАЕМ СЫРОЙ ОТВЕТ СРАЗУ, чтобы он был доступен для логов
+                    raw_text = response.text 
                     
                     if response.status_code in [502, 503, 504, 429]:
                         if attempt < max_retries - 1:
-                            # Умная пауза: 1.5с, 3с, 4.5с
                             wait_time = 1.5 * (attempt + 1)
                             logging.warning(f"[MARKET API] Лаг ({response.status_code}). Ждем {wait_time}с. Повтор {attempt + 2}/{max_retries}...")
                             await asyncio.sleep(wait_time) 
                             continue 
                         else:
-                            logging.error(f"[MARKET API] Сервер Маркета сдался ({response.status_code}) для {endpoint}.")
+                            # 🔥 ВЫВОДИМ СЫРОЙ ОТВЕТ ЗДЕСЬ (обрезаем до 500 символов, чтобы не забить логи Vercel)
+                            logging.error(f"[MARKET API] Сервер сдался ({response.status_code}) для {endpoint}. Тело ответа: \n{raw_text[:500]}")
                             return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
 
                     if response.status_code != 200:
-                        logging.error(f"[MARKET API] Ошибка {response.status_code} для {endpoint}.")
+                        # 🔥 И ЗДЕСЬ ТОЖЕ
+                        logging.error(f"[MARKET API] Ошибка {response.status_code} для {endpoint}. Тело: {raw_text[:200]}")
                         return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
                     
-                    # 🔥 Жесткий перехват: читаем текст ответа ДО парсинга
+                    # Жесткий перехват JSON
                     try:
-                        text_response = response.text
-                        if not text_response.strip():
+                        if not raw_text.strip():
                             raise ValueError("Пустой ответ от сервера")
-                        return json.loads(text_response)
+                        return json.loads(raw_text)
                         
                     except (ValueError, json.JSONDecodeError):
                         if attempt < max_retries - 1:
-                            logging.warning(f"[MARKET API] Маркет отдал не JSON (вероятно заглушка Cloudflare). Ждем 2с и повторяем...")
+                            logging.warning(f"[MARKET API] Маркет отдал не JSON. Ждем 2с и повторяем...")
                             await asyncio.sleep(2.0)
                             continue
-                        logging.error(f"[MARKET API] Маркет окончательно отдал мусор для {endpoint}. Ответ: {text_response[:50]}...")
+                        logging.error(f"[MARKET API] Маркет окончательно отдал мусор для {endpoint}. Ответ: {raw_text[:100]}...")
                         return {"success": False, "error": "invalid_json_response"}
 
                 except httpx.TimeoutException:
