@@ -1166,6 +1166,18 @@ window.closeRoulette = function() {
 // ВЫВОД, ПРОДАЖА И ЗАМЕНА
 // ================================================================
 
+window.toggleCaseFaq = function() {
+    const content = document.getElementById('case-faq-content');
+    const icon = document.getElementById('case-faq-icon');
+    if (content.style.display === 'none') {
+        content.style.display = 'flex';
+        icon.style.transform = 'rotate(180deg)';
+    } else {
+        content.style.display = 'none';
+        icon.style.transform = 'rotate(0deg)';
+    }
+};
+
 window.claimItem = async function(itemId) {
     showShopModal({ title: "Вывести в Steam?", subtitle: "Ожидайте трейд в течение 30 минут.", confirmText: "ЗАБРАТЬ", confirmClass: "btn-yellow-modal", onConfirm: async (closeModal) => {
         const loader = document.getElementById('purchase-loader'); 
@@ -1206,7 +1218,6 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
     const list = document.getElementById('case-items-list'); 
     const loader = document.getElementById('contents-loader');
     
-    // Блок для статистики
     let statsBlock = document.getElementById('case-stats-block');
     if (!statsBlock) {
         statsBlock = document.createElement('div');
@@ -1222,73 +1233,78 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
     try {
         const data = await makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(caseName)}`, {}, 'GET', true);
         
-        // Сортируем предметы по РУБЛЕВОЙ цене от дорогих к дешевым
         data.sort((a,b) => (parseFloat(b.price_rub) || 0) - (parseFloat(a.price_rub) || 0));
 
-       // --- "ПРИУКРАШЕННЫЙ" МАТЕМАТИЧЕСКИЙ ПОДСЧЕТ ---
         let totalWeight = 0;
         let goodDropWeight = 0;
         
         data.forEach(item => {
             const itemPriceRub = parseFloat(item.price_rub) || 0;
             const weight = parseFloat(item.chance_weight) || 0;
-            
             totalWeight += weight;
             
-            // Считаем "годным дропом" всё, что стоит больше 40% от цены кейса. 
-            // Это поднимет визуальный процент до комфортных значений (15-30%+)
+            // Считаем хорошим скином тот, что дает хотя бы 40% от стоимости
             if (casePriceCoins && itemPriceRub >= (casePriceCoins * 0.4)) {
                 goodDropWeight += weight;
             }
         });
 
-        // Считаем красивый процент
         let profitChance = 0;
         if (totalWeight > 0) {
             profitChance = ((goodDropWeight / totalWeight) * 100).toFixed(1);
         }
         
-        // Рендерим плашку со статистикой и правилами
+        // Рендерим плашку с оптимизированным спойлером
         statsBlock.innerHTML = `
             <div style="background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 16px;">
                 
-                <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-around; align-items: center;">
                     <div style="text-align: center;">
-                        <div style="font-size: 9px; color: #8e8e93; text-transform: uppercase; margin-bottom: 2px;">Шанс на годный дроп</div>
-                        <div style="font-size: 16px; font-weight: 900; color: ${profitChance > 15 ? '#34c759' : '#ffcc00'}; text-shadow: 0 0 10px rgba(52, 199, 89, 0.2);">${profitChance}%</div>
+                        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Шанс на хороший скин</div>
+                        <div style="font-size: 18px; font-weight: 900; color: ${profitChance > 15 ? '#34c759' : '#ffcc00'};">${profitChance}%</div>
                     </div>
-                    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.1);"></div>
+                    <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.1);"></div>
                     <div style="text-align: center;">
-                        <div style="font-size: 9px; color: #8e8e93; text-transform: uppercase; margin-bottom: 2px;">Цена кейса</div>
-                        <div style="font-size: 16px; font-weight: 900; color: #fff;">${casePriceCoins || '?'} 🟡</div>
+                        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Цена кейса</div>
+                        <div style="font-size: 18px; font-weight: 900; color: #fff;">${casePriceCoins || '?'} 🟡</div>
                     </div>
                 </div>
-                
-                <div style="background: rgba(0, 0, 0, 0.25); border-radius: 8px; padding: 10px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #ffd700; text-transform: uppercase; margin-bottom: 8px; text-align: center; letter-spacing: 0.5px;">Важно знать</div>
-                    <div style="font-size: 9px; color: #ccc; line-height: 1.45; display: flex; flex-direction: column; gap: 6px;">
-                        
-                        <div style="display: flex; align-items: flex-start; gap: 6px;">
-                            <i class="fa-solid fa-gift" style="color: #34c759; font-size: 10px; margin-top: 2px;"></i>
-                            <span><b>Всё абсолютно бесплатно!</b> Вы не тратите реальные деньги. HATElavka — это фановый продукт, но кошелек Валентина не бесконечен, поэтому баланс настроен сурово, но справедливо. 😉</span>
-                        </div>
 
-                        <div style="display: flex; align-items: flex-start; gap: 6px;">
-                            <i class="fa-brands fa-steam" style="color: #2AABEE; font-size: 10px; margin-top: 2px;"></i>
-                            <span><b>Цены ориентировочные:</b> Стоимость скинов (₽) берется с базы и может немного отличаться от текущих цен на Торговой площадке Steam.</span>
+                <div style="margin-top: 12px; background: rgba(0, 0, 0, 0.25); border-radius: 8px; overflow: hidden;">
+                    <div onclick="toggleCaseFaq()" style="padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
+                        <div style="font-size: 11px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i> Важно знать
                         </div>
-
+                        <i id="case-faq-icon" class="fa-solid fa-chevron-down" style="color: #8e8e93; font-size: 10px; transition: transform 0.2s;"></i>
+                    </div>
+                    
+                    <div id="case-faq-content" style="display: none; flex-direction: column; gap: 8px; padding: 0 10px 10px 10px; font-size: 10px; color: #ccc; line-height: 1.4;">
                         <div style="display: flex; align-items: flex-start; gap: 6px;">
-                            <i class="fa-solid fa-shield-cat" style="color: #ffcc00; font-size: 10px; margin-top: 2px;"></i>
-                            <span><b>Система Гаранта:</b> Каждое 5-е открытие одного кейса включает режим Гаранта — весь дешёвый дроп отсекается, а шансы на окупаемость взлетают!</span>
+                            <i class="fa-solid fa-circle-exclamation" style="color: #ffd700; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Окупаемость:</b> Считается от цены кейса в монетах (🟡). Цены скинов указаны в рублях (₽).</span>
                         </div>
-
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                            <i class="fa-solid fa-ticket" style="color: #2AABEE; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Билеты (🎟️):</b> Валюта вашей активности. Скины на неё не равняются.</span>
+                        </div>
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                            <i class="fa-solid fa-shield-halved" style="color: #34c759; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Система Гаранта:</b> Каждое 5-е открытие одного кейса убирает дешёвые предметы и сильно повышает шанс на дорогие.</span>
+                        </div>
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                            <i class="fa-solid fa-gift" style="color: #ff9500; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Бесплатный проект:</b> Вы не тратите реальные деньги. Баланс настроен так, чтобы проект мог существовать и радовать вас дальше.</span>
+                        </div>
+                        <div style="display: flex; align-items: flex-start; gap: 6px;">
+                            <i class="fa-brands fa-steam" style="color: #8e8e93; font-size: 10px; margin-top: 2px;"></i>
+                            <span><b>Цены:</b> Ориентировочные и могут незначительно отличаться от Торговой площадки Steam.</span>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
 
-        // Рендерим сами предметы
+        // Рендерим сами предметы без тяжелых эффектов
         list.innerHTML = data.map(item => {
             let rClass = 'blue'; 
             const r = (item.rarity || '').toLowerCase();
@@ -1297,16 +1313,15 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
             else if (r.includes('red')) rClass = 'red'; 
             else if (r.includes('gold')) rClass = 'gold';
 
-            // Цена в рублях
             const itemPriceRub = parseFloat(item.price_rub) || 0;
             const isProfitable = casePriceCoins && (itemPriceRub > casePriceCoins);
             const priceColor = isProfitable ? '#34c759' : '#ff3b30';
             
-            // Если предмет окупаемый, добавляем зеленое свечение
-            const glowStyle = isProfitable ? `box-shadow: 0 0 10px rgba(52, 199, 89, 0.2); border: 1px solid rgba(52, 199, 89, 0.3);` : '';
+            // Лёгкая рамка и подложка для окупаемых скинов (вместо тормозящей тени)
+            const optStyle = isProfitable ? `border: 1px solid rgba(52, 199, 89, 0.4); background: rgba(52, 199, 89, 0.05);` : '';
 
             return `
-                <div class="content-item ${rClass}" style="position: relative; ${glowStyle}">
+                <div class="content-item ${rClass}" style="position: relative; ${optStyle}">
                     <img src="${item.image_url}" loading="lazy">
                     <div class="content-name">${item.name.split('|').pop().trim()}</div>
                     <div class="content-quality">${item.condition || 'FN'}</div>
@@ -1321,6 +1336,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
         loader.style.display = 'none'; 
     }
 }
+
 window.closeContentsModal = () => document.getElementById('case-contents-modal').classList.add('hidden');
 
 window.showReplacementChoice = function(options, historyId) {
