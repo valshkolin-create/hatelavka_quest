@@ -438,7 +438,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
             else:
                 unique_market_id = f"sh_{history_id}_{int(time.time())}"[:40]
             
-            # 🔥 ЖЕСТКОЕ ОГРАНИЧЕНИЕ 12 СЕКУНД ДЛЯ МАРКЕТА 🔥
+            # 🔥 ОБЩИЙ ЛИМИТ ВРЕМЕНИ (Даем 22 секунды, чтобы успели пройти все 3 ретрая) 🔥
             try:
                 market_res = await asyncio.wait_for(
                     market.buy_for_user(
@@ -446,11 +446,12 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                         trade_link=trade_url, 
                         custom_id=unique_market_id 
                     ),
-                    timeout=12.0
+                    timeout=22.0
                 )
             except asyncio.TimeoutError:
-                logging.warning(f"[STOREKEEPER] ⏳ Таймаут 12с от Маркета при попытке купить {market_search_name}")
-                market_res = {"success": False, "error": "market_timeout", "code": 999}
+                logging.warning(f"[STOREKEEPER] ⏳ Глобальный таймаут от Маркета при покупке {market_search_name}")
+                # 🔥 МЕНЯЕМ КОД НА 504, ЧТОБЫ ГЛАВНЫЙ ФАЙЛ ЗАБЛОКИРОВАЛ ЗАМЕНЫ 🔥
+                market_res = {"success": False, "error": "market_timeout", "code": 504}
             except Exception as e:
                 logging.error(f"[STOREKEEPER] Ошибка вызова Маркета: {e}")
                 market_res = {"success": False, "error": str(e), "code": 999}
@@ -2239,11 +2240,9 @@ class MarketCSGO:
         if not price:
             return {"success": False, "error": "Предмет не найден в продаже"}
 
-        # Удалили генерацию времени! Используем тот custom_id, который передали в функцию.
-
         params = {
             "hash_name": hash_name,
-            "price": price, # Убедись, что тут целое число в копейках!
+            "price": price, 
             "partner": partner,
             "token": token,
             "custom_id": custom_id
