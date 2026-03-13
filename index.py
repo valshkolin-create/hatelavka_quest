@@ -2144,21 +2144,15 @@ class MarketCSGO:
         import logging
         import asyncio 
         import json 
-        import random 
 
-        # --- НАСТРОЙКИ ASTROPROXY ---
+        # Данные оставляем те же
         PROXY_URL = "http://HatelovestreamertO5:bf0127fM6@node-ru-229.astroproxy.com:10065"
         CHANGE_IP_URL = "https://astroproxy.com/api/v1/ports/6522473/newip?token=3d054951f258a93f"
 
-        if params is None:
-            params = {}
+        if params is None: params = {}
         params['key'] = self.api_key
         
-        # Правильная кодировка параметров для Маркета
-        query_parts = []
-        for k, v in params.items():
-            query_parts.append(f"{k}={urllib.parse.quote(str(v), safe='')}")
-        query_string = "&".join(query_parts)
+        query_string = "&".join([f"{k}={urllib.parse.quote(str(v), safe='')}" for k, v in params.items()])
         url = f"{self.base_url}/{endpoint}?{query_string}"
         
         headers = {
@@ -2166,58 +2160,28 @@ class MarketCSGO:
             "Accept": "application/json"
         }
 
-        # 🔥 ЖЕСТКАЯ ОПТИМИЗАЦИЯ ПОД VERCEL (Лимит 10с)
-        # Худший сценарий: 3.5с (запрос) + 1с (сон) + 3.5с (запрос) + 1.2с (ротация) = 9.2с.
-        max_retries = 2 
-        timeout_val = 3.5 
-
+        # ⚡️ РЕЖИМ ТЕРМИНАТОРА: 1 попытка, 9 секунд.
         async with httpx.AsyncClient(proxies=PROXY_URL, headers=headers) as client:
-            for attempt in range(max_retries):
-                try:
-                    response = await client.get(url, timeout=timeout_val)
-                    raw_text = response.text 
-                    
-                    # Обработка блокировок и лагов Маркета
-                    if response.status_code in [403, 429, 502, 503, 504]:
-                        if attempt < max_retries - 1:
-                            wait_time = 1.0 + random.uniform(0.1, 0.3)
-                            logging.warning(f"[MARKET] Ошибка {response.status_code}. Ждем {wait_time:.1f}с...")
-                            await asyncio.sleep(wait_time) 
-                            continue 
-                        else:
-                            # Если 2 попытки провалены, принудительно меняем IP для следующего захода
-                            logging.error(f"[MARKET] Фиаско. Меняем IP...")
-                            try:
-                                async with httpx.AsyncClient() as rotator:
-                                    await rotator.get(CHANGE_IP_URL, timeout=1.2)
-                            except: pass
-                            return {"success": False, "error": "proxy_rotation_triggered"}
-
-                    if response.status_code != 200:
-                        return {"success": False, "error": f"http_{response.status_code}"}
-                    
-                    try:
-                        return json.loads(raw_text)
-                    except json.JSONDecodeError:
-                        if attempt < max_retries - 1:
-                            await asyncio.sleep(1.0)
-                            continue
-                        return {"success": False, "error": "json_error"}
-
-                except (httpx.TimeoutException, httpx.NetworkError):
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(0.5)
-                        continue
-                    # При таймауте на последней попытке тоже дергаем ротацию
-                    try:
-                        async with httpx.AsyncClient() as rotator:
-                            await rotator.get(CHANGE_IP_URL, timeout=1.2)
-                    except: pass
-                    return {"success": False, "error": "timeout_limit"}
+            try:
+                # Даем максимум времени, который физически есть на Vercel
+                response = await client.get(url, timeout=9.0)
                 
-                except Exception as e:
-                    logging.error(f"[SYSTEM ERROR] {e}")
-                    return {"success": False, "error": str(e)}
+                if response.status_code == 200:
+                    return response.json()
+                
+                # Если любая ошибка (502, 403) — сразу ротируем IP для следующего раза
+                async with httpx.AsyncClient() as rotator:
+                    await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                return {"success": False, "error": f"status_{response.status_code}"}
+
+            except Exception as e:
+                # Если таймаут или любая беда — тоже ротируем IP
+                logging.warning(f"[MARKET] Сбой: {e}. Меняем IP...")
+                try:
+                    async with httpx.AsyncClient() as rotator:
+                        await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                except: pass
+                return {"success": False, "error": "timeout_limit"}
                     
     async def get_lowest_price(self, hash_name: str):
         import logging
