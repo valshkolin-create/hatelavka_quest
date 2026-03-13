@@ -19457,9 +19457,14 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                     
                     logging.info(f"[MARKET API] Попытка покупки замены {m_name} через MarketCSGO...")
                     
+                    # 🔥 ДЕЛАЕМ НЕБОЛЬШОЙ ЗАПАС ДЛЯ БЮДЖЕТА (+10%)
+                    # Т.к. цены меняются каждую секунду, даем Маркету безопасную вилку.
+                    max_budget = float(replaced_price) * 1.10
+                    
                     # Делаем всю магию покупки (включая bid-ask) через одну функцию
                     buy_json = await market.buy_for_user(
                         hash_name=m_name, 
+                        max_price_rub=max_budget, # 🔥 ВОТ ОН, НАШ НОВЫЙ АРГУМЕНТ
                         trade_link=trade_link, 
                         custom_id=unique_market_id
                     )
