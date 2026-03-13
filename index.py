@@ -2154,10 +2154,10 @@ class MarketCSGO:
             params = {}
         params['key'] = self.api_key
         
+        # Правильная кодировка параметров для Маркета
         query_parts = []
         for k, v in params.items():
             query_parts.append(f"{k}={urllib.parse.quote(str(v), safe='')}")
-            
         query_string = "&".join(query_parts)
         url = f"{self.base_url}/{endpoint}?{query_string}"
         
@@ -2166,57 +2166,57 @@ class MarketCSGO:
             "Accept": "application/json"
         }
 
-        max_retries = 4
-        
+        # 🔥 ЖЕСТКАЯ ОПТИМИЗАЦИЯ ПОД VERCEL (Лимит 10с)
+        # Худший сценарий: 3.5с (запрос) + 1с (сон) + 3.5с (запрос) + 1.2с (ротация) = 9.2с.
+        max_retries = 2 
+        timeout_val = 3.5 
+
         async with httpx.AsyncClient(proxies=PROXY_URL, headers=headers) as client:
             for attempt in range(max_retries):
                 try:
-                    response = await client.get(url, timeout=15.0)
+                    response = await client.get(url, timeout=timeout_val)
                     raw_text = response.text 
                     
-                    if response.status_code in [502, 503, 504, 429, 403]:
+                    # Обработка блокировок и лагов Маркета
+                    if response.status_code in [403, 429, 502, 503, 504]:
                         if attempt < max_retries - 1:
-                            base_wait = 2.0 * (attempt + 1)
-                            jitter = random.uniform(0.5, 2.0)
-                            wait_time = base_wait + jitter
-                            
-                            logging.warning(f"[MARKET API] Лаг ({response.status_code}) через ПРОКСИ. Ждем {wait_time:.2f}с. Повтор {attempt + 2}/{max_retries}...")
+                            wait_time = 1.0 + random.uniform(0.1, 0.3)
+                            logging.warning(f"[MARKET] Ошибка {response.status_code}. Ждем {wait_time:.1f}с...")
                             await asyncio.sleep(wait_time) 
                             continue 
                         else:
-                            logging.error(f"[MARKET API] Сервер сдался даже через прокси. Ошибка: {response.status_code}")
-                            logging.info("[PROXY] Принудительная ротация IP...")
+                            # Если 2 попытки провалены, принудительно меняем IP для следующего захода
+                            logging.error(f"[MARKET] Фиаско. Меняем IP...")
                             try:
                                 async with httpx.AsyncClient() as rotator:
-                                    await rotator.get(CHANGE_IP_URL)
+                                    await rotator.get(CHANGE_IP_URL, timeout=1.2)
                             except: pass
-                            return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
+                            return {"success": False, "error": "proxy_rotation_triggered"}
 
                     if response.status_code != 200:
-                        logging.error(f"[MARKET API] Ошибка {response.status_code}. Тело: {raw_text[:200]}")
-                        return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
+                        return {"success": False, "error": f"http_{response.status_code}"}
                     
                     try:
-                        if not raw_text.strip():
-                            raise ValueError("Пустой ответ")
                         return json.loads(raw_text)
-                        
-                    except (ValueError, json.JSONDecodeError):
+                    except json.JSONDecodeError:
                         if attempt < max_retries - 1:
-                            logging.warning(f"[MARKET API] Не JSON. Ждем 2с...")
-                            await asyncio.sleep(2.0)
+                            await asyncio.sleep(1.0)
                             continue
-                        return {"success": False, "error": "invalid_json_response"}
+                        return {"success": False, "error": "json_error"}
 
-                except httpx.TimeoutException:
+                except (httpx.TimeoutException, httpx.NetworkError):
                     if attempt < max_retries - 1:
-                        timeout_wait = random.uniform(1.0, 3.0)
-                        logging.warning(f"[MARKET API] Таймаут прокси. Ждем {timeout_wait:.2f}с. Повтор {attempt + 2}/{max_retries}...")
-                        await asyncio.sleep(timeout_wait)
+                        await asyncio.sleep(0.5)
                         continue
-                    return {"success": False, "error": "timeout", "code": 504}
+                    # При таймауте на последней попытке тоже дергаем ротацию
+                    try:
+                        async with httpx.AsyncClient() as rotator:
+                            await rotator.get(CHANGE_IP_URL, timeout=1.2)
+                    except: pass
+                    return {"success": False, "error": "timeout_limit"}
+                
                 except Exception as e:
-                    logging.error(f"[MARKET API] Системная ошибка: {e}")
+                    logging.error(f"[SYSTEM ERROR] {e}")
                     return {"success": False, "error": str(e)}
                     
     async def get_lowest_price(self, hash_name: str):
