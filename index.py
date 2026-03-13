@@ -446,7 +446,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                         trade_link=trade_url, 
                         custom_id=unique_market_id 
                     ),
-                    timeout=22.0
+                    timeout=55.0
                 )
             except asyncio.TimeoutError:
                 logging.warning(f"[STOREKEEPER] ⏳ Глобальный таймаут от Маркета при покупке {market_search_name}")
@@ -2144,6 +2144,7 @@ class MarketCSGO:
         import logging
         import asyncio # 🔥 Нужен для паузы между попытками
         import json # 🔥 Добавили для безопасного парсинга
+        import random # 🔥 Добавили для генерации случайных задержек (Jitter)
 
         if params is None:
             params = {}
@@ -2176,8 +2177,12 @@ class MarketCSGO:
                     
                     if response.status_code in [502, 503, 504, 429]:
                         if attempt < max_retries - 1:
-                            wait_time = 1.5 * (attempt + 1)
-                            logging.warning(f"[MARKET API] Лаг ({response.status_code}). Ждем {wait_time}с. Повтор {attempt + 2}/{max_retries}...")
+                            # 🔥 ДОБАВЛЯЕМ JITTER (СЛУЧАЙНЫЙ РАЗБРОС) 🔥
+                            base_wait = 1.5 * (attempt + 1)
+                            jitter = random.uniform(0.2, 1.5)
+                            wait_time = base_wait + jitter
+                            
+                            logging.warning(f"[MARKET API] Лаг ({response.status_code}). Ждем {wait_time:.2f}с. Повтор {attempt + 2}/{max_retries}...")
                             await asyncio.sleep(wait_time) 
                             continue 
                         else:
@@ -2206,8 +2211,10 @@ class MarketCSGO:
 
                 except httpx.TimeoutException:
                     if attempt < max_retries - 1:
-                        logging.warning(f"[MARKET API] Таймаут. Повторяем {attempt + 2}/{max_retries}...")
-                        await asyncio.sleep(1.0)
+                        # 🔥 JITTER ДЛЯ ТАЙМАУТОВ 🔥
+                        timeout_wait = random.uniform(0.5, 1.5)
+                        logging.warning(f"[MARKET API] Таймаут. Ждем {timeout_wait:.2f}с. Повторяем {attempt + 2}/{max_retries}...")
+                        await asyncio.sleep(timeout_wait)
                         continue
                     return {"success": False, "error": "timeout", "code": 504}
                 except Exception as e:
