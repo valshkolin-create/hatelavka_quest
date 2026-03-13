@@ -2136,7 +2136,7 @@ class MarketCSGO:
         else:
             return {"valid": False, "error": response.get("error", "Ошибка Steam")}
             
-    async def _make_request(self, endpoint: str, params: dict = None) -> dict:
+ async def _make_request(self, endpoint: str, params: dict = None) -> dict:
         import httpx
         import urllib.parse
         import logging
@@ -2146,6 +2146,7 @@ class MarketCSGO:
             params = {}
         params['key'] = self.api_key
         
+        # Обходим особенность httpx: Маркету нужны пробелы строго как %20
         query_parts = []
         for k, v in params.items():
             query_parts.append(f"{k}={urllib.parse.quote(str(v), safe='')}")
@@ -2153,54 +2154,54 @@ class MarketCSGO:
         query_string = "&".join(query_parts)
         url = f"{self.base_url}/{endpoint}?{query_string}"
         
+        # Маскировка под обычный браузер (защита от Cloudflare)
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "application/json"
         }
 
-        # 🔥 АВТО-ПОВТОРЫ (Защита от лимитов Маркета)
+        # 🔥 АВТО-ПОВТОРЫ (Оптимизировано под лимиты Vercel)
         max_retries = 3
         
         async with httpx.AsyncClient() as client:
             for attempt in range(max_retries):
                 try:
-                    response = await client.get(url, headers=headers, timeout=15.0)
+                    # 👇 Снизили таймаут до 6 секунд. Не ответил за 6 сек - Маркет лагает, делаем ретрай
+                    response = await client.get(url, headers=headers, timeout=6.0)
                     
-                    # Если Маркет ругается на спам или лагает (502, 503, 429)
                     if response.status_code in [502, 503, 504, 429]:
                         if attempt < max_retries - 1:
-                            logging.warning(f"[MARKET API] Лимит/Лаг ({response.status_code}). Ждем 2 сек и повторяем (Попытка {attempt + 2}/{max_retries})...")
-                            await asyncio.sleep(2.0) # Спим 2 секунды перед повтором
-                            continue # Пробуем еще раз
+                            logging.warning(f"[MARKET API] Лаг ({response.status_code}). Повтор {attempt + 2}/{max_retries}...")
+                            # 👇 Снизили паузу до 1.5 сек
+                            await asyncio.sleep(1.5) 
+                            continue 
                         else:
-                            logging.error(f"[MARKET API] Сервер Маркета окончательно сдался ({response.status_code}) для {endpoint}.")
+                            logging.error(f"[MARKET API] Сервер Маркета сдался ({response.status_code}) для {endpoint}.")
                             return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
 
-                    # Если другая ошибка (например, 400, 403)
                     if response.status_code != 200:
                         logging.error(f"[MARKET API] Ошибка {response.status_code} для {endpoint}.")
                         return {"success": False, "error": f"http_error_{response.status_code}", "code": response.status_code}
                     
-                    # Пытаемся безопасно прочитать JSON
                     try:
                         return response.json()
                     except ValueError:
                         if attempt < max_retries - 1:
                             await asyncio.sleep(1.0)
                             continue
-                        logging.error(f"[MARKET API] Маркет отдал мусор вместо JSON для {endpoint}.")
+                        logging.error(f"[MARKET API] Маркет отдал мусор для {endpoint}.")
                         return {"success": False, "error": "invalid_json_response"}
 
                 except httpx.TimeoutException:
                     if attempt < max_retries - 1:
-                        logging.warning(f"[MARKET API] Таймаут. Повторяем ({attempt + 2}/{max_retries})...")
-                        await asyncio.sleep(1.5)
+                        logging.warning(f"[MARKET API] Таймаут. Повторяем {attempt + 2}/{max_retries}...")
+                        await asyncio.sleep(1.0)
                         continue
-                    return {"success": False, "error": "timeout"}
+                    return {"success": False, "error": "timeout", "code": 504}
                 except Exception as e:
-                    logging.error(f"[MARKET API] Системная ошибка запроса {endpoint}: {e}")
+                    logging.error(f"[MARKET API] Системная ошибка {endpoint}: {e}")
                     return {"success": False, "error": str(e)}
-
+                    
     async def get_lowest_price(self, hash_name: str):
         import logging
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
