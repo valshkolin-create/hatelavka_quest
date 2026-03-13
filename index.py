@@ -19098,6 +19098,7 @@ async def withdraw_inventory_item(
     import os
     import httpx
     from datetime import datetime, timedelta, timezone 
+    # ВНИМАНИЕ: Убедись, что класс MarketCSGO импортирован или доступен здесь!
 
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data:
@@ -19283,25 +19284,22 @@ async def withdraw_inventory_item(
             market_key = os.getenv("CS_MARKET_API_KEY")
             if market_key:
                 try:
-                    check_url = f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={market_key}&custom_id={unique_market_id}"
-                    async with httpx.AsyncClient() as client:
-                        m_resp = await client.get(check_url, timeout=5.0)
-                        
-                        if m_resp.status_code == 200:
-                            m_data = m_resp.json()
+                    # 🔥 ЗАМЕНЯЕМ СЫРОЙ HTTPX НА НАШ КЛАСС
+                    market = MarketCSGO(api_key=market_key)
+                    m_data = await market.check_order_status(unique_market_id)
+                    
+                    # Если success: true и есть данные, Маркет ВЗЯЛ заказ в работу
+                    if m_data and m_data.get("success") and "data" in m_data:
+                        stage = str(m_data["data"].get("stage"))
+                        # stage 1 = Новый, stage 2 = Передан (или передается)
+                        if stage in ["1", "2"]:
+                            logging.info(f"[MARKET SYNC] Спасли от двойной покупки! Заказ {unique_market_id} уже обрабатывается Маркетом.")
                             
-                            # Если success: true и есть данные, Маркет ВЗЯЛ заказ в работу
-                            if m_data.get("success") and "data" in m_data:
-                                stage = str(m_data["data"].get("stage"))
-                                # stage 1 = Новый, stage 2 = Передан (или передается)
-                                if stage in ["1", "2"]:
-                                    logging.info(f"[MARKET SYNC] Спасли от двойной покупки! Заказ {unique_market_id} уже обрабатывается Маркетом.")
-                                    
-                                    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                                        "status": "market_pending",
-                                        "updated_at": now_iso
-                                    })
-                                    return {"success": True, "message": "Предмет закуплен на Маркете и летит к вам! Ожидайте трейд."}
+                            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                                "status": "market_pending",
+                                "updated_at": now_iso
+                            })
+                            return {"success": True, "message": "Предмет закуплен на Маркете и летит к вам! Ожидайте трейд."}
                 except Exception as e:
                     logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
 
@@ -19465,6 +19463,9 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
         market_error_log = "API ключ Маркета не найден"
         
         if tm_api_key:
+            # 🔥 Инициализируем наш защищенный класс Маркета
+            market = MarketCSGO(api_key=tm_api_key)
+            
             partner_match = re.search(r'partner=(\d+)', trade_link)
             token_match = re.search(r'token=([a-zA-Z0-9_-]+)', trade_link)
             
@@ -19472,52 +19473,33 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                 market_error_log = "Неверный формат трейд-ссылки юзера"
                 logging.warning(f"[BG-REPLACEMENT] {market_error_log}: {trade_link}")
             else:
-                partner = partner_match.group(1)
-                token = token_match.group(1)
-                
                 try:
-                    async with httpx.AsyncClient(timeout=25.0) as client:
-                        bid_ask_url = f"https://market.csgo.com/api/v2/bid-ask?key={tm_api_key}&hash_name={m_name}"
-                        ask_resp = await client.get(bid_ask_url)
-                        ask_data = ask_resp.json()
-                        
-                        if ask_data.get("ask") and len(ask_data["ask"]) > 0:
-                            cheapest_rub = float(ask_data["ask"][0]["price"])
-                            price_kopecks = int(cheapest_rub * 100) + 200 
-                            
-                            # 🔥 ЗАЩИТА: Убрали time.time(), теперь ID статичен для этой замены.
-                            # Если сервер сделает повторный запрос, Маркет не купит второй раз!
-                            unique_market_id = f"repl_{req.history_id}" 
-                            
-                            buy_url = "https://market.csgo.com/api/v2/buy-for"
-                            buy_params = {
-                                "key": tm_api_key,
-                                "hash_name": m_name,
-                                "price": price_kopecks,
-                                "partner": partner,
-                                "token": token,
-                                "custom_id": unique_market_id
-                            }
-                            
-                            logging.info(f"[MARKET API] Попытка покупки замены {m_name} за {price_kopecks/100} руб.")
-                            buy_resp = await client.get(buy_url, params=buy_params)
-                            buy_json = buy_resp.json()
-                            
-                            # ПРОВЕРКА ОТВЕТА (success или уже куплено)
-                            if buy_json.get("success") or "custom_id exist" in str(buy_json.get("error")):
-                                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                                    "status": "market_pending",
-                                    "tradeofferid": unique_market_id,
-                                    "replaced_name": m_name,
-                                    "replaced_price": replaced_price,
-                                    "details": f"Замена куплена на Маркете: {item_name_ru}",
-                                    "updated_at": now_iso
-                                })
-                                return 
-                            else:
-                                market_error_log = buy_json.get("error", "Unknown API error")
-                        else:
-                            market_error_log = "Нет в продаже на Маркете"
+                    # 🔥 ЗАЩИТА: Убрали time.time(), теперь ID статичен для этой замены.
+                    unique_market_id = f"repl_{req.history_id}" 
+                    
+                    logging.info(f"[MARKET API] Попытка покупки замены {m_name} через MarketCSGO...")
+                    
+                    # Делаем всю магию покупки (включая bid-ask) через одну функцию
+                    buy_json = await market.buy_for_user(
+                        hash_name=m_name, 
+                        trade_link=trade_link, 
+                        custom_id=unique_market_id
+                    )
+                    
+                    # ПРОВЕРКА ОТВЕТА (success или уже куплено)
+                    if buy_json.get("success") or "custom_id exist" in str(buy_json.get("error", "")):
+                        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                            "status": "market_pending",
+                            "tradeofferid": unique_market_id,
+                            "replaced_name": m_name,
+                            "replaced_price": replaced_price,
+                            "details": f"Замена куплена на Маркете: {item_name_ru}",
+                            "updated_at": now_iso
+                        })
+                        return 
+                    else:
+                        # Если класс вернул success: False (например, из-за 504 таймаута после всех попыток)
+                        market_error_log = buy_json.get("error", "Unknown API error")
                 
                 except Exception as api_ex:
                     market_error_log = f"Ошибка API: {str(api_ex)}"
