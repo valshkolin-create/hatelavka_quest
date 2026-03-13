@@ -437,13 +437,20 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                 unique_market_id = custom_id
             else:
                 unique_market_id = f"sh_{history_id}_{int(time.time())}"[:40]
+
+            # 🔥 УМНЫЙ БЮДЖЕТ ПЕРВОЙ ПОКУПКИ
+            base_target = float(target_price_rub)
+            if base_target < 50.0:
+                smart_budget = base_target + 3.0
+            else:
+                smart_budget = base_target * 1.10
             
             # 🔥 ОБЩИЙ ЛИМИТ ВРЕМЕНИ (Даем 22 секунды, чтобы успели пройти все 3 ретрая) 🔥
             try:
                 market_res = await asyncio.wait_for(
                     market.buy_for_user(
                         hash_name=market_search_name, 
-                        max_price_rub=target_price_rub, # 🔥 ИНЪЕКЦИЯ: ПЕРЕДАЕМ БЮДЖЕТ ДЛЯ БЫСТРОЙ ПОКУПКИ
+                        max_price_rub=smart_budget, # 🔥 Передаем умный бюджет
                         trade_link=trade_url, 
                         custom_id=unique_market_id 
                     ),
@@ -19457,9 +19464,15 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                     
                     logging.info(f"[MARKET API] Попытка покупки замены {m_name} через MarketCSGO...")
                     
-                    # 🔥 ДЕЛАЕМ НЕБОЛЬШОЙ ЗАПАС ДЛЯ БЮДЖЕТА (+10%)
+                    # 🔥 УМНЫЙ БЮДЖЕТ ДЛЯ ЗАМЕН
                     # Т.к. цены меняются каждую секунду, даем Маркету безопасную вилку.
-                    max_budget = float(replaced_price) * 1.10
+                    base_p = float(replaced_price)
+                    if base_p < 50.0:
+                        # Для дешевых предметов 10% — это копейки. Даем жесткий запас +3 рубля.
+                        max_budget = base_p + 3.0
+                    else:
+                        # Для предметов дороже 50 руб оставляем +10%
+                        max_budget = base_p * 1.10
                     
                     # Делаем всю магию покупки (включая bid-ask) через одну функцию
                     buy_json = await market.buy_for_user(
