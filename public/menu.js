@@ -1342,6 +1342,13 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                 </div>
             `;
         }).join('');
+        
+    } catch (e) { 
+        list.innerHTML = `<div style="text-align:center; grid-column:1/-1; color:#ff453a; padding: 20px;">Ошибка загрузки содержимого</div>`; 
+    } finally { 
+        loader.style.display = 'none'; 
+    }
+};
 
 window.closeContentsModal = () => document.getElementById('case-contents-modal').classList.add('hidden');
 
