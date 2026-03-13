@@ -1254,7 +1254,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
             profitChance = ((goodDropWeight / totalWeight) * 100).toFixed(1);
         }
         
-        // Рендерим плашку с оптимизированным спойлером
+        // Рендерим плашку с оптимизированным спойлером и премиальными иконками монет
         statsBlock.innerHTML = `
             <div style="background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 16px;">
                 
@@ -1266,7 +1266,9 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                     <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.1);"></div>
                     <div style="text-align: center;">
                         <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Цена кейса</div>
-                        <div style="font-size: 18px; font-weight: 900; color: #fff;">${casePriceCoins || '?'} 🟡</div>
+                        <div style="font-size: 18px; font-weight: 900; color: #fff; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                            ${casePriceCoins || '?'} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 15px;"></i>
+                        </div>
                     </div>
                 </div>
 
@@ -1281,7 +1283,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                     <div id="case-faq-content" style="display: none; flex-direction: column; gap: 8px; padding: 0 10px 10px 10px; font-size: 10px; color: #ccc; line-height: 1.4;">
                         <div style="display: flex; align-items: flex-start; gap: 6px;">
                             <i class="fa-solid fa-circle-exclamation" style="color: #ffd700; font-size: 10px; margin-top: 2px;"></i>
-                            <span><b>Окупаемость:</b> Считается строго от цены кейса в монетах (🟡).</span>
+                            <span><b>Окупаемость:</b> Считается строго от цены кейса в монетах (<i class="fa-solid fa-coins" style="color: #ffd700;"></i>).</span>
                         </div>
                         <div style="display: flex; align-items: flex-start; gap: 6px;">
                             <i class="fa-solid fa-ticket" style="color: #2AABEE; font-size: 10px; margin-top: 2px;"></i>
@@ -1289,7 +1291,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                         </div>
                         <div style="display: flex; align-items: flex-start; gap: 6px;">
                             <i class="fa-solid fa-shield-halved" style="color: #34c759; font-size: 10px; margin-top: 2px;"></i>
-                            <span><b>Система Гаранта:</b> Работает <b>только</b> при открытии за монеты (🟡). На 5-е открытие убираются дешёвые предметы. При открытии за билеты гаранта нет!</span>
+                            <span><b>Система Гаранта:</b> Работает <b>только</b> при открытии за монеты (<i class="fa-solid fa-coins" style="color: #ffd700;"></i>). На 5-е открытие убираются дешёвые предметы. При открытии за билеты гаранта нет!</span>
                         </div>
                         <div style="display: flex; align-items: flex-start; gap: 6px;">
                             <i class="fa-solid fa-gift" style="color: #ff9500; font-size: 10px; margin-top: 2px;"></i>
@@ -1304,7 +1306,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
             </div>
         `;
 
-        // Рендерим сами предметы (со "Светофором" и премиальной монеткой)
+        // Рендерим сами предметы (со "Светофором" и иконкой fa-coins)
         list.innerHTML = data.map(item => {
             let rClass = 'blue'; 
             const r = (item.rarity || '').toLowerCase();
@@ -1337,7 +1339,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                     <div class="content-name">${item.name.split('|').pop().trim()}</div>
                     <div class="content-quality">${item.condition || 'FN'}</div>
                     <div style="margin-top: 6px; font-size: 13px; font-weight: 800; color: ${priceColor}; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                        ${itemPriceRub} <span style="font-size: 14px;">🪙</span>
+                        ${itemPriceRub} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 12px;"></i>
                     </div>
                 </div>
             `;
