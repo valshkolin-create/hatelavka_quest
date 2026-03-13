@@ -481,8 +481,9 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
                     }
 
                 err = market_res.get("error", "Неизвестная ошибка")
-                logging.warning(f"[STOREKEEPER] Маркет не справился (Код: {error_code}, Ошибка: {err}). Возвращаем ошибку для замен.")
-                return {"success": False, "is_user_trade_error": False, "error": "market_failed"}
+                logging.warning(f"[STOREKEEPER] Маркет не справился (Код: {error_code}, Ошибка: {err}). Прокидываем ошибку.")
+                # 🔥 ПРОКИДЫВАЕМ КОД ОШИБКИ И ТЕКСТ ДАЛЬШЕ 🔥
+                return {"success": False, "is_user_trade_error": False, "error": err, "code": error_code}
         else:
             logging.warning(f"[STOREKEEPER] Лавка: Пропущено (нет англ. названия): {market_search_name}")
             return {"success": False, "is_user_trade_error": False, "error": "no_english_name"}
@@ -2202,25 +2203,39 @@ class MarketCSGO:
                     logging.error(f"[MARKET API] Системная ошибка {endpoint}: {e}")
                     return {"success": False, "error": str(e)}
                     
-    async def get_lowest_price(self, hash_name: str):
+ async def get_lowest_price(self, hash_name: str):
         import logging
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
         
         # 🔥 Выводим чистый ответ Маркета в консоль
         logging.info(f"[MARKET DEBUG] Ответ bid-ask по '{hash_name}': {data}")
         
+        # 🔥 1. Если пришла ошибка API (502, 503 и т.д.) - отдаем ее наверх
+        if isinstance(data, dict) and not data.get("success") and "error" in data:
+            return {"error": data["error"], "code": data.get("code", 502)}
+        
         if data and data.get("ask") and len(data["ask"]) > 0:
             lowest_ask_rub = float(data["ask"][0]["price"])
-            price_in_kopecks = int((lowest_ask_rub * 100)) + 1 
-            return price_in_kopecks
-        return None
+            # 🔥 Динамический буфер для выкупа дубликатов (15% для дешевых, 5% для дорогих)
+            buffer_multiplier = 1.15 if lowest_ask_rub < 100 else 1.05
+            price_in_kopecks = int((lowest_ask_rub * 100) * buffer_multiplier)
+            return {"price": price_in_kopecks}
+            
+        return {"price": None}
 
     async def buy_for_user(self, hash_name: str, trade_link: str, custom_id: str): 
         partner, token = self.parse_trade_link(trade_link)
         if not partner or not token:
             return {"success": False, "error": "Неверная трейд-ссылка"}
 
-        price = await self.get_lowest_price(hash_name)
+        price_data = await self.get_lowest_price(hash_name)
+        
+        # 🔥 Перехватываем лаги Маркета и отдаем наверх
+        if isinstance(price_data, dict) and "error" in price_data:
+            err_code = price_data.get("code", 502)
+            return {"success": False, "error": f"Маркет недоступен ({price_data['error']})", "code": err_code}
+
+        price = price_data.get("price")
         if not price:
             return {"success": False, "error": "Предмет не найден в продаже"}
 
