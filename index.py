@@ -2166,7 +2166,8 @@ class MarketCSGO:
                 return {"success": False, "error": "timeout"}
             except Exception as e:
                 logging.error(f"[MARKET API] Системная ошибка запроса {endpoint}: {e}")
-                return {"success": False, "error": str(e)
+                # 👇 Вот тут не хватало закрывающей скобки в конце
+                return {"success": False, "error": str(e)}
 
     async def get_lowest_price(self, hash_name: str):
         import logging
