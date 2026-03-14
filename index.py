@@ -177,6 +177,54 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
     except Exception as e:
         logging.error(f"⚠️ Ошибка системы пополнения: {e}")
         return False
+
+async def get_user_balance_from_bott(telegram_id: int) -> float | None:
+    """
+    Асинхронно получает текущий баланс пользователя из Bot-t по его Telegram ID.
+    Использует глобальные переменные из конфига бота.
+    """
+    url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+    
+    # Query параметры (токен и секретный ключ)
+    params = {
+        "botToken": BOTT_BOT_TOKEN
+    }
+    if BOTT_SECRET_KEY:
+        params["secretKey"] = BOTT_SECRET_KEY
+        
+    # Body параметры (ID бота из конфига и Telegram ID юзера)
+    payload = {
+        "bot_id": int(BOTT_BOT_ID), # Переводим "233790" в число, как просит API
+        "telegram_id": telegram_id
+    }
+    
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, headers=headers, params=params, json=payload)
+            response.raise_for_status() 
+            data = response.json()
+            
+            # Достаем баланс из ответа Bot-t
+            if isinstance(data, dict):
+                if "balance" in data:
+                    return float(data["balance"])
+                elif "data" in data and "balance" in data["data"]:
+                    return float(data["data"]["balance"])
+            
+            logging.warning(f"Баланс не найден в ответе Bot-t для tg_id {telegram_id}. Ответ: {data}")
+            return 0.0
+                
+        except httpx.HTTPStatusError as e:
+            logging.error(f"❌ Ошибка API Bot-t при получении баланса (HTTP {e.response.status_code}): {e.response.text}")
+            return None
+        except Exception as e:
+            logging.error(f"❌ Сетевая ошибка при запросе баланса из Bot-t: {e}")
+            return None
         
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
@@ -195,7 +243,7 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
             # 🔥 НОВОЕ: 2. Узнаем текущий (старый) баланс юзера в Bot-t ПЕРЕД начислением
             old_balance = 0
             try:
-                bal_resp = await get_user_balance_from_bott(bott_id) # Убедись, что эта функция у тебя импортирована
+                bal_resp = await get_user_balance_from_bott(telegram_id) # Убедись, что эта функция у тебя импортирована
                 if bal_resp is not None:
                     old_balance = round(float(bal_resp), 2) # Округляем для красоты
             except Exception as bal_err:
