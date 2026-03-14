@@ -2204,22 +2204,41 @@ class MarketCSGO:
         
         if data and data.get("ask") and len(data["ask"]) > 0:
             lowest_ask_rub = float(data["ask"][0]["price"])
-            # 🔥 Динамический буфер для выкупа дубликатов (15% для дешевых, 5% для дорогих)
-            buffer_multiplier = 1.15 if lowest_ask_rub < 100 else 1.05
-            price_in_kopecks = int((lowest_ask_rub * 100) * buffer_multiplier)
+            
+            # 🔥 АГРЕССИВНЫЙ ПОТОЛОК (Гарантия безотказного выкупа)
+            # Деньги лишние не спишут, Маркет всегда ищет самый дешевый лот!
+            if lowest_ask_rub <= 20:
+                # Для скинов до 20 руб разрешаем покупать в 3 раза дороже
+                ceiling_rub = lowest_ask_rub * 3.0 
+            elif lowest_ask_rub <= 100:
+                # Для скинов от 20 до 100 руб даем запас х2 (40 руб -> потолок 80 руб)
+                ceiling_rub = lowest_ask_rub * 2.0
+            else:
+                # Для дорогих скинов (от 100 руб) даем запас +30%
+                ceiling_rub = lowest_ask_rub * 1.3
+                
+            price_in_kopecks = int(ceiling_rub * 100)
             return {"price": price_in_kopecks}
             
         return {"price": None}
-
+        
     async def buy_for_user(self, hash_name: str, max_price_rub: float, trade_link: str, custom_id: str): 
         import logging
         partner, token = self.parse_trade_link(trade_link)
         if not partner or not token:
             return {"success": False, "error": "Неверная трейд-ссылка"}
 
+        # 🔥 АГРЕССИВНЫЙ ПОТОЛОК (Гарантия безотказного выкупа)
+        if max_price_rub <= 20:
+            ceiling_rub = max_price_rub * 3.0 
+        elif max_price_rub <= 100:
+            ceiling_rub = max_price_rub * 2.0
+        else:
+            ceiling_rub = max_price_rub * 1.3
+
         # 🔥 МАГИЯ ЗДЕСЬ: Сразу переводим наш максимальный бюджет в копейки
         # Если скин стоит дешевле, Маркет сам купит его по минимальной цене!
-        price_in_kopecks = int(max_price_rub * 100)
+        price_in_kopecks = int(ceiling_rub * 100)
 
         params = {
             "hash_name": hash_name,
@@ -2229,7 +2248,8 @@ class MarketCSGO:
             "custom_id": custom_id
         }
         
-        logging.info(f"[MARKET] Прямой выкуп '{hash_name}' с бюджетом до {max_price_rub} руб. (custom_id: {custom_id})")
+        # В логи выводим уже умноженный бюджет, чтобы ты видел, с каким лимитом бот пошел на Маркет
+        logging.info(f"[MARKET] Прямой выкуп '{hash_name}' с бюджетом до {ceiling_rub:.2f} руб. (custom_id: {custom_id})")
         
         response = await self._make_request("buy-for", params)
         
