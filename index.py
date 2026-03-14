@@ -19178,6 +19178,15 @@ async def withdraw_inventory_item(
         raise HTTPException(status_code=400, detail="Этот предмет нельзя вывести (уже продан или получен).")
 
     # ==========================================
+    # 🔥 СТАВИМ ЖЕЛЕЗОБЕТОННУЮ ПЛОМБУ В БД ДО ВЫСТРЕЛА 🔥
+    # ==========================================
+    # Если юзер спамит дабл-кликами, второй клик увидит статус processing и убьется об проверку выше!
+    if current_status in valid_for_withdraw:
+        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+            "status": "processing",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+    # ==========================================
 
     item_data = history_record.get('item', {})
     item_source = history_record.get('source', 'shop') 
@@ -19196,9 +19205,9 @@ async def withdraw_inventory_item(
     has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # 🔥 ЗАЩИТА ОТ ДВОЙНОЙ ЗАКУПКИ: Статичный ID для Маркета
-    # Если функция вызовется повторно, Маркет увидит тот же ID и не купит второй скин
-    unique_market_id = f"wd_{req.history_id}"
+    import time
+    # 🔥 ДЕЛАЕМ УНИКАЛЬНЫМ, ЧТОБЫ ОБХОДИТЬ ОТМЕНЫ (STAGE 5) ОТ МАРКЕТА
+    unique_market_id = f"wd_{req.history_id}_{int(time.time())}"
 
     if has_english_name:
         # ==========================================
@@ -19214,7 +19223,7 @@ async def withdraw_inventory_item(
             target_condition=item_condition,
             target_market_name=market_hash_name,
             source=item_source,
-            custom_id=unique_market_id # 🔥 Передаем статичный ID
+            custom_id=unique_market_id # 🔥 Передаем статичный ID с таймстампом
         )
         
         # БЛОК ПЕРЕХВАТА ОШИБОК СТИМА
@@ -19222,6 +19231,11 @@ async def withdraw_inventory_item(
             error_code = delivery_res.get("market_error_code")
             error_msg = delivery_res.get("error", "Неизвестная ошибка")
             
+            # Если вылетели с ошибкой до покупки — откатываем пломбу
+            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                "status": "available", "updated_at": now_iso
+            })
+
             if error_code in [3, 8, 12]:
                 detail_msg = "⚠️ Ваша трейд-ссылка недействительна или устарела. Обновите её в профиле!"
             elif error_code == 5:
@@ -19302,6 +19316,7 @@ async def withdraw_inventory_item(
                             
                             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                                 "status": "market_pending",
+                                "tradeofferid": unique_market_id, # 🔥 ДОБАВЛЕНО: Сохраняем ID, чтобы трейд-чекер его нашел!
                                 "updated_at": now_iso
                             })
                             return {"success": True, "message": "Предмет закуплен на Маркете и летит к вам! Ожидайте трейд."}
@@ -19314,6 +19329,10 @@ async def withdraw_inventory_item(
     replacements = await get_replacement_options(target_price_rub, target_price_base, supabase)
     
     if replacements:
+        # Откатываем пломбу, чтобы юзер мог выбрать замену
+        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+            "status": "available", "updated_at": now_iso
+        })
         return {
             "success": False,
             "status": "offer_replacement",
@@ -19321,6 +19340,15 @@ async def withdraw_inventory_item(
             "options": replacements
         }
 
+    # ==========================================
+    # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
+    # ==========================================
+    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+        "status": "processing",
+        "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ВРЕМЯ
+    })
+    
+    return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
     # ==========================================
     # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
     # ==========================================
