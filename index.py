@@ -6257,18 +6257,37 @@ async def get_my_p2p_trades(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401)
+    if not user_info: 
+        raise HTTPException(status_code=401, detail="Auth failed")
     
-    # Запрашиваем сделки конкретного юзера
-    resp = await supabase.get(
-        "/p2p_trades", 
-        params={
-            "user_id": f"eq.{user_info['id']}",
-            "select": "*, case:case_prices(case_name)",
-            "order": "created_at.desc"
-        }
-    )
-    return resp.json()
+    try:
+        # Запрашиваем сделки конкретного юзера
+        resp = await supabase.get(
+            "/p2p_trades", 
+            params={
+                "user_id": f"eq.{user_info['id']}",
+                "select": "*, case:case_prices(case_name)",
+                "order": "created_at.desc"
+            }
+        )
+        # Если база вернула не 200 ОК (например 500 ошибку внутри самой базы)
+        resp.raise_for_status() 
+        
+        return resp.json()
+
+    except httpx.ReadError as e:
+        logging.error(f"[P2P TRADES] Supabase ReadTimeout: База не ответила вовремя ({e})")
+        # Кидаем 503 ошибку, чтобы фронтенд мог показать "Сервер перегружен"
+        raise HTTPException(status_code=503, detail="База данных временно недоступна, обновите страницу")
+        
+    except httpx.RequestError as e:
+        logging.error(f"[P2P TRADES] Supabase NetworkError: Обрыв связи ({e})")
+        raise HTTPException(status_code=503, detail="Ошибка соединения с сервером")
+        
+    except Exception as e:
+        logging.error(f"[P2P TRADES] Непредвиденная ошибка: {e}")
+        # Если вдруг что-то еще сломается, отдаем пустой массив, чтобы у юзера не сломалась верстка в профиле
+        return []
         
 @app.get("/api/v1/auctions/history/{auction_id}")
 async def get_auction_history(
