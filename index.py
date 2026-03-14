@@ -19464,61 +19464,68 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
         # 🔥 ТОЛЬКО МАРКЕТ (ПЛАН А)
         # ==========================================
         tm_api_key = os.getenv("CSGO_MARKET_API_KEY")
-        buy_success = False
-        market_error_log = "API ключ Маркета не найден"
         
         if tm_api_key:
-            # 🔥 Инициализируем наш защищенный класс Маркета
             market = MarketCSGO(api_key=tm_api_key)
-            
             partner_match = re.search(r'partner=(\d+)', trade_link)
             token_match = re.search(r'token=([a-zA-Z0-9_-]+)', trade_link)
             
             if not partner_match or not token_match:
-                market_error_log = "Неверный формат трейд-ссылки юзера"
+                market_error_log = "Неверный формат трейд-ссылки юзера" # <--- вот эту
                 logging.warning(f"[BG-REPLACEMENT] {market_error_log}: {trade_link}")
+                # Уводим в ручной режим
             else:
+                # 1. ГЕНЕРИРУЕМ УНИКАЛЬНЫЙ ID
+                unique_market_id = f"repl_{req.history_id}_{int(time.time())}" 
+                
+                # 2. 🔥 СНАЧАЛА ЗАПИСЫВАЕМ В БАЗУ 🔥 (Броня от двойных списаний)
+                # Юзер уже не сможет нажать кнопку, а если сеть отвалится - мы не потеряем ID
+                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                    "status": "market_pending",
+                    "tradeofferid": unique_market_id,
+                    "replaced_name": m_name,
+                    "replaced_price": replaced_price,
+                    "updated_at": now_iso
+                })
+
+                logging.info(f"[MARKET API] Покупка {m_name} (ID: {unique_market_id})")
+                
+                # Умный бюджет
+                base_p = float(replaced_price)
+                max_budget = base_p + 3.0 if base_p < 50.0 else base_p * 1.10
+
                 try:
-                    # 🔥 ЗАЩИТА: Убрали time.time(), теперь ID статичен для этой замены.
-                    unique_market_id = f"repl_{req.history_id}" 
-                    
-                    logging.info(f"[MARKET API] Попытка покупки замены {m_name} через MarketCSGO...")
-                    
-                    # 🔥 УМНЫЙ БЮДЖЕТ ДЛЯ ЗАМЕН
-                    # Т.к. цены меняются каждую секунду, даем Маркету безопасную вилку.
-                    base_p = float(replaced_price)
-                    if base_p < 50.0:
-                        # Для дешевых предметов 10% — это копейки. Даем жесткий запас +3 рубля.
-                        max_budget = base_p + 3.0
-                    else:
-                        # Для предметов дороже 50 руб оставляем +10%
-                        max_budget = base_p * 1.10
-                    
-                    # Делаем всю магию покупки (включая bid-ask) через одну функцию
+                    # 3. ДЕЛАЕМ ВЫСТРЕЛ В МАРКЕТ
                     buy_json = await market.buy_for_user(
                         hash_name=m_name, 
-                        max_price_rub=max_budget, # 🔥 ВОТ ОН, НАШ НОВЫЙ АРГУМЕНТ
+                        max_price_rub=max_budget,
                         trade_link=trade_link, 
                         custom_id=unique_market_id
                     )
                     
-                    # ПРОВЕРКА ОТВЕТА (success или уже куплено)
-                    if buy_json.get("success") or "custom_id exist" in str(buy_json.get("error", "")):
+                    # Если маркет ЯВНО отказал (например, нет такого скина или баланса 0)
+                    if not buy_json.get("success") and "custom_id exist" not in str(buy_json.get("error", "")):
+                        market_error_log = buy_json.get("error", "Unknown API error")
+                        logging.error(f"[BG-REPLACEMENT] Отказ Маркета: {market_error_log}")
+                        
+                        # Вот только теперь, раз Маркет ТОЧНО отказал, переводим в ручной режим
                         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                            "status": "market_pending",
-                            "tradeofferid": unique_market_id,
-                            "replaced_name": m_name,
-                            "replaced_price": replaced_price,
-                            "details": f"Замена куплена на Маркете: {item_name_ru}",
+                            "status": "processing",
+                            "details": f"Выбрана замена: {item_name_ru}. ТРЕБУЕТСЯ РУЧНАЯ ВЫДАЧА (Маркет: {market_error_log})",
                             "updated_at": now_iso
                         })
-                        return 
-                    else:
-                        # Если класс вернул success: False (например, из-за 504 таймаута после всех попыток)
-                        market_error_log = buy_json.get("error", "Unknown API error")
-                
+                        return
+
+                    # Если success = True, ничего не делаем, статус УЖЕ market_pending в базе!
+                    logging.info(f"[MARKET API] Успешный старт покупки {unique_market_id}")
+                    return
+
                 except Exception as api_ex:
-                    market_error_log = f"Ошибка API: {str(api_ex)}"
+                    # 🔥 ЕСЛИ ТУТ ВЫЛЕТЕЛ ТАЙМАУТ - МЫ НИЧЕГО НЕ МЕНЯЕМ В БД! 🔥
+                    # Сделка остается в market_pending. Кнопка "Проверить" сама узнает у Маркета, 
+                    # прошла ли покупка на самом деле, защищая твои бабки.
+                    logging.error(f"Таймаут Маркета при замене {unique_market_id}. Оставляем в pending: {api_ex}")
+                    return
 
         # ==========================================
         # 🛠 РУЧНОЙ РЕЖИМ (ЕСЛИ МАРКЕТ НЕ КУПИЛ)
