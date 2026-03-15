@@ -10551,10 +10551,23 @@ async def create_in_app_notification(supabase: httpx.AsyncClient, user_id: int, 
 # --- ЭНДПОИНТЫ ДЛЯ ТВОЕГО WEB APP ---
 
 @app.get("/api/v1/notifications")
-async def get_user_notifications(user_id: int, limit: int = 50, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """Отдает список уведомлений юзера и количество непрочитанных."""
+async def get_user_notifications(
+    initData: str,  # FastAPI сам возьмет это из query-параметров
+    limit: int = 50, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Отдает список уведомлений юзера, проверяя его через initData."""
     try:
-        # Получаем сами уведомления (сортируем от новых к старым)
+        # 1. Проверяем пользователя (как в админке, но для обычного юзера)
+        # ALL_VALID_TOKENS — это твой список токенов ботов
+        user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+        
+        if not user_info:
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+        user_id = user_info.get("id")
+
+        # 2. Получаем уведомления именно для этого пользователя
         resp = await supabase.get(
             "/in_app_notifications",
             params={
@@ -10565,7 +10578,7 @@ async def get_user_notifications(user_id: int, limit: int = 50, supabase: httpx.
         )
         notifications = resp.json()
         
-        # Считаем количество непрочитанных (для бейджа 999+)
+        # 3. Считаем количество непрочитанных
         unread_count = sum(1 for n in notifications if not n.get("is_read"))
         
         return {
@@ -10573,7 +10586,7 @@ async def get_user_notifications(user_id: int, limit: int = 50, supabase: httpx.
             "notifications": notifications
         }
     except Exception as e:
-        logging.error(f"Ошибка при получении уведомлений: {e}")
+        logging.error(f"Ошибка при получении уведомлений для {user_id if 'user_id' in locals() else 'unknown'}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка сервера")
 
 @app.post("/api/v1/notifications/read")
