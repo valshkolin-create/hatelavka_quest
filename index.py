@@ -209,14 +209,15 @@ async def get_user_balance_from_bott(telegram_id: int) -> float | None:
             response.raise_for_status() 
             data = response.json()
             
-            # Достаем баланс из ответа Bot-t
+            # Достаем баланс из ответа Bot-t и переводим из копеек в рубли/монеты
             if isinstance(data, dict):
-                if "balance" in data:
-                    return float(data["balance"])
-                elif "data" in data and "balance" in data["data"]:
-                    return float(data["data"]["balance"])
+                if "data" in data and "money" in data["data"]:
+                    return float(data["data"]["money"]) / 100  # <-- ДЕЛИМ НА 100
+                elif "money" in data:
+                    return float(data["money"]) / 100          # <-- ДЕЛИМ НА 100
             
-            logging.warning(f"Баланс не найден в ответе Bot-t для tg_id {telegram_id}. Ответ: {data}")
+            # В логе тоже логично поменять слово для порядка
+            logging.warning(f"Баланс (money) не найден в ответе Bot-t для tg_id {telegram_id}. Ответ: {data}")
             return 0.0
                 
         except httpx.HTTPStatusError as e:
@@ -241,13 +242,14 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
             bott_id = u_data[0]["bott_internal_id"]
             
             # 🔥 НОВОЕ: 2. Узнаем текущий (старый) баланс юзера в Bot-t ПЕРЕД начислением
-            old_balance = 0
+            old_balance = 0.0
             try:
-                bal_resp = await get_user_balance_from_bott(telegram_id) # Убедись, что эта функция у тебя импортирована
+                bal_resp = await get_user_balance_from_bott(telegram_id)
                 if bal_resp is not None:
                     old_balance = round(float(bal_resp), 2) # Округляем для красоты
             except Exception as bal_err:
-                logging.warning(f"Не удалось получить старый баланс для {bott_id}: {bal_err}")
+                # Поправил лог: выводим telegram_id, раз уж ищем по нему
+                logging.warning(f"Не удалось получить старый баланс для tg_id {telegram_id}: {bal_err}")
 
             # 3. Начисляем реальные монеты в Bot-t
             success = await add_balance_to_bott(bott_id, reward_value, f"🎁 {description}")
