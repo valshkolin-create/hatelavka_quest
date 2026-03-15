@@ -815,3 +815,51 @@ body.desktop-mode .toggle-container {
 .badge-pulse-anim {
     animation: badge-pulse 0.5s ease-in-out 2;
 }
+.logo-btn-container {
+    position: relative; /* Обязательно, чтобы колокольчик не улетел */
+    /* Твои старые стили контейнера остаются тут */
+}
+
+/* Колокольчик висит поверх твоей картинки */
+.bell-overlay {
+    position: absolute;
+    top: -2px; /* Подгони под свою картинку, если нужно выше/ниже */
+    right: -4px; /* Подгони левее/правее */
+    background: #1c1c1e; /* Темный фон, чтобы колокольчик не сливался с артом */
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 10;
+    pointer-events: none; /* Клик пролетает сквозь него прямо по кнопке */
+}
+
+/* Иконка колокольчика */
+.bell-overlay i {
+    font-size: 9px;
+    color: #ffd700;
+}
+
+/* Тот самый тоненький бейдж с цифрой */
+.notif-badge-logo {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: linear-gradient(135deg, #ff3b30, #ff2d55);
+    color: white;
+    font-size: 7px;
+    font-weight: 700;
+    height: 12px;
+    min-width: 12px;
+    padding: 0 3px;
+    border-radius: 6px;
+    border: 1px solid #1c1c1e;
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
