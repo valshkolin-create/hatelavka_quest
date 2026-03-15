@@ -3,50 +3,44 @@
 // ================================================================
 let isVk = false;
 
-// Возвращаем функцию получения параметров из Bridge
-async function fetchVkParamsFromBridge() {
-    if (typeof vkBridge === 'undefined') return null;
-    try {
-        const data = await vkBridge.send('VKWebAppGetLaunchParams');
-        if (data && data.vk_user_id) {
-            const params = Object.keys(data)
-                .map(key => `${key}=${encodeURIComponent(data[key])}`)
-                .join('&');
-            window.vkParams = params;
-            return params;
-        }
-    } catch (e) {}
-    return null;
-}
-
 (function initVkParams() {
     window.vkParams = null;
-    const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
+    const isValid = (str) => typeof str === 'string' && str.includes('vk_user_id') && str.includes('sign');
     
-    // 1. Проверяем URL
     try {
         let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-        if (isValid(s)) { window.vkParams = s; isVk = true; return; }
-        
         let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-        if (isValid(h)) { window.vkParams = h; isVk = true; return; }
         
-        if (isValid(window.name)) { window.vkParams = window.name; isVk = true; return; }
-        
-        const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
-        if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; isVk = true; return; }
-    } catch (e) {}
+        // 1. Ищем в URL
+        if (isValid(s)) { window.vkParams = s; }
+        else if (isValid(h)) { window.vkParams = h; }
+        else if (isValid(window.name)) { window.vkParams = window.name; }
+        else {
+            const match = window.location.href.match(/(vk_user_id=[^#]*)/);
+            if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; }
+        }
 
-    // 2. Если в URL ничего нет, пытаемся понять по косвенным признакам, что мы в ВК
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('vk_app_id') || (window.self !== window.top && !window.Telegram?.WebApp?.initData)) {
-        isVk = true; // Мы точно в ВК, но параметры спрятаны (нужно будет дернуть Bridge)
+        // 2. Логика кэширования
+        if (window.vkParams) {
+            // Сохраняем в кэш сессии, чтобы не терять при переходах по страницам
+            sessionStorage.setItem('vk_auth_params', window.vkParams);
+            isVk = true;
+        } else {
+            // Ищем в кэше, если URL уже очистился (например, при редиректе vue/react)
+            const cached = sessionStorage.getItem('vk_auth_params');
+            if (isValid(cached)) {
+                window.vkParams = cached;
+                isVk = true;
+            }
+        }
+    } catch (e) {
+        console.warn("VK init error", e);
     }
 })();
 
 // Сообщаем ВК, что мы загрузились
 if (isVk && typeof vkBridge !== 'undefined') {
-    vkBridge.send('VKWebAppInit');
+    try { vkBridge.send('VKWebAppInit'); } catch(e){}
 }
 
 function getAuthPayload() {
@@ -2099,11 +2093,6 @@ window.showFaq = function() {
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
 async function main() {
-    // 👇 ДОБАВИТЬ ЭТО 👇: Если мы в ВК, но параметров в URL не было — достаем их из моста
-    if (isVk && !window.vkParams) {
-        await fetchVkParamsFromBridge();
-    }
-    // 👆 ДОБАВИТЬ ЭТО 👆
     // ⚡ ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ САМЫМ ПЕРВЫМ
     checkBalance(true);
 
