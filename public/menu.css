@@ -761,3 +761,49 @@ body.desktop-mode .top-header {
 body.desktop-mode .toggle-container {
     top: 65px !important;
 }
+
+
+/* ==========================================
+   ЛОГОТИП-УВЕДОМЛЕНИЕ (ИН-АПП)
+========================================== */
+.logo-btn-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.logo-btn-container:active {
+    transform: scale(0.9); /* Приятное сжатие при клике */
+}
+
+.notif-badge-logo {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: linear-gradient(135deg, #ff3b30, #ff2d55);
+    color: white;
+    font-size: 9px;
+    font-weight: 900;
+    padding: 2px 4px;
+    border-radius: 10px;
+    border: 2px solid var(--bg-main); /* Толстая рамка цвета фона, чтобы прорезать логотип */
+    box-shadow: 0 4px 8px rgba(255, 59, 48, 0.5);
+    pointer-events: none;
+    z-index: 10;
+    min-width: 16px;
+    text-align: center;
+    line-height: 1.2;
+}
+
+@keyframes badge-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.25); box-shadow: 0 0 15px rgba(255, 59, 48, 0.8); }
+    100% { transform: scale(1); }
+}
+
+.badge-pulse-anim {
+    animation: badge-pulse 0.5s ease-in-out 2;
+}
