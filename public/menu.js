@@ -1290,18 +1290,6 @@ function renderItems(items) {
             title.style.fontSize = fontSize + 'px';
         }
     });
-}
-    
-    container.appendChild(fragment);
-
-    // Авто-уменьшение шрифта для длинных названий кейсов
-    container.querySelectorAll('.case-top-title').forEach(title => {
-        let fontSize = 13; 
-        while (title.scrollWidth > title.offsetWidth && fontSize > 7) {
-            fontSize -= 0.5;
-            title.style.fontSize = fontSize + 'px';
-        }
-    });
 
 async function validateUserTradeLink() {
     const loader = document.getElementById('purchase-loader');
