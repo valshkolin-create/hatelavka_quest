@@ -5306,7 +5306,7 @@ async def get_cs_items(supabase: httpx.AsyncClient = Depends(get_supabase_client
 
 # --- 2. Публичный API: КРУТИТЬ РУЛЕТКУ ---
 
-# --- ПРОВЕРКА КОДА (REAL-TIME) ---
+# --- ПРОВЕРКА И АКТИВАЦИЯ КОДА (ТЕПЕРЬ ПИШЕТ В БАЗУ ДЛЯ СИНХРОНА) ---
 @app.post("/api/cs/check_code")
 async def check_cs_code(
     req: CSCheckCodeRequest,
@@ -5315,7 +5315,6 @@ async def check_cs_code(
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(401, "Unauthorized")
     
-    # Приводим к числу, так как в БД массив bigint
     user_id = int(user_info['id']) 
     code = req.code.strip()
 
@@ -5331,22 +5330,57 @@ async def check_cs_code(
 
     promo = code_data[0]
     
-    # 2. Проверяем общий лимит использований (например, 20 из 20)
+    # 2. Проверяем общий лимит использований
     if promo['current_uses'] >= promo['max_uses']:
         return {"valid": False, "message": "Активации этого кода закончились"}
 
-    # 3. Проверяем в этой же таблице, не использовал ли уже этот юзер код
-    # Проверяем наличие user_id в массиве used_by_ids
+    # 3. Проверяем, не использовал ли (used_by_ids) или не активировал ли уже (activated_by_ids)
     used_by = promo.get('used_by_ids') or []
+    activated_by = promo.get('activated_by_ids') or []
+    
     if user_id in used_by:
         return {"valid": False, "message": "Вы уже использовали этот код"}
+    
+    if user_id in activated_by:
+        return {"valid": False, "message": "Этот код уже активирован на вашем аккаунте!"}
 
-    # В самом конце функции возвращаем:
+    # 🔥 ФИКС: Записываем ID юзера в список активировавших ПРЯМО СЕЙЧАС
+    activated_by.append(user_id)
+    await supabase.patch(
+        f"/cs_codes?code=eq.{code}",
+        json={"activated_by_ids": activated_by}
+    )
+
     return {
         "valid": True, 
-        "message": "Код активен! У вас доступно 1 бесплатное открытие.",
-        "target_case_name": promo.get("target_case_name") # <-- ТЕПЕРЬ ОТДАЕМ НАЗВАНИЕ
+        "message": "Код активирован! Теперь бесплатное открытие доступно на всех ваших устройствах.",
+        "target_case_name": promo.get("target_case_name")
     }
+
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ СИНХРОНИЗАЦИИ (ВЫЗЫВАТЬ ПРИ ЗАГРУЗКЕ САЙТА) ---
+@app.get("/api/cs/my_active_promos")
+async def get_my_promos(
+    initData: str, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(401, "Unauthorized")
+    
+    user_id = int(user_info['id'])
+
+    # Ищем все коды, где наш ID есть в списке активировавших (activated_by_ids)
+    # Используем фильтр .cs. (contains) для поиска ID внутри массива
+    res = await supabase.get("/cs_codes", params={
+        "activated_by_ids": f"cs.{{{user_id}}}",
+        "is_active": "eq.true"
+    })
+    
+    codes_data = res.json()
+    
+    # Собираем список названий кейсов, которые для этого юзера сейчас бесплатны
+    active_cases = [item['target_case_name'] for item in codes_data if item.get('target_case_name')]
+    
+    return {"active_cases": active_cases}
     
 
 # --- ПОЛУЧЕНИЕ СТАТУСА БУСТОВ (Для красивых кнопок) ---
@@ -16057,20 +16091,27 @@ async def buy_bott_item_proxy(
             background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key)
             
     else:
-        # Обновляем счетчик и добавляем ID юзера в массив (ТЕПЕРЬ ВНУТРИ ELSE)
-        current_ids = promo_data.get('used_by_ids') or []
-        if int(telegram_id) not in current_ids:
-            current_ids.append(int(telegram_id))
+        # === ЛОГИКА ТРАТЫ КУПОНА (ПЕРЕНОС ID ИЗ ОЖИДАНИЯ В ИСПОЛЬЗОВАННЫЕ) ===
+        used_ids = promo_data.get('used_by_ids') or []
+        activated_ids = promo_data.get('activated_by_ids') or []
+        u_id = int(telegram_id)
+
+        if u_id not in used_ids:
+            used_ids.append(u_id)
+
+        if u_id in activated_ids:
+            activated_ids.remove(u_id)
 
         await supabase.patch(
             "/cs_codes", 
             params={"code": f"eq.{coupon_code}"}, 
             json={
                 "current_uses": promo_data['current_uses'] + 1,
-                "used_by_ids": current_ids
+                "used_by_ids": used_ids,
+                "activated_by_ids": activated_ids
             }
         )
-        logging.info(f"[SHOP] Покупка оплачена купоном: {coupon_code}")
+        logging.info(f"[SHOP] Купон {coupon_code} успешно потрачен юзером {u_id}. Списки обновлены.")
 
     # =========================================================================
     # 🎰 ЛОГИКА РУЛЕТКИ (КЕЙСЫ)
