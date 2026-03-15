@@ -78,10 +78,13 @@ let lastSliderSignature = '';
 // ИСТОРИЯ УВЕДОМЛЕНИЙ (ЧЕРЕЗ ЛОГОТИП)
 // ================================================================
 
-// 1. Фоновая проверка (Зажигает цифру на бейдже)
+// 1. Фоновая проверка (Зажигает цифру на бейдже и красит сам колокольчик)
 async function fetchNotificationsBadge() {
     const badge = document.getElementById('logo-notification-badge');
     if (!badge) return;
+
+    // Ищем иконку колокольчика внутри родительского элемента бейджа
+    const bellIcon = badge.parentElement ? badge.parentElement.querySelector('i') : null;
 
     try {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
@@ -89,8 +92,20 @@ async function fetchNotificationsBadge() {
             // Вписываем количество в бейдж
             badge.textContent = res.unread_count > 99 ? '99+' : res.unread_count;
             badge.classList.remove('hidden');
+            
+            // Зажигаем саму иконку колокольчика (делаем золотой + свечение)
+            if (bellIcon) {
+                bellIcon.style.color = '#ffd700';
+                bellIcon.style.textShadow = '0 0 8px rgba(255, 215, 0, 0.4)';
+            }
         } else {
             badge.classList.add('hidden');
+            
+            // Гасим иконку (возвращаем дефолтный цвет)
+            if (bellIcon) {
+                bellIcon.style.color = '';
+                bellIcon.style.textShadow = 'none';
+            }
         }
     } catch (e) {
         console.warn("Не удалось загрузить бейдж", e);
@@ -131,6 +146,13 @@ window.deleteNotification = async function(event, notifId) {
 window.openNotificationsHistory = async function() {
     const badge = document.getElementById('logo-notification-badge');
     if (badge) badge.classList.add('hidden'); 
+    
+    // Гасим колокольчик при открытии
+    const bellIcon = badge && badge.parentElement ? badge.parentElement.querySelector('i') : null;
+    if (bellIcon) {
+        bellIcon.style.color = '';
+        bellIcon.style.textShadow = 'none';
+    }
 
     showShopModal({
         title: "🔔 Уведомления",
@@ -145,7 +167,6 @@ window.openNotificationsHistory = async function() {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
         const notifs = res.notifications || [];
 
-        // Контейнер теперь display: block; (никаких флексов, которые тянут высоту)
         let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: block; width: 100%; box-sizing: border-box;">';
 
         if (notifs.length === 0) {
@@ -175,29 +196,31 @@ window.openNotificationsHistory = async function() {
                 const dateObj = new Date(n.created_at);
                 const timeStr = dateObj.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
                 const dateStr = dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
-                const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.2)';
+                // Светящаяся золотая рамка для новых, тусклая для старых
+                const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.3)';
 
-                // ИДЕАЛЬНАЯ ВЕРСТКА: flex-row, height: auto, жёсткие ограничения на перенос текста
+                // ВЁРСТКА: Уменьшены отступы, дата вынесена в абсолют вниз
                 html += `
-                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 12px; padding-right: 36px; margin-bottom: 8px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 12px; height: auto;">
+                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 10px 32px 20px 10px; margin-bottom: 8px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 10px;">
                         
                         <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
                             ${icon}
                         </div>
                         
-                        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
-                            <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0; padding-bottom: 2px;">
+                            <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
                                 ${escapeHTML(n.title)}
                             </div>
-                            <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.3; word-break: break-word; overflow-wrap: anywhere; white-space: normal; margin-bottom: 6px;">
+                            <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.3; word-break: break-word; overflow-wrap: anywhere; white-space: normal; margin-bottom: 0;">
                                 ${escapeHTML(n.message)}
-                            </div>
-                            <div style="font-size: 9px; font-weight: 500; color: #666; text-align: left;">
-                                ${dateStr} в ${timeStr}
                             </div>
                         </div>
                         
-                        <div style="position: absolute; top: 12px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: flex-start; justify-content: flex-end;" 
+                        <div style="position: absolute; bottom: 6px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
+                            ${dateStr} в ${timeStr}
+                        </div>
+                        
+                        <div style="position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: flex-start; justify-content: flex-end;" 
                              onclick="deleteNotification(event, '${n.id}')" 
                              onmouseover="this.style.opacity='1'" 
                              onmouseout="this.style.opacity='0.5'">
@@ -222,7 +245,6 @@ window.openNotificationsHistory = async function() {
         if (subtitleEl) subtitleEl.innerHTML = '<div style="color:#ff3b30; text-align:center; padding:20px; font-size: 12px;">Не удалось загрузить историю.</div>';
     }
 };
-
 // ================================================================
 // УТИЛИТЫ И API
 // ================================================================
