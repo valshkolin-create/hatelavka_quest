@@ -4,43 +4,56 @@
 let isVk = false;
 
 (function initVkParams() {
-    window.vkParams = null;
-    const isValid = (str) => typeof str === 'string' && str.includes('vk_user_id') && str.includes('sign');
-    
+    window.vkParams = null; 
+    const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
+
     try {
         let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-        let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-        
-        // 1. Ищем в URL
-        if (isValid(s)) { window.vkParams = s; }
-        else if (isValid(h)) { window.vkParams = h; }
-        else if (isValid(window.name)) { window.vkParams = window.name; }
-        else {
-            const match = window.location.href.match(/(vk_user_id=[^#]*)/);
-            if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; }
-        }
+        if (isValid(s)) { window.vkParams = s; return; }
 
-        // 2. Логика кэширования
-        if (window.vkParams) {
-            // Сохраняем в кэш сессии, чтобы не терять при переходах по страницам
-            sessionStorage.setItem('vk_auth_params', window.vkParams);
-            isVk = true;
-        } else {
-            // Ищем в кэше, если URL уже очистился (например, при редиректе vue/react)
-            const cached = sessionStorage.getItem('vk_auth_params');
-            if (isValid(cached)) {
-                window.vkParams = cached;
-                isVk = true;
-            }
-        }
-    } catch (e) {
-        console.warn("VK init error", e);
-    }
+        let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
+        if (isValid(h)) { window.vkParams = h; return; }
+
+        if (isValid(window.name)) { window.vkParams = window.name; return; }
+
+        const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
+        if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; return; }
+    } catch (e) {}
 })();
 
+function getSearchParam(name) {
+    try { return new URL(window.location.href).searchParams.get(name); } catch(e) { return null; }
+}
+
+isVk = !!(window.vkParams || getSearchParam('vk_app_id'));
+
+// 🔥 ТОТ САМЫЙ СТАРЫЙ ХАК: Принудительный режим для iframe
+if (!isVk && window.self !== window.top && !window.Telegram?.WebApp?.initData) {
+    isVk = true;
+}
+
 // Сообщаем ВК, что мы загрузились
-if (isVk && typeof vkBridge !== 'undefined') {
-    try { vkBridge.send('VKWebAppInit'); } catch(e){}
+if (isVk) {
+    document.documentElement.classList.add('vk-mode');
+    if (typeof vkBridge !== 'undefined') {
+        try { vkBridge.send('VKWebAppInit'); } catch(e){}
+    }
+}
+
+// 🔥 ВОЗВРАЩАЕМ ТВОЮ ФУНКЦИЮ ИЗ СТАРОГО КОДА
+async function fetchVkParamsFromBridge() {
+    if (typeof vkBridge === 'undefined') return null;
+    try {
+        const data = await vkBridge.send('VKWebAppGetLaunchParams');
+        if (data && data.vk_user_id) {
+            const params = Object.keys(data)
+                .map(key => `${key}=${encodeURIComponent(data[key])}`)
+                .join('&');
+            window.vkParams = params;
+            return params;
+        }
+    } catch (e) {}
+    return null;
 }
 
 function getAuthPayload() {
@@ -2092,11 +2105,41 @@ window.showFaq = function() {
 // ================================================================
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
+// ================================================================
+// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
+// ================================================================
 async function main() {
-    // ⚡ ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ САМЫМ ПЕРВЫМ
+    // 1. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ VK 🔥
+    if (isVk && !window.vkParams) {
+        console.log("⏳ Параметров VK нет в URL. Запрашиваем у моста...");
+        if (typeof fetchVkParamsFromBridge === 'function') {
+            await fetchVkParamsFromBridge();
+        }
+        if (!window.vkParams) {
+            console.error("💀 Критическая ошибка: Не удалось получить параметры VK.");
+        } else {
+            console.log("✅ Ключи VK успешно получены!");
+        }
+    }
+
+    // 2. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ TELEGRAM 🔥
+    if (!isVk && window.Telegram?.WebApp) {
+        let attempts = 0;
+        // Ждем максимум 1.5 секунды (15 попыток по 100мс), пока ТГ генерирует initData
+        while (!window.Telegram.WebApp.initData && attempts < 15) {
+            await new Promise(r => setTimeout(r, 100));
+            attempts++;
+        }
+        if (!window.Telegram.WebApp.initData) {
+            console.error("💀 Критическая ошибка: Telegram не отдал initData.");
+        }
+    }
+
+    // 3. ⚡ ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ
     checkBalance(true);
 
     try {
+        // Если даже после ожидания токена нет — тихо выходим (возможно, юзер открыл просто в браузере)
         if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
             return; 
@@ -2132,6 +2175,7 @@ async function main() {
             }
             updateLoading(10); 
         }      
+        
         // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (С ЗАЩИТОЙ ОТ ПАДЕНИЯ ОТДЕЛЬНЫХ МОДУЛЕЙ)
         let bootstrapData, rafflesData, shopData, p2pData;
         
