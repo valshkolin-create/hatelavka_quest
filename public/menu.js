@@ -1230,9 +1230,19 @@ function renderItems(items) {
             `;
         } else if (isCase) {
             // ЕСЛИ ЭТО КЕЙС
-            const activeCoupon = localStorage.getItem('active_coupon');
+            let activeCouponData = null;
+            try { activeCouponData = JSON.parse(localStorage.getItem('active_coupon_data')); } catch(e) {}
             
-            if (activeCoupon) {
+            let showFreeButton = false;
+            if (activeCouponData) {
+                // Показывать БЕСПЛАТНО, если купон на всё (null) ИЛИ если названия совпадают (без учета регистра)
+                if (!activeCouponData.target_case_name || 
+                    activeCouponData.target_case_name.trim().toLowerCase() === item.name.trim().toLowerCase()) {
+                    showFreeButton = true;
+                }
+            }
+            
+            if (showFreeButton) {
                 // РИСУЕМ КНОПКУ БЕСПЛАТНО!
                 buttonHtml = `
                     <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
@@ -1310,8 +1320,18 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     const isLinkValid = await validateUserTradeLink();
     if (!isLinkValid) return; 
 
-    // Проверяем, есть ли активный купон
-    const activeCoupon = localStorage.getItem('active_coupon');
+    // Достаем JSON
+    let activeCouponData = null;
+    try { activeCouponData = JSON.parse(localStorage.getItem('active_coupon_data')); } catch(e) {}
+    
+    let activeCoupon = null;
+    if (activeCouponData) {
+        // Проверяем совпадение по НАЗВАНИЮ
+        if (!activeCouponData.target_case_name || 
+            activeCouponData.target_case_name.trim().toLowerCase() === name.trim().toLowerCase()) {
+            activeCoupon = activeCouponData.code;
+        }
+    }
     
     // Формируем диалоговое окно
     let confirmMsg = `Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`;
@@ -2088,22 +2108,29 @@ window.activateCouponSubmit = async () => {
     try {
         // Стучимся на созданный эндпоинт
         const res = await makeApiRequest('/api/cs/check_code', { code: code }, 'POST');
+        
         if (res.valid) {
             customAlert("✅ " + res.message);
             closeCouponModal();
             
-            // 🌟 МАГИЯ: Сохраняем купон в память браузера
-            localStorage.setItem('active_coupon', code);
+            // 🌟 МАГИЯ: Сохраняем купон И НАЗВАНИЕ целевого кейса как JSON
+            // Если res.target_case_name придет пустым (null), купон будет работать на все кейсы
+            localStorage.setItem('active_coupon_data', JSON.stringify({
+                code: code,
+                target_case_name: res.target_case_name || null
+            }));
             
             // Сразу переводим пользователя на вкладку магазина и обновляем визуал кейсов
             const shopTab = document.querySelector('.toggle-option[data-target="view-shop"]');
             if (shopTab) shopTab.click();
+            
+            // Перезагружаем категорию кейсов, чтобы сработал renderItems с новой логикой
             loadCategory(2716312); 
         } else {
             customAlert("❌ " + res.message);
         }
     } catch (e) {
-        // Ошибка перехватывается глобально
+        // Ошибка перехватывается глобально в makeApiRequest
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;
