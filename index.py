@@ -14588,7 +14588,7 @@ async def issue_twitch_reward_tickets(
         raise HTTPException(status_code=500, detail="Не удалось выдать награду.")
 
 # 2. ЗАМЕНИТЕ ВАШУ СТАРУЮ ФУНКЦИЮ send_approval_notification НА ЭТУ:
-async def send_approval_notification(user_id: int, quest_title: str, promo_code: str):
+async def send_approval_notification(user_id, quest_title, promo_code=None):
     """Отправляет уведомление об одобрении заявки в фоне."""
     try:
         # Подготовка ссылки для быстрой активации
