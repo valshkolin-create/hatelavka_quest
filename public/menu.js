@@ -1302,7 +1302,6 @@ function renderItems(items) {
             title.style.fontSize = fontSize + 'px';
         }
     });
-}
 
 async function validateUserTradeLink() {
     const loader = document.getElementById('purchase-loader');
