@@ -422,24 +422,62 @@ async function checkBalance(updateUI = true) {
     const iconCoins = document.getElementById('refresh-icon');
     if (iconCoins) iconCoins.classList.add('fa-spin');
 
-    return fetch('/api/v1/shop/smart_balance', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(getAuthPayload()) })
+    // ⚡ МГНОВЕННЫЙ РЕНДЕР ИЗ ВЫДЕЛЕННОГО КЭША
+    if (updateUI) {
+        try {
+            const cached = JSON.parse(localStorage.getItem('smart_balance_cache'));
+            if (cached) renderBalanceUI(cached.balance, cached.tickets);
+        } catch(e) {}
+    }
+
+    return fetch('/api/v1/shop/smart_balance', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify(getAuthPayload()) 
+    })
     .then(r => r.json())
     .then(data => {
         if (updateUI && data) {
-            let coins = data.balance || 0; 
-            // Это добавит красивые пробелы: 40000 -> 40 000
-            let displayBalance = Number((coins / 100).toFixed(0)).toLocaleString('ru-RU');
-            const balanceEl = document.getElementById('user-balance');
-            if (balanceEl) { balanceEl.style.opacity = '0.5'; setTimeout(() => { balanceEl.textContent = displayBalance; balanceEl.style.opacity = '1'; }, 150); }
-
-            let tickets = data.tickets || 0; 
-            let displayTickets = Number(tickets).toLocaleString('ru-RU'); // Добавили эту переменную
-            const ticketsEl = document.getElementById('ticketStats');
-            if (ticketsEl) { ticketsEl.style.opacity = '0.5'; setTimeout(() => { ticketsEl.textContent = displayTickets; ticketsEl.style.opacity = '1'; }, 150); }
+            // Сохраняем свежий баланс в кэш
+            localStorage.setItem('smart_balance_cache', JSON.stringify(data));
+            renderBalanceUI(data.balance, data.tickets);
         }
-    }).catch(err => {}).finally(() => { setTimeout(() => { isBalanceLoading = false; if (iconCoins) iconCoins.classList.remove('fa-spin'); }, 500); });
+    })
+    .catch(err => {})
+    .finally(() => { 
+        setTimeout(() => { 
+            isBalanceLoading = false; 
+            if (iconCoins) iconCoins.classList.remove('fa-spin'); 
+        }, 500); 
+    });
 }
 
+// Вынесли отрисовку в отдельную функцию (теперь с защитой от сброса в 0)
+function renderBalanceUI(coins, tickets) {
+    if (coins !== undefined) {
+        let displayBalance = Number((coins / 100).toFixed(0)).toLocaleString('ru-RU');
+        const balanceEl = document.getElementById('user-balance');
+        if (balanceEl && balanceEl.textContent !== displayBalance) { 
+            balanceEl.style.opacity = '0.5'; 
+            setTimeout(() => { 
+                balanceEl.textContent = displayBalance; 
+                balanceEl.style.opacity = '1'; 
+            }, 150); 
+        }
+    }
+
+    if (tickets !== undefined) {
+        let displayTickets = Number(tickets).toLocaleString('ru-RU');
+        const ticketsEl = document.getElementById('ticketStats');
+        if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
+            ticketsEl.style.opacity = '0.5'; 
+            setTimeout(() => { 
+                ticketsEl.textContent = displayTickets; 
+                ticketsEl.style.opacity = '1'; 
+            }, 150); 
+        }
+    }
+}
 // ================================================================
 // НОВЫЙ ИНТЕРФЕЙС (ПЕРЕКЛЮЧАТЕЛИ И МЕНЮ)
 // ================================================================
@@ -1235,11 +1273,29 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
         const loader = document.getElementById('purchase-loader');
         if (loader) { loader.querySelector('.loader-text').innerText = "Крутим барабан..."; loader.classList.add('active'); }
 
+        // ⚡ ОПТИМИСТИЧНОЕ СПИСАНИЕ БАЛАНСА (СРАЗУ)
+        const balanceEl = currency === 'coins' ? document.getElementById('user-balance') : document.getElementById('ticketStats');
+        let currentVisualBalance = 0;
+        if (balanceEl) {
+            // Убираем пробелы и парсим число
+            currentVisualBalance = parseInt(balanceEl.textContent.replace(/\s/g, '')) || 0;
+            // Если монет визуально хватает — списываем
+            if (currentVisualBalance >= price) {
+                renderBalanceUI(
+                    currency === 'coins' ? (currentVisualBalance - price) * 100 : undefined, // Умножаем на 100, т.к. в renderBalanceUI делится на 100
+                    currency === 'tickets' ? (currentVisualBalance - price) : undefined
+                );
+            }
+        }
+
         try {
-            const contentsResp = await makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(name)}`, {}, 'GET', true);
+            // Параллельно запускаем запрос на содержимое кейса и покупку
+            const contentsPromise = makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(name)}`, {}, 'GET', true);
+            const buyPromise = makeApiRequest('/api/v1/shop/buy', { item_id: id, price: price, title: name, image_url: imageUrl, currency: currency }, 'POST');
+            
+            const [contentsResp, resData] = await Promise.all([contentsPromise, buyPromise]);
             const possibleItems = (contentsResp && contentsResp.length > 0) ? contentsResp : [{ name: "Mystery Item", image_url: imageUrl, rarity: "common" }];
 
-            const resData = await makeApiRequest('/api/v1/shop/buy', { item_id: id, price: price, title: name, image_url: imageUrl, currency: currency }, 'POST');
             let winner = resData.winner || { name: "Ошибка", image_url: imageUrl, rarity: 'common' };
 
             let strip = [];
@@ -1247,8 +1303,14 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             strip[60] = winner; 
 
             launchRoulette(strip, winner, resData.messages || [], resData.lacky, name);
+            // Синхронизируем реальный баланс в фоне
             checkBalance(true);
-        } catch (err) { } finally { if (loader) loader.classList.remove('active'); }
+        } catch (err) { 
+            // ⚡ ЕСЛИ ОШИБКА (например, не хватило денег на сервере) - ОТКАТЫВАЕМ БАЛАНС НАЗАД
+            checkBalance(true); 
+        } finally { 
+            if (loader) loader.classList.remove('active'); 
+        }
     });
 };
 
@@ -1366,15 +1428,40 @@ window.claimItem = async function(itemId) {
 }
 
 window.sellForTickets = function(itemId, price) {
-    showShopModal({ title: `Продать за ${price} 🎟️?`, subtitle: "Билеты начислятся моментально.", confirmText: "ПРОДАТЬ", confirmClass: "btn-purple-modal", onConfirm: async (closeModal) => {
-        const loader = document.getElementById('purchase-loader'); if (loader) { loader.classList.add('active'); loader.querySelector('.loader-text').innerText = "Продаем..."; }
-        try {
-            await makeApiRequest('/api/v1/user/inventory/sell', { history_id: itemId }, 'POST');
-            customAlert(`Успешно! +${price} билетов.`); closeModal(); closeRoulette(); checkBalance(true);
-        } catch (e) { closeModal(); } finally { if (loader) loader.classList.remove('active'); }
-    }});
-}
+    showShopModal({ 
+        title: `Продать за ${price} 🎟️?`, 
+        subtitle: "Билеты начислятся моментально.", 
+        confirmText: "ПРОДАТЬ", 
+        confirmClass: "btn-purple-modal", 
+        onConfirm: async (closeModal) => {
+            const loader = document.getElementById('purchase-loader'); 
+            if (loader) { 
+                loader.classList.add('active'); 
+                loader.querySelector('.loader-text').innerText = "Продаем..."; 
+            }
+            
+            // ⚡ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ БИЛЕТОВ (ДО ЗАПРОСА)
+            const ticketsEl = document.getElementById('ticketStats');
+            if (ticketsEl) {
+                const currentTickets = parseInt(ticketsEl.textContent.replace(/\s/g, '')) || 0;
+                renderBalanceUI(undefined, currentTickets + price);
+            }
 
+            try {
+                await makeApiRequest('/api/v1/user/inventory/sell', { history_id: itemId }, 'POST');
+                customAlert(`Успешно! +${price} билетов.`); 
+                closeModal(); 
+                closeRoulette(); 
+                checkBalance(true); // Синхронизируем реальный баланс в фоне
+            } catch (e) { 
+                checkBalance(true); // Если ошибка - откатываем визуальный баланс назад
+                closeModal(); 
+            } finally { 
+                if (loader) loader.classList.remove('active'); 
+            }
+        }
+    });
+}
 window.openCaseContents = async function(event, caseName, casePriceCoins) {
     if (event) event.stopPropagation();
     
@@ -1982,7 +2069,13 @@ window.showFaq = function() {
 // ================================================================
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
+// ================================================================
+// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
+// ================================================================
 async function main() {
+    // ⚡ ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ САМЫМ ПЕРВЫМ
+    checkBalance(true);
+
     try {
         if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
@@ -2109,8 +2202,7 @@ async function main() {
 // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ================================================================
 try {
-    checkBalance(true); 
-
+    
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand(); 
