@@ -1616,7 +1616,7 @@ class CSCodeCreateRequest(BaseModel):
     max_uses: int
 
 class DeleteNotificationRequest(BaseModel):
-    id: UUID4
+    id: uuid.UUID
 
 # --- МОДЕЛИ ДЛЯ CHALLENGE SYSTEM 2.0 (КОНТРАКТЫ) ---
 class ChallengeStartRequest(BaseModel):
@@ -5835,13 +5835,11 @@ async def admin_p2p_case_add(
 @app.post("/api/v1/notifications/delete")
 async def delete_notification(
     request: DeleteNotificationRequest,
-    current_user: dict = Depends(get_current_user), # Твоя проверка авторизации
-    session = Depends(get_async_session)            # Твоя сессия БД
+    current_user: dict = Depends(get_current_user), 
+    session = Depends(get_async_session)            
 ):
-    # Достаем ID юзера, чтобы он мог удалить только СВОЕ уведомление
     user_id = current_user.get("id")
     
-    # Формируем SQL-запрос
     stmt = delete(in_app_notifications).where(
         in_app_notifications.c.id == request.id,
         in_app_notifications.c.user_id == user_id
@@ -5850,7 +5848,6 @@ async def delete_notification(
     result = await session.execute(stmt)
     await session.commit()
     
-    # Если строка не удалилась (уведомления нет или чужое)
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Уведомление не найдено")
         
