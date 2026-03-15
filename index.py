@@ -15680,7 +15680,7 @@ async def get_shop_smart_balance(
     
     # Параметры авторизации из твоего конфига
     params = {
-        "botToken": BOTT_BOT_TOKEN
+        "botToken": BOTT_BOT_TOKEN,
         "secretKey": BOTT_SECRET_KEY
     }
     
