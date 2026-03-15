@@ -137,24 +137,24 @@
 
 
                 <div class="action-cards-grid">
-                    <a href="/auction" class="flat-card auction-card">
-                        <div class="auction-content">
-                            <i class="fa-solid fa-gavel"></i>
-                            <span>Аукционы</span>
-                        </div>
-                    </a>
-
-                    <div class="flat-card" onclick="openCouponModal()" style="flex: 1; background: linear-gradient(135deg, rgba(52, 199, 89, 0.1) 0%, #1c1c1e 100%); border-color: rgba(52, 199, 89, 0.2); cursor: pointer;">
-                            <div class="auction-content" style="gap: 4px;">
-                                <i class="fa-solid fa-ticket-simple" style="font-size: 20px; color: #34c759; filter: drop-shadow(0 0 10px rgba(52, 199, 89, 0.4));"></i>
-                                <span style="font-size: 10px; text-align: center; line-height: 1.1; color: #fff;">АКТИВИРОВАТЬ<br>КУПОН</span>
+                    <div style="display: flex; flex-direction: column; gap: 5px; height: 100%;">
+                        <a href="/auction" class="flat-card auction-card" style="flex-grow: 1; height: 100%;">
+                            <div class="auction-content">
+                                <i class="fa-solid fa-gavel"></i>
+                                <span>Аукционы</span>
+                            </div>
+                        </a>
+                        
+                        <div onclick="openCouponModal()" style="text-align: center; cursor: pointer; flex-shrink: 0; padding-bottom: 2px;">
+                            <div style="font-size: 10px; font-weight: 900; color: #34c759; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px; text-shadow: 0 0 10px rgba(52, 199, 89, 0.4);">
+                                <i class="fa-solid fa-ticket-simple" style="margin-bottom: 2px;"></i><br>Активировать<br>купон
                             </div>
                         </div>
                     </div>
                     
                     <div class="flat-card mini-raffle-slider-container" id="mini-raffle-slider" onclick="window.location.href='/raffles'">
                         <span id="default-raffle-text" style="font-weight: 800; letter-spacing: 1px;">РОЗЫГРЫШИ</span>
-                        </div>
+                    </div>
                 </div>
                 
             </div> <div id="view-shop" class="view-section">
