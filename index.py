@@ -5314,7 +5314,9 @@ async def check_cs_code(
 ):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(401, "Unauthorized")
-    user_id = user_info['id']
+    
+    # Приводим к числу, так как в БД массив bigint
+    user_id = int(user_info['id']) 
     code = req.code.strip()
 
     if not code:
@@ -5333,12 +5335,10 @@ async def check_cs_code(
     if promo['current_uses'] >= promo['max_uses']:
         return {"valid": False, "message": "Активации этого кода закончились"}
 
-    # 3. Проверяем, не открывал ли конкретно ЭТОТ юзер уже кейс по ЭТОМУ коду
-    history_check = await supabase.get(
-        "/cs_history", 
-        params={"user_id": f"eq.{user_id}", "code_used": f"eq.{code}"}
-    )
-    if history_check.json():
+    # 3. Проверяем в этой же таблице, не использовал ли уже этот юзер код
+    # Проверяем наличие user_id в массиве used_by_ids
+    used_by = promo.get('used_by_ids') or []
+    if user_id in used_by:
         return {"valid": False, "message": "Вы уже использовали этот код"}
 
     # В самом конце функции возвращаем:
@@ -15936,9 +15936,9 @@ async def buy_bott_item_proxy(
             if target_case_name and target_case_name.strip().lower() != item_title.strip().lower():
                 raise HTTPException(status_code=400, detail="⛔ Этот купон предназначен для другого кейса!")
                 
-            history_check = await supabase.get("/cs_history", params={"user_id": f"eq.{telegram_id}", "code_used": f"eq.{coupon_code}"})
-            if history_check.json():
-                raise HTTPException(status_code=400, detail="⛔ Вы уже использовали этот купон!")
+            used_by = promo_data.get('used_by_ids') or []
+            if int(telegram_id) in used_by:
+                raise HTTPException(status_code=400, detail="⛔ Вы уже использовали этот код!")
                 
             is_free_purchase = True
 
@@ -16057,11 +16057,18 @@ async def buy_bott_item_proxy(
             background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key)
             
     else:
-        # Увеличиваем счетчик использований купона
+        # Обновляем счетчик и добавляем ID юзера в массив (ТЕПЕРЬ ВНУТРИ ELSE)
+        current_ids = promo_data.get('used_by_ids') or []
+        if int(telegram_id) not in current_ids:
+            current_ids.append(int(telegram_id))
+
         await supabase.patch(
             "/cs_codes", 
             params={"code": f"eq.{coupon_code}"}, 
-            json={"current_uses": promo_data['current_uses'] + 1}
+            json={
+                "current_uses": promo_data['current_uses'] + 1,
+                "used_by_ids": current_ids
+            }
         )
         logging.info(f"[SHOP] Покупка оплачена купоном: {coupon_code}")
 
