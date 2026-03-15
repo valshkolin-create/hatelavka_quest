@@ -204,7 +204,8 @@ html, body {
 .action-cards-grid {
     display: grid;
     grid-template-columns: 0.8fr 1.2fr !important;
-    gap: 10px; height: 110px; 
+    gap: 10px; 
+    height: 145px; /* БЫЛО 110px, увеличили под две кнопки */
     margin-top: 15px; margin-bottom: 20px; width: 100%;
 }
 
