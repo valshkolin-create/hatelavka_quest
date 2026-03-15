@@ -10648,7 +10648,7 @@ async def send_approval_notification(user_id: int, quest_title: str):
 @app.post("/api/v1/admin/submission/update")
 async def update_submission_status(
     request_data: SubmissionUpdateRequest,
-    background_tasks: BackgroundTasks, # Оставляем в аргументах, чтобы не сломать FastAPI, но использовать не будем
+    background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -10673,10 +10673,10 @@ async def update_submission_status(
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
         
-        # 🔥 ЖДЕМ отправки сообщения, чтобы Vercel его не убил
+        # ЖДЕМ отправки сообщения, чтобы Vercel его не убил
         await safe_send_message(user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
         
-        # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК
+        # ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК (в базу)
         await create_in_app_notification(
             supabase=supabase,
             user_id=user_to_notify,
@@ -10722,7 +10722,7 @@ async def update_submission_status(
                 p_data = promo_info_resp.json()[0]
                 reward_amount = p_data.get('reward_value', 0)
                 
-                # 🔥 ИСПРАВЛЕНИЕ: Делаем прямой await, чтобы Vercel 100% дождался начисления
+                # Прямой await, чтобы Vercel 100% дождался начисления
                 await activate_single_promocode(
                     promo_id=p_data['id'],
                     telegram_id=user_to_notify,
@@ -10815,7 +10815,7 @@ async def update_submission_status(
                 quest_title=quest_title
             )
 
-            # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК
+            # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК (ЛОГОТИП)
             await create_in_app_notification(
                 supabase=supabase,
                 user_id=user_to_notify,
@@ -10825,7 +10825,7 @@ async def update_submission_status(
             )
 
             logging.info(f"Заявка {submission_id} одобрена. Билеты ({ticket_reward}) начислены, промокод '{promo_code}' зачисляется автоматически.")
-            return {"message": "Заявка одобрена. Награда успешно начислена!"}
+            return {"message": "Заявка одобрена. Награда успешно начислена!", "promocode": promo_code}
 
         except httpx.HTTPStatusError as e:
             error_details = e.response.json().get("message", "Ошибка базы данных при выдаче награды.")
@@ -14591,20 +14591,23 @@ async def issue_twitch_reward_tickets(
 async def send_approval_notification(user_id: int, quest_title: str, promo_code: str):
     """Отправляет уведомление об одобрении заявки в фоне."""
     try:
+        # Подготовка ссылки для быстрой активации
         safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
         activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
+        
         notification_text = (
             f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
             f"Скопируй промокод и используй его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
             f"Твой промокод:\n<code>{promo_code}</code>"
         )
         
-        # --- ИЗМЕНЕНИЕ: Добавлена кнопка подтверждения ---
+        # Клавиатура с кнопками
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
             [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
         ])
 
+        # Отправляем сообщение напрямую через await (надежно для Vercel)
         await safe_send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
         logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
     except Exception as e:
