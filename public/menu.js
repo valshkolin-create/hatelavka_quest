@@ -105,35 +105,31 @@ async function fetchNotificationsBadge() {
 
 // 2. Функция удаления уведомления (Заложена на будущее)
 window.deleteNotification = async function(event, notifId) {
-    event.stopPropagation(); // Блокируем клик по самой карточке, если там есть другие действия
+    event.stopPropagation(); 
     
-    // Находим карточку, по которой кликнули
+    // Находим карточку
     const notifCard = event.target.closest('.notif-item');
     if (!notifCard) return;
 
-    // Скрываем карточку плавно (Оптимистичный UI)
-    notifCard.style.transition = 'opacity 0.2s, transform 0.2s';
+    // Плавно скрываем (Оптимистичный UI)
     notifCard.style.opacity = '0';
     notifCard.style.transform = 'scale(0.95)';
     
     setTimeout(() => {
         notifCard.style.display = 'none';
-    }, 200);
+    }, 300);
 
     try {
-        // Отправляем запрос на сервер (поменяй URL и параметры под свой бекэнд)
+        // Эндпоинт, который мы сделаем позже на бэке
         await makeApiRequest('/api/v1/notifications/delete', { id: notifId }, 'POST', true);
-        
-        // Опционально: можно перепроверить бейдж после удаления
-        fetchNotificationsBadge();
+        fetchNotificationsBadge(); // Обновляем цифру на колокольчике
     } catch (e) {
-        // Если сервер выдал ошибку — возвращаем карточку на место
+        // Если ошибка — возвращаем карточку обратно
         notifCard.style.display = 'flex';
         setTimeout(() => {
             notifCard.style.opacity = '1';
             notifCard.style.transform = 'scale(1)';
         }, 50);
-        console.warn("Не удалось удалить уведомление", e);
     }
 };
 
@@ -155,40 +151,71 @@ window.openNotificationsHistory = async function() {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
         const notifs = res.notifications || [];
 
-        let html = '<div style="max-height: 60vh; overflow-y: auto; padding-right: 5px; text-align: left; overflow-x: hidden;">';
+        // Делаем контейнер с красивым скроллом и скрываем горизонтальный
+        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden;">';
 
         if (notifs.length === 0) {
-            html += '<div style="text-align: center; color: #888; padding: 30px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 30px; margin-bottom: 10px; opacity: 0.5;"></i><br>Здесь пока пусто.<br>Вся история начислений будет храниться тут.</div>';
+            html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Вся история начислений будет храниться тут.</span></div>';
         } else {
             notifs.forEach(n => {
+                // Тонкие настройки иконок и их фонов
                 let icon = '<i class="fa-solid fa-bell" style="color: #8e8e93;"></i>';
-                if (n.type === 'coins') icon = '<i class="fa-solid fa-coins" style="color: #ffd700;"></i>';
-                if (n.type === 'tickets') icon = '🎟️';
-                if (n.type === 'error') icon = '<i class="fa-solid fa-circle-xmark" style="color: #ff3b30;"></i>';
-                if (n.type === 'system') icon = '<i class="fa-solid fa-circle-info" style="color: #2AABEE;"></i>';
+                let iconBg = 'rgba(255, 255, 255, 0.05)';
+                
+                if (n.type === 'coins') { 
+                    icon = '<i class="fa-solid fa-coins" style="color: #ffd700;"></i>'; 
+                    iconBg = 'rgba(255, 215, 0, 0.1)'; 
+                }
+                if (n.type === 'tickets') { 
+                    icon = '<i class="fa-solid fa-ticket" style="color: #9146ff;"></i>'; 
+                    iconBg = 'rgba(145, 70, 255, 0.1)'; 
+                }
+                if (n.type === 'error') { 
+                    icon = '<i class="fa-solid fa-circle-xmark" style="color: #ff3b30;"></i>'; 
+                    iconBg = 'rgba(255, 59, 48, 0.1)'; 
+                }
+                if (n.type === 'system' || n.type === 'success') { 
+                    icon = '<i class="fa-solid fa-check" style="color: #34c759;"></i>'; 
+                    iconBg = 'rgba(52, 199, 89, 0.1)'; 
+                }
 
                 const dateObj = new Date(n.created_at);
                 const timeStr = dateObj.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
                 const dateStr = dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
 
-                const unreadStyle = n.is_read ? '' : 'border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.05);';
+                // Легкая подсветка для непрочитанных
+                const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.2)';
 
-                // Добавлен класс .notif-item и кнопка с корзиной справа
+                // Верстка карточки (тонкая, аккуратная)
                 html += `
-                    <div class="notif-item" style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px; border: 1px solid rgba(255,255,255,0.05); ${unreadStyle}">
-                        <div style="font-size: 18px; width: 24px; text-align: center; flex-shrink: 0;">${icon}</div>
-                        <div style="flex-grow: 1;">
-                            <div style="font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 4px;">${escapeHTML(n.title)}</div>
-                            <div style="font-size: 11px; color: #ccc; line-height: 1.4;">${escapeHTML(n.message)}</div>
-                            <div style="font-size: 9px; color: #666; margin-top: 6px; font-weight: 600;">${dateStr} в ${timeStr}</div>
+                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s;">
+                        
+                        <div style="display: flex; gap: 12px; align-items: flex-start; width: 100%;">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
+                                ${icon}
+                            </div>
+                            
+                            <div style="flex-grow: 1; padding-right: 24px;">
+                                <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; line-height: 1.2;">
+                                    ${escapeHTML(n.title)}
+                                </div>
+                                <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.4;">
+                                    ${escapeHTML(n.message)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 9px; font-weight: 500; color: #666; text-align: right; margin-top: 8px;">
+                            ${dateStr} в ${timeStr}
                         </div>
                         
-                        <div style="flex-shrink: 0; padding: 4px; cursor: pointer; opacity: 0.4; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; height: 100%;" 
+                        <div style="position: absolute; top: 12px; right: 12px; padding: 4px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center;" 
                              onclick="deleteNotification(event, ${n.id})" 
                              onmouseover="this.style.opacity='1'" 
-                             onmouseout="this.style.opacity='0.4'">
-                            <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 14px;"></i>
+                             onmouseout="this.style.opacity='0.3'">
+                            <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 12px;"></i>
                         </div>
+                        
                     </div>
                 `;
             });
@@ -204,7 +231,7 @@ window.openNotificationsHistory = async function() {
 
     } catch (e) {
         const subtitleEl = document.querySelector('.custom-confirm-box .confirm-subtitle');
-        if (subtitleEl) subtitleEl.innerHTML = '<div style="color:#ff3b30; text-align:center; padding:20px;">Не удалось загрузить историю.</div>';
+        if (subtitleEl) subtitleEl.innerHTML = '<div style="color:#ff3b30; text-align:center; padding:20px; font-size: 12px;">Не удалось загрузить историю.</div>';
     }
 };
 
