@@ -15640,7 +15640,7 @@ async def get_shop_smart_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Мгновенно обновляет баланс через официальный метод /v1/bot/user/view.
+    Мгновенно обновляет баланс через метод /v1/bot/user/view-by-telegram-id.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -15657,8 +15657,6 @@ async def get_shop_smart_balance(
     
     current_coins = user_data.get("bot_t_coins", 0)
     current_tickets = user_data.get("tickets", 0)
-    # Если Bot-T строго требует системный ID, раскомментируй строку ниже и используй bot_t_user_id в payload:
-    # bot_t_user_id = user_data.get("bott_internal_id") or telegram_id
     
     # 2. Проверяем кэш (5 сек)
     last_sync = user_data.get("last_balance_sync")
@@ -15675,24 +15673,22 @@ async def get_shop_smart_balance(
     if not should_sync:
         return {"balance": current_coins, "tickets": current_tickets}
 
-    # 3. Идем в Bot-t НОВЫМ МЕТОДОМ
-    url = "https://api.bot-t.com/v1/bot/user/view"
+    # 3. Идем в Bot-t по Telegram ID
+    url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     
-    # Параметры авторизации из твоего конфига
     params = {
         "botToken": BOTT_BOT_TOKEN,
         "secretKey": BOTT_SECRET_KEY
     }
     
-    # Тело запроса по документации
+    # ПЕРЕДАЕМ ИМЕННО telegram_id
     payload = {
         "bot_id": int(BOTT_BOT_ID),
-        "user_id": telegram_id  # Попробуй telegram_id. Если вернет ошибку, поменяй на bot_t_user_id (см. коммент выше)
+        "telegram_id": telegram_id 
     }
     
     try:
         client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=5.0)
-        # Отправляем POST. params уходят в строку URL (?botToken=...), payload уходит в тело JSON
         resp = await client.post(url, params=params, json=payload)
         
         if resp.status_code == 200:
