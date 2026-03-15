@@ -2230,19 +2230,22 @@ async function main() {
     }
 }
 // ================================================================
-// ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ (УНИВЕРСАЛЬНАЯ БРОНЯ)
 // ================================================================
 try {
-    
-    if (window.Telegram?.WebApp) {
-        Telegram.WebApp.ready();
-        Telegram.WebApp.expand(); 
+    // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM
+    // Запускаем ТОЛЬКО если мы уверены, что это не ВК и объект Телеграма существует
+    if (!isVk && window.Telegram?.WebApp) {
+        const tg = Telegram.WebApp;
+        tg.ready();
+        tg.expand(); 
         
-        if (Telegram.WebApp.disableVerticalSwipes) {
-            Telegram.WebApp.disableVerticalSwipes();
+        // Безопасное отключение свайпов
+        if (typeof tg.disableVerticalSwipes === 'function') {
+            try { tg.disableVerticalSwipes(); } catch(e) { console.warn("TG: Свайпы не отключаются", e); }
         }
         
-        const platform = Telegram.WebApp.platform || 'unknown';
+        const platform = tg.platform || 'unknown';
         const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         if (platform === 'ios') {
@@ -2253,18 +2256,36 @@ try {
             document.body.classList.add('desktop-mode');
         }
 
-        if (!document.body.classList.contains('desktop-mode') && Telegram.WebApp.requestFullscreen) {
-            Telegram.WebApp.requestFullscreen();
+        // Безопасный фуллскрин (только для мобилок TG)
+        if (!document.body.classList.contains('desktop-mode') && typeof tg.requestFullscreen === 'function') {
+            try {
+                // Оборачиваем сам вызов, так как ТГ может кинуть Error: WebAppMethodUnsupported
+                tg.requestFullscreen();
+            } catch (e) {
+                console.warn("TG: Фуллскрин не поддерживается на этом клиенте", e);
+            }
+        }
+    } 
+    // 2. ИНИЦИАЛИЗАЦИЯ VK
+    else if (isVk) {
+        console.log("🚀 Инициализация интерфейса для VK Mini Apps");
+        document.body.classList.add('vk-mode'); // На всякий случай вешаем класс для CSS
+        
+        // Отправляем эвент загрузки в ВК
+        if (typeof vkBridge !== 'undefined') {
+            try { vkBridge.send('VKWebAppInit'); } catch(e) { console.warn("VK Bridge error", e); }
         }
     }
-    
+
+    // 3. ОБЩИЙ ЗАПУСК ИНТЕРФЕЙСА (Работает везде)
     setupNewUI();
     initPullToRefresh();
     initSwipeTabs(); 
 
-    // Запускаем основную логику
+    // Запускаем основную логику загрузки данных
     main();
 
+    // 4. ФОНОВЫЕ ПРОЦЕССЫ
     clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 30000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshDataSilently(); });
@@ -2272,12 +2293,10 @@ try {
 } catch (e) { 
     console.error("Global init error", e); 
     
-    // 🔥 БЕТОННЫЙ ЩИТ: Если это блокировка, не даем коду идти дальше
+    // 🔥 БЕТОННЫЙ ЩИТ
     if (e.message === "Security Block" || e.message === "USER_BANNED") {
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-        // Никаких алертов или перерисовок! Окно уже показано из makeApiRequest
     } else {
-        // Только если это обычная ошибка, показываем стандартное уведомление
         customAlert("Критическая ошибка при запуске. Попробуйте перезагрузить приложение.");
     }
 }
