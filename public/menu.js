@@ -99,6 +99,25 @@ let slideInterval;
 let sliderAbortController = null; 
 let lastSliderSignature = '';
 
+// Массив имен кейсов, которые сейчас бесплатны для юзера
+window.activeFreeCases = [];
+window.currentCategoryId = 2716312; // <--- ТЫКАЙ СЮДА (добавь эту строку)
+
+async function syncMyPromos() {
+    try {
+        const auth = getAuthPayload(); 
+        const response = await makeApiRequest('/api/cs/my_active_promos', {}, 'GET', true);
+        
+        if (response && response.active_cases) {
+            window.activeFreeCases = response.active_cases;
+            console.log("Синхронизация купонов: ", window.activeFreeCases);
+            if (typeof currentCategoryId !== 'undefined') renderItems(itemsCache[currentCategoryId]); 
+        }
+    } catch (e) {
+        console.error("Ошибка синхронизации промокодов:", e);
+    }
+}
+
 // ================================================================
 // ИСТОРИЯ УВЕДОМЛЕНИЙ (ЧЕРЕЗ ЛОГОТИП)
 // ================================================================
@@ -1151,6 +1170,7 @@ function formatItemName(name) {
 }
 
 async function loadCategory(catId, preloadedData = null) {
+    window.currentCategoryId = catId; // 🔥 ЗАПОМИНАЕМ, что сейчас открыто
     const container = document.getElementById('shop-grid');
     if (!container) return;
 
@@ -1228,51 +1248,41 @@ function renderItems(items) {
                     <button class="action-btn btn-folder" onclick="openFolder(${item.id})" style="background: rgba(255, 255, 255, 0.1); color: #fff; width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>
                 </div>
             `;
-        } else if (isCase) {
-            // ЕСЛИ ЭТО КЕЙС
-            let activeCouponData = null;
-            try { activeCouponData = JSON.parse(localStorage.getItem('active_coupon_data')); } catch(e) {}
-            
-            let showFreeButton = false;
-            if (activeCouponData) {
-                // Показывать БЕСПЛАТНО, если купон на всё (null) ИЛИ если названия совпадают (без учета регистра)
-                if (!activeCouponData.target_case_name || 
-                    activeCouponData.target_case_name.trim().toLowerCase() === item.name.trim().toLowerCase()) {
-                    showFreeButton = true;
-                }
-            }
-            
-            if (showFreeButton) {
-    // РИСУЕМ КНОПКУ БЕСПЛАТНО (ЧИСТЫЙ НЕОН, ТОЛЬКО ЗЕЛЕНЫЙ И ЧЕРНЫЙ)
-    buttonHtml = `
-        <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
-            <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" 
-                style="background: transparent; 
-                       color: #34c759; 
-                       /* Только зеленое свечение и черный контур */
-                       text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 
-                                    0 0 20px rgba(52, 199, 89, 0.4), 
-                                    0 0 15px #000, 
-                                    0 0 25px #000;
-                       width: 100%; 
-                       height: 100%; 
-                       border: none; 
-                       box-shadow: none; /* Убираем любую внешнюю подсветку */
-                       border-radius: 12px; 
-                       font-weight: 900; 
-                       font-size: 16px; 
-                       display: flex; 
-                       align-items: center; 
-                       justify-content: center; 
-                       text-transform: uppercase;
-                       cursor: pointer;
-                       outline: none;
-                       transition: transform 0.2s ease;">
-                ОТКРЫТЬ БЕСПЛАТНО
-            </button>
-        </div>
-    `;
-} else {
+       } else if (isCase) {
+    // ЕСЛИ ЭТО КЕЙС — проверяем наличие имени кейса в глобальном массиве (синхронизация с БД)
+    let showFreeButton = window.activeFreeCases.includes(item.name);
+    
+    if (showFreeButton) {
+        // РИСУЕМ КНОПКУ БЕСПЛАТНО (ЧИСТЫЙ НЕОН, ТОЛЬКО ЗЕЛЕНЫЙ И ЧЕРНЫЙ)
+        buttonHtml = `
+            <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
+                <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" 
+                    style="background: transparent; 
+                           color: #34c759; 
+                           /* Только зеленое свечение и черный контур */
+                           text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 
+                                        0 0 20px rgba(52, 199, 89, 0.4), 
+                                        0 0 15px #000, 
+                                        0 0 25px #000;
+                           width: 100%; 
+                           height: 100%; 
+                           border: none; 
+                           box-shadow: none; /* Убираем любую внешнюю подсветку */
+                           border-radius: 12px; 
+                           font-weight: 900; 
+                           font-size: 16px; 
+                           display: flex; 
+                           align-items: center; 
+                           justify-content: center; 
+                           text-transform: uppercase;
+                           cursor: pointer;
+                           outline: none;
+                           transition: transform 0.2s ease;">
+                    ОТКРЫТЬ БЕСПЛАТНО
+                </button>
+            </div>
+        `;
+    } else {
                 // СТАНДАРТНЫЕ КНОПКИ
                 buttonHtml = `
                     <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
@@ -1343,24 +1353,16 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     const isLinkValid = await validateUserTradeLink();
     if (!isLinkValid) return; 
 
-    // Достаем JSON
-    let activeCouponData = null;
-    try { activeCouponData = JSON.parse(localStorage.getItem('active_coupon_data')); } catch(e) {}
+    // 1. ПРОВЕРКА ЧЕРЕЗ ГЛОБАЛЬНЫЙ МАССИВ (СИНХРОНИЗАЦИЯ С БД)
+    let isFreeOpen = window.activeFreeCases.includes(name);
     
-    let activeCoupon = null;
-    if (activeCouponData) {
-        // Проверяем совпадение по НАЗВАНИЮ
-        if (!activeCouponData.target_case_name || 
-            activeCouponData.target_case_name.trim().toLowerCase() === name.trim().toLowerCase()) {
-            activeCoupon = activeCouponData.code;
-        }
-    }
+    // Флаг для бэкенда, чтобы он понял: код вводить не надо, чекай базу по ID
+    let activeCoupon = isFreeOpen ? "FREE_BY_ID" : null;
     
-    // Формируем диалоговое окно
-    let confirmMsg = `Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`;
-    if (activeCoupon) {
-        confirmMsg = `Использовать купон и открыть "${name}" БЕСПЛАТНО?`;
-    }
+    // Формируем сообщение
+    let confirmMsg = isFreeOpen 
+        ? `Использовать активный купон и открыть "${name}" БЕСПЛАТНО?`
+        : `Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`;
 
     customConfirm(confirmMsg, async (ok) => {
         if (!ok) return;
@@ -1408,12 +1410,14 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             strip[60] = winner; 
 
             launchRoulette(strip, winner, resData.messages || [], resData.lacky, name);
-            
-            // 🔥 МАГИЯ: Купон успешно потрачен! Удаляем его ПРАВИЛЬНО
-            if (activeCoupon) {
-                // Было: localStorage.removeItem('active_coupon');
-                localStorage.removeItem('active_coupon_data'); // Исправлено!
-                loadCategory(2716312); // Теперь цены точно вернутся
+             // 2. 🔥 ВОТ СЮДА СТАВИМ ЭТОТ БЛОК 🔥
+            if (isFreeOpen) {
+                // Удаляем кейс из локального списка "активных халяв", чтобы кнопка сразу поменялась
+                window.activeFreeCases = window.activeFreeCases.filter(n => n !== name);
+                
+                // Перерисовываем визуал магазина (теперь кнопки станут платными)
+                // Используем текущую категорию (у тебя это 2716312 или динамическая переменная)
+                renderItems(itemsCache[currentCategoryId] || []); 
             }
 
             // Синхронизируем реальный баланс в фоне
@@ -2130,31 +2134,29 @@ window.activateCouponSubmit = async () => {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Проверка...';
 
     try {
-        // Стучимся на созданный эндпоинт
         const res = await makeApiRequest('/api/cs/check_code', { code: code }, 'POST');
         
         if (res.valid) {
             customAlert("✅ " + res.message);
             closeCouponModal();
             
-            // 🌟 МАГИЯ: Сохраняем купон И НАЗВАНИЕ целевого кейса как JSON
-            // Если res.target_case_name придет пустым (null), купон будет работать на все кейсы
-            localStorage.setItem('active_coupon_data', JSON.stringify({
-                code: code,
-                target_case_name: res.target_case_name || null
-            }));
+            // Добавляем в массив для моментального визуала
+            if (res.target_case_name && !window.activeFreeCases.includes(res.target_case_name)) {
+                window.activeFreeCases.push(res.target_case_name);
+            }
             
-            // Сразу переводим пользователя на вкладку магазина и обновляем визуал кейсов
+            // Переходим в магазин
             const shopTab = document.querySelector('.toggle-option[data-target="view-shop"]');
             if (shopTab) shopTab.click();
             
-            // Перезагружаем категорию кейсов, чтобы сработал renderItems с новой логикой
-            loadCategory(2716312); 
+            // Перерисовываем ту категорию, которая сейчас открыта
+            loadCategory(window.currentCategoryId); 
+
         } else {
             customAlert("❌ " + res.message);
         }
     } catch (e) {
-        // Ошибка перехватывается глобально в makeApiRequest
+        console.error("Ошибка активации:", e);
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;
@@ -2282,7 +2284,10 @@ async function main() {
         }
     }
 
-    // 3. ⚡ ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ
+    // 3. ⚡ ЗАПУСКАЕМ СИНХРОНИЗАЦИЮ КУПОНОВ (ДОБАВЬ ЭТО!)
+    await syncMyPromos();
+
+    // 4. ⚡ ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ
     checkBalance(true);
 
     try {
