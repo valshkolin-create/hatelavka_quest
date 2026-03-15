@@ -91,15 +91,14 @@ async function fetchNotificationsBadge() {
     try {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
         if (res && res.unread_count > 0) {
+            // Вписываем количество в бейдж
             badge.textContent = res.unread_count > 99 ? '99+' : res.unread_count;
             badge.classList.remove('hidden');
-            badge.classList.add('badge-pulse-anim'); 
-            setTimeout(() => badge.classList.remove('badge-pulse-anim'), 1000);
         } else {
             badge.classList.add('hidden');
         }
     } catch (e) {
-        console.warn("Не удалось загрузить бейдж уведомлений", e);
+        console.warn("Не удалось загрузить бейдж", e);
     }
 }
 
@@ -188,7 +187,7 @@ window.openNotificationsHistory = async function() {
 
                 // Верстка карточки (тонкая, аккуратная)
                 html += `
-                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s;">
+                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; position: relative; height: max-content; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s;">
                         
                         <div style="display: flex; gap: 12px; align-items: flex-start; width: 100%;">
                             <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
@@ -210,7 +209,7 @@ window.openNotificationsHistory = async function() {
                         </div>
                         
                         <div style="position: absolute; top: 12px; right: 12px; padding: 4px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center;" 
-                             onclick="deleteNotification(event, ${n.id})" 
+                             onclick="deleteNotification(event, '${n.id}')" 
                              onmouseover="this.style.opacity='1'" 
                              onmouseout="this.style.opacity='0.3'">
                             <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 12px;"></i>
