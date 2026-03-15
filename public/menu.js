@@ -6,41 +6,39 @@ let isVk = false;
 (function initVkParams() {
     window.vkParams = null; 
 
-    const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
+    // 1. ЗАЩИТА ОТ КРАЖИ ХЕША ТЕЛЕГРАМОМ
+    // Скрипт ТГ может ошибочно съесть хеш ВК. Проверяем это:
+    const tgData = window.Telegram?.WebApp?.initData || '';
+    if (tgData.includes('vk_user_id') || tgData.includes('vk_app_id')) {
+        console.log("⚠️ Telegram script stole VK hash. Recovering...");
+        window.vkParams = tgData;
+        isVk = true;
+        return;
+    }
+
+    const isValid = (str) => str && (str.includes('vk_user_id') || str.includes('vk_app_id'));
 
     try {
-        console.log("🔍 [VK Init] Начинаем поиск параметров...");
-
         let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-        if (isValid(s)) { window.vkParams = s; console.log("✅ Нашли в search"); return; }
+        if (isValid(s)) { window.vkParams = s; isVk = true; return; }
 
         let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-        if (isValid(h)) { window.vkParams = h; console.log("✅ Нашли в hash"); return; }
+        if (isValid(h)) { window.vkParams = h; isVk = true; return; }
 
-        if (isValid(window.name)) { window.vkParams = window.name; console.log("✅ Нашли в window.name"); return; }
+        if (isValid(window.name)) { window.vkParams = window.name; isVk = true; return; }
 
         const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
-        if (match && match[1] && match[1].includes('sign')) {
-             window.vkParams = match[1]; console.log("✅ Выдрали из href через Regex"); return;
-        }
-
-        console.warn("⚠️ Параметры VK не найдены в URL!");
-    } catch (e) {
-        console.error("VK Init Error:", e);
-    }
+        if (match && match[1]) { window.vkParams = match[1]; isVk = true; return; }
+    } catch (e) {}
 })();
 
-function getSearchParam(name) {
-    try { return new URL(window.location.href).searchParams.get(name); } catch(e) { return null; }
-}
-
-// 🔥 ИСПРАВЛЕНИЕ: Убрали лишнее слово let
-isVk = !!(window.vkParams || getSearchParam('vk_app_id'));
-
 // Принудительный режим для iframe
-if (!isVk && window.self !== window.top && !window.Telegram?.WebApp?.initData) {
-    console.log("⚠️ Iframe detected. Force VK mode.");
-    isVk = true;
+// Если параметров нет, мы в iframe и это точно не Телега -> значит ВК
+if (!isVk && window.self !== window.top) {
+    const tgData = window.Telegram?.WebApp?.initData || '';
+    if (!tgData || !tgData.includes('query_id')) {
+        isVk = true;
+    }
 }
 
 // Сообщаем ВК, что мы загрузились
@@ -68,16 +66,12 @@ async function fetchVkParamsFromBridge() {
 
 function getAuthPayload() {
     if (isVk) {
-        if (window.vkParams) {
-            return { initData: window.vkParams, platform: 'vk' };
-        } 
-        console.error("❌ [Critical] Отправляем пустой payload, так как params не найдены!");
-        return { initData: '', platform: 'vk' };
+        return { initData: window.vkParams || '', platform: 'vk' };
     } else {
-        return {
-            initData: window.Telegram?.WebApp?.initData || '',
-            platform: 'tg'
-        };
+        // Дополнительно чистим, чтобы не отдать ВК-шный мусор
+        let tgAuth = window.Telegram?.WebApp?.initData || '';
+        if (tgAuth.includes('vk_')) tgAuth = ''; 
+        return { initData: tgAuth, platform: 'tg' };
     }
 }
 // Глобальные переменные
