@@ -842,22 +842,4 @@ body.desktop-mode .toggle-container {
     color: #ffd700;
 }
 
-/* Тот самый тоненький бейдж с цифрой */
-.notif-badge-logo {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: linear-gradient(135deg, #ff3b30, #ff2d55);
-    color: white;
-    font-size: 7px;
-    font-weight: 700;
-    height: 12px;
-    min-width: 12px;
-    padding: 0 3px;
-    border-radius: 6px;
-    border: 1px solid #1c1c1e;
-    display: flex; 
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-}
+
