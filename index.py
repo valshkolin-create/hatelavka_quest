@@ -5341,8 +5341,13 @@ async def check_cs_code(
     if history_check.json():
         return {"valid": False, "message": "Вы уже использовали этот код"}
 
-    # Если всё чисто — даем добро фронтенду показать кнопку "Бесплатно"
-    return {"valid": True, "message": "Код активен! У вас доступно 1 бесплатное открытие."}
+    # В самом конце функции возвращаем:
+    return {
+        "valid": True, 
+        "message": "Код активен! У вас доступно 1 бесплатное открытие.",
+        "target_case_name": promo.get("target_case_name") # <-- ТЕПЕРЬ ОТДАЕМ НАЗВАНИЕ
+    }
+    
 
 # --- ПОЛУЧЕНИЕ СТАТУСА БУСТОВ (Для красивых кнопок) ---
 @app.post("/api/cs/boost_status")
@@ -15925,6 +15930,11 @@ async def buy_bott_item_proxy(
             
             if promo_data['current_uses'] >= promo_data['max_uses']:
                 raise HTTPException(status_code=400, detail="⛔ Активации этого кода закончились!")
+                
+            # 🔥 НОВАЯ ПРОВЕРКА ПО НАЗВАНИЮ КЕЙСА 🔥
+            target_case_name = promo_data.get('target_case_name')
+            if target_case_name and target_case_name.strip().lower() != item_title.strip().lower():
+                raise HTTPException(status_code=400, detail="⛔ Этот купон предназначен для другого кейса!")
                 
             history_check = await supabase.get("/cs_history", params={"user_id": f"eq.{telegram_id}", "code_used": f"eq.{coupon_code}"})
             if history_check.json():
