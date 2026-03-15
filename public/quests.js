@@ -1879,6 +1879,10 @@ async function main() {
             }
         }
 
+        // =========================================================================
+        // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
+        // =========================================================================
+        
         // === ДОБАВЛЯЕМ ЧТЕНИЕ ПАРАМЕТРОВ URL ===
         const urlParams = new URLSearchParams(window.location.search);
         const viewCommand = urlParams.get('view');
@@ -1888,7 +1892,7 @@ async function main() {
         if (userData.active_quest_id) {
             const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
             
-            // Определяем, где этот квест выполняется
+            // Определяем, где этот квест выполняется (Twitch или Telegram)
             if (activeQuest && activeQuest.quest_type && activeQuest.quest_type.includes('twitch')) {
                 safeSwitchTab('twitch');
             } else {
@@ -1897,6 +1901,7 @@ async function main() {
             
             console.log("✅ Квест активен. Просто открываем вкладку прогресса.");
             
+            // Очищаем URL, чтобы при обновлении не срабатывали триггеры
             const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
             window.history.replaceState({}, document.title, cleanUrl);
         } 
@@ -1908,12 +1913,16 @@ async function main() {
             else if (openCommand === 'roulette' || openCommand === 'twitch_only') {
                 const isOnline = userData.is_stream_online === true;
                 
+                // ПРАВИЛО 2: Стрим ЕСТЬ -> Twitch
                 if (isOnline) {
                     safeSwitchTab('twitch');
+                    console.log("🌊 Стрим онлайн -> Открываем Twitch выбор");
                     setTimeout(() => openQuestSelectionModal(), 400);
                 } 
+                // ПРАВИЛО 1: Стрима НЕТ -> Telegram
                 else {
                     safeSwitchTab('telegram');
+                    console.log("zzz Стрим оффлайн -> Открываем TG выбор");
                     setTimeout(() => openQuestSelectionModal(), 400);
                 }
 
@@ -1934,82 +1943,6 @@ async function main() {
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
     }
 }
-
-        // =========================================================================
-        // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
-        // =========================================================================
-        // =========================================================================
-    // === ДОБАВЛЯЕМ ЧТЕНИЕ ПАРАМЕТРОВ URL ===
-    const urlParams = new URLSearchParams(window.location.search);
-    const viewCommand = urlParams.get('view');
-    const openCommand = urlParams.get('open');
-    // ========================================
-    // 1. Сначала проверяем, есть ли активный квест (ПРАВИЛО 3)
-    if (userData.active_quest_id) {
-        // Если квест уже взят, мы ИГНОРИРУЕМ команду открытия меню выбора (openCommand)
-        // и просто переключаем на нужную вкладку.
-        
-        const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
-        
-        // Определяем, где этот квест выполняется (Twitch или Telegram)
-        if (activeQuest && activeQuest.quest_type && activeQuest.quest_type.includes('twitch')) {
-            safeSwitchTab('twitch');
-        } else {
-            safeSwitchTab('telegram');
-        }
-        
-        console.log("✅ Квест активен. Просто открываем вкладку прогресса.");
-        
-        // Очищаем URL, чтобы при обновлении не срабатывали триггеры
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-    } 
-    // 2. Если активного квеста НЕТ, обрабатываем команды открытия (ПРАВИЛА 1 и 2)
-    else {
-        // Если пришли с параметром ?view=... (из menu.js для уже взятых квестов, но тут страховка)
-        if (viewCommand) {
-             safeSwitchTab(viewCommand);
-        }
-        
-        // Если пришли с командой открыть меню (?open=roulette или ?open=twitch_only)
-        else if (openCommand === 'roulette' || openCommand === 'twitch_only') {
-            
-            const isOnline = userData.is_stream_online === true;
-            
-            // ПРАВИЛО 2: Стрим ЕСТЬ -> Twitch
-            if (isOnline) {
-                safeSwitchTab('twitch');
-                console.log("🌊 Стрим онлайн -> Открываем Twitch выбор");
-                setTimeout(() => openQuestSelectionModal(), 400);
-            } 
-            // ПРАВИЛО 1: Стрима НЕТ -> Telegram
-            else {
-                safeSwitchTab('telegram');
-                console.log("zzz Стрим оффлайн -> Открываем TG выбор");
-                setTimeout(() => openQuestSelectionModal(), 400);
-            }
-
-            // Очищаем URL
-            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
-        }
-    }
-    // =========================================================================
-
-    // Скрываем лоадер
-    if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-    dom.mainContent.style.opacity = 1;
-
-    // 👇👇👇 ВОТ ЭТОГО НЕ ХВАТАЛО (ЗАКРЫВАЕМ БЛОК TRY) 👇👇👇
-    } catch (e) {
-        console.error("Ошибка в main:", e);
-        // Показываем ошибку пользователю, только если нет кэша (чтобы не пугать зря)
-        if (!isRenderedFromCache) {
-            Telegram.WebApp.showAlert("Ошибка загрузки. Обновите страницу.");
-        }
-        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-    }
-} // <--- Конец функции main
 
 function initPullToRefresh() {
     const content = document.getElementById('main-content');
