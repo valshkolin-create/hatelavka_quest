@@ -199,36 +199,26 @@ window.openNotificationsHistory = async function() {
                 // Светящаяся золотая рамка для новых, тусклая для старых
                 const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.3)';
 
-                // ВЁРСТКА: Уменьшены отступы, дата вынесена в абсолют вниз
-                html += `
-                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 10px 32px 20px 10px; margin-bottom: 2px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 10px;">
-                        
-                        <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
-                            ${icon}
-                        </div>
-                        
-                        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0; padding-bottom: 2px;">
-                            <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
-                                ${escapeHTML(n.title)}
-                            </div>
-                            <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.3; word-break: break-word; overflow-wrap: anywhere; white-space: normal; margin-bottom: 0;">
-                                ${escapeHTML(n.message)}
-                            </div>
-                        </div>
-                        
-                        <div style="position: absolute; bottom: -5px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
-                            ${dateStr} в ${timeStr}
-                        </div>
-                        
-                        <div style="position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: flex-start; justify-content: flex-end;" 
-                             onclick="deleteNotification(event, '${n.id}')" 
-                             onmouseover="this.style.opacity='1'" 
-                             onmouseout="this.style.opacity='0.5'">
-                            <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 12px;"></i>
-                        </div>
-                        
+                // ВЁРСТКА: Убраны пустые символы и переносы, чтобы карточки стояли ровно
+                html += `<div class="notif-item" style="background: #232325; border-radius: 12px; padding: 10px 32px 20px 10px; margin-bottom: 2px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
+                        ${icon}
                     </div>
-                `;
+                    <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0; padding-bottom: 2px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+                            ${escapeHTML(n.title)}
+                        </div>
+                        <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.3; word-break: break-word; overflow-wrap: anywhere; white-space: normal; margin-bottom: 0;">
+                            ${escapeHTML(n.message)}
+                        </div>
+                    </div>
+                    <div style="position: absolute; bottom: 4px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
+                        ${dateStr} в ${timeStr}
+                    </div>
+                    <div style="position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: flex-start; justify-content: flex-end;" onclick="deleteNotification(event, '${n.id}')" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
+                        <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 12px;"></i>
+                    </div>
+                </div>`;
             });
         }
         html += '</div>';
