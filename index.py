@@ -10532,6 +10532,75 @@ async def get_pending_submissions(request_data: InitDataRequest, supabase: httpx
     return response.json()
 
 
+# --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ СОЗДАНИЯ УВЕДОМЛЕНИЙ - УВЕДОМЛЕНИЯ В БОТЕ ---
+async def create_in_app_notification(supabase: httpx.AsyncClient, user_id: int, title: str, message: str, notif_type: str = "system"):
+    """Создает внутреннее уведомление для Web App."""
+    try:
+        await supabase.post(
+            "/in_app_notifications",
+            json={
+                "user_id": user_id,
+                "title": title,
+                "message": message,
+                "type": notif_type
+            }
+        )
+    except Exception as e:
+        logging.error(f"Ошибка при создании in-app уведомления для {user_id}: {e}")
+
+# --- ЭНДПОИНТЫ ДЛЯ ТВОЕГО WEB APP ---
+
+@app.get("/api/v1/notifications")
+async def get_user_notifications(user_id: int, limit: int = 50, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Отдает список уведомлений юзера и количество непрочитанных."""
+    try:
+        # Получаем сами уведомления (сортируем от новых к старым)
+        resp = await supabase.get(
+            "/in_app_notifications",
+            params={
+                "user_id": f"eq.{user_id}",
+                "order": "created_at.desc",
+                "limit": str(limit)
+            }
+        )
+        notifications = resp.json()
+        
+        # Считаем количество непрочитанных (для бейджа 999+)
+        unread_count = sum(1 for n in notifications if not n.get("is_read"))
+        
+        return {
+            "unread_count": unread_count,
+            "notifications": notifications
+        }
+    except Exception as e:
+        logging.error(f"Ошибка при получении уведомлений: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка сервера")
+
+@app.post("/api/v1/notifications/read")
+async def mark_notifications_as_read(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """Помечает все уведомления юзера (или конкретное) как прочитанные."""
+    data = await request.json()
+    user_id = data.get("user_id")
+    notif_id = data.get("notif_id") # Опционально: если хотим прочитать только одно
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Нужен user_id")
+        
+    try:
+        params = {"user_id": f"eq.{user_id}", "is_read": "is.false"}
+        if notif_id:
+            params["id"] = f"eq.{notif_id}"
+            
+        await supabase.patch(
+            "/in_app_notifications",
+            params=params,
+            json={"is_read": True}
+        )
+        return {"success": True}
+    except Exception as e:
+        logging.error(f"Ошибка при прочтении уведомлений: {e}")
+        return {"success": False}
+
 
 
 # --- ОБНОВЛЕННАЯ ОСНОВНАЯ ФУНКЦИЯ ---
@@ -10566,7 +10635,7 @@ async def send_approval_notification(user_id: int, quest_title: str):
 @app.post("/api/v1/admin/submission/update")
 async def update_submission_status(
     request_data: SubmissionUpdateRequest,
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks, # Оставляем в аргументах, чтобы не сломать FastAPI, но использовать не будем
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -10576,7 +10645,6 @@ async def update_submission_status(
     submission_id = request_data.submission_id
     action = request_data.action
 
-    # Поле reward_amount из квеста больше не используется, берем только title
     submission_data_resp = await supabase.get(
         "/quest_submissions",
         params={"id": f"eq.{submission_id}", "select": "user_id, quest_id, quest:quests(title)"}
@@ -10591,7 +10659,19 @@ async def update_submission_status(
 
     if action == 'rejected':
         await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "rejected"})
-        background_tasks.add_task(safe_send_message, user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
+        
+        # 🔥 ЖДЕМ отправки сообщения, чтобы Vercel его не убил
+        await safe_send_message(user_to_notify, f"❌ Увы, твоя заявка на квест «{quest_title}» была отклонена.")
+        
+        # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК
+        await create_in_app_notification(
+            supabase=supabase,
+            user_id=user_to_notify,
+            title="❌ Квест отклонен",
+            message=f"Твоя заявка на квест «{quest_title}» была отклонена.",
+            notif_type="error"
+        )
+        
         return {"message": "Заявка отклонена."}
 
     elif action == 'rejected_silent':
@@ -10619,21 +10699,21 @@ async def update_submission_status(
             response.raise_for_status()
             promo_code = response.text.strip('"')
 
-            # --- 🔥 ДОБАВЛЕНО: АВТО-АКТИВАЦИЯ ДЛЯ РУЧНЫХ КВЕСТОВ ---
-            # Так как RPC вернул только текст, быстро узнаем ID и номинал для Bot-t
+            # --- 🔥 АВТО-АКТИВАЦИЯ ДЛЯ РУЧНЫХ КВЕСТОВ ---
             promo_info_resp = await supabase.get(
                 "/promocodes", 
                 params={"code": f"eq.{promo_code}", "select": "id,reward_value"}
             )
+            reward_amount = 0
             if promo_info_resp.status_code == 200 and promo_info_resp.json():
                 p_data = promo_info_resp.json()[0]
+                reward_amount = p_data.get('reward_value', 0)
                 
-                # 🔥 ИСПРАВЛЕНИЕ: Используем надежный механизм FastAPI вместо asyncio!
-                background_tasks.add_task(
-                    activate_single_promocode,
+                # 🔥 ИСПРАВЛЕНИЕ: Делаем прямой await, чтобы Vercel 100% дождался начисления
+                await activate_single_promocode(
                     promo_id=p_data['id'],
                     telegram_id=user_to_notify,
-                    reward_value=p_data['reward_value'],
+                    reward_value=reward_amount,
                     description=f"Награда за квест: {quest_title}"
                 )
             # ------------------------------------------------------
@@ -10658,12 +10738,10 @@ async def update_submission_status(
 
 
             # ==========================================
-            # 🔥 3.5 ИНТЕГРАЦИЯ С КОТЛОМ (НАЧИСЛЕНИЕ ОЧКОВ ЗА РУЧНОЙ КВЕСТ) 🔥
+            # 🔥 3.5 ИНТЕГРАЦИЯ С КОТЛОМ
             # ==========================================
             try:
                 logging.info(f"--- [КОТЕЛ] СТАРТ ПРОВЕРКИ ДЛЯ КВЕСТА ID: {manual_quest_id} ---")
-                
-                # Получаем настройки котла
                 cauldron_resp = await supabase.get("/pages_content", params={"page_name": "eq.cauldron_event", "select": "content", "limit": 1})
                 cauldron_data = cauldron_resp.json()[0]['content'] if cauldron_resp.json() else {}
                 
@@ -10674,20 +10752,17 @@ async def update_submission_status(
                 if is_visible and is_manual and manual_quest_id:
                     points_to_add = 0
                     for task in manual_config:
-                        # Строгое сравнение (переводим оба ID в строки)
                         if str(task.get('quest_id')) == str(manual_quest_id): 
                             points_to_add = int(task.get('points', 0))
                             break
                     
                     if points_to_add > 0:
-                        # Получаем никнейм или полное имя юзера
                         user_profile_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_to_notify}", "select": "full_name, username"})
                         user_profile = user_profile_resp.json()
                         user_display_name = "Аноним"
                         if user_profile:
                             user_display_name = user_profile[0].get('username') or user_profile[0].get('full_name') or str(user_to_notify)
 
-                        # ИСПОЛЬЗУЕМ ТВОЙ ПРАВИЛЬНЫЙ RPC ИЗ КОТЛА!
                         logging.info(f"[КОТЕЛ] Отправляем запрос в RPC contribute_to_cauldron на {points_to_add} очков...")
                         contrib_response = await supabase.post(
                             "/rpc/contribute_to_cauldron",
@@ -10695,27 +10770,22 @@ async def update_submission_status(
                                 "p_user_id": user_to_notify,
                                 "p_amount": points_to_add,
                                 "p_user_display_name": user_display_name,
-                                "p_contribution_type": "quest" # Специальный тип, чтобы БД понимала, что это не билеты!
+                                "p_contribution_type": "quest"
                             }
                         )
                         
                         if contrib_response.status_code >= 400:
                             logging.error(f"[КОТЕЛ] ❌ ОШИБКА RPC: {contrib_response.text}")
-                            
-                            # Бронебойный запасной вариант
                             current_progress = int(cauldron_data.get('current_progress', 0))
                             new_progress = current_progress + points_to_add
                             cauldron_data['current_progress'] = new_progress
                             await supabase.patch("/pages_content", params={"page_name": "eq.cauldron_event"}, json={"content": cauldron_data})
-                            
                             await send_cauldron_trigger_to_obs(supabase, user_display_name, points_to_add, new_progress)
                             logging.warning(f"[КОТЕЛ] ⚠️ Шкала обновлена вручную, но в лидерборд юзер не попал из-за ошибки RPC.")
                         else:
                             result = contrib_response.json()
                             new_progress = result.get('new_progress')
                             logging.info(f"[КОТЕЛ] ✅ УСПЕХ! Очки ({points_to_add}) зачислены через официальный RPC. Новый прогресс: {new_progress}")
-                            
-                            # Отправляем триггер в OBS на стрим
                             await send_cauldron_trigger_to_obs(supabase, user_display_name, points_to_add, new_progress)
                     else:
                         logging.info(f"[КОТЕЛ] ❌ Квест {manual_quest_id} не найден в привязках или за него стоит 0 очков.")
@@ -10726,15 +10796,23 @@ async def update_submission_status(
             # ==========================================
 
 
-            # 4. Отправляем уведомление (БЕЗ ПРОМОКОДА)
-            background_tasks.add_task(
-                send_approval_notification,
+            # 4. Отправляем Telegram-уведомление напрямую (БЕЗ ПРОМОКОДА)
+            await send_approval_notification(
                 user_id=user_to_notify,
                 quest_title=quest_title
             )
 
+            # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК
+            await create_in_app_notification(
+                supabase=supabase,
+                user_id=user_to_notify,
+                title="✅ Квест одобрен!",
+                message=f"Награда за «{quest_title}» ({reward_amount} монет) зачислена на твой баланс.",
+                notif_type="coins"
+            )
+
             logging.info(f"Заявка {submission_id} одобрена. Билеты ({ticket_reward}) начислены, промокод '{promo_code}' зачисляется автоматически.")
-            return {"message": "Заявка одобрена. Награда успешно начислена!", "promocode": promo_code}
+            return {"message": "Заявка одобрена. Награда успешно начислена!"}
 
         except httpx.HTTPStatusError as e:
             error_details = e.response.json().get("message", "Ошибка базы данных при выдаче награды.")
