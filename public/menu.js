@@ -79,6 +79,11 @@ let lastSliderSignature = '';
 // ================================================================
 
 // 1. Фоновая проверка (Зажигает цифру на логотипе)
+// ================================================================
+// ИСТОРИЯ УВЕДОМЛЕНИЙ (КОЛОКОЛЬЧИК И УДАЛЕНИЕ)
+// ================================================================
+
+// 1. Фоновая проверка (Зажигает цифру на бейдже)
 async function fetchNotificationsBadge() {
     const badge = document.getElementById('logo-notification-badge');
     if (!badge) return;
@@ -98,7 +103,41 @@ async function fetchNotificationsBadge() {
     }
 }
 
-// 2. Открытие истории (При клике на логотип)
+// 2. Функция удаления уведомления (Заложена на будущее)
+window.deleteNotification = async function(event, notifId) {
+    event.stopPropagation(); // Блокируем клик по самой карточке, если там есть другие действия
+    
+    // Находим карточку, по которой кликнули
+    const notifCard = event.target.closest('.notif-item');
+    if (!notifCard) return;
+
+    // Скрываем карточку плавно (Оптимистичный UI)
+    notifCard.style.transition = 'opacity 0.2s, transform 0.2s';
+    notifCard.style.opacity = '0';
+    notifCard.style.transform = 'scale(0.95)';
+    
+    setTimeout(() => {
+        notifCard.style.display = 'none';
+    }, 200);
+
+    try {
+        // Отправляем запрос на сервер (поменяй URL и параметры под свой бекэнд)
+        await makeApiRequest('/api/v1/notifications/delete', { id: notifId }, 'POST', true);
+        
+        // Опционально: можно перепроверить бейдж после удаления
+        fetchNotificationsBadge();
+    } catch (e) {
+        // Если сервер выдал ошибку — возвращаем карточку на место
+        notifCard.style.display = 'flex';
+        setTimeout(() => {
+            notifCard.style.opacity = '1';
+            notifCard.style.transform = 'scale(1)';
+        }, 50);
+        console.warn("Не удалось удалить уведомление", e);
+    }
+};
+
+// 3. Открытие истории (При клике на колокольчик)
 window.openNotificationsHistory = async function() {
     const badge = document.getElementById('logo-notification-badge');
     if (badge) badge.classList.add('hidden'); 
@@ -116,7 +155,7 @@ window.openNotificationsHistory = async function() {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
         const notifs = res.notifications || [];
 
-        let html = '<div style="max-height: 60vh; overflow-y: auto; padding-right: 5px; text-align: left;">';
+        let html = '<div style="max-height: 60vh; overflow-y: auto; padding-right: 5px; text-align: left; overflow-x: hidden;">';
 
         if (notifs.length === 0) {
             html += '<div style="text-align: center; color: #888; padding: 30px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 30px; margin-bottom: 10px; opacity: 0.5;"></i><br>Здесь пока пусто.<br>Вся история начислений будет храниться тут.</div>';
@@ -134,13 +173,21 @@ window.openNotificationsHistory = async function() {
 
                 const unreadStyle = n.is_read ? '' : 'border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.05);';
 
+                // Добавлен класс .notif-item и кнопка с корзиной справа
                 html += `
-                    <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px; border: 1px solid rgba(255,255,255,0.05); ${unreadStyle}">
+                    <div class="notif-item" style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px; border: 1px solid rgba(255,255,255,0.05); ${unreadStyle}">
                         <div style="font-size: 18px; width: 24px; text-align: center; flex-shrink: 0;">${icon}</div>
                         <div style="flex-grow: 1;">
                             <div style="font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 4px;">${escapeHTML(n.title)}</div>
                             <div style="font-size: 11px; color: #ccc; line-height: 1.4;">${escapeHTML(n.message)}</div>
-                            <div style="font-size: 9px; color: #666; margin-top: 6px; text-align: right; font-weight: 600;">${dateStr} в ${timeStr}</div>
+                            <div style="font-size: 9px; color: #666; margin-top: 6px; font-weight: 600;">${dateStr} в ${timeStr}</div>
+                        </div>
+                        
+                        <div style="flex-shrink: 0; padding: 4px; cursor: pointer; opacity: 0.4; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; height: 100%;" 
+                             onclick="deleteNotification(event, ${n.id})" 
+                             onmouseover="this.style.opacity='1'" 
+                             onmouseout="this.style.opacity='0.4'">
+                            <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 14px;"></i>
                         </div>
                     </div>
                 `;
