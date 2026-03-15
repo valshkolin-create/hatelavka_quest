@@ -1,64 +1,102 @@
 // ================================================================
-// 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
+// 0. УМНЫЙ ПОИСК ПАРАМЕТРОВ VK (Твой оригинальный рабочий код)
 // ================================================================
-let isVk = false;
-
 (function initVkParams() {
     window.vkParams = null; 
+
     const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
 
     try {
-        let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-        if (isValid(s)) { window.vkParams = s; return; }
+        console.log("🔍 [VK Init] Начинаем поиск параметров...");
 
-        let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-        if (isValid(h)) { window.vkParams = h; return; }
+        let s = window.location.search;
+        if (s.startsWith('?')) s = s.slice(1);
+        if (isValid(s)) {
+            window.vkParams = s;
+            console.log("✅ Нашли в search");
+            return;
+        }
 
-        if (isValid(window.name)) { window.vkParams = window.name; return; }
+        let h = window.location.hash;
+        if (h.startsWith('#')) h = h.slice(1);
+        if (h.startsWith('?')) h = h.slice(1);
+        if (isValid(h)) {
+            window.vkParams = h;
+            console.log("✅ Нашли в hash");
+            return;
+        }
 
-        const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
-        if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; return; }
-    } catch (e) {}
+        if (isValid(window.name)) {
+            window.vkParams = window.name;
+            console.log("✅ Нашли в window.name");
+            return;
+        }
+
+        const href = window.location.href;
+        const match = href.match(/(vk_user_id=[^#]*)/);
+        if (match && match[1] && match[1].includes('sign')) {
+             window.vkParams = match[1];
+             console.log("✅ Выдрали из href через Regex");
+             return;
+        }
+
+        console.warn("⚠️ Параметры VK не найдены в URL!");
+    } catch (e) {
+        console.error("VK Init Error:", e);
+    }
 })();
 
+// ================================================================
+// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ
+// ================================================================
 function getSearchParam(name) {
-    try { return new URL(window.location.href).searchParams.get(name); } catch(e) { return null; }
+    try {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name);
+    } catch(e) { return null; }
 }
 
-isVk = !!(window.vkParams || getSearchParam('vk_app_id'));
+let isVk = !!(window.vkParams || getSearchParam('vk_app_id'));
 
-// 🔥 ТОТ САМЫЙ СТАРЫЙ ХАК: Принудительный режим для iframe
+// Принудительный режим для iframe
 if (!isVk && window.self !== window.top && !window.Telegram?.WebApp?.initData) {
+    console.log("⚠️ Iframe detected. Force VK mode.");
     isVk = true;
 }
 
-// Сообщаем ВК, что мы загрузились
-if (isVk) {
-    document.documentElement.classList.add('vk-mode');
-    if (typeof vkBridge !== 'undefined') {
-        try { vkBridge.send('VKWebAppInit'); } catch(e){}
-    }
-}
-
-// 🔥 ВОЗВРАЩАЕМ ТВОЮ ФУНКЦИЮ ИЗ СТАРОГО КОДА
+// Запрос параметров через мост (если URL пустой)
 async function fetchVkParamsFromBridge() {
     if (typeof vkBridge === 'undefined') return null;
     try {
+        console.log("🔄 Запрашиваем параметры у VK Bridge...");
         const data = await vkBridge.send('VKWebAppGetLaunchParams');
         if (data && data.vk_user_id) {
             const params = Object.keys(data)
                 .map(key => `${key}=${encodeURIComponent(data[key])}`)
                 .join('&');
+            console.log("✅ VK Bridge вернул параметры!");
             window.vkParams = params;
             return params;
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Bridge GetParams Error:", e);
+    }
     return null;
 }
 
 function getAuthPayload() {
-    if (isVk) return { initData: window.vkParams || '', platform: 'vk' };
-    return { initData: window.Telegram?.WebApp?.initData || '', platform: 'tg' };
+    if (isVk) {
+        if (window.vkParams) {
+            return { initData: window.vkParams, platform: 'vk' };
+        } 
+        console.error("❌ [Critical] Отправляем пустой payload, так как params не найдены!");
+        return { initData: '', platform: 'vk' };
+    } else {
+        return {
+            initData: window.Telegram?.WebApp?.initData || '',
+            platform: 'tg'
+        };
+    }
 }
 // Глобальные переменные
 const dom = {
