@@ -145,8 +145,8 @@ window.openNotificationsHistory = async function() {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
         const notifs = res.notifications || [];
 
-        // 🔥 ИЗМЕНЕНИЕ 1: Контейнер теперь display: block; (никаких флексов, которые тянут высоту)
-        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: block;">';
+        // Контейнер теперь display: block; (никаких флексов, которые тянут высоту)
+        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: block; width: 100%; box-sizing: border-box;">';
 
         if (notifs.length === 0) {
             html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Вся история начислений будет храниться тут.</span></div>';
@@ -177,52 +177,19 @@ window.openNotificationsHistory = async function() {
                 const dateStr = dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
                 const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.2)';
 
-                // 🔥 ИЗМЕНЕНИЕ 2: Карточка теперь ОЧЕНЬ ТОНКАЯ (height: 28px; padding: 0;)
-                // Контейнер списка (display: block, чтобы ничего не тянулось)
-        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: block;">';
-
-        if (notifs.length === 0) {
-            html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Вся история начислений будет храниться тут.</span></div>';
-        } else {
-            notifs.forEach(n => {
-                let icon = '<i class="fa-solid fa-bell" style="color: #8e8e93;"></i>';
-                let iconBg = 'rgba(255, 255, 255, 0.05)';
-                
-                if (n.type === 'coins') { 
-                    icon = '<i class="fa-solid fa-coins" style="color: #ffd700;"></i>'; 
-                    iconBg = 'rgba(255, 215, 0, 0.1)'; 
-                }
-                if (n.type === 'tickets') { 
-                    icon = '<i class="fa-solid fa-ticket" style="color: #9146ff;"></i>'; 
-                    iconBg = 'rgba(145, 70, 255, 0.1)'; 
-                }
-                if (n.type === 'error') { 
-                    icon = '<i class="fa-solid fa-circle-xmark" style="color: #ff3b30;"></i>'; 
-                    iconBg = 'rgba(255, 59, 48, 0.1)'; 
-                }
-                if (n.type === 'system' || n.type === 'success') { 
-                    icon = '<i class="fa-solid fa-check" style="color: #34c759;"></i>'; 
-                    iconBg = 'rgba(52, 199, 89, 0.1)'; 
-                }
-
-                const dateObj = new Date(n.created_at);
-                const timeStr = dateObj.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
-                const dateStr = dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
-                const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.2)';
-
-                // ИДЕАЛЬНАЯ ВЕРСТКА: flex-row (иконка слева, текст справа), height: auto
+                // ИДЕАЛЬНАЯ ВЕРСТКА: flex-row, height: auto, жёсткие ограничения на перенос текста
                 html += `
-                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 12px; padding-right: 36px; margin-bottom: 8px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 12px;">
+                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 12px; padding-right: 36px; margin-bottom: 8px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 12px; height: auto;">
                         
                         <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
                             ${icon}
                         </div>
                         
                         <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
-                            <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
                                 ${escapeHTML(n.title)}
                             </div>
-                            <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.3; word-wrap: break-word; margin-bottom: 6px;">
+                            <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.3; word-break: break-word; overflow-wrap: anywhere; white-space: normal; margin-bottom: 6px;">
                                 ${escapeHTML(n.message)}
                             </div>
                             <div style="font-size: 9px; font-weight: 500; color: #666; text-align: left;">
@@ -230,7 +197,7 @@ window.openNotificationsHistory = async function() {
                             </div>
                         </div>
                         
-                        <div style="position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center;" 
+                        <div style="position: absolute; top: 12px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: flex-start; justify-content: flex-end;" 
                              onclick="deleteNotification(event, '${n.id}')" 
                              onmouseover="this.style.opacity='1'" 
                              onmouseout="this.style.opacity='0.5'">
