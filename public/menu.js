@@ -216,7 +216,7 @@ window.openNotificationsHistory = async function() {
                             </div>
                         </div>
                         
-                        <div style="position: absolute; bottom: -2px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
+                        <div style="position: absolute; bottom: -5px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
                             ${dateStr} в ${timeStr}
                         </div>
                         
@@ -414,6 +414,9 @@ async function refreshDataSilently() {
                  if (!isEnabled) { giftContainer.style.display = 'none'; giftBtn.style.display = 'none'; }
                  else if (!giftContainer.classList.contains('hidden')) { giftContainer.style.display = ''; }
             }
+
+            // 👇 ДОБАВЛЯЕМ ВОТ ЭТУ СТРОЧКУ 👇
+            fetchNotificationsBadge();
         }
     } catch (e) {}
 }
@@ -2077,6 +2080,8 @@ async function main() {
         if (shopData) loadCategory(2716312, shopData);
         if (p2pData) checkActiveTradesBackground(p2pData);
         setupSlider();
+
+        fetchNotificationsBadge();
 
         if (!isCached) updateLoading(100);
 
