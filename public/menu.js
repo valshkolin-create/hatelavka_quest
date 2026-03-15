@@ -75,6 +75,93 @@ let sliderAbortController = null;
 let lastSliderSignature = '';
 
 // ================================================================
+// ИСТОРИЯ УВЕДОМЛЕНИЙ (ЧЕРЕЗ ЛОГОТИП)
+// ================================================================
+
+// 1. Фоновая проверка (Зажигает цифру на логотипе)
+async function fetchNotificationsBadge() {
+    const badge = document.getElementById('logo-notification-badge');
+    if (!badge) return;
+
+    try {
+        const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
+        if (res && res.unread_count > 0) {
+            badge.textContent = res.unread_count > 99 ? '99+' : res.unread_count;
+            badge.classList.remove('hidden');
+            badge.classList.add('badge-pulse-anim'); 
+            setTimeout(() => badge.classList.remove('badge-pulse-anim'), 1000);
+        } else {
+            badge.classList.add('hidden');
+        }
+    } catch (e) {
+        console.warn("Не удалось загрузить бейдж уведомлений", e);
+    }
+}
+
+// 2. Открытие истории (При клике на логотип)
+window.openNotificationsHistory = async function() {
+    const badge = document.getElementById('logo-notification-badge');
+    if (badge) badge.classList.add('hidden'); 
+
+    showShopModal({
+        title: "🔔 Уведомления",
+        subtitle: '<div style="text-align:center; padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px; color:#ffd700;"></i><br><br>Загрузка истории...</div>',
+        confirmText: "Закрыть",
+        confirmClass: "btn-cancel-modal",
+        showCancel: false,
+        onConfirm: (close) => close()
+    });
+
+    try {
+        const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
+        const notifs = res.notifications || [];
+
+        let html = '<div style="max-height: 60vh; overflow-y: auto; padding-right: 5px; text-align: left;">';
+
+        if (notifs.length === 0) {
+            html += '<div style="text-align: center; color: #888; padding: 30px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 30px; margin-bottom: 10px; opacity: 0.5;"></i><br>Здесь пока пусто.<br>Вся история начислений будет храниться тут.</div>';
+        } else {
+            notifs.forEach(n => {
+                let icon = '<i class="fa-solid fa-bell" style="color: #8e8e93;"></i>';
+                if (n.type === 'coins') icon = '<i class="fa-solid fa-coins" style="color: #ffd700;"></i>';
+                if (n.type === 'tickets') icon = '🎟️';
+                if (n.type === 'error') icon = '<i class="fa-solid fa-circle-xmark" style="color: #ff3b30;"></i>';
+                if (n.type === 'system') icon = '<i class="fa-solid fa-circle-info" style="color: #2AABEE;"></i>';
+
+                const dateObj = new Date(n.created_at);
+                const timeStr = dateObj.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+                const dateStr = dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
+
+                const unreadStyle = n.is_read ? '' : 'border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.05);';
+
+                html += `
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px; border: 1px solid rgba(255,255,255,0.05); ${unreadStyle}">
+                        <div style="font-size: 18px; width: 24px; text-align: center; flex-shrink: 0;">${icon}</div>
+                        <div style="flex-grow: 1;">
+                            <div style="font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 4px;">${escapeHTML(n.title)}</div>
+                            <div style="font-size: 11px; color: #ccc; line-height: 1.4;">${escapeHTML(n.message)}</div>
+                            <div style="font-size: 9px; color: #666; margin-top: 6px; text-align: right; font-weight: 600;">${dateStr} в ${timeStr}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        html += '</div>';
+
+        const subtitleEl = document.querySelector('.custom-confirm-box .confirm-subtitle');
+        if (subtitleEl) subtitleEl.innerHTML = html;
+
+        if (notifs.some(n => !n.is_read)) {
+            await makeApiRequest('/api/v1/notifications/read', { user_id: Telegram.WebApp.initDataUnsafe?.user?.id }, 'POST', true);
+        }
+
+    } catch (e) {
+        const subtitleEl = document.querySelector('.custom-confirm-box .confirm-subtitle');
+        if (subtitleEl) subtitleEl.innerHTML = '<div style="color:#ff3b30; text-align:center; padding:20px;">Не удалось загрузить историю.</div>';
+    }
+};
+
+// ================================================================
 // УТИЛИТЫ И API
 // ================================================================
 function escapeHTML(str) {
