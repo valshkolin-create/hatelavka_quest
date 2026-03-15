@@ -2,9 +2,28 @@
 // 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
 let isVk = false;
+
+// Возвращаем функцию получения параметров из Bridge
+async function fetchVkParamsFromBridge() {
+    if (typeof vkBridge === 'undefined') return null;
+    try {
+        const data = await vkBridge.send('VKWebAppGetLaunchParams');
+        if (data && data.vk_user_id) {
+            const params = Object.keys(data)
+                .map(key => `${key}=${encodeURIComponent(data[key])}`)
+                .join('&');
+            window.vkParams = params;
+            return params;
+        }
+    } catch (e) {}
+    return null;
+}
+
 (function initVkParams() {
     window.vkParams = null;
     const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
+    
+    // 1. Проверяем URL
     try {
         let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
         if (isValid(s)) { window.vkParams = s; isVk = true; return; }
@@ -17,13 +36,23 @@ let isVk = false;
         const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
         if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; isVk = true; return; }
     } catch (e) {}
+
+    // 2. Если в URL ничего нет, пытаемся понять по косвенным признакам, что мы в ВК
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('vk_app_id') || (window.self !== window.top && !window.Telegram?.WebApp?.initData)) {
+        isVk = true; // Мы точно в ВК, но параметры спрятаны (нужно будет дернуть Bridge)
+    }
 })();
+
+// Сообщаем ВК, что мы загрузились
+if (isVk && typeof vkBridge !== 'undefined') {
+    vkBridge.send('VKWebAppInit');
+}
 
 function getAuthPayload() {
     if (isVk) return { initData: window.vkParams || '', platform: 'vk' };
     return { initData: window.Telegram?.WebApp?.initData || '', platform: 'tg' };
 }
-
 // Глобальные переменные
 const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
@@ -2069,10 +2098,12 @@ window.showFaq = function() {
 // ================================================================
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
-// ================================================================
-// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
-// ================================================================
 async function main() {
+    // 👇 ДОБАВИТЬ ЭТО 👇: Если мы в ВК, но параметров в URL не было — достаем их из моста
+    if (isVk && !window.vkParams) {
+        await fetchVkParamsFromBridge();
+    }
+    // 👆 ДОБАВИТЬ ЭТО 👆
     // ⚡ ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ САМЫМ ПЕРВЫМ
     checkBalance(true);
 
