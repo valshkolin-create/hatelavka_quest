@@ -216,7 +216,7 @@ window.openNotificationsHistory = async function() {
                             </div>
                         </div>
                         
-                        <div style="position: absolute; bottom: 6px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
+                        <div style="position: absolute; bottom: 2px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
                             ${dateStr} в ${timeStr}
                         </div>
                         
