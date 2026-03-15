@@ -78,11 +78,6 @@ let lastSliderSignature = '';
 // ИСТОРИЯ УВЕДОМЛЕНИЙ (ЧЕРЕЗ ЛОГОТИП)
 // ================================================================
 
-// 1. Фоновая проверка (Зажигает цифру на логотипе)
-// ================================================================
-// ИСТОРИЯ УВЕДОМЛЕНИЙ (КОЛОКОЛЬЧИК И УДАЛЕНИЕ)
-// ================================================================
-
 // 1. Фоновая проверка (Зажигает цифру на бейдже)
 async function fetchNotificationsBadge() {
     const badge = document.getElementById('logo-notification-badge');
@@ -119,7 +114,7 @@ window.deleteNotification = async function(event, notifId) {
     }, 300);
 
     try {
-        // Эндпоинт, который мы сделаем позже на бэке
+        // Эндпоинт, который мы сделали на бэке
         await makeApiRequest('/api/v1/notifications/delete', { id: notifId }, 'POST', true);
         fetchNotificationsBadge(); // Обновляем цифру на колокольчике
     } catch (e) {
@@ -150,8 +145,8 @@ window.openNotificationsHistory = async function() {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
         const notifs = res.notifications || [];
 
-        // Делаем контейнер с красивым скроллом и скрываем горизонтальный
-        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden;">';
+        // 🔥 ИЗМЕНЕНИЕ 1: Жестко прижимаем элементы к верху через flex-start
+        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: flex; flex-direction: column; justify-content: flex-start;">';
 
         if (notifs.length === 0) {
             html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Вся история начислений будет храниться тут.</span></div>';
@@ -185,9 +180,9 @@ window.openNotificationsHistory = async function() {
                 // Легкая подсветка для непрочитанных
                 const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.2)';
 
-                // Верстка карточки (тонкая, аккуратная)
+                // 🔥 ИЗМЕНЕНИЕ 2: Заменили height: max-content на flex: 0 0 auto; height: auto;
                 html += `
-                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; position: relative; height: max-content; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s;">
+                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; position: relative; flex: 0 0 auto; height: auto; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s;">
                         
                         <div style="display: flex; gap: 12px; align-items: flex-start; width: 100%;">
                             <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
