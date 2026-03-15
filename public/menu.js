@@ -1290,6 +1290,7 @@ function renderItems(items) {
             title.style.fontSize = fontSize + 'px';
         }
     });
+} // <--- ВОТ ЗДЕСЬ ЗАКАНЧИВАЕТСЯ renderItems
 
 async function validateUserTradeLink() {
     const loader = document.getElementById('purchase-loader');
