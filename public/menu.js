@@ -481,7 +481,6 @@ async function checkBalance(updateUI = true) {
     });
 }
 
-// Вынесли отрисовку в отдельную функцию (теперь с защитой от сброса в 0)
 // Вынесли отрисовку в отдельную функцию (теперь без деления на 100)
 function renderBalanceUI(coins, tickets) {
     if (coins !== undefined) {
@@ -496,19 +495,6 @@ function renderBalanceUI(coins, tickets) {
             }, 150); 
         }
     }
-
-    if (tickets !== undefined) {
-        let displayTickets = Number(tickets).toLocaleString('ru-RU');
-        const ticketsEl = document.getElementById('ticketStats');
-        if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
-            ticketsEl.style.opacity = '0.5'; 
-            setTimeout(() => { 
-                ticketsEl.textContent = displayTickets; 
-                ticketsEl.style.opacity = '1'; 
-            }, 150); 
-        }
-    }
-}
 
     if (tickets !== undefined) {
         let displayTickets = Number(tickets).toLocaleString('ru-RU');
