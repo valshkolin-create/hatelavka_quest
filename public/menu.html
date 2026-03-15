@@ -36,52 +36,55 @@
     </div>
 
     <div id="side-menu-overlay" class="side-menu-overlay">
-        <div class="side-menu-content">
-            <div class="side-menu-header">
-                <h3 id="fullName">Профиль</h3>
-                <button id="close-menu-btn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <nav class="side-nav">
-                <a href="/profile"><i class="fa-solid fa-user"></i> Мой Профиль</a>
-                <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
-                <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
-                <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки (заглушка)</a>
-                <a href="#" onclick="showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
-                <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
-            </nav>
+    <div class="side-menu-content">
+        <div class="side-menu-header">
+            <h3 id="fullName">Профиль</h3>
+            <button id="close-menu-btn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <nav class="side-nav">
+            <a href="/profile"><i class="fa-solid fa-user"></i> Мой Профиль</a>
+            <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
+            <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
+            <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки (заглушка)</a>
+            <a href="#" onclick="showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
+            <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
+        </nav>
+    </div>
+</div>
+
+<header class="top-header">
+    
+    <div class="logo-wrapper">
+        <div id="logo-notification-btn" class="logo-btn-container" onclick="openNotificationsHistory()">
+            <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
+            <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
+        </div>
+        
+        <div class="logo-text">
+            <span class="logo-title">HATElavka</span>
+            <span class="logo-subtitle">TWITCH | TELEGRAM</span>
         </div>
     </div>
 
-    <div class="logo-wrapper">
-            <div id="logo-notification-btn" class="logo-btn-container" onclick="openNotificationsHistory()">
-                <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
-                <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
+    <div class="header-right-group">
+        <div class="balance-pill" onclick="checkBalance(true)">
+            <div class="balance-col">
+                <div class="balance-row"><span id="user-balance">0</span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i></div>
+                <div class="balance-row"><span id="ticketStats">0</span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i></div>
             </div>
-            
-            <div class="logo-text">
-                <span class="logo-title">HATElavka</span>
-                <span class="logo-subtitle">TWITCH | TELEGRAM</span>
+            <div class="refresh-icon-wrapper">
+                <i class="fa-solid fa-rotate-right fa-spin" id="refresh-icon"></i>
             </div>
         </div>
+        
+        <img src="https://via.placeholder.com/64x64/555555/ffffff?text=U" alt="Avatar" class="user-avatar" id="user-avatar" onclick="window.location.href='/profile'">
+        
+        <button id="open-menu-btn" class="glass-burger">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
 
-        <div class="header-right-group">
-            <div class="balance-pill" onclick="checkBalance(true)">
-                <div class="balance-col">
-                    <div class="balance-row"><span id="user-balance">0</span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i></div>
-                    <div class="balance-row"><span id="ticketStats">0</span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i></div>
-                </div>
-                <div class="refresh-icon-wrapper">
-                    <i class="fa-solid fa-rotate-right fa-spin" id="refresh-icon"></i>
-                </div>
-            </div>
-            
-            <img src="https://via.placeholder.com/64x64/555555/ffffff?text=U" alt="Avatar" class="user-avatar" id="user-avatar" onclick="window.location.href='/profile'">
-            
-            <button id="open-menu-btn" class="glass-burger">
-                <span></span><span></span><span></span>
-            </button>
-        </div>
-    </header>
+</header>
 
     
 
