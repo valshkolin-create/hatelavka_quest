@@ -1243,13 +1243,30 @@ function renderItems(items) {
             }
             
             if (showFreeButton) {
-                // РИСУЕМ КНОПКУ БЕСПЛАТНО!
-                buttonHtml = `
-                    <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); color: #fff; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.4); width: 100%; height: 40px; border: none; border-radius: 8px; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; text-transform: uppercase;">ОТКРЫТЬ БЕСПЛАТНО 🎟️</button>
-                    </div>
-                `;
-            } else {
+    // РИСУЕМ КНОПКУ БЕСПЛАТНО (ОДНА БОЛЬШАЯ ПО ЦЕНТРУ)
+    buttonHtml = `
+        <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
+            <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" 
+                style="background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); 
+                       color: #000; 
+                       box-shadow: 0 4px 15px rgba(52, 199, 89, 0.4); 
+                       width: 100%; 
+                       height: 100%; 
+                       border: none; 
+                       border-radius: 8px; 
+                       font-weight: 900; 
+                       font-size: 14px; 
+                       display: flex; 
+                       align-items: center; 
+                       justify-content: center; 
+                       gap: 6px; 
+                       text-transform: uppercase;
+                       cursor: pointer;">
+                ОТКРЫТЬ БЕСПЛАТНО 🎟️
+            </button>
+        </div>
+    `;
+} else {
                 // СТАНДАРТНЫЕ КНОПКИ
                 buttonHtml = `
                     <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
