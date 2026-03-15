@@ -143,6 +143,14 @@
                             <span>Аукционы</span>
                         </div>
                     </a>
+
+                    <div class="flat-card" onclick="openCouponModal()" style="flex: 1; background: linear-gradient(135deg, rgba(52, 199, 89, 0.1) 0%, #1c1c1e 100%); border-color: rgba(52, 199, 89, 0.2); cursor: pointer;">
+                            <div class="auction-content" style="gap: 4px;">
+                                <i class="fa-solid fa-ticket-simple" style="font-size: 20px; color: #34c759; filter: drop-shadow(0 0 10px rgba(52, 199, 89, 0.4));"></i>
+                                <span style="font-size: 10px; text-align: center; line-height: 1.1; color: #fff;">АКТИВИРОВАТЬ<br>КУПОН</span>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="flat-card mini-raffle-slider-container" id="mini-raffle-slider" onclick="window.location.href='/raffles'">
                         <span id="default-raffle-text" style="font-weight: 800; letter-spacing: 1px;">РОЗЫГРЫШИ</span>
@@ -392,6 +400,26 @@
                 <button class="action-btn btn-secondary-action" onclick="closePassModal()">Отмена</button>
                 <button class="action-btn btn-buy" onclick="submitResetCache()">OK</button>
             </div>
+        </div>
+    </div>
+
+    <div id="coupon-modal" class="modal hidden" style="z-index: 10002;">
+        <div class="modal-content" style="text-align: center; max-width: 320px;">
+            <div class="modal-header">
+                <h3 style="margin: 0; color: #fff;">Промокод</h3>
+                <button onclick="closeCouponModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="font-size: 50px; margin: 10px 0; animation: pulse 2s infinite;">🎟️</div>
+            <p style="font-size: 12px; color: #8e8e93; margin-bottom: 15px;">Активируйте код, чтобы получить 1 бесплатное открытие кейса!</p>
+            
+            <div style="position: relative; margin-bottom: 15px;">
+                <input type="text" id="coupon-input" class="p2p-input" placeholder="Введите код" style="text-align:center; padding-right: 45px; font-weight: 800; font-size: 18px; letter-spacing: 1px; text-transform: uppercase;">
+                <button onclick="pasteCoupon()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: none; color: #fff; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;">
+                    <i class="fa-solid fa-paste"></i>
+                </button>
+            </div>
+            
+            <button id="activate-coupon-btn" class="action-btn btn-buy" style="height: 45px; font-size: 14px; background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); color: #fff; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.3);" onclick="activateCouponSubmit()">Применить</button>
         </div>
     </div>
 
