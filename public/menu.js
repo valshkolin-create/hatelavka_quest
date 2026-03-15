@@ -1243,20 +1243,21 @@ function renderItems(items) {
             }
             
             if (showFreeButton) {
-    // РИСУЕМ КНОПКУ БЕСПЛАТНО (ЧИСТЫЙ НЕОН, БЕЗ РАМКИ И БИЛЕТА)
+    // РИСУЕМ КНОПКУ БЕСПЛАТНО (ЧИСТЫЙ НЕОН, ТОЛЬКО ЗЕЛЕНЫЙ И ЧЕРНЫЙ)
     buttonHtml = `
         <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
             <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" 
                 style="background: transparent; 
                        color: #34c759; 
-                       /* Зеленое свечение + жирный черный блюр для контраста */
+                       /* Только зеленое свечение и черный контур */
                        text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 
-                                    0 0 20px rgba(52, 199, 89, 0.5), 
+                                    0 0 20px rgba(52, 199, 89, 0.4), 
                                     0 0 15px #000, 
                                     0 0 25px #000;
                        width: 100%; 
                        height: 100%; 
                        border: none; 
+                       box-shadow: none; /* Убираем любую внешнюю подсветку */
                        border-radius: 12px; 
                        font-weight: 900; 
                        font-size: 16px; 
