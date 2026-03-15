@@ -2142,11 +2142,7 @@ async function main() {
                 dom.loaderOverlay.style.opacity = '1';
             }
             updateLoading(10); 
-        }
-
-        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО
-        let bootstrapData, rafflesData, shopData, p2pData;
-        
+        }      
         // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (С ЗАЩИТОЙ ОТ ПАДЕНИЯ ОТДЕЛЬНЫХ МОДУЛЕЙ)
         let bootstrapData, rafflesData, shopData, p2pData;
         
