@@ -3,43 +3,40 @@
 // ================================================================
 let isVk = false;
 
-(function initVkParams() {
-    window.vkParams = null; 
+(function determinePlatform() {
+    window.vkParams = null;
+    let possibleVkString = '';
 
-    // 1. ЗАЩИТА ОТ КРАЖИ ХЕША ТЕЛЕГРАМОМ
-    // Скрипт ТГ может ошибочно съесть хеш ВК. Проверяем это:
+    // 1. Ищем в URL
+    let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
+    let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
+    
+    if (s.includes('vk_app_id')) possibleVkString = s;
+    else if (h.includes('vk_app_id')) possibleVkString = h;
+    else if (window.name && window.name.includes('vk_app_id')) possibleVkString = window.name;
+    
+    // 2. ЗАЩИТА ОТ КРАЖИ: Телеграм WebApp скрипт мог успеть забрать наш хеш!
     const tgData = window.Telegram?.WebApp?.initData || '';
-    if (tgData.includes('vk_user_id') || tgData.includes('vk_app_id')) {
+    if (tgData.includes('vk_app_id') || tgData.includes('vk_access_token')) {
         console.log("⚠️ Telegram script stole VK hash. Recovering...");
-        window.vkParams = tgData;
-        isVk = true;
-        return;
+        possibleVkString = tgData;
     }
 
-    const isValid = (str) => str && (str.includes('vk_user_id') || str.includes('vk_app_id'));
+    // 3. Ищем в кэше браузера
+    if (!possibleVkString) {
+        possibleVkString = sessionStorage.getItem('vk_auth_params') || '';
+    }
 
-    try {
-        let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-        if (isValid(s)) { window.vkParams = s; isVk = true; return; }
-
-        let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-        if (isValid(h)) { window.vkParams = h; isVk = true; return; }
-
-        if (isValid(window.name)) { window.vkParams = window.name; isVk = true; return; }
-
-        const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
-        if (match && match[1]) { window.vkParams = match[1]; isVk = true; return; }
-    } catch (e) {}
+    // Если нашли параметры ВК — фиксируем платформу
+    if (possibleVkString.includes('vk_app_id') || possibleVkString.includes('vk_user_id')) {
+        isVk = true;
+        window.vkParams = possibleVkString;
+        sessionStorage.setItem('vk_auth_params', possibleVkString);
+    } else if (!isVk && window.self !== window.top && !tgData.includes('hash=')) {
+        // Фолбек: мы в iframe, но это не телеграм (нет hash). Значит ВК.
+        isVk = true;
+    }
 })();
-
-// Принудительный режим для iframe
-// Если параметров нет, мы в iframe и это точно не Телега -> значит ВК
-if (!isVk && window.self !== window.top) {
-    const tgData = window.Telegram?.WebApp?.initData || '';
-    if (!tgData || !tgData.includes('query_id')) {
-        isVk = true;
-    }
-}
 
 // Сообщаем ВК, что мы загрузились
 if (isVk) {
@@ -58,22 +55,27 @@ async function fetchVkParamsFromBridge() {
                 .map(key => `${key}=${encodeURIComponent(data[key])}`)
                 .join('&');
             window.vkParams = params;
+            sessionStorage.setItem('vk_auth_params', params);
             return params;
         }
     } catch (e) {}
     return null;
 }
 
+// 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
 function getAuthPayload() {
-    if (isVk) {
-        return { initData: window.vkParams || '', platform: 'vk' };
-    } else {
-        // Дополнительно чистим, чтобы не отдать ВК-шный мусор
-        let tgAuth = window.Telegram?.WebApp?.initData || '';
-        if (tgAuth.includes('vk_')) tgAuth = ''; 
-        return { initData: tgAuth, platform: 'tg' };
+    // Собираем всё, что есть
+    let dataStr = window.vkParams || window.Telegram?.WebApp?.initData || sessionStorage.getItem('vk_auth_params') || '';
+    
+    // Смотрим прямо внутрь строки. Если там ВК-данные — отправляем на сервер как ВК!
+    if (dataStr.includes('vk_app_id') || dataStr.includes('vk_user_id') || dataStr.includes('vk_access_token')) {
+        return { initData: dataStr, platform: 'vk' };
     }
+    
+    // Иначе это Телеграм
+    return { initData: dataStr, platform: 'tg' };
 }
+
 // Глобальные переменные
 const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
