@@ -482,9 +482,11 @@ async function checkBalance(updateUI = true) {
 }
 
 // Вынесли отрисовку в отдельную функцию (теперь с защитой от сброса в 0)
+// Вынесли отрисовку в отдельную функцию (теперь без деления на 100)
 function renderBalanceUI(coins, tickets) {
     if (coins !== undefined) {
-        let displayBalance = Number((coins / 100).toFixed(0)).toLocaleString('ru-RU');
+        // Убрали / 100
+        let displayBalance = Number(coins).toLocaleString('ru-RU');
         const balanceEl = document.getElementById('user-balance');
         if (balanceEl && balanceEl.textContent !== displayBalance) { 
             balanceEl.style.opacity = '0.5'; 
@@ -494,6 +496,19 @@ function renderBalanceUI(coins, tickets) {
             }, 150); 
         }
     }
+
+    if (tickets !== undefined) {
+        let displayTickets = Number(tickets).toLocaleString('ru-RU');
+        const ticketsEl = document.getElementById('ticketStats');
+        if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
+            ticketsEl.style.opacity = '0.5'; 
+            setTimeout(() => { 
+                ticketsEl.textContent = displayTickets; 
+                ticketsEl.style.opacity = '1'; 
+            }, 150); 
+        }
+    }
+}
 
     if (tickets !== undefined) {
         let displayTickets = Number(tickets).toLocaleString('ru-RU');
@@ -1311,12 +1326,12 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             // Если монет визуально хватает — списываем
             if (currentVisualBalance >= price) {
                 renderBalanceUI(
-                    currency === 'coins' ? (currentVisualBalance - price) * 100 : undefined, // Умножаем на 100, т.к. в renderBalanceUI делится на 100
+                    // Убрали умножение на 100!
+                    currency === 'coins' ? (currentVisualBalance - price) : undefined, 
                     currency === 'tickets' ? (currentVisualBalance - price) : undefined
                 );
             }
         }
-
         try {
             // Параллельно запускаем запрос на содержимое кейса и покупку
             const contentsPromise = makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(name)}`, {}, 'GET', true);
