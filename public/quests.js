@@ -1939,16 +1939,6 @@ async function main() {
         // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
         // =========================================================================
         // =========================================================================
-    // ВНУТРИ main() УДАЛИ ЭТИ СТРОКИ:
-    // Функция для безопасного переключения вкладки
-    const safeSwitchTab = (platform) => {
-        const switchEl = document.getElementById(`view-${platform}`);
-        if (switchEl) {
-            switchEl.checked = true;
-            // setPlatformTheme определена выше в твоем коде
-            if (typeof setPlatformTheme === 'function') setPlatformTheme(platform);
-        }
-    };
     // === ДОБАВЛЯЕМ ЧТЕНИЕ ПАРАМЕТРОВ URL ===
     const urlParams = new URLSearchParams(window.location.search);
     const viewCommand = urlParams.get('view');
