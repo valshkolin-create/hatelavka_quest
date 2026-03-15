@@ -17318,54 +17318,62 @@ async def claim_daily_task(
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
                 return JSONResponse({"success": False, "error": "Награда уже получена сегодня. Приходи завтра!"})
 
-        # === 5. ЛОГИКА ПРОВЕРКИ ===
+       # === 5. ЛОГИКА ПРОВЕРКИ ===
         check_passed = False
         
-        if task_key == "tg_sub":
-            channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-            try:
-                member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
-                if member.status in ["creator", "administrator", "member", "restricted"]:
-                    check_passed = True
-                else:
-                    return JSONResponse({"success": False, "error": "Вы не подписаны на канал!"})
-            except Exception:
-                return JSONResponse({"success": False, "error": "Не удалось проверить подписку."})
-
-        elif task_key == "tg_vote":
-            channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-            try:
-                user_boosts = await bot.get_user_chat_boosts(chat_id=channel_id, user_id=user_id)
-                if user_boosts.boosts:
-                    check_passed = True
-                else:
-                    return JSONResponse({"success": False, "error": "Голос не найден!"})
-            except Exception:
-                 return JSONResponse({"success": False, "error": "Бот не может проверить голос."})
-
-        else:
-            try:
-                user_chat = await bot.get_chat(user_id)
-                phrase = (task.get("check_phrase") or "").lower().strip()
-                check_type = task.get("check_type")
-
-                if check_type == "surname":
-                    full_name = (user_chat.full_name or "").lower()
-                    if phrase and phrase in full_name:
+        # Создаем клиент бота от лица ГЛАВНОГО токена Bot-T!
+        from aiogram import Bot
+        main_bot = Bot(token=BOTT_BOT_TOKEN)
+        
+        try:
+            if task_key == "tg_sub":
+                channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+                try:
+                    member = await main_bot.get_chat_member(chat_id=channel_id, user_id=user_id)
+                    if member.status in ["creator", "administrator", "member", "restricted"]:
                         check_passed = True
-                elif check_type == "bio":
-                    bio = (user_chat.bio or "").lower()
-                    if phrase and phrase in bio:
+                    else:
+                        return JSONResponse({"success": False, "error": "Вы не подписаны на канал!"})
+                except Exception:
+                    return JSONResponse({"success": False, "error": "Не удалось проверить подписку."})
+
+            elif task_key == "tg_vote":
+                channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+                try:
+                    user_boosts = await main_bot.get_user_chat_boosts(chat_id=channel_id, user_id=user_id)
+                    if user_boosts.boosts:
                         check_passed = True
-                else:
-                    check_passed = True 
-            except Exception as e:
-                # Важно: печатаем ошибку в консоль, чтобы понять, почему бот «ослеп»
-                print(f"Ошибка проверки профиля для юзера {user_id}: {e}")
-                return JSONResponse({
-                    "success": False, 
-                    "error": "Не удалось проверить профиль. Проверьте настройки приватности или попробуйте позже (минутки через 3)."
-                })
+                    else:
+                        return JSONResponse({"success": False, "error": "Голос не найден!"})
+                except Exception:
+                     return JSONResponse({"success": False, "error": "Бот не может проверить голос."})
+
+            else:
+                try:
+                    user_chat = await main_bot.get_chat(user_id)
+                    phrase = (task.get("check_phrase") or "").lower().strip()
+                    check_type = task.get("check_type")
+
+                    if check_type == "surname":
+                        full_name = (user_chat.full_name or "").lower()
+                        if phrase and phrase in full_name:
+                            check_passed = True
+                    elif check_type == "bio":
+                        bio = (user_chat.bio or "").lower()
+                        if phrase and phrase in bio:
+                            check_passed = True
+                    else:
+                        check_passed = True 
+                except Exception as e:
+                    print(f"Ошибка проверки профиля для юзера {user_id}: {e}")
+                    return JSONResponse({
+                        "success": False, 
+                        "error": "Не удалось проверить профиль. Попробуйте снова через минуту."
+                    })
+                    
+        finally:
+            # 🔥 ВАЖНО: Закрываем сессию временного бота, чтобы не забивать память сервера
+            await main_bot.session.close()
 
         if not check_passed:
             target = "фамилии" if task.get("check_type") == "surname" else "описании (BIO)"
@@ -17373,7 +17381,7 @@ async def claim_daily_task(
                 "success": False, 
                 "error": f"Условие не выполнено! Проверьте наличие '{task.get('check_phrase')}' в {target}."
             })
-
+            
         # === 6. ГЛАВНАЯ ЛОГИКА ДНЕЙ ===
         last_claimed_str = progress.get("last_claimed_at")
         next_day = 1
