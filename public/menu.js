@@ -1386,21 +1386,22 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
 
             launchRoulette(strip, winner, resData.messages || [], resData.lacky, name);
             
-            // 🔥 МАГИЯ: Купон успешно потрачен! Удаляем его и возвращаем ценам нормальный вид
+            // 🔥 МАГИЯ: Купон успешно потрачен! Удаляем его ПРАВИЛЬНО
             if (activeCoupon) {
-                localStorage.removeItem('active_coupon');
-                loadCategory(2716312); // Возвращаем цены
+                // Было: localStorage.removeItem('active_coupon');
+                localStorage.removeItem('active_coupon_data'); // Исправлено!
+                loadCategory(2716312); // Теперь цены точно вернутся
             }
 
             // Синхронизируем реальный баланс в фоне
             checkBalance(true);
         } catch (err) { 
-            // ⚡ ЕСЛИ ОШИБКА (например, не хватило денег на сервере) - ОТКАТЫВАЕМ БАЛАНС НАЗАД
+            // ⚡ ЕСЛИ ОШИБКА
             checkBalance(true); 
             
-            // Если ошибка связана с тем, что код кончился или неверный — сбрасываем его
+            // Здесь тоже исправляем ключ, чтобы битый купон не висел в памяти
             if (activeCoupon && err.message && (err.message.includes('закончились') || err.message.includes('использовали') || err.message.includes('Неверный'))) {
-                localStorage.removeItem('active_coupon');
+                localStorage.removeItem('active_coupon_data'); // Исправлено!
                 loadCategory(2716312);
             }
         } finally { 
