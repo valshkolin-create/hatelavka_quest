@@ -10564,34 +10564,6 @@ async def send_approval_notification(user_id: int, quest_title: str):
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
 
 @app.post("/api/v1/admin/submission/update")
-async def send_approval_notification(user_id: int, quest_title: str):
-    """Отправляет уведомление об одобрении заявки в фоне."""
-    try:
-        notification_text = (
-            f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
-            f"Заявка одобрена, и награда уже автоматически зачислена на твой баланс."
-        )
-        
-        # Клавиатура
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🗑️ Понятно, скрыть", callback_data="delete_this_message")]
-        ])
-
-        # 👇 ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ОТПРАВКИ С ПРОВЕРКОЙ НАСТРОЕК 👇
-        # Передаем ключ настройки 'notify_rewards'
-        await check_and_send_notification(
-            user_id, 
-            notification_text, 
-            "notify_rewards", 
-            reply_markup=keyboard
-        )
-        # 👆 -------------------------------------------------------- 👆
-
-        logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
-    except Exception as e:
-        logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
-
-@app.post("/api/v1/admin/submission/update")
 async def update_submission_status(
     request_data: SubmissionUpdateRequest,
     background_tasks: BackgroundTasks,
