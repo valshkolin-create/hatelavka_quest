@@ -1243,25 +1243,27 @@ function renderItems(items) {
             }
             
             if (showFreeButton) {
-    // РИСУЕМ КНОПКУ БЕСПЛАТНО (ОДНА БОЛЬШАЯ ПО ЦЕНТРУ)
+    // РИСУЕМ КНОПКУ БЕСПЛАТНО (БЕЗ ФОНА, С НЕОНОВЫМ ТЕКСТОМ)
     buttonHtml = `
         <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
             <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" 
-                style="background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); 
-                       color: #000; 
-                       box-shadow: 0 4px 15px rgba(52, 199, 89, 0.4); 
+                style="background: transparent; 
+                       color: #34c759; 
+                       text-shadow: 0 0 10px rgba(52, 199, 89, 0.8), 0 0 20px rgba(52, 199, 89, 0.4);
                        width: 100%; 
                        height: 100%; 
-                       border: none; 
-                       border-radius: 8px; 
+                       border: 2px solid rgba(52, 199, 89, 0.5); 
+                       border-radius: 12px; 
                        font-weight: 900; 
-                       font-size: 14px; 
+                       font-size: 15px; 
                        display: flex; 
                        align-items: center; 
                        justify-content: center; 
-                       gap: 6px; 
+                       gap: 8px; 
                        text-transform: uppercase;
-                       cursor: pointer;">
+                       cursor: pointer;
+                       box-shadow: inset 0 0 15px rgba(52, 199, 89, 0.1), 0 0 10px rgba(52, 199, 89, 0.2);
+                       transition: all 0.3s ease;">
                 ОТКРЫТЬ БЕСПЛАТНО 🎟️
             </button>
         </div>
