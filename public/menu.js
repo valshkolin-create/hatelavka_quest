@@ -212,7 +212,7 @@ window.openNotificationsHistory = async function() {
                             ${escapeHTML(n.message)}
                         </div>
                     </div>
-                    <div style="position: absolute; bottom: 4px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
+                    <div style="position: absolute; bottom: -4px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
                         ${dateStr} в ${timeStr}
                     </div>
                     <div style="position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: flex-start; justify-content: flex-end;" onclick="deleteNotification(event, '${n.id}')" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
