@@ -1,6 +1,8 @@
 // ================================================================
-// 0. УМНЫЙ ПОИСК ПАРАМЕТРОВ VK (Твой оригинальный рабочий код)
+// 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
+let isVk = false;
+
 (function initVkParams() {
     window.vkParams = null; 
 
@@ -9,35 +11,17 @@
     try {
         console.log("🔍 [VK Init] Начинаем поиск параметров...");
 
-        let s = window.location.search;
-        if (s.startsWith('?')) s = s.slice(1);
-        if (isValid(s)) {
-            window.vkParams = s;
-            console.log("✅ Нашли в search");
-            return;
-        }
+        let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
+        if (isValid(s)) { window.vkParams = s; console.log("✅ Нашли в search"); return; }
 
-        let h = window.location.hash;
-        if (h.startsWith('#')) h = h.slice(1);
-        if (h.startsWith('?')) h = h.slice(1);
-        if (isValid(h)) {
-            window.vkParams = h;
-            console.log("✅ Нашли в hash");
-            return;
-        }
+        let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
+        if (isValid(h)) { window.vkParams = h; console.log("✅ Нашли в hash"); return; }
 
-        if (isValid(window.name)) {
-            window.vkParams = window.name;
-            console.log("✅ Нашли в window.name");
-            return;
-        }
+        if (isValid(window.name)) { window.vkParams = window.name; console.log("✅ Нашли в window.name"); return; }
 
-        const href = window.location.href;
-        const match = href.match(/(vk_user_id=[^#]*)/);
+        const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
         if (match && match[1] && match[1].includes('sign')) {
-             window.vkParams = match[1];
-             console.log("✅ Выдрали из href через Regex");
-             return;
+             window.vkParams = match[1]; console.log("✅ Выдрали из href через Regex"); return;
         }
 
         console.warn("⚠️ Параметры VK не найдены в URL!");
@@ -46,17 +30,12 @@
     }
 })();
 
-// ================================================================
-// 1. ОПРЕДЕЛЕНИЕ ПЛАТФОРМЫ
-// ================================================================
 function getSearchParam(name) {
-    try {
-        const url = new URL(window.location.href);
-        return url.searchParams.get(name);
-    } catch(e) { return null; }
+    try { return new URL(window.location.href).searchParams.get(name); } catch(e) { return null; }
 }
 
-let isVk = !!(window.vkParams || getSearchParam('vk_app_id'));
+// 🔥 ИСПРАВЛЕНИЕ: Убрали лишнее слово let
+isVk = !!(window.vkParams || getSearchParam('vk_app_id'));
 
 // Принудительный режим для iframe
 if (!isVk && window.self !== window.top && !window.Telegram?.WebApp?.initData) {
@@ -64,23 +43,26 @@ if (!isVk && window.self !== window.top && !window.Telegram?.WebApp?.initData) {
     isVk = true;
 }
 
-// Запрос параметров через мост (если URL пустой)
+// Сообщаем ВК, что мы загрузились
+if (isVk) {
+    document.documentElement.classList.add('vk-mode');
+    if (typeof vkBridge !== 'undefined') {
+        try { vkBridge.send('VKWebAppInit'); } catch(e){}
+    }
+}
+
 async function fetchVkParamsFromBridge() {
     if (typeof vkBridge === 'undefined') return null;
     try {
-        console.log("🔄 Запрашиваем параметры у VK Bridge...");
         const data = await vkBridge.send('VKWebAppGetLaunchParams');
         if (data && data.vk_user_id) {
             const params = Object.keys(data)
                 .map(key => `${key}=${encodeURIComponent(data[key])}`)
                 .join('&');
-            console.log("✅ VK Bridge вернул параметры!");
             window.vkParams = params;
             return params;
         }
-    } catch (e) {
-        console.error("Bridge GetParams Error:", e);
-    }
+    } catch (e) {}
     return null;
 }
 
