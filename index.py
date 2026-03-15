@@ -10586,20 +10586,20 @@ async def create_in_app_notification(supabase: httpx.AsyncClient, user_id: int, 
 @app.get("/api/v1/notifications")
 async def get_user_notifications(
     initData: str,  # FastAPI сам возьмет это из query-параметров
-    limit: int = 50, 
+    limit: int = 50,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """Отдает список уведомлений юзера, проверяя его через initData."""
+    
+    # 1. Проверяем пользователя выносим ЗА блок try/except, 
+    # чтобы FastAPI корректно отдал статус 403 без перехвата
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    user_id = user_info.get("id")
+
     try:
-        # 1. Проверяем пользователя (как в админке, но для обычного юзера)
-        # ALL_VALID_TOKENS — это твой список токенов ботов
-        user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
-        
-        if not user_info:
-            raise HTTPException(status_code=403, detail="Доступ запрещен")
-
-        user_id = user_info.get("id")
-
         # 2. Получаем уведомления именно для этого пользователя
         resp = await supabase.get(
             "/in_app_notifications",
@@ -10609,7 +10609,17 @@ async def get_user_notifications(
                 "limit": str(limit)
             }
         )
+        
+        # Защита: проверяем, что Supabase ответил 200 OK
+        if resp.status_code != 200:
+            logging.error(f"Ошибка Supabase для юзера {user_id}: {resp.text}")
+            raise HTTPException(status_code=500, detail="Ошибка базы данных")
+
         notifications = resp.json()
+        
+        # Защита: на случай, если Supabase вернул не список, а что-то другое
+        if not isinstance(notifications, list):
+            notifications = []
         
         # 3. Считаем количество непрочитанных
         unread_count = sum(1 for n in notifications if not n.get("is_read"))
@@ -10618,8 +10628,12 @@ async def get_user_notifications(
             "unread_count": unread_count,
             "notifications": notifications
         }
+        
+    except HTTPException:
+        # Пропускаем явно выброшенные HTTPException (например, наши 500-е из проверки БД)
+        raise
     except Exception as e:
-        logging.error(f"Ошибка при получении уведомлений для {user_id if 'user_id' in locals() else 'unknown'}: {e}")
+        logging.error(f"Ошибка при получении уведомлений для {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка сервера")
 
 @app.post("/api/v1/notifications/read")
