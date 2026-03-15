@@ -15836,7 +15836,11 @@ async def buy_bott_item_proxy(
     supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ):
     import asyncio
-    logging.info("========== [SHOP] ПОКУПКА v14 (STRICT BALANCE + BAN CHECK) ==========")
+    import time
+    import random
+    from datetime import datetime, timezone
+    
+    logging.info("========== [SHOP] ПОКУПКА v14 (SMART BALANCE + BAN CHECK) ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -15855,13 +15859,13 @@ async def buy_bott_item_proxy(
     item_image = getattr(request_data, 'image_url', "") or ""
     currency = getattr(request_data, 'currency', 'coins')
 
-    # 1. Получаем данные юзера
+    # 1. Получаем данные юзера (ДОБАВИЛ last_balance_sync)
     try:
         user_db_resp = await supabase.get(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}",
-                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link,is_banned" 
+                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link,is_banned,last_balance_sync" 
             }
         )
         user_data_list = user_db_resp.json()
@@ -15894,6 +15898,62 @@ async def buy_bott_item_proxy(
 
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
+
+    # =========================================================================
+    # 1.5. SMART BALANCE SYNC: ПРИОРИТЕТ БАЛАНСА BOT-T ПЕРЕД ПОКУПКОЙ
+    # =========================================================================
+    if currency != 'tickets':
+        last_sync = user_record.get("last_balance_sync")
+        should_refresh = True
+        
+        if last_sync:
+            try:
+                last_sync_dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+                if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < 5:
+                    should_refresh = False
+            except ValueError:
+                pass 
+
+        if should_refresh:
+            logging.info(f"[SHOP] Баланс устарел (> 5 сек). Синхронизируем с Bot-T перед списанием...")
+            url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+            payload = {
+                "bot_id": int(BOTT_BOT_ID),
+                "botToken": BOTT_BOT_TOKEN,
+                "secretKey": BOTT_SECRET_KEY,
+                "telegram_id": telegram_id
+            }
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    resp = await client.post(url, json=payload)
+                    
+                    if resp.status_code == 200:
+                        res_json = resp.json()
+                        if res_json.get("result"):
+                            api_data = res_json.get("data", {})
+                            
+                            # БЕРЕМ СВЕЖИЙ БАЛАНС НАПРЯМУЮ ИЗ BOT-T
+                            current_balance_kopecks = float(api_data.get("money", 0))
+                            new_internal_id = api_data.get("id", bott_internal_id)
+                            new_secret_key = api_data.get("secret_user_key", bott_secret_key)
+                            
+                            # Обновляем базу до проверки нехватки средств
+                            await supabase.patch(
+                                "/users",
+                                params={"telegram_id": f"eq.{telegram_id}"},
+                                json={
+                                    "bot_t_coins": current_balance_kopecks,
+                                    "bott_internal_id": new_internal_id,
+                                    "bott_secret_key": new_secret_key,
+                                    "last_balance_sync": datetime.now(timezone.utc).isoformat()
+                                }
+                            )
+                            bott_internal_id = new_internal_id
+                            bott_secret_key = new_secret_key
+                            logging.info(f"[SHOP] Smart Sync успешен. Актуальный баланс из Bot-T: {current_balance_kopecks}")
+            except Exception as e:
+                logging.error(f"[SHOP] Ошибка синхронизации с Bot-T перед покупкой: {e}")
+                # Если Bot-T недоступен, продолжаем с последним известным балансом из БД
 
     # =========================================================================
     # 2. ЖЕСТКАЯ ПРОВЕРКА БАЛАНСА И СИНХРОННОЕ СПИСАНИЕ
