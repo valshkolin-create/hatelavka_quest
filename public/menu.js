@@ -1,44 +1,39 @@
 // ================================================================
 // 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
+
+// 1. Универсальный поисковик ключей ВК (ищет даже там, куда их спрятал Телеграм)
+function extractVkString() {
+    let s = window.location.search || ''; if (s.startsWith('?')) s = s.slice(1);
+    let h = window.location.hash || ''; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
+    let tgData = window.Telegram?.WebApp?.initData || ''; // Если ТГ украл хэш
+    let cached = sessionStorage.getItem('vk_auth_params') || '';
+    let wName = window.name || '';
+    
+    let all = [s, h, tgData, cached, wName];
+    // Ищем любую строку, где есть vk_app_id или vk_user_id
+    return all.find(str => typeof str === 'string' && (str.includes('vk_app_id') || str.includes('vk_user_id'))) || null;
+}
+
+let windowVkParams = extractVkString();
 let isVk = false;
 
-(function determinePlatform() {
-    window.vkParams = null;
-    let possibleVkString = '';
-
-    // 1. Ищем в URL
-    let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-    let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-    
-    if (s.includes('vk_app_id')) possibleVkString = s;
-    else if (h.includes('vk_app_id')) possibleVkString = h;
-    else if (window.name && window.name.includes('vk_app_id')) possibleVkString = window.name;
-    
-    // 2. ЗАЩИТА ОТ КРАЖИ: Телеграм WebApp скрипт мог успеть забрать наш хеш!
-    const tgData = window.Telegram?.WebApp?.initData || '';
-    if (tgData.includes('vk_app_id') || tgData.includes('vk_access_token')) {
-        console.log("⚠️ Telegram script stole VK hash. Recovering...");
-        possibleVkString = tgData;
+// 2. Жестко фиксируем платформу
+if (windowVkParams) {
+    isVk = true;
+    window.vkParams = windowVkParams;
+    sessionStorage.setItem('vk_auth_params', windowVkParams);
+    console.log("✅ Обнаружен VK! Строка:", windowVkParams.substring(0, 30) + '...');
+} else if (window.self !== window.top) {
+    // Мы в iframe. Проверяем, есть ли признаки Телеграма (hash).
+    let tgData = window.Telegram?.WebApp?.initData || '';
+    if (!tgData || !tgData.includes('hash=')) {
+        isVk = true; 
+        console.log("⚠️ Iframe без Telegram-хеша. Принудительный VK-режим.");
     }
+}
 
-    // 3. Ищем в кэше браузера
-    if (!possibleVkString) {
-        possibleVkString = sessionStorage.getItem('vk_auth_params') || '';
-    }
-
-    // Если нашли параметры ВК — фиксируем платформу
-    if (possibleVkString.includes('vk_app_id') || possibleVkString.includes('vk_user_id')) {
-        isVk = true;
-        window.vkParams = possibleVkString;
-        sessionStorage.setItem('vk_auth_params', possibleVkString);
-    } else if (!isVk && window.self !== window.top && !tgData.includes('hash=')) {
-        // Фолбек: мы в iframe, но это не телеграм (нет hash). Значит ВК.
-        isVk = true;
-    }
-})();
-
-// Сообщаем ВК, что мы загрузились
+// 3. Сообщаем ВК, что мы загрузились
 if (isVk) {
     document.documentElement.classList.add('vk-mode');
     if (typeof vkBridge !== 'undefined') {
@@ -46,45 +41,41 @@ if (isVk) {
     }
 }
 
+// 4. Запрос ключей через мост (если URL пустой)
 async function fetchVkParamsFromBridge() {
     if (typeof vkBridge === 'undefined') return null;
     try {
+        console.log("🔄 Запрашиваем параметры у VK Bridge...");
         const data = await vkBridge.send('VKWebAppGetLaunchParams');
         if (data && data.vk_user_id) {
-            const params = Object.keys(data)
-                .map(key => `${key}=${encodeURIComponent(data[key])}`)
-                .join('&');
+            const params = Object.keys(data).map(key => `${key}=${encodeURIComponent(data[key])}`).join('&');
             window.vkParams = params;
             sessionStorage.setItem('vk_auth_params', params);
+            isVk = true; // Подтверждаем платформу
             return params;
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Bridge Error:", e);
+    }
     return null;
 }
 
-// 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
+// 5. ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД ДЛЯ СЕРВЕРА
 function getAuthPayload() {
-    // 1. Собираем абсолютно все возможные источники, где могут лежать ключи
-    let s = window.location.search || ''; if (s.startsWith('?')) s = s.slice(1);
-    let h = window.location.hash || ''; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-    let tg = window.Telegram?.WebApp?.initData || ''; // То, что скрипт ТГ мог украсть из URL
-    let mem = sessionStorage.getItem('vk_auth_params') || '';
-    let wName = window.name || '';
+    let currentVkString = extractVkString() || window.vkParams;
     
-    // 2. Ищем хоть где-нибудь упоминание ВК
-    let allPossible = [s, h, tg, mem, wName];
-    let vkString = allPossible.find(str => typeof str === 'string' && (str.includes('vk_app_id') || str.includes('vk_user_id')));
-    
-    if (vkString) {
-        // Если нашли - это 1000% ВКонтакте. Сохраняем в кэш и отдаем правильный payload
-        sessionStorage.setItem('vk_auth_params', vkString);
-        isVk = true; // Принудительно восстанавливаем флаг
-        return { initData: vkString, platform: 'vk' }; // <-- Сервер получит 'vk' и будет искать sign, а не hash!
+    // Если есть хоть малейший след ВК - заставляем сервер проверять через логику ВК
+    if (currentVkString) {
+        isVk = true;
+        return { initData: currentVkString, platform: 'vk' }; // <-- Отправляем 'vk'
     }
     
-    // Иначе - Телеграм
-    isVk = false;
-    return { initData: tg, platform: 'tg' };
+    if (isVk) {
+        return { initData: '', platform: 'vk' };
+    }
+
+    // Если следов ВК нет - значит это 100% Телеграм
+    return { initData: window.Telegram?.WebApp?.initData || '', platform: 'tg' };
 }
 
 // Глобальные переменные
