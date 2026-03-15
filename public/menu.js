@@ -145,14 +145,13 @@ window.openNotificationsHistory = async function() {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
         const notifs = res.notifications || [];
 
-        // 🔥 ИЗМЕНЕНИЕ 1: Жестко прижимаем элементы к верху через flex-start
-        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: flex; flex-direction: column; justify-content: flex-start;">';
+        // 🔥 ИЗМЕНЕНИЕ 1: Контейнер теперь display: block; (никаких флексов, которые тянут высоту)
+        let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: block;">';
 
         if (notifs.length === 0) {
             html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Вся история начислений будет храниться тут.</span></div>';
         } else {
             notifs.forEach(n => {
-                // Тонкие настройки иконок и их фонов
                 let icon = '<i class="fa-solid fa-bell" style="color: #8e8e93;"></i>';
                 let iconBg = 'rgba(255, 255, 255, 0.05)';
                 
@@ -176,16 +175,15 @@ window.openNotificationsHistory = async function() {
                 const dateObj = new Date(n.created_at);
                 const timeStr = dateObj.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
                 const dateStr = dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
-
-                // Легкая подсветка для непрочитанных
                 const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.2)';
 
-                // 🔥 ИЗМЕНЕНИЕ 2: Заменили height: max-content на flex: 0 0 auto; height: auto;
+                // 🔥 ИЗМЕНЕНИЕ 2: Карточка теперь display: block; height: max-content; (запрет на растягивание)
                 html += `
-                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; position: relative; flex: 0 0 auto; height: auto; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s;">
+                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 12px; margin-bottom: 10px; position: relative; display: block; height: max-content; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s;">
                         
-                        <div style="display: flex; gap: 12px; align-items: flex-start; width: 100%;">
-                            <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
+                        <div style="display: flex; gap: 10px; align-items: flex-start;">
+                            
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; margin-top: 2px;">
                                 ${icon}
                             </div>
                             
@@ -196,17 +194,17 @@ window.openNotificationsHistory = async function() {
                                 <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.4;">
                                     ${escapeHTML(n.message)}
                                 </div>
+                                <div style="font-size: 9px; font-weight: 500; color: #666; text-align: right; margin-top: 8px;">
+                                    ${dateStr} в ${timeStr}
+                                </div>
                             </div>
-                        </div>
 
-                        <div style="font-size: 9px; font-weight: 500; color: #666; text-align: right; margin-top: 8px;">
-                            ${dateStr} в ${timeStr}
                         </div>
                         
-                        <div style="position: absolute; top: 12px; right: 12px; padding: 4px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center;" 
+                        <div style="position: absolute; top: 10px; right: 10px; padding: 4px; cursor: pointer; opacity: 0.4; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center;" 
                              onclick="deleteNotification(event, '${n.id}')" 
                              onmouseover="this.style.opacity='1'" 
-                             onmouseout="this.style.opacity='0.3'">
+                             onmouseout="this.style.opacity='0.4'">
                             <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 12px;"></i>
                         </div>
                         
