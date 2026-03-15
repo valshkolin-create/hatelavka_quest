@@ -15640,7 +15640,7 @@ async def get_shop_smart_balance(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Мгновенно обновляет баланс через проверенный метод check-hash.
+    Мгновенно обновляет баланс через официальный метод /v1/bot/user/view.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
@@ -15657,6 +15657,8 @@ async def get_shop_smart_balance(
     
     current_coins = user_data.get("bot_t_coins", 0)
     current_tickets = user_data.get("tickets", 0)
+    # Если Bot-T строго требует системный ID, раскомментируй строку ниже и используй bot_t_user_id в payload:
+    # bot_t_user_id = user_data.get("bott_internal_id") or telegram_id
     
     # 2. Проверяем кэш (5 сек)
     last_sync = user_data.get("last_balance_sync")
@@ -15673,37 +15675,58 @@ async def get_shop_smart_balance(
     if not should_sync:
         return {"balance": current_coins, "tickets": current_tickets}
 
-    # 3. Идем в Bot-t ПРОВЕРЕННЫМ МЕТОДОМ (check-hash)
-    url = "https://api.bot-t.com/v1/module/bot/check-hash"
-    payload = {"bot_id": int(BOTT_BOT_ID), "userData": request_data.initData}
+    # 3. Идем в Bot-t НОВЫМ МЕТОДОМ
+    url = "https://api.bot-t.com/v1/bot/user/view"
+    
+    # Параметры авторизации из твоего конфига
+    params = {
+        "botToken": BOTT_BOT_TOKEN
+    }
+    
+    # Тело запроса по документации
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "user_id": telegram_id  # Попробуй telegram_id. Если вернет ошибку, поменяй на bot_t_user_id (см. коммент выше)
+    }
     
     try:
         client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=5.0)
-        # Ждем ответа (это быстро)
-        resp = await client.post(url, json=payload)
+        # Отправляем POST. params уходят в строку URL (?botToken=...), payload уходит в тело JSON
+        resp = await client.post(url, params=params, json=payload)
         
         if resp.status_code == 200:
             res_json = resp.json()
-            api_data = res_json.get("data", {})
             
-            if api_data:
-                # Успешно получили свежие данные!
-                current_coins = int(float(api_data.get("money", 0)))
+            # Проверяем успешный статус ответа самого Bot-T
+            if res_json.get("result") is True:
+                api_data = res_json.get("data", {})
+                
+                # Баланс приходит в копейках, переводим в нормальные значения
+                raw_money = api_data.get("money", 0)
+                current_coins = int(raw_money / 100) 
                 
                 # Обновляем базу
                 update_data = {
                     "bot_t_coins": current_coins,
                     "last_balance_sync": datetime.now(timezone.utc).isoformat()
                 }
-                if api_data.get("id"): update_data["bott_internal_id"] = api_data.get("id")
-                if api_data.get("secret_user_key"): update_data["bott_secret_key"] = api_data.get("secret_user_key")
+                
+                # Дописываем ключи, если они обновились
+                if api_data.get("id"): 
+                    update_data["bott_internal_id"] = api_data.get("id")
+                if api_data.get("secret_user_key"): 
+                    update_data["bott_secret_key"] = api_data.get("secret_user_key")
 
                 await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
+            else:
+                logging.error(f"[SHOP BALANCE] Ошибка от API Bot-T: {res_json.get('message')}")
+        else:
+            logging.error(f"[SHOP BALANCE] HTTP Ошибка {resp.status_code}: {resp.text}")
             
     except Exception as e:
-        logging.error(f"[SHOP BALANCE] Ошибка: {e}")
+        logging.error(f"[SHOP BALANCE] Исключение при запросе: {e}")
 
-    # Отдаем реальные 116 звезд!
+    # Отдаем актуальные данные
     return {
         "balance": current_coins, 
         "tickets": current_tickets
