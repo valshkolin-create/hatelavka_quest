@@ -1755,24 +1755,19 @@ async function main() {
                 // Инициализация переключателя и темы
                 initUnifiedSwitcher();
                 
-                // Важно: если пользователь был в сети, ставим твитч, иначе телеграм
                 // === ЛОГИКА ВОЗВРАТА ПОСЛЕ ОТМЕНЫ ===
-            const tempTab = localStorage.getItem('temp_return_tab');
-            let defaultView;
+                const tempTab = localStorage.getItem('temp_return_tab');
+                let defaultView;
 
-            if (tempTab) {
-                // Если мы вернулись после отмены — ставим ту вкладку, где были
-                defaultView = tempTab;
-                // И сразу забываем, чтобы дальше работало как обычно
-                localStorage.removeItem('temp_return_tab');
-            } else {
-                // ❌ УБРАЛИ last_active_tab
-                // Если это обычный вход — решаем по статусу стрима
-                defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
-            }
-            // =====================================
+                if (tempTab) {
+                    defaultView = tempTab;
+                    localStorage.removeItem('temp_return_tab');
+                } else {
+                    defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
+                }
+                // =====================================
 
-            const switchEl = document.getElementById(`view-${defaultView}`);
+                const switchEl = document.getElementById(`view-${defaultView}`);
                 if (switchEl) {
                     switchEl.checked = true;
                     setPlatformTheme(defaultView);
@@ -1780,9 +1775,10 @@ async function main() {
                     dom.sectionManual.classList.add('hidden');
                 }
 
-                // Рендер челленджа из кэша
-                if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
-                else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+                // 🔥 ИСПРАВЛЕНИЕ БАГА С ОТВАЛОМ TWITCH (КЭШ) 🔥
+                const isTwitchLinkedCache = !!(userData.twitch_id || userData.twitch_login || userData.twitch_access_token);
+                if (userData.challenge) renderChallenge(userData.challenge, !isTwitchLinkedCache);
+                else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !isTwitchLinkedCache);
                 
                 // Скрываем загрузчик СРАЗУ, так как контент уже есть
                 if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
@@ -1822,7 +1818,6 @@ async function main() {
         if (bootstrapData) {
             // === СОХРАНЯЕМ В КЭШ ===
             localStorage.setItem('quests_cache_v1', JSON.stringify(bootstrapData));
-            // ======================
 
             userData = bootstrapData.user;
             allQuests = bootstrapData.quests;
@@ -1845,7 +1840,6 @@ async function main() {
             // Переинициализация с новыми данными
             initUnifiedSwitcher(); 
 
-            // Если это первый запуск (без кэша), ставим дефолтную тему
             let defaultView = userData.is_stream_online ? 'twitch' : 'telegram';
             
             // Если рендерили из кэша, проверяем текущий выбор пользователя
@@ -1868,8 +1862,10 @@ async function main() {
                  dom.sectionManual.classList.add('hidden');
             }
 
-            if (userData.challenge) renderChallenge(userData.challenge, !userData.twitch_id);
-            else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !userData.twitch_id);
+            // 🔥 ИСПРАВЛЕНИЕ БАГА С ОТВАЛОМ TWITCH (СЕТЬ) 🔥
+            const isTwitchLinkedNet = !!(userData.twitch_id || userData.twitch_login || userData.twitch_access_token);
+            if (userData.challenge) renderChallenge(userData.challenge, !isTwitchLinkedNet);
+            else renderChallenge({ cooldown_until: userData.challenge_cooldown_until }, !isTwitchLinkedNet);
 
             updateLoading(70);
             
@@ -1882,6 +1878,62 @@ async function main() {
                 renderManualQuests(fallbackQuests);
             }
         }
+
+        // === ДОБАВЛЯЕМ ЧТЕНИЕ ПАРАМЕТРОВ URL ===
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewCommand = urlParams.get('view');
+        const openCommand = urlParams.get('open');
+        
+        // 1. Сначала проверяем, есть ли активный квест (ПРАВИЛО 3)
+        if (userData.active_quest_id) {
+            const activeQuest = allQuests.find(q => q.id === userData.active_quest_id);
+            
+            // Определяем, где этот квест выполняется
+            if (activeQuest && activeQuest.quest_type && activeQuest.quest_type.includes('twitch')) {
+                safeSwitchTab('twitch');
+            } else {
+                safeSwitchTab('telegram');
+            }
+            
+            console.log("✅ Квест активен. Просто открываем вкладку прогресса.");
+            
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        } 
+        // 2. Если активного квеста НЕТ, обрабатываем команды открытия (ПРАВИЛА 1 и 2)
+        else {
+            if (viewCommand) {
+                 safeSwitchTab(viewCommand);
+            }
+            else if (openCommand === 'roulette' || openCommand === 'twitch_only') {
+                const isOnline = userData.is_stream_online === true;
+                
+                if (isOnline) {
+                    safeSwitchTab('twitch');
+                    setTimeout(() => openQuestSelectionModal(), 400);
+                } 
+                else {
+                    safeSwitchTab('telegram');
+                    setTimeout(() => openQuestSelectionModal(), 400);
+                }
+
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }
+
+        // Скрываем лоадер
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+        dom.mainContent.style.opacity = 1;
+
+    } catch (e) {
+        console.error("Ошибка в main:", e);
+        if (!isRenderedFromCache) {
+            Telegram.WebApp.showAlert("Ошибка загрузки. Обновите страницу.");
+        }
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    }
+}
 
         // =========================================================================
         // 👇👇👇 ВАЖНАЯ ДОБАВКА: ПЕРЕКЛЮЧЕНИЕ НА TWITCH ПО КНОПКЕ "ИСПЫТАНИЕ" 👇👇👇
