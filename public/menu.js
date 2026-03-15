@@ -149,7 +149,7 @@ window.openNotificationsHistory = async function() {
         let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: block;">';
 
         if (notifs.length === 0) {
-            html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Вся история начислений будет храниться тут.</span></div>';
+            html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Все уведомления будут храниться тут.</span></div>';
         } else {
             notifs.forEach(n => {
                 let icon = '<i class="fa-solid fa-bell" style="color: #8e8e93;"></i>';
