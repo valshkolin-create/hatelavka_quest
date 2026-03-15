@@ -773,7 +773,7 @@ body.desktop-mode .toggle-container {
     justify-content: center;
     cursor: pointer;
     transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-    /* 👇 Зафиксировали размер, чтобы верстка не "дышала" 👇 */
+    /* Зафиксировали размер, чтобы верстка не "дышала" */
     width: 28px; 
     height: 28px;
 }
@@ -784,26 +784,31 @@ body.desktop-mode .toggle-container {
 
 .notif-badge-logo {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: -2px; /* Прижали чуть ближе к центру иконки */
+    right: -2px;
     background: linear-gradient(135deg, #ff3b30, #ff2d55);
     color: white;
-    font-size: 9px;
-    font-weight: 900;
-    padding: 2px 4px;
-    border-radius: 10px;
-    border: 2px solid var(--bg-main); /* Толстая рамка цвета фона, чтобы прорезать логотип */
-    box-shadow: 0 4px 8px rgba(255, 59, 48, 0.5);
+    font-size: 8px; /* Уменьшили размер текста для миниатюрности */
+    font-weight: 600; /* Сделали шрифт тоньше (было 900) */
+    padding: 0 3px; /* Убрали вертикальный паддинг, он задается высотой */
+    height: 14px; /* Жестко зафиксировали маленькую высоту */
+    min-width: 14px; /* Сделали его круглым, если цифра одна (например, "1") */
+    border-radius: 7px; /* Скругление ровно в половину высоты для идеального овала/круга */
+    border: 1px solid var(--bg-color); /* Сделали рамку тоньше (1px вместо 2px) */
+    box-shadow: 0 2px 4px rgba(255, 59, 48, 0.4); /* Сделали тень мягче */
     pointer-events: none;
     z-index: 10;
-    min-width: 16px;
-    text-align: center;
-    line-height: 1.2;
+    
+    /* Добавили Flexbox для идеального центрирования текста внутри бейджа */
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box; /* Важно: рамка и паддинги теперь не раздувают элемент */
 }
 
 @keyframes badge-pulse {
     0% { transform: scale(1); }
-    50% { transform: scale(1.25); box-shadow: 0 0 15px rgba(255, 59, 48, 0.8); }
+    50% { transform: scale(1.15); box-shadow: 0 0 10px rgba(255, 59, 48, 0.6); } /* Уменьшили масштаб пульсации */
     100% { transform: scale(1); }
 }
 
