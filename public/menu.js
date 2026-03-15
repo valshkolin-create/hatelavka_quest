@@ -83,8 +83,8 @@ async function fetchNotificationsBadge() {
     const badge = document.getElementById('logo-notification-badge');
     if (!badge) return;
 
-    // Ищем иконку колокольчика внутри родительского элемента бейджа
-    const bellIcon = badge.parentElement ? badge.parentElement.querySelector('i') : null;
+    // Ищем иконку колокольчика железобетонно по твоей верстке
+    const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
 
     try {
         const res = await makeApiRequest('/api/v1/notifications', {}, 'GET', true);
@@ -147,8 +147,8 @@ window.openNotificationsHistory = async function() {
     const badge = document.getElementById('logo-notification-badge');
     if (badge) badge.classList.add('hidden'); 
     
-    // Гасим колокольчик при открытии
-    const bellIcon = badge && badge.parentElement ? badge.parentElement.querySelector('i') : null;
+    // Гасим колокольчик при открытии, железобетонно по твоей верстке
+    const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
     if (bellIcon) {
         bellIcon.style.color = '';
         bellIcon.style.textShadow = 'none';
@@ -216,7 +216,7 @@ window.openNotificationsHistory = async function() {
                             </div>
                         </div>
                         
-                        <div style="position: absolute; bottom: 2px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
+                        <div style="position: absolute; bottom: -2px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
                             ${dateStr} в ${timeStr}
                         </div>
                         
