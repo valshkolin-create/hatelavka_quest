@@ -47,6 +47,9 @@
             <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
             <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки (заглушка)</a>
             <a href="#" onclick="showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
+            <a href="#" onclick="openCouponModal(); return false;">
+        <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
+    </a>
             <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
         </nav>
     </div>
@@ -146,12 +149,7 @@
                     
                     <div class="flat-card mini-raffle-slider-container" id="mini-raffle-slider" onclick="window.location.href='/raffles'">
                         <span id="default-raffle-text" style="font-weight: 800; letter-spacing: 1px;">РОЗЫГРЫШИ</span>
-                    </div>
-
-                    <div onclick="openCouponModal()" style="display: flex; align-items: center; gap: 8px; padding: 8px 0; cursor: pointer; background: none; border: none;">
-                        <i class="fa-solid fa-ticket-simple" style="font-size: 16px; color: #34c759;"></i>
-                        <span style="font-size: 11px; font-weight: 700; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px;">Активировать купон</span>
-                    </div>
+                        </div>
                 </div>
                 
             </div> <div id="view-shop" class="view-section">
