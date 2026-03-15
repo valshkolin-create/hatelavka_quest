@@ -1616,7 +1616,8 @@ class CSCodeCreateRequest(BaseModel):
     max_uses: int
 
 class DeleteNotificationRequest(BaseModel):
-    id: uuid.UUID
+    initData: str
+    id: str  # UUID передаем просто строкой для Supabase
 
 # --- МОДЕЛИ ДЛЯ CHALLENGE SYSTEM 2.0 (КОНТРАКТЫ) ---
 class ChallengeStartRequest(BaseModel):
@@ -5835,21 +5836,28 @@ async def admin_p2p_case_add(
 @app.post("/api/v1/notifications/delete")
 async def delete_notification(
     request: DeleteNotificationRequest,
-    current_user: dict = Depends(get_current_user), 
-    session = Depends(get_async_session)            
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    user_id = current_user.get("id")
+    # Авторизуем юзера точно так же, как в твоих P2P роутах
+    user_info = is_valid_init_data(request.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    user_id = user_info.get("id")
     
-    stmt = delete(in_app_notifications).where(
-        in_app_notifications.c.id == request.id,
-        in_app_notifications.c.user_id == user_id
+    # Удаляем из таблицы in_app_notifications
+    # Строго проверяем, чтобы id уведомления и user_id совпадали!
+    response = await supabase.delete(
+        "/in_app_notifications", 
+        params={
+            "id": f"eq.{request.id}",
+            "user_id": f"eq.{user_id}"
+        }
     )
     
-    result = await session.execute(stmt)
-    await session.commit()
-    
-    if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Уведомление не найдено")
+    # Если Supabase вернул ошибку
+    if response.status_code >= 400:
+        raise HTTPException(status_code=400, detail="Не удалось удалить уведомление")
         
     return {"success": True}
 
