@@ -1243,28 +1243,31 @@ function renderItems(items) {
             }
             
             if (showFreeButton) {
-    // РИСУЕМ КНОПКУ БЕСПЛАТНО (БЕЗ ФОНА, С НЕОНОВЫМ ТЕКСТОМ)
+    // РИСУЕМ КНОПКУ БЕСПЛАТНО (ЧИСТЫЙ НЕОН, БЕЗ РАМКИ И БИЛЕТА)
     buttonHtml = `
         <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
             <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" 
                 style="background: transparent; 
                        color: #34c759; 
-                       text-shadow: 0 0 10px rgba(52, 199, 89, 0.8), 0 0 20px rgba(52, 199, 89, 0.4);
+                       /* Зеленое свечение + жирный черный блюр для контраста */
+                       text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 
+                                    0 0 20px rgba(52, 199, 89, 0.5), 
+                                    0 0 15px #000, 
+                                    0 0 25px #000;
                        width: 100%; 
                        height: 100%; 
-                       border: 2px solid rgba(52, 199, 89, 0.5); 
+                       border: none; 
                        border-radius: 12px; 
                        font-weight: 900; 
-                       font-size: 15px; 
+                       font-size: 16px; 
                        display: flex; 
                        align-items: center; 
                        justify-content: center; 
-                       gap: 8px; 
                        text-transform: uppercase;
                        cursor: pointer;
-                       box-shadow: inset 0 0 15px rgba(52, 199, 89, 0.1), 0 0 10px rgba(52, 199, 89, 0.2);
-                       transition: all 0.3s ease;">
-                ОТКРЫТЬ БЕСПЛАТНО 🎟️
+                       outline: none;
+                       transition: transform 0.2s ease;">
+                ОТКРЫТЬ БЕСПЛАТНО
             </button>
         </div>
     `;
