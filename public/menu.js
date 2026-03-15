@@ -64,16 +64,27 @@ async function fetchVkParamsFromBridge() {
 
 // 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
 function getAuthPayload() {
-    // Собираем всё, что есть
-    let dataStr = window.vkParams || window.Telegram?.WebApp?.initData || sessionStorage.getItem('vk_auth_params') || '';
+    // 1. Собираем абсолютно все возможные источники, где могут лежать ключи
+    let s = window.location.search || ''; if (s.startsWith('?')) s = s.slice(1);
+    let h = window.location.hash || ''; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
+    let tg = window.Telegram?.WebApp?.initData || ''; // То, что скрипт ТГ мог украсть из URL
+    let mem = sessionStorage.getItem('vk_auth_params') || '';
+    let wName = window.name || '';
     
-    // Смотрим прямо внутрь строки. Если там ВК-данные — отправляем на сервер как ВК!
-    if (dataStr.includes('vk_app_id') || dataStr.includes('vk_user_id') || dataStr.includes('vk_access_token')) {
-        return { initData: dataStr, platform: 'vk' };
+    // 2. Ищем хоть где-нибудь упоминание ВК
+    let allPossible = [s, h, tg, mem, wName];
+    let vkString = allPossible.find(str => typeof str === 'string' && (str.includes('vk_app_id') || str.includes('vk_user_id')));
+    
+    if (vkString) {
+        // Если нашли - это 1000% ВКонтакте. Сохраняем в кэш и отдаем правильный payload
+        sessionStorage.setItem('vk_auth_params', vkString);
+        isVk = true; // Принудительно восстанавливаем флаг
+        return { initData: vkString, platform: 'vk' }; // <-- Сервер получит 'vk' и будет искать sign, а не hash!
     }
     
-    // Иначе это Телеграм
-    return { initData: dataStr, platform: 'tg' };
+    // Иначе - Телеграм
+    isVk = false;
+    return { initData: tg, platform: 'tg' };
 }
 
 // Глобальные переменные
@@ -310,10 +321,14 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         const timeoutId = setTimeout(() => controller.abort(), 25000);
         const options = { method, headers: { 'Content-Type': 'application/json' }, signal: controller.signal };
         
-        if (method !== 'GET') options.body = JSON.stringify({ ...body, ...getAuthPayload() });
-        else {
+        // 🔥 ИСПРАВЛЕНИЕ: Получаем payload один раз и передаем платформу даже в GET-запросах
+        const authPayload = getAuthPayload();
+        
+        if (method !== 'GET') {
+            options.body = JSON.stringify({ ...body, ...authPayload });
+        } else {
             const separator = url.includes('?') ? '&' : '?';
-            url += `${separator}initData=${encodeURIComponent(getAuthPayload().initData)}`;
+            url += `${separator}initData=${encodeURIComponent(authPayload.initData)}&platform=${encodeURIComponent(authPayload.platform)}`;
         }
 
         const response = await fetch(url, options);
