@@ -201,7 +201,7 @@ window.openNotificationsHistory = async function() {
 
                 // ВЁРСТКА: Уменьшены отступы, дата вынесена в абсолют вниз
                 html += `
-                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 10px 32px 20px 10px; margin-bottom: 8px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 10px;">
+                    <div class="notif-item" style="background: #232325; border-radius: 12px; padding: 10px 32px 20px 10px; margin-bottom: 2px; position: relative; border: 1px solid ${unreadBorder}; transition: opacity 0.3s, transform 0.3s; box-sizing: border-box; width: 100%; display: flex; align-items: flex-start; gap: 10px;">
                         
                         <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
                             ${icon}
