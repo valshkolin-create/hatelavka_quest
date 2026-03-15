@@ -10536,21 +10536,17 @@ async def get_pending_submissions(request_data: InitDataRequest, supabase: httpx
 
 # --- ОБНОВЛЕННАЯ ОСНОВНАЯ ФУНКЦИЯ ---
 
-async def send_approval_notification(user_id: int, quest_title: str, promo_code: str):
-    """Отправляет уведомление об одобрении заявки в фоне."""
+async def send_approval_notification(user_id: int, quest_title: str):
+    """Отправляет уведомление об одобрении заявки в фоне (без промокода)."""
     try:
-        safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
-        activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
         notification_text = (
             f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
-            f"Скопируй промокод и используй его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
-            f"Твой промокод:\n<code>{promo_code}</code>"
+            f"Заявка одобрена, и награда уже автоматически зачислена на твой баланс."
         )
         
-        # Клавиатура
+        # Клавиатура только с кнопкой закрытия
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
-            [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
+            [InlineKeyboardButton(text="🗑️ Понятно, скрыть", callback_data="delete_this_message")]
         ])
 
         # 👇 ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ОТПРАВКИ С ПРОВЕРКОЙ НАСТРОЕК 👇
@@ -10566,6 +10562,31 @@ async def send_approval_notification(user_id: int, quest_title: str, promo_code:
         logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
     except Exception as e:
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
+
+@app.post("/api/v1/admin/submission/update")
+async def send_approval_notification(user_id: int, quest_title: str):
+    """Отправляет уведомление об одобрении заявки в фоне."""
+    try:
+        notification_text = (
+            f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
+            f"Заявка одобрена, и награда уже автоматически зачислена на твой баланс."
+        )
+        
+        # Клавиатура
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ Понятно, скрыть", callback_data="delete_this_message")]
+        ])
+
+        # 👇 ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ОТПРАВКИ С ПРОВЕРКОЙ НАСТРОЕК 👇
+        # Передаем ключ настройки 'notify_rewards'
+        await check_and_send_notification(
+            user_id, 
+            notification_text, 
+            "notify_rewards", 
+            reply_markup=keyboard
+        )
+        # 👆 -------------------------------------------------------- 👆
+
         logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
     except Exception as e:
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
@@ -10733,16 +10754,15 @@ async def update_submission_status(
             # ==========================================
 
 
-            # 4. Отправляем уведомление
+            # 4. Отправляем уведомление (БЕЗ ПРОМОКОДА)
             background_tasks.add_task(
                 send_approval_notification,
                 user_id=user_to_notify,
-                quest_title=quest_title,
-                promo_code=promo_code
+                quest_title=quest_title
             )
 
             logging.info(f"Заявка {submission_id} одобрена. Билеты ({ticket_reward}) начислены, промокод '{promo_code}' зачисляется автоматически.")
-            return {"message": "Заявка одобрена. Монеты успешно начислены!", "promocode": promo_code}
+            return {"message": "Заявка одобрена. Награда успешно начислена!", "promocode": promo_code}
 
         except httpx.HTTPStatusError as e:
             error_details = e.response.json().get("message", "Ошибка базы данных при выдаче награды.")
@@ -10753,7 +10773,40 @@ async def update_submission_status(
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
+        
+# --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
+@app.get("/api/v1/leaderboard/wizebot")
+async def get_wizebot_leaderboard(sub_type: str = "ALL", limit: int = 50):
+    # ... (код этой функции остается прежним)
+    if not WIZEBOT_API_KEY:
+        raise HTTPException(status_code=500, detail="Wizebot API is not configured.")
 
+    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/ranks/{sub_type}/{limit}"
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            resp.raise_for_status()
+            data = resp.json()
+
+            formatted_data = [
+                {
+                    "full_name": entry.get("user_name"),
+                    "user_id": entry.get("user_uid"),
+                    "total_activity": int(entry.get("value", 0))
+                }
+                for entry in data.get("list", [])
+            ]
+
+            return formatted_data
+
+        except Exception as e:
+            logging.error(f"❌ Ошибка при запросе к Wizebot API: {e}")
+            return JSONResponse(
+                status_code=502,
+                content={"error": "Failed to fetch leaderboard from Wizebot"}
+            )
+        
 # --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
 @app.get("/api/v1/leaderboard/wizebot")
 async def get_wizebot_leaderboard(sub_type: str = "ALL", limit: int = 50):
