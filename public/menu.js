@@ -1,81 +1,52 @@
 // ================================================================
 // 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
-
-// 1. Универсальный поисковик ключей ВК (ищет даже там, куда их спрятал Телеграм)
-function extractVkString() {
-    let s = window.location.search || ''; if (s.startsWith('?')) s = s.slice(1);
-    let h = window.location.hash || ''; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-    let tgData = window.Telegram?.WebApp?.initData || ''; // Если ТГ украл хэш
-    let cached = sessionStorage.getItem('vk_auth_params') || '';
-    let wName = window.name || '';
-    
-    let all = [s, h, tgData, cached, wName];
-    // Ищем любую строку, где есть vk_app_id или vk_user_id
-    return all.find(str => typeof str === 'string' && (str.includes('vk_app_id') || str.includes('vk_user_id'))) || null;
-}
-
-let windowVkParams = extractVkString();
 let isVk = false;
 
-// 2. Жестко фиксируем платформу
-if (windowVkParams) {
-    isVk = true;
-    window.vkParams = windowVkParams;
-    sessionStorage.setItem('vk_auth_params', windowVkParams);
-    console.log("✅ Обнаружен VK! Строка:", windowVkParams.substring(0, 30) + '...');
-} else if (window.self !== window.top) {
-    // Мы в iframe. Проверяем, есть ли признаки Телеграма (hash).
-    let tgData = window.Telegram?.WebApp?.initData || '';
-    if (!tgData || !tgData.includes('hash=')) {
-        isVk = true; 
-        console.log("⚠️ Iframe без Telegram-хеша. Принудительный VK-режим.");
-    }
-}
-
-// 3. Сообщаем ВК, что мы загрузились
-if (isVk) {
-    document.documentElement.classList.add('vk-mode');
-    if (typeof vkBridge !== 'undefined') {
-        try { vkBridge.send('VKWebAppInit'); } catch(e){}
-    }
-}
-
-// 4. Запрос ключей через мост (если URL пустой)
-async function fetchVkParamsFromBridge() {
-    if (typeof vkBridge === 'undefined') return null;
+(function initVkParams() {
+    window.vkParams = null;
+    const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
     try {
-        console.log("🔄 Запрашиваем параметры у VK Bridge...");
-        const data = await vkBridge.send('VKWebAppGetLaunchParams');
-        if (data && data.vk_user_id) {
-            const params = Object.keys(data).map(key => `${key}=${encodeURIComponent(data[key])}`).join('&');
-            window.vkParams = params;
-            sessionStorage.setItem('vk_auth_params', params);
-            isVk = true; // Подтверждаем платформу
-            return params;
-        }
-    } catch (e) {
-        console.error("Bridge Error:", e);
-    }
-    return null;
-}
+        let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
+        if (isValid(s)) { window.vkParams = s; return; }
+        
+        let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
+        if (isValid(h)) { window.vkParams = h; return; }
+        
+        if (isValid(window.name)) { window.vkParams = window.name; return; }
+        
+        const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
+        if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; return; }
+    } catch (e) {}
+})();
 
-// 5. ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД ДЛЯ СЕРВЕРА
+// 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД (НЕУЯЗВИМ К ТЕЛЕГРАМУ) 🔥
 function getAuthPayload() {
-    let currentVkString = extractVkString() || window.vkParams;
+    // 1. Собираем данные отовсюду: из наших переменных, из переменной Телеграма и из ссылок
+    let rawData = window.vkParams || window.Telegram?.WebApp?.initData || window.location.search || window.location.hash || '';
     
-    // Если есть хоть малейший след ВК - заставляем сервер проверять через логику ВК
-    if (currentVkString) {
-        isVk = true;
-        return { initData: currentVkString, platform: 'vk' }; // <-- Отправляем 'vk'
-    }
-    
-    if (isVk) {
-        return { initData: '', platform: 'vk' };
+    // Убираем лишние знаки вопроса и решетки в начале
+    if (rawData.startsWith('?') || rawData.startsWith('#')) {
+        rawData = rawData.slice(1);
     }
 
-    // Если следов ВК нет - значит это 100% Телеграм
-    return { initData: window.Telegram?.WebApp?.initData || '', platform: 'tg' };
+    // 2. Если в строке есть хотя бы малейший след ВКонтакте - это ВК!
+    if (rawData.includes('vk_app_id') || rawData.includes('vk_user_id')) {
+        isVk = true; // Принудительно включаем режим ВК
+        document.documentElement.classList.add('vk-mode'); // Адаптация CSS
+        
+        // Отправляем эвент загрузки
+        if (typeof vkBridge !== 'undefined') {
+            try { vkBridge.send('VKWebAppInit'); } catch(e){}
+        }
+        
+        // Отдаем серверу строку с пометкой 'vk', чтобы он искал sign, а не hash!
+        return { initData: rawData, platform: 'vk' };
+    }
+    
+    // 3. Иначе это чистый Телеграм
+    isVk = false;
+    return { initData: rawData, platform: 'tg' };
 }
 
 // Глобальные переменные
