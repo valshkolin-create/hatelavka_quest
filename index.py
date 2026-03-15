@@ -1347,6 +1347,9 @@ class ShopBuyRequest(BaseModel):
     image_url: Optional[str] = None
     currency: str = "coins"
     
+    # 🔥 3. НОВОЕ ПОЛЕ ДЛЯ БЕСПЛАТНЫХ КУПОНОВ 🔥
+    coupon_code: Optional[str] = None
+    
 # Для массового обновления настроек
 class UserSettingsBatch(BaseModel):
     initData: str
