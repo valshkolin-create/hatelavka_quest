@@ -314,6 +314,27 @@ async def toggle_cron_job(enable: bool):
         except Exception as e:
             logging.error(f"❌ Ошибка соединения с Cron-job API: {e}")
 
+async def send_in_app_notification(supabase: httpx.AsyncClient, user_id: int, title: str, message: str, notif_type: str = "system"):
+    """
+    Отправляет уведомление юзеру.
+    notif_type может быть: 'system', 'coins', 'tickets', 'success', 'error'
+    """
+    try:
+        payload = {
+            "user_id": user_id,
+            "title": title,
+            "message": message,
+            "type": notif_type,
+            "is_read": False
+        }
+        # Делаем POST запрос к таблице in_app_notifications
+        resp = await supabase.post("/in_app_notifications", json=payload)
+        
+        if resp.status_code not in (200, 201):
+            logging.error(f"Не удалось отправить уведомление: {resp.text}")
+    except Exception as e:
+        logging.error(f"Ошибка отправки уведомления: {e}")
+
 async def get_background_client():
     """Возвращает живучий клиент для фоновых задач"""
     global _background_supabase_client
@@ -6315,13 +6336,23 @@ async def admin_p2p_complete(
         json={"status": "completed"}
     )
     
-    # ОТПРАВЛЯЕМ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЮ
+    # ОТПРАВЛЯЕМ СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЮ В ТЕЛЕГРАМ
     msg = (
         f"✅ <b>P2P Сделка #{request_data.trade_id} завершена!</b>\n\n"
         f"Награда в размере <b>{amount} монет</b> была автоматически зачислена на ваш баланс! 🟡\n\n"
         f"<i>Запись добавлена в ваш профиль.</i>"
     )
     await try_send_message(user_id, msg)
+
+    # --- 🔥 ДОБАВЛЕНО: IN-APP УВЕДОМЛЕНИЕ (КОЛОКОЛЬЧИК) 🔥 ---
+    await send_in_app_notification(
+        supabase=supabase,
+        user_id=user_id,
+        title="Trade-In Успешен! 🤝",
+        message=f"Сделка #{request_data.trade_id} выполнена. Начислено {amount} монет!",
+        notif_type="coins"
+    )
+    # ---------------------------------------------------------
 
     # УВЕДОМЛЕНИЕ В ТЕХ. ЧАТ АДМИНОВ
     if ADMIN_NOTIFY_CHAT_ID:
