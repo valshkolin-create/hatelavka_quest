@@ -1230,12 +1230,24 @@ function renderItems(items) {
             `;
         } else if (isCase) {
             // ЕСЛИ ЭТО КЕЙС
-            buttonHtml = `
-                <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">Открыть за ${item.price} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i></button>
-                    <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть за ${item.price * 2} 🎟️</button>
-                </div>
-            `;
+            const activeCoupon = localStorage.getItem('active_coupon');
+            
+            if (activeCoupon) {
+                // РИСУЕМ КНОПКУ БЕСПЛАТНО!
+                buttonHtml = `
+                    <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
+                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); color: #fff; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.4); width: 100%; height: 40px; border: none; border-radius: 8px; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; text-transform: uppercase;">ОТКРЫТЬ БЕСПЛАТНО 🎟️</button>
+                    </div>
+                `;
+            } else {
+                // СТАНДАРТНЫЕ КНОПКИ
+                buttonHtml = `
+                    <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
+                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">Открыть за ${item.price} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i></button>
+                        <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть за ${item.price * 2} 🎟️</button>
+                    </div>
+                `;
+            }
             
             el.innerHTML = `
                 <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
@@ -1279,6 +1291,18 @@ function renderItems(items) {
         }
     });
 }
+    
+    container.appendChild(fragment);
+
+    // Авто-уменьшение шрифта для длинных названий кейсов
+    container.querySelectorAll('.case-top-title').forEach(title => {
+        let fontSize = 13; 
+        while (title.scrollWidth > title.offsetWidth && fontSize > 7) {
+            fontSize -= 0.5;
+            title.style.fontSize = fontSize + 'px';
+        }
+    });
+}
 
 async function validateUserTradeLink() {
     const loader = document.getElementById('purchase-loader');
@@ -1298,30 +1322,50 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     const isLinkValid = await validateUserTradeLink();
     if (!isLinkValid) return; 
 
-    customConfirm(`Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`, async (ok) => {
+    // Проверяем, есть ли активный купон
+    const activeCoupon = localStorage.getItem('active_coupon');
+    
+    // Формируем диалоговое окно
+    let confirmMsg = `Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`;
+    if (activeCoupon) {
+        confirmMsg = `Использовать купон и открыть "${name}" БЕСПЛАТНО?`;
+    }
+
+    customConfirm(confirmMsg, async (ok) => {
         if (!ok) return;
         const loader = document.getElementById('purchase-loader');
         if (loader) { loader.querySelector('.loader-text').innerText = "Крутим барабан..."; loader.classList.add('active'); }
 
         // ⚡ ОПТИМИСТИЧНОЕ СПИСАНИЕ БАЛАНСА (СРАЗУ)
-        const balanceEl = currency === 'coins' ? document.getElementById('user-balance') : document.getElementById('ticketStats');
-        let currentVisualBalance = 0;
-        if (balanceEl) {
-            // Убираем пробелы и парсим число
-            currentVisualBalance = parseInt(balanceEl.textContent.replace(/\s/g, '')) || 0;
-            // Если монет визуально хватает — списываем
-            if (currentVisualBalance >= price) {
-                renderBalanceUI(
-                    // Убрали умножение на 100!
-                    currency === 'coins' ? (currentVisualBalance - price) : undefined, 
-                    currency === 'tickets' ? (currentVisualBalance - price) : undefined
-                );
+        // Списываем баланс ТОЛЬКО если НЕТ КУПОНА
+        if (!activeCoupon) {
+            const balanceEl = currency === 'coins' ? document.getElementById('user-balance') : document.getElementById('ticketStats');
+            let currentVisualBalance = 0;
+            if (balanceEl) {
+                // Убираем пробелы и парсим число
+                currentVisualBalance = parseInt(balanceEl.textContent.replace(/\s/g, '')) || 0;
+                // Если монет визуально хватает — списываем
+                if (currentVisualBalance >= price) {
+                    renderBalanceUI(
+                        // Убрали умножение на 100!
+                        currency === 'coins' ? (currentVisualBalance - price) : undefined, 
+                        currency === 'tickets' ? (currentVisualBalance - price) : undefined
+                    );
+                }
             }
         }
+
         try {
+            // Формируем нагрузку для покупки
+            const buyPayload = { item_id: id, price: price, title: name, image_url: imageUrl, currency: currency };
+            // Если есть купон — отправляем его на бэкенд
+            if (activeCoupon) {
+                buyPayload.coupon_code = activeCoupon;
+            }
+
             // Параллельно запускаем запрос на содержимое кейса и покупку
             const contentsPromise = makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(name)}`, {}, 'GET', true);
-            const buyPromise = makeApiRequest('/api/v1/shop/buy', { item_id: id, price: price, title: name, image_url: imageUrl, currency: currency }, 'POST');
+            const buyPromise = makeApiRequest('/api/v1/shop/buy', buyPayload, 'POST');
             
             const [contentsResp, resData] = await Promise.all([contentsPromise, buyPromise]);
             const possibleItems = (contentsResp && contentsResp.length > 0) ? contentsResp : [{ name: "Mystery Item", image_url: imageUrl, rarity: "common" }];
@@ -1333,11 +1377,24 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             strip[60] = winner; 
 
             launchRoulette(strip, winner, resData.messages || [], resData.lacky, name);
+            
+            // 🔥 МАГИЯ: Купон успешно потрачен! Удаляем его и возвращаем ценам нормальный вид
+            if (activeCoupon) {
+                localStorage.removeItem('active_coupon');
+                loadCategory(2716312); // Возвращаем цены
+            }
+
             // Синхронизируем реальный баланс в фоне
             checkBalance(true);
         } catch (err) { 
             // ⚡ ЕСЛИ ОШИБКА (например, не хватило денег на сервере) - ОТКАТЫВАЕМ БАЛАНС НАЗАД
             checkBalance(true); 
+            
+            // Если ошибка связана с тем, что код кончился или неверный — сбрасываем его
+            if (activeCoupon && err.message && (err.message.includes('закончились') || err.message.includes('использовали') || err.message.includes('Неверный'))) {
+                localStorage.removeItem('active_coupon');
+                loadCategory(2716312);
+            }
         } finally { 
             if (loader) loader.classList.remove('active'); 
         }
@@ -2007,6 +2064,63 @@ window.showSecurityBlock = function(message) {
 // ================================================================
 // УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ И FAQ
 // ================================================================
+
+// ================================================================
+// ЛОГИКА КУПОНОВ
+// ================================================================
+window.openCouponModal = () => {
+    document.getElementById('coupon-modal').classList.remove('hidden');
+    document.getElementById('coupon-input').value = '';
+};
+
+window.closeCouponModal = () => {
+    document.getElementById('coupon-modal').classList.add('hidden');
+};
+
+window.pasteCoupon = async () => {
+    try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('coupon-input').value = text;
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+    } catch (err) {
+        customAlert('Не удалось вставить текст. Проверьте разрешения браузера.');
+    }
+};
+
+window.activateCouponSubmit = async () => {
+    const input = document.getElementById('coupon-input');
+    const code = input.value.trim().toUpperCase();
+    if (!code) return customAlert("Введите промокод!");
+
+    const btn = document.getElementById('activate-coupon-btn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Проверка...';
+
+    try {
+        // Стучимся на созданный эндпоинт
+        const res = await makeApiRequest('/api/cs/check_code', { code: code }, 'POST');
+        if (res.valid) {
+            customAlert("✅ " + res.message);
+            closeCouponModal();
+            
+            // 🌟 МАГИЯ: Сохраняем купон в память браузера
+            localStorage.setItem('active_coupon', code);
+            
+            // Сразу переводим пользователя на вкладку магазина и обновляем визуал кейсов
+            const shopTab = document.querySelector('.toggle-option[data-target="view-shop"]');
+            if (shopTab) shopTab.click();
+            loadCategory(2716312); 
+        } else {
+            customAlert("❌ " + res.message);
+        }
+    } catch (e) {
+        // Ошибка перехватывается глобально
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+};
 
 // Обновленный showShopModal (умеет скрывать кнопку отмены и закрываться по клику вне окна)
 function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
