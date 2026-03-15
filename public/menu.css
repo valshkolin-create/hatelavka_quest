@@ -80,7 +80,7 @@ html, body {
 }
 
 /* Логотип + Текст */
-.logo-wrapper { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.logo-wrapper { display: flex; align-items: center; gap: 14px; cursor: pointer; }
 .app-logo { width: 28px; height: 28px; border-radius: 0; background: transparent; object-fit: contain; }
 .logo-text { display: flex; flex-direction: column; justify-content: center; }
 .logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -782,28 +782,26 @@ body.desktop-mode .toggle-container {
     transform: scale(0.9); /* Приятное сжатие при клике */
 }
 
+/* 2. Компактный красный бейдж со счетчиком (вешаем поверх логотипа) */
 .notif-badge-logo {
     position: absolute;
-    top: -2px; /* Прижали чуть ближе к центру иконки */
-    right: -2px;
-    background: linear-gradient(135deg, #ff3b30, #ff2d55);
+    top: -4px;
+    right: -8px; /* Сдвигаем чуть правее, чтобы не перекрывало Пепе */
+    background: #ff3b30; /* Ярко-красный, как ты просил */
     color: white;
-    font-size: 8px; /* Уменьшили размер текста для миниатюрности */
-    font-weight: 600; /* Сделали шрифт тоньше (было 900) */
-    padding: 0 3px; /* Убрали вертикальный паддинг, он задается высотой */
-    height: 14px; /* Жестко зафиксировали маленькую высоту */
-    min-width: 14px; /* Сделали его круглым, если цифра одна (например, "1") */
-    border-radius: 7px; /* Скругление ровно в половину высоты для идеального овала/круга */
-    border: 1px solid var(--bg-color); /* Сделали рамку тоньше (1px вместо 2px) */
-    box-shadow: 0 2px 4px rgba(255, 59, 48, 0.4); /* Сделали тень мягче */
-    pointer-events: none;
-    z-index: 10;
-    
-    /* Добавили Flexbox для идеального центрирования текста внутри бейджа */
+    font-size: 9px;
+    font-weight: 800;
+    height: 16px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    border: 2px solid var(--bg-color); /* Обводка в цвет фона приложения, чтобы прорезать логотип */
+    box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5);
     display: flex; 
     align-items: center;
     justify-content: center;
-    box-sizing: border-box; /* Важно: рамка и паддинги теперь не раздувают элемент */
+    box-sizing: border-box;
+    z-index: 10;
 }
 
 @keyframes badge-pulse {
