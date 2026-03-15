@@ -2147,12 +2147,17 @@ async function main() {
         // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО
         let bootstrapData, rafflesData, shopData, p2pData;
         
-        // Эти запросы выкинут ошибку Security Block или USER_BANNED, если что-то не так
+        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (С ЗАЩИТОЙ ОТ ПАДЕНИЯ ОТДЕЛЬНЫХ МОДУЛЕЙ)
+        let bootstrapData, rafflesData, shopData, p2pData;
+        
         [bootstrapData, rafflesData, shopData, p2pData] = await Promise.all([
+            // Bootstrap критичен, если он упадет - летим в catch (это правильно)
             makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true),
-            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true),
-            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true)
+            
+            // Остальные модули глушим при ошибке, возвращая null. Приложение загрузится без них.
+            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true).catch(e => { console.warn('Raffles error', e); return null; }),
+            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true).catch(e => { console.warn('Shop error', e); return null; }),
+            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { console.warn('P2P error', e); return null; })
         ]);
 
         if (!isCached) updateLoading(60);
