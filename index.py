@@ -5315,9 +5315,9 @@ async def check_cs_code(
     code = req.code.strip()
 
     if not code:
-        return {"valid": False, "message": ""}
+        return {"valid": False, "message": "Введите код"}
 
-    # 1. Проверяем сам код
+    # 1. Ищем код в базе
     code_res = await supabase.get("/cs_codes", params={"code": f"eq.{code}", "is_active": "eq.true"})
     code_data = code_res.json()
 
@@ -5326,16 +5326,20 @@ async def check_cs_code(
 
     promo = code_data[0]
     
-    # 2. Проверяем лимиты
+    # 2. Проверяем общий лимит использований (например, 20 из 20)
     if promo['current_uses'] >= promo['max_uses']:
-        return {"valid": False, "message": "Код закончился"}
+        return {"valid": False, "message": "Активации этого кода закончились"}
 
-    # 3. Проверяем, вводил ли юзер его раньше
-    history_check = await supabase.get("/cs_history", params={"user_id": f"eq.{user_id}", "code_used": f"eq.{code}"})
+    # 3. Проверяем, не открывал ли конкретно ЭТОТ юзер уже кейс по ЭТОМУ коду
+    history_check = await supabase.get(
+        "/cs_history", 
+        params={"user_id": f"eq.{user_id}", "code_used": f"eq.{code}"}
+    )
     if history_check.json():
-        return {"valid": False, "message": "Вы уже вводили этот код"}
+        return {"valid": False, "message": "Вы уже использовали этот код"}
 
-    return {"valid": True, "message": "Код активен!"}
+    # Если всё чисто — даем добро фронтенду показать кнопку "Бесплатно"
+    return {"valid": True, "message": "Код активен! У вас доступно 1 бесплатное открытие."}
 
 # --- ПОЛУЧЕНИЕ СТАТУСА БУСТОВ (Для красивых кнопок) ---
 @app.post("/api/cs/boost_status")
@@ -15840,7 +15844,7 @@ async def buy_bott_item_proxy(
     import random
     from datetime import datetime, timezone
     
-    logging.info("========== [SHOP] ПОКУПКА v14 (SMART BALANCE + BAN CHECK) ==========")
+    logging.info("========== [SHOP] ПОКУПКА v15 (SMART BALANCE + COUPONS + BAN CHECK) ==========")
     
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -15900,114 +15904,153 @@ async def buy_bott_item_proxy(
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
 
     # =========================================================================
-    # 1.5. SMART BALANCE SYNC: ПРИОРИТЕТ БАЛАНСА BOT-T ПЕРЕД ПОКУПКОЙ
+    # 🌟 ЛОГИКА КУПОНОВ (ПРОВЕРКА)
     # =========================================================================
-    if currency != 'tickets':
-        last_sync = user_record.get("last_balance_sync")
-        should_refresh = True
-        
-        if last_sync:
-            try:
-                last_sync_dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
-                if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < 5:
-                    should_refresh = False
-            except ValueError:
-                pass 
+    coupon_code = getattr(request_data, 'coupon_code', None)
+    is_free_purchase = False
+    promo_data = None
 
-        if should_refresh:
-            logging.info(f"[SHOP] Баланс устарел (> 5 сек). Синхронизируем с Bot-T перед списанием...")
-            url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
-            payload = {
-                "bot_id": int(BOTT_BOT_ID),
-                "botToken": BOTT_BOT_TOKEN,
-                "secretKey": BOTT_SECRET_KEY,
-                "telegram_id": telegram_id
-            }
-            try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    resp = await client.post(url, json=payload)
-                    
-                    if resp.status_code == 200:
-                        res_json = resp.json()
-                        if res_json.get("result"):
-                            api_data = res_json.get("data", {})
-                            
-                            # БЕРЕМ СВЕЖИЙ БАЛАНС НАПРЯМУЮ ИЗ BOT-T
-                            current_balance_kopecks = float(api_data.get("money", 0))
-                            new_internal_id = api_data.get("id", bott_internal_id)
-                            new_secret_key = api_data.get("secret_user_key", bott_secret_key)
-                            
-                            # Обновляем базу до проверки нехватки средств
-                            await supabase.patch(
-                                "/users",
-                                params={"telegram_id": f"eq.{telegram_id}"},
-                                json={
-                                    "bot_t_coins": current_balance_kopecks,
-                                    "bott_internal_id": new_internal_id,
-                                    "bott_secret_key": new_secret_key,
-                                    "last_balance_sync": datetime.now(timezone.utc).isoformat()
-                                }
-                            )
-                            bott_internal_id = new_internal_id
-                            bott_secret_key = new_secret_key
-                            logging.info(f"[SHOP] Smart Sync успешен. Актуальный баланс из Bot-T: {current_balance_kopecks}")
-            except Exception as e:
-                logging.error(f"[SHOP] Ошибка синхронизации с Bot-T перед покупкой: {e}")
-                # Если Bot-T недоступен, продолжаем с последним известным балансом из БД
-
-    # =========================================================================
-    # 2. ЖЕСТКАЯ ПРОВЕРКА БАЛАНСА И СИНХРОННОЕ СПИСАНИЕ
-    # =========================================================================
-    if currency == 'tickets':
-        if current_tickets < price:
-            raise HTTPException(status_code=400, detail="Недостаточно билетов!")
-        # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
-        new_balance = int(current_tickets - price)
-        update_col = "tickets"
-    else:
-        if current_balance_kopecks < (price * 100):
-            raise HTTPException(status_code=400, detail="Недостаточно средств!")
-        # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
-        new_balance = int(current_balance_kopecks - (price * 100))
-        update_col = "bot_t_coins"
-
-    # 🔥 СПИСЫВАЕМ И ЖДЕМ ОТВЕТА БАЗЫ ПЕРЕД ТЕМ КАК КРУТИТЬ 🔥
-    try:
-        patch_resp = await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{telegram_id}"},
-            json={update_col: new_balance},
-            headers={"Prefer": "return=representation"}
-        )
-        patch_data = patch_resp.json()
-        
-        # Если база не вернула данные, значит списание не прошло
-        if not patch_data or isinstance(patch_data, dict) and "message" in patch_data:
-            logging.error(f"[SHOP] Ошибка списания: {patch_data}")
-            raise HTTPException(status_code=500, detail="Транзакция отклонена базой данных")
-            
-        logging.info(f"[SHOP] Баланс списан: {update_col} -> {new_balance}")
-        
-    except Exception as e:
-        logging.error(f"Ошибка проведения транзакции: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка проведения транзакции")
-
-    # 🔥 ФОНОВАЯ ЗАДАЧА: Отправка данных в Bot-T (только если за коины) 🔥
-    if currency != 'tickets':
-        async def send_to_bott_bg(b_id, cat_id, u_id, sec_key):
-            url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
-            payload = {
-                "bot_id": int(b_id), "category_id": cat_id, "count": 1,
-                "user_id": int(u_id), "secret_user_key": sec_key
-            }
-            try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    resp = await client.post(url, json=payload)
-                    logging.info(f"[Bot-T BG] Response: {resp.status_code}")
-            except Exception as e:
-                logging.error(f"[Bot-T BG Error]: {e}")
+    if coupon_code:
+        coupon_code = coupon_code.strip()
+        if coupon_code:
+            code_res = await supabase.get("/cs_codes", params={"code": f"eq.{coupon_code}", "is_active": "eq.true"})
+            code_data = code_res.json()
+            if not code_data:
+                raise HTTPException(status_code=400, detail="⛔ Неверный или неактивный код!")
                 
-        background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key)
+            promo_data = code_data[0]
+            
+            if promo_data['current_uses'] >= promo_data['max_uses']:
+                raise HTTPException(status_code=400, detail="⛔ Активации этого кода закончились!")
+                
+            history_check = await supabase.get("/cs_history", params={"user_id": f"eq.{telegram_id}", "code_used": f"eq.{coupon_code}"})
+            if history_check.json():
+                raise HTTPException(status_code=400, detail="⛔ Вы уже использовали этот купон!")
+                
+            is_free_purchase = True
+
+    # =========================================================================
+    # БЛОК ОПЛАТЫ (ОБХОДИМ, ЕСЛИ ЕСТЬ ВАЛИДНЫЙ КУПОН)
+    # =========================================================================
+    if not is_free_purchase:
+        # =========================================================================
+        # 1.5. SMART BALANCE SYNC: ПРИОРИТЕТ БАЛАНСА BOT-T ПЕРЕД ПОКУПКОЙ
+        # =========================================================================
+        if currency != 'tickets':
+            last_sync = user_record.get("last_balance_sync")
+            should_refresh = True
+            
+            if last_sync:
+                try:
+                    last_sync_dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+                    if (datetime.now(timezone.utc) - last_sync_dt).total_seconds() < 5:
+                        should_refresh = False
+                except ValueError:
+                    pass 
+
+            if should_refresh:
+                logging.info(f"[SHOP] Баланс устарел (> 5 сек). Синхронизируем с Bot-T перед списанием...")
+                url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
+                payload = {
+                    "bot_id": int(BOTT_BOT_ID),
+                    "botToken": BOTT_BOT_TOKEN,
+                    "secretKey": BOTT_SECRET_KEY,
+                    "telegram_id": telegram_id
+                }
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        resp = await client.post(url, json=payload)
+                        
+                        if resp.status_code == 200:
+                            res_json = resp.json()
+                            if res_json.get("result"):
+                                api_data = res_json.get("data", {})
+                                
+                                # БЕРЕМ СВЕЖИЙ БАЛАНС НАПРЯМУЮ ИЗ BOT-T
+                                current_balance_kopecks = float(api_data.get("money", 0))
+                                new_internal_id = api_data.get("id", bott_internal_id)
+                                new_secret_key = api_data.get("secret_user_key", bott_secret_key)
+                                
+                                # Обновляем базу до проверки нехватки средств
+                                await supabase.patch(
+                                    "/users",
+                                    params={"telegram_id": f"eq.{telegram_id}"},
+                                    json={
+                                        "bot_t_coins": current_balance_kopecks,
+                                        "bott_internal_id": new_internal_id,
+                                        "bott_secret_key": new_secret_key,
+                                        "last_balance_sync": datetime.now(timezone.utc).isoformat()
+                                    }
+                                )
+                                bott_internal_id = new_internal_id
+                                bott_secret_key = new_secret_key
+                                logging.info(f"[SHOP] Smart Sync успешен. Актуальный баланс из Bot-T: {current_balance_kopecks}")
+                except Exception as e:
+                    logging.error(f"[SHOP] Ошибка синхронизации с Bot-T перед покупкой: {e}")
+                    # Если Bot-T недоступен, продолжаем с последним известным балансом из БД
+
+        # =========================================================================
+        # 2. ЖЕСТКАЯ ПРОВЕРКА БАЛАНСА И СИНХРОННОЕ СПИСАНИЕ
+        # =========================================================================
+        if currency == 'tickets':
+            if current_tickets < price:
+                raise HTTPException(status_code=400, detail="Недостаточно билетов!")
+            # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
+            new_balance = int(current_tickets - price)
+            update_col = "tickets"
+        else:
+            if current_balance_kopecks < (price * 100):
+                raise HTTPException(status_code=400, detail="Недостаточно средств!")
+            # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
+            new_balance = int(current_balance_kopecks - (price * 100))
+            update_col = "bot_t_coins"
+
+        # 🔥 СПИСЫВАЕМ И ЖДЕМ ОТВЕТА БАЗЫ ПЕРЕД ТЕМ КАК КРУТИТЬ 🔥
+        try:
+            patch_resp = await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{telegram_id}"},
+                json={update_col: new_balance},
+                headers={"Prefer": "return=representation"}
+            )
+            patch_data = patch_resp.json()
+            
+            # Если база не вернула данные, значит списание не прошло
+            if not patch_data or isinstance(patch_data, dict) and "message" in patch_data:
+                logging.error(f"[SHOP] Ошибка списания: {patch_data}")
+                raise HTTPException(status_code=500, detail="Транзакция отклонена базой данных")
+                
+            logging.info(f"[SHOP] Баланс списан: {update_col} -> {new_balance}")
+            
+        except Exception as e:
+            logging.error(f"Ошибка проведения транзакции: {e}")
+            raise HTTPException(status_code=500, detail="Ошибка проведения транзакции")
+
+        # 🔥 ФОНОВАЯ ЗАДАЧА: Отправка данных в Bot-T (только если за коины) 🔥
+        if currency != 'tickets':
+            async def send_to_bott_bg(b_id, cat_id, u_id, sec_key):
+                url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
+                payload = {
+                    "bot_id": int(b_id), "category_id": cat_id, "count": 1,
+                    "user_id": int(u_id), "secret_user_key": sec_key
+                }
+                try:
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        resp = await client.post(url, json=payload)
+                        logging.info(f"[Bot-T BG] Response: {resp.status_code}")
+                except Exception as e:
+                    logging.error(f"[Bot-T BG Error]: {e}")
+                    
+            background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key)
+            
+    else:
+        # Увеличиваем счетчик использований купона
+        await supabase.patch(
+            "/cs_codes", 
+            params={"code": f"eq.{coupon_code}"}, 
+            json={"current_uses": promo_data['current_uses'] + 1}
+        )
+        logging.info(f"[SHOP] Покупка оплачена купоном: {coupon_code}")
 
     # =========================================================================
     # 🎰 ЛОГИКА РУЛЕТКИ (КЕЙСЫ)
@@ -16078,7 +16121,9 @@ async def buy_bott_item_proxy(
         winner = random.choices(final_items, weights=final_weights, k=1)[0]
         
         history_id = None
-        current_code = f"BUY_{int(time.time())}_{random.randint(100,999)}"
+        
+        # 🔥 ЕСЛИ КУПОН — ПИШЕМ ЕГО В code_used, ИНАЧЕ ГЕНЕРИРУЕМ BUY_... 🔥
+        current_code = coupon_code if is_free_purchase else f"BUY_{int(time.time())}_{random.randint(100,999)}"
 
         try:
             h_res = await supabase.post("/cs_history", json={
@@ -16117,12 +16162,17 @@ async def buy_bott_item_proxy(
 
     else:
         try:
-            async def log_manual_reward_bg(uid, title, img):
+            # Для модераторов добавим пометку, если было куплено по купону
+            desc = f"{item_title}|{item_image}|fast_buy"
+            if is_free_purchase:
+                desc += f"|coupon:{coupon_code}"
+                
+            async def log_manual_reward_bg(uid, title, img, full_desc):
                  await supabase.post("/manual_rewards", json={
                     "user_id": uid, "status": "pending", "source_type": "shop",
-                    "reward_details": title, "source_description": f"{title}|{img}|fast_buy"
+                    "reward_details": title, "source_description": full_desc
                  })
-            background_tasks.add_task(log_manual_reward_bg, telegram_id, item_title, item_image)
+            background_tasks.add_task(log_manual_reward_bg, telegram_id, item_title, item_image, desc)
 
         except Exception as e:
             logging.error(f"Ошибка фона ручного лога: {e}")
