@@ -956,7 +956,7 @@ body.desktop-mode .toggle-container {
 }
 
 /* ==========================================
-    СВЕТЛАЯ ТЕМА (ИНВЕРСИЯ)
+   СВЕТЛАЯ ТЕМА (ИНВЕРСИЯ)
 ========================================== */
 body.light-theme {
     --bg-main: #f5f5f7 !important; 
@@ -965,37 +965,27 @@ body.light-theme {
     background-color: var(--bg-main) !important;
 }
 
-/* 🔥 ФИКС: ЗАЩИТА БУРГЕР-МЕНЮ ОТ ТЕМНЫХ БУКВ 🔥 
-   Внутри бокового меню текст остается белым */
-body.light-theme .side-menu-content {
-    --text-primary: #ffffff !important;
-    --text-muted: #8e8e93 !important;
-}
-body.light-theme .side-menu-header {
-    color: #ffffff !important;
-}
-
-/* 1. ЛОГОТИП И БАЛАНС — ЧЕРНЫЙ ЦВЕТ */
 body.light-theme .top-header .logo-title,
-body.light-theme .top-header .balance-value,
-body.light-theme .top-header .balance-amount,
-body.light-theme .top-header .user-balance-text {
-    color: #000000 !important;
+body.light-theme .balance-row { color: #121212 !important; }
+body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
+
+body.light-theme .balance-pill {
+    background: rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
-/* 2. КЛАССИЧЕСКИЙ БУРГЕР */
+/* 🔥 КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ 🔥 */
 body.light-theme .glass-burger {
     background: rgba(0, 0, 0, 0.05) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Полоски бургера — ЧЕРНЫЕ */
+/* Делаем сами полоски бургера черными */
 body.light-theme .glass-burger span { 
-    background-color: #000000 !important; 
+    background-color: #121212 !important; 
     box-shadow: none !important; 
 }
 
-/* Светлый нижний бар */
 body.light-theme .floating-bottom-bar {
     background: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
@@ -1003,15 +993,19 @@ body.light-theme .floating-bottom-bar {
 body.light-theme .nav-item.active { color: #121212 !important; }
 body.light-theme .toggle-container { display: none !important; }
 
-/* Плавность перехода */
-#dark-wrapper, #light-wrapper { transition: opacity 0.2s ease-in-out; }
-#light-wrapper { opacity: 0; }
-
-/* Блок под автомат (1 в 1 как в черной версии) */
-.light-version-top {
-    margin-top: 0;
-    height: auto;
-    margin-bottom: 0;
+/* ==========================================
+   УМНАЯ АНИМАЦИЯ (РАБОТАЕТ ТОЛЬКО ПРИ СВАЙПЕ)
+========================================== */
+body.theme-switching,
+body.theme-switching .balance-pill,
+body.theme-switching .balance-row,
+body.theme-switching .top-header .logo-title,
+body.theme-switching .logo-subtitle,
+body.theme-switching .glass-burger,
+body.theme-switching .glass-burger span,
+body.theme-switching .floating-bottom-bar,
+body.theme-switching .nav-item.active {
+    transition: all 0.4s ease-in-out !important;
 }
 
 /* Теперь этот блок полностью повторяет логику черного */
