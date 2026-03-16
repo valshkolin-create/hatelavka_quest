@@ -959,41 +959,36 @@ body.desktop-mode .toggle-container {
    СВЕТЛАЯ ТЕМА (ИНВЕРСИЯ) - ОБНОВЛЕННАЯ
 ========================================== */
 body.light-theme {
-    /* Обновлено: чистый белый фон */
     --bg-main: #ffffff !important; 
     --text-primary: #121212 !important;
     --text-muted: #8e8e93 !important;
     background-color: var(--bg-main) !important;
 }
 
-/* Настраиваем контейнер светлой темы, чтобы он занимал все место */
 body.light-theme #light-wrapper {
     background-color: #ffffff !important;
-    display: flex !important; /* Включаем флекс, когда тема активна */
+    display: flex !important;
     flex-direction: column;
-    /* Растягиваем от хедера до низа экрана */
-    min-height: calc(100vh - 70px) !important; /* 70px - примерная высота хедера */
+    min-height: calc(100vh - 70px) !important;
     position: relative;
     z-index: 1;
     margin-bottom: 0 !important;
     padding-bottom: 0 !important;
 }
 
-/* Блок с оружием */
 body.light-theme .weapon-box.light-version-top {
-    flex: 1; /* Позволяем этому блоку занимать основное место */
+    flex: 1; 
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-/* 🔥 ОБНОВЛЕНО: Декор-гифка теперь жестко прижата к низу */
 body.light-theme #white-theme-decor {
     display: flex !important;
     justify-content: center;
     width: 100%;
-    position: absolute; /* Абсолютное позиционирование внутри light-wrapper */
-    bottom: 0; /* Прижимаем к самому низу */
+    position: absolute; 
+    bottom: 0; 
     left: 0;
     z-index: 2;
     pointer-events: none;
@@ -1001,26 +996,11 @@ body.light-theme #white-theme-decor {
     margin: 0;
 }
 
-/* Прочие стили элементов (без изменений) */
-body.light-theme .top-header .logo-title,
-body.light-theme .balance-row { color: #121212 !important; }
+/* Текст логотипа оставляем темным, чтобы он читался на белом фоне */
+body.light-theme .top-header .logo-title { color: #121212 !important; }
 body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
 
-body.light-theme .balance-pill {
-    background: rgba(0, 0, 0, 0.05) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
-}
-
-body.light-theme .glass-burger {
-    background: rgba(0, 0, 0, 0.05) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
-}
-
-body.light-theme .glass-burger span { 
-    background-color: #121212 !important; 
-    box-shadow: none !important; 
-}
-
+/* Нижний навигационный бар (оставлен светлым) */
 body.light-theme .floating-bottom-bar {
     background: rgba(255, 255, 255, 0.95) !important;
     border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
@@ -1030,7 +1010,7 @@ body.light-theme .nav-item { color: rgba(0,0,0,0.6) !important; }
 body.light-theme .nav-item.active { color: #121212 !important; }
 body.light-theme .toggle-container { display: none !important; }
 
-/* Стили самой пушки (без изменений) */
+/* Стили пушки */
 .weapon-huge-img.light-weapon {
     width: 49%; 
     max-width: none;
