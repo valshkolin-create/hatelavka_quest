@@ -965,29 +965,27 @@ body.light-theme {
     background-color: var(--bg-main) !important;
 }
 
-/* Инвертируем логотип и баланс в черный */
 body.light-theme .top-header .logo-title,
 body.light-theme .balance-row { color: #121212 !important; }
 body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
 
-/* Белая плашка баланса */
 body.light-theme .balance-pill {
-    background: rgba(255, 255, 255, 0.8) !important;
+    background: rgba(0, 0, 0, 0.05) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
-/* 🔥 КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ 🔥 
-   Делаем его темным стеклом с белыми полосами, чтобы он не пропадал на белом фоне */
+/* 🔥 КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ 🔥 */
 body.light-theme .glass-burger {
-    background: rgba(30, 30, 32, 0.8) !important; 
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-body.light-theme .glass-burger span {
-    background-color: #ffffff !important; 
-    box-shadow: 0 0 4px rgba(255,255,255,0.2) !important;
+    background: rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Светлый нижний бар */
+/* Делаем сами полоски бургера черными */
+body.light-theme .glass-burger span { 
+    background-color: #121212 !important; 
+    box-shadow: none !important; 
+}
+
 body.light-theme .floating-bottom-bar {
     background: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
@@ -995,6 +993,17 @@ body.light-theme .floating-bottom-bar {
 body.light-theme .nav-item.active { color: #121212 !important; }
 body.light-theme .toggle-container { display: none !important; }
 
-/* Плавность затухания контента */
-#dark-wrapper, #light-wrapper { transition: opacity 0.2s ease-in-out; }
-#light-wrapper { opacity: 0; }
+/* ==========================================
+   УМНАЯ АНИМАЦИЯ (РАБОТАЕТ ТОЛЬКО ПРИ СВАЙПЕ)
+========================================== */
+body.theme-switching,
+body.theme-switching .balance-pill,
+body.theme-switching .balance-row,
+body.theme-switching .top-header .logo-title,
+body.theme-switching .logo-subtitle,
+body.theme-switching .glass-burger,
+body.theme-switching .glass-burger span,
+body.theme-switching .floating-bottom-bar,
+body.theme-switching .nav-item.active {
+    transition: all 0.4s ease-in-out !important;
+}
