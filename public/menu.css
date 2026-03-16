@@ -965,16 +965,29 @@ body.light-theme {
     background-color: var(--bg-main) !important;
 }
 
-/* Инвертируем только логотип, баланс и нижний бар */
+/* Инвертируем логотип и баланс в черный */
 body.light-theme .top-header .logo-title,
 body.light-theme .balance-row { color: #121212 !important; }
 body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
 
+/* Белая плашка баланса */
 body.light-theme .balance-pill {
     background: rgba(255, 255, 255, 0.8) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
+/* 🔥 КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ 🔥 
+   Делаем его темным стеклом с белыми полосами, чтобы он не пропадал на белом фоне */
+body.light-theme .glass-burger {
+    background: rgba(30, 30, 32, 0.8) !important; 
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+body.light-theme .glass-burger span {
+    background-color: #ffffff !important; 
+    box-shadow: 0 0 4px rgba(255,255,255,0.2) !important;
+}
+
+/* Светлый нижний бар */
 body.light-theme .floating-bottom-bar {
     background: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
