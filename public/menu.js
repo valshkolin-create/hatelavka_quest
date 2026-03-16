@@ -1989,9 +1989,9 @@ function initBottomSwipe() {
     const content = document.getElementById('main-content'); 
     if (!content) return;
     
-    let startY = 0, distance = 0, isPullingBottom = false;
+    let startY = 0, isPullingBottom = false, wheelAccumulator = 0;
 
-    // Плавный переход
+    // --- ПЛАВНОЕ ПЕРЕКЛЮЧЕНИЕ ---
     const triggerThemeSwitch = () => {
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); 
         
@@ -1999,11 +1999,8 @@ function initBottomSwipe() {
         const darkWrap = document.getElementById('dark-wrapper');
         const lightWrap = document.getElementById('light-wrapper');
         
-        // Возвращаем экран на место перед сменой
-        content.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
-        content.style.transform = 'translateY(0)';
-        distance = 0;
         isPullingBottom = false;
+        wheelAccumulator = 0;
 
         // Плавно переключаем блоки через opacity (прозрачность)
         if (darkWrap && lightWrap) {
@@ -2012,57 +2009,63 @@ function initBottomSwipe() {
                 setTimeout(() => {
                     darkWrap.style.display = 'none';
                     lightWrap.style.display = 'block';
-                    setTimeout(() => lightWrap.style.opacity = '1', 50); // Даем браузеру долю секунды на рендер
+                    content.scrollTop = 0; // Возвращаем в начало страницы
+                    setTimeout(() => lightWrap.style.opacity = '1', 50); 
                 }, 200);
             } else {
                 lightWrap.style.opacity = '0';
                 setTimeout(() => {
                     lightWrap.style.display = 'none';
                     darkWrap.style.display = 'block';
+                    content.scrollTop = 0; // Возвращаем в начало страницы
                     setTimeout(() => darkWrap.style.opacity = '1', 50);
                 }, 200);
             }
         }
     };
 
-    const resetPull = () => {
-        isPullingBottom = false;
-        content.style.transition = 'transform 0.3s ease-out';
-        content.style.transform = 'translateY(0)';
-        distance = 0;
+    // --- ПРОВЕРКА: МОЖНО ЛИ ДЕЛАТЬ СВАЙП? ---
+    const canSwipeBottom = () => {
+        // 1. Если мы УЖЕ на белой стороне — разрешаем свайп (чтобы можно было вернуться в темную)
+        if (document.body.classList.contains('light-theme')) return true;
+
+        // 2. Если мы на темной стороне, разрешаем ТОЛЬКО если активна вкладка "КЕЙСЫ"
+        const shopView = document.getElementById('view-shop');
+        return shopView && shopView.classList.contains('active');
     };
 
     // ==========================================
-    // 1. СЕНСОР (ТЕЛЕФОНЫ) - ТЯНЕМ СНИЗУ ВВЕРХ
+    // 1. СЕНСОР (ТЕЛЕФОНЫ) - Без растягивания экрана!
     // ==========================================
     content.addEventListener('touchstart', (e) => { 
-        // Проверяем, долистали ли мы до конца (допускаем погрешность в 5px для мобилок)
+        if (!canSwipeBottom()) return;
+
         const isAtBottom = (content.scrollHeight - content.scrollTop - content.clientHeight) < 5;
         if (isAtBottom) { 
             startY = e.touches[0].clientY; 
             isPullingBottom = true; 
-            content.style.transition = 'none'; 
         } 
     }, { passive: true });
     
     content.addEventListener('touchmove', (e) => {
         if (!isPullingBottom) return; 
-        const diff = startY - e.touches[0].clientY; // Если тянем вверх, diff будет больше 0
         
+        const diff = startY - e.touches[0].clientY; // Если тянем вверх, цифра растет
         const isAtBottom = (content.scrollHeight - content.scrollTop - content.clientHeight) < 5;
+        
         if (diff > 0 && isAtBottom) { 
+            // ЖЕСТКО БЛОКИРУЕМ системный скролл браузера. Экран стопорится!
             if (e.cancelable) e.preventDefault(); 
-            distance = Math.pow(diff, 0.85); 
-            if (distance > 150) distance = 150; 
-            // Обрати внимание: тут -distance, потому что тянем вверх
-            content.style.transform = `translateY(-${distance}px)`; 
+            
+            // Если палец проскользил больше 60 пикселей — переключаем
+            if (diff > 60) {
+                triggerThemeSwitch();
+            }
         }
     }, { passive: false });
     
     content.addEventListener('touchend', () => {
-        if (!isPullingBottom) return; 
-        if (distance > 80) triggerThemeSwitch(); 
-        else resetPull(); 
+        isPullingBottom = false; 
     });
 
     // ==========================================
@@ -2070,25 +2073,28 @@ function initBottomSwipe() {
     // ==========================================
     let wheelTimeout;
     content.addEventListener('wheel', (e) => {
+        if (!canSwipeBottom()) return;
+
         const isAtBottom = (content.scrollHeight - content.scrollTop - content.clientHeight) < 5;
         
-        // e.deltaY > 0 означает скролл вниз
+        // e.deltaY > 0 означает крутим колесо вниз
         if (isAtBottom && e.deltaY > 0) {
+            // Глушим системное дергание окна
             if (e.cancelable) e.preventDefault();
             
-            isPullingBottom = true;
-            content.style.transition = 'none';
+            // Накапливаем "усилие" прокрутки колесика
+            wheelAccumulator += e.deltaY;
             
-            distance += e.deltaY * 0.5;
-            if (distance > 150) distance = 150;
+            // Если накрутили достаточно (защита от случайного микро-скролла)
+            if (wheelAccumulator > 150) {
+                triggerThemeSwitch();
+            }
             
-            content.style.transform = `translateY(-${distance}px)`;
-            
+            // Сбрасываем счетчик, если человек перестал крутить
             clearTimeout(wheelTimeout);
             wheelTimeout = setTimeout(() => {
-                if (distance > 80) triggerThemeSwitch();
-                else resetPull();
-            }, 150);
+                wheelAccumulator = 0;
+            }, 200);
         }
     }, { passive: false });
 }
