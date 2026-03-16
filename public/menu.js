@@ -1968,41 +1968,109 @@ document.body.addEventListener('touchmove', (e) => {
     if (!isScrollable && e.cancelable) e.preventDefault();
 }, { passive: false });
 
-// 2. ВОТ ФУНКЦИЯ, КОТОРУЮ ТЫ СЛУЧАЙНО УДАЛИЛ:
 function initPullToRefresh() {
-    const content = document.getElementById('main-content'); const ptr = document.getElementById('pull-to-refresh');
+    const content = document.getElementById('main-content'); 
+    const ptr = document.getElementById('pull-to-refresh');
     if (!content || !ptr) return;
+    
     let startY = 0, distance = 0, isPulling = false;
-    content.addEventListener('touchstart', (e) => { if (content.scrollTop <= 0) { startY = e.touches[0].clientY; isPulling = true; content.style.transition = 'none'; ptr.style.transition = 'none'; } }, { passive: true });
-    content.addEventListener('touchmove', (e) => {
-        if (!isPulling) return; const diff = e.touches[0].clientY - startY;
-        if (diff > 0 && content.scrollTop <= 0) { if (e.cancelable) e.preventDefault(); distance = Math.pow(diff, 0.85); if (distance > 150) distance = 150; content.style.transform = `translateY(${distance}px)`; ptr.style.transform = `translateY(${distance}px)`; }
-    }, { passive: false });
-    content.addEventListener('touchend', () => {
-        if (!isPulling) return; isPulling = false; content.style.transition = 'transform 0.3s ease-out'; ptr.style.transition = 'transform 0.3s ease-out';
-        if (distance > 80) { 
-            ptr.querySelector('i').classList.add('fa-spin'); 
-            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); 
+
+    // --- ОБЩАЯ ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ---
+    const triggerThemeSwitch = () => {
+        ptr.querySelector('i').classList.add('fa-spin'); 
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); 
+        
+        setTimeout(() => {
+            const isLight = document.body.classList.toggle('light-theme');
+            const darkWrap = document.getElementById('dark-wrapper');
+            const lightWrap = document.getElementById('light-wrapper');
             
-            // --- ДОБАВЛЕННАЯ ЛОГИКА ИНВЕРСИИ ---
-            setTimeout(() => {
-                const isLight = document.body.classList.toggle('light-theme');
-                
-                const darkWrap = document.getElementById('dark-wrapper');
-                const lightWrap = document.getElementById('light-wrapper');
-                if (darkWrap) darkWrap.style.display = isLight ? 'none' : 'block';
-                if (lightWrap) lightWrap.style.display = isLight ? 'block' : 'none';
-                
-                content.style.transform = 'translateY(0)'; 
-                ptr.style.transform = 'translateY(0)'; 
-                ptr.querySelector('i').classList.remove('fa-spin');
-            }, 500);
+            if (darkWrap) darkWrap.style.display = isLight ? 'none' : 'block';
+            if (lightWrap) lightWrap.style.display = isLight ? 'block' : 'none';
             
-            // Старую перезагрузку закомментировал, чтобы логика осталась нетронутой
-            // setTimeout(() => window.location.reload(), 500); 
+            // Возвращаем интерфейс на место
+            content.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)'; 
+            ptr.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+            content.style.transform = 'translateY(0)'; 
+            ptr.style.transform = 'translateY(0)'; 
+            ptr.querySelector('i').classList.remove('fa-spin');
+            
+            distance = 0;
+            isPulling = false;
+        }, 300); // Чуть быстрее для сочности
+    };
+
+    // --- ФУНКЦИЯ ОТМЕНЫ (Если недотянули) ---
+    const resetPull = () => {
+        isPulling = false;
+        content.style.transition = 'transform 0.3s ease-out'; 
+        ptr.style.transition = 'transform 0.3s ease-out';
+        content.style.transform = 'translateY(0)'; 
+        ptr.style.transform = 'translateY(0)'; 
+        distance = 0;
+    };
+
+    // ==========================================
+    // 1. СЕНСОР (ТЕЛЕФОНЫ)
+    // ==========================================
+    content.addEventListener('touchstart', (e) => { 
+        // Используем <= 1 вместо 0 для мобилок (защита от дробных пикселей)
+        if (content.scrollTop <= 1) { 
+            startY = e.touches[0].clientY; 
+            isPulling = true; 
+            content.style.transition = 'none'; 
+            ptr.style.transition = 'none'; 
         } 
-        else { content.style.transform = 'translateY(0)'; ptr.style.transform = 'translateY(0)'; } distance = 0;
+    }, { passive: true });
+    
+    content.addEventListener('touchmove', (e) => {
+        if (!isPulling) return; 
+        const diff = e.touches[0].clientY - startY;
+        if (diff > 0 && content.scrollTop <= 1) { 
+            if (e.cancelable) e.preventDefault(); // Блокируем дефолт
+            distance = Math.pow(diff, 0.85); 
+            if (distance > 150) distance = 150; 
+            content.style.transform = `translateY(${distance}px)`; 
+            ptr.style.transform = `translateY(${distance}px)`; 
+            ptr.querySelector('i').style.transform = `rotate(${distance * 1.5}deg)`;
+        }
+    }, { passive: false });
+    
+    content.addEventListener('touchend', () => {
+        if (!isPulling) return; 
+        if (distance > 80) triggerThemeSwitch(); // Переключаем
+        else resetPull(); // Отменяем
     });
+
+    // ==========================================
+    // 2. КОЛЕСИКО МЫШИ (ДЕСКТОП)
+    // ==========================================
+    let wheelTimeout;
+    content.addEventListener('wheel', (e) => {
+        // e.deltaY < 0 означает, что мы крутим колесико ВВЕРХ
+        if (content.scrollTop <= 1 && e.deltaY < 0) {
+            if (e.cancelable) e.preventDefault(); // Глушим системный скролл
+            
+            isPulling = true;
+            content.style.transition = 'none'; 
+            ptr.style.transition = 'none';
+            
+            // Плавно накапливаем дистанцию от каждого "клика" колесика
+            distance += Math.abs(e.deltaY) * 0.5; // 0.5 — мягкость натяжения
+            if (distance > 150) distance = 150;
+            
+            content.style.transform = `translateY(${distance}px)`; 
+            ptr.style.transform = `translateY(${distance}px)`; 
+            ptr.querySelector('i').style.transform = `rotate(${distance * 1.5}deg)`;
+
+            // Ждем, пока юзер перестанет крутить колесико (150 мс)
+            clearTimeout(wheelTimeout);
+            wheelTimeout = setTimeout(() => {
+                if (distance > 80) triggerThemeSwitch();
+                else resetPull();
+            }, 150); 
+        }
+    }, { passive: false });
 }
 
 // 3. Безопасный клик (из-за которого была прошлая проблема)
