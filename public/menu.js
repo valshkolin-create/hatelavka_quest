@@ -483,26 +483,25 @@ async function checkBalance(updateUI = true) {
         } catch(e) {}
     }
 
-    return fetch('/api/v1/shop/smart_balance', { 
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify(getAuthPayload()) 
-    })
-    .then(r => r.json())
-    .then(data => {
+    try {
+        // 🔥 ЗАМЕНИЛИ ГОЛЫЙ FETCH НА ТВОЙ MAKE_API_REQUEST 🔥
+        // Флаг isSilent = true, чтобы лоадер не моргал на весь экран при фоновом обновлении
+        const data = await makeApiRequest('/api/v1/shop/smart_balance', {}, 'POST', true);
+        
         if (updateUI && data) {
             // Сохраняем свежий баланс в кэш
             localStorage.setItem('smart_balance_cache', JSON.stringify(data));
             renderBalanceUI(data.balance, data.tickets);
         }
-    })
-    .catch(err => {})
-    .finally(() => { 
+    } catch (err) {
+        // Ошибка (включая окно Bot Auth) уже перехватится и покажется внутри makeApiRequest
+        console.warn("[SHOP BALANCE] Фоновое обновление прервано:", err.message);
+    } finally { 
         setTimeout(() => { 
             isBalanceLoading = false; 
             if (iconCoins) iconCoins.classList.remove('fa-spin'); 
         }, 500); 
-    });
+    }
 }
 
 // Вынесли отрисовку в отдельную функцию (теперь без деления на 100)
