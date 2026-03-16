@@ -842,30 +842,29 @@ body.desktop-mode .toggle-container {
     color: #ffd700;
 }
 
-/* --- НОВЫЙ БЛОК: Расписание стримов (под сеткой) --- */
-.schedule-standalone-banner {
-    margin: 0 16px 20px 16px; /* Отступы по бокам, чтобы было вровень с верхними кнопками */
+/* --- ВТОРОЙ РЯД: Сетка под две отдельные фигуры --- */
+.row-two-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr; /* Левая кнопка чуть шире, правая под калаш */
+    gap: 12px;
+    padding: 0 16px;
+    margin-bottom: 20px;
+}
+
+/* Фигура 1: Блок Расписания */
+.schedule-box {
     background: #1c1c1e;
     border: 1px solid rgba(255, 215, 0, 0.3);
     border-radius: 16px;
-    position: relative;
-    overflow: hidden; /* Обрезает калаш, чтобы он не вылезал за границы кнопки */
+    padding: 15px 12px;
     display: flex;
-    align-items: center;
-    padding: 20px 15px; /* Высота блока */
+    flex-direction: column;
+    justify-content: center;
     cursor: pointer;
     box-shadow: 0 0 15px rgba(255, 215, 0, 0.05);
 }
 
-/* Текст Расписания (Левая половина) */
-.schedule-text-zone {
-    display: flex;
-    flex-direction: column;
-    z-index: 2; /* Текст ПОВЕРХ калаша */
-    width: 60%; /* Текст занимает чуть больше половины, чтобы не лезть на картинку */
-}
-
-.schedule-title {
+.schedule-box .schedule-title {
     color: #ffd700;
     font-weight: 900;
     font-size: 14px;
@@ -874,20 +873,28 @@ body.desktop-mode .toggle-container {
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 }
 
-.schedule-subtitle {
+.schedule-box .schedule-subtitle {
     color: #e0e0e0;
     font-size: 10px;
     font-weight: 500;
+    line-height: 1.2;
 }
 
-/* Огромный автомат (Правая половина) */
-.schedule-weapon {
-    position: absolute;
-    right: -20px; /* Прижали плотно вправо */
-    top: 50%;
-    transform: translateY(-50%); /* Центруем по вертикали */
-    height: 160%; /* ДЕЛАЕМ КАЛАШ ГИГАНТСКИМ */
-    z-index: 1; /* Кладем ПОД текст */
+/* Фигура 2: Блок под Автомат */
+.weapon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative; /* Позволяет калашу вылезать за рамки своего блока */
+}
+
+/* Сам огромный автомат */
+.weapon-huge-img {
+    width: 200%; /* Делаем его брутально огромным */
+    max-width: none; /* Снимаем лимиты ширины */
+    transform: scale(1.3) translateX(-15%); /* Увеличиваем и слегка наезжаем им влево, к расписанию */
     object-fit: contain;
-    pointer-events: none; /* Чтобы картинка не мешала нажимать на кнопку */
+    pointer-events: none;
+    z-index: 5;
+}
 }
