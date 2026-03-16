@@ -958,61 +958,67 @@ body.desktop-mode .toggle-container {
 /* ==========================================
    СВЕТЛАЯ ТЕМА (ИНВЕРСИЯ)
 ========================================== */
+/* Добавляем плавность, чтобы тема переключалась мягко и синхронно */
+body, .balance-pill, .glass-burger, .floating-bottom-bar, .logo-title, .balance-row {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+}
+
 body.light-theme {
     --bg-main: #f5f5f7 !important; 
+    --ui-surface: #ffffff !important; /* Единый чистый цвет для всех плашек */
+    --ui-border: rgba(0, 0, 0, 0.08) !important; /* Единая рамка */
     --text-primary: #121212 !important;
-    --text-muted: #8e8e93 !important;
+    --text-muted: rgba(18, 18, 18, 0.5) !important; /* Единый цвет второстепенного текста */
     background-color: var(--bg-main) !important;
 }
 
 body.light-theme .top-header .logo-title,
-body.light-theme .balance-row { color: #121212 !important; }
-body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
+body.light-theme .balance-row { color: var(--text-primary) !important; }
+body.light-theme .logo-subtitle { color: var(--text-muted) !important; }
 
-body.light-theme .balance-pill {
-    background: rgba(0, 0, 0, 0.05) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
-}
-
-/* 🔥 КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ 🔥 */
+/* Синхронизируем фон и рамки у верхних кнопок */
+body.light-theme .balance-pill,
 body.light-theme .glass-burger {
-    background: rgba(0, 0, 0, 0.05) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    background: var(--ui-surface) !important;
+    border: 1px solid var(--ui-border) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important; /* Легкая тень для объема */
 }
 
-/* Делаем сами полоски бургера черными */
 body.light-theme .glass-burger span { 
-    background-color: #121212 !important; 
+    background-color: var(--text-primary) !important; 
     box-shadow: none !important; 
 }
 
+/* Нижний бар делаем в том же стиле, что и верхние плашки */
 body.light-theme .floating-bottom-bar {
-    background: rgba(255, 255, 255, 0.9) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    background: rgba(255, 255, 255, 0.95) !important; /* Почти белый, чтобы сочетался с ui-surface */
+    border: 1px solid var(--ui-border) !important;
+    backdrop-filter: blur(10px); /* Красивое размытие контента под меню */
 }
-body.light-theme .nav-item.active { color: #121212 !important; }
+body.light-theme .nav-item.active { color: var(--text-primary) !important; }
 body.light-theme .toggle-container { display: none !important; }
 
-/* Теперь этот блок полностью повторяет логику черного + ОТЗЕРКАЛИВАНИЕ */
 .weapon-huge-img.light-weapon {
     width: 49%; 
     max-width: none;
-    /* scale(-2, 2) — первая цифра (-2) зеркалит по горизонтали и увеличивает, вторая (2) просто увеличивает по вертикали */
-    /* translateX инвертируем в (-19%), так как автомат теперь смотрит в другую сторону */
     transform: scale(-2, 2) translateY(20%) translateX(0%); 
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
-    /* Оставляем только легкую тень, чтобы пушка не сливалась с фоном */
     filter: drop-shadow(0px 10px 20px rgba(0,0,0,0.05));
 }
 
-/* Прячем гифку по умолчанию (в темной теме) */
 #white-theme-decor {
     display: none !important;
 }
 
-/* Показываем гифку, когда на body появляется класс белой темы */
+/* Добавляем анимацию появления гифки, чтобы она не "прыгала" резко */
 body.light-theme #white-theme-decor {
     display: flex !important;
+    animation: fadeInDecor 0.3s ease-in-out forwards;
+}
+
+@keyframes fadeInDecor {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
