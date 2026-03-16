@@ -842,62 +842,96 @@ body.desktop-mode .toggle-container {
     color: #ffd700;
 }
 
-/* ==========================================
-   БЛОК РАСПИСАНИЯ СТРИМОВ
-========================================== */
-.schedule-banner-container {
-    margin-top: 15px; 
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(28, 28, 30, 0.8) 100%);
-    border: 1px solid rgba(255, 215, 0, 0.2);
-    border-radius: 20px;
-    height: 95px;
-    position: relative;
-    overflow: hidden; /* 🔥 Именно это свойство обрезает калаш по границе блока 🔥 */
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    cursor: pointer;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    transition: transform 0.1s ease;
+/* --- Общая сетка для двух карточек --- */
+.action-cards-grid {
+    display: grid;
+    /* Левая карточка занимает 1 часть, правая - 1.6 части (она шире) */
+    grid-template-columns: 1fr 1.6fr; 
+    gap: 12px;
+    padding: 0 16px;
+    margin-bottom: 20px;
 }
 
-.schedule-banner-container:active {
-    transform: scale(0.96); 
+/* --- Карточка АУКЦИОНЫ --- */
+.auction-card {
+    background: #1c1c1e; /* Темный фон */
+    border-radius: 16px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 5px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.auction-content {
+    display: flex;
+    flex-direction: column; /* Текст будет ПОД фигурой */
+    align-items: center;
+    gap: 8px; /* Отступ между молотком и текстом */
+}
+
+.auction-content i {
+    color: #f5a623; /* Оранжевый цвет молотка */
+    font-size: 24px;
+    transform: rotate(-15deg); /* Легкий наклон иконки */
+}
+
+.auction-content span {
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- Карточка РАСПИСАНИЕ СТРИМОВ --- */
+.schedule-banner-container {
+    background: #1c1c1e;
+    border: 1px solid rgba(255, 215, 0, 0.3); /* Желтоватая обводка */
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden; /* Обрезает автомат, если он вылезет за края карточки */
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.05); /* Легкое свечение */
 }
 
 .schedule-text-zone {
     display: flex;
     flex-direction: column;
-    z-index: 2; /* Текст строго поверх картинки */
-    width: 60%; /* Оставляем место под пушку */
+    z-index: 2; /* Текст всегда ПОВЕРХ автомата */
+    max-width: 60%; /* Не даем тексту залезть на правую сторону */
 }
 
 .schedule-title {
-    font-size: 15px;
-    font-weight: 900;
     color: #ffd700;
+    font-weight: 900;
+    font-size: 14px;
     text-transform: uppercase;
-    text-shadow: 0 2px 10px rgba(255, 215, 0, 0.4);
     line-height: 1.1;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); /* Эффект неона/свечения */
     margin-bottom: 4px;
 }
 
 .schedule-subtitle {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.7);
-    font-weight: 600;
+    color: #e0e0e0;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.3;
 }
 
-/* 🔥 Стили для АК-47 🔥 */
+/* --- Настройка АВТОМАТА --- */
 .schedule-weapon {
-    position: absolute;
+    position: absolute; /* Отвязываем от текста */
+    right: -20px; /* Сдвигаем плотно вправо */
     top: 50%;
-    right: -130px; /* Сильно толкаем вправо, чтобы обрезать наполовину (подгони, если нужно) */
-    transform: translateY(-50%) rotate(-5deg); /* Центрируем по вертикали и даем дерзкий наклон */
-    height: 150px; /* Делаем калаш крупным */
+    transform: translateY(-50%); /* Центрируем по вертикали */
+    height: 140%; /* Делаем его крупным, как на скрине */
+    z-index: 1; /* Подкладываем ПОД текст */
     object-fit: contain;
-    z-index: 1;
-    filter: drop-shadow(-10px 10px 15px rgba(0,0,0,0.8)); /* Густая тень для объема */
-    pointer-events: none; 
+    pointer-events: none; /* Чтобы картинка не мешала кликать по кнопке */
 }
 
