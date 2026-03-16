@@ -988,7 +988,7 @@ body.light-theme #white-theme-decor {
     justify-content: center;
     width: 100%;
     position: absolute; 
-    bottom: 0; 
+    bottom: 40px; /* БЫЛО 0, подняли на 80px вверх */
     left: 0;
     z-index: 2;
     pointer-events: none;
@@ -1014,7 +1014,7 @@ body.light-theme .toggle-container { display: none !important; }
 .weapon-huge-img.light-weapon {
     width: 49%; 
     max-width: none;
-    transform: scale(-2, 2) translateY(20%) translateX(0%); 
+    transform: scale(-2, 2) translateY(0%) translateX(0%); /* БЫЛО 20%, СТАЛО 0% */
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
