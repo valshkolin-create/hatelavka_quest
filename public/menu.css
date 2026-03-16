@@ -977,14 +977,6 @@ body.light-theme .side-menu-header {
 
 /* Инвертируем логотип и баланс в черный */
 body.light-theme .top-header .logo-title,
-body.light-theme .balance-row { color: #121212 !important; }
-body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
-
-/* Белая плашка баланса */
-body.light-theme .balance-pill {
-    background: rgba(0, 0, 0, 0.05) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
-}
 
 /* КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ (Прозрачный с черными полосами) */
 body.light-theme .glass-burger {
