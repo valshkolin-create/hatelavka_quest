@@ -916,7 +916,7 @@ body.desktop-mode .toggle-container {
 
 /* Сам огромный автомат */
 .weapon-huge-img {
-    width: 143%;
+    width: 120%;
     max-width: none;
     transform: scale(2.2) translateY(15%) translateX(12%); 
     object-fit: contain;
