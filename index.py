@@ -15945,7 +15945,7 @@ async def buy_bott_item_proxy(
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
 
-    # =========================================================================
+   # =========================================================================
     # 🌟 ЛОГИКА КУПОНОВ (ПРОВЕРКА)
     # =========================================================================
     coupon_code = getattr(request_data, 'coupon_code', None)
@@ -15955,17 +15955,35 @@ async def buy_bott_item_proxy(
     if coupon_code:
         coupon_code = coupon_code.strip()
         if coupon_code:
-            code_res = await supabase.get("/cs_codes", params={"code": f"eq.{coupon_code}", "is_active": "eq.true"})
+            # 🔥 МАГИЯ СИНХРОНИЗАЦИИ: Если фронт просит открыть по ID
+            if coupon_code == "FREE_BY_ID":
+                code_res = await supabase.get(
+                    "/cs_codes", 
+                    params={
+                        "target_case_name": f"eq.{item_title}", # Ищем именно этот кейс
+                        "activated_by_ids": f"cs.{{{telegram_id}}}", # Где твой ID есть в массиве активаций
+                        "is_active": "eq.true"
+                    }
+                )
+            else:
+                # Старая логика (если вдруг код прислали напрямую)
+                code_res = await supabase.get("/cs_codes", params={"code": f"eq.{coupon_code}", "is_active": "eq.true"})
+            
             code_data = code_res.json()
-            if not code_data:
-                raise HTTPException(status_code=400, detail="⛔ Неверный или неактивный код!")
+            
+            # Проверяем, нашла ли база что-нибудь
+            if not code_data or not isinstance(code_data, list) or len(code_data) == 0:
+                raise HTTPException(status_code=400, detail="⛔ Неверный код или вы его не активировали!")
                 
             promo_data = code_data[0]
+            
+            # 🔥 ВАЖНО: Подменяем заглушку на реальный код из базы (например, "LENTYAY"), 
+            # чтобы ниже по коду он записался в историю выигрышей и обновил правильную строку!
+            coupon_code = promo_data['code']
             
             if promo_data['current_uses'] >= promo_data['max_uses']:
                 raise HTTPException(status_code=400, detail="⛔ Активации этого кода закончились!")
                 
-            # 🔥 НОВАЯ ПРОВЕРКА ПО НАЗВАНИЮ КЕЙСА 🔥
             target_case_name = promo_data.get('target_case_name')
             if target_case_name and target_case_name.strip().lower() != item_title.strip().lower():
                 raise HTTPException(status_code=400, detail="⛔ Этот купон предназначен для другого кейса!")
