@@ -633,19 +633,12 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 }
 
 /* ==========================================
-   ПЛАВНАЯ СМЕНА ЦВЕТОВ ИНТЕРФЕЙСА (ДЛЯ СВАЙПА ТЕМЫ)
+   ПЛАВНАЯ СМЕНА ЦВЕТОВ ИНТЕРФЕЙСА
 ========================================== */
 body,
-.top-header .logo-title,
-.logo-subtitle,
-.balance-row,
-.balance-pill,
-.glass-burger,
-.glass-burger span,
 .floating-bottom-bar,
 .nav-item,
 .nav-item i {
-    /* Анимируем только цвета, чтобы не сломать эффект нажатия (transform) */
     transition-property: color, background-color, border-color, background, border;
     transition-duration: 0.3s;
     transition-timing-function: ease-in-out;
@@ -972,14 +965,16 @@ body.light-theme {
     background-color: var(--bg-main) !important;
 }
 
+/* Инвертируем только логотип, баланс и нижний бар */
 body.light-theme .top-header .logo-title,
 body.light-theme .balance-row { color: #121212 !important; }
 body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
-body.light-theme .balance-pill, body.light-theme .glass-burger {
+
+body.light-theme .balance-pill {
     background: rgba(255, 255, 255, 0.8) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
-body.light-theme .glass-burger span { background-color: #121212 !important; box-shadow: none !important; }
+
 body.light-theme .floating-bottom-bar {
     background: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
@@ -987,6 +982,6 @@ body.light-theme .floating-bottom-bar {
 body.light-theme .nav-item.active { color: #121212 !important; }
 body.light-theme .toggle-container { display: none !important; }
 
-/* Плавность затухания */
+/* Плавность затухания контента */
 #dark-wrapper, #light-wrapper { transition: opacity 0.2s ease-in-out; }
 #light-wrapper { opacity: 0; }
