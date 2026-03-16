@@ -847,11 +847,14 @@ body.desktop-mode .toggle-container {
 /* --- ВТОРОЙ РЯД: Сетка под две отдельные фигуры --- */
 .row-two-grid {
     display: grid;
-    /* Если тут нет minmax - всё сломается! */
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important;
-    gap: 10px;
-    height: 110px;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important; 
+    gap: 10px; 
+    height: 110px; 
     width: 100%;
+    
+    /* ВОТ ОНА - МАГИЯ ПОДЪЕМА */
+    margin-top: -15px; /* Минусовое значение всасывает блок наверх */
+    
     margin-bottom: 20px;
 }
 
@@ -926,7 +929,7 @@ body.desktop-mode .toggle-container {
 .weapon-huge-img {
     width: 120%;
     max-width: none;
-    transform: scale(2.2) translateY(40%) translateX(3%); 
+    transform: scale(2.2) translateY(37%) translateX(10%); 
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
