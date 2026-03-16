@@ -2000,6 +2000,9 @@ function initBottomSwipe() {
 
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); 
         
+        // 🔥 Включаем плавность ВСЕХ элементов ТОЛЬКО на время свайпа
+        document.body.classList.add('theme-switching');
+        
         const isLight = document.body.classList.toggle('light-theme');
         const darkWrap = document.getElementById('dark-wrapper');
         const lightWrap = document.getElementById('light-wrapper');
@@ -2016,7 +2019,11 @@ function initBottomSwipe() {
                     content.scrollTop = 0; 
                     setTimeout(() => {
                         lightWrap.style.opacity = '1';
-                        setTimeout(() => isAnimating = false, 200);
+                        // Выключаем плавность после завершения свайпа
+                        setTimeout(() => {
+                            document.body.classList.remove('theme-switching');
+                            isAnimating = false;
+                        }, 200);
                     }, 50); 
                 }, 200);
             } else {
@@ -2027,15 +2034,20 @@ function initBottomSwipe() {
                     content.scrollTop = 0; 
                     setTimeout(() => {
                         darkWrap.style.opacity = '1';
-                        setTimeout(() => isAnimating = false, 200);
+                        setTimeout(() => {
+                            document.body.classList.remove('theme-switching');
+                            isAnimating = false;
+                        }, 200);
                     }, 50);
                 }, 200);
             }
         } else {
-            isAnimating = false;
+            setTimeout(() => {
+                document.body.classList.remove('theme-switching');
+                isAnimating = false;
+            }, 400);
         }
     };
-
     // Проверяем: разрешен ли наш кастомный свайп?
     const canSwipeBottom = () => {
         // Если мы уже в белой теме — разрешаем (чтобы вернуться обратно)
