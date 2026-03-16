@@ -583,7 +583,7 @@
                 return;
             }
             
-            cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем на складе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
+            cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем в базе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
 
             try {
                 const res = await fetch('/api/v1/admin/cases/search_cache', {
@@ -594,18 +594,26 @@
                 
                 cont.innerHTML = '';
                 if (!items || items.length === 0) {
-                    cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">На ботах ничего не найдено 😔</div>';
+                    cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
                     return;
                 }
 
                 items.forEach(item => {
-                    const safeJson = encodeURIComponent(JSON.stringify(item));
-                    const condText = item.condition ? ` (${item.condition})` : '';
+                    // Экранируем JSON для передачи в onclick
+                    const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
+                    
+                    // Цвета для красивой подсветки в поиске
+                    const rarityColors = {
+                        'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
+                        'purple': '#8847ff', 'pink': '#d32ce6', 'red': '#eb4b4b', 'gold': '#ffd700'
+                    };
+                    const rColor = rarityColors[item.rarity?.toLowerCase()] || '#4b69ff';
+
                     cont.innerHTML += `
-                    <div class="search-item">
+                    <div class="search-item" style="border-left: 3px solid ${rColor};">
                         <img src="${item.image_url}" class="search-img" onerror="this.src='https://placehold.co/40'">
                         <div class="search-info">
-                            <div style="font-weight:700; font-size:12px;">${item.market_hash_name}</div>
+                            <div style="font-weight:700; font-size:12px; color:#fff;">${item.market_hash_name}</div>
                             <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
                         </div>
                         <button class="search-btn" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
@@ -631,38 +639,65 @@
 
         // --- АВТОЗАПОЛНЕНИЕ ФОРМЫ ---
         function selectFromCache(jsonStr) {
-            const item = JSON.parse(decodeURIComponent(jsonStr));
-            
+            const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
             closeModal('modal-library');
-            openEditor(null);
             
-            const form = document.getElementById('edit-form');
-            form.market_hash_name.value = item.market_hash_name;
-
             let cleanName = item.market_hash_name;
-            const conditionMatch = cleanName.match(/(.*?)\s+\([^)]+\)$/);
-            if (conditionMatch) cleanName = conditionMatch[1]; 
-            
-            form.name.value = cleanName;
-            form.image_url.value = item.image_url || '';
-            const realPriceRub = item.price_rub || 0;
-            form.price_rub.value = realPriceRub;
-            
-            form.price.value = Math.ceil(realPriceRub * 0.6);
-            form.condition.value = item.condition || '';
+            let qualityCode = "";
 
-            const rarity = item.rarity || guessRarity(item.market_hash_name, realPriceRub);
-            const raritySelect = document.getElementById('inp-rarity');
-            if (Array.from(raritySelect.options).some(opt => opt.value === rarity)) {
-                raritySelect.value = rarity;
-            } else {
-                raritySelect.value = 'blue'; 
+            // 🔥 Умный словарь для перевода качества из названия в код
+            const wearMap = {
+                'factory new': 'FN', 'прямо с завода': 'FN',
+                'minimal wear': 'MW', 'немного поношенное': 'MW',
+                'field-tested': 'FT', 'после полевых испытаний': 'FT',
+                'well-worn': 'WW', 'поношенное': 'WW',
+                'battle-scarred': 'BS', 'закаленное в боях': 'BS'
+            };
+
+            // 1. Откусываем износ из скобок
+            const conditionMatch = cleanName.match(/(.*?)\s+\(([^)]+)\)$/);
+            if (conditionMatch) {
+                cleanName = conditionMatch[1].trim(); 
+                const rawWear = conditionMatch[2].toLowerCase().trim(); 
+                if (wearMap[rawWear]) {
+                    qualityCode = wearMap[rawWear]; 
+                }
             }
             
+            // 2. Заполняем поля формы
+            document.getElementById('inp-prize').value = cleanName;
+            document.getElementById('inp-img').value = item.image_url || '';
+            document.getElementById('inp-card-img').value = item.image_url || '';
+            
+            // Выставляем качество в выпадающем списке
+            if (qualityCode) {
+                document.getElementById('inp-quality').value = qualityCode;
+            } else {
+                document.getElementById('inp-quality').value = ""; 
+            }
+            
+            // Ставим цену билета (если она нужна)
+            document.querySelector('input[name="ticket_cost"]').value = Math.ceil(item.price_rub || 0);
+            
+            // 3. Редкость (Цвет подсветки)
+            const rarityMap = {
+                'common': '#b0c3d9', 'gray': '#b0c3d9', 'industrial': '#5e98d9', 'light_blue': '#5e98d9',
+                'milspec': '#4b69ff', 'blue': '#4b69ff', 'restricted': '#8847ff', 'purple': '#8847ff',
+                'classified': '#d32ce6', 'pink': '#d32ce6', 'covert': '#eb4b4b', 'red': '#eb4b4b',
+                'gold': '#ffd700', 'knife': '#ffd700', 'contraband': '#ffd700'
+            };
+            
+            const itemRarity = (item.rarity || 'blue').toLowerCase();
+            document.getElementById('inp-rarity-color').value = rarityMap[itemRarity] || '#4b69ff';
+            
+            // Обновляем визуал интерфейса
+            toggleRefundBox();
             updatePreview();
-            tg.HapticFeedback.notificationOccurred('success');
+            
+            if(window.Telegram?.WebApp?.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
         }
-
         function openEditor(jsonStr) {
             toggleFab();
             const modal = document.getElementById('modal-editor');
