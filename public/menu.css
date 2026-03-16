@@ -966,7 +966,7 @@ body.light-theme {
 }
 
 /* 🔥 ФИКС: ЗАЩИТА БУРГЕР-МЕНЮ ОТ ТЕМНЫХ БУКВ 🔥 
-   Возвращаем переменные в белый цвет специально для бокового меню */
+   Внутри бокового меню текст остается белым */
 body.light-theme .side-menu-content {
     --text-primary: #ffffff !important;
     --text-muted: #8e8e93 !important;
@@ -975,7 +975,7 @@ body.light-theme .side-menu-header {
     color: #ffffff !important;
 }
 
-/* 1. Инвертируем логотип и баланс в черный */
+/* 1. ЛОГОТИП И БАЛАНС — ЧЕРНЫЙ ЦВЕТ */
 body.light-theme .top-header .logo-title,
 body.light-theme .top-header .balance-value,
 body.light-theme .top-header .balance-amount,
@@ -983,13 +983,13 @@ body.light-theme .top-header .user-balance-text {
     color: #000000 !important;
 }
 
-/* 2. КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ */
+/* 2. КЛАССИЧЕСКИЙ БУРГЕР */
 body.light-theme .glass-burger {
     background: rgba(0, 0, 0, 0.05) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Делаем полоски внутри бургера черными */
+/* Полоски бургера — ЧЕРНЫЕ */
 body.light-theme .glass-burger span { 
     background-color: #000000 !important; 
     box-shadow: none !important; 
@@ -1003,11 +1003,11 @@ body.light-theme .floating-bottom-bar {
 body.light-theme .nav-item.active { color: #121212 !important; }
 body.light-theme .toggle-container { display: none !important; }
 
-/* Плавность затухания контента */
+/* Плавность перехода */
 #dark-wrapper, #light-wrapper { transition: opacity 0.2s ease-in-out; }
 #light-wrapper { opacity: 0; }
 
-/* Убираем лишние надстройки над блоком под автомат */
+/* Блок под автомат (1 в 1 как в черной версии) */
 .light-version-top {
     margin-top: 0;
     height: auto;
