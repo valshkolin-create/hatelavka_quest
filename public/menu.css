@@ -633,6 +633,25 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 }
 
 /* ==========================================
+   ПЛАВНАЯ СМЕНА ЦВЕТОВ ИНТЕРФЕЙСА (ДЛЯ СВАЙПА ТЕМЫ)
+========================================== */
+body,
+.top-header .logo-title,
+.logo-subtitle,
+.balance-row,
+.balance-pill,
+.glass-burger,
+.glass-burger span,
+.floating-bottom-bar,
+.nav-item,
+.nav-item i {
+    /* Анимируем только цвета, чтобы не сломать эффект нажатия (transform) */
+    transition-property: color, background-color, border-color, background, border;
+    transition-duration: 0.3s;
+    transition-timing-function: ease-in-out;
+}
+
+/* ==========================================
    СПЕЦИАЛЬНЫЙ ВИЗУАЛ ДЛЯ КЕЙСОВ (1в1 из shop.html)
 ========================================== */
 
