@@ -17,6 +17,7 @@
             --surface-color-2: rgba(44, 44, 46, 0.85);
             --notification-bg: rgba(255, 255, 255, 0.1); 
             --notification-icon-color: #00c0e3;
+            --safe-top-gap: max(env(safe-area-inset-top, 24px) + 55px, 75px);
         }
         
         /* --- Общие стили --- */
@@ -44,9 +45,8 @@
             -webkit-overflow-scrolling: touch;
             box-sizing: border-box;
             width: 100%;
-            
-            /* 🔥 УМНЫЙ ОТСТУП: Челка ТГ + 15px сверху, 15px по бокам, 40px снизу */
-            padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 15px) 15px 40px 15px;
+            /* 🔥 ИСПРАВЛЕНО: Используем нашу новую переменную */
+             padding: var(--safe-top-gap) 15px 40px 15px;
         }
         .page-header { 
             display: flex; 
@@ -77,16 +77,16 @@
 
         #notification-area {
     position: fixed;
-    /* Умный отступ сверху с учетом челки айфона */
-    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 65px);
+    /* 🔥 ИСПРАВЛЕНО: Привязываем к новому отступу + немного воздуха */
+    top: calc(var(--safe-top-gap) + 10px);
     left: 10px;
     right: 10px;
-    z-index: 99999; /* Самое важное: делаем выше всех модалок (у них 10000) */
-    pointer-events: none; /* Чтобы прозрачный контейнер не мешал кликать по экрану */
+    z-index: 99999; 
+    pointer-events: none; 
     display: flex;
     flex-direction: column;
     align-items: center;
-}
+}}
 
 #notification-area > div {
     /* Возвращаем кликабельность самим плашкам уведомлений, если нужно */
@@ -331,21 +331,21 @@
 
         /* --- МОДАЛЬНЫЕ ОКНА НА ВЕСЬ ЭКРАН (ФИКС СЛОЕВ) --- */
         .custom-modal {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            width: 100%; height: 100%;
-            background: var(--bg-color);
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            transform: translateY(100%);
-            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-            
-            /* 🔥 ФИКС: Добавили + 50px для системных кнопок Telegram (Назад/Закрыть) */
-            padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 50px); 
-            
-            box-sizing: border-box;
-        }
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 100%;
+    background: var(--bg-color);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    
+    /* 🔥 ИСПРАВЛЕНО: Гарантированный отступ для всех окон */
+    padding-top: var(--safe-top-gap); 
+    
+    box-sizing: border-box;
+}
 
         .custom-modal.visible {
             transform: translateY(0); /* Выезжает вверх */
