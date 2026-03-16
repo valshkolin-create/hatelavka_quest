@@ -1985,117 +1985,6 @@ function initPullToRefresh() {
     });
 }
 
-function initBottomSwipe() {
-    const content = document.getElementById('main-content'); 
-    if (!content) return;
-    
-    let startY = 0, isPullingBottom = false, wheelAccumulator = 0;
-    let isAnimating = false; 
-
-    const triggerThemeSwitch = () => {
-        if (isAnimating) return;
-        isAnimating = true; 
-        isPullingBottom = false; 
-        wheelAccumulator = 0;
-
-        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); 
-        
-        const isLight = document.body.classList.toggle('light-theme');
-        const darkWrap = document.getElementById('dark-wrapper');
-        const lightWrap = document.getElementById('light-wrapper');
-
-        // Плавно переключаем блоки контента
-        if (darkWrap && lightWrap) {
-            darkWrap.style.transition = 'opacity 0.2s ease-in-out';
-            lightWrap.style.transition = 'opacity 0.2s ease-in-out';
-
-            if (isLight) {
-                darkWrap.style.opacity = '0';
-                setTimeout(() => {
-                    darkWrap.style.display = 'none';
-                    lightWrap.style.display = 'flex'; // ВАЖНО: здесь теперь flex, а не block!
-                    content.scrollTop = 0; 
-                    setTimeout(() => {
-                        lightWrap.style.opacity = '1';
-                        setTimeout(() => isAnimating = false, 200);
-                    }, 50); 
-                }, 200);
-            } else {
-                lightWrap.style.opacity = '0';
-                setTimeout(() => {
-                    lightWrap.style.display = 'none';
-                    darkWrap.style.display = 'block';
-                    content.scrollTop = 0; 
-                    setTimeout(() => {
-                        darkWrap.style.opacity = '1';
-                        setTimeout(() => isAnimating = false, 200);
-                    }, 50);
-                }, 200);
-            }
-        } else {
-            isAnimating = false;
-        }
-    };
-
-    const canSwipeBottom = () => {
-        if (document.body.classList.contains('light-theme')) return true; 
-        const dashboardView = document.getElementById('view-dashboard');
-        return dashboardView && (dashboardView.classList.contains('active') || window.getComputedStyle(dashboardView).display !== 'none');
-    };
-
-    // ==========================================
-    // 1. СЕНСОР (ТЕЛЕФОНЫ)
-    // ==========================================
-    content.addEventListener('touchmove', (e) => {
-        if (isAnimating) return;
-        
-        const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
-        const isAtBottom = bottomDistance < 10; 
-        
-        if (isAtBottom) {
-            if (!isPullingBottom) {
-                startY = e.touches[0].clientY;
-                isPullingBottom = true;
-            }
-            
-            const diff = startY - e.touches[0].clientY; 
-            
-            if (diff > 0) { 
-                if (canSwipeBottom()) {
-                    if (e.cancelable) e.preventDefault(); 
-                    if (diff > 40) triggerThemeSwitch();
-                } else {
-                    isPullingBottom = false; 
-                }
-            }
-        } else {
-            isPullingBottom = false;
-        }
-    }, { passive: false });
-    
-    content.addEventListener('touchend', () => { isPullingBottom = false; });
-
-    // ==========================================
-    // 2. ДЕСКТОП (КОЛЕСИКО ВНИЗ)
-    // ==========================================
-    let wheelTimeout;
-    content.addEventListener('wheel', (e) => {
-        if (isAnimating) return;
-        const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
-        
-        if (bottomDistance < 10 && e.deltaY > 0) {
-            if (canSwipeBottom()) {
-                if (e.cancelable) e.preventDefault();
-                wheelAccumulator += e.deltaY;
-                if (wheelAccumulator > 100) triggerThemeSwitch();
-                
-                clearTimeout(wheelTimeout);
-                wheelTimeout = setTimeout(() => { wheelAccumulator = 0; }, 200);
-            }
-        }
-    }, { passive: false });
-}
-
 // 3. Безопасный клик (из-за которого была прошлая проблема)
 document.body.addEventListener('click', async (event) => {
     // Ищем кнопку безопасно при клике
@@ -2712,7 +2601,6 @@ try {
     // 3. ОБЩИЙ ЗАПУСК ИНТЕРФЕЙСА (Работает везде)
     setupNewUI();
     initPullToRefresh();
-    initBottomSwipe(); // Запускаем наш нижний свайп
     initSwipeTabs(); 
 
     // Запускаем основную логику загрузки данных
