@@ -1008,12 +1008,13 @@ body.theme-switching .nav-item.active {
     transition: all 0.4s ease-in-out !important;
 }
 
-/* Теперь этот блок полностью повторяет логику черного */
+/* Теперь этот блок полностью повторяет логику черного + ОТЗЕРКАЛИВАНИЕ */
 .weapon-huge-img.light-weapon {
-    width: 120%; /* Возвращаем как у черного */
+    width: 85%; 
     max-width: none;
-    /* Убрали scaleX(-1) и вернули масштаб 2.2 и координаты 37%/10% */
-    transform: scale(2.2) translateY(37%) translateX(10%); 
+    /* scale(-2, 2) — первая цифра (-2) зеркалит по горизонтали и увеличивает, вторая (2) просто увеличивает по вертикали */
+    /* translateX инвертируем в (-19%), так как автомат теперь смотрит в другую сторону */
+    transform: scale(-2, 2) translateY(-3.1%) translateX(-19%); 
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
