@@ -2592,21 +2592,8 @@ window.checkTradeStatus = async function(historyId) {
                     }
                 }, 30000); 
             }
-
-            // Показываем кнопку "Назад" в самом Телеграме
-            if (tg.BackButton) {
-                 tg.BackButton.show();
-                 tg.BackButton.onClick(() => { 
-                     dom.modalInventory.classList.remove('visible'); 
-                     tg.BackButton.hide(); 
-
-                     // 🛑 ОСТАНАВЛИВАЕМ ОБНОВЛЕНИЕ при нажатии "Назад"
-                     if (inventoryRefreshInterval) {
-                         clearInterval(inventoryRefreshInterval);
-                         inventoryRefreshInterval = null;
-                     }
-                 });
-            }
+            
+            // ВАЖНО: Никаких вызовов tg.BackButton здесь больше нет!
         };
     }
 
@@ -2619,9 +2606,8 @@ window.checkTradeStatus = async function(historyId) {
                 clearInterval(inventoryRefreshInterval);
                 inventoryRefreshInterval = null;
             }
-
-            // Скрываем нативную кнопку назад при закрытии крестиком
-            if (tg.BackButton) tg.BackButton.hide();
+            
+            // ВАЖНО: tg.BackButton.hide() тоже убрали!
         };
     }
     // Логика кнопки "Удалить историю" (ВНУТРИ МОДАЛКИ ПРОМОКОДОВ)
