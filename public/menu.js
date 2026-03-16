@@ -2000,13 +2000,50 @@ function initBottomSwipe() {
 
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); 
         
-        // 🔥 Включаем плавность ВСЕХ элементов ТОЛЬКО на время свайпа
-        document.body.classList.add('theme-switching');
-        
         const isLight = document.body.classList.toggle('light-theme');
         const darkWrap = document.getElementById('dark-wrapper');
         const lightWrap = document.getElementById('light-wrapper');
-        
+
+        // 🔥 ПРИНУДИТЕЛЬНАЯ СМЕНА ЦВЕТОВ ЧЕРЕЗ JS (БЕЗ ЗАДЕРЖЕК И АНИМАЦИЙ) 🔥
+        const bPill = document.querySelector('.balance-pill');
+        const bRow = document.querySelector('.balance-row');
+        const burger = document.querySelector('.glass-burger');
+        const burgerSpans = document.querySelectorAll('.glass-burger span');
+        const logoTitle = document.querySelector('.top-header .logo-title');
+        const logoSub = document.querySelector('.logo-subtitle');
+
+        // 1. Убиваем все транзишены, чтобы цвет поменялся мгновенно
+        const elementsToForce = [bPill, bRow, burger, logoTitle, logoSub, ...burgerSpans];
+        elementsToForce.forEach(el => {
+            if (el) el.style.transition = 'none';
+        });
+
+        // 2. Жестко ставим цвета
+        if (isLight) {
+            if (bPill) { bPill.style.background = 'rgba(0, 0, 0, 0.05)'; bPill.style.borderColor = 'rgba(0, 0, 0, 0.1)'; }
+            if (bRow) bRow.style.color = '#121212';
+            if (burger) { burger.style.background = 'rgba(0, 0, 0, 0.05)'; burger.style.borderColor = 'rgba(0, 0, 0, 0.1)'; }
+            burgerSpans.forEach(s => { s.style.backgroundColor = '#121212'; s.style.boxShadow = 'none'; });
+            if (logoTitle) logoTitle.style.color = '#121212';
+            if (logoSub) logoSub.style.color = 'rgba(0, 0, 0, 0.5)';
+        } else {
+            // Возвращаем в черную (очищаем стили JS, чтобы моментально вернулся твой черный CSS)
+            if (bPill) { bPill.style.background = ''; bPill.style.borderColor = ''; }
+            if (bRow) bRow.style.color = '';
+            if (burger) { burger.style.background = ''; burger.style.borderColor = ''; }
+            burgerSpans.forEach(s => { s.style.backgroundColor = ''; s.style.boxShadow = ''; });
+            if (logoTitle) logoTitle.style.color = '';
+            if (logoSub) logoSub.style.color = '';
+        }
+
+        // 3. Возвращаем родные анимации через 50мс (чтобы клики по кнопкам снова работали красиво)
+        setTimeout(() => {
+            elementsToForce.forEach(el => {
+                if (el) el.style.transition = '';
+            });
+        }, 50);
+
+        // Плавно переключаем блоки контента
         if (darkWrap && lightWrap) {
             darkWrap.style.transition = 'opacity 0.2s ease-in-out';
             lightWrap.style.transition = 'opacity 0.2s ease-in-out';
@@ -2019,11 +2056,7 @@ function initBottomSwipe() {
                     content.scrollTop = 0; 
                     setTimeout(() => {
                         lightWrap.style.opacity = '1';
-                        // Выключаем плавность после завершения свайпа
-                        setTimeout(() => {
-                            document.body.classList.remove('theme-switching');
-                            isAnimating = false;
-                        }, 200);
+                        setTimeout(() => isAnimating = false, 200);
                     }, 50); 
                 }, 200);
             } else {
@@ -2034,26 +2067,17 @@ function initBottomSwipe() {
                     content.scrollTop = 0; 
                     setTimeout(() => {
                         darkWrap.style.opacity = '1';
-                        setTimeout(() => {
-                            document.body.classList.remove('theme-switching');
-                            isAnimating = false;
-                        }, 200);
+                        setTimeout(() => isAnimating = false, 200);
                     }, 50);
                 }, 200);
             }
         } else {
-            setTimeout(() => {
-                document.body.classList.remove('theme-switching');
-                isAnimating = false;
-            }, 400);
+            isAnimating = false;
         }
     };
-    // Проверяем: разрешен ли наш кастомный свайп?
+
     const canSwipeBottom = () => {
-        // Если мы уже в белой теме — разрешаем (чтобы вернуться обратно)
         if (document.body.classList.contains('light-theme')) return true; 
-        
-        // Разрешаем переход ТОЛЬКО с "Главной"
         const dashboardView = document.getElementById('view-dashboard');
         return dashboardView && (dashboardView.classList.contains('active') || window.getComputedStyle(dashboardView).display !== 'none');
     };
@@ -2075,19 +2099,11 @@ function initBottomSwipe() {
             
             const diff = startY - e.touches[0].clientY; 
             
-            if (diff > 0) { // Если тянем экран вверх от дна
-                
-                // 🔥 ГЛАВНАЯ МАГИЯ ТУТ 🔥
+            if (diff > 0) { 
                 if (canSwipeBottom()) {
-                    // Если мы на Главной - блокируем системный скролл и делаем переход
                     if (e.cancelable) e.preventDefault(); 
-                    
-                    if (diff > 40) { 
-                        triggerThemeSwitch();
-                    }
+                    if (diff > 40) triggerThemeSwitch();
                 } else {
-                    // Если мы в Кейсах - ничего не блокируем! 
-                    // Просто сбрасываем нашу тягу, и браузер делает свой обычный свайп (свобода действий)
                     isPullingBottom = false; 
                 }
             }
@@ -2107,18 +2123,14 @@ function initBottomSwipe() {
         const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
         
         if (bottomDistance < 10 && e.deltaY > 0) {
-            
             if (canSwipeBottom()) {
-                // Блокируем дергание окна только на Главной
                 if (e.cancelable) e.preventDefault();
-                
                 wheelAccumulator += e.deltaY;
                 if (wheelAccumulator > 100) triggerThemeSwitch();
                 
                 clearTimeout(wheelTimeout);
                 wheelTimeout = setTimeout(() => { wheelAccumulator = 0; }, 200);
             }
-            // На вкладке "Кейсы" колесико мыши будет вести себя естественно (e.preventDefault не срабатывает)
         }
     }, { passive: false });
 }
