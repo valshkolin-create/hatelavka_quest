@@ -294,32 +294,6 @@ function updateLoading(percent) {
     if (dom.loadingText) dom.loadingText.textContent = Math.floor(percent) + '%';
     if (dom.loadingBarFill) dom.loadingBarFill.style.width = Math.floor(percent) + '%';
 }
-
-async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
-    if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
-        const options = { method, headers: { 'Content-Type': 'application/json' }, signal: controller.signal };
-        
-        // 🔥 ИСПРАВЛЕНИЕ: Получаем payload один раз и передаем платформу даже в GET-запросах
-        const authPayload = getAuthPayload();
-        
-        if (method !== 'GET') {
-            options.body = JSON.stringify({ ...body, ...authPayload });
-        } else {
-            const separator = url.includes('?') ? '&' : '?';
-            url += `${separator}initData=${encodeURIComponent(authPayload.initData)}&platform=${encodeURIComponent(authPayload.platform)}`;
-        }
-
-        const response = await fetch(url, options);
-        clearTimeout(timeoutId); 
-
-        if (response.status === 429) throw new Error('Cooldown active');
-        if (response.status === 204) return null;
-        
-        const result = await response.json();
-
        async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
     if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
     try {
