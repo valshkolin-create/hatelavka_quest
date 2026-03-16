@@ -379,7 +379,15 @@
             
             <div class="admin-form" style="margin-top: 15px;">
                 <input type="text" id="lib-search-inp" class="form-input" placeholder="Название (AK-47)..." oninput="debounceSearch()">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 8px; font-size: 12px;">
+                    <span style="color: var(--text-sec);">Фильтр по цене:</span>
+                    <div id="modal-balance-badge" style="background: rgba(255, 215, 0, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s;" onclick="setMaxPriceToBalance()">
+                        <i class="fa-solid fa-wallet"></i> <span id="modal-balance-val">Загрузка...</span>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <input type="number" id="lib-price-min" class="form-input" placeholder="Мин. цена ₽" oninput="debounceSearch()">
                     <input type="number" id="lib-price-max" class="form-input" placeholder="Макс. цена ₽" oninput="debounceSearch()">
                 </div>
@@ -388,6 +396,8 @@
             <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;" onscroll="handleScroll(this)">
                 <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>
             </div>
+        </div>
+    </div>
 
     <div id="modal-parts" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-parts')">
         <div class="bottom-sheet">
@@ -469,6 +479,9 @@
             document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>';
             currentOffset = 0;
             hasMoreItems = true;
+            
+            // Запрашиваем баланс при открытии склада
+            updateModalBalance(); 
         }
 
         function debounceSearch() {
@@ -485,6 +498,50 @@
                     currentOffset += 30; // Загружаем следующие 30
                     doSearch(false);
                 }
+            }
+        }
+
+        let currentMarketBalance = 0; // Глобальная переменная для баланса
+
+        // Функция запроса баланса
+        async function updateModalBalance() {
+            const balEl = document.getElementById('modal-balance-val');
+            balEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const res = await fetch('/api/v1/admin/market/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.market_success) {
+                        currentMarketBalance = parseFloat(data.balance);
+                        balEl.innerText = currentMarketBalance.toFixed(2) + ' ₽';
+                    } else {
+                        balEl.innerText = 'Ошибка API';
+                    }
+                } else {
+                    balEl.innerText = 'Сбой';
+                }
+            } catch (e) {
+                balEl.innerText = '---';
+            }
+        }
+
+        // Фича: клик по балансу вставляет его в Макс. цену
+        function setMaxPriceToBalance() {
+            if (currentMarketBalance > 0) {
+                // Округляем вниз, чтобы точно хватило денег
+                document.getElementById('lib-price-max').value = Math.floor(currentMarketBalance);
+                
+                // Даем виброотклик
+                if(window.Telegram?.WebApp?.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.selectionChanged();
+                }
+                
+                // Сразу запускаем поиск с новой ценой
+                debounceSearch(); 
             }
         }
 
@@ -586,29 +643,32 @@
                 }
             }
             
-            // 2. Вставляем только визуал (билеты и шанс остаются нетронутыми)
-            document.getElementById('inp-name').value = cleanName;
+            // 2. Вставляем данные в правильные ID инпутов розыгрыша
+            document.getElementById('inp-prize').value = cleanName; // Было inp-name
             document.getElementById('inp-img').value = item.image_url || '';
-            document.getElementById('inp-price-rub').value = item.price_rub || 0;
-            document.getElementById('inp-condition').value = qualityCode || ""; 
+            document.getElementById('inp-quality').value = qualityCode || ""; // Было inp-condition
             
-            const rarityMap = {
-                'common': 'common', 'gray': 'common', 'industrial': 'common', 'light_blue': 'blue',
-                'milspec': 'blue', 'blue': 'blue', 'restricted': 'purple', 'purple': 'purple',
-                'classified': 'pink', 'pink': 'pink', 'covert': 'red', 'red': 'red',
-                'gold': 'gold', 'knife': 'gold', 'contraband': 'gold'
+            // Маппинг редкости сразу в HEX-коды для селекта inp-rarity-color
+            const rarityHexMap = {
+                'common': '#b0c3d9', 'gray': '#b0c3d9', 'industrial': '#5e98d9', 
+                'light_blue': '#4b69ff', 'milspec': '#4b69ff', 'blue': '#4b69ff', 
+                'restricted': '#8847ff', 'purple': '#8847ff', 
+                'classified': '#d32ce6', 'pink': '#d32ce6', 
+                'covert': '#eb4b4b', 'red': '#eb4b4b',
+                'gold': '#ffd700', 'knife': '#ffd700', 'contraband': '#ffd700'
             };
             
             const itemRarity = (item.rarity || 'blue').toLowerCase();
-            document.getElementById('inp-rarity').value = rarityMap[itemRarity] || 'blue';
+            document.getElementById('inp-rarity-color').value = rarityHexMap[itemRarity] || '#4b69ff';
             
+            // Обновляем превьюшку
             updatePreview();
             
             if(window.Telegram?.WebApp?.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
         }
-
+        
         /* --- ОСТАЛЬНАЯ ЛОГИКА --- */
         function toggleScheduleMode() {
             const box = document.getElementById('schedule-setup');
