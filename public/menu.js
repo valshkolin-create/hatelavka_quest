@@ -2036,23 +2036,26 @@ function initBottomSwipe() {
         }
     };
 
+    // Проверяем: разрешен ли наш кастомный свайп?
     const canSwipeBottom = () => {
+        // Если мы уже в белой теме — разрешаем (чтобы вернуться обратно)
         if (document.body.classList.contains('light-theme')) return true; 
-        const shopView = document.getElementById('view-shop');
-        return shopView && (shopView.classList.contains('active') || window.getComputedStyle(shopView).display !== 'none');
+        
+        // Разрешаем переход ТОЛЬКО с "Главной"
+        const dashboardView = document.getElementById('view-dashboard');
+        return dashboardView && (dashboardView.classList.contains('active') || window.getComputedStyle(dashboardView).display !== 'none');
     };
 
     // ==========================================
-    // 1. СЕНСОР (ТЕЛЕФОНЫ) - "Схватывание" на лету
+    // 1. СЕНСОР (ТЕЛЕФОНЫ)
     // ==========================================
     content.addEventListener('touchmove', (e) => {
         if (isAnimating) return;
         
         const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
-        const isAtBottom = bottomDistance < 10; // Добрались до дна
+        const isAtBottom = bottomDistance < 10; 
         
         if (isAtBottom) {
-            // Если только что коснулись дна — ставим якорь для расчета свайпа
             if (!isPullingBottom) {
                 startY = e.touches[0].clientY;
                 isPullingBottom = true;
@@ -2060,19 +2063,23 @@ function initBottomSwipe() {
             
             const diff = startY - e.touches[0].clientY; 
             
-            if (diff > 0) { // Если тянем экран вверх
-                if (e.cancelable) e.preventDefault(); // Намертво стопорим прокрутку
+            if (diff > 0) { // Если тянем экран вверх от дна
                 
-                if (diff > 40) { // Протянули 40 пикселей
-                    if (canSwipeBottom()) {
+                // 🔥 ГЛАВНАЯ МАГИЯ ТУТ 🔥
+                if (canSwipeBottom()) {
+                    // Если мы на Главной - блокируем системный скролл и делаем переход
+                    if (e.cancelable) e.preventDefault(); 
+                    
+                    if (diff > 40) { 
                         triggerThemeSwitch();
-                    } else {
-                        isPullingBottom = false; // Блокируем свайп на "Главной"
                     }
+                } else {
+                    // Если мы в Кейсах - ничего не блокируем! 
+                    // Просто сбрасываем нашу тягу, и браузер делает свой обычный свайп (свобода действий)
+                    isPullingBottom = false; 
                 }
             }
         } else {
-            // Если мы не на дне, сбрасываем состояние
             isPullingBottom = false;
         }
     }, { passive: false });
@@ -2088,15 +2095,18 @@ function initBottomSwipe() {
         const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
         
         if (bottomDistance < 10 && e.deltaY > 0) {
-            if (e.cancelable) e.preventDefault();
             
             if (canSwipeBottom()) {
+                // Блокируем дергание окна только на Главной
+                if (e.cancelable) e.preventDefault();
+                
                 wheelAccumulator += e.deltaY;
                 if (wheelAccumulator > 100) triggerThemeSwitch();
                 
                 clearTimeout(wheelTimeout);
                 wheelTimeout = setTimeout(() => { wheelAccumulator = 0; }, 200);
             }
+            // На вкладке "Кейсы" колесико мыши будет вести себя естественно (e.preventDefault не срабатывает)
         }
     }, { passive: false });
 }
