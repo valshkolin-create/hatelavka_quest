@@ -853,12 +853,18 @@ body.desktop-mode .toggle-container {
     margin-bottom: 20px;
 }
 
-/* Фигура 1: Блок Расписания (СТИЛЬ 1В1 КАК АУКЦИОНЫ) */
+/* Фигура 1: Блок Расписания (ЖЕЛЕЗОБЕТОННЫЙ РАЗМЕР) */
 .schedule-box {
+    /* Эти два свойства запрещают коробке растягиваться из-за текста */
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    
     background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, #1c1c1e 100%);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 18px;
-    padding: 15px 5px;
+    padding: 10px 5px; /* Чуть уменьшил отступ, чтобы дать тексту больше места */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -869,6 +875,7 @@ body.desktop-mode .toggle-container {
     transition: transform 0.1s ease;
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .schedule-box:active {
@@ -878,18 +885,25 @@ body.desktop-mode .toggle-container {
 .schedule-box .schedule-title {
     color: #ffd700;
     font-weight: 800;
-    font-size: 13px;
+    font-size: 11px; /* Сделали шрифт чуть меньше, чтобы точно влез (было 13px) */
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    line-height: 1.1;
+    width: 100%;
+    white-space: normal; /* Заставляем текст переноситься на новую строку */
+    word-wrap: break-word;
 }
 
 .schedule-box .schedule-subtitle {
     color: rgba(255, 255, 255, 0.6);
-    font-size: 9px;
+    font-size: 8px; /* Подзаголовок тоже уменьшили для пропорций */
     font-weight: 600;
-    line-height: 1.2;
-} /* <-- ВОТ ЭТА СКОБКА БЫЛА ПОТЕРЯНА! */
+    line-height: 1.1;
+    width: 100%;
+    white-space: normal;
+    word-wrap: break-word;
+}
 
 /* Фигура 2: Блок под Автомат */
 .weapon-box {
@@ -903,7 +917,7 @@ body.desktop-mode .toggle-container {
 .weapon-huge-img {
     width: 143%;
     max-width: none;
-    transform: scale(2.6) translateY(24%) translateX(8%);
+    transform: scale(2.2) translateY(15%) translateX(12%)
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
