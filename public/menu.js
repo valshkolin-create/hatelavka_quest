@@ -2004,7 +2004,7 @@ function initBottomSwipe() {
         const darkWrap = document.getElementById('dark-wrapper');
         const lightWrap = document.getElementById('light-wrapper');
 
-        // 🔥 ПРИНУДИТЕЛЬНАЯ СМЕНА ЦВЕТОВ ЧЕРЕЗ JS (БЕЗ ЗАДЕРЖЕК И АНИМАЦИЙ) 🔥
+        // 🔥 ФИКС: Мгновенная смена без анимации (оставляем только это) 🔥
         const bPill = document.querySelector('.balance-pill');
         const bRow = document.querySelector('.balance-row');
         const burger = document.querySelector('.glass-burger');
@@ -2012,38 +2012,23 @@ function initBottomSwipe() {
         const logoTitle = document.querySelector('.top-header .logo-title');
         const logoSub = document.querySelector('.logo-subtitle');
 
-        // 1. Убиваем все транзишены, чтобы цвет поменялся мгновенно
+        // 1. Убиваем все транзишены, чтобы цвета из CSS применились мгновенно
         const elementsToForce = [bPill, bRow, burger, logoTitle, logoSub, ...burgerSpans];
         elementsToForce.forEach(el => {
             if (el) el.style.transition = 'none';
         });
 
-        // 2. Жестко ставим цвета
-        if (isLight) {
-            if (bPill) { bPill.style.background = 'rgba(0, 0, 0, 0.05)'; bPill.style.borderColor = 'rgba(0, 0, 0, 0.1)'; }
-            if (bRow) bRow.style.color = '#121212';
-            if (burger) { burger.style.background = 'rgba(0, 0, 0, 0.05)'; burger.style.borderColor = 'rgba(0, 0, 0, 0.1)'; }
-            burgerSpans.forEach(s => { s.style.backgroundColor = '#121212'; s.style.boxShadow = 'none'; });
-            if (logoTitle) logoTitle.style.color = '#121212';
-            if (logoSub) logoSub.style.color = 'rgba(0, 0, 0, 0.5)';
-        } else {
-            // Возвращаем в черную (очищаем стили JS, чтобы моментально вернулся твой черный CSS)
-            if (bPill) { bPill.style.background = ''; bPill.style.borderColor = ''; }
-            if (bRow) bRow.style.color = '';
-            if (burger) { burger.style.background = ''; burger.style.borderColor = ''; }
-            burgerSpans.forEach(s => { s.style.backgroundColor = ''; s.style.boxShadow = ''; });
-            if (logoTitle) logoTitle.style.color = '';
-            if (logoSub) logoSub.style.color = '';
-        }
+        // 2. Цвета теперь НЕ ставятся через JS. Они берутся из твоего CSS.
+        // Блок принудительной установки цветов удален.
 
-        // 3. Возвращаем родные анимации через 50мс (чтобы клики по кнопкам снова работали красиво)
+        // 3. Возвращаем родные анимации через 50мс
         setTimeout(() => {
             elementsToForce.forEach(el => {
                 if (el) el.style.transition = '';
             });
         }, 50);
 
-        // Плавно переключаем блоки контента
+        // Плавно переключаем блоки контента (эта часть без изменений)
         if (darkWrap && lightWrap) {
             darkWrap.style.transition = 'opacity 0.2s ease-in-out';
             lightWrap.style.transition = 'opacity 0.2s ease-in-out';
