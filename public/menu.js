@@ -1178,27 +1178,54 @@ async function loadCategory(catId, preloadedData = null) {
     const container = document.getElementById('shop-grid');
     if (!container) return;
 
-    // Если данные переданы напрямую (из Promise.all или кэша) — рендерим мгновенно
+    let hasCachedData = false;
+
+    // 1. МОМЕНТАЛЬНЫЙ РЕНДЕР: Ищем данные в оперативной памяти или localStorage
     if (preloadedData) {
         itemsCache[catId] = preloadedData;
         renderItems(preloadedData);
-        return;
-    }
-
-    // Если это клик по папке (запрос на лету)
-    if (itemsCache[catId]) {
+        hasCachedData = true;
+    } else if (itemsCache[catId]) {
         renderItems(itemsCache[catId]);
-        return;
+        hasCachedData = true;
+    } else {
+        // Достаем из жесткого кэша браузера
+        const localCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
+        if (localCache[catId] && localCache[catId].length > 0) {
+            itemsCache[catId] = localCache[catId];
+            renderItems(localCache[catId]);
+            hasCachedData = true;
+        }
     }
 
-    container.innerHTML = Array(6).fill('<div class="shop-item skeleton" style="height: 180px; background: transparent; border-radius: 12px; animation: pulse 1.5s infinite;"></div>').join('');
+    // 2. ПОКАЗЫВАЕМ СКЕЛЕТОНЫ (Только если юзер зашел вообще в первый раз в жизни)
+    if (!hasCachedData) {
+        container.innerHTML = Array(6).fill('<div class="shop-item skeleton" style="height: 180px; background: transparent; border-radius: 12px; animation: pulse 1.5s infinite;"></div>').join('');
+    }
 
+    // 3. ФОНОВОЕ ОБНОВЛЕНИЕ: Тихо идем на сервер за свежими ценами и наличием
     try {
+        // isSilent = true, чтобы экран не перекрывался серым лоадером
         const items = await makeApiRequest('/api/v1/shop/goods', { category_id: catId }, 'POST', true);
-        itemsCache[catId] = items;
-        renderItems(items); 
+        
+        // Если юзер еще не переключил вкладку, пока шел запрос
+        if (window.currentCategoryId === catId) {
+            itemsCache[catId] = items;
+            
+            // Записываем свежие данные в localStorage для следующего раза
+            const newShopCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
+            newShopCache[catId] = items;
+            localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
+
+            // Перерисовываем актуальные данные (юзер этого почти не заметит, разве что изменится цена)
+            renderItems(items); 
+        }
     } catch (e) {
-        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30; padding: 20px;">Ошибка загрузки</div>';
+        console.warn("Фоновое обновление кейсов не удалось:", e);
+        // Показываем ошибку только если у нас вообще нет никаких данных (даже кэша)
+        if (!hasCachedData) {
+            container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ff3b30; padding: 20px;">Ошибка загрузки</div>';
+        }
     }
 }
 
