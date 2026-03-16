@@ -320,79 +320,110 @@ async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false)
         
         const result = await response.json();
 
-       if (!response.ok) {
-            // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
+       async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
+    if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        const options = { method, headers: { 'Content-Type': 'application/json' }, signal: controller.signal };
+        
+        // 🔥 ИСПРАВЛЕНИЕ: Получаем payload один раз и передаем платформу даже в GET-запросах
+        const authPayload = getAuthPayload();
+        
+        if (method !== 'GET') {
+            options.body = JSON.stringify({ ...body, ...authPayload });
+        } else {
+            const separator = url.includes('?') ? '&' : '?';
+            url += `${separator}initData=${encodeURIComponent(authPayload.initData)}&platform=${encodeURIComponent(authPayload.platform)}`;
+        }
+
+        const response = await fetch(url, options);
+        clearTimeout(timeoutId); 
+
+        if (response.status === 429) throw new Error('Cooldown active');
+        if (response.status === 204) return null;
+        
+        const result = await response.json();
+
+       if (!response.ok) {
+            // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
 if (response.status === 403 && result.detail === "BANNED") {
-    document.body.innerHTML = `
-        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
-            <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
-            
-            <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
-            
-            <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
-                Твой аккаунт заблокирован за нарушение правил системы.
-            </p>
+    document.body.innerHTML = `
+        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
+            <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
+            
+            <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
+            
+            <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
+                Твой аккаунт заблокирован за нарушение правил системы.
+            </p>
 
-            <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
-                <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
-            </a>
+            <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
+                <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
+            </a>
 
-            <p style="color: #555; font-size: 11px; margin-top: 25px; line-height: 1.4;">
-                Если ты считаешь, что это произошло по ошибке,<br>напиши в поддержку для разбора ситуации.
-            </p>
-        </div>
-        <style>
-            @keyframes banPulse {
-                0% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(1.05); opacity: 0.8; }
-                100% { transform: scale(1); opacity: 1; }
-            }
-        </style>
-    `;
-    
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
+            <p style="color: #555; font-size: 11px; margin-top: 25px; line-height: 1.4;">
+                Если ты считаешь, что это произошло по ошибке,<br>напиши в поддержку для разбора ситуации.
+            </p>
+        </div>
+        <style>
+            @keyframes banPulse {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.05); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
+            }
+        </style>
+    `;
+    
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
 
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-        Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-    }
-    
-    throw new Error("USER_BANNED");
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+    }
+    
+    throw new Error("USER_BANNED");
 }
 
-            // 🛡️ 2. ДУБЛИКАТЫ (400 DUPLICATE_TRADE_LINK / DUPLICATE_TWITCH)
-            if (response.status === 400 && (result.detail === "DUPLICATE_TRADE_LINK" || result.detail === "DUPLICATE_TWITCH")) {
-                let msg = result.detail === "DUPLICATE_TRADE_LINK"
-                    ? "Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите правильную ссылку ниже."
-                    : "Этот Twitch-аккаунт уже привязан к другому пользователю! Обратитесь в поддержку.";
-                
-                window.showSecurityBlock(msg);
-                throw new Error("Security Block");
-            }
+            // 👇 ВОТ СЮДА ВСТАВЛЯЕМ НАШУ ПРОВЕРКУ БОТА 👇
+            if (result.detail && (result.detail.includes("Не найден пользователь") || result.detail === "BOT_USER_NOT_FOUND")) {
+                window.showBotAuthWarning();
+                throw new Error("Bot Auth Required");
+            }
+            // 👆 КОНЕЦ ВСТАВКИ 👆
 
-            // Обычная проверка на 403 (другие ограничения)
-            if (response.status === 403) {
-                window.showSecurityBlock(result.detail || "Доступ ограничен.");
-                throw new Error("Security Block");
-            }
-            
-            throw new Error(result.detail || result.message || 'Ошибка сервера');
-        }
-        return result;
-    } catch (e) {
-        if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
-        
-        // 🔥 ВАЖНО: Если это Бан или Блок, НЕ показываем стандартный customAlert поверх нашего окна
-        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED'];
-        if (!silentErrors.includes(e.message) && !isSilent) {
-             customAlert(`Ошибка: ${e.message}`);
-        }
-        throw e;
-    } finally {
-        if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-    }
+            // 🛡️ 2. ДУБЛИКАТЫ (400 DUPLICATE_TRADE_LINK / DUPLICATE_TWITCH)
+            if (response.status === 400 && (result.detail === "DUPLICATE_TRADE_LINK" || result.detail === "DUPLICATE_TWITCH")) {
+                let msg = result.detail === "DUPLICATE_TRADE_LINK"
+                    ? "Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите правильную ссылку ниже."
+                    : "Этот Twitch-аккаунт уже привязан к другому пользователю! Обратитесь в поддержку.";
+                
+                window.showSecurityBlock(msg);
+                throw new Error("Security Block");
+            }
+
+            // Обычная проверка на 403 (другие ограничения)
+            if (response.status === 403) {
+                window.showSecurityBlock(result.detail || "Доступ ограничен.");
+                throw new Error("Security Block");
+            }
+            
+            throw new Error(result.detail || result.message || 'Ошибка сервера');
+        }
+        return result;
+    } catch (e) {
+        if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
+        
+        // 🔥 ВАЖНО: Если это Бан, Блок или Ошибка Бота, НЕ показываем стандартный customAlert поверх нашего окна
+        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED', 'Bot Auth Required'];
+        if (!silentErrors.includes(e.message) && !isSilent) {
+             customAlert(`Ошибка: ${e.message}`);
+        }
+        throw e;
+    } finally {
+        if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    }
 }
-
 // Предзагрузка массива картинок
 function preloadImages(urls) {
     const promises = urls.map(url => {
@@ -1979,6 +2010,90 @@ document.getElementById('gift-open-btn')?.addEventListener('click', async () => 
 document.getElementById('gift-x-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 document.getElementById('gift-close-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 
+
+// 🔥 Окно предупреждения о том, что нужно запустить бота (Обновлено с альт. ботом)
+window.showBotAuthWarning = function() {
+    // Если окно уже открыто — не дублируем
+    if (document.getElementById('bot-auth-modal')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'bot-auth-modal';
+    
+    // Делаем затемнение поверх всего
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 99999999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
+
+    overlay.innerHTML = `
+        <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 350px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(42, 171, 238, 0.3); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+            <i class="fa-brands fa-telegram" style="font-size:44px; color:#2AABEE; margin-bottom:15px; display:block; filter: drop-shadow(0 0 10px rgba(42, 171, 238, 0.4));"></i>
+            <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 800;">HATElavka тебя не знает((</h3>
+            
+            <div style="margin-bottom: 15px; font-size: 13px; color: #bbb; line-height: 1.4; text-align: left;">
+                По правилам Telegram боты <b>не могут писать первыми</b> и проверять твой профиль, пока ты сам с ними не поздороваешься.<br><br>
+                Чтобы баланс обновлялся и покупки работали как часы, запусти основного <b>или</b> альтернативного бота:
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; text-align: left;">
+                
+                <a href="https://t.me/HATElavka_bot" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/HATElavka_bot'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(42, 171, 238, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(42, 171, 238, 0.2); transition: background 0.2s;">
+                    <i class="fa-solid fa-robot" style="color: #2AABEE; width: 24px; text-align: center; font-size: 16px;"></i>
+                    <div style="flex-grow: 1;">
+                        <div style="font-size: 13px; font-weight: 700;">Основной бот</div>
+                        <div style="color: #888; font-size: 10px; margin-top: 2px;">Полный функционал проекта</div>
+                    </div>
+                </a>
+
+                <a href="https://t.me/quest_hatelavka_bot" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/quest_hatelavka_bot'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(145, 70, 255, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(145, 70, 255, 0.2); transition: background 0.2s;">
+                    <i class="fa-solid fa-user-ninja" style="color: #9146ff; width: 24px; text-align: center; font-size: 16px;"></i>
+                    <div style="flex-grow: 1;">
+                        <div style="font-size: 13px; font-weight: 700;">Альтернативный бот</div>
+                        <div style="color: #888; font-size: 10px; margin-top: 2px; line-height: 1.2;">Никакой рекламы, только важные уведомления (можно выключить в профиле)</div>
+                    </div>
+                </a>
+                
+                <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.05); margin: 4px 0;"></div>
+
+                <a href="https://t.me/hatelove_ttv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(255, 215, 0, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(255, 215, 0, 0.1); transition: background 0.2s;">
+                    <i class="fa-solid fa-bullhorn" style="color: #ffd700; width: 24px; text-align: center; font-size: 16px;"></i>
+                    <div>
+                        <div style="font-size: 13px; font-weight: 700;">Наш канал</div>
+                        <div style="color: #888; font-size: 10px; margin-top: 2px;">@hatelove_ttv</div>
+                    </div>
+                </a>
+                
+                <a href="https://t.me/hatelovettv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelovettv'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(52, 199, 89, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(52, 199, 89, 0.1); transition: background 0.2s;">
+                    <i class="fa-solid fa-comments" style="color: #34c759; width: 24px; text-align: center; font-size: 16px;"></i>
+                    <div>
+                        <div style="font-size: 13px; font-weight: 700;">Наш чат</div>
+                        <div style="color: #888; font-size: 10px; margin-top: 2px;">@hatelovettv</div>
+                    </div>
+                </a>
+            </div>
+
+            <button id="close-bot-auth-btn" style="width: 100%; background: #333; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Я все понял, закрыть</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    
+    // Плавное появление
+    requestAnimationFrame(() => overlay.style.opacity = '1');
+
+    // Кнопка закрытия
+    overlay.querySelector('#close-bot-auth-btn').onclick = function() {
+        this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Проверяем...';
+        this.style.background = '#444';
+        
+        // Даем анимации прокрутиться и закрываем
+        setTimeout(() => {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.remove();
+                // На всякий случай обновляем баланс после того, как юзер всё сделал
+                checkBalance(true);
+            }, 300);
+        }, 800);
+    };
+};
 
 
 // Специальное окно для блокировки абузеров (с возможностью смены Trade-ссылки)
