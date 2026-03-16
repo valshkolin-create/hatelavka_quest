@@ -2004,31 +2004,7 @@ function initBottomSwipe() {
         const darkWrap = document.getElementById('dark-wrapper');
         const lightWrap = document.getElementById('light-wrapper');
 
-        // 🔥 ФИКС: Мгновенная смена без анимации (оставляем только это) 🔥
-        const bPill = document.querySelector('.balance-pill');
-        const bRow = document.querySelector('.balance-row');
-        const burger = document.querySelector('.glass-burger');
-        const burgerSpans = document.querySelectorAll('.glass-burger span');
-        const logoTitle = document.querySelector('.top-header .logo-title');
-        const logoSub = document.querySelector('.logo-subtitle');
-
-        // 1. Убиваем все транзишены, чтобы цвета из CSS применились мгновенно
-        const elementsToForce = [bPill, bRow, burger, logoTitle, logoSub, ...burgerSpans];
-        elementsToForce.forEach(el => {
-            if (el) el.style.transition = 'none';
-        });
-
-        // 2. Цвета теперь НЕ ставятся через JS. Они берутся из твоего CSS.
-        // Блок принудительной установки цветов удален.
-
-        // 3. Возвращаем родные анимации через 50мс
-        setTimeout(() => {
-            elementsToForce.forEach(el => {
-                if (el) el.style.transition = '';
-            });
-        }, 50);
-
-        // Плавно переключаем блоки контента (эта часть без изменений)
+        // Плавно переключаем блоки контента
         if (darkWrap && lightWrap) {
             darkWrap.style.transition = 'opacity 0.2s ease-in-out';
             lightWrap.style.transition = 'opacity 0.2s ease-in-out';
@@ -2037,7 +2013,7 @@ function initBottomSwipe() {
                 darkWrap.style.opacity = '0';
                 setTimeout(() => {
                     darkWrap.style.display = 'none';
-                    lightWrap.style.display = 'block';
+                    lightWrap.style.display = 'flex'; // ВАЖНО: здесь теперь flex, а не block!
                     content.scrollTop = 0; 
                     setTimeout(() => {
                         lightWrap.style.opacity = '1';
