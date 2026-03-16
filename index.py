@@ -3044,7 +3044,7 @@ async def sync_steam_inventory(
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ (Для предметов, которых нет на ботах)
+    # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ
     def guess_backend_rarity(name: str, price: float) -> str:
         n = name.lower()
         if any(k in n for k in ['knife', 'нож', 'karambit', 'bayonet', 'shadow daggers', 'gloves', 'перчатки', 'wraps', 'bloodhound', 'talon', 'butterfly']):
@@ -3072,7 +3072,6 @@ async def sync_steam_inventory(
             if not steam_id:
                 return {"bot_id": bot_id, "error": "SteamID не найден в куках", "items": []}
 
-            # Ссылки на инвентарь (EN для ключей цен, RU для названий в боте)
             url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
             url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
             
@@ -3089,7 +3088,6 @@ async def sync_steam_inventory(
                         await asyncio.sleep(3)
                 return last_resp
 
-            # Запускаем запросы EN и RU параллельно для экономии времени
             resp_en, resp_ru = await asyncio.gather(safe_get(url_en), safe_get(url_ru))
 
             if not resp_en or resp_en.status_code != 200:
@@ -3100,14 +3098,12 @@ async def sync_steam_inventory(
                 err_code = resp_ru.status_code if resp_ru else "Network Error"
                 return {"bot_id": bot_id, "error": f"Steam RU Error: {err_code}", "items": []}
 
-            # Собираем английские названия (Market Hash Name)
             en_desc_map = {}
             for desc in resp_en.json().get("descriptions", []):
                 if desc.get("tradable") == 1:
                     key = f"{desc.get('classid')}_{desc.get('instanceid')}"
                     en_desc_map[key] = desc.get("market_hash_name", "")
 
-            # Парсим русские данные
             data_ru = resp_ru.json()
             assets = data_ru.get("assets", [])
             bot_items = []
@@ -3128,8 +3124,8 @@ async def sync_steam_inventory(
                     desc_map[key] = {
                         "name_ru": desc.get("market_name", desc.get("name", "Неизвестно")),
                         "hash_name_en": en_desc_map.get(key, desc.get("market_hash_name", "")),
-                        "condition": CONDITION_MAP.get(raw_cond, "-"), # Используем твой глобальный маппинг
-                        "rarity": RARITY_COLOR_MAP.get(rarity_col, "common"), # И твой маппинг редкости
+                        "condition": CONDITION_MAP.get(raw_cond, "-"), 
+                        "rarity": RARITY_COLOR_MAP.get(rarity_col, "common"), 
                         "icon_url": f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url_large') or desc.get('icon_url')}/512fx512f" if (desc.get("icon_url_large") or desc.get("icon_url")) else ""
                     }
 
@@ -3155,7 +3151,6 @@ async def sync_steam_inventory(
             tasks = [fetch_bot_inventory(client, bot) for bot in bots]
             bot_results = await asyncio.gather(*tasks)
 
-        # 🔥 СОБИРАЕМ 100% ТОЧНЫЕ РЕДКОСТИ С БОТОВ 🔥
         known_rarities = {}
         for res in bot_results:
             for item in res.get("items", []):
@@ -3165,7 +3160,7 @@ async def sync_steam_inventory(
 
         # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
         market_prices_rub = {}
-        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ СКИНЫ ДЛЯ ЗАМЕН 🔥
+        popular_market_items = [] 
         
         try:
             async with httpx.AsyncClient() as client:
@@ -3175,41 +3170,26 @@ async def sync_steam_inventory(
                     for item in market_data.get("items", []):
                         m_name = item["market_hash_name"]
                         price = float(item["price"])
-                        volume = int(item.get("volume", 0)) # Продажи за 24ч
+                        volume = int(item.get("volume", 0)) 
                         
                         market_prices_rub[m_name] = price
                         
-                        # 🔥 ОТБИРАЕМ КАНДИДАТОВ НА ЗАМЕНУ (Цена 20-3000 руб, популярные)
+                        # Лимит 20-3000 руб
                         if 20 <= price <= 3000 and volume > 5:
                             if "Sticker" not in m_name and "Graffiti" not in m_name and "Capsule" not in m_name:
-                                # Определяем редкость для Маркета
                                 final_rarity = known_rarities.get(m_name) or guess_backend_rarity(m_name, price)
-                                
                                 popular_market_items.append({
                                     "market_hash_name": m_name,
                                     "price_rub": price,
-                                    "rarity": final_rarity, # 🔥 ПИШЕМ РЕДКОСТЬ
+                                    "rarity": final_rarity, 
                                     "is_available": True,
                                     "last_sync": "now()"
                                 })
         except Exception as e:
             print(f"Критическая ошибка загрузки цен: {e}")
 
-       # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (С ПЕРЕНОСОМ КАРТИНОК) ---
+       # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ТОЛЬКО ЦЕНЫ И РЕДКОСТЬ) ---
         try:
-            # 1. 🔥 БЕЗОПАСНО тянем словарь картинок
-            img_dict = {}
-            try:
-                dict_res = await supabase.get("/skin_images_dict", params={"select": "market_hash_name,icon_url"})
-                if dict_res.status_code == 200:
-                    for d in dict_res.json():
-                        # Собираем удобный словарик: {"AK-47 | Redline": "https://..."}
-                        if "market_hash_name" in d and "icon_url" in d:
-                            img_dict[d["market_hash_name"]] = d["icon_url"]
-            except Exception as e:
-                print(f"⚠️ Не удалось загрузить skin_images_dict (идем дальше без картинок): {e}")
-
-            # 2. Получаем предметы с витрины
             items_res = await supabase.get("/cs_items", params={"select": "id, market_hash_name, condition, rarity"})
             shop_items = items_res.json() if items_res.status_code == 200 else []
             
@@ -3228,6 +3208,7 @@ async def sync_steam_inventory(
                 full_name = base_name
                 if "(" not in base_name and item.get("condition") in cond_map:
                     full_name = f"{base_name}{cond_map[item['condition']]}"
+                    # Запускаем обновление имени в базе
                     asyncio.create_task(
                         supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json={"market_hash_name": full_name})
                     )
@@ -3243,32 +3224,64 @@ async def sync_steam_inventory(
                     "market_hash_name": full_name,
                     "price_rub": m_price,
                     "rarity": final_rarity,
-                    "image_url": img_dict.get(full_name, ""), # 🔥 ПЕРЕНОСИМ КАРТИНКУ СЮДА
                     "is_available": m_price > 0,
                     "last_sync": "now()"
                 })
 
-            # ДОБРАСЫВАЕМ ГЛОБАЛЬНЫЕ СКИНЫ
-            import random
-            random.shuffle(popular_market_items)
-            extra_items = popular_market_items[:1000] 
-            
-            for ext_item in extra_items:
+            for ext_item in popular_market_items:
                 m_name = ext_item["market_hash_name"]
                 if m_name not in unique_names_to_sync:
-                    # 🔥 Добавляем картинку к глобальным скинам тоже
-                    ext_item["image_url"] = img_dict.get(m_name, "") 
                     market_cache_payload.append(ext_item)
                     unique_names_to_sync.add(m_name)
             
-            # Заливаем пачками по 100
             for i in range(0, len(market_cache_payload), 100):
                 await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
-            print(f"[SYNC] market_cache обновлен для {len(market_cache_payload)} товаров. Картинки перенесены.")
+            print(f"[SYNC] Цены обновлены для {len(market_cache_payload)} товаров (до 3000 руб).")
         except Exception as e:
-            print(f"Ошибка обновления market_cache: {e}")
+            print(f"Ошибка обновления цен market_cache: {e}")
 
-        # 4. ОБРАБОТКА, РАСЧЕТ ТИКЕТОВ И СОХРАНЕНИЕ В КЭШ БОТОВ
+        # =====================================================
+        # 🚀 ШАГ 4: УМНАЯ ПОДГРУЗКА КАРТИНОК (БЕЗОПАСНЫЙ PATCH)
+        # =====================================================
+        try:
+            res_nulls = await supabase.get("/market_cache", params={
+                "image_url": "is.null", 
+                "select": "market_hash_name"
+            })
+            null_items = res_nulls.json() if res_nulls.status_code == 200 else []
+            
+            if null_items:
+                res_dict = await supabase.get("/skin_images_dict", params={"select": "market_hash_name,icon_url"})
+                img_dict = {d["market_hash_name"]: d["icon_url"] for d in res_dict.json()} if res_dict.status_code == 200 else {}
+                
+                payload_to_update = []
+                for item in null_items:
+                    m_name = item.get("market_hash_name")
+                    if m_name in img_dict:
+                        payload_to_update.append({
+                            "market_hash_name": m_name,
+                            "image_url": img_dict[m_name]
+                        })
+                
+                if payload_to_update:
+                    # 🔥 Используем безопасный PATCH, чтобы не стереть цены
+                    img_update_tasks = [
+                        supabase.patch("/market_cache", params={"market_hash_name": f"eq.{obj['market_hash_name']}"}, json={"image_url": obj["image_url"]})
+                        for obj in payload_to_update
+                    ]
+                    # Отправляем пачками по 10 запросов
+                    for i in range(0, len(img_update_tasks), 10):
+                        await asyncio.gather(*img_update_tasks[i:i+10])
+                    print(f"[SYNC] Нашли и прикрепили картинки для {len(payload_to_update)} скинов!")
+                else:
+                    print("[SYNC] Новых картинок для пустых скинов пока нет в словаре.")
+                    
+        except Exception as e:
+            print(f"⚠️ Ошибка при подгрузке недостающих картинок: {e}")
+
+        # ЗДЕСЬ БЫЛ РАННИЙ RETURN, МЫ ЕГО УДАЛИЛИ!
+
+        # 5. ОБРАБОТКА, РАСЧЕТ ТИКЕТОВ И СОХРАНЕНИЕ В КЭШ БОТОВ
         total_synced = 0
         bot_stats = {}
         unique_pairs = {} 
@@ -3284,7 +3297,7 @@ async def sync_steam_inventory(
                 p_rub = market_prices_rub.get(item["market_hash_name"], 0.0)
                 
                 if p_rub == 0.0:
-                    p_rub = round(0.02 * EXCHANGE_RATE, 2)
+                    p_rub = round(0.02 * EXCHANGE_RATE, 2) # Убедись, что EXCHANGE_RATE импортирован или объявлен!
                 elif p_rub > 2000.0:
                     p_rub = 2000.0
                 
@@ -3299,18 +3312,15 @@ async def sync_steam_inventory(
                 bot_inventory.append(item)
 
             if bot_inventory:
-                # 🔥 ПРАВКА 1: СНАЧАЛА УДАЛЯЕМ И ЖДЕМ ЗАВЕРШЕНИЯ (Защита от гонки)
                 try:
                     await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
                 except Exception as e:
                     print(f"Ошибка очистки инвентаря бота {bot_id}: {e}")
                 
-                # Готовим задачи на вставку
                 insert_tasks = []
                 for i in range(0, len(bot_inventory), 50):
                     insert_tasks.append(supabase.post("/steam_inventory_cache", json=bot_inventory[i:i+50]))
                 
-                # 🔥 ПРАВКА 2: ВСТАВЛЯЕМ ПАЧКАМИ ПО 5 ЗАПРОСОВ (Защита от httpx.ReadError)
                 for i in range(0, len(insert_tasks), 5):
                     await asyncio.gather(*insert_tasks[i:i+5])
                 
@@ -3319,14 +3329,13 @@ async def sync_steam_inventory(
             else:
                 bot_stats[bot_id] = "Инвентарь пуст."
 
-        # --- 🚀 ШАГ 5: УСКОРЕННАЯ СИНХРОНИЗАЦИЯ CS_ITEMS ---
+        # --- 🚀 ШАГ 6: УСКОРЕННАЯ СИНХРОНИЗАЦИЯ CS_ITEMS ---
         if unique_pairs:
             print(f"[SYNC] Обновление market_hash_name для {len(unique_pairs)} предметов...")
             update_tasks = [
                 supabase.patch("/cs_items", params={"name": f"eq.{ru_name}"}, json={"market_hash_name": en_name})
                 for ru_name, en_name in unique_pairs.items()
             ]
-            # 🔥 ПРАВКА 3: Уменьшаем пачку с 30 до 10, чтобы Supabase не сбрасывал соединение
             for i in range(0, len(update_tasks), 10):
                 await asyncio.gather(*update_tasks[i:i+10])
 
@@ -3337,7 +3346,6 @@ async def sync_steam_inventory(
             "bot_details": bot_stats
         }
 
-    # 👇 ДОБАВЬ ВОТ ЭТИ 6 СТРОК 👇
     except Exception as e:
         return {
             "success": False, 
