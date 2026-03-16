@@ -1984,10 +1984,15 @@ document.getElementById('gift-x-btn')?.addEventListener('click', () => document.
 document.getElementById('gift-close-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 
 
-// 🔥 Окно предупреждения о том, что нужно запустить бота (Обновлено с альт. ботом)
+// 🔥 Глобальный флаг: запоминаем, показывали ли уже окно
+window.hasShownBotAuthWarning = false;
+
 window.showBotAuthWarning = function() {
-    // Если окно уже открыто — не дублируем
-    if (document.getElementById('bot-auth-modal')) return;
+    // Если окно уже открыто ИЛИ мы его уже показывали после загрузки страницы — блокируем
+    if (window.hasShownBotAuthWarning || document.getElementById('bot-auth-modal')) return;
+
+    // Ставим галочку, что мы предупредили юзера
+    window.hasShownBotAuthWarning = true;
 
     const overlay = document.createElement('div');
     overlay.id = 'bot-auth-modal';
@@ -2053,21 +2058,18 @@ window.showBotAuthWarning = function() {
 
     // Кнопка закрытия
     overlay.querySelector('#close-bot-auth-btn').onclick = function() {
-        this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Проверяем...';
+        this.innerHTML = 'Закрываем...';
         this.style.background = '#444';
         
-        // Даем анимации прокрутиться и закрываем
+        // Даем анимации прокрутиться и просто закрываем окно (без дергания API)
         setTimeout(() => {
             overlay.style.opacity = '0';
             setTimeout(() => {
                 overlay.remove();
-                // На всякий случай обновляем баланс после того, как юзер всё сделал
-                checkBalance(true);
             }, 300);
-        }, 800);
+        }, 300);
     };
 };
-
 
 // Специальное окно для блокировки абузеров (с возможностью смены Trade-ссылки)
 window.showSecurityBlock = function(message) {
