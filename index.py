@@ -494,7 +494,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
    # ==========================================
     # 🛒 ЛАВКА: ТОЛЬКО МАРКЕТ (PURE MARKET)
     # ==========================================
-    if source == "shop":
+    if source in ["shop", "raffle"]:
         if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
             logging.info(f"[STOREKEEPER] Лавка: Пробуем купить на Маркете: {market_search_name}")
             
@@ -15688,7 +15688,6 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
         return False
 
 
-# --- УМНЫЙ ЭНДПОИНТ ДЛЯ МАГАЗИНА (БЕЗ ФОНОВЫХ ЗАДАЧ) ---
 @app.post("/api/v1/shop/smart_balance")
 async def get_shop_smart_balance(
     request_data: InitDataRequest,
@@ -15703,14 +15702,14 @@ async def get_shop_smart_balance(
     
     telegram_id = int(user_info["id"])
 
-    # 1. Читаем кэш и билеты из БД
+    # 1. Читаем кэш и билеты из БД (в базе хранятся КОПЕЙКИ)
     user_resp = await supabase.get(
         "/users", 
         params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync, tickets, bott_internal_id"}
     )
     user_data = user_resp.json()[0] if user_resp.json() else {}
     
-    current_coins = user_data.get("bot_t_coins", 0)
+    current_coins_kopecks = user_data.get("bot_t_coins", 0)
     current_tickets = user_data.get("tickets", 0)
     
     # 2. Проверяем кэш (5 сек)
@@ -15724,9 +15723,12 @@ async def get_shop_smart_balance(
         except ValueError:
             pass
 
-    # Если обновляли только что - отдаем сразу
+    # Если обновляли только что - отдаем сразу (ОТДАЕМ ФРОНТУ РУБЛИ, разделив на 100)
     if not should_sync:
-        return {"balance": current_coins, "tickets": current_tickets}
+        return {
+            "balance": current_coins_kopecks / 100.0, # Превращаем копейки в рубли для отображения
+            "tickets": current_tickets
+        }
 
     # 3. Идем в Bot-t по Telegram ID
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
@@ -15736,7 +15738,6 @@ async def get_shop_smart_balance(
         "secretKey": BOTT_SECRET_KEY
     }
     
-    # ПЕРЕДАЕМ ИМЕННО telegram_id
     payload = {
         "bot_id": int(BOTT_BOT_ID),
         "telegram_id": telegram_id 
@@ -15749,21 +15750,19 @@ async def get_shop_smart_balance(
         if resp.status_code == 200:
             res_json = resp.json()
             
-            # Проверяем успешный статус ответа самого Bot-T
             if res_json.get("result") is True:
                 api_data = res_json.get("data", {})
                 
-                # Баланс приходит в копейках, переводим в нормальные значения
-                raw_money = api_data.get("money", 0)
-                current_coins = int(raw_money / 100) 
+                # API отдает копейки. ОСТАВЛЯЕМ ИХ КОПЕЙКАМИ для базы!
+                raw_money = api_data.get("money", 0) 
+                current_coins_kopecks = int(raw_money)
                 
-                # Обновляем базу
+                # Обновляем базу (Сохраняем копейки)
                 update_data = {
-                    "bot_t_coins": current_coins,
+                    "bot_t_coins": current_coins_kopecks,
                     "last_balance_sync": datetime.now(timezone.utc).isoformat()
                 }
                 
-                # Дописываем ключи, если они обновились
                 if api_data.get("id"): 
                     update_data["bott_internal_id"] = api_data.get("id")
                 if api_data.get("secret_user_key"): 
@@ -15778,9 +15777,9 @@ async def get_shop_smart_balance(
     except Exception as e:
         logging.error(f"[SHOP BALANCE] Исключение при запросе: {e}")
 
-    # Отдаем актуальные данные
+    # Отдаем актуальные данные на фронт (СНОВА В РУБЛЯХ)
     return {
-        "balance": current_coins, 
+        "balance": current_coins_kopecks / 100.0, 
         "tickets": current_tickets
     }
     
