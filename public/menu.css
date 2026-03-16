@@ -842,4 +842,62 @@ body.desktop-mode .toggle-container {
     color: #ffd700;
 }
 
+/* ==========================================
+   БЛОК РАСПИСАНИЯ СТРИМОВ
+========================================== */
+.schedule-banner-container {
+    margin-top: 15px; 
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(28, 28, 30, 0.8) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 20px;
+    height: 95px;
+    position: relative;
+    overflow: hidden; /* 🔥 Именно это свойство обрезает калаш по границе блока 🔥 */
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    transition: transform 0.1s ease;
+}
+
+.schedule-banner-container:active {
+    transform: scale(0.96); 
+}
+
+.schedule-text-zone {
+    display: flex;
+    flex-direction: column;
+    z-index: 2; /* Текст строго поверх картинки */
+    width: 60%; /* Оставляем место под пушку */
+}
+
+.schedule-title {
+    font-size: 15px;
+    font-weight: 900;
+    color: #ffd700;
+    text-transform: uppercase;
+    text-shadow: 0 2px 10px rgba(255, 215, 0, 0.4);
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+
+.schedule-subtitle {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+}
+
+/* 🔥 Стили для АК-47 🔥 */
+.schedule-weapon {
+    position: absolute;
+    top: 50%;
+    right: -130px; /* Сильно толкаем вправо, чтобы обрезать наполовину (подгони, если нужно) */
+    transform: translateY(-50%) rotate(-5deg); /* Центрируем по вертикали и даем дерзкий наклон */
+    height: 150px; /* Делаем калаш крупным */
+    object-fit: contain;
+    z-index: 1;
+    filter: drop-shadow(-10px 10px 15px rgba(0,0,0,0.8)); /* Густая тень для объема */
+    pointer-events: none; 
+}
 
