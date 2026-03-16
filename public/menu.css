@@ -1009,28 +1009,22 @@ body.light-theme .toggle-container { display: none !important; }
 #light-wrapper { opacity: 0; }
 
 
-/* Специальный отступ для верха белой версии, чтобы автомат не залез на шапку */
+/* Убираем лишние надстройки над блоком */
 .light-version-top {
-    margin-top: 20px;
-    height: 120px; /* Фиксируем высоту блока, чтобы не прыгала верстка */
-    margin-bottom: 40px;
+    margin-top: 0;
+    height: auto;
+    margin-bottom: 0;
 }
 
-/* Настройки конкретно для нового автомата на белом фоне */
+/* Теперь этот блок полностью повторяет логику черного */
 .weapon-huge-img.light-weapon {
-    width: 130%;
+    width: 120%; /* Возвращаем как у черного */
     max-width: none;
-    /* scaleX(-1) — зеркалит по горизонтали, scale(2.4) — увеличивает */
-    /* Смещаем translateX в другую сторону (-5%), так как пушка теперь смотрит вправо */
-    transform: scaleX(-1) scale(2.4) translateY(25%) translateX(-5%);
+    /* Убрали scaleX(-1) и вернули масштаб 2.2 и координаты 37%/10% */
+    transform: scale(2.2) translateY(37%) translateX(10%); 
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
-    /* Тень тоже немного корректируем под новый разворот */
-    filter: drop-shadow(15px 15px 20px rgba(0,0,0,0.1));
-}
-
-/* Фикс для мобилок, чтобы пушка не создавала горизонтальный скролл */
-#light-wrapper {
-    overflow-x: hidden;
+    /* Оставляем только легкую тень, чтобы пушка не сливалась с фоном */
+    filter: drop-shadow(0px 10px 20px rgba(0,0,0,0.05));
 }
