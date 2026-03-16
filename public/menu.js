@@ -1990,18 +1990,15 @@ function initBottomSwipe() {
     if (!content) return;
     
     let startY = 0, isPullingBottom = false, wheelAccumulator = 0;
-    let isAnimating = false; // 🔥 ЗАЩИТА ОТ МНОЖЕСТВЕННЫХ СРАБАТЫВАНИЙ
+    let isAnimating = false; 
 
-    // --- ПЛАВНОЕ ПЕРЕКЛЮЧЕНИЕ ---
     const triggerThemeSwitch = () => {
-        if (isAnimating) return; // Если уже переключаемся - игнорим
+        if (isAnimating) return;
         isAnimating = true; 
         isPullingBottom = false; 
         wheelAccumulator = 0;
 
-        if (window.Telegram?.WebApp?.HapticFeedback) {
-            Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); 
-        }
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); 
         
         const isLight = document.body.classList.toggle('light-theme');
         const darkWrap = document.getElementById('dark-wrapper');
@@ -2016,11 +2013,10 @@ function initBottomSwipe() {
                 setTimeout(() => {
                     darkWrap.style.display = 'none';
                     lightWrap.style.display = 'block';
-                    content.scrollTop = 0; // Кидаем наверх страницы
-                    
+                    content.scrollTop = 0; 
                     setTimeout(() => {
                         lightWrap.style.opacity = '1';
-                        setTimeout(() => isAnimating = false, 200); // Снимаем блок
+                        setTimeout(() => isAnimating = false, 200);
                     }, 50); 
                 }, 200);
             } else {
@@ -2029,7 +2025,6 @@ function initBottomSwipe() {
                     lightWrap.style.display = 'none';
                     darkWrap.style.display = 'block';
                     content.scrollTop = 0; 
-                    
                     setTimeout(() => {
                         darkWrap.style.opacity = '1';
                         setTimeout(() => isAnimating = false, 200);
@@ -2041,52 +2036,48 @@ function initBottomSwipe() {
         }
     };
 
-    // --- ПРОВЕРКА: МОЖНО ЛИ ДЕЛАТЬ СВАЙП? ---
     const canSwipeBottom = () => {
         if (document.body.classList.contains('light-theme')) return true; 
         const shopView = document.getElementById('view-shop');
-        return shopView && shopView.classList.contains('active');
+        return shopView && (shopView.classList.contains('active') || window.getComputedStyle(shopView).display !== 'none');
     };
 
     // ==========================================
-    // 1. СЕНСОР (ТЕЛЕФОНЫ)
+    // 1. СЕНСОР (ТЕЛЕФОНЫ) - "Схватывание" на лету
     // ==========================================
-    content.addEventListener('touchstart', (e) => { 
+    content.addEventListener('touchmove', (e) => {
         if (isAnimating) return;
         
-        // Даем погрешность в 10px для мобилок
         const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
-        if (bottomDistance < 10) { 
-            startY = e.touches[0].clientY; 
-            isPullingBottom = true; 
-        } 
-    }, { passive: true });
-    
-    content.addEventListener('touchmove', (e) => {
-        if (!isPullingBottom || isAnimating) return; 
+        const isAtBottom = bottomDistance < 10; // Добрались до дна
         
-        const diff = startY - e.touches[0].clientY; 
-        
-        // Если тянем палец вверх (diff в плюсе)
-        if (diff > 0) { 
-            // 1. ЖЕСТКО БЛОКИРУЕМ ЭКРАН
-            if (e.cancelable) e.preventDefault(); 
+        if (isAtBottom) {
+            // Если только что коснулись дна — ставим якорь для расчета свайпа
+            if (!isPullingBottom) {
+                startY = e.touches[0].clientY;
+                isPullingBottom = true;
+            }
             
-            // 2. ЕСЛИ ПРОТЯНУЛИ 40 ПИКСЕЛЕЙ - ПЕРЕКЛЮЧАЕМ
-            if (diff > 40) {
-                if (canSwipeBottom()) {
-                    triggerThemeSwitch();
-                } else {
-                    // На Главной просто сбрасываем тягу
-                    isPullingBottom = false; 
+            const diff = startY - e.touches[0].clientY; 
+            
+            if (diff > 0) { // Если тянем экран вверх
+                if (e.cancelable) e.preventDefault(); // Намертво стопорим прокрутку
+                
+                if (diff > 40) { // Протянули 40 пикселей
+                    if (canSwipeBottom()) {
+                        triggerThemeSwitch();
+                    } else {
+                        isPullingBottom = false; // Блокируем свайп на "Главной"
+                    }
                 }
             }
+        } else {
+            // Если мы не на дне, сбрасываем состояние
+            isPullingBottom = false;
         }
     }, { passive: false });
     
-    content.addEventListener('touchend', () => {
-        isPullingBottom = false; 
-    });
+    content.addEventListener('touchend', () => { isPullingBottom = false; });
 
     // ==========================================
     // 2. ДЕСКТОП (КОЛЕСИКО ВНИЗ)
@@ -2094,16 +2085,14 @@ function initBottomSwipe() {
     let wheelTimeout;
     content.addEventListener('wheel', (e) => {
         if (isAnimating) return;
-        
         const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
+        
         if (bottomDistance < 10 && e.deltaY > 0) {
             if (e.cancelable) e.preventDefault();
             
             if (canSwipeBottom()) {
                 wheelAccumulator += e.deltaY;
-                if (wheelAccumulator > 100) {
-                    triggerThemeSwitch();
-                }
+                if (wheelAccumulator > 100) triggerThemeSwitch();
                 
                 clearTimeout(wheelTimeout);
                 wheelTimeout = setTimeout(() => { wheelAccumulator = 0; }, 200);
