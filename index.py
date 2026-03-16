@@ -20448,8 +20448,12 @@ async def cancel_tg_challenge_paid(request: Request):
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
 # =====================================================
 
+# 1. Добавили нужные поля из фронтенда
 class SearchCacheRequest(BaseModel):
-    query: str
+    query: str = ""
+    min_price: float = 0.0
+    max_price: float = 9999999.0
+    offset: int = 0
 
 @app.post("/api/v1/admin/cases/search_cache")
 async def admin_cases_search_cache(
@@ -20457,26 +20461,27 @@ async def admin_cases_search_cache(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     import asyncio
-    # 1. Чистим запрос
+    
     query = req.query.strip().replace("%", "").replace("?", "").replace("&", "")
     
-    if not query or len(query) < 2:
+    # Разрешаем пустой текстовый запрос, если указана цена (чтобы можно было искать просто до 100 рублей)
+    if len(query) < 2 and req.min_price == 0 and req.max_price >= 9999999:
         return []
 
     try:
-        # 2. Запускаем ДВА параллельных запроса:
-        # Один ищет цены и редкость в market_cache
-        # Второй ищет картинки в skin_images_dict
+        # 2. Передаем параметры списком кортежей. 
+        # Это позволяет задать два фильтра на price_rub (gte и lte)
+        market_params = [
+            ("select", "market_hash_name,price_rub,rarity"),
+            ("market_hash_name", f"ilike.*{query}*"),
+            ("price_rub", f"gte.{req.min_price}"),
+            ("price_rub", f"lte.{req.max_price}"),
+            ("order", "price_rub.desc"),
+            ("limit", "30"), # 30 штук, как просит твой фронтенд (currentOffset += 30)
+            ("offset", str(req.offset))
+        ]
         
-        cache_req = supabase.get(
-            "/market_cache", 
-            params={
-                "market_hash_name": f"ilike.*{query}*",
-                "select": "market_hash_name,price_rub,rarity",
-                "order": "price_rub.desc", # Дорогое сверху
-                "limit": 50
-            }
-        )
+        cache_req = supabase.get("/market_cache", params=market_params)
         
         imgs_req = supabase.get(
             "/skin_images_dict", 
@@ -20487,7 +20492,6 @@ async def admin_cases_search_cache(
             }
         )
         
-        # Ждем оба ответа одновременно
         res_cache, res_imgs = await asyncio.gather(cache_req, imgs_req)
         
         if res_cache.status_code != 200:
@@ -20500,10 +20504,8 @@ async def admin_cases_search_cache(
         if not isinstance(items, list) or not items:
             return []
 
-        # 3. Делаем словарь картинок для быстрого доступа (Имя -> Ссылка)
         img_dict = {img.get("market_hash_name"): img.get("icon_url") for img in imgs}
 
-        # 4. Собираем уникальные предметы для фронтенда
         seen = set()
         unique_items = []
         
@@ -20513,11 +20515,9 @@ async def admin_cases_search_cache(
                 seen.add(name)
                 unique_items.append({
                     "market_hash_name": name,
-                    # Берем оригинальную картинку Steam, если нет - ставим заглушку
                     "image_url": img_dict.get(name, "https://placehold.co/150"), 
                     "price_rub": it.get("price_rub", 0),
                     "rarity": it.get("rarity", "blue")
-                    # Качество (condition) фронтенд сам вырежет из названия!
                 })
                 
         return unique_items
