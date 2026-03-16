@@ -995,14 +995,24 @@ body.light-theme .toggle-container { display: none !important; }
 
 /* Теперь этот блок полностью повторяет логику черного + ОТЗЕРКАЛИВАНИЕ */
 .weapon-huge-img.light-weapon {
-    width: 77%; 
+    width: 49%; 
     max-width: none;
     /* scale(-2, 2) — первая цифра (-2) зеркалит по горизонтали и увеличивает, вторая (2) просто увеличивает по вертикали */
     /* translateX инвертируем в (-19%), так как автомат теперь смотрит в другую сторону */
-    transform: scale(-2, 2) translateY(-2.1%) translateX(14%); 
+    transform: scale(-2, 2) translateY(20%) translateX(0%); 
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
     /* Оставляем только легкую тень, чтобы пушка не сливалась с фоном */
     filter: drop-shadow(0px 10px 20px rgba(0,0,0,0.05));
+}
+
+/* Прячем гифку по умолчанию (в темной теме) */
+#white-theme-decor {
+    display: none !important;
+}
+
+/* Показываем гифку, когда на body появляется класс белой темы */
+body.light-theme #white-theme-decor {
+    display: flex !important;
 }
