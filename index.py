@@ -20438,10 +20438,6 @@ async def cancel_tg_challenge_paid(request: Request):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Вставь это в api/index.py ---
-
-# --- ДОБАВИТЬ В api/index.py ---
-
 # =====================================================
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
 # =====================================================
@@ -20454,6 +20450,7 @@ async def admin_cases_search_cache(
     req: SearchCacheRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    import asyncio
     # 1. Чистим запрос
     query = req.query.strip().replace("%", "").replace("?", "").replace("&", "")
     
@@ -20461,43 +20458,60 @@ async def admin_cases_search_cache(
         return []
 
     try:
-        # Формируем параметры запроса
-        params = {
-            "market_hash_name": f"ilike.*{query}*",
-            "select": "market_hash_name,icon_url,price_rub,condition",
-            "order": "price_rub.desc", # <--- ВОТ ОНА, МАГИЯ СОРТИРОВКИ! (Дорогое сверху)
-            "limit": 100 # Увеличил лимит, чтобы было из чего выбирать
-        }
+        # 2. Запускаем ДВА параллельных запроса:
+        # Один ищет цены и редкость в market_cache
+        # Второй ищет картинки в skin_images_dict
         
-        res = await supabase.get("/steam_inventory_cache", params=params)
+        cache_req = supabase.get(
+            "/market_cache", 
+            params={
+                "market_hash_name": f"ilike.*{query}*",
+                "select": "market_hash_name,price_rub,rarity",
+                "order": "price_rub.desc", # Дорогое сверху
+                "limit": 50
+            }
+        )
         
-        if "text/html" in res.headers.get("Content-Type", ""):
-            print(f"🚨 Supabase вернул HTML. Запрос: {query}")
-            return []
-
-        if res.status_code != 200:
-            print(f"⚠️ Ошибка Supabase ({res.status_code}): {res.text}")
+        imgs_req = supabase.get(
+            "/skin_images_dict", 
+            params={
+                "market_hash_name": f"ilike.*{query}*",
+                "select": "market_hash_name,icon_url",
+                "limit": 100
+            }
+        )
+        
+        # Ждем оба ответа одновременно
+        res_cache, res_imgs = await asyncio.gather(cache_req, imgs_req)
+        
+        if res_cache.status_code != 200:
+            print(f"⚠️ Ошибка Supabase market_cache: {res_cache.text}")
             return []
             
-        items = res.json()
-        if not isinstance(items, list):
+        items = res_cache.json()
+        imgs = res_imgs.json() if res_imgs.status_code == 200 else []
+
+        if not isinstance(items, list) or not items:
             return []
 
+        # 3. Делаем словарь картинок для быстрого доступа (Имя -> Ссылка)
+        img_dict = {img.get("market_hash_name"): img.get("icon_url") for img in imgs}
+
+        # 4. Собираем уникальные предметы для фронтенда
         seen = set()
         unique_items = []
+        
         for it in items:
             name = it.get("market_hash_name", "")
-            cond = it.get("condition", "")
-            # Создаем ключ Имя + Качество, чтобы видеть, например, и FN и FT версию скина
-            key = f"{name}_{cond}"
-            
-            if name and key not in seen:
-                seen.add(key)
+            if name and name not in seen:
+                seen.add(name)
                 unique_items.append({
                     "market_hash_name": name,
-                    "image_url": it.get("icon_url", ""),
+                    # Берем оригинальную картинку Steam, если нет - ставим заглушку
+                    "image_url": img_dict.get(name, "https://placehold.co/150"), 
                     "price_rub": it.get("price_rub", 0),
-                    "condition": cond
+                    "rarity": it.get("rarity", "blue")
+                    # Качество (condition) фронтенд сам вырежет из названия!
                 })
                 
         return unique_items
@@ -20507,7 +20521,10 @@ async def admin_cases_search_cache(
         return []
 
 @app.post("/api/v1/admin/cases/clear")
-async def admin_clear_case(request: Request):
+async def admin_clear_case(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
     body = await request.json()
     case_tag = body.get("case_tag")
     
@@ -20515,12 +20532,38 @@ async def admin_clear_case(request: Request):
         raise HTTPException(status_code=400, detail="Не указан case_tag")
         
     try:
-        # Удаляем ВСЕ связи для этого кейса (скины в cs_items остаются целыми)
-        supabase.table("cs_case_contents").delete().eq("case_tag", case_tag).execute()
+        # Асинхронное удаление связей для кейса
+        await supabase.delete("/cs_case_contents", params={"case_tag": f"eq.{case_tag}"})
         return {"status": "ok"}
     except Exception as e:
         print(f"Clear Case Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# 5. Поиск предметов по всей базе (библиотека)
+@app.post("/api/v1/admin/cases/search_items")
+async def admin_search_case_items(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        body = await request.json()
+        query = body.get("query", "").strip()
+        
+        params = {"select": "*", "limit": 50}
+        if query:
+            params["name"] = f"ilike.*{query}*"
+        else:
+            params["order"] = "id.desc"
+
+        # Асинхронный поиск в сохраненных предметах
+        res = await supabase.get("/cs_items", params=params)
+        
+        if res.status_code == 200:
+            return res.json()
+        return []
+    except Exception as e:
+        print(f"Search Error: {e}")
+        return []
 
 # 5. Поиск предметов по всей базе (библиотека)
 @app.post("/api/v1/admin/cases/search_items")
