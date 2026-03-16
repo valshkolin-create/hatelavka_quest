@@ -2221,6 +2221,22 @@ window.showSecurityBlock = function(message) {
 // ================================================================
 
 // ================================================================
+// ЛОГИКА РАСПИСАНИЯ СТРИМОВ
+// ================================================================
+window.openScheduleModal = () => {
+    document.getElementById('schedule-modal').classList.remove('hidden');
+    
+    // Дергаем виброотклик для красоты, если сидим с телефона
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.impactOccurred('light');
+    }
+};
+
+window.closeScheduleModal = () => {
+    document.getElementById('schedule-modal').classList.add('hidden');
+};
+
+// ================================================================
 // ЛОГИКА КУПОНОВ
 // ================================================================
 window.openCouponModal = () => {
