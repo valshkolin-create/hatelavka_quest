@@ -18835,7 +18835,7 @@ async def finalize_raffle_webhook(
     except Exception as e:
         print(f"🔴 Ошибка при выборе победителя: {e}")
 
-    # 5. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА О ПОБЕДЕ (С АВТОВЫДАЧЕЙ!)
+    # 5. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА О ПОБЕДЕ (С АВТОВЫДАЧЕЙ В ИНВЕНТАРЬ!)
     if winner_id:
         # Успешное завершение
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
@@ -18845,113 +18845,130 @@ async def finalize_raffle_webhook(
             try:
                 prize_name = s.get('prize_name', 'Приз')
                 quality = s.get('skin_quality', '')
-                prize_full = f"{prize_name} ({quality})" if quality else prize_name
-
+                
+                # --- МАГИЯ 1: ВОССТАНАВЛИВАЕМ ПОЛНОЕ НАЗВАНИЕ ДЛЯ МАРКЕТА ---
+                quality_map = {
+                    "FN": "(Factory New)",
+                    "MW": "(Minimal Wear)",
+                    "FT": "(Field-Tested)",
+                    "WW": "(Well-Worn)",
+                    "BS": "(Battle-Scarred)"
+                }
+                
+                market_hash_name = prize_name
+                if quality and quality in quality_map:
+                    market_hash_name = f"{prize_name} {quality_map[quality]}"
+                    
+                prize_full = market_hash_name # Для красивого текста в посте
+                
                 winner_name = winner_data.get('full_name', 'Счастливчик')
                 winner_username = f"(@{winner_data.get('username')})" if winner_data.get('username') else ""
-                trade_link = winner_data.get('trade_link')
                 
                 # ==========================================
-                # 🔥 МАГИЯ АВТОВЫДАЧИ ДЛЯ РОЗЫГРЫШЕЙ 🔥
+                # 🔥 МАГИЯ 2: СОЗДАЕМ И КЛАДЕМ СКИН В ИНВЕНТАРЬ 🔥
                 # ==========================================
-                delivery_status_text = ""
-                is_delivered_auto = False
                 
-                if trade_link:
-                    try:
-                        # --- ШАГ 1: Создаем запись в истории для отслеживания ---
-                        # Нам нужен этот ID, чтобы передать его в fulfill_item_delivery
-                        history_res = await supabase.post("/cs_history", json={
-                            "user_id": winner_id,
-                            "case_name": "Розыгрыш",
-                            "status": "pending",
-                            "details": f"Приз: {prize_name}"
-                        })
-                        
-                        history_data = history_res.json()
-                        giveaway_history_id = history_data[0]['id'] if isinstance(history_data, list) else None
+                # 1. Ищем актуальную цену и редкость в market_cache
+                market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+                market_data = market_res.json() if market_res.status_code == 200 else []
+                
+                price_rub = 0.0
+                rarity_val = s.get('rarity_color', 'blue') # Запасной вариант
+                
+                if market_data and isinstance(market_data, list) and len(market_data) > 0:
+                    price_rub = float(market_data[0].get('price_rub', 0))
+                    if market_data[0].get('rarity'):
+                        rarity_val = market_data[0].get('rarity')
 
-                        if not giveaway_history_id:
-                            raise Exception("Не удалось создать запись в истории для розыгрыша")
-
-                        # --- ШАГ 2: Зовем Кладовщика (бюджет 0, нужен точный скин) ---
-                        # 🔥 ПЕРЕДАЕМ giveaway_history_id
-                        deliv_res = await fulfill_item_delivery(
-                            user_id=winner_id, 
-                            target_name=prize_name, 
-                            target_price_rub=0.0, 
-                            trade_url=trade_link, 
-                            supabase=supabase,
-                            history_id=giveaway_history_id, # <--- ТЕПЕРЬ ВСЁ ОК
-                            target_condition=quality if quality else None
-                        )
-                        
-                        if deliv_res.get("success"):
-                            # Если предмет куплен на Маркете, статус в базе уже сменился на market_pending
-                            if "Предмет куплен на Маркете" in deliv_res.get("message", ""):
-                                is_delivered_auto = True
-                                delivery_status_text = f"\n\n✅ <i>Приз закуплен на Маркете! Отслеживай статус в Профиле.</i>"
-                            else:
-                                # Если предмет на нашем складе — зовем Курьера
-                                real_skin = deliv_res.get("real_skin")
-                                trade_res = await send_steam_trade_offer(
-                                    account_id=real_skin["account_id"], 
-                                    assetid=real_skin["assetid"], 
-                                    trade_url=trade_link, 
-                                    supabase=supabase
-                                )
-                                
-                                if trade_res.get("success"):
-                                    is_delivered_auto = True
-                                    t_id = str(trade_res.get("tradeofferid"))
-                                    
-                                    # Обновляем статус и записываем tradeofferid для проверки в профиле
-                                    await supabase.patch("/cs_history", params={"id": f"eq.{giveaway_history_id}"}, json={
-                                        "status": "sent",
-                                        "tradeofferid": t_id
-                                    })
-                                    
-                                    delivery_status_text = f"\n\n✅ <i>Трейд со скином уже отправлен победителю! Принимай в Steam.</i>"
-                                else:
-                                    # Ошибка отправки — переводим в ручной режим
-                                    await supabase.patch("/cs_history", params={"id": f"eq.{giveaway_history_id}"}, json={"status": "processing"})
-                                    delivery_status_text = f"\n\n⚠️ <i>ОШИБКА STEAM при отправке: {trade_res.get('error')} (Админ выдаст вручную)</i>"
-                        else:
-                            # Предмета нет ни на складе, ни на Маркете
-                            await supabase.patch("/cs_history", params={"id": f"eq.{giveaway_history_id}"}, json={"status": "processing"})
-                            delivery_status_text = "\n\n⚠️ <i>Скин на складе закончился. Админ выдаст замену вручную!</i>"
-
-                    except Exception as e:
-                        print(f"Auto-delivery raffle error: {e}")
-                        delivery_status_text = "\n\n⚠️ <i>Сбой автовыдачи. Админ выдаст вручную.</i>"
+                # 1.5 🔥 НОВОЕ: Ищем оригинальную картинку скина в skin_images_dict
+                final_image_url = s.get('prize_image') or s.get('card_image', 'https://placehold.co/150')
+                img_res = await supabase.get("/skin_images_dict", params={"market_hash_name": f"eq.{market_hash_name}"})
+                if img_res.status_code == 200 and img_res.json():
+                    final_image_url = img_res.json()[0].get('icon_url', final_image_url)
+                
+                # 2. Ищем скин в таблице cs_items (чтобы не плодить дубли)
+                item_id = None
+                item_res = await supabase.get("/cs_items", params={"market_hash_name": f"eq.{market_hash_name}", "select": "id", "limit": 1})
+                item_data_list = item_res.json() if item_res.status_code == 200 else []
+                
+                if item_data_list and isinstance(item_data_list, list) and len(item_data_list) > 0:
+                    item_id = item_data_list[0]['id']
                 else:
-                    delivery_status_text = "\n\n⚠️ <i>Трейд-ссылка не указана. Победитель, напиши админу для получения приза!</i>"
-                # ==========================================
+                    # 3. 🔥 СОЗДАЕМ СКИН СТРОГО ПО ТВОЕЙ СТРУКТУРЕ CS_ITEMS 🔥
+                    new_item = {
+                        "name": prize_name,
+                        "market_hash_name": market_hash_name,
+                        "price_rub": price_rub,
+                        "price": str(int(price_rub)) if price_rub else "0",
+                        "rarity": rarity_val,
+                        "condition": quality if quality else None,
+                        "image_url": final_image_url,
+                        "is_active": False,        # Прячем из рулеток
+                        "chance_weight": "0",      # Дефолт для отсутствующих в кейсах
+                        "quantity": 0,             # Бесконечный/не учитывается для прямых выдач
+                        "boost_percent": 0,
+                        "case_tag": None
+                    }
+                    create_res = await supabase.post("/cs_items", json=new_item, headers={"Prefer": "return=representation"})
+                    if create_res.status_code in (200, 201):
+                        created_data = create_res.json()
+                        if created_data and isinstance(created_data, list):
+                            item_id = created_data[0]['id']
+                    else:
+                        print(f"⚠️ Ошибка создания предмета в cs_items: {create_res.text}")
 
-                # Формируем итоговый текст
+                # 4. Выдаем приз в cs_history (статус 'available')
+                if item_id:
+                    await supabase.post("/cs_history", json={
+                        "user_id": winner_id,
+                        "item_id": item_id,
+                        "case_name": "Розыгрыш",
+                        "status": "available", # 🔥 Юзер сам заберет из профиля кнопкой
+                        "details": f"Выигрыш: {prize_full}",
+                        "source": "raffle"
+                    })
+                    delivery_status_text = "\n\n🎒 <i>Приз уже лежит в твоем инвентаре бота! Заходи в профиль и нажимай «Забрать».</i>"
+                else:
+                    # Резервный фоллбек, если БД совсем упала
+                    await supabase.post("/cs_history", json={
+                        "user_id": winner_id,
+                        "case_name": "Розыгрыш",
+                        "status": "processing",
+                        "details": f"Выигрыш: {prize_full}",
+                        "source": "raffle"
+                    })
+                    delivery_status_text = "\n\n⚠️ <i>Скин требует ручной выдачи. Ожидайте, админ скоро его отправит!</i>"
+
+                # ==========================================
+                # ФОРМИРУЕМ И ОТПРАВЛЯЕМ ПОСТ О ПОБЕДЕ
+                # ==========================================
                 text = (
                     f"🛑 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
                     f"🎁 Приз: <b>{prize_full}</b>\n"
                     f"🏆 Победитель: <b>{winner_name}</b> {winner_username}\n\n"
                     f"Поздравляем! 🍀"
                 )
-                
-                # Добавляем статус выдачи к посту
                 text += delivery_status_text
                 
-                prize_img = s.get('prize_image')
+                # Берем картинку для поста из настроек, или оригинальную стимовскую
+                prize_img = s.get('prize_image') or s.get('card_image') or final_image_url
+
+                # Кнопка для перехода прямо в профиль
+                kb = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🎒 Открыть инвентарь", url="https://t.me/HATElavka_bot/app?startapp=profile")
+                ]])
                 
                 # Отправляем результат (Реплай на пост розыгрыша, если есть ID)
                 if prize_img:
                     if reply_to_id:
-                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, reply_to_message_id=reply_to_id, parse_mode="HTML")
+                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
                     else:
-                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, parse_mode="HTML")
+                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, parse_mode="HTML", reply_markup=kb)
                 else:
                     if reply_to_id:
-                        await bot.send_message(chat_id=channel_id, text=text, reply_to_message_id=reply_to_id, parse_mode="HTML")
+                        await bot.send_message(chat_id=channel_id, text=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
                     else:
-                        await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML")
+                        await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML", reply_markup=kb)
                         
             except Exception as e:
                 print(f"⚠️ Ошибка отправки сообщения в ТГ: {e}")
