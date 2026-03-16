@@ -436,6 +436,23 @@
         </div>
     </div>
 
+    <div id="schedule-modal" class="modal hidden" style="z-index: 10005;">
+        <div class="modal-content" style="text-align: center; max-width: 340px;">
+            <div class="modal-header" style="margin-bottom: 15px;">
+                <h3 style="margin: 0; color: #ffd700; text-transform: uppercase; font-weight: 900;">Расписание</h3>
+                <button onclick="closeScheduleModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div style="width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 215, 0, 0.2); box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                <img src="https://placehold.co/600x400/1c1c1e/ffd700?text=ТУТ+БУДЕТ+РАСПИСАНИЕ" alt="Расписание" style="width: 100%; display: block; object-fit: cover;">
+            </div>
+            
+            <button class="action-btn btn-secondary-action" style="margin-top: 15px; height: 40px;" onclick="closeScheduleModal()">
+                Закрыть
+            </button>
+        </div>
+    </div>
+
     <script src="menu.js"></script>
 </body>
 </html>
