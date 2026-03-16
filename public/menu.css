@@ -204,8 +204,9 @@ html, body {
 ========================================== */
 .action-cards-grid {
     display: grid;
-    grid-template-columns: 0.8fr 1.2fr !important;
-    gap: 10px; height: 110px; /* ВОТ ТУТ СНОВА 110px */
+    /* Добавили minmax, чтобы колонки не смели растягиваться от текста */
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important;
+    gap: 10px; height: 110px; 
     margin-top: 15px; margin-bottom: 20px; width: 100%;
 }
 
@@ -885,14 +886,13 @@ body.desktop-mode .toggle-container {
 .schedule-box .schedule-title {
     color: #ffd700;
     font-weight: 800;
-    font-size: 11px; /* Сделали шрифт чуть меньше, чтобы точно влез (было 13px) */
+    font-size: 10px; /* Чуть уменьшили размер (было 11px), чтобы слово "РАСПИСАНИЕ" влезло целиком */
     text-transform: uppercase;
     margin-bottom: 4px;
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
     line-height: 1.1;
     width: 100%;
-    white-space: normal; /* Заставляем текст переноситься на новую строку */
-    word-wrap: break-word;
+    word-break: break-word; /* Разрешаем ломать слова, если они всё же не влезли */
 }
 
 .schedule-box .schedule-subtitle {
