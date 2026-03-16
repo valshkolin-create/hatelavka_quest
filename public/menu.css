@@ -735,10 +735,12 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 ========================================== */
 html, body {
     overscroll-behavior-x: none !important;
+    overscroll-behavior-y: none !important; /* УБИРАЕМ СИСТЕМНУЮ РЕЗИНКУ ВНИЗУ */
 }
 
 .main-content-scrollable {
     overscroll-behavior-x: none !important;
+    overscroll-behavior-y: none !important; /* УБИРАЕМ СИСТЕМНУЮ РЕЗИНКУ ВНИЗУ */
     overflow-x: hidden !important;
 }
 /* ==========================================
@@ -945,89 +947,27 @@ body.desktop-mode .toggle-container {
    СВЕТЛАЯ ТЕМА (ИНВЕРСИЯ)
 ========================================== */
 body.light-theme {
-    --bg-main: #f5f5f7; /* Мягкий белый/серый фон */
-    --surface-glass: rgba(0, 0, 0, 0.05); /* Легкие тени вместо стекла */
-    --border-glass: rgba(0, 0, 0, 0.1);
-    --text-primary: #121212; /* Черный текст */
-    --text-muted: #8e8e93;
-}
-
-/* Перекрашиваем шапку и текст логотипа */
-body.light-theme .logo-title { color: #121212; }
-body.light-theme .logo-subtitle { color: rgba(0, 0, 0, 0.5); }
-body.light-theme .balance-row { color: #121212; }
-body.light-theme .balance-pill { 
-    background: rgba(255, 255, 255, 0.8); 
-    border: 1px solid rgba(0, 0, 0, 0.1); 
-}
-body.light-theme .glass-burger {
-    background: rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-body.light-theme .glass-burger span { background-color: #121212; box-shadow: none; }
-
-/* Перекрашиваем нижний плавающий бар */
-body.light-theme .floating-bottom-bar {
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-body.light-theme .nav-item.active { color: #121212; }
-
-/* Иконка переключателя сверху */
-body.light-theme #pull-to-refresh i { color: #121212; filter: none; }
-
-/* ==========================================
-   ИНВЕРСИЯ (СВЕТЛАЯ СТОРОНА)
-========================================== */
-body.light-theme {
-    --bg-main: #f5f5f7; 
-    --text-primary: #121212;
-    --surface-glass: rgba(0, 0, 0, 0.05);
-    --border-glass: rgba(0, 0, 0, 0.1);
+    --bg-main: #f5f5f7 !important; 
+    --text-primary: #121212 !important;
+    --text-muted: #8e8e93 !important;
+    background-color: var(--bg-main) !important;
 }
 
 body.light-theme .top-header .logo-title,
-body.light-theme .balance-row {
-    color: #121212 !important;
-}
-
-body.light-theme .logo-subtitle {
-    color: rgba(0,0,0,0.5) !important;
-}
-
-body.light-theme .balance-pill,
-body.light-theme .glass-burger {
+body.light-theme .balance-row { color: #121212 !important; }
+body.light-theme .logo-subtitle { color: rgba(0,0,0,0.5) !important; }
+body.light-theme .balance-pill, body.light-theme .glass-burger {
     background: rgba(255, 255, 255, 0.8) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
-
-body.light-theme .glass-burger span {
-    background-color: #121212 !important;
-}
-
+body.light-theme .glass-burger span { background-color: #121212 !important; box-shadow: none !important; }
 body.light-theme .floating-bottom-bar {
     background: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
+body.light-theme .nav-item.active { color: #121212 !important; }
+body.light-theme .toggle-container { display: none !important; }
 
-body.light-theme .nav-item.active {
-    color: #121212 !important;
-}
-
-body.light-theme #pull-to-refresh i {
-    color: #121212 !important;
-}
-
-/* Скрываем переключатель ГЛАВНАЯ/КЕЙСЫ на белой стороне */
-body.light-theme .toggle-container {
-    display: none !important;
-}
-
-/* Плавность затухания блоков */
-#dark-wrapper, #light-wrapper {
-    transition: opacity 0.2s ease-in-out;
-}
-#light-wrapper {
-    opacity: 0; 
-}
+/* Плавность затухания */
+#dark-wrapper, #light-wrapper { transition: opacity 0.2s ease-in-out; }
+#light-wrapper { opacity: 0; }
