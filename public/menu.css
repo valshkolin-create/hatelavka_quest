@@ -345,7 +345,7 @@ html, body {
 }
 .nav-item i { font-size: 18px; } /* Иконки чуть меньше */
 .nav-item span { font-size: 9px; font-weight: 600; }
-.nav-item.active { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
+.nav-item.active { background: transparent; color: var(--text-primary); }
 
 /* ==========================================
    КЕЙСЫ (SHOP) СЕТКА
