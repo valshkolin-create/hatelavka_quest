@@ -378,14 +378,16 @@
             </div>
             
             <div class="admin-form" style="margin-top: 15px;">
-                <input type="text" id="lib-search-inp" class="form-input" placeholder="Введите название (например AK-47)..." oninput="debounceSearch()">
+                <input type="text" id="lib-search-inp" class="form-input" placeholder="Название (AK-47)..." oninput="debounceSearch()">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <input type="number" id="lib-price-min" class="form-input" placeholder="Мин. цена ₽" oninput="debounceSearch()">
+                    <input type="number" id="lib-price-max" class="form-input" placeholder="Макс. цена ₽" oninput="debounceSearch()">
+                </div>
             </div>
 
-            <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;">
-                <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните вводить название...</div>
+            <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;" onscroll="handleScroll(this)">
+                <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>
             </div>
-        </div>
-    </div>
 
     <div id="modal-parts" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-parts')">
         <div class="bottom-sheet">
@@ -449,6 +451,11 @@
         }
 
         /* --- МАГИЯ ПОИСКА ПО СКЛАДУ --- */
+        * --- МАГИЯ ПОИСКА ПО СКЛАДУ --- */
+        let currentOffset = 0;
+        let isFetching = false;
+        let hasMoreItems = true;
+
         function toggleFab() {
             document.getElementById('fabMenu').classList.toggle('fab-menu-open');
             document.querySelector('.fab-main').classList.toggle('rotate');
@@ -458,43 +465,80 @@
             toggleFab();
             document.getElementById('modal-library').classList.add('modal-active');
             document.getElementById('lib-search-inp').value = '';
-            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните вводить название...</div>';
+            document.getElementById('lib-price-min').value = '';
+            document.getElementById('lib-price-max').value = '';
+            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>';
+            currentOffset = 0;
+            hasMoreItems = true;
         }
 
         function debounceSearch() {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(doSearch, 500);
+            currentOffset = 0; // Сбрасываем подгрузку при новом запросе
+            hasMoreItems = true;
+            searchTimeout = setTimeout(() => doSearch(true), 500);
         }
 
-       async function doSearch() {
+        function handleScroll(el) {
+            // Если скролл достиг конца списка (с небольшим запасом в 50px)
+            if (el.scrollHeight - el.scrollTop <= el.clientHeight + 50) {
+                if (!isFetching && hasMoreItems) {
+                    currentOffset += 30; // Загружаем следующие 30
+                    doSearch(false);
+                }
+            }
+        }
+
+        async function doSearch(isNewSearch) {
+            if (isFetching || !hasMoreItems) return;
+
             const q = document.getElementById('lib-search-inp').value.trim();
+            const minP = parseFloat(document.getElementById('lib-price-min').value) || 0;
+            const maxP = parseFloat(document.getElementById('lib-price-max').value) || 9999999;
             const cont = document.getElementById('lib-results');
             
-            if (q.length < 2) {
-                cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Введите минимум 2 символа...</div>';
+            if (q.length < 2 && minP === 0 && maxP === 9999999) {
+                if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Введите название или цену...</div>';
                 return;
             }
             
-            cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем на складе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
+            isFetching = true;
+            
+            if (isNewSearch) {
+                cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем в базе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
+            } else {
+                const loader = document.createElement('div');
+                loader.id = 'scroll-loader';
+                loader.style = 'text-align:center; padding:10px; color:var(--primary);';
+                loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                cont.appendChild(loader);
+            }
 
             try {
                 const res = await fetch('/api/v1/admin/cases/search_cache', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({query: q})
+                    body: JSON.stringify({ query: q, min_price: minP, max_price: maxP, offset: currentOffset })
                 });
                 const items = await res.json();
                 
-                cont.innerHTML = '';
+                if (isNewSearch) cont.innerHTML = '';
+                else {
+                    const l = document.getElementById('scroll-loader');
+                    if (l) l.remove();
+                }
+
                 if (!items || items.length === 0) {
-                    cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
+                    hasMoreItems = false;
+                    if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
                     return;
                 }
 
+                // Если пришло меньше лимита, больше грузить нечего
+                if (items.length < 30) hasMoreItems = false;
+
                 items.forEach(item => {
-                    // Экранируем JSON для передачи в onclick
                     const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
                     
-                    // Цвета для красивой подсветки в поиске
                     const rarityColors = {
                         'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
                         'purple': '#8847ff', 'pink': '#d32ce6', 'red': '#eb4b4b', 'gold': '#ffd700'
@@ -513,7 +557,9 @@
                 });
             } catch(e) { 
                 console.error(e); 
-                cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
+                if(isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
+            } finally {
+                isFetching = false;
             }
         }
 
@@ -524,7 +570,6 @@
             let cleanName = item.market_hash_name;
             let qualityCode = "";
 
-            // 🔥 Умный словарь для перевода качества из названия в код
             const wearMap = {
                 'factory new': 'FN', 'прямо с завода': 'FN',
                 'minimal wear': 'MW', 'немного поношенное': 'MW',
@@ -533,7 +578,6 @@
                 'battle-scarred': 'BS', 'закаленное в боях': 'BS'
             };
 
-            // 1. Откусываем износ из скобок
             const conditionMatch = cleanName.match(/(.*?)\s+\(([^)]+)\)$/);
             if (conditionMatch) {
                 cleanName = conditionMatch[1].trim(); 
@@ -543,34 +587,22 @@
                 }
             }
             
-            // 2. Заполняем поля формы
-            document.getElementById('inp-prize').value = cleanName;
+            // 2. Вставляем только визуал (билеты и шанс остаются нетронутыми)
+            document.getElementById('inp-name').value = cleanName;
             document.getElementById('inp-img').value = item.image_url || '';
-            document.getElementById('inp-card-img').value = item.image_url || '';
+            document.getElementById('inp-price-rub').value = item.price_rub || 0;
+            document.getElementById('inp-condition').value = qualityCode || ""; 
             
-            // Выставляем качество в выпадающем списке
-            if (qualityCode) {
-                document.getElementById('inp-quality').value = qualityCode;
-            } else {
-                document.getElementById('inp-quality').value = ""; 
-            }
-            
-            // Ставим цену билета (если она нужна)
-            document.querySelector('input[name="ticket_cost"]').value = Math.ceil(item.price_rub || 0);
-            
-            // 3. Редкость (Цвет подсветки)
             const rarityMap = {
-                'common': '#b0c3d9', 'gray': '#b0c3d9', 'industrial': '#5e98d9', 'light_blue': '#5e98d9',
-                'milspec': '#4b69ff', 'blue': '#4b69ff', 'restricted': '#8847ff', 'purple': '#8847ff',
-                'classified': '#d32ce6', 'pink': '#d32ce6', 'covert': '#eb4b4b', 'red': '#eb4b4b',
-                'gold': '#ffd700', 'knife': '#ffd700', 'contraband': '#ffd700'
+                'common': 'common', 'gray': 'common', 'industrial': 'common', 'light_blue': 'blue',
+                'milspec': 'blue', 'blue': 'blue', 'restricted': 'purple', 'purple': 'purple',
+                'classified': 'pink', 'pink': 'pink', 'covert': 'red', 'red': 'red',
+                'gold': 'gold', 'knife': 'gold', 'contraband': 'gold'
             };
             
             const itemRarity = (item.rarity || 'blue').toLowerCase();
-            document.getElementById('inp-rarity-color').value = rarityMap[itemRarity] || '#4b69ff';
+            document.getElementById('inp-rarity').value = rarityMap[itemRarity] || 'blue';
             
-            // Обновляем визуал интерфейса
-            toggleRefundBox();
             updatePreview();
             
             if(window.Telegram?.WebApp?.HapticFeedback) {
