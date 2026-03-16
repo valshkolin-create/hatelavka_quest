@@ -1018,3 +1018,16 @@ body.light-theme .nav-item.active {
 body.light-theme #pull-to-refresh i {
     color: #121212 !important;
 }
+
+/* Скрываем переключатель ГЛАВНАЯ/КЕЙСЫ на белой стороне */
+body.light-theme .toggle-container {
+    display: none !important;
+}
+
+/* Плавность затухания блоков */
+#dark-wrapper, #light-wrapper {
+    transition: opacity 0.2s ease-in-out;
+}
+#light-wrapper {
+    opacity: 0; 
+}
