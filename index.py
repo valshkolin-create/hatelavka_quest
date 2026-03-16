@@ -18963,9 +18963,9 @@ async def finalize_raffle_webhook(
                 # Берем картинку для поста из настроек, или оригинальную стимовскую
                 prize_img = s.get('prize_image') or s.get('card_image') or final_image_url
 
-                # Кнопка для перехода прямо в профиль
+
                 kb = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text="🎒 Открыть инвентарь", url="https://t.me/HATElavka_bot/app?startapp=profile")
+                    InlineKeyboardButton(text="🎒 Открыть инвентарь", url="https://t.me/HATElavka_bot/profile")
                 ]])
                 
                 # Отправляем результат (Реплай на пост розыгрыша, если есть ID)
