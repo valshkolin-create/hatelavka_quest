@@ -15707,10 +15707,22 @@ async def get_shop_smart_balance(
     telegram_id = int(user_info["id"])
 
     # 1. Читаем кэш и билеты из БД (в базе хранятся КОПЕЙКИ)
-    user_resp = await supabase.get(
-        "/users", 
-        params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync, tickets, bott_internal_id"}
-    )
+    # 🔥 Внедрен ретрай для защиты от httpx.ReadError в Vercel
+    try:
+        user_resp = await supabase.get(
+            "/users", 
+            params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync, tickets, bott_internal_id"}
+        )
+    except httpx.ReadError:
+        logging.warning(f"[SHOP BALANCE] Сброс пула (ReadError) для {telegram_id}. Повторный запрос...")
+        user_resp = await supabase.get(
+            "/users", 
+            params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, last_balance_sync, tickets, bott_internal_id"}
+        )
+    except Exception as e:
+        logging.error(f"[SHOP BALANCE] Ошибка чтения БД: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+
     user_data = user_resp.json()[0] if user_resp.json() else {}
     
     current_coins_kopecks = user_data.get("bot_t_coins", 0)
@@ -15778,7 +15790,6 @@ async def get_shop_smart_balance(
                 logging.error(f"[SHOP BALANCE] Ошибка от API Bot-T: {error_msg}")
                 
                 # 🔥 ОТДАЕМ ОШИБКУ НА ФРОНТ 🔥
-                # Если Bot-T ругается, что юзера нет, стреляем 400 ошибкой с нужным текстом
                 if "не найден" in error_msg.lower() or "not found" in error_msg.lower():
                     raise HTTPException(status_code=400, detail="BOT_USER_NOT_FOUND")
 
@@ -15786,7 +15797,7 @@ async def get_shop_smart_balance(
             logging.error(f"[SHOP BALANCE] HTTP Ошибка {resp.status_code}: {resp.text}")
             
     except HTTPException:
-        # 🔥 ВАЖНО: Пропускаем HTTPException дальше, чтобы фронт его поймал, а не глушим!
+        # 🔥 ВАЖНО: Пропускаем HTTPException дальше, чтобы фронт его поймал!
         raise
     except Exception as e:
         logging.error(f"[SHOP BALANCE] Исключение при запросе: {e}")
