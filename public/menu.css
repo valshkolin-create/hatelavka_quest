@@ -847,9 +847,10 @@ body.desktop-mode .toggle-container {
 /* --- ВТОРОЙ РЯД: Сетка под две отдельные фигуры --- */
 .row-two-grid {
     display: grid;
-    grid-template-columns: 0.8fr 1.2fr !important; /* 1В1 СОВПАДЕНИЕ ШИРИНЫ С ВЕРХНИМ РЯДОМ */
-    gap: 10px; /* 1в1 отступы как сверху */
-    height: 110px; /* 1в1 высота как у Аукционов */
+    /* ВОТ ТУТ ГЛАВНЫЙ ФИКС: жестко блокируем ширину, как у Аукционов! */
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important; 
+    gap: 10px; 
+    height: 110px; 
     width: 100%;
     margin-bottom: 20px;
 }
