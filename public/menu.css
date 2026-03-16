@@ -917,7 +917,7 @@ body.desktop-mode .toggle-container {
 .weapon-huge-img {
     width: 143%;
     max-width: none;
-    transform: scale(2.2) translateY(15%) translateX(12%)  <--- ВОТ ТУТ НЕТ ТОЧКИ С ЗАПЯТОЙ!
+    transform: scale(2.2) translateY(15%) translateX(12%); 
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
