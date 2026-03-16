@@ -1980,7 +1980,27 @@ function initPullToRefresh() {
     }, { passive: false });
     content.addEventListener('touchend', () => {
         if (!isPulling) return; isPulling = false; content.style.transition = 'transform 0.3s ease-out'; ptr.style.transition = 'transform 0.3s ease-out';
-        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); setTimeout(() => window.location.reload(), 500); } 
+        if (distance > 80) { 
+            ptr.querySelector('i').classList.add('fa-spin'); 
+            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); 
+            
+            // --- ДОБАВЛЕННАЯ ЛОГИКА ИНВЕРСИИ ---
+            setTimeout(() => {
+                const isLight = document.body.classList.toggle('light-theme');
+                
+                const darkWrap = document.getElementById('dark-wrapper');
+                const lightWrap = document.getElementById('light-wrapper');
+                if (darkWrap) darkWrap.style.display = isLight ? 'none' : 'block';
+                if (lightWrap) lightWrap.style.display = isLight ? 'block' : 'none';
+                
+                content.style.transform = 'translateY(0)'; 
+                ptr.style.transform = 'translateY(0)'; 
+                ptr.querySelector('i').classList.remove('fa-spin');
+            }, 500);
+            
+            // Старую перезагрузку закомментировал, чтобы логика осталась нетронутой
+            // setTimeout(() => window.location.reload(), 500); 
+        } 
         else { content.style.transform = 'translateY(0)'; ptr.style.transform = 'translateY(0)'; } distance = 0;
     });
 }
@@ -2600,7 +2620,7 @@ try {
 
     // 3. ОБЩИЙ ЗАПУСК ИНТЕРФЕЙСА (Работает везде)
     setupNewUI();
-    initPullToRefresh();
+    initThemeSwipe();
     initSwipeTabs(); 
 
     // Запускаем основную логику загрузки данных
