@@ -2620,7 +2620,7 @@ try {
 
     // 3. ОБЩИЙ ЗАПУСК ИНТЕРФЕЙСА (Работает везде)
     setupNewUI();
-    initThemeSwipe();
+    initPullToRefresh();
     initSwipeTabs(); 
 
     // Запускаем основную логику загрузки данных
