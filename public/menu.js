@@ -2009,7 +2009,7 @@ function initBottomSwipe() {
                 setTimeout(() => {
                     darkWrap.style.display = 'none';
                     lightWrap.style.display = 'block';
-                    content.scrollTop = 0; // Возвращаем в начало страницы
+                    content.scrollTop = 0; // Возвращаем в начало
                     setTimeout(() => lightWrap.style.opacity = '1', 50); 
                 }, 200);
             } else {
@@ -2017,7 +2017,7 @@ function initBottomSwipe() {
                 setTimeout(() => {
                     lightWrap.style.display = 'none';
                     darkWrap.style.display = 'block';
-                    content.scrollTop = 0; // Возвращаем в начало страницы
+                    content.scrollTop = 0; // Возвращаем в начало
                     setTimeout(() => darkWrap.style.opacity = '1', 50);
                 }, 200);
             }
@@ -2026,20 +2026,17 @@ function initBottomSwipe() {
 
     // --- ПРОВЕРКА: МОЖНО ЛИ ДЕЛАТЬ СВАЙП? ---
     const canSwipeBottom = () => {
-        // 1. Если мы УЖЕ на белой стороне — разрешаем свайп (чтобы можно было вернуться в темную)
         if (document.body.classList.contains('light-theme')) return true;
-
-        // 2. Если мы на темной стороне, разрешаем ТОЛЬКО если активна вкладка "КЕЙСЫ"
         const shopView = document.getElementById('view-shop');
         return shopView && shopView.classList.contains('active');
     };
 
     // ==========================================
-    // 1. СЕНСОР (ТЕЛЕФОНЫ) - Без растягивания экрана!
+    // 1. СЕНСОР (ТЕЛЕФОНЫ)
     // ==========================================
     content.addEventListener('touchstart', (e) => { 
-        if (!canSwipeBottom()) return;
-
+        // Убрали отсюда блокировку canSwipeBottom!
+        // Теперь мы всегда фиксируем палец, если мы на дне страницы.
         const isAtBottom = (content.scrollHeight - content.scrollTop - content.clientHeight) < 5;
         if (isAtBottom) { 
             startY = e.touches[0].clientY; 
@@ -2050,15 +2047,15 @@ function initBottomSwipe() {
     content.addEventListener('touchmove', (e) => {
         if (!isPullingBottom) return; 
         
-        const diff = startY - e.touches[0].clientY; // Если тянем вверх, цифра растет
+        const diff = startY - e.touches[0].clientY; 
         const isAtBottom = (content.scrollHeight - content.scrollTop - content.clientHeight) < 5;
         
         if (diff > 0 && isAtBottom) { 
-            // ЖЕСТКО БЛОКИРУЕМ системный скролл браузера. Экран стопорится!
+            // ЖЕСТКО БЛОКИРУЕМ оверскролл на ВСЕХ вкладках. Экран больше не уедет!
             if (e.cancelable) e.preventDefault(); 
             
-            // Если палец проскользил больше 60 пикселей — переключаем
-            if (diff > 60) {
+            // А вот ПЕРЕКЛЮЧАЕМ только если разрешено (вкладка Кейсы)
+            if (canSwipeBottom() && diff > 60) {
                 triggerThemeSwitch();
             }
         }
@@ -2073,28 +2070,25 @@ function initBottomSwipe() {
     // ==========================================
     let wheelTimeout;
     content.addEventListener('wheel', (e) => {
-        if (!canSwipeBottom()) return;
-
         const isAtBottom = (content.scrollHeight - content.scrollTop - content.clientHeight) < 5;
         
-        // e.deltaY > 0 означает крутим колесо вниз
         if (isAtBottom && e.deltaY > 0) {
-            // Глушим системное дергание окна
+            // Всегда глушим дергание окна вниз
             if (e.cancelable) e.preventDefault();
             
-            // Накапливаем "усилие" прокрутки колесика
-            wheelAccumulator += e.deltaY;
-            
-            // Если накрутили достаточно (защита от случайного микро-скролла)
-            if (wheelAccumulator > 150) {
-                triggerThemeSwitch();
+            // Если вкладка нужная — накапливаем прокрутку для смены темы
+            if (canSwipeBottom()) {
+                wheelAccumulator += e.deltaY;
+                
+                if (wheelAccumulator > 150) {
+                    triggerThemeSwitch();
+                }
+                
+                clearTimeout(wheelTimeout);
+                wheelTimeout = setTimeout(() => {
+                    wheelAccumulator = 0;
+                }, 200);
             }
-            
-            // Сбрасываем счетчик, если человек перестал крутить
-            clearTimeout(wheelTimeout);
-            wheelTimeout = setTimeout(() => {
-                wheelAccumulator = 0;
-            }, 200);
         }
     }, { passive: false });
 }
