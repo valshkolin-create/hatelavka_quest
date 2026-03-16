@@ -207,7 +207,7 @@ html, body {
     /* Добавили minmax, чтобы колонки не смели растягиваться от текста */
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important;
     gap: 10px; height: 110px; 
-    margin-top: 15px; margin-bottom: 20px; width: 100%;
+    margin-top: 15px; margin-bottom: 5px; width: 100%;
 }
 
 .flat-card {
@@ -852,8 +852,8 @@ body.desktop-mode .toggle-container {
     height: 110px; 
     width: 100%;
     
-    /* ВОТ ОНА - МАГИЯ ПОДЪЕМА */
-    margin-top: -15px; /* Минусовое значение всасывает блок наверх */
+    /* Увеличиваем это значение, чтобы "всосать" блок еще выше */
+    margin-top: -30px; 
     
     margin-bottom: 20px;
 }
@@ -892,18 +892,16 @@ body.desktop-mode .toggle-container {
 }
 
 .schedule-box .schedule-title {
-    color: #ffd700; /* Чистый золотой */
+    color: #ffd700;
     font-weight: 900;
-    font-size: 15px; /* Сделали покрупнее, места теперь много */
+    font-size: 15px;
     text-transform: uppercase;
     margin-bottom: 2px;
     line-height: 1.1;
     letter-spacing: 0.5px;
     
-    /* === КРАСИВАЯ ЖЕСТКАЯ ПОДСВЕТКА (МНОГОСЛОЙНЫЙ ГЛОУ) === */
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.9), 
-                 0 0 20px rgba(255, 215, 0, 0.6),
-                 0 0 30px rgba(255, 215, 0, 0.3);
+    /* ОСТАВИЛИ ОДИН МЯГКИЙ СЛОЙ СВЕЧЕНИЯ */
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4); 
 }
 
 .schedule-box .schedule-subtitle {
