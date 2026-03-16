@@ -507,7 +507,7 @@ async function checkBalance(updateUI = true) {
 // Вынесли отрисовку в отдельную функцию (теперь без деления на 100)
 function renderBalanceUI(coins, tickets) {
     if (coins !== undefined) {
-        // Убрали / 100
+        // Монеты оставляем с разделением (например, 1 000)
         let displayBalance = Number(coins).toLocaleString('ru-RU');
         const balanceEl = document.getElementById('user-balance');
         if (balanceEl && balanceEl.textContent !== displayBalance) { 
@@ -520,7 +520,9 @@ function renderBalanceUI(coins, tickets) {
     }
 
     if (tickets !== undefined) {
-        let displayTickets = Number(tickets).toLocaleString('ru-RU');
+        // 🔥 ИСПРАВЛЕНО: Билеты теперь БЕЗ разделения (например, 1000 вместо 1 000)
+        let displayTickets = Math.floor(Number(tickets)).toString();
+        
         const ticketsEl = document.getElementById('ticketStats');
         if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
             ticketsEl.style.opacity = '0.5'; 
