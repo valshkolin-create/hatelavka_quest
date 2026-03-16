@@ -3195,72 +3195,76 @@ async def sync_steam_inventory(
         except Exception as e:
             print(f"Критическая ошибка загрузки цен: {e}")
 
-        # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ВИТРИНА + МАРКЕТ) ---
+       # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (С ПЕРЕНОСОМ КАРТИНОК) ---
         try:
-            # 🔥 ДОБАВИЛИ ЗАПРОС ID, CONDITION И RARITY 🔥
+            # 1. 🔥 БЕЗОПАСНО тянем словарь картинок
+            img_dict = {}
+            try:
+                dict_res = await supabase.get("/skin_images_dict", params={"select": "market_hash_name,icon_url"})
+                if dict_res.status_code == 200:
+                    for d in dict_res.json():
+                        # Собираем удобный словарик: {"AK-47 | Redline": "https://..."}
+                        if "market_hash_name" in d and "icon_url" in d:
+                            img_dict[d["market_hash_name"]] = d["icon_url"]
+            except Exception as e:
+                print(f"⚠️ Не удалось загрузить skin_images_dict (идем дальше без картинок): {e}")
+
+            # 2. Получаем предметы с витрины
             items_res = await supabase.get("/cs_items", params={"select": "id, market_hash_name, condition, rarity"})
-            shop_items = items_res.json()
+            shop_items = items_res.json() if items_res.status_code == 200 else []
             
-            if shop_items and isinstance(shop_items, list):
-                # Словарь для перевода твоих коротких качеств в формат Маркета
-                cond_map = {
-                    "FN": " (Factory New)", 
-                    "MW": " (Minimal Wear)",
-                    "FT": " (Field-Tested)", 
-                    "WW": " (Well-Worn)", 
-                    "BS": " (Battle-Scarred)"
-                }
+            cond_map = {
+                "FN": " (Factory New)", "MW": " (Minimal Wear)",
+                "FT": " (Field-Tested)", "WW": " (Well-Worn)", "BS": " (Battle-Scarred)"
+            }
+            
+            market_cache_payload = []
+            unique_names_to_sync = set()
+            
+            for item in shop_items:
+                base_name = item.get('market_hash_name')
+                if not base_name: continue
                 
-                market_cache_payload = []
-                unique_names_to_sync = set()
-                
-                for item in shop_items:
-                    base_name = item.get('market_hash_name')
-                    if not base_name: continue
-                    
-                    full_name = base_name
-                    
-                    # 🛠 УМНАЯ СКЛЕЙКА: Если в имени нет скобок, но есть condition
-                    if "(" not in base_name and item.get("condition") in cond_map:
-                        full_name = f"{base_name}{cond_map[item['condition']]}"
-                        
-                        # Бонус: Сразу отправляем команду в БД исправить имя в cs_items навсегда!
-                        asyncio.create_task(
-                            supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json={"market_hash_name": full_name})
-                        )
+                full_name = base_name
+                if "(" not in base_name and item.get("condition") in cond_map:
+                    full_name = f"{base_name}{cond_map[item['condition']]}"
+                    asyncio.create_task(
+                        supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json={"market_hash_name": full_name})
+                    )
 
-                    if full_name in unique_names_to_sync: 
-                        continue
-                    unique_names_to_sync.add(full_name)
+                if full_name in unique_names_to_sync: 
+                    continue
+                unique_names_to_sync.add(full_name)
 
-                    # Ищем цену по ПОЛНОМУ имени
-                    m_price = market_prices_rub.get(full_name, 0.0)
-                    
-                    # 🔥 Сохраняем редкость из базы витрины, ботов или угадываем
-                    final_rarity = item.get("rarity") or known_rarities.get(full_name) or guess_backend_rarity(full_name, m_price)
+                m_price = market_prices_rub.get(full_name, 0.0)
+                final_rarity = item.get("rarity") or known_rarities.get(full_name) or guess_backend_rarity(full_name, m_price)
 
-                    market_cache_payload.append({
-                        "market_hash_name": full_name,
-                        "price_rub": m_price,
-                        "rarity": final_rarity, # 🔥 ПИШЕМ РЕДКОСТЬ В БАЗУ
-                        "is_available": m_price > 0,
-                        "last_sync": "now()"
-                    })
-                
-                # 🔥 ДОБРАСЫВАЕМ ГЛОБАЛЬНЫЕ СКИНЫ (ПРИОРИТЕТ 2) 🔥
-                import random
-                random.shuffle(popular_market_items)
-                extra_items = popular_market_items[:1000] # Берем 1000 случайных ликвидных скинов
-                
-                for ext_item in extra_items:
-                    if ext_item["market_hash_name"] not in unique_names_to_sync:
-                        market_cache_payload.append(ext_item)
-                        unique_names_to_sync.add(ext_item["market_hash_name"])
-                
-                # Заливаем пачками по 100
-                for i in range(0, len(market_cache_payload), 100):
-                    await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
-                print(f"[SYNC] market_cache обновлен для {len(market_cache_payload)} товаров. Гибридная склейка отработала.")
+                market_cache_payload.append({
+                    "market_hash_name": full_name,
+                    "price_rub": m_price,
+                    "rarity": final_rarity,
+                    "image_url": img_dict.get(full_name, ""), # 🔥 ПЕРЕНОСИМ КАРТИНКУ СЮДА
+                    "is_available": m_price > 0,
+                    "last_sync": "now()"
+                })
+
+            # ДОБРАСЫВАЕМ ГЛОБАЛЬНЫЕ СКИНЫ
+            import random
+            random.shuffle(popular_market_items)
+            extra_items = popular_market_items[:1000] 
+            
+            for ext_item in extra_items:
+                m_name = ext_item["market_hash_name"]
+                if m_name not in unique_names_to_sync:
+                    # 🔥 Добавляем картинку к глобальным скинам тоже
+                    ext_item["image_url"] = img_dict.get(m_name, "") 
+                    market_cache_payload.append(ext_item)
+                    unique_names_to_sync.add(m_name)
+            
+            # Заливаем пачками по 100
+            for i in range(0, len(market_cache_payload), 100):
+                await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
+            print(f"[SYNC] market_cache обновлен для {len(market_cache_payload)} товаров. Картинки перенесены.")
         except Exception as e:
             print(f"Ошибка обновления market_cache: {e}")
 
@@ -20460,62 +20464,47 @@ async def admin_cases_search_cache(
     req: SearchCacheRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    import asyncio
-    
     query = req.query.strip().replace("%", "").replace("?", "").replace("&", "")
     
-    # Разрешаем пустой текстовый запрос, если указана цена (чтобы можно было искать просто до 100 рублей)
     if len(query) < 2 and req.min_price == 0 and req.max_price >= 9999999:
         return []
 
     try:
-        # 2. Передаем параметры списком кортежей. 
-        # Это позволяет задать два фильтра на price_rub (gte и lte)
+        # 1. Запрашиваем ВСЁ из одной таблицы (добавили image_url в select)
         market_params = [
-            ("select", "market_hash_name,price_rub,rarity"),
+            ("select", "market_hash_name,price_rub,rarity,image_url"), # 🔥 ТУТ ИЗМЕНЕНИЕ
             ("market_hash_name", f"ilike.*{query}*"),
             ("price_rub", f"gte.{req.min_price}"),
             ("price_rub", f"lte.{req.max_price}"),
             ("order", "price_rub.desc"),
-            ("limit", "30"), # 30 штук, как просит твой фронтенд (currentOffset += 30)
+            ("limit", "30"),
             ("offset", str(req.offset))
         ]
         
-        cache_req = supabase.get("/market_cache", params=market_params)
-        
-        imgs_req = supabase.get(
-            "/skin_images_dict", 
-            params={
-                "market_hash_name": f"ilike.*{query}*",
-                "select": "market_hash_name,icon_url",
-                "limit": 100
-            }
-        )
-        
-        res_cache, res_imgs = await asyncio.gather(cache_req, imgs_req)
+        # Делаем всего один быстрый запрос
+        res_cache = await supabase.get("/market_cache", params=market_params)
         
         if res_cache.status_code != 200:
             print(f"⚠️ Ошибка Supabase market_cache: {res_cache.text}")
             return []
             
         items = res_cache.json()
-        imgs = res_imgs.json() if res_imgs.status_code == 200 else []
 
         if not isinstance(items, list) or not items:
             return []
 
-        img_dict = {img.get("market_hash_name"): img.get("icon_url") for img in imgs}
-
-        seen = set()
         unique_items = []
+        seen = set()
         
+        # 2. Больше никаких сложных склеек! Просто отдаем то, что пришло.
         for it in items:
             name = it.get("market_hash_name", "")
             if name and name not in seen:
                 seen.add(name)
                 unique_items.append({
                     "market_hash_name": name,
-                    "image_url": img_dict.get(name, "https://placehold.co/150"), 
+                    # 🔥 Берем картинку прямо из кэша (если пусто - ставим заглушку)
+                    "image_url": it.get("image_url") or "https://placehold.co/150", 
                     "price_rub": it.get("price_rub", 0),
                     "rarity": it.get("rarity", "blue")
                 })
@@ -20525,7 +20514,7 @@ async def admin_cases_search_cache(
     except Exception as e:
         print(f"⚠️ Ошибка в search_cache: {e}")
         return []
-
+        
 @app.post("/api/v1/admin/cases/clear")
 async def admin_clear_case(
     request: Request,
