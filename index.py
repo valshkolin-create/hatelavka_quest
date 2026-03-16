@@ -18989,7 +18989,7 @@ async def finalize_raffle_webhook(
 class CronCheckRequest(BaseModel):
     secret: str
 
-@@app.post("/api/v1/webhook/cron_check_raffles")
+@app.post("/api/v1/webhook/cron_check_raffles")
 async def cron_check_raffles(
     req: CronCheckRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
