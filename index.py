@@ -18376,31 +18376,7 @@ async def create_raffle(
         except Exception as e:
             print(f"⚠️ Ошибка таймера публикации: {e}")
 
-    # 4. ТАЙМЕР ЗАВЕРШЕНИЯ (Всегда, если есть end_time)
-    if req.end_time:
-        try:
-            if qstash_token and app_url:
-                dt_input = datetime.fromisoformat(req.end_time.replace('Z', ''))
-                # Считаем, что ввод был в МСК, переводим в UTC для сервера
-                dt_utc = dt_input - timedelta(hours=3)
-                unix_time = int(dt_utc.replace(tzinfo=timezone.utc).timestamp())
-                
-                # Ставим таймер, только если время в будущем
-                if unix_time > int(datetime.now(timezone.utc).timestamp()):
-                    target = f"{app_url}/api/v1/webhook/finalize_raffle"
-                    async with httpx.AsyncClient() as client:
-                        await client.post(
-                            f"https://qstash.upstash.io/v2/publish/{target}",
-                            headers={"Authorization": f"Bearer {qstash_token}", "Upstash-Not-Before": str(unix_time), "Content-Type": "application/json"},
-                            json={"raffle_id": new_id, "secret": get_cron_secret()}
-                        )
-                    print(f"⏰ Таймер завершения установлен для ID {new_id} на {unix_time}")
-                else:
-                    print(f"⚠️ Время завершения уже прошло или слишком близко, таймер не установлен.")
-        except Exception as e:
-            print(f"⚠️ Ошибка QStash (Finalize): {e}")
 
-    return {"message": "Розыгрыш создан!"}
     
 # 2. (Админ) Список
 @app.post("/api/v1/admin/raffles/list")
@@ -18992,6 +18968,59 @@ async def finalize_raffle_webhook(
             except: pass
 
     return {"status": "done", "winner": winner_id}
+
+class CronCheckRequest(BaseModel):
+    secret: str
+
+@app.post("/api/v1/webhook/cron_check_raffles")
+async def cron_check_raffles(
+    req: CronCheckRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Защита: проверяем, что дергает именно наш QStash
+    if req.secret != get_cron_secret():
+        raise HTTPException(status_code=403, detail="Bad secret")
+
+    print("🤖 CRON: Ищу розыгрыши, которые пора завершить...")
+    
+    # 2. Берем текущее время UTC
+    now_utc = datetime.now(timezone.utc).isoformat()
+    
+    try:
+        # Ищем розыгрыши: статус active И время end_time уже наступило (меньше или равно сейчас)
+        res = await supabase.get("/raffles", params={
+            "status": "eq.active",
+            "end_time": f"lte.{now_utc}",
+            "select": "id"
+        })
+        
+        if res.status_code != 200:
+            print(f"⚠️ CRON DB Error: {res.text}")
+            return {"status": "db_error"}
+            
+        ripe_raffles = res.json()
+        
+        if not ripe_raffles:
+            return {"status": "nothing_to_do"}
+            
+        print(f"🤖 CRON: Найдено {len(ripe_raffles)} розыгрышей для завершения!")
+        
+        # 3. Завершаем каждый найденный розыгрыш
+        processed = 0
+        for r in ripe_raffles:
+            raffle_id = r['id']
+            print(f"🤖 CRON: Завершаю розыгрыш {raffle_id}...")
+            
+            # Имитируем запрос от QStash к твоему старому финалайзеру
+            fin_req = FinalizeRequest(raffle_id=raffle_id, secret=req.secret)
+            await finalize_raffle_webhook(fin_req, supabase)
+            processed += 1
+            
+        return {"status": "success", "processed": processed}
+
+    except Exception as e:
+        print(f"🔴 CRON Ошибка: {e}")
+        return {"status": "error", "detail": str(e)}
     
 # --- 🛠️ ДИАГНОСТИКА: ВРЕМЯ + QSTASH ---
 @app.get("/api/v1/debug/test_system")
