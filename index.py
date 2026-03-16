@@ -18989,21 +18989,25 @@ async def finalize_raffle_webhook(
 class CronCheckRequest(BaseModel):
     secret: str
 
-@app.post("/api/v1/webhook/cron_check_raffles")
+@@app.post("/api/v1/webhook/cron_check_raffles")
 async def cron_check_raffles(
     req: CronCheckRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # Добавляем локальные импорты, чтобы 100% работало в любом файле
+    import traceback
+    from datetime import datetime, timezone
+
     # 1. Защита: проверяем, что дергает именно наш QStash
     if req.secret != get_cron_secret():
         raise HTTPException(status_code=403, detail="Bad secret")
 
     print("🤖 CRON: Ищу розыгрыши, которые пора завершить...")
     
-    # 2. Берем текущее время UTC
-    now_utc = datetime.now(timezone.utc).isoformat()
-    
     try:
+        # 2. Берем текущее время UTC
+        now_utc = datetime.now(timezone.utc).isoformat()
+        
         # Ищем розыгрыши: статус active И время end_time уже наступило (меньше или равно сейчас)
         res = await supabase.get("/raffles", params={
             "status": "eq.active",
@@ -19036,8 +19040,10 @@ async def cron_check_raffles(
         return {"status": "success", "processed": processed}
 
     except Exception as e:
-        print(f"🔴 CRON Ошибка: {e}")
-        return {"status": "error", "detail": str(e)}
+        # Теперь ошибка будет печататься подробно, с указанием строки
+        error_trace = traceback.format_exc()
+        print(f"🔴 CRON Ошибка (Детали):\n{error_trace}")
+        return {"status": "error", "detail": repr(e)}
     
 # --- 🛠️ ДИАГНОСТИКА: ВРЕМЯ + QSTASH ---
 @app.get("/api/v1/debug/test_system")
