@@ -1638,6 +1638,8 @@ class CSCodeCreateRequest(BaseModel):
     platform: str = "tg"  # <--- Добавлено!
     code: str
     max_uses: int
+    target_case_name: Optional[str] = None # <-- НОВОЕ
+    description: Optional[str] = None      # <-- НОВОЕ
 
 class DeleteNotificationRequest(BaseModel):
     initData: str
@@ -5774,9 +5776,17 @@ async def save_cs_config(req: CSConfigUpdate, supabase: httpx.AsyncClient = Depe
 @app.post("/api/admin/cs/code/add")
 async def add_cs_code(req: CSCodeCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info['id'] not in ADMIN_IDS: raise HTTPException(403)
+    # Предполагаю, ADMIN_IDS у тебя где-то импортирован
+    if not user_info or int(user_info['id']) not in ADMIN_IDS: 
+        raise HTTPException(403)
     
-    await supabase.post("/cs_codes", json={"code": req.code, "max_uses": req.max_uses})
+    # 🔥 МАГИЯ ТУТ: Отправляем новые поля в базу
+    await supabase.post("/cs_codes", json={
+        "code": req.code, 
+        "max_uses": req.max_uses,
+        "target_case_name": req.target_case_name,
+        "description": req.description
+    })
     return {"message": "Код создан"}
 
 # --- 5. Админка: Список победителей ---
