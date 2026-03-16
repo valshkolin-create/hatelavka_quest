@@ -18,6 +18,12 @@
             --notification-bg: rgba(255, 255, 255, 0.1); 
             --notification-icon-color: #00c0e3;
             --safe-top-gap: max(env(safe-area-inset-top, 24px) + 55px, 75px);
+            
+        }
+
+        /* 🔥 Убираем гигантский отступ на ПК */
+        body.desktop-mode {
+        --safe-top-gap: 20px; /* 20px хватит для красоты, но можешь поставить 0 */
         }
         
         /* --- Общие стили --- */
@@ -2689,8 +2695,12 @@ window.checkTradeStatus = async function(historyId) {
             // Растягиваем на весь экран
             tg.expand(); 
             
+            // 🔥 ДОБАВЛЯЕМ СЮДА: Проверка на ПК-версию
+            if (tg.platform === 'tdesktop' || tg.platform === 'web' || tg.platform === 'macos') {
+                document.body.classList.add('desktop-mode');
+            }
+            
             // Запускаем главную логику
-            // Функция main сама вызовет await loadData()
             main(); 
         });
     } catch(e) { 
