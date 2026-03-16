@@ -1159,25 +1159,32 @@
 
     // === УМНАЯ КНОПКА НАЗАД И ЗАКРЫТИЕ ОКОН ===
 function handleGlobalBack() {
-    // 1. Проверяем, открыты ли мелкие попапы (например, Trade Link или "Безопасно?")
+    // 1. Проверяем мелкие попапы
     const openPopup = document.querySelector('.custom-popup-overlay.visible');
     if (openPopup && openPopup.id !== 'loader-overlay') {
         openPopup.classList.remove('visible');
-        return; // Останавливаем выполнение, чтобы не выйти со страницы
+        return; 
     }
 
-    // 2. Проверяем, открыты ли полноэкранные модалки (Инвентарь, Промокоды)
+    // 2. Проверяем полноэкранные модалки (Инвентарь, Промокоды)
     const openModal = document.querySelector('.custom-modal.visible');
     if (openModal) {
         openModal.classList.remove('visible');
+        
+        // 🔥 УМНАЯ ОЧИСТКА: Если закрыли инвентарь, убиваем его интервал
+        if (openModal.id === 'modal-inventory' && typeof inventoryRefreshInterval !== 'undefined' && inventoryRefreshInterval) {
+            clearInterval(inventoryRefreshInterval);
+            inventoryRefreshInterval = null;
+        }
         return;
     }
 
-    // 3. Если все окна закрыты, идем на предыдущую страницу (откуда пришли)
+    // 3. ЖЕЛЕЗОБЕТОННЫЙ ВОЗВРАТ НА ГЛАВНУЮ
+    // Если истории нет, мы не закрываем приложение, а просто грузим меню!
     if (window.history.length > 1 && document.referrer) {
         window.history.back();
     } else {
-        window.location.href = '/menu'; // Резервный возврат, если истории нет
+        window.location.href = '/menu'; // Замени на свой URL главной, если он другой
     }
 }
 
