@@ -956,7 +956,7 @@ body.desktop-mode .toggle-container {
 }
 
 /* ==========================================
-   СВЕТЛАЯ ТЕМА (ИНВЕРСИЯ)
+    СВЕТЛАЯ ТЕМА (ИНВЕРСИЯ)
 ========================================== */
 body.light-theme {
     --bg-main: #f5f5f7 !important; 
@@ -975,16 +975,23 @@ body.light-theme .side-menu-header {
     color: #ffffff !important;
 }
 
-/* Инвертируем логотип и баланс в черный */
+/* 1. Инвертируем логотип и баланс в черный */
 body.light-theme .top-header .logo-title,
+body.light-theme .top-header .balance-value,
+body.light-theme .top-header .balance-amount,
+body.light-theme .top-header .user-balance-text {
+    color: #000000 !important;
+}
 
-/* КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ (Прозрачный с черными полосами) */
+/* 2. КЛАССИЧЕСКИЙ БУРГЕР НА СВЕТЛОЙ ТЕМЕ */
 body.light-theme .glass-burger {
     background: rgba(0, 0, 0, 0.05) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
+
+/* Делаем полоски внутри бургера черными */
 body.light-theme .glass-burger span { 
-    background-color: #121212 !important; 
+    background-color: #000000 !important; 
     box-shadow: none !important; 
 }
 
@@ -1000,8 +1007,7 @@ body.light-theme .toggle-container { display: none !important; }
 #dark-wrapper, #light-wrapper { transition: opacity 0.2s ease-in-out; }
 #light-wrapper { opacity: 0; }
 
-
-/* Убираем лишние надстройки над блоком */
+/* Убираем лишние надстройки над блоком под автомат */
 .light-version-top {
     margin-top: 0;
     height: auto;
