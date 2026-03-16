@@ -5308,6 +5308,7 @@ async def get_cs_items(supabase: httpx.AsyncClient = Depends(get_supabase_client
 # --- 2. Публичный API: КРУТИТЬ РУЛЕТКУ ---
 
 # --- ПРОВЕРКА И АКТИВАЦИЯ КОДА (ТЕПЕРЬ ПИШЕТ В БАЗУ ДЛЯ СИНХРОНА) ---
+# --- ПРОВЕРКА И АКТИВАЦИЯ КОДА (ТЕПЕРЬ С ЖЕСТКОЙ БРОНЬЮ) ---
 @app.post("/api/cs/check_code")
 async def check_cs_code(
     req: CSCheckCodeRequest,
@@ -5331,21 +5332,24 @@ async def check_cs_code(
 
     promo = code_data[0]
     
-    # 2. Проверяем общий лимит использований
-    if promo['current_uses'] >= promo['max_uses']:
-        return {"valid": False, "message": "Активации этого кода закончились"}
-
-    # 3. Проверяем, не использовал ли (used_by_ids) или не активировал ли уже (activated_by_ids)
+    # СНАЧАЛА ДОСТАЕМ СПИСКИ (до проверки лимитов)
     used_by = promo.get('used_by_ids') or []
     activated_by = promo.get('activated_by_ids') or []
-    
+
+    # 🔥 2. ГЛАВНЫЙ ФИКС БРОНИ: Считаем реальную занятость (Использованные + Забронированные)
+    total_reserved_slots = len(used_by) + len(activated_by)
+
+    if total_reserved_slots >= promo['max_uses']:
+        return {"valid": False, "message": "Все активации этого кода уже забронированы или разобраны!"}
+
+    # 3. Проверяем, не использовал ли (used_by_ids) или не активировал ли уже (activated_by_ids)
     if user_id in used_by:
         return {"valid": False, "message": "Вы уже использовали этот код"}
     
     if user_id in activated_by:
         return {"valid": False, "message": "Этот код уже активирован на вашем аккаунте!"}
 
-    # 🔥 ФИКС: Записываем ID юзера в список активировавших ПРЯМО СЕЙЧАС
+    # 4. Записываем ID юзера в список активировавших (БРОНИРУЕМ СЛОТ ПРЯМО СЕЙЧАС)
     activated_by.append(user_id)
     await supabase.patch(
         f"/cs_codes?code=eq.{code}",
@@ -15985,19 +15989,30 @@ async def buy_bott_item_proxy(
                 
             promo_data = code_data[0]
             
-            # 🔥 ВАЖНО: Подменяем заглушку на реальный код из базы (например, "LENTYAY"), 
-            # чтобы ниже по коду он записался в историю выигрышей и обновил правильную строку!
+            # 🔥 ВАЖНО: Подменяем заглушку на реальный код из базы
             coupon_code = promo_data['code']
             
-            if promo_data['current_uses'] >= promo_data['max_uses']:
-                raise HTTPException(status_code=400, detail="⛔ Активации этого кода закончились!")
-                
+            # --- СТАРТ НОВОЙ ЛОГИКИ ЗАЩИТЫ БРОНИ ---
+            used_ids = promo_data.get('used_by_ids') or []
+            activated_ids = promo_data.get('activated_by_ids') or []
+            user_id_int = int(telegram_id)
+
+            # Проверяем, забронировал ли этот юзер себе место заранее через check_code
+            is_reserved_by_me = user_id_int in activated_ids
+
+            # Если юзер НЕ бронировал купон (пытается пропихнуть код напрямую при покупке)
+            if not is_reserved_by_me:
+                # Считаем вообще все занятые места (и открытые, и забронированные)
+                total_taken_slots = len(used_ids) + len(activated_ids)
+                if total_taken_slots >= promo_data['max_uses']:
+                    raise HTTPException(status_code=400, detail="⛔ Мест нет! Все купоны уже забронированы или разобраны.")
+            # --- КОНЕЦ НОВОЙ ЛОГИКИ ЗАЩИТЫ БРОНИ ---
+
             target_case_name = promo_data.get('target_case_name')
             if target_case_name and target_case_name.strip().lower() != item_title.strip().lower():
                 raise HTTPException(status_code=400, detail="⛔ Этот купон предназначен для другого кейса!")
                 
-            used_by = promo_data.get('used_by_ids') or []
-            if int(telegram_id) in used_by:
+            if user_id_int in used_ids:
                 raise HTTPException(status_code=400, detail="⛔ Вы уже использовали этот код!")
                 
             is_free_purchase = True
