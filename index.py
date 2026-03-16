@@ -15730,7 +15730,7 @@ async def get_shop_smart_balance(
     # Если обновляли только что - отдаем сразу (ОТДАЕМ ФРОНТУ РУБЛИ, разделив на 100)
     if not should_sync:
         return {
-            "balance": current_coins_kopecks / 100.0, # Превращаем копейки в рубли для отображения
+            "balance": current_coins_kopecks / 100.0, 
             "tickets": current_tickets
         }
 
@@ -15774,10 +15774,20 @@ async def get_shop_smart_balance(
 
                 await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
             else:
-                logging.error(f"[SHOP BALANCE] Ошибка от API Bot-T: {res_json.get('message')}")
+                error_msg = res_json.get('message', '')
+                logging.error(f"[SHOP BALANCE] Ошибка от API Bot-T: {error_msg}")
+                
+                # 🔥 ОТДАЕМ ОШИБКУ НА ФРОНТ 🔥
+                # Если Bot-T ругается, что юзера нет, стреляем 400 ошибкой с нужным текстом
+                if "не найден" in error_msg.lower() or "not found" in error_msg.lower():
+                    raise HTTPException(status_code=400, detail="BOT_USER_NOT_FOUND")
+
         else:
             logging.error(f"[SHOP BALANCE] HTTP Ошибка {resp.status_code}: {resp.text}")
             
+    except HTTPException:
+        # 🔥 ВАЖНО: Пропускаем HTTPException дальше, чтобы фронт его поймал, а не глушим!
+        raise
     except Exception as e:
         logging.error(f"[SHOP BALANCE] Исключение при запросе: {e}")
 
