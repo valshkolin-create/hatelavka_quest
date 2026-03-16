@@ -841,3 +841,53 @@ body.desktop-mode .toggle-container {
     font-size: 9px;
     color: #ffd700;
 }
+
+/* --- НОВЫЙ БЛОК: Расписание стримов (под сеткой) --- */
+.schedule-standalone-banner {
+    margin: 0 16px 20px 16px; /* Отступы по бокам, чтобы было вровень с верхними кнопками */
+    background: #1c1c1e;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden; /* Обрезает калаш, чтобы он не вылезал за границы кнопки */
+    display: flex;
+    align-items: center;
+    padding: 20px 15px; /* Высота блока */
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.05);
+}
+
+/* Текст Расписания (Левая половина) */
+.schedule-text-zone {
+    display: flex;
+    flex-direction: column;
+    z-index: 2; /* Текст ПОВЕРХ калаша */
+    width: 60%; /* Текст занимает чуть больше половины, чтобы не лезть на картинку */
+}
+
+.schedule-title {
+    color: #ffd700;
+    font-weight: 900;
+    font-size: 14px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.schedule-subtitle {
+    color: #e0e0e0;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+/* Огромный автомат (Правая половина) */
+.schedule-weapon {
+    position: absolute;
+    right: -20px; /* Прижали плотно вправо */
+    top: 50%;
+    transform: translateY(-50%); /* Центруем по вертикали */
+    height: 160%; /* ДЕЛАЕМ КАЛАШ ГИГАНТСКИМ */
+    z-index: 1; /* Кладем ПОД текст */
+    object-fit: contain;
+    pointer-events: none; /* Чтобы картинка не мешала нажимать на кнопку */
+}
