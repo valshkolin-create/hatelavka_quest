@@ -20,6 +20,22 @@ let isVk = false;
     } catch (e) {}
 })();
 
+// 👇 ВОТ СЮДА ВСТАВЛЯЕМ ФУНКЦИЮ 👇
+async function fetchVkParamsFromBridge() {
+    return new Promise((resolve) => {
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send("VKWebAppGetConfig").then(data => {
+                // Если нужно, тут можно дополнительно распарсить data 
+                // и положить ключи в window.vkParams
+                resolve();
+            }).catch(() => resolve());
+        } else {
+            resolve();
+        }
+    });
+}
+// 👆 КОНЕЦ ВСТАВКИ 👆
+
 // 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД (НЕУЯЗВИМ К ТЕЛЕГРАМУ) 🔥
 function getAuthPayload() {
     // 1. Собираем данные отовсюду: из наших переменных, из переменной Телеграма и из ссылок
@@ -2521,43 +2537,43 @@ window.showFaq = function() {
         onConfirm: (close) => close()
     });
 };
-// ================================================================
-// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
-// ================================================================
+
 // ================================================================
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
 async function main() {
-    // 1. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ VK 🔥
+    // 1. УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ VK
     if (isVk && !window.vkParams) {
-        console.log("⏳ Параметров VK нет в URL. Запрашиваем у моста...");
         if (typeof fetchVkParamsFromBridge === 'function') {
             await fetchVkParamsFromBridge();
         }
-        if (!window.vkParams) {
-            console.error("💀 Критическая ошибка: Не удалось получить параметры VK.");
-        } else {
-            console.log("✅ Ключи VK успешно получены!");
-        }
     }
 
-    // 2. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ TELEGRAM 🔥
+    // 2. УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ TELEGRAM
     if (!isVk && window.Telegram?.WebApp) {
         let attempts = 0;
-        // Ждем максимум 1.5 секунды (15 попыток по 100мс), пока ТГ генерирует initData
         while (!window.Telegram.WebApp.initData && attempts < 15) {
             await new Promise(r => setTimeout(r, 100));
             attempts++;
         }
-        if (!window.Telegram.WebApp.initData) {
-            console.error("💀 Критическая ошибка: Telegram не отдал initData.");
-        }
     }
 
-    // 3. ⚡ ЗАПУСКАЕМ СИНХРОНИЗАЦИЮ КУПОНОВ (ДОБАВЬ ЭТО!)
-    await syncMyPromos();
+    // 🔥 ИСПРАВЛЕНИЕ: Сначала проверяем, есть ли вообще данные, И ТОЛЬКО ПОТОМ идем на сервер
+    if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
+        console.error("💀 Telegram не отдал initData, прерываем запуск.");
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
+        // Тут можно показать красивую заглушку "Откройте внутри Telegram"
+        return; 
+    }
 
-    // 4. ⚡ ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ
+    if (isVk && !window.vkParams) {
+        console.error("💀 VK не отдал параметры, прерываем запуск.");
+        if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
+        return;
+    }
+
+    // 3. ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОСЫ
+    await syncMyPromos();
     checkBalance(true);
 
     try {
@@ -2713,15 +2729,15 @@ try {
         }
 
         // Безопасный фуллскрин (только для мобилок TG)
-        if (!document.body.classList.contains('desktop-mode') && typeof tg.requestFullscreen === 'function') {
-            try {
-                // Оборачиваем сам вызов, так как ТГ может кинуть Error: WebAppMethodUnsupported
-                tg.requestFullscreen();
-            } catch (e) {
-                console.warn("TG: Фуллскрин не поддерживается на этом клиенте", e);
-            }
+        if (!document.body.classList.contains('desktop-mode') && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
+    if (typeof tg.requestFullscreen === 'function') {
+        try {
+            tg.requestFullscreen();
+        } catch (e) {
+            console.warn("TG: Фуллскрин не поддерживается", e);
         }
-    } 
+    }
+}
     // 2. ИНИЦИАЛИЗАЦИЯ VK
     else if (isVk) {
         console.log("🚀 Инициализация интерфейса для VK Mini Apps");
