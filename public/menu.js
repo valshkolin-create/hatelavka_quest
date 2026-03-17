@@ -6,22 +6,24 @@ window.vkParams = null;
 
 (function initVkParams() {
     try {
-        // Собираем всё, что есть в URL (безопасно)
-        const href = window.location.href || '';
+        // Берем всю ссылку целиком, чтобы ничего не упустить
+        const fullUrl = window.location.href || '';
         const search = window.location.search || '';
         const hash = window.location.hash || '';
 
-        // Железобетонный признак ВК — наличие vk_app_id или vk_user_id в ссылке
-        if (href.includes('vk_app_id') || href.includes('vk_user_id')) {
-            isVk = true;
+        // Если хоть где-то есть vk_app_id - это 100% ВК
+        if (fullUrl.includes('vk_app_id') || fullUrl.includes('vk_user_id')) {
+            isVk = true; // СРАЗУ жестко включаем ВК
             document.documentElement.classList.add('vk-mode');
-            
-            // Вытаскиваем параметры чисто
-            let params = search.replace('?', '') || hash.replace('#', '');
-            
-            // Если search пустой (иногда ВК так делает), парсим руками из href
-            if (!params && href.includes('?')) {
-                params = href.split('?')[1];
+
+            // Чисто достаем строку параметров (без ? и #)
+            let params = '';
+            if (search.includes('vk_app_id')) {
+                params = search.substring(1);
+            } else if (hash.includes('vk_app_id')) {
+                params = hash.substring(1);
+            } else if (fullUrl.includes('?')) {
+                params = fullUrl.split('?')[1];
             }
             
             window.vkParams = params;
@@ -48,33 +50,16 @@ async function fetchVkParamsFromBridge() {
 }
 // 👆 КОНЕЦ ВСТАВКИ 👆
 
-// 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД (НЕУЯЗВИМ К ТЕЛЕГРАМУ) 🔥
+// 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
 function getAuthPayload() {
-    // 1. Собираем данные отовсюду: из наших переменных, из переменной Телеграма и из ссылок
-    let rawData = window.vkParams || window.Telegram?.WebApp?.initData || window.location.search || window.location.hash || '';
-    
-    // Убираем лишние знаки вопроса и решетки в начале
-    if (rawData.startsWith('?') || rawData.startsWith('#')) {
-        rawData = rawData.slice(1);
-    }
-
-    // 2. Если в строке есть хотя бы малейший след ВКонтакте - это ВК!
-    if (rawData.includes('vk_app_id') || rawData.includes('vk_user_id')) {
-        isVk = true; // Принудительно включаем режим ВК
-        document.documentElement.classList.add('vk-mode'); // Адаптация CSS
-        
-        // Отправляем эвент загрузки
-        if (typeof vkBridge !== 'undefined') {
-            try { vkBridge.send('VKWebAppInit'); } catch(e){}
-        }
-        
-        // Отдаем серверу строку с пометкой 'vk', чтобы он искал sign, а не hash!
-        return { initData: rawData, platform: 'vk' };
+    if (isVk) {
+        // Отдаем серверу параметры ВК и пометку 'vk'
+        return { initData: window.vkParams || '', platform: 'vk' };
     }
     
-    // 3. Иначе это чистый Телеграм
-    isVk = false;
-    return { initData: rawData, platform: 'tg' };
+    // Иначе отдаем Телеграм
+    let tgData = window.Telegram?.WebApp?.initData || '';
+    return { initData: tgData, platform: 'tg' };
 }
 
 // Глобальные переменные
