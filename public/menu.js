@@ -2425,7 +2425,17 @@ function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel 
     const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
     
     if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
-    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
+    
+    // --- ВОТ ЭТО НОВАЯ ЛОГИКА КНОПКИ ПОДТВЕРЖДЕНИЯ ---
+    const confirmBtn = overlay.querySelector('#modal-confirm');
+    confirmBtn.onclick = () => { 
+        if (confirmBtn.dataset.clicked) return; // Если уже нажали — игнорируем второй клик
+        confirmBtn.dataset.clicked = "true";    // Ставим метку, что кнопка нажата
+        confirmBtn.style.opacity = "0.7";       // Делаем кнопку чуть прозрачной для визуала
+        onConfirm(close);                       // Запускаем сам вывод/обмен
+    };
+    // --------------------------------------------------
+
     overlay.onclick = (e) => { if(e.target === overlay && showCancel) close(); };
 }
 
