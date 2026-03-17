@@ -946,7 +946,7 @@ class EventConfirmSentRequest(BaseModel):
     platform: str = "tg"  # <--- Добавлено!
     event_id: int
 
-class TradeLinkUpdateRequest(BaseModel):
+class TradeLinkRequest(BaseModel):
     initData: str
     platform: str = "tg"  # <--- Добавлено!
     trade_link: str
