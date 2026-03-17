@@ -7763,18 +7763,13 @@ async def get_public_quests(request_data: InitDataRequest):
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
 
 @app.get("/api/v1/auth/twitch_oauth")
-async def twitch_oauth_start(
-    request: Request, 
-    initData: str = Query(...), 
-    platform: str = Query('tg') # Принимаем платформу с фронта
-):
+async def twitch_oauth_start(request: Request, initData: str = Query(...)):
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
 
     try:
-        # Склеиваем данные и кодируем в state ровно так, как было у тебя
-        raw_state = f"{initData}|{platform}"
-        state = base64.urlsafe_b64encode(raw_state.encode()).decode()
+        # Кодируем initData для передачи в state
+        state = base64.urlsafe_b64encode(initData.encode()).decode()
         
         # Набор прав. 
         # moderation:read — критически важен для стримера
@@ -7798,32 +7793,23 @@ async def twitch_oauth_start(
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
     request: Request, 
+    code: str = Query(...), 
     state: str = Query(...),
-    code: str = Query(None), # Ставим None, чтобы избежать 422 ошибки при отмене авторизации
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Защита от пустых возвратов с Твича
-    if not code:
-        return RedirectResponse(url=f"https://t.me/HATElavka_bot/profile?startapp=auth_error")
-
     try:
-        # 1. Декодируем state и разделяем платформу от initData
-        state_str = base64.urlsafe_b64decode(state).decode()
-        if '|' in state_str:
-            init_data, platform = state_str.rsplit('|', 1)
-        else:
-            init_data, platform = state_str, 'tg'
-
-        user_info = get_hybrid_user_info(init_data, platform)
-        if not user_info or "id" not in user_info:
+        # 1. Декодируем и валидируем юзера Telegram
+        init_data = base64.urlsafe_b64decode(state).decode()
+        user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
+        if not user_info:
             raise HTTPException(status_code=403, detail="Invalid signature")
         
-        platform_user_id = int(user_info["id"])
-        search_col = "vk_id" if platform == 'vk' else "telegram_id"
+        telegram_id = int(user_info["id"])
         BROADCASTER_ID = "883996654"
 
         async with httpx.AsyncClient() as client:
-            # 2. Обмен кода на Access Token пользователя (ТВОЙ КОД 1В1)
+            # 2. Обмен кода на Access Token пользователя
+            # 🔥 ИСПРАВЛЕНИЕ: Используем 'params' вместо 'data'
             t_resp = await client.post("https://id.twitch.tv/oauth2/token", params={
                 "client_id": TWITCH_CLIENT_ID, 
                 "client_secret": TWITCH_CLIENT_SECRET,
@@ -7845,7 +7831,7 @@ async def twitch_oauth_callback(
             user_access_token = t_data["access_token"]
             user_headers = {"Authorization": f"Bearer {user_access_token}", "Client-Id": TWITCH_CLIENT_ID}
 
-            # 3. Получаем профиль вошедшего юзера (ТВОЙ КОД 1В1)
+            # 3. Получаем профиль вошедшего юзера
             u_resp = await client.get("https://api.twitch.tv/helix/users", headers=user_headers)
             u_json = u_resp.json()
             
@@ -7856,9 +7842,10 @@ async def twitch_oauth_callback(
             tw_user = u_json["data"][0]
             twitch_id, twitch_login = tw_user["id"], tw_user["login"]
 
-            # 4. ОПРЕДЕЛЕНИЕ СТАТУСА (ТВОЙ КОД 1В1)
+            # 4. ОПРЕДЕЛЕНИЕ СТАТУСА (ИСПРАВЛЕНО)
             new_status = "none"
 
+            # --- А. Проверка на Фолловера ---
             try:
                 f_resp = await client.get(f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={BROADCASTER_ID}", headers=user_headers)
                 if f_resp.status_code == 200 and f_resp.json().get("data"):
@@ -7866,7 +7853,10 @@ async def twitch_oauth_callback(
             except Exception as e:
                 logging.warning(f"Ошибка проверки фоллоу: {e}")
 
+            # --- Б. Проверка на Сабскрибера ---
             try:
+                # 🔥 ИСПРАВЛЕНИЕ: Добавлено /user в URL
+                # Это эндпоинт для проверки подписки именно от лица зрителя
                 s_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
                 s_resp = await client.get(s_url, headers=user_headers)
                 
@@ -7875,17 +7865,21 @@ async def twitch_oauth_callback(
                     if len(s_data) > 0:
                         new_status = "subscriber"
                 else:
+                    # Если Twitch не отдаст сабку, мы точно увидим причину в логах Vercel
                     logging.warning(f"⚠️ Ошибка проверки сабки ({twitch_login}): {s_resp.status_code} - {s_resp.text}")
             except Exception as e:
                 logging.warning(f"Ошибка проверки сабки: {e}")
 
+            # --- В. Проверка на Модератора и VIP (Используем токен стримера) ---
             try:
+                # Достаем токен стримера из базы данных ОДИН раз
                 br_resp = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
                 br_data = br_resp.json()
                 if br_data and br_data[0].get("twitch_access_token"):
                     broadcaster_token = br_data[0]["twitch_access_token"]
                     m_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": TWITCH_CLIENT_ID}
                     
+                    # 1. Сначала проверяем на Модератора
                     m_url = f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
                     m_resp = await client.get(m_url, headers=m_headers)
                     
@@ -7895,6 +7889,7 @@ async def twitch_oauth_callback(
                     else:
                         logging.warning(f"🛡️ [Mod Check] Не удалось проверить модератора. Код: {m_resp.status_code}.")
                         
+                    # 2. Затем проверяем на VIP (VIP перебьет модератора, если юзер имеет оба статуса)
                     v_url = f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={BROADCASTER_ID}&user_id={twitch_id}"
                     v_resp = await client.get(v_url, headers=m_headers)
                     
@@ -7909,8 +7904,9 @@ async def twitch_oauth_callback(
             except Exception as e:
                 logging.error(f"❌ [Mod/VIP Check] Критическая ошибка: {e}")
 
+            # --- Г. Защита текущего статуса (если он УЖЕ вип в базе) ---
             try:
-                db_user_resp = await supabase.get("/users", params={search_col: f"eq.{platform_user_id}", "select": "twitch_status"})
+                db_user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
                 db_user_data = db_user_resp.json()
                 if db_user_data and db_user_data[0].get("twitch_status"):
                     db_status = db_user_data[0].get("twitch_status")
@@ -7920,7 +7916,7 @@ async def twitch_oauth_callback(
                         new_status = db_status
             except: pass
 
-            # 5. СОХРАНЕНИЕ / СЛИЯНИЕ АККАУНТОВ В БАЗЕ
+            # 5. Сохранение в базу
             update_payload = {
                 "twitch_id": twitch_id, 
                 "twitch_login": twitch_login,
@@ -7929,58 +7925,25 @@ async def twitch_oauth_callback(
                 "twitch_status": new_status
             }
 
-            existing_resp = await supabase.get("/users", params={"twitch_id": f"eq.{twitch_id}"})
-            existing_users = existing_resp.json() if existing_resp.status_code == 200 else []
-
-            if existing_users:
-                # Аккаунт найден. Привязываем текущий VK/TG ID к старому аккаунту.
-                main_account = existing_users[0]
-                
-                merge_payload = update_payload.copy()
-                merge_payload[search_col] = platform_user_id 
-                
-                patch_resp = await supabase.patch(
-                    "/users",
-                    params={"twitch_id": f"eq.{twitch_id}"},
-                    json=merge_payload,
-                    headers={"Prefer": "return=representation"}
-                )
-                
-                # Убиваем пустышку (чтобы не плодить дубли)
-                if str(main_account.get(search_col)) != str(platform_user_id):
-                    await supabase.delete(
-                        "/users", 
-                        params={search_col: f"eq.{platform_user_id}", "twitch_id": "is.null"}
-                    )
-            else:
-                # Новая привязка
-                patch_resp = await supabase.patch(
-                    "/users",
-                    params={search_col: f"eq.{platform_user_id}"},
-                    json=update_payload,
-                    headers={"Prefer": "return=representation"}
-                )
+            patch_resp = await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{telegram_id}"},
+                json=update_payload,
+                headers={"Prefer": "return=representation"}
+            )
             
-            if not patch_resp or patch_resp.status_code not in [200, 201, 204]:
-                logging.error(f"💀 [DB Error] Ошибка PATCH: {patch_resp.text if patch_resp else 'None'}")
+            if patch_resp.status_code not in [200, 201, 204]:
+                logging.error(f"💀 [DB Error] Ошибка PATCH: {patch_resp.text}")
                 raise HTTPException(status_code=500, detail="Database update failed")
 
-        logging.info(f"✅ [{platform.upper()} -> Twitch Success] User {platform_user_id} linked as {twitch_login} (Статус: {new_status})")
+        logging.info(f"✅ [Twitch Link Success] User {telegram_id} linked as {twitch_login} (Статус: {new_status})")
         
-        # 6. РЕДИРЕКТ
-        if platform == 'vk':
-            vk_app_id = "54448787"
-            return RedirectResponse(url=f"https://vk.com/app{vk_app_id}", status_code=303)
-        else:
-            bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
-            app_name = os.getenv("APP_SHORT_NAME", "profile")
-            return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=auth_success", status_code=303)
+        bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
+        app_name = os.getenv("APP_SHORT_NAME", "profile")
+        return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=auth_success", status_code=303)
 
     except Exception as e:
         logging.error(f"🔥 [Twitch Callback Critical] {e}", exc_info=True)
-        if 'platform' in locals() and platform == 'vk':
-            return RedirectResponse(url=f"https://vk.com/app54448787", status_code=303)
-            
         return RedirectResponse(url=f"https://t.me/HATElavka_bot/profile?startapp=auth_error")
     
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
