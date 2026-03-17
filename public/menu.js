@@ -1,4 +1,4 @@
-// ================================================================
+/// ================================================================
 // 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
 let isVk = false;
@@ -6,17 +6,28 @@ let isVk = false;
 (function initVkParams() {
     window.vkParams = null;
     const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
+    
+    // Вспомогательная функция: сохраняем параметры и СРАЗУ включаем режим ВК
+    const setVkMode = (params) => {
+        window.vkParams = params;
+        isVk = true; // 🔥 ВОТ ОНО! Спасение!
+        document.documentElement.classList.add('vk-mode');
+    };
+
     try {
         let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-        if (isValid(s)) { window.vkParams = s; return; }
+        if (isValid(s)) { setVkMode(s); return; }
         
         let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-        if (isValid(h)) { window.vkParams = h; return; }
+        if (isValid(h)) { setVkMode(h); return; }
         
-        if (isValid(window.name)) { window.vkParams = window.name; return; }
+        if (isValid(window.name)) { setVkMode(window.name); return; }
         
         const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
-        if (match && match[1] && match[1].includes('sign')) { window.vkParams = match[1]; return; }
+        if (match && match[1] && match[1].includes('sign')) { setVkMode(match[1]); return; }
+        
+        // Доп. проверка: если есть vkBridge, значит точно ВК
+        if (typeof vkBridge !== 'undefined') { isVk = true; }
     } catch (e) {}
 })();
 
