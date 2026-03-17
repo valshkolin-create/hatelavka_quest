@@ -25,7 +25,7 @@ window.openAppUrl = function(url) {
     }
 };
 
-// 2. Универсальная вибрация (Haptic Feedback)
+
 // 2. Универсальная вибрация (Haptic Feedback)
 window.triggerHaptic = function(type = 'light') {
     if (isVk) {
@@ -37,7 +37,7 @@ window.triggerHaptic = function(type = 'light') {
             } else {
                 vkBridge.send("VKWebAppTapticImpactOccurred", { style: type === 'heavy' ? 'heavy' : 'light' });
             }
-        } catch(e) {}
+       } catch(e) {}
     } else if (window.Telegram?.WebApp?.HapticFeedback) {
         if (type === 'success' || type === 'error') {
             Telegram.WebApp.HapticFeedback.notificationOccurred(type);
@@ -408,9 +408,7 @@ if (response.status === 403 && result.detail === "BANNED") {
     document.body.style.position = 'fixed';
 
     triggerHaptic('error');
-    }
-    
-    throw new Error("USER_BANNED");
+    throw new Error("USER_BANNED");
 }
 
             // 👇 ВОТ СЮДА ВСТАВЛЯЕМ НАШУ ПРОВЕРКУ БОТА 👇
@@ -1562,21 +1560,35 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
     setTimeout(() => {
         const ANIMATION_TIME = 11000;
         const finalPosition = -((60 * 148) + 74 - (window.innerWidth / 2) + ((Math.random() * 100) - 50));
+        
         track.style.transition = `transform ${ANIMATION_TIME}ms cubic-bezier(0.15, 0, 0.05, 1)`; 
         track.style.transform = `translateX(${finalPosition}px)`;
         
         let tickInterval = 50, timer = 0;
+        
         const ticker = () => {
             if (timer >= ANIMATION_TIME - 300) return; 
+            
             triggerHaptic('selection');
             timer += tickInterval;
-            if (timer < ANIMATION_TIME * 0.6) tickInterval = 50; else if (timer < ANIMATION_TIME * 0.8) tickInterval = 120; else tickInterval += 50; 
+            
+            if (timer < ANIMATION_TIME * 0.6) {
+                tickInterval = 50; 
+            } else if (timer < ANIMATION_TIME * 0.8) {
+                tickInterval = 120; 
+            } else {
+                tickInterval += 50; 
+            }
+            
             setTimeout(ticker, tickInterval);
         };
+        
         ticker();
 
         setTimeout(() => {
-            triggerHaptic('heavy'); setTimeout(() => triggerHaptic('success'), 800);
+            triggerHaptic('heavy'); 
+            setTimeout(() => triggerHaptic('success'), 800);
+            
             area.style.display = 'none'; 
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО!</h2>
@@ -1589,7 +1601,7 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
             winScreen.style.display = 'flex'; 
         }, ANIMATION_TIME); 
     }, 100);
-}
+    
 window.closeRoulette = function() {
     document.getElementById('r-modal').style.display = 'none';
     document.getElementById('r-top-header').style.display = 'none';
@@ -2278,7 +2290,6 @@ window.showSecurityBlock = function(message) {
 // ================================================================
 window.openScheduleModal = () => {
     document.getElementById('schedule-modal').classList.remove('hidden');
-    
     // Дергаем виброотклик для красоты, если сидим с телефона
     triggerHaptic('light');
 };
