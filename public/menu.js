@@ -1941,6 +1941,38 @@ async function loadP2PHistoryData() {
     } catch (e) { listContainer.innerHTML = `<div style="color:red; text-align:center;">Ошибка</div>`; }
 }
 
+async function loadP2PHistoryData() {
+    const listContainer = document.getElementById('full-history-list'); const smartBtn = document.getElementById('smart-history-btn'); const smartBtnText = document.getElementById('smart-btn-text'); const smartBtnIcon = smartBtn.querySelector('.btn-icon');
+    if (document.getElementById('history-modal-window').classList.contains('active')) listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#666;"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
+    try {
+        const trades = await makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true);
+        const priority = { 'active': 1, 'review': 2, 'pending': 3, 'completed': 4, 'canceled': 5 };
+        trades.sort((a, b) => priority[a.status] - priority[b.status]);
+        const activeTrade = trades.find(t => ['active', 'review', 'pending'].includes(t.status));
+
+        if (activeTrade) {
+            smartBtn.classList.add('active-trade');
+            if (activeTrade.status === 'active') { smartBtnText.innerText = `🔥 ТРЕБУЕТ ДЕЙСТВИЯ`; smartBtnIcon.innerHTML = '<i class="fa-solid fa-fire"></i>'; } 
+            else if (activeTrade.status === 'review') { smartBtnText.innerText = `👀 ПРОВЕРКА АДМИНОМ`; smartBtnIcon.innerHTML = '<i class="fa-solid fa-hourglass-half"></i>'; } 
+            else { smartBtnText.innerText = `⏳ ОЖИДАНИЕ ЗАЯВКИ`; smartBtnIcon.innerHTML = '<i class="fa-regular fa-clock"></i>'; }
+        } else { smartBtn.classList.remove('active-trade'); smartBtnText.innerText = 'История сделок'; smartBtnIcon.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i>'; }
+
+        if (!trades || trades.length === 0) { listContainer.innerHTML = '<div style="text-align:center; margin-top:50px; color:#666;">История пуста</div>'; return; }
+        listContainer.innerHTML = trades.map(t => {
+            let caseName = t.case_name || (cachedP2PCases.find(c => c.id == t.case_id)?.case_name) || "Кейс #" + t.case_id;
+            let statusBadge = '', actionHtml = '';
+            switch(t.status) {
+                case 'pending': statusBadge = '<span style="color:#aaa; background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:10px;">⏳ Ожидание</span>'; break;
+                case 'active': statusBadge = '<span style="color:#000; background:#ffcc00; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">🔥 Действуй</span>'; actionHtml = `<div style="margin-top:10px; background:rgba(255,204,0,0.1); padding:10px; border-radius:8px; border:1px dashed #ffcc00;"><div style="font-size:11px; color:#ccc; margin-bottom:8px;">1. Отправь трейд: <a href="${t.trade_url_given}" target="_blank" style="color:#2AABEE; font-weight:bold;">Открыть Steam</a></div><button onclick="confirmP2PSent(${t.id})" class="action-btn" style="width:100%; height:36px; background:#ffcc00; color:#000; border-radius:8px;">✅ Я передал скин</button></div>`; break;
+                case 'review': statusBadge = '<span style="color:#fff; background:#2AABEE; padding:2px 8px; border-radius:4px; font-size:10px;">👀 Проверка</span>'; break;
+                case 'completed': statusBadge = '<span style="color:#fff; background:#34c759; padding:2px 8px; border-radius:4px; font-size:10px;">✅ Готово</span>'; break;
+                case 'canceled': statusBadge = '<span style="color:#fff; background:#ff3b30; padding:2px 8px; border-radius:4px; font-size:10px;">❌ Отмена</span>'; break;
+            }
+            return `<div style="background:#2c2c2e; border-radius:14px; padding:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;"><div><div style="font-weight:700; font-size:14px; color:#fff;">${caseName}</div><div style="font-size:11px; color:#8E8E93;">Кол-во: ${t.quantity} шт.</div></div><div style="text-align:right;"><div style="color:#ffcc00; font-weight:700; font-size:14px;">+${t.total_coins}</div><div style="font-size:10px; color:#666;">#${t.id}</div></div></div><div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">${statusBadge}<div style="font-size:10px; color:#666;">${new Date(t.created_at || Date.now()).toLocaleDateString()}</div></div>${actionHtml}</div>`;
+        }).join('');
+    } catch (e) { listContainer.innerHTML = `<div style="color:red; text-align:center;">Ошибка</div>`; }
+}
+
 window.confirmP2PSent = (tradeId) => {
     customConfirm("Вы точно передали предмет в Steam?", async (ok) => {
         if (!ok) return;
@@ -2033,7 +2065,7 @@ document.body.addEventListener('touchmove', (e) => {
     if (!isScrollable && e.cancelable) e.preventDefault();
 }, { passive: false });
 
-// 2. ВОТ ФУНКЦИЯ, КОТОРУЮ ТЫ СЛУЧАЙНО УДАЛИЛ:
+// 2. Инициализация обновления свайпом вниз
 function initPullToRefresh() {
     const content = document.getElementById('main-content'); const ptr = document.getElementById('pull-to-refresh');
     if (!content || !ptr) return;
@@ -2045,12 +2077,12 @@ function initPullToRefresh() {
     }, { passive: false });
     content.addEventListener('touchend', () => {
         if (!isPulling) return; isPulling = false; content.style.transition = 'transform 0.3s ease-out'; ptr.style.transition = 'transform 0.3s ease-out';
-        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); triggerHaptic('success');; setTimeout(() => window.location.reload(), 500); } 
+        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); triggerHaptic('success'); setTimeout(() => window.location.reload(), 500); } 
         else { content.style.transform = 'translateY(0)'; ptr.style.transform = 'translateY(0)'; } distance = 0;
     });
 }
 
-// 3. Безопасный клик (из-за которого была прошлая проблема)
+// 3. Безопасный клик
 document.body.addEventListener('click', async (event) => {
     // Ищем кнопку безопасно при клике
     const claimSuperBtn = event.target.closest('#claim-super-prize-btn'); 
@@ -2063,7 +2095,7 @@ document.body.addEventListener('click', async (event) => {
             claimSuperBtn.textContent = 'Получено!'; 
             claimSuperBtn.classList.add('action-btn', 'btn-disabled'); 
             claimSuperBtn.disabled = true; 
-            if(window.Telegram?.WebApp) customAlert("Суперприз получен!"); 
+            customAlert("Суперприз получен!"); 
         } catch(e) { 
             claimSuperBtn.disabled = false; 
             claimSuperBtn.textContent = 'Забрать'; 
@@ -2106,7 +2138,7 @@ window.showBotAuthWarning = function() {
 
             <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; text-align: left;">
                 
-                <a href="https://t.me/HATElavka_bot" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/HATElavka_bot'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(42, 171, 238, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(42, 171, 238, 0.2); transition: background 0.2s;">
+                <a href="https://t.me/HATElavka_bot" target="_blank" onclick="openAppUrl('https://t.me/HATElavka_bot'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(42, 171, 238, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(42, 171, 238, 0.2); transition: background 0.2s;">
                     <i class="fa-solid fa-robot" style="color: #2AABEE; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div style="flex-grow: 1;">
                         <div style="font-size: 13px; font-weight: 700;">Основной бот</div>
@@ -2114,17 +2146,17 @@ window.showBotAuthWarning = function() {
                     </div>
                 </a>
 
-                <a href="https://t.me/quest_hatelavka_bot" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/quest_hatelavka_bot'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(145, 70, 255, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(145, 70, 255, 0.2); transition: background 0.2s;">
+                <a href="https://t.me/quest_hatelavka_bot" target="_blank" onclick="openAppUrl('https://t.me/quest_hatelavka_bot'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(145, 70, 255, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(145, 70, 255, 0.2); transition: background 0.2s;">
                     <i class="fa-solid fa-user-ninja" style="color: #9146ff; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div style="flex-grow: 1;">
                         <div style="font-size: 13px; font-weight: 700;">Альтернативный бот</div>
-                        <div style="color: #888; font-size: 10px; margin-top: 2px; line-height: 1.2;">Никакой рекламы, только важные уведомления (можно выключить в профиле)</div>
+                        <div style="color: #888; font-size: 10px; margin-top: 2px; line-height: 1.2;">Никакой рекламы, только важные уведомления</div>
                     </div>
                 </a>
                 
                 <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.05); margin: 4px 0;"></div>
 
-                <a href="https://t.me/hatelove_ttv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(255, 215, 0, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(255, 215, 0, 0.1); transition: background 0.2s;">
+                <a href="https://t.me/hatelove_ttv" target="_blank" onclick="openAppUrl('https://t.me/hatelove_ttv'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(255, 215, 0, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(255, 215, 0, 0.1); transition: background 0.2s;">
                     <i class="fa-solid fa-bullhorn" style="color: #ffd700; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div>
                         <div style="font-size: 13px; font-weight: 700;">Наш канал</div>
@@ -2132,7 +2164,7 @@ window.showBotAuthWarning = function() {
                     </div>
                 </a>
                 
-                <a href="https://t.me/hatelovettv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelovettv'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(52, 199, 89, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(52, 199, 89, 0.1); transition: background 0.2s;">
+                <a href="https://t.me/hatelovettv" target="_blank" onclick="openAppUrl('https://t.me/hatelovettv'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(52, 199, 89, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(52, 199, 89, 0.1); transition: background 0.2s;">
                     <i class="fa-solid fa-comments" style="color: #34c759; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div>
                         <div style="font-size: 13px; font-weight: 700;">Наш чат</div>
@@ -2165,7 +2197,7 @@ window.showBotAuthWarning = function() {
     };
 };
 
-// Специальное окно для блокировки абузеров (с возможностью смены Trade-ссылки)
+// Специальное окно для блокировки абузеров
 window.showSecurityBlock = function(message) {
     lockAppScroll(); 
     
@@ -2253,7 +2285,6 @@ window.showSecurityBlock = function(message) {
             saveBtn.style.background = "#34c759";
             saveBtn.style.color = "#fff";
             
-            // Если сохранили успешно - перезагружаем бота. Блок спадет сам.
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
@@ -2273,189 +2304,14 @@ window.showSecurityBlock = function(message) {
     };
 
     overlay.querySelector('#security-support-btn').onclick = () => {
-        if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.openTelegramLink("https://t.me/hatelove_twitch");
-        } else {
-            window.location.href = "https://t.me/hatelove_twitch";
-        }
+        openAppUrl("https://t.me/hatelove_twitch");
     };
 };
 
 // ================================================================
-// УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ И FAQ
-// ================================================================
-
-// ================================================================
-// ЛОГИКА РАСПИСАНИЯ СТРИМОВ
-// ================================================================
-window.openScheduleModal = () => {
-    document.getElementById('schedule-modal').classList.remove('hidden');
-    // Дергаем виброотклик для красоты, если сидим с телефона
-    triggerHaptic('light');
-};
-
-window.closeScheduleModal = () => {
-    document.getElementById('schedule-modal').classList.add('hidden');
-};
-
-// ================================================================
-// ЛОГИКА КУПОНОВ
-// ================================================================
-window.openCouponModal = () => {
-    document.getElementById('coupon-modal').classList.remove('hidden');
-    document.getElementById('coupon-input').value = '';
-};
-
-window.closeCouponModal = () => {
-    document.getElementById('coupon-modal').classList.add('hidden');
-};
-
-window.pasteCoupon = async () => {
-    try {
-        const text = await navigator.clipboard.readText();
-        document.getElementById('coupon-input').value = text;
-        triggerHaptic('selection');
-    } catch (err) {
-        customAlert('Не удалось вставить текст. Проверьте разрешения браузера.');
-    }
-};
-
-window.activateCouponSubmit = async () => {
-    const input = document.getElementById('coupon-input');
-    const code = input.value.trim().toUpperCase();
-    if (!code) return customAlert("Введите промокод!");
-
-    const btn = document.getElementById('activate-coupon-btn');
-    const originalHtml = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Проверка...';
-
-    try {
-        const res = await makeApiRequest('/api/cs/check_code', { code: code }, 'POST');
-        
-        if (res.valid) {
-            customAlert("✅ " + res.message);
-            closeCouponModal();
-            
-            // Добавляем в массив для моментального визуала
-            if (res.target_case_name && !window.activeFreeCases.includes(res.target_case_name)) {
-                window.activeFreeCases.push(res.target_case_name);
-            }
-            
-            // Переходим в магазин
-            const shopTab = document.querySelector('.toggle-option[data-target="view-shop"]');
-            if (shopTab) shopTab.click();
-            
-            // Перерисовываем ту категорию, которая сейчас открыта
-            loadCategory(window.currentCategoryId); 
-
-        } else {
-            customAlert("❌ " + res.message);
-        }
-    } catch (e) {
-        console.error("Ошибка активации:", e);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-    }
-};
-
-// Обновленный showShopModal (умеет скрывать кнопку отмены и закрываться по клику вне окна)
-function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
-    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
-    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
-    
-    let cancelBtnHtml = showCancel ? `<button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>` : '';
-
-    overlay.innerHTML = `
-        <div class="custom-confirm-box">
-            <h3 class="confirm-title">${title}</h3>
-            <div class="confirm-subtitle" style="white-space: pre-wrap;">${subtitle}</div>
-            <div class="confirm-buttons">
-                ${cancelBtnHtml}
-                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
-            </div>
-        </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    
-    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
-    
-    if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
-    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
-    overlay.onclick = (e) => { if(e.target === overlay && showCancel) close(); };
-}
-
-window.customAlert = function(message) {
-    showShopModal({
-        title: "Внимание",
-        subtitle: message,
-        confirmText: "ПОНЯТНО",
-        confirmClass: "btn-yellow-modal",
-        showCancel: false, 
-        onConfirm: (close) => close()
-    });
-};
-
-window.customConfirm = function(message, callback) {
-    showShopModal({
-        title: "Подтверждение",
-        subtitle: message,
-        confirmText: "ДА",
-        confirmClass: "btn-yellow-modal",
-        showCancel: true,
-        onConfirm: (close) => {
-            close();
-            if (callback) callback(true);
-        }
-    });
-};
-
-// ================================================================
-// FAQ БОТА
-// ================================================================
-window.showFaq = function() {
-    const faqHtml = '<div style="text-align: left; font-size: 13px; line-height: 1.35; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">' +
-        '<div>Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:</div><br>' +
-        
-        '<div><b style="color: #fff;">💰 Валюта и прогресс</b><br>' +
-        '<span style="color: #ffd700;">•</span> <b>Монетки:</b> Твоя основная валюта, с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.<br>' +
-        '<span style="color: #2AABEE;">•</span> <b>Билеты:</b> Это монета активности, открывает возможность пользоваться аукционом и розыгрышами.</div><br>' +
-        
-        '<div><b style="color: #fff;">📋 Как зарабатывать</b><br>' +
-        '• <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.<br>' +
-        '• <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.</div><br>' +
-        
-        '<div><b style="color: #fff;">🎁 Активности и Ивенты</b><br>' +
-        'Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b> и крути <b>Рулетки</b> за скины.</div><br>' +
-        
-        '<div><b style="color: #fff;">🛒 TRADE IT</b><br>' +
-        'Продавай кейсы в разделе кейсы.<br>' +
-        '⚠️ <span style="color: #ff3b30; font-weight: 700;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span></div>' +
-        
-        '<div style="background: rgba(255, 215, 0, 0.1); border-left: 3px solid #ffd700; padding: 6px 10px; border-radius: 4px; margin: 8px 0;">' +
-        '⚠️ <b style="color: #ffd700;">Помним, что Валя — соло-разработчик, баги это нормально! 😉</b></div>' +
-        
-        '<div><b style="color: #fff;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!</div>' +
-    '</div>';
-
-    showShopModal({
-        title: "📖 Как работает бот?",
-        subtitle: faqHtml,
-        confirmText: "Спасибо!",
-        confirmClass: "btn-yellow-modal",
-        showCancel: false,
-        onConfirm: (close) => close()
-    });
-};
-// ================================================================
-// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
-// ================================================================
-// ================================================================
-// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
+// ГЛАВНЫЙ ЗАПУСК
 // ================================================================
 async function main() {
-    // 1. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ VK 🔥
     if (isVk && !window.vkParams) {
         console.log("⏳ Параметров VK нет в URL. Запрашиваем у моста...");
         if (typeof fetchVkParamsFromBridge === 'function') {
@@ -2468,42 +2324,30 @@ async function main() {
         }
     }
 
-    // 2. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ TELEGRAM 🔥
     if (!isVk && window.Telegram?.WebApp) {
         let attempts = 0;
-        // Ждем максимум 1.5 секунды (15 попыток по 100мс), пока ТГ генерирует initData
         while (!window.Telegram.WebApp.initData && attempts < 15) {
             await new Promise(r => setTimeout(r, 100));
             attempts++;
         }
-        if (!window.Telegram.WebApp.initData) {
-            console.error("💀 Критическая ошибка: Telegram не отдал initData.");
-        }
     }
 
-    // 3. ⚡ ЗАПУСКАЕМ СИНХРОНИЗАЦИЮ КУПОНОВ (ДОБАВЬ ЭТО!)
     await syncMyPromos();
-
-    // 4. ⚡ ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ
     checkBalance(true);
 
     try {
-        // Если даже после ожидания токена нет — тихо выходим (возможно, юзер открыл просто в браузере)
         if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
             return; 
         }
         
         let isCached = false;
-        
-        // 1. Читаем ВЕСЬ кэш
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || 'null');
         const cachedRaffles = JSON.parse(localStorage.getItem('cache_raffles') || 'null');
         const cachedShopRaw = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
         const cachedShop = cachedShopRaw[2716312];
         const cachedP2P = JSON.parse(localStorage.getItem('cache_p2p') || 'null');
 
-        // Если ВСЁ есть в кэше — рисуем мгновенно (Stale-While-Revalidate)
         if (cachedBootstrap && !cachedBootstrap.maintenance && cachedRaffles && cachedShop) {
             await renderFullInterface(cachedBootstrap);
             initDynamicRaffleSlider(cachedRaffles);
@@ -2517,7 +2361,6 @@ async function main() {
                 dom.loaderOverlay.classList.add('hidden');
             }
         } else {
-            // Иначе показываем лоадер
             if (dom.loaderOverlay) {
                 dom.loaderOverlay.classList.remove('hidden');
                 dom.loaderOverlay.style.opacity = '1';
@@ -2525,28 +2368,22 @@ async function main() {
             updateLoading(10); 
         }      
         
-        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (С ЗАЩИТОЙ ОТ ПАДЕНИЯ ОТДЕЛЬНЫХ МОДУЛЕЙ)
         let bootstrapData, rafflesData, shopData, p2pData;
         
         [bootstrapData, rafflesData, shopData, p2pData] = await Promise.all([
-            // Bootstrap критичен, если он упадет - летим в catch (это правильно)
             makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-            
-            // Остальные модули глушим при ошибке, возвращая null. Приложение загрузится без них.
-            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true).catch(e => { console.warn('Raffles error', e); return null; }),
-            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true).catch(e => { console.warn('Shop error', e); return null; }),
-            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { console.warn('P2P error', e); return null; })
+            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true).catch(e => { return null; }),
+            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true).catch(e => { return null; }),
+            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { return null; })
         ]);
 
         if (!isCached) updateLoading(60);
 
-        // Мгновенный блок техработ
         if (bootstrapData && bootstrapData.maintenance) {
             document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
             return; 
         }
 
-        // === 🔥 ПРЕДЗАГРУЗКА КАРТИНОК 🔥 ===
         if (!isCached) {
             let imagesToLoad = [];
             if (bootstrapData && bootstrapData.menu) {
@@ -2561,7 +2398,6 @@ async function main() {
             updateLoading(90);
         }
 
-        // Сохраняем свежий кэш
         if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
         if (rafflesData) localStorage.setItem('cache_raffles', JSON.stringify(rafflesData));
         if (p2pData) localStorage.setItem('cache_p2p', JSON.stringify(p2pData));
@@ -2571,7 +2407,6 @@ async function main() {
             localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
         }
 
-        // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД
         if (bootstrapData) await renderFullInterface(bootstrapData);
         if (rafflesData) initDynamicRaffleSlider(rafflesData);
         if (shopData) loadCategory(2716312, shopData);
@@ -2592,13 +2427,11 @@ async function main() {
     } catch (e) {
         console.error("Critical error in main:", e);
         
-        // 🔥 БЕТОННЫЙ ФИКС: Если это блок ИЛИ бан — мгновенно выходим и ничего не рисуем поверх!
         if (e.message === "Security Block" || e.message === "USER_BANNED") {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
         }
 
-        // Если это обычная ошибка сети (и интерфейс не загружен)
         if (!document.querySelector('.shop-item')) { 
             if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
             document.body.innerHTML = `
@@ -2612,18 +2445,16 @@ async function main() {
         }
     }
 }
+
 // ================================================================
-// ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ (УНИВЕРСАЛЬНАЯ БРОНЯ)
+// ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ================================================================
 try {
-    // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM
-    // Запускаем ТОЛЬКО если мы уверены, что это не ВК и объект Телеграма существует
     if (!isVk && window.Telegram?.WebApp) {
         const tg = Telegram.WebApp;
         tg.ready();
         tg.expand(); 
         
-        // Безопасное отключение свайпов
         if (typeof tg.disableVerticalSwipes === 'function') {
             try { tg.disableVerticalSwipes(); } catch(e) { console.warn("TG: Свайпы не отключаются", e); }
         }
@@ -2639,36 +2470,29 @@ try {
             document.body.classList.add('desktop-mode');
         }
 
-        // Безопасный фуллскрин (только для мобилок TG)
         if (!document.body.classList.contains('desktop-mode') && typeof tg.requestFullscreen === 'function') {
             try {
-                // Оборачиваем сам вызов, так как ТГ может кинуть Error: WebAppMethodUnsupported
                 tg.requestFullscreen();
             } catch (e) {
                 console.warn("TG: Фуллскрин не поддерживается на этом клиенте", e);
             }
         }
     } 
-    // 2. ИНИЦИАЛИЗАЦИЯ VK
     else if (isVk) {
         console.log("🚀 Инициализация интерфейса для VK Mini Apps");
-        document.body.classList.add('vk-mode'); // На всякий случай вешаем класс для CSS
+        document.body.classList.add('vk-mode'); 
         
-        // Отправляем эвент загрузки в ВК
         if (typeof vkBridge !== 'undefined') {
             try { vkBridge.send('VKWebAppInit'); } catch(e) { console.warn("VK Bridge error", e); }
         }
     }
 
-    // 3. ОБЩИЙ ЗАПУСК ИНТЕРФЕЙСА (Работает везде)
     setupNewUI();
     initPullToRefresh();
     initSwipeTabs(); 
 
-    // Запускаем основную логику загрузки данных
     main();
 
-    // 4. ФОНОВЫЕ ПРОЦЕССЫ
     clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 30000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshDataSilently(); });
@@ -2676,7 +2500,6 @@ try {
 } catch (e) { 
     console.error("Global init error", e); 
     
-    // 🔥 БЕТОННЫЙ ЩИТ
     if (e.message === "Security Block" || e.message === "USER_BANNED") {
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
     } else {
