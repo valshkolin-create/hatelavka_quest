@@ -2367,54 +2367,55 @@ class MarketCSGO:
 
 # --- 🔥 [ВСТАВИТЬ СЮДА] 2. Функция валидации VK ---
 def is_valid_vk_query(query_string: str, secret: str) -> dict | None:
-    """
-    Проверяет подпись VK с детальным логированием ошибок.
-    """
     if not secret:
-        logger.error("❌ CRITICAL: VK_APP_SECRET не задан в переменных окружения!")
+        logger.error("❌ CRITICAL: VK_APP_SECRET не задан!")
         return None
 
     try:
-        # 1. Парсим строку запроса
-        # Важно: parse_qsl декодирует URL-encoded символы (например %20 -> пробел)
-        params = dict(parse_qsl(query_string, keep_blank_values=True))
-        
+        # 1. Разбиваем строку на части БЕЗ декодирования значений
+        # Обычный split('&') сохраняет оригинальный вид параметров
+        query_dict = {}
+        for param in query_string.split('&'):
+            if '=' in param:
+                k, v = param.split('=', 1)
+                query_dict[k] = v
+
         # 2. Извлекаем подпись
-        vk_sign = params.pop("sign", None)
+        vk_sign = query_dict.pop("sign", None)
         if not vk_sign:
-            logger.warning(f"⚠️ VK Auth Fail: В параметрах нет 'sign'. Пришло: {query_string[:50]}...")
             return None
 
-        # 3. Оставляем только параметры vk_
-        vk_params = {k: v for k, v in params.items() if k.startswith("vk_")}
+        # 3. Фильтруем только vk_ параметры
+        vk_params = {k: v for k, v in query_dict.items() if k.startswith("vk_")}
         
-        # 4. Сортируем и собираем строку (VK требует сортировку по ключу)
+        # 4. Сортируем по ключам (алфавитный порядок)
         sorted_params = sorted(vk_params.items())
+        
+        # 5. Собираем строку для проверки
+        # Используем оригинальные значения v, которые мы достали через split
         check_string = "&".join(f"{k}={v}" for k, v in sorted_params)
         
-        # 5. Считаем хеш
-        secret_bytes = secret.encode("utf-8")
-        msg_bytes = check_string.encode("utf-8")
-        hash_digest = hmac.new(secret_bytes, msg_bytes, hashlib.sha256).digest()
+        # 6. Считаем хеш
+        hash_digest = hmac.new(
+            secret.encode("utf-8"), 
+            check_string.encode("utf-8"), 
+            hashlib.sha256
+        ).digest()
         
-        # Важно: URL-safe base64 без padding (=)
         calculated_sign = base64.urlsafe_b64encode(hash_digest).decode("utf-8").rstrip("=")
         
-        # 6. Сравниваем
+        # 7. Сравниваем
         if calculated_sign == vk_sign:
-            logger.info(f"✅ VK Auth Success: ID {params.get('vk_user_id')}")
+            user_id = vk_params.get('vk_user_id')
+            logger.info(f"✅ VK Auth Success: ID {user_id}")
             return {
-                "id": int(params.get("vk_user_id")),
+                "id": int(user_id),
                 "first_name": "VK User",
                 "platform": "vk"
             }
         else:
-            # 🔥 ВОТ ЭТО ПОКАЖЕТ ОШИБКУ В ЛОГАХ VERSEL 🔥
             logger.error("❌ VK SIGNATURE MISMATCH")
-            logger.error(f"   Received Sign:   {vk_sign}")
-            logger.error(f"   Calculated Sign: {calculated_sign}")
-            logger.error(f"   Check String:    {check_string}")
-            logger.error(f"   Used Secret:     {secret[:4]}***{secret[-4:]} (Check this!)")
+            logger.error(f"   Check String: {check_string}") # Сравни её с тем, что в логах ВК
             return None
 
     except Exception as e:
