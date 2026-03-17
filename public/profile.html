@@ -1434,12 +1434,14 @@ window.showSecurityBlock = function(message) {
         
         if (showCancel) overlay.querySelector('#custom-cancel-btn').onclick = close;
         
-        overlay.querySelector('#custom-confirm-btn').onclick = () => { 
-            onConfirmCallback(close); 
-            close(); 
+        const confirmBtn = overlay.querySelector('#custom-confirm-btn');
+        confirmBtn.onclick = () => {
+            if (confirmBtn.dataset.clicked) return; // Блокируем дабл-клик
+            confirmBtn.dataset.clicked = "true";
+            confirmBtn.style.opacity = "0.7"; // Чуть гасим кнопку для визуального отклика
+            onConfirmCallback(close);
+            close();
         };
-        overlay.onclick = (e) => { if(e.target === overlay) close(); };
-    }
 
     // --- ФУНКЦИЯ КОПИРОВАНИЯ (ТЕПЕРЬ ГЛОБАЛЬНАЯ) ---
     async function copyPromocode(code, id) {
@@ -2073,6 +2075,7 @@ window.withdrawItem = function(historyId, itemName) {
     }
 
     showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (closeConfirm) => {
+        if (isUpdating) return; // <--- ДОБАВЬ ЭТУ СТРОКУ
         isUpdating = true;
         
         // Находим кнопку "ЗАБРАТЬ"
@@ -2758,9 +2761,10 @@ window.closeReplacementModal = function() {
 
 // Финальное подтверждение (отправка трейда с заменой)
 window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
-    // Используем окно подтверждения из профиля (showCustomConfirmHTML)
     showCustomConfirmHTML(`Забрать "${itemName}"?`, async (closeConfirmWindow) => {
-        
+        if (isUpdating) return; // <--- ДОБАВИТЬ ПРОВЕРКУ
+        isUpdating = true;      // <--- ВКЛЮЧИТЬ БЛОКИРОВКУ
+
         // 🔥 ШАГ 1: МГНОВЕННО закрываем все окна
         closeConfirmWindow(); 
         closeReplacementModal();
@@ -2769,42 +2773,24 @@ window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
         showLoader();
 
         try {
-            // Отправляем запрос на бэкенд
             const res = await makeApiRequest('/api/v1/user/inventory/confirm_replacement', {
                 history_id: historyId,
                 assetid: assetid
             }, 'POST', true);
 
             if (res && res.success) {
-                // 🔒 УСПЕШНО! Ставим блокировку, чтобы не спамили после замены
-                localStorage.setItem(`claim_lock_${historyId}`, Date.now());
-
-                showNotification("✅ Успешно! Трейд отправлен.", "success");
-                
-                // Мгновенно меняем кнопку в инвентаре на "В ОЧЕРЕДИ"
-                const actionsDiv = document.getElementById(`actions-${historyId}`);
-                const statusTextDiv = document.getElementById(`status-text-${historyId}`);
-                if (actionsDiv && statusTextDiv) {
-                    statusTextDiv.innerHTML = '<span style="color:#FFD700; font-size:9px;">ОЖИДАЕТ ВЫДАЧИ</span>';
-                    actionsDiv.innerHTML = `
-                        <div style="background: rgba(255, 215, 0, 0.1); color: #FFD700; text-align: center; padding: 10px 5px; border-radius: 8px; font-size: 10px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.2);">
-                            В ОЧЕРЕДИ
-                        </div>`;
-                }
-
-                // Фоновое обновление списка
-                setTimeout(() => { loadData(true); }, 800);
+               // ... твой код успеха ...
+               setTimeout(() => { loadData(true); }, 800);
             } else {
-                // Если сервер вернул ошибку, показываем алерт (он вылезет поверх профиля)
                 showCustomAlert("❌ " + (res.message || "Ошибка замены"), true);
             }
         } catch (e) {
             showCustomAlert("Ошибка: " + e.message, true);
         } finally {
-            // В любом случае выключаем лоадер
             hideLoader();
+            isUpdating = false; // <--- НЕ ЗАБЫТЬ СНЯТЬ БЛОКИРОВКУ В FINALLY
         }
-    }, "ЗАБРАТЬ", "#ffcc00"); // Желтая кнопка "Забрать"
+    }, "ЗАБРАТЬ", "#ffcc00"); 
 }
     
 </script>
