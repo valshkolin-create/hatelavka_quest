@@ -946,7 +946,7 @@ class EventConfirmSentRequest(BaseModel):
     platform: str = "tg"  # <--- Добавлено!
     event_id: int
 
-class TradeLinkRequest(BaseModel):
+class TradeLinkUpdateRequest(BaseModel):
     initData: str
     platform: str = "tg"  # <--- Добавлено!
     trade_link: str
@@ -2119,34 +2119,19 @@ async def multi_acc_protection(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Инжектится в эндпоинты через Depends. Поддерживает TG и VK.
+    Инжектится в эндпоинты через Depends.
     """
     import logging # На всякий случай, если не импортирован на этом уровне
 
-    # 1. Вытаскиваем платформу (по умолчанию 'tg')
-    platform = getattr(req, 'platform', 'tg')
-
-    # 2. ГИБРИДНАЯ АВТОРИЗАЦИЯ
-    user_info = None
-    if platform == "vk":
-        # Проверяем подпись VK
-        user_info = is_valid_vk_query(req.initData, VK_APP_SECRET)
-        if user_info and "id" in user_info:
-            # Унифицируем ID: ВК юзеры всегда с минусом
-            user_info["id"] = -1 * abs(int(user_info["id"]))
-    else:
-        # Проверяем подпись Telegram
-        user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-
-    # Если токен кривой или пустой — отшиваем
-    if not user_info or "id" not in user_info:
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info["id"]
     
     # 🔥 БЕЛЫЙ СПИСОК ДЛЯ АДМИНОВ 🔥
     if telegram_id in ADMIN_IDS:
-        logging.info(f"🛡️ [SECURITY] Админ {platform}:{telegram_id} прошел мимо проверки на мультиаккаунт.")
+        logging.info(f"🛡️ [SECURITY] Админ TG:{telegram_id} прошел мимо проверки на мультиаккаунт.")
         return user_info # Отдаем данные сразу, пропускаем проверки
     
     # Запускаем проверку для обычных смертных
@@ -2367,55 +2352,54 @@ class MarketCSGO:
 
 # --- 🔥 [ВСТАВИТЬ СЮДА] 2. Функция валидации VK ---
 def is_valid_vk_query(query_string: str, secret: str) -> dict | None:
+    """
+    Проверяет подпись VK с детальным логированием ошибок.
+    """
     if not secret:
-        logger.error("❌ CRITICAL: VK_APP_SECRET не задан!")
+        logger.error("❌ CRITICAL: VK_APP_SECRET не задан в переменных окружения!")
         return None
 
     try:
-        # 1. Разбиваем строку на части БЕЗ декодирования значений
-        # Обычный split('&') сохраняет оригинальный вид параметров
-        query_dict = {}
-        for param in query_string.split('&'):
-            if '=' in param:
-                k, v = param.split('=', 1)
-                query_dict[k] = v
-
+        # 1. Парсим строку запроса
+        # Важно: parse_qsl декодирует URL-encoded символы (например %20 -> пробел)
+        params = dict(parse_qsl(query_string, keep_blank_values=True))
+        
         # 2. Извлекаем подпись
-        vk_sign = query_dict.pop("sign", None)
+        vk_sign = params.pop("sign", None)
         if not vk_sign:
+            logger.warning(f"⚠️ VK Auth Fail: В параметрах нет 'sign'. Пришло: {query_string[:50]}...")
             return None
 
-        # 3. Фильтруем только vk_ параметры
-        vk_params = {k: v for k, v in query_dict.items() if k.startswith("vk_")}
+        # 3. Оставляем только параметры vk_
+        vk_params = {k: v for k, v in params.items() if k.startswith("vk_")}
         
-        # 4. Сортируем по ключам (алфавитный порядок)
+        # 4. Сортируем и собираем строку (VK требует сортировку по ключу)
         sorted_params = sorted(vk_params.items())
-        
-        # 5. Собираем строку для проверки
-        # Используем оригинальные значения v, которые мы достали через split
         check_string = "&".join(f"{k}={v}" for k, v in sorted_params)
         
-        # 6. Считаем хеш
-        hash_digest = hmac.new(
-            secret.encode("utf-8"), 
-            check_string.encode("utf-8"), 
-            hashlib.sha256
-        ).digest()
+        # 5. Считаем хеш
+        secret_bytes = secret.encode("utf-8")
+        msg_bytes = check_string.encode("utf-8")
+        hash_digest = hmac.new(secret_bytes, msg_bytes, hashlib.sha256).digest()
         
+        # Важно: URL-safe base64 без padding (=)
         calculated_sign = base64.urlsafe_b64encode(hash_digest).decode("utf-8").rstrip("=")
         
-        # 7. Сравниваем
+        # 6. Сравниваем
         if calculated_sign == vk_sign:
-            user_id = vk_params.get('vk_user_id')
-            logger.info(f"✅ VK Auth Success: ID {user_id}")
+            logger.info(f"✅ VK Auth Success: ID {params.get('vk_user_id')}")
             return {
-                "id": int(user_id),
+                "id": int(params.get("vk_user_id")),
                 "first_name": "VK User",
                 "platform": "vk"
             }
         else:
+            # 🔥 ВОТ ЭТО ПОКАЖЕТ ОШИБКУ В ЛОГАХ VERSEL 🔥
             logger.error("❌ VK SIGNATURE MISMATCH")
-            logger.error(f"   Check String: {check_string}") # Сравни её с тем, что в логах ВК
+            logger.error(f"   Received Sign:   {vk_sign}")
+            logger.error(f"   Calculated Sign: {calculated_sign}")
+            logger.error(f"   Check String:    {check_string}")
+            logger.error(f"   Used Secret:     {secret[:4]}***{secret[-4:]} (Check this!)")
             return None
 
     except Exception as e:
@@ -2903,23 +2887,6 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
     except Exception as e:
         logging.error(f"(Global) Ошибка при получении правила награды для '{action_type}': {e}. Используется значение по умолчанию: 1.")
         return 1
-
-
-
-def get_hybrid_user_info(init_data: str, platform: str = "tg"):
-    """Универсальная функция авторизации для TG и VK"""
-    if not init_data:
-        return None
-
-    if platform == "vk":
-        user_info = is_valid_vk_query(init_data, VK_APP_SECRET)
-        if user_info and "id" in user_info:
-            # Унифицируем ID: ВК юзеры всегда с минусом
-            user_info["id"] = -1 * abs(int(user_info["id"]))
-        return user_info
-    else:
-        # По умолчанию считаем, что это Telegram
-        return is_valid_init_data(init_data, ALL_VALID_TOKENS)
 
 
 # ==========================================
@@ -5398,43 +5365,29 @@ async def check_cs_code(
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ СИНХРОНИЗАЦИИ (ВЫЗЫВАТЬ ПРИ ЗАГРУЗКЕ САЙТА) ---
 @app.get("/api/cs/my_active_promos")
 async def get_my_promos(
-    # Явно указываем, что параметры берутся из строки запроса (URL)
-    initData: str = Query(""), 
-    platform: str = Query("tg"), 
+    initData: str, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 🔥 ГИБРИДНАЯ АВТОРИЗАЦИЯ
-    user_info = get_hybrid_user_info(initData, platform)
-    
-    if not user_info or "id" not in user_info:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(401, "Unauthorized")
     
     user_id = int(user_info['id'])
 
-    try:
-        # Ищем все коды, где наш ID есть в списке активировавших (activated_by_ids)
-        # Используем фильтр .cs. (contains) для поиска ID внутри массива
-        res = await supabase.get("/cs_codes", params={
-            "activated_by_ids": f"cs.{{{user_id}}}",
-            "is_active": "eq.true"
-        })
-        
-        # Защита: если база вернула ошибку, просто отдаем пустой список, чтобы не ронять фронт
-        if res.status_code != 200:
-            logging.error(f"Ошибка БД при запросе купонов для {user_id}: {res.text}")
-            return {"active_cases": []}
-            
-        codes_data = res.json()
-        
-        # Собираем список названий кейсов, которые для этого юзера сейчас бесплатны
-        active_cases = [item.get('target_case_name') for item in codes_data if item.get('target_case_name')]
-        
-        return {"active_cases": active_cases}
-        
-    except Exception as e:
-        logging.error(f"Ошибка в get_my_promos: {e}")
-        return {"active_cases": []}
-        
+    # Ищем все коды, где наш ID есть в списке активировавших (activated_by_ids)
+    # Используем фильтр .cs. (contains) для поиска ID внутри массива
+    res = await supabase.get("/cs_codes", params={
+        "activated_by_ids": f"cs.{{{user_id}}}",
+        "is_active": "eq.true"
+    })
+    
+    codes_data = res.json()
+    
+    # Собираем список названий кейсов, которые для этого юзера сейчас бесплатны
+    active_cases = [item['target_case_name'] for item in codes_data if item.get('target_case_name')]
+    
+    return {"active_cases": active_cases}
+    
+
 # --- ПОЛУЧЕНИЕ СТАТУСА БУСТОВ (Для красивых кнопок) ---
 @app.post("/api/cs/boost_status")
 async def get_cs_boost_status(
@@ -6476,12 +6429,8 @@ async def get_my_p2p_trades(
     request_data: InitDataRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 🔥 Меняем жесткую привязку к ТГ на гибридную авторизацию
-    platform = getattr(request_data, 'platform', 'tg')
-    user_info = get_hybrid_user_info(request_data.initData, platform)
-    
-    # Проверяем не только наличие user_info, но и ключа "id", для надежности
-    if not user_info or "id" not in user_info: 
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info: 
         raise HTTPException(status_code=401, detail="Auth failed")
     
     try:
@@ -7761,6 +7710,7 @@ async def get_public_quests(request_data: InitDataRequest):
     except Exception as e:
         logging.error(f"Ошибка при получении квестов RPC: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
+        
 
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(request: Request, initData: str = Query(...)):
@@ -8595,12 +8545,16 @@ async def check_channel_subscription(
 async def get_current_user_data(
     request_data: InitDataRequest,
     background_tasks: BackgroundTasks,
+    # 👇 Используем быстрый HTTP-клиент (внедрение зависимости)
     supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ): 
-    # 🔥 ИСПРАВЛЕНО: Гибридная авторизация
-    platform = getattr(request_data, 'platform', 'tg')
-    user_info = get_hybrid_user_info(request_data.initData, platform)
+    """
+    Получение профиля пользователя.
+    ОПТИМИЗАЦИЯ: Все запросы к БД выполняются параллельно для скорости.
+    """
     
+    # 1. Проверка авторизации Telegram
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         return JSONResponse(content={"is_guest": True})
 
@@ -10721,17 +10675,16 @@ async def create_in_app_notification(supabase: httpx.AsyncClient, user_id: int, 
 
 @app.get("/api/v1/notifications")
 async def get_user_notifications(
-    initData: str, 
-    platform: str = 'tg',  # 🔥 ДОБАВИЛИ ПРИЕМ ПЛАТФОРМЫ (по дефолту tg)
+    initData: str,  # FastAPI сам возьмет это из query-параметров
     limit: int = 50,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Отдает список уведомлений юзера, проверяя его через гибридную авторизацию."""
+    """Отдает список уведомлений юзера, проверяя его через initData."""
     
-    # 🔥 ИСПОЛЬЗУЕМ ТВОЮ ГОТОВУЮ ГИБРИДНУЮ ФУНКЦИЮ ВМЕСТО is_valid_init_data
-    user_info = get_hybrid_user_info(initData, platform)
-    
-    if not user_info or "id" not in user_info:
+    # 1. Проверяем пользователя выносим ЗА блок try/except, 
+    # чтобы FastAPI корректно отдал статус 403 без перехвата
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     user_id = user_info.get("id")
@@ -12854,41 +12807,37 @@ async def create_event(
         
 @app.post("/api/v1/user/trade_link/save")
 async def save_trade_link(
-    request_data: TradeLinkRequest, 
+    request_data: TradeLinkUpdateRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 🔥 1. ГИБРИДНАЯ АВТОРИЗАЦИЯ
-    # Берем платформу прямо из модели запроса
-    platform = getattr(request_data, 'platform', 'tg')
-    user_info = get_hybrid_user_info(request_data.initData, platform)
-    
+    """Сохраняет или обновляет трейд-ссылку пользователя с проверкой Regex."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
-        raise HTTPException(status_code=403, detail="Доступ запрещен")
-        
-    user_id = user_info["id"]
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
+    
+    telegram_id = user_info["id"]
+    trade_link = request_data.trade_link.strip()
 
-    # 🔥 2. ЛОГИКА СОХРАНЕНИЯ В БАЗУ
-    try:
-        # Убедимся, что ссылка базовая валидная (ты уже делаешь это на фронте, но бэкенд тоже должен защищаться)
-        if not request_data.trade_link.startswith("https://steamcommunity.com/tradeoffer/new") or "partner=" not in request_data.trade_link or "token=" not in request_data.trade_link:
-             raise HTTPException(status_code=400, detail="Неверный формат ссылки")
-
-        # Твой запрос к Supabase для сохранения (возможно, у тебя patch вместо post)
-        resp = await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{user_id}"},
-            json={"trade_link": request_data.trade_link}
+    # --- ЭТАП 1: Жесткая проверка синтаксиса (Regex) ---
+    pattern = r"^https?://steamcommunity\.com/tradeoffer/new/\?partner=\d+&token=[a-zA-Z0-9_-]+$"
+    if not re.match(pattern, trade_link):
+        raise HTTPException(
+            status_code=400, 
+            detail="Неверный формат! Ссылка должна выглядеть так: https://steamcommunity.com/tradeoffer/new/?partner=...&token=..."
         )
-        
-        resp.raise_for_status()
-        
-        return {"success": True, "message": "Trade link saved"}
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.error(f"[TRADE LINK SAVE] Ошибка для юзера {user_id}: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сохранения ссылки")
+    # --- ЭТАП 2: Сохранение ---
+    resp = await supabase.patch(
+        "/users",
+        params={"telegram_id": f"eq.{telegram_id}"},
+        json={"trade_link": trade_link}
+    )
+    
+    if resp.status_code not in [200, 204]:
+        logging.error(f"Ошибка БД при сохранении ссылки {telegram_id}: {resp.text}")
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении в базу данных")
+    
+    return {"success": True, "message": "Трейд-ссылка проверена и сохранена!"}
 
 @app.post("/api/v1/admin/events/winners")
 async def get_pending_event_prizes_grouped(
@@ -15751,16 +15700,13 @@ async def get_shop_smart_balance(
     """
     Мгновенно обновляет баланс через метод /v1/bot/user/view-by-telegram-id.
     """
-    # 🔥 1. ГИБРИДНАЯ АВТОРИЗАЦИЯ
-    platform = getattr(request_data, 'platform', 'tg')
-    user_info = get_hybrid_user_info(request_data.initData, platform)
-    
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = int(user_info["id"])
 
-    # 2. Читаем кэш и билеты из БД (в базе хранятся КОПЕЙКИ)
+    # 1. Читаем кэш и билеты из БД (в базе хранятся КОПЕЙКИ)
     # 🔥 Внедрен ретрай для защиты от httpx.ReadError в Vercel
     try:
         user_resp = await supabase.get(
@@ -15777,16 +15723,12 @@ async def get_shop_smart_balance(
         logging.error(f"[SHOP BALANCE] Ошибка чтения БД: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
-    # Безопасный парсинг (если база ответила ошибкой 5xx, json() может упасть)
-    try:
-        user_data = user_resp.json()[0] if (user_resp and user_resp.status_code == 200 and user_resp.json()) else {}
-    except Exception:
-        user_data = {}
+    user_data = user_resp.json()[0] if user_resp.json() else {}
     
     current_coins_kopecks = user_data.get("bot_t_coins", 0)
     current_tickets = user_data.get("tickets", 0)
     
-    # 3. Проверяем кэш (5 сек)
+    # 2. Проверяем кэш (5 сек)
     last_sync = user_data.get("last_balance_sync")
     should_sync = True
     if last_sync:
@@ -15804,10 +15746,7 @@ async def get_shop_smart_balance(
             "tickets": current_tickets
         }
 
-    # 4. Идем в Bot-t по Telegram ID
-    # 💡 Примечание: Если это VK-юзер (отрицательный telegram_id), Bot-T его не найдет
-    # и вернет ошибку. Ниже код корректно перехватит её и кинет "BOT_USER_NOT_FOUND",
-    # что заставит фронтенд показать красивое окошко с просьбой перейти в бота.
+    # 3. Идем в Bot-t по Telegram ID
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     
     params = {
