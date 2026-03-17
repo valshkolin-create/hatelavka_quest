@@ -1,4 +1,4 @@
-/// ================================================================
+// ================================================================
 // 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
 let isVk = false;
@@ -7,10 +7,9 @@ let isVk = false;
     window.vkParams = null;
     const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
     
-    // Вспомогательная функция: сохраняем параметры и СРАЗУ включаем режим ВК
     const setVkMode = (params) => {
         window.vkParams = params;
-        isVk = true; // 🔥 ВОТ ОНО! Спасение!
+        isVk = true; 
         document.documentElement.classList.add('vk-mode');
     };
 
@@ -26,10 +25,10 @@ let isVk = false;
         const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
         if (match && match[1] && match[1].includes('sign')) { setVkMode(match[1]); return; }
         
-        // Доп. проверка: если есть vkBridge, значит точно ВК
-        if (typeof vkBridge !== 'undefined') { isVk = true; }
+        // ❌ СТРОКА С ПРОВЕРКОЙ vkBridge УДАЛЕНА ОТСЮДА!
     } catch (e) {}
 })();
+
 
 // 👇 ВОТ СЮДА ВСТАВЛЯЕМ ФУНКЦИЮ 👇
 async function fetchVkParamsFromBridge() {
