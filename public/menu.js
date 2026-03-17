@@ -1,61 +1,22 @@
 // ================================================================
-// 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
+// 1. ИНИЦИАЛИЗАЦИЯ (Флаги уже установлены в HTML)
 // ================================================================
-window.isVk = false; // Делаем глобальной
-window.vkParams = null;
-
-(function initVkParams() {
-    try {
-        const fullUrl = window.location.href || '';
-        const search = window.location.search || '';
-        const hash = window.location.hash || '';
-
-        // Жесткая проверка: если в URL есть хоть один признак ВК
-        if (fullUrl.includes('vk_app_id') || fullUrl.includes('vk_user_id') || fullUrl.includes('vk_platform')) {
-            window.isVk = true; 
-            document.documentElement.classList.add('vk-mode');
-
-            // Вытаскиваем чистую строку параметров
-            let params = search.startsWith('?') ? search.substring(1) : search;
-            if (!params) params = hash.startsWith('#') ? hash.substring(1) : hash;
-            
-            // Если через search/hash не вышло (бывает в iframe), режем href
-            if (!params && fullUrl.includes('?')) {
-                params = fullUrl.split('?')[1].split('#')[0];
-            }
-            
-            window.vkParams = params;
-            console.log("📡 [DETECTOR] ВКонтакте обнаружен! Параметры:", window.vkParams ? "OK" : "EMPTY");
-        } else {
-            console.log("📡 [DETECTOR] Режим: Telegram / Web");
-        }
-    } catch (e) {
-        console.error("❌ Ошибка детектора платформ:", e);
-    }
-})();
-
-async function fetchVkParamsFromBridge() {
-    return new Promise((resolve) => {
-        if (typeof vkBridge !== 'undefined') {
-            vkBridge.send("VKWebAppGetConfig")
-                .then(() => resolve())
-                .catch(() => resolve());
-        } else {
-            resolve();
-        }
-    });
-}
+console.log("📡 [DETECTOR] Текущий режим:", window.isVk ? "ВКонтакте" : "Telegram/Web");
 
 // 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
 function getAuthPayload() {
     if (window.isVk) {
-        // Если мы в ВК, берем только сохраненные параметры ВК
         return { initData: window.vkParams || '', platform: 'vk' };
     }
-    
-    // Иначе строго Телеграм
-    let tgData = window.Telegram?.WebApp?.initData || '';
-    return { initData: tgData, platform: 'tg' };
+    return { initData: window.Telegram?.WebApp?.initData || '', platform: 'tg' };
+}
+
+async function fetchVkParamsFromBridge() {
+    return new Promise((resolve) => {
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send("VKWebAppGetConfig").then(() => resolve()).catch(() => resolve());
+        } else resolve();
+    });
 }
 
 // Глобальные переменные
