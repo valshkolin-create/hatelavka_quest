@@ -441,12 +441,12 @@
         </div>
     </div>
 
-    <script>
+   <script>
     // ================================================================
     // УНИВЕРСАЛЬНЫЕ АДАПТЕРЫ (TG / VK)
     // ================================================================
     window.openAppUrl = function(url) {
-        if (typeof isVk !== 'undefined' && isVk) {
+        if (window.isVk) {
             try { vkBridge.send('VKWebAppOpenUrl', { url: url }); } catch(e) {}
         } else if (window.Telegram?.WebApp) {
             if (url.includes('t.me')) Telegram.WebApp.openTelegramLink(url);
@@ -457,7 +457,7 @@
     };
 
     window.triggerHaptic = function(type = 'light') {
-        if (typeof isVk !== 'undefined' && isVk) {
+        if (window.isVk) {
             try {
                 if (type === 'success' || type === 'error') vkBridge.send("VKWebAppTapticNotificationOccurred", { type: type });
                 else if (type === 'selection') vkBridge.send("VKWebAppTapticSelectionChanged", {});
@@ -471,7 +471,7 @@
     };
 
     window.closeApp = function() {
-        if (typeof isVk !== 'undefined' && isVk) {
+        if (window.isVk) {
             try { vkBridge.send("VKWebAppClose", {"status": "success"}); } catch(e){}
         } else if (window.Telegram?.WebApp) {
             Telegram.WebApp.close();
