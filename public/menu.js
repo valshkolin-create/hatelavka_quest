@@ -26,6 +26,7 @@ window.openAppUrl = function(url) {
 };
 
 // 2. Универсальная вибрация (Haptic Feedback)
+// 2. Универсальная вибрация (Haptic Feedback)
 window.triggerHaptic = function(type = 'light') {
     if (isVk) {
         try {
@@ -406,8 +407,7 @@ if (response.status === 403 && result.detail === "BANNED") {
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
 
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-        Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+    triggerHaptic('error');
     }
     
     throw new Error("USER_BANNED");
@@ -619,7 +619,7 @@ function setupNewUI() {
                 else section.classList.remove('active');
             });
             
-            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+            triggerHaptic('selection');
 
             // Динамическая подгрузка кейсов при первом клике
             if (targetId === 'view-shop' && !isShopLoaded) {
@@ -868,7 +868,7 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
                     try {
                         const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}&redirect=/`);
                         const data = await response.json();
-                        if (data.url) { localStorage.setItem('openRefPopupOnLoad', 'true'); Telegram.WebApp.openLink(data.url); Telegram.WebApp.close(); }
+                        if (data.url) { localStorage.setItem('openRefPopupOnLoad', 'true'); openAppUrl(data.url); closeApp(); }
                     } catch (err) { btnConnect.innerHTML = "Ошибка"; }
                 };
             }
@@ -884,13 +884,13 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
         }
     }
     renderTwitchSection();
-    stepTg.onclick = () => { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); };
+    stepTg.onclick = () => { openAppUrl('https://t.me/hatelove_ttv'); };
 
     async function claimReward() {
         actionBtn.disabled = true; actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
         const finalRefCode = referralCode || localStorage.getItem('pending_ref_code') || localStorage.getItem('cached_referral_code');
         try {
-            const response = await fetch('/api/v1/user/referral/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: Telegram.WebApp.initData, referral_code: finalRefCode }) });
+            const response = await fetch('/api/v1/user/referral/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...getAuthPayload(), referral_code: finalRefCode }) });
             if (response.ok) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 document.getElementById('open-bonus-btn')?.classList.add('hidden');
@@ -907,7 +907,7 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
             if (fresh && fresh.user) { userData = fresh.user; if (userData.twitch_id) renderTwitchSection(); }
             
             let tgOk = false;
-            try { const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: Telegram.WebApp.initData }, 'POST', true); if (tgRes && tgRes.is_subscribed) tgOk = true; } catch(e) {}
+            try { const tgRes = await makeApiRequest('/api/v1/user/check_subscription', {}, 'POST', true); if (tgRes && tgRes.is_subscribed) tgOk = true; } catch(e) {}
             
             const twitchOk = !!userData.twitch_id;
             if (tgOk) { stepTg.style.border = '1px solid #34c759'; document.getElementById('icon-tg').className = 'fa-solid fa-circle-check'; document.getElementById('icon-tg').style.color = '#34c759'; }
@@ -948,7 +948,7 @@ function renderGiftResult(result) {
         dom.giftResultTitle.textContent = "ПОЧТИ ТВОЁ!"; dom.giftResultTitle.style.color = "#ff3b30";
         if (result.type === 'coins') { dom.giftPromoCode.textContent = "🔒 ПОДПИШИСЬ"; dom.giftPromoCode.style.filter = "blur(5px)"; }
         dom.giftCloseBtn.textContent = "Подписаться и забрать"; dom.giftCloseBtn.style.background = "#0088cc";
-        dom.giftCloseBtn.onclick = (e) => { e.preventDefault(); Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv"); dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
+        dom.giftCloseBtn.onclick = (e) => { e.preventDefault(); openAppUrl("https://t.me/hatelovettv"); dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
     } else {
         dom.giftResultTitle.textContent = "Поздравляем!"; dom.giftResultTitle.style.color = "#34c759";
         if (result.type === 'coins') { dom.giftPromoCode.textContent = result.meta.code; dom.giftPromoCode.style.filter = "none"; }
@@ -1566,10 +1566,9 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
         track.style.transform = `translateX(${finalPosition}px)`;
         
         let tickInterval = 50, timer = 0;
-        const haptic = window.Telegram?.WebApp?.HapticFeedback;
         const ticker = () => {
             if (timer >= ANIMATION_TIME - 300) return; 
-            if (haptic) haptic.selectionChanged();
+            triggerHaptic('selection');
             timer += tickInterval;
             if (timer < ANIMATION_TIME * 0.6) tickInterval = 50; else if (timer < ANIMATION_TIME * 0.8) tickInterval = 120; else tickInterval += 50; 
             setTimeout(ticker, tickInterval);
@@ -1577,7 +1576,7 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
         ticker();
 
         setTimeout(() => {
-            if (haptic) { haptic.impactOccurred('heavy'); setTimeout(() => haptic.notificationOccurred('success'), 800); }
+            triggerHaptic('heavy'); setTimeout(() => triggerHaptic('success'), 800);
             area.style.display = 'none'; 
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО!</h2>
@@ -2034,7 +2033,7 @@ function initPullToRefresh() {
     }, { passive: false });
     content.addEventListener('touchend', () => {
         if (!isPulling) return; isPulling = false; content.style.transition = 'transform 0.3s ease-out'; ptr.style.transition = 'transform 0.3s ease-out';
-        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); setTimeout(() => window.location.reload(), 500); } 
+        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); triggerHaptic('success');; setTimeout(() => window.location.reload(), 500); } 
         else { content.style.transform = 'translateY(0)'; ptr.style.transform = 'translateY(0)'; } distance = 0;
     });
 }
@@ -2281,9 +2280,7 @@ window.openScheduleModal = () => {
     document.getElementById('schedule-modal').classList.remove('hidden');
     
     // Дергаем виброотклик для красоты, если сидим с телефона
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-        Telegram.WebApp.HapticFeedback.impactOccurred('light');
-    }
+    triggerHaptic('light');
 };
 
 window.closeScheduleModal = () => {
@@ -2306,7 +2303,7 @@ window.pasteCoupon = async () => {
     try {
         const text = await navigator.clipboard.readText();
         document.getElementById('coupon-input').value = text;
-        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+        triggerHaptic('selection');
     } catch (err) {
         customAlert('Не удалось вставить текст. Проверьте разрешения браузера.');
     }
