@@ -3,61 +3,6 @@
 // ================================================================
 let isVk = false;
 
-
-// ================================================================
-// УНИВЕРСАЛЬНЫЕ АДАПТЕРЫ (TG / VK)
-// ================================================================
-
-// 1. Универсальное открытие ссылок
-window.openAppUrl = function(url) {
-    if (isVk) {
-        try {
-            vkBridge.send('VKWebAppOpenUrl', { url: url });
-        } catch(e) { console.warn("VK Bridge URL error", e); }
-    } else if (window.Telegram?.WebApp) {
-        if (url.includes('t.me')) {
-            Telegram.WebApp.openTelegramLink(url);
-        } else {
-            Telegram.WebApp.openLink(url);
-        }
-    } else {
-        window.open(url, '_blank'); // Резерв для браузера
-    }
-};
-
-
-// 2. Универсальная вибрация (Haptic Feedback)
-window.triggerHaptic = function(type = 'light') {
-    if (isVk) {
-        try {
-            if (type === 'success' || type === 'error') {
-                vkBridge.send("VKWebAppTapticNotificationOccurred", { type: type });
-            } else if (type === 'selection') {
-                vkBridge.send("VKWebAppTapticSelectionChanged", {});
-            } else {
-                vkBridge.send("VKWebAppTapticImpactOccurred", { style: type === 'heavy' ? 'heavy' : 'light' });
-            }
-       } catch(e) {}
-    } else if (window.Telegram?.WebApp?.HapticFeedback) {
-        if (type === 'success' || type === 'error') {
-            Telegram.WebApp.HapticFeedback.notificationOccurred(type);
-        } else if (type === 'selection') {
-            Telegram.WebApp.HapticFeedback.selectionChanged();
-        } else {
-            Telegram.WebApp.HapticFeedback.impactOccurred(type);
-        }
-    }
-};
-
-// 3. Универсальное закрытие приложения
-window.closeApp = function() {
-    if (isVk) {
-        try { vkBridge.send("VKWebAppClose", {"status": "success"}); } catch(e){}
-    } else if (window.Telegram?.WebApp) {
-        Telegram.WebApp.close();
-    }
-};
-
 (function initVkParams() {
     window.vkParams = null;
     const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
@@ -326,7 +271,7 @@ window.openNotificationsHistory = async function() {
         if (subtitleEl) subtitleEl.innerHTML = html;
 
         if (notifs.some(n => !n.is_read)) {
-            await makeApiRequest('/api/v1/notifications/read', { user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || null }, 'POST', true);
+            await makeApiRequest('/api/v1/notifications/read', { user_id: Telegram.WebApp.initDataUnsafe?.user?.id }, 'POST', true);
         }
 
     } catch (e) {
@@ -407,8 +352,11 @@ if (response.status === 403 && result.detail === "BANNED") {
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
 
-    triggerHaptic('error');
-    throw new Error("USER_BANNED");
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+    }
+    
+    throw new Error("USER_BANNED");
 }
 
             // 👇 ВОТ СЮДА ВСТАВЛЯЕМ НАШУ ПРОВЕРКУ БОТА 👇
@@ -617,7 +565,7 @@ function setupNewUI() {
                 else section.classList.remove('active');
             });
             
-            triggerHaptic('selection');
+            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
 
             // Динамическая подгрузка кейсов при первом клике
             if (targetId === 'view-shop' && !isShopLoaded) {
@@ -866,7 +814,7 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
                     try {
                         const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}&redirect=/`);
                         const data = await response.json();
-                        if (data.url) { localStorage.setItem('openRefPopupOnLoad', 'true'); openAppUrl(data.url); closeApp(); }
+                        if (data.url) { localStorage.setItem('openRefPopupOnLoad', 'true'); Telegram.WebApp.openLink(data.url); Telegram.WebApp.close(); }
                     } catch (err) { btnConnect.innerHTML = "Ошибка"; }
                 };
             }
@@ -882,13 +830,13 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
         }
     }
     renderTwitchSection();
-    stepTg.onclick = () => { openAppUrl('https://t.me/hatelove_ttv'); };
+    stepTg.onclick = () => { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); };
 
     async function claimReward() {
         actionBtn.disabled = true; actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
         const finalRefCode = referralCode || localStorage.getItem('pending_ref_code') || localStorage.getItem('cached_referral_code');
         try {
-            const response = await fetch('/api/v1/user/referral/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...getAuthPayload(), referral_code: finalRefCode }) });
+            const response = await fetch('/api/v1/user/referral/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: Telegram.WebApp.initData, referral_code: finalRefCode }) });
             if (response.ok) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 document.getElementById('open-bonus-btn')?.classList.add('hidden');
@@ -905,7 +853,7 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
             if (fresh && fresh.user) { userData = fresh.user; if (userData.twitch_id) renderTwitchSection(); }
             
             let tgOk = false;
-            try { const tgRes = await makeApiRequest('/api/v1/user/check_subscription', {}, 'POST', true); if (tgRes && tgRes.is_subscribed) tgOk = true; } catch(e) {}
+            try { const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: Telegram.WebApp.initData }, 'POST', true); if (tgRes && tgRes.is_subscribed) tgOk = true; } catch(e) {}
             
             const twitchOk = !!userData.twitch_id;
             if (tgOk) { stepTg.style.border = '1px solid #34c759'; document.getElementById('icon-tg').className = 'fa-solid fa-circle-check'; document.getElementById('icon-tg').style.color = '#34c759'; }
@@ -946,7 +894,7 @@ function renderGiftResult(result) {
         dom.giftResultTitle.textContent = "ПОЧТИ ТВОЁ!"; dom.giftResultTitle.style.color = "#ff3b30";
         if (result.type === 'coins') { dom.giftPromoCode.textContent = "🔒 ПОДПИШИСЬ"; dom.giftPromoCode.style.filter = "blur(5px)"; }
         dom.giftCloseBtn.textContent = "Подписаться и забрать"; dom.giftCloseBtn.style.background = "#0088cc";
-        dom.giftCloseBtn.onclick = (e) => { e.preventDefault(); openAppUrl("https://t.me/hatelovettv"); dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
+        dom.giftCloseBtn.onclick = (e) => { e.preventDefault(); Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv"); dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
     } else {
         dom.giftResultTitle.textContent = "Поздравляем!"; dom.giftResultTitle.style.color = "#34c759";
         if (result.type === 'coins') { dom.giftPromoCode.textContent = result.meta.code; dom.giftPromoCode.style.filter = "none"; }
@@ -1560,35 +1508,22 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
     setTimeout(() => {
         const ANIMATION_TIME = 11000;
         const finalPosition = -((60 * 148) + 74 - (window.innerWidth / 2) + ((Math.random() * 100) - 50));
-        
         track.style.transition = `transform ${ANIMATION_TIME}ms cubic-bezier(0.15, 0, 0.05, 1)`; 
         track.style.transform = `translateX(${finalPosition}px)`;
         
         let tickInterval = 50, timer = 0;
-        
+        const haptic = window.Telegram?.WebApp?.HapticFeedback;
         const ticker = () => {
             if (timer >= ANIMATION_TIME - 300) return; 
-            
-            triggerHaptic('selection');
+            if (haptic) haptic.selectionChanged();
             timer += tickInterval;
-            
-            if (timer < ANIMATION_TIME * 0.6) {
-                tickInterval = 50; 
-            } else if (timer < ANIMATION_TIME * 0.8) {
-                tickInterval = 120; 
-            } else {
-                tickInterval += 50; 
-            }
-            
+            if (timer < ANIMATION_TIME * 0.6) tickInterval = 50; else if (timer < ANIMATION_TIME * 0.8) tickInterval = 120; else tickInterval += 50; 
             setTimeout(ticker, tickInterval);
         };
-        
         ticker();
 
         setTimeout(() => {
-            triggerHaptic('heavy'); 
-            setTimeout(() => triggerHaptic('success'), 800);
-            
+            if (haptic) { haptic.impactOccurred('heavy'); setTimeout(() => haptic.notificationOccurred('success'), 800); }
             area.style.display = 'none'; 
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО!</h2>
@@ -1599,10 +1534,9 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
                 <button class="action-btn btn-secondary-action" style="width: 220px;" onclick="closeRoulette()">Закрыть</button>
             `;
             winScreen.style.display = 'flex'; 
-        }, ANIMATION_TIME); 
-    }, 100);
-} // <--- ДОБАВЬ ЭТУ СКОБКУ ЗДЕСЬ
-    
+        }, ANIMATION_TIME); 
+    }, 100);
+}
 window.closeRoulette = function() {
     document.getElementById('r-modal').style.display = 'none';
     document.getElementById('r-top-header').style.display = 'none';
@@ -2034,7 +1968,7 @@ document.body.addEventListener('touchmove', (e) => {
     if (!isScrollable && e.cancelable) e.preventDefault();
 }, { passive: false });
 
-// 2. Инициализация обновления свайпом вниз
+// 2. ВОТ ФУНКЦИЯ, КОТОРУЮ ТЫ СЛУЧАЙНО УДАЛИЛ:
 function initPullToRefresh() {
     const content = document.getElementById('main-content'); const ptr = document.getElementById('pull-to-refresh');
     if (!content || !ptr) return;
@@ -2046,12 +1980,147 @@ function initPullToRefresh() {
     }, { passive: false });
     content.addEventListener('touchend', () => {
         if (!isPulling) return; isPulling = false; content.style.transition = 'transform 0.3s ease-out'; ptr.style.transition = 'transform 0.3s ease-out';
-        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); triggerHaptic('success'); setTimeout(() => window.location.reload(), 500); } 
+        if (distance > 80) { ptr.querySelector('i').classList.add('fa-spin'); if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); setTimeout(() => window.location.reload(), 500); } 
         else { content.style.transform = 'translateY(0)'; ptr.style.transform = 'translateY(0)'; } distance = 0;
     });
 }
 
-// 3. Безопасный клик
+function initBottomSwipe() {
+    const content = document.getElementById('main-content'); 
+    if (!content) return;
+    
+    let startY = 0, isPullingBottom = false, wheelAccumulator = 0;
+    let isAnimating = false; 
+
+    const triggerThemeSwitch = () => {
+        if (isAnimating) return;
+        isAnimating = true; 
+        isPullingBottom = false; 
+        wheelAccumulator = 0;
+
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy'); 
+        
+        const isLight = document.body.classList.toggle('light-theme');
+        const darkWrap = document.getElementById('dark-wrapper');
+        const lightWrap = document.getElementById('light-wrapper');
+
+        // 🔥 ФИКС: Мгновенная смена без анимации (оставляем только это) 🔥
+        const bPill = document.querySelector('.balance-pill');
+        const bRow = document.querySelector('.balance-row');
+        const burger = document.querySelector('.glass-burger');
+        const burgerSpans = document.querySelectorAll('.glass-burger span');
+        const logoTitle = document.querySelector('.top-header .logo-title');
+        const logoSub = document.querySelector('.logo-subtitle');
+
+        // 1. Убиваем все транзишены, чтобы цвета из CSS применились мгновенно
+        const elementsToForce = [bPill, bRow, burger, logoTitle, logoSub, ...burgerSpans];
+        elementsToForce.forEach(el => {
+            if (el) el.style.transition = 'none';
+        });
+
+        // 2. Цвета теперь НЕ ставятся через JS. Они берутся из твоего CSS.
+        // Блок принудительной установки цветов удален.
+
+        // 3. Возвращаем родные анимации через 50мс
+        setTimeout(() => {
+            elementsToForce.forEach(el => {
+                if (el) el.style.transition = '';
+            });
+        }, 50);
+
+        // Плавно переключаем блоки контента (эта часть без изменений)
+        if (darkWrap && lightWrap) {
+            darkWrap.style.transition = 'opacity 0.2s ease-in-out';
+            lightWrap.style.transition = 'opacity 0.2s ease-in-out';
+
+            if (isLight) {
+                darkWrap.style.opacity = '0';
+                setTimeout(() => {
+                    darkWrap.style.display = 'none';
+                    lightWrap.style.display = 'block';
+                    content.scrollTop = 0; 
+                    setTimeout(() => {
+                        lightWrap.style.opacity = '1';
+                        setTimeout(() => isAnimating = false, 200);
+                    }, 50); 
+                }, 200);
+            } else {
+                lightWrap.style.opacity = '0';
+                setTimeout(() => {
+                    lightWrap.style.display = 'none';
+                    darkWrap.style.display = 'block';
+                    content.scrollTop = 0; 
+                    setTimeout(() => {
+                        darkWrap.style.opacity = '1';
+                        setTimeout(() => isAnimating = false, 200);
+                    }, 50);
+                }, 200);
+            }
+        } else {
+            isAnimating = false;
+        }
+    };
+
+    const canSwipeBottom = () => {
+        if (document.body.classList.contains('light-theme')) return true; 
+        const dashboardView = document.getElementById('view-dashboard');
+        return dashboardView && (dashboardView.classList.contains('active') || window.getComputedStyle(dashboardView).display !== 'none');
+    };
+
+    // ==========================================
+    // 1. СЕНСОР (ТЕЛЕФОНЫ)
+    // ==========================================
+    content.addEventListener('touchmove', (e) => {
+        if (isAnimating) return;
+        
+        const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
+        const isAtBottom = bottomDistance < 10; 
+        
+        if (isAtBottom) {
+            if (!isPullingBottom) {
+                startY = e.touches[0].clientY;
+                isPullingBottom = true;
+            }
+            
+            const diff = startY - e.touches[0].clientY; 
+            
+            if (diff > 0) { 
+                if (canSwipeBottom()) {
+                    if (e.cancelable) e.preventDefault(); 
+                    if (diff > 40) triggerThemeSwitch();
+                } else {
+                    isPullingBottom = false; 
+                }
+            }
+        } else {
+            isPullingBottom = false;
+        }
+    }, { passive: false });
+    
+    content.addEventListener('touchend', () => { isPullingBottom = false; });
+
+    // ==========================================
+    // 2. ДЕСКТОП (КОЛЕСИКО ВНИЗ)
+    // ==========================================
+    let wheelTimeout;
+    content.addEventListener('wheel', (e) => {
+        if (isAnimating) return;
+        const bottomDistance = content.scrollHeight - content.scrollTop - content.clientHeight;
+        
+        if (bottomDistance < 10 && e.deltaY > 0) {
+            if (canSwipeBottom()) {
+                if (e.cancelable) e.preventDefault();
+                wheelAccumulator += e.deltaY;
+                if (wheelAccumulator > 100) triggerThemeSwitch();
+                
+                clearTimeout(wheelTimeout);
+                wheelTimeout = setTimeout(() => { wheelAccumulator = 0; }, 200);
+            }
+        }
+    }, { passive: false });
+}
+
+// 3. Безопасный клик (из-за которого была прошлая проблема)
 document.body.addEventListener('click', async (event) => {
     // Ищем кнопку безопасно при клике
     const claimSuperBtn = event.target.closest('#claim-super-prize-btn'); 
@@ -2064,7 +2133,7 @@ document.body.addEventListener('click', async (event) => {
             claimSuperBtn.textContent = 'Получено!'; 
             claimSuperBtn.classList.add('action-btn', 'btn-disabled'); 
             claimSuperBtn.disabled = true; 
-            customAlert("Суперприз получен!"); 
+            if(window.Telegram?.WebApp) customAlert("Суперприз получен!"); 
         } catch(e) { 
             claimSuperBtn.disabled = false; 
             claimSuperBtn.textContent = 'Забрать'; 
@@ -2107,7 +2176,7 @@ window.showBotAuthWarning = function() {
 
             <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; text-align: left;">
                 
-                <a href="https://t.me/HATElavka_bot" target="_blank" onclick="openAppUrl('https://t.me/HATElavka_bot'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(42, 171, 238, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(42, 171, 238, 0.2); transition: background 0.2s;">
+                <a href="https://t.me/HATElavka_bot" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/HATElavka_bot'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(42, 171, 238, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(42, 171, 238, 0.2); transition: background 0.2s;">
                     <i class="fa-solid fa-robot" style="color: #2AABEE; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div style="flex-grow: 1;">
                         <div style="font-size: 13px; font-weight: 700;">Основной бот</div>
@@ -2115,17 +2184,17 @@ window.showBotAuthWarning = function() {
                     </div>
                 </a>
 
-                <a href="https://t.me/quest_hatelavka_bot" target="_blank" onclick="openAppUrl('https://t.me/quest_hatelavka_bot'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(145, 70, 255, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(145, 70, 255, 0.2); transition: background 0.2s;">
+                <a href="https://t.me/quest_hatelavka_bot" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/quest_hatelavka_bot'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(145, 70, 255, 0.1); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(145, 70, 255, 0.2); transition: background 0.2s;">
                     <i class="fa-solid fa-user-ninja" style="color: #9146ff; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div style="flex-grow: 1;">
                         <div style="font-size: 13px; font-weight: 700;">Альтернативный бот</div>
-                        <div style="color: #888; font-size: 10px; margin-top: 2px; line-height: 1.2;">Никакой рекламы, только важные уведомления</div>
+                        <div style="color: #888; font-size: 10px; margin-top: 2px; line-height: 1.2;">Никакой рекламы, только важные уведомления (можно выключить в профиле)</div>
                     </div>
                 </a>
                 
                 <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.05); margin: 4px 0;"></div>
 
-                <a href="https://t.me/hatelove_ttv" target="_blank" onclick="openAppUrl('https://t.me/hatelove_ttv'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(255, 215, 0, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(255, 215, 0, 0.1); transition: background 0.2s;">
+                <a href="https://t.me/hatelove_ttv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(255, 215, 0, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(255, 215, 0, 0.1); transition: background 0.2s;">
                     <i class="fa-solid fa-bullhorn" style="color: #ffd700; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div>
                         <div style="font-size: 13px; font-weight: 700;">Наш канал</div>
@@ -2133,7 +2202,7 @@ window.showBotAuthWarning = function() {
                     </div>
                 </a>
                 
-                <a href="https://t.me/hatelovettv" target="_blank" onclick="openAppUrl('https://t.me/hatelovettv'); return false;" style="display: flex; align-items: center; gap: 10px; background: rgba(52, 199, 89, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(52, 199, 89, 0.1); transition: background 0.2s;">
+                <a href="https://t.me/hatelovettv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelovettv'); return false; }" style="display: flex; align-items: center; gap: 10px; background: rgba(52, 199, 89, 0.05); padding: 10px; border-radius: 10px; text-decoration: none; color: #fff; border: 1px solid rgba(52, 199, 89, 0.1); transition: background 0.2s;">
                     <i class="fa-solid fa-comments" style="color: #34c759; width: 24px; text-align: center; font-size: 16px;"></i>
                     <div>
                         <div style="font-size: 13px; font-weight: 700;">Наш чат</div>
@@ -2166,7 +2235,7 @@ window.showBotAuthWarning = function() {
     };
 };
 
-// Специальное окно для блокировки абузеров
+// Специальное окно для блокировки абузеров (с возможностью смены Trade-ссылки)
 window.showSecurityBlock = function(message) {
     lockAppScroll(); 
     
@@ -2254,6 +2323,7 @@ window.showSecurityBlock = function(message) {
             saveBtn.style.background = "#34c759";
             saveBtn.style.color = "#fff";
             
+            // Если сохранили успешно - перезагружаем бота. Блок спадет сам.
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
@@ -2273,14 +2343,192 @@ window.showSecurityBlock = function(message) {
     };
 
     overlay.querySelector('#security-support-btn').onclick = () => {
-        openAppUrl("https://t.me/hatelove_twitch");
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.openTelegramLink("https://t.me/hatelove_twitch");
+        } else {
+            window.location.href = "https://t.me/hatelove_twitch";
+        }
     };
 };
 
 // ================================================================
-// ГЛАВНЫЙ ЗАПУСК
+// УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ ДИАЛОГИ И FAQ
+// ================================================================
+
+// ================================================================
+// ЛОГИКА РАСПИСАНИЯ СТРИМОВ
+// ================================================================
+window.openScheduleModal = () => {
+    document.getElementById('schedule-modal').classList.remove('hidden');
+    
+    // Дергаем виброотклик для красоты, если сидим с телефона
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.impactOccurred('light');
+    }
+};
+
+window.closeScheduleModal = () => {
+    document.getElementById('schedule-modal').classList.add('hidden');
+};
+
+// ================================================================
+// ЛОГИКА КУПОНОВ
+// ================================================================
+window.openCouponModal = () => {
+    document.getElementById('coupon-modal').classList.remove('hidden');
+    document.getElementById('coupon-input').value = '';
+};
+
+window.closeCouponModal = () => {
+    document.getElementById('coupon-modal').classList.add('hidden');
+};
+
+window.pasteCoupon = async () => {
+    try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('coupon-input').value = text;
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+    } catch (err) {
+        customAlert('Не удалось вставить текст. Проверьте разрешения браузера.');
+    }
+};
+
+window.activateCouponSubmit = async () => {
+    const input = document.getElementById('coupon-input');
+    const code = input.value.trim().toUpperCase();
+    if (!code) return customAlert("Введите промокод!");
+
+    const btn = document.getElementById('activate-coupon-btn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Проверка...';
+
+    try {
+        const res = await makeApiRequest('/api/cs/check_code', { code: code }, 'POST');
+        
+        if (res.valid) {
+            customAlert("✅ " + res.message);
+            closeCouponModal();
+            
+            // Добавляем в массив для моментального визуала
+            if (res.target_case_name && !window.activeFreeCases.includes(res.target_case_name)) {
+                window.activeFreeCases.push(res.target_case_name);
+            }
+            
+            // Переходим в магазин
+            const shopTab = document.querySelector('.toggle-option[data-target="view-shop"]');
+            if (shopTab) shopTab.click();
+            
+            // Перерисовываем ту категорию, которая сейчас открыта
+            loadCategory(window.currentCategoryId); 
+
+        } else {
+            customAlert("❌ " + res.message);
+        }
+    } catch (e) {
+        console.error("Ошибка активации:", e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+};
+
+// Обновленный showShopModal (умеет скрывать кнопку отмены и закрываться по клику вне окна)
+function showShopModal({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
+    const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
+    const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
+    
+    let cancelBtnHtml = showCancel ? `<button class="confirm-btn btn-cancel-modal" id="modal-cancel">Отмена</button>` : '';
+
+    overlay.innerHTML = `
+        <div class="custom-confirm-box">
+            <h3 class="confirm-title">${title}</h3>
+            <div class="confirm-subtitle" style="white-space: pre-wrap;">${subtitle}</div>
+            <div class="confirm-buttons">
+                ${cancelBtnHtml}
+                <button class="confirm-btn ${confirmClass}" id="modal-confirm">${confirmText}</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    
+    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+    
+    if (showCancel) overlay.querySelector('#modal-cancel').onclick = close;
+    overlay.querySelector('#modal-confirm').onclick = () => { onConfirm(close); };
+    overlay.onclick = (e) => { if(e.target === overlay && showCancel) close(); };
+}
+
+window.customAlert = function(message) {
+    showShopModal({
+        title: "Внимание",
+        subtitle: message,
+        confirmText: "ПОНЯТНО",
+        confirmClass: "btn-yellow-modal",
+        showCancel: false, 
+        onConfirm: (close) => close()
+    });
+};
+
+window.customConfirm = function(message, callback) {
+    showShopModal({
+        title: "Подтверждение",
+        subtitle: message,
+        confirmText: "ДА",
+        confirmClass: "btn-yellow-modal",
+        showCancel: true,
+        onConfirm: (close) => {
+            close();
+            if (callback) callback(true);
+        }
+    });
+};
+
+// ================================================================
+// FAQ БОТА
+// ================================================================
+window.showFaq = function() {
+    const faqHtml = '<div style="text-align: left; font-size: 13px; line-height: 1.35; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">' +
+        '<div>Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:</div><br>' +
+        
+        '<div><b style="color: #fff;">💰 Валюта и прогресс</b><br>' +
+        '<span style="color: #ffd700;">•</span> <b>Монетки:</b> Твоя основная валюта, с помощью них ты можешь открывать кейсы и участвовать в платных ивентах.<br>' +
+        '<span style="color: #2AABEE;">•</span> <b>Билеты:</b> Это монета активности, открывает возможность пользоваться аукционом и розыгрышами.</div><br>' +
+        
+        '<div><b style="color: #fff;">📋 Как зарабатывать</b><br>' +
+        '• <b>Задания и Челленджи:</b> Проявляй активность в TG/Twitch.<br>' +
+        '• <b>Недельные испытания:</b> Выполняй цели за неделю и получай приз недели.</div><br>' +
+        
+        '<div><b style="color: #fff;">🎁 Активности и Ивенты</b><br>' +
+        'Участвуй в различных <b>Ивентах</b>, делай ставки на <b>Аукционах</b> и крути <b>Рулетки</b> за скины.</div><br>' +
+        
+        '<div><b style="color: #fff;">🛒 TRADE IT</b><br>' +
+        'Продавай кейсы в разделе кейсы.<br>' +
+        '⚠️ <span style="color: #ff3b30; font-weight: 700;">Обязательно укажи актуальную Trade Link Steam в профиле для вывода скинов!</span></div>' +
+        
+        '<div style="background: rgba(255, 215, 0, 0.1); border-left: 3px solid #ffd700; padding: 6px 10px; border-radius: 4px; margin: 8px 0;">' +
+        '⚠️ <b style="color: #ffd700;">Помним, что Валя — соло-разработчик, баги это нормально! 😉</b></div>' +
+        
+        '<div><b style="color: #fff;">🔗 Важно:</b> Для работы авто-заданий привяжи аккаунт Telegram к Twitch. Если что-то не считается — пиши Валентину!</div>' +
+    '</div>';
+
+    showShopModal({
+        title: "📖 Как работает бот?",
+        subtitle: faqHtml,
+        confirmText: "Спасибо!",
+        confirmClass: "btn-yellow-modal",
+        showCancel: false,
+        onConfirm: (close) => close()
+    });
+};
+// ================================================================
+// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
+// ================================================================
+// ================================================================
+// ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
 async function main() {
+    // 1. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ VK 🔥
     if (isVk && !window.vkParams) {
         console.log("⏳ Параметров VK нет в URL. Запрашиваем у моста...");
         if (typeof fetchVkParamsFromBridge === 'function') {
@@ -2293,30 +2541,42 @@ async function main() {
         }
     }
 
+    // 2. 🔥 УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ TELEGRAM 🔥
     if (!isVk && window.Telegram?.WebApp) {
         let attempts = 0;
+        // Ждем максимум 1.5 секунды (15 попыток по 100мс), пока ТГ генерирует initData
         while (!window.Telegram.WebApp.initData && attempts < 15) {
             await new Promise(r => setTimeout(r, 100));
             attempts++;
         }
+        if (!window.Telegram.WebApp.initData) {
+            console.error("💀 Критическая ошибка: Telegram не отдал initData.");
+        }
     }
 
+    // 3. ⚡ ЗАПУСКАЕМ СИНХРОНИЗАЦИЮ КУПОНОВ (ДОБАВЬ ЭТО!)
     await syncMyPromos();
+
+    // 4. ⚡ ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОС БАЛАНСА ВНЕ ОЧЕРЕДИ
     checkBalance(true);
 
     try {
+        // Если даже после ожидания токена нет — тихо выходим (возможно, юзер открыл просто в браузере)
         if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
             return; 
         }
         
         let isCached = false;
+        
+        // 1. Читаем ВЕСЬ кэш
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || 'null');
         const cachedRaffles = JSON.parse(localStorage.getItem('cache_raffles') || 'null');
         const cachedShopRaw = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
         const cachedShop = cachedShopRaw[2716312];
         const cachedP2P = JSON.parse(localStorage.getItem('cache_p2p') || 'null');
 
+        // Если ВСЁ есть в кэше — рисуем мгновенно (Stale-While-Revalidate)
         if (cachedBootstrap && !cachedBootstrap.maintenance && cachedRaffles && cachedShop) {
             await renderFullInterface(cachedBootstrap);
             initDynamicRaffleSlider(cachedRaffles);
@@ -2330,6 +2590,7 @@ async function main() {
                 dom.loaderOverlay.classList.add('hidden');
             }
         } else {
+            // Иначе показываем лоадер
             if (dom.loaderOverlay) {
                 dom.loaderOverlay.classList.remove('hidden');
                 dom.loaderOverlay.style.opacity = '1';
@@ -2337,22 +2598,28 @@ async function main() {
             updateLoading(10); 
         }      
         
+        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (С ЗАЩИТОЙ ОТ ПАДЕНИЯ ОТДЕЛЬНЫХ МОДУЛЕЙ)
         let bootstrapData, rafflesData, shopData, p2pData;
         
         [bootstrapData, rafflesData, shopData, p2pData] = await Promise.all([
+            // Bootstrap критичен, если он упадет - летим в catch (это правильно)
             makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true).catch(e => { return null; }),
-            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true).catch(e => { return null; }),
-            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { return null; })
+            
+            // Остальные модули глушим при ошибке, возвращая null. Приложение загрузится без них.
+            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true).catch(e => { console.warn('Raffles error', e); return null; }),
+            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true).catch(e => { console.warn('Shop error', e); return null; }),
+            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { console.warn('P2P error', e); return null; })
         ]);
 
         if (!isCached) updateLoading(60);
 
+        // Мгновенный блок техработ
         if (bootstrapData && bootstrapData.maintenance) {
             document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
             return; 
         }
 
+        // === 🔥 ПРЕДЗАГРУЗКА КАРТИНОК 🔥 ===
         if (!isCached) {
             let imagesToLoad = [];
             if (bootstrapData && bootstrapData.menu) {
@@ -2367,6 +2634,7 @@ async function main() {
             updateLoading(90);
         }
 
+        // Сохраняем свежий кэш
         if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
         if (rafflesData) localStorage.setItem('cache_raffles', JSON.stringify(rafflesData));
         if (p2pData) localStorage.setItem('cache_p2p', JSON.stringify(p2pData));
@@ -2376,6 +2644,7 @@ async function main() {
             localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
         }
 
+        // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД
         if (bootstrapData) await renderFullInterface(bootstrapData);
         if (rafflesData) initDynamicRaffleSlider(rafflesData);
         if (shopData) loadCategory(2716312, shopData);
@@ -2396,11 +2665,13 @@ async function main() {
     } catch (e) {
         console.error("Critical error in main:", e);
         
+        // 🔥 БЕТОННЫЙ ФИКС: Если это блок ИЛИ бан — мгновенно выходим и ничего не рисуем поверх!
         if (e.message === "Security Block" || e.message === "USER_BANNED") {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
         }
 
+        // Если это обычная ошибка сети (и интерфейс не загружен)
         if (!document.querySelector('.shop-item')) { 
             if (dom.loadingText) dom.loadingText.textContent = "Критическая ошибка";
             document.body.innerHTML = `
@@ -2414,16 +2685,18 @@ async function main() {
         }
     }
 }
-
 // ================================================================
-// ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ (УНИВЕРСАЛЬНАЯ БРОНЯ)
 // ================================================================
 try {
+    // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM
+    // Запускаем ТОЛЬКО если мы уверены, что это не ВК и объект Телеграма существует
     if (!isVk && window.Telegram?.WebApp) {
         const tg = Telegram.WebApp;
         tg.ready();
         tg.expand(); 
         
+        // Безопасное отключение свайпов
         if (typeof tg.disableVerticalSwipes === 'function') {
             try { tg.disableVerticalSwipes(); } catch(e) { console.warn("TG: Свайпы не отключаются", e); }
         }
@@ -2439,29 +2712,37 @@ try {
             document.body.classList.add('desktop-mode');
         }
 
+        // Безопасный фуллскрин (только для мобилок TG)
         if (!document.body.classList.contains('desktop-mode') && typeof tg.requestFullscreen === 'function') {
             try {
+                // Оборачиваем сам вызов, так как ТГ может кинуть Error: WebAppMethodUnsupported
                 tg.requestFullscreen();
             } catch (e) {
                 console.warn("TG: Фуллскрин не поддерживается на этом клиенте", e);
             }
         }
     } 
+    // 2. ИНИЦИАЛИЗАЦИЯ VK
     else if (isVk) {
         console.log("🚀 Инициализация интерфейса для VK Mini Apps");
-        document.body.classList.add('vk-mode'); 
+        document.body.classList.add('vk-mode'); // На всякий случай вешаем класс для CSS
         
+        // Отправляем эвент загрузки в ВК
         if (typeof vkBridge !== 'undefined') {
             try { vkBridge.send('VKWebAppInit'); } catch(e) { console.warn("VK Bridge error", e); }
         }
     }
 
+    // 3. ОБЩИЙ ЗАПУСК ИНТЕРФЕЙСА (Работает везде)
     setupNewUI();
     initPullToRefresh();
+    initBottomSwipe(); // Запускаем наш нижний свайп
     initSwipeTabs(); 
 
+    // Запускаем основную логику загрузки данных
     main();
 
+    // 4. ФОНОВЫЕ ПРОЦЕССЫ
     clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 30000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshDataSilently(); });
@@ -2469,6 +2750,7 @@ try {
 } catch (e) { 
     console.error("Global init error", e); 
     
+    // 🔥 БЕТОННЫЙ ЩИТ
     if (e.message === "Security Block" || e.message === "USER_BANNED") {
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
     } else {
