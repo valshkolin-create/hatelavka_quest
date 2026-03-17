@@ -3,6 +3,60 @@
 // ================================================================
 let isVk = false;
 
+
+// ================================================================
+// УНИВЕРСАЛЬНЫЕ АДАПТЕРЫ (TG / VK)
+// ================================================================
+
+// 1. Универсальное открытие ссылок
+window.openAppUrl = function(url) {
+    if (isVk) {
+        try {
+            vkBridge.send('VKWebAppOpenUrl', { url: url });
+        } catch(e) { console.warn("VK Bridge URL error", e); }
+    } else if (window.Telegram?.WebApp) {
+        if (url.includes('t.me')) {
+            Telegram.WebApp.openTelegramLink(url);
+        } else {
+            Telegram.WebApp.openLink(url);
+        }
+    } else {
+        window.open(url, '_blank'); // Резерв для браузера
+    }
+};
+
+// 2. Универсальная вибрация (Haptic Feedback)
+window.triggerHaptic = function(type = 'light') {
+    if (isVk) {
+        try {
+            if (type === 'success' || type === 'error') {
+                vkBridge.send("VKWebAppTapticNotificationOccurred", { type: type });
+            } else if (type === 'selection') {
+                vkBridge.send("VKWebAppTapticSelectionChanged", {});
+            } else {
+                vkBridge.send("VKWebAppTapticImpactOccurred", { style: type === 'heavy' ? 'heavy' : 'light' });
+            }
+        } catch(e) {}
+    } else if (window.Telegram?.WebApp?.HapticFeedback) {
+        if (type === 'success' || type === 'error') {
+            Telegram.WebApp.HapticFeedback.notificationOccurred(type);
+        } else if (type === 'selection') {
+            Telegram.WebApp.HapticFeedback.selectionChanged();
+        } else {
+            Telegram.WebApp.HapticFeedback.impactOccurred(type);
+        }
+    }
+};
+
+// 3. Универсальное закрытие приложения
+window.closeApp = function() {
+    if (isVk) {
+        try { vkBridge.send("VKWebAppClose", {"status": "success"}); } catch(e){}
+    } else if (window.Telegram?.WebApp) {
+        Telegram.WebApp.close();
+    }
+};
+
 (function initVkParams() {
     window.vkParams = null;
     const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
@@ -271,7 +325,7 @@ window.openNotificationsHistory = async function() {
         if (subtitleEl) subtitleEl.innerHTML = html;
 
         if (notifs.some(n => !n.is_read)) {
-            await makeApiRequest('/api/v1/notifications/read', { user_id: Telegram.WebApp.initDataUnsafe?.user?.id }, 'POST', true);
+            await makeApiRequest('/api/v1/notifications/read', { user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || null }, 'POST', true);
         }
 
     } catch (e) {
