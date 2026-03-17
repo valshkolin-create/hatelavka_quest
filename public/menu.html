@@ -442,25 +442,35 @@
     </div>
 
 <script>
-    // АТОМНЫЙ ДЕТЕКТОР ПЛАТФОРМЫ (Выполняется первым)
+    // АТОМНЫЙ ДЕТЕКТОР ПЛАТФОРМЫ (V3 - ТЕРМИНАТОР)
     (function() {
-        const url = window.location.href;
-        const s = window.location.search;
-        const h = window.location.hash;
+        window.isVk = false;
+        window.vkParams = null;
+
+        const checkString = (str) => str && (str.includes('vk_app_id') || str.includes('vk_user_id'));
+
+        // 1. Проверяем URL (search и hash)
+        let rawParams = window.location.search.replace('?', '') || window.location.hash.replace('#', '');
         
-        // Если есть хоть малейший след ВК
-        if (url.includes('vk_app_id') || s.includes('vk_user_id') || h.includes('vk_app_id')) {
+        // 2. Если пусто, проверяем window.name (ВК часто пишет туда параметры)
+        if (!checkString(rawParams) && checkString(window.name)) {
+            rawParams = window.name;
+        }
+
+        // 3. Если всё еще пусто, проверяем document.referrer
+        if (!checkString(rawParams) && checkString(document.referrer)) {
+            const refUrl = new URL(document.referrer);
+            rawParams = refUrl.search.replace('?', '');
+        }
+
+        // ИТОГОВАЯ ПРОВЕРКА
+        if (checkString(rawParams) || checkString(window.location.href)) {
             window.isVk = true;
             document.documentElement.classList.add('vk-mode');
-            
-            // Сохраняем параметры
-            let p = s.replace('?', '') || h.replace('#', '');
-            if (!p && url.includes('?')) p = url.split('?')[1].split('#')[0];
-            window.vkParams = p;
-            
-            console.log("🛡️ [GLOBAL] ВК подтвержден до старта скриптов");
+            window.vkParams = rawParams;
+            console.log("🛡️ [DETECTOR] ВК обнаружен через параметры/контекст");
         } else {
-            window.isVk = false;
+            console.log("🛡️ [DETECTOR] ВК не найден, режим Telegram");
         }
     })();
 </script>
