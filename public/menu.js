@@ -2706,7 +2706,6 @@ async function main() {
 // ================================================================
 try {
     // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM
-    // Запускаем ТОЛЬКО если мы уверены, что это не ВК и объект Телеграма существует
     if (!isVk && window.Telegram?.WebApp) {
         const tg = Telegram.WebApp;
         tg.ready();
@@ -2730,14 +2729,16 @@ try {
 
         // Безопасный фуллскрин (только для мобилок TG)
         if (!document.body.classList.contains('desktop-mode') && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
-    if (typeof tg.requestFullscreen === 'function') {
-        try {
-            tg.requestFullscreen();
-        } catch (e) {
-            console.warn("TG: Фуллскрин не поддерживается", e);
+            if (typeof tg.requestFullscreen === 'function') {
+                try {
+                    tg.requestFullscreen();
+                } catch (e) {
+                    console.warn("TG: Фуллскрин не поддерживается", e);
+                }
+            }
         }
-    }
-}
+    } // <--- ВОТ ЭТА СКОБКА БЫЛА ПРОПУЩЕНА! ОНА ЗАКРЫВАЕТ БЛОК TELEGRAM!
+    
     // 2. ИНИЦИАЛИЗАЦИЯ VK
     else if (isVk) {
         console.log("🚀 Инициализация интерфейса для VK Mini Apps");
