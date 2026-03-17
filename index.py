@@ -7761,16 +7761,82 @@ async def get_public_quests(request_data: InitDataRequest):
     except Exception as e:
         logging.error(f"Ошибка при получении квестов RPC: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
+
+    async def sync_or_merge_twitch_account(platform: str, platform_user_id: int, twitch_id: str, twitch_login: str, supabase):
+    """
+    platform: 'tg' или 'vk'
+    platform_user_id: ID юзера в телеге или вк
+    """
+    
+    # 1. Ищем, есть ли уже в базе кто-то с таким twitch_id
+    resp = await supabase.get("/users", params={"twitch_id": f"eq.{twitch_id}"})
+    existing_users = resp.json() if resp.status_code == 200 else []
+
+    if existing_users:
+        # ⚠️ АККАУНТ НАЙДЕН (Например, старый акк из ТГ)
+        main_account = existing_users[0]
+        main_telegram_id = main_account.get("telegram_id")
+        
+        # Если мы зашли через ВК, обновляем vk_id в основном аккаунте
+        if platform == 'vk':
+            await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{main_telegram_id}"},
+                json={
+                    "vk_id": platform_user_id,
+                    "twitch_login": twitch_login # Заодно обновим логин, вдруг он его сменил
+                }
+            )
+            
+            # 🔥 УДАЛЯЕМ временный пустой профиль ВК, который создался при заходе
+            # (чтобы не было дублей в базе)
+            await supabase.delete(
+                "/users",
+                params={
+                    "vk_id": f"eq.{platform_user_id}", 
+                    "telegram_id": f"neq.{main_telegram_id}" # Защита, чтобы не удалить основной акк
+                }
+            )
+            
+        elif platform == 'tg':
+            # Если это ТГ, просто обновляем (на всякий случай)
+            await supabase.patch(
+                "/users",
+                params={"telegram_id": f"eq.{main_telegram_id}"},
+                json={"telegram_id": platform_user_id, "twitch_login": twitch_login}
+            )
+            
+        return {"status": "merged", "message": "Аккаунты успешно синхронизированы!"}
+
+    else:
+        # 🆕 АККАУНТ НЕ НАЙДЕН (Это абсолютно новый юзер)
+        # Просто привязываем Twitch к его текущему профилю
+        search_col = "vk_id" if platform == 'vk' else "telegram_id"
+        
+        await supabase.patch(
+            "/users",
+            params={search_col: f"eq.{platform_user_id}"},
+            json={
+                "twitch_id": twitch_id,
+                "twitch_login": twitch_login
+            }
+        )
+        return {"status": "linked", "message": "Twitch успешно привязан!"}
         
 
 @app.get("/api/v1/auth/twitch_oauth")
-async def twitch_oauth_start(request: Request, initData: str = Query(...)):
+async def twitch_oauth_start(
+    request: Request, 
+    initData: str = Query(...),
+    platform: str = Query('tg') # 🔥 ДОБАВЛЕНО: Принимаем платформу
+):
     if not initData:
         raise HTTPException(status_code=400, detail="initData is required")
 
     try:
-        # Кодируем initData для передачи в state
-        state = base64.urlsafe_b64encode(initData.encode()).decode()
+        # 🔥 ИСПРАВЛЕНИЕ: Кодируем платформу и initData вместе, через разделитель "|"
+        state_str = f"{platform}|{initData}"
+        state = base64.urlsafe_b64encode(state_str.encode()).decode()
         
         # Набор прав. 
         # moderation:read — критически важен для стримера
@@ -7791,6 +7857,7 @@ async def twitch_oauth_start(request: Request, initData: str = Query(...)):
         logging.error(f"❌ [Twitch OAuth Start] Ошибка: {e}")
         raise HTTPException(status_code=500, detail="Ошибка генерации ссылки")
 
+
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
     request: Request, 
@@ -7799,13 +7866,24 @@ async def twitch_oauth_callback(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     try:
-        # 1. Декодируем и валидируем юзера Telegram
-        init_data = base64.urlsafe_b64decode(state).decode()
-        user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
-        if not user_info:
+        # 1. 🔥 ИСПРАВЛЕНИЕ: Декодируем state, достаем платформу и делаем гибридную авторизацию
+        state_str = base64.urlsafe_b64decode(state).decode()
+        parts = state_str.split('|', 1)
+        
+        # Поддержка старых ссылок (если кто-то кликнул по старой ссылке без платформы)
+        if len(parts) == 2:
+            platform, init_data = parts[0], parts[1]
+        else:
+            platform, init_data = 'tg', state_str
+
+        user_info = get_hybrid_user_info(init_data, platform)
+        if not user_info or "id" not in user_info:
             raise HTTPException(status_code=403, detail="Invalid signature")
         
-        telegram_id = int(user_info["id"])
+        # Это может быть как telegram_id, так и vk_id
+        platform_user_id = user_info["id"]
+        search_col = "vk_id" if platform == 'vk' else "telegram_id"
+        
         BROADCASTER_ID = "883996654"
 
         async with httpx.AsyncClient() as client:
@@ -7907,7 +7985,8 @@ async def twitch_oauth_callback(
 
             # --- Г. Защита текущего статуса (если он УЖЕ вип в базе) ---
             try:
-                db_user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
+                # 🔥 ИСПРАВЛЕНИЕ: Ищем по текущей платформе (vk_id или telegram_id)
+                db_user_resp = await supabase.get("/users", params={search_col: f"eq.{platform_user_id}", "select": "twitch_status"})
                 db_user_data = db_user_resp.json()
                 if db_user_data and db_user_data[0].get("twitch_status"):
                     db_status = db_user_data[0].get("twitch_status")
@@ -7917,7 +7996,7 @@ async def twitch_oauth_callback(
                         new_status = db_status
             except: pass
 
-            # 5. Сохранение в базу
+            # 5. 🔥 ИСПРАВЛЕНИЕ: МАГИЯ СЛИЯНИЯ АККАУНТОВ В БАЗЕ 🔥
             update_payload = {
                 "twitch_id": twitch_id, 
                 "twitch_login": twitch_login,
@@ -7926,25 +8005,65 @@ async def twitch_oauth_callback(
                 "twitch_status": new_status
             }
 
-            patch_resp = await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{telegram_id}"},
-                json=update_payload,
-                headers={"Prefer": "return=representation"}
-            )
+            # Смотрим, есть ли уже этот Twitch-аккаунт в базе
+            existing_resp = await supabase.get("/users", params={"twitch_id": f"eq.{twitch_id}"})
+            existing_users = existing_resp.json() if existing_resp.status_code == 200 else []
+
+            patch_resp = None
+
+            if existing_users:
+                # СЛИЯНИЕ (МЕРДЖ): Аккаунт найден. Привязываем текущий VK/TG ID к старому аккаунту.
+                main_account = existing_users[0]
+                
+                merge_payload = update_payload.copy()
+                merge_payload[search_col] = platform_user_id # Записываем наш vk_id или telegram_id
+                
+                # Обновляем старый "жирный" аккаунт
+                patch_resp = await supabase.patch(
+                    "/users",
+                    params={"twitch_id": f"eq.{twitch_id}"},
+                    json=merge_payload,
+                    headers={"Prefer": "return=representation"}
+                )
+                
+                # Убиваем пустышку (чтобы не плодить дубли), если это не тот же самый аккаунт
+                if str(main_account.get(search_col)) != str(platform_user_id):
+                    await supabase.delete(
+                        "/users", 
+                        params={search_col: f"eq.{platform_user_id}", "twitch_id": "is.null"}
+                    )
+            else:
+                # НОВАЯ ПРИВЯЗКА: Twitch чистый, просто привязываем его к текущему юзеру
+                patch_resp = await supabase.patch(
+                    "/users",
+                    params={search_col: f"eq.{platform_user_id}"},
+                    json=update_payload,
+                    headers={"Prefer": "return=representation"}
+                )
             
-            if patch_resp.status_code not in [200, 201, 204]:
-                logging.error(f"💀 [DB Error] Ошибка PATCH: {patch_resp.text}")
+            # Проверяем успешность записи в БД
+            if not patch_resp or patch_resp.status_code not in [200, 201, 204]:
+                err_text = patch_resp.text if patch_resp else "None"
+                logging.error(f"💀 [DB Error] Ошибка PATCH: {err_text}")
                 raise HTTPException(status_code=500, detail="Database update failed")
 
-        logging.info(f"✅ [Twitch Link Success] User {telegram_id} linked as {twitch_login} (Статус: {new_status})")
+        logging.info(f"✅ [{platform.upper()} -> Twitch Success] User {platform_user_id} linked as {twitch_login} (Статус: {new_status})")
         
-        bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
-        app_name = os.getenv("APP_SHORT_NAME", "profile")
-        return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=auth_success", status_code=303)
+        # 6. 🔥 ИСПРАВЛЕНИЕ: Редирект в зависимости от платформы 🔥
+        if platform == 'vk':
+            vk_app_id = "54448787"
+            return RedirectResponse(url=f"https://vk.com/app{vk_app_id}", status_code=303)
+        else:
+            bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
+            app_name = os.getenv("APP_SHORT_NAME", "profile")
+            return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=auth_success", status_code=303)
 
     except Exception as e:
         logging.error(f"🔥 [Twitch Callback Critical] {e}", exc_info=True)
+        # Если была ошибка - всё равно возвращаем юзера в его платформу
+        if 'platform' in locals() and platform == 'vk':
+            return RedirectResponse(url=f"https://vk.com/app54448787", status_code=303)
+            
         return RedirectResponse(url=f"https://t.me/HATElavka_bot/profile?startapp=auth_error")
     
 class PromocodeDeleteRequest(BaseModel): initData: str; code: str
