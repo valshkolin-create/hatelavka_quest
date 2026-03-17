@@ -1,63 +1,59 @@
 // ================================================================
 // 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
-let isVk = false;
+window.isVk = false; // Делаем глобальной
 window.vkParams = null;
 
 (function initVkParams() {
     try {
-        // Берем всю ссылку целиком, чтобы ничего не упустить
         const fullUrl = window.location.href || '';
         const search = window.location.search || '';
         const hash = window.location.hash || '';
 
-        // Если хоть где-то есть vk_app_id - это 100% ВК
-        if (fullUrl.includes('vk_app_id') || fullUrl.includes('vk_user_id')) {
-            isVk = true; // СРАЗУ жестко включаем ВК
+        // Жесткая проверка: если в URL есть хоть один признак ВК
+        if (fullUrl.includes('vk_app_id') || fullUrl.includes('vk_user_id') || fullUrl.includes('vk_platform')) {
+            window.isVk = true; 
             document.documentElement.classList.add('vk-mode');
 
-            // Чисто достаем строку параметров (без ? и #)
-            let params = '';
-            if (search.includes('vk_app_id')) {
-                params = search.substring(1);
-            } else if (hash.includes('vk_app_id')) {
-                params = hash.substring(1);
-            } else if (fullUrl.includes('?')) {
-                params = fullUrl.split('?')[1];
+            // Вытаскиваем чистую строку параметров
+            let params = search.startsWith('?') ? search.substring(1) : search;
+            if (!params) params = hash.startsWith('#') ? hash.substring(1) : hash;
+            
+            // Если через search/hash не вышло (бывает в iframe), режем href
+            if (!params && fullUrl.includes('?')) {
+                params = fullUrl.split('?')[1].split('#')[0];
             }
             
             window.vkParams = params;
+            console.log("📡 [DETECTOR] ВКонтакте обнаружен! Параметры:", window.vkParams ? "OK" : "EMPTY");
+        } else {
+            console.log("📡 [DETECTOR] Режим: Telegram / Web");
         }
     } catch (e) {
-        console.error("Ошибка детекта VK:", e);
+        console.error("❌ Ошибка детектора платформ:", e);
     }
 })();
 
-
-// 👇 ВОТ СЮДА ВСТАВЛЯЕМ ФУНКЦИЮ 👇
 async function fetchVkParamsFromBridge() {
     return new Promise((resolve) => {
         if (typeof vkBridge !== 'undefined') {
-            vkBridge.send("VKWebAppGetConfig").then(data => {
-                // Если нужно, тут можно дополнительно распарсить data 
-                // и положить ключи в window.vkParams
-                resolve();
-            }).catch(() => resolve());
+            vkBridge.send("VKWebAppGetConfig")
+                .then(() => resolve())
+                .catch(() => resolve());
         } else {
             resolve();
         }
     });
 }
-// 👆 КОНЕЦ ВСТАВКИ 👆
 
 // 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
 function getAuthPayload() {
-    if (isVk) {
-        // Отдаем серверу параметры ВК и пометку 'vk'
+    if (window.isVk) {
+        // Если мы в ВК, берем только сохраненные параметры ВК
         return { initData: window.vkParams || '', platform: 'vk' };
     }
     
-    // Иначе отдаем Телеграм
+    // Иначе строго Телеграм
     let tgData = window.Telegram?.WebApp?.initData || '';
     return { initData: tgData, platform: 'tg' };
 }
@@ -2539,15 +2535,15 @@ window.showFaq = function() {
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
 async function main() {
-    // 1. УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ VK
-    if (isVk && !window.vkParams) {
-        if (typeof fetchVkParamsFromBridge === 'function') {
-            await fetchVkParamsFromBridge();
-        }
+    // Если мы в ВК, сначала пытаемся догрузить конфиг из моста
+    if (window.isVk && !window.vkParams) {
+        await fetchVkParamsFromBridge();
     }
 
-    // 2. УМНОЕ ОЖИДАНИЕ КЛЮЧЕЙ TELEGRAM
-    if (!isVk && window.Telegram?.WebApp) {
+    // 🔥 ИСПРАВЛЕННАЯ ПРОВЕРКА ТЕЛЕГРАМА 🔥
+    // Мы заходим сюда ТОЛЬКО если это НЕ ВК
+    if (!window.isVk && window.Telegram?.WebApp) {
+        console.log("🤖 Режим Телеграм: ожидание initData...");
         let attempts = 0;
         while (!window.Telegram.WebApp.initData && attempts < 15) {
             await new Promise(r => setTimeout(r, 100));
@@ -2555,20 +2551,22 @@ async function main() {
         }
     }
 
-    // 🔥 ИСПРАВЛЕНИЕ: Сначала проверяем, есть ли вообще данные, И ТОЛЬКО ПОТОМ идем на сервер
-    if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
+    // Если это НЕ ВК и ТГ не дал данные — рубим
+    if (!window.isVk && window.Telegram && !Telegram.WebApp.initData) { 
         console.error("💀 Telegram не отдал initData, прерываем запуск.");
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
-        // Тут можно показать красивую заглушку "Откройте внутри Telegram"
         return; 
     }
 
-    if (isVk && !window.vkParams) {
-        console.error("💀 VK не отдал параметры, прерываем запуск.");
+    // Если это ВК и нет параметров — рубим
+    if (window.isVk && !window.vkParams) {
+        console.error("💀 ВК не отдал параметры, прерываем запуск.");
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
         return;
     }
 
+    console.log("✅ Авторизация пройдена успешно. Платформа:", window.isVk ? 'VK' : 'TG');
+    
     // 3. ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОСЫ
     await syncMyPromos();
     checkBalance(true);
@@ -2702,51 +2700,37 @@ async function main() {
 // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ (УНИВЕРСАЛЬНАЯ БРОНЯ)
 // ================================================================
 try {
-    // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM
-    if (!isVk && window.Telegram?.WebApp) {
+    // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM (только если это НЕ ВК)
+    if (!window.isVk && window.Telegram?.WebApp) {
+        console.log("🤖 Инициализация Telegram SDK...");
         const tg = Telegram.WebApp;
         tg.ready();
         tg.expand(); 
         
-        // Безопасное отключение свайпов
         if (typeof tg.disableVerticalSwipes === 'function') {
-            try { tg.disableVerticalSwipes(); } catch(e) { console.warn("TG: Свайпы не отключаются", e); }
+            try { tg.disableVerticalSwipes(); } catch(e) {}
         }
         
         const platform = tg.platform || 'unknown';
-        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (platform === 'ios') {
-            document.body.classList.add('ios-mode');
-        } else if (platform === 'android') {
-            document.body.classList.add('android-mode');
-        } else if (['tdesktop', 'macos'].includes(platform) || (['weba', 'webk', 'web'].includes(platform) && !isMobileDevice)) {
-            document.body.classList.add('desktop-mode');
-        }
+        if (platform === 'ios') document.body.classList.add('ios-mode');
+        else if (platform === 'android') document.body.classList.add('android-mode');
+        else document.body.classList.add('desktop-mode');
 
-        // Безопасный фуллскрин (только для мобилок TG)
         if (!document.body.classList.contains('desktop-mode') && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
             if (typeof tg.requestFullscreen === 'function') {
-                try {
-                    tg.requestFullscreen();
-                } catch (e) {
-                    console.warn("TG: Фуллскрин не поддерживается", e);
-                }
+                try { tg.requestFullscreen(); } catch (e) {}
             }
         }
-    } // <--- ВОТ ЭТА СКОБКА БЫЛА ПРОПУЩЕНА! ОНА ЗАКРЫВАЕТ БЛОК TELEGRAM!
-    
-    // 2. ИНИЦИАЛИЗАЦИЯ VK
-    else if (isVk) {
-        console.log("🚀 Инициализация интерфейса для VK Mini Apps");
-        document.body.classList.add('vk-mode'); // На всякий случай вешаем класс для CSS
-        
-        // Отправляем эвент загрузки в ВК
+    } 
+    // 2. ИНИЦИАЛИЗАЦИЯ VK (только если флаг ВК активен)
+    else if (window.isVk) {
+        console.log("🚀 Инициализация VK SDK...");
+        document.body.classList.add('vk-mode'); 
         if (typeof vkBridge !== 'undefined') {
-            try { vkBridge.send('VKWebAppInit'); } catch(e) { console.warn("VK Bridge error", e); }
+            try { vkBridge.send('VKWebAppInit'); } catch(e) {}
         }
     }
-
+    
     // 3. ОБЩИЙ ЗАПУСК ИНТЕРФЕЙСА (Работает везде)
     setupNewUI();
     initPullToRefresh();
