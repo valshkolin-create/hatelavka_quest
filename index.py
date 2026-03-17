@@ -7762,68 +7762,6 @@ async def get_public_quests(request_data: InitDataRequest):
         logging.error(f"Ошибка при получении квестов RPC: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
 
-    async def sync_or_merge_twitch_account(platform: str, platform_user_id: int, twitch_id: str, twitch_login: str, supabase):
-    """
-    platform: 'tg' или 'vk'
-    platform_user_id: ID юзера в телеге или вк
-    """
-    
-    # 1. Ищем, есть ли уже в базе кто-то с таким twitch_id
-    resp = await supabase.get("/users", params={"twitch_id": f"eq.{twitch_id}"})
-    existing_users = resp.json() if resp.status_code == 200 else []
-
-    if existing_users:
-        # ⚠️ АККАУНТ НАЙДЕН (Например, старый акк из ТГ)
-        main_account = existing_users[0]
-        main_telegram_id = main_account.get("telegram_id")
-        
-        # Если мы зашли через ВК, обновляем vk_id в основном аккаунте
-        if platform == 'vk':
-            await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{main_telegram_id}"},
-                json={
-                    "vk_id": platform_user_id,
-                    "twitch_login": twitch_login # Заодно обновим логин, вдруг он его сменил
-                }
-            )
-            
-            # 🔥 УДАЛЯЕМ временный пустой профиль ВК, который создался при заходе
-            # (чтобы не было дублей в базе)
-            await supabase.delete(
-                "/users",
-                params={
-                    "vk_id": f"eq.{platform_user_id}", 
-                    "telegram_id": f"neq.{main_telegram_id}" # Защита, чтобы не удалить основной акк
-                }
-            )
-            
-        elif platform == 'tg':
-            # Если это ТГ, просто обновляем (на всякий случай)
-            await supabase.patch(
-                "/users",
-                params={"telegram_id": f"eq.{main_telegram_id}"},
-                json={"telegram_id": platform_user_id, "twitch_login": twitch_login}
-            )
-            
-        return {"status": "merged", "message": "Аккаунты успешно синхронизированы!"}
-
-    else:
-        # 🆕 АККАУНТ НЕ НАЙДЕН (Это абсолютно новый юзер)
-        # Просто привязываем Twitch к его текущему профилю
-        search_col = "vk_id" if platform == 'vk' else "telegram_id"
-        
-        await supabase.patch(
-            "/users",
-            params={search_col: f"eq.{platform_user_id}"},
-            json={
-                "twitch_id": twitch_id,
-                "twitch_login": twitch_login
-            }
-        )
-        return {"status": "linked", "message": "Twitch успешно привязан!"}
-        
-
 @app.get("/api/v1/auth/twitch_oauth")
 async def twitch_oauth_start(
     request: Request, 
