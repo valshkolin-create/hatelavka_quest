@@ -6476,8 +6476,12 @@ async def get_my_p2p_trades(
     request_data: InitDataRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info: 
+    # 🔥 Меняем жесткую привязку к ТГ на гибридную авторизацию
+    platform = getattr(request_data, 'platform', 'tg')
+    user_info = get_hybrid_user_info(request_data.initData, platform)
+    
+    # Проверяем не только наличие user_info, но и ключа "id", для надежности
+    if not user_info or "id" not in user_info: 
         raise HTTPException(status_code=401, detail="Auth failed")
     
     try:
@@ -10718,16 +10722,17 @@ async def create_in_app_notification(supabase: httpx.AsyncClient, user_id: int, 
 
 @app.get("/api/v1/notifications")
 async def get_user_notifications(
-    initData: str,  # FastAPI сам возьмет это из query-параметров
+    initData: str, 
+    platform: str = 'tg',  # 🔥 ДОБАВИЛИ ПРИЕМ ПЛАТФОРМЫ (по дефолту tg)
     limit: int = 50,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Отдает список уведомлений юзера, проверяя его через initData."""
+    """Отдает список уведомлений юзера, проверяя его через гибридную авторизацию."""
     
-    # 1. Проверяем пользователя выносим ЗА блок try/except, 
-    # чтобы FastAPI корректно отдал статус 403 без перехвата
-    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
-    if not user_info:
+    # 🔥 ИСПОЛЬЗУЕМ ТВОЮ ГОТОВУЮ ГИБРИДНУЮ ФУНКЦИЮ ВМЕСТО is_valid_init_data
+    user_info = get_hybrid_user_info(initData, platform)
+    
+    if not user_info or "id" not in user_info:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     user_id = user_info.get("id")
@@ -12850,37 +12855,41 @@ async def create_event(
         
 @app.post("/api/v1/user/trade_link/save")
 async def save_trade_link(
-    request_data: TradeLinkUpdateRequest,
+    request_data: TradeLinkRequest, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Сохраняет или обновляет трейд-ссылку пользователя с проверкой Regex."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    # 🔥 1. ГИБРИДНАЯ АВТОРИЗАЦИЯ
+    # Берем платформу прямо из модели запроса
+    platform = getattr(request_data, 'platform', 'tg')
+    user_info = get_hybrid_user_info(request_data.initData, platform)
+    
     if not user_info or "id" not in user_info:
-        raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
-    
-    telegram_id = user_info["id"]
-    trade_link = request_data.trade_link.strip()
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+    user_id = user_info["id"]
 
-    # --- ЭТАП 1: Жесткая проверка синтаксиса (Regex) ---
-    pattern = r"^https?://steamcommunity\.com/tradeoffer/new/\?partner=\d+&token=[a-zA-Z0-9_-]+$"
-    if not re.match(pattern, trade_link):
-        raise HTTPException(
-            status_code=400, 
-            detail="Неверный формат! Ссылка должна выглядеть так: https://steamcommunity.com/tradeoffer/new/?partner=...&token=..."
+    # 🔥 2. ЛОГИКА СОХРАНЕНИЯ В БАЗУ
+    try:
+        # Убедимся, что ссылка базовая валидная (ты уже делаешь это на фронте, но бэкенд тоже должен защищаться)
+        if not request_data.trade_link.startswith("https://steamcommunity.com/tradeoffer/new") or "partner=" not in request_data.trade_link or "token=" not in request_data.trade_link:
+             raise HTTPException(status_code=400, detail="Неверный формат ссылки")
+
+        # Твой запрос к Supabase для сохранения (возможно, у тебя patch вместо post)
+        resp = await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{user_id}"},
+            json={"trade_link": request_data.trade_link}
         )
+        
+        resp.raise_for_status()
+        
+        return {"success": True, "message": "Trade link saved"}
 
-    # --- ЭТАП 2: Сохранение ---
-    resp = await supabase.patch(
-        "/users",
-        params={"telegram_id": f"eq.{telegram_id}"},
-        json={"trade_link": trade_link}
-    )
-    
-    if resp.status_code not in [200, 204]:
-        logging.error(f"Ошибка БД при сохранении ссылки {telegram_id}: {resp.text}")
-        raise HTTPException(status_code=500, detail="Ошибка при сохранении в базу данных")
-    
-    return {"success": True, "message": "Трейд-ссылка проверена и сохранена!"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[TRADE LINK SAVE] Ошибка для юзера {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка сохранения ссылки")
 
 @app.post("/api/v1/admin/events/winners")
 async def get_pending_event_prizes_grouped(
