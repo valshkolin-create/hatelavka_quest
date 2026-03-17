@@ -441,43 +441,29 @@
         </div>
     </div>
 
-   <script>
-    // ================================================================
-    // УНИВЕРСАЛЬНЫЕ АДАПТЕРЫ (TG / VK)
-    // ================================================================
-    window.openAppUrl = function(url) {
-        if (window.isVk) {
-            try { vkBridge.send('VKWebAppOpenUrl', { url: url }); } catch(e) {}
-        } else if (window.Telegram?.WebApp) {
-            if (url.includes('t.me')) Telegram.WebApp.openTelegramLink(url);
-            else Telegram.WebApp.openLink(url);
+<script>
+    // АТОМНЫЙ ДЕТЕКТОР ПЛАТФОРМЫ (Выполняется первым)
+    (function() {
+        const url = window.location.href;
+        const s = window.location.search;
+        const h = window.location.hash;
+        
+        // Если есть хоть малейший след ВК
+        if (url.includes('vk_app_id') || s.includes('vk_user_id') || h.includes('vk_app_id')) {
+            window.isVk = true;
+            document.documentElement.classList.add('vk-mode');
+            
+            // Сохраняем параметры
+            let p = s.replace('?', '') || h.replace('#', '');
+            if (!p && url.includes('?')) p = url.split('?')[1].split('#')[0];
+            window.vkParams = p;
+            
+            console.log("🛡️ [GLOBAL] ВК подтвержден до старта скриптов");
         } else {
-            window.open(url, '_blank');
+            window.isVk = false;
         }
-    };
-
-    window.triggerHaptic = function(type = 'light') {
-        if (window.isVk) {
-            try {
-                if (type === 'success' || type === 'error') vkBridge.send("VKWebAppTapticNotificationOccurred", { type: type });
-                else if (type === 'selection') vkBridge.send("VKWebAppTapticSelectionChanged", {});
-                else vkBridge.send("VKWebAppTapticImpactOccurred", { style: type === 'heavy' ? 'heavy' : 'light' });
-            } catch(e) {}
-        } else if (window.Telegram?.WebApp?.HapticFeedback) {
-            if (type === 'success' || type === 'error') Telegram.WebApp.HapticFeedback.notificationOccurred(type);
-            else if (type === 'selection') Telegram.WebApp.HapticFeedback.selectionChanged();
-            else Telegram.WebApp.HapticFeedback.impactOccurred(type);
-        }
-    };
-
-    window.closeApp = function() {
-        if (window.isVk) {
-            try { vkBridge.send("VKWebAppClose", {"status": "success"}); } catch(e){}
-        } else if (window.Telegram?.WebApp) {
-            Telegram.WebApp.close();
-        }
-    };
-    </script>
+    })();
+</script>
 
     <script src="menu.js"></script>
 </body>
