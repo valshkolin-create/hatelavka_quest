@@ -2,31 +2,33 @@
 // 1. ИНИЦИАЛИЗАЦИЯ И ПЛАТФОРМА (VK / TG)
 // ================================================================
 let isVk = false;
+window.vkParams = null;
 
 (function initVkParams() {
-    window.vkParams = null;
-    const isValid = (str) => str && str.includes('vk_user_id') && str.includes('sign');
-    
-    const setVkMode = (params) => {
-        window.vkParams = params;
-        isVk = true; 
-        document.documentElement.classList.add('vk-mode');
-    };
-
     try {
-        let s = window.location.search; if (s.startsWith('?')) s = s.slice(1);
-        if (isValid(s)) { setVkMode(s); return; }
-        
-        let h = window.location.hash; if (h.startsWith('#') || h.startsWith('?')) h = h.slice(1);
-        if (isValid(h)) { setVkMode(h); return; }
-        
-        if (isValid(window.name)) { setVkMode(window.name); return; }
-        
-        const href = window.location.href; const match = href.match(/(vk_user_id=[^#]*)/);
-        if (match && match[1] && match[1].includes('sign')) { setVkMode(match[1]); return; }
-        
-        // ❌ СТРОКА С ПРОВЕРКОЙ vkBridge УДАЛЕНА ОТСЮДА!
-    } catch (e) {}
+        // Собираем всё, что есть в URL (безопасно)
+        const href = window.location.href || '';
+        const search = window.location.search || '';
+        const hash = window.location.hash || '';
+
+        // Железобетонный признак ВК — наличие vk_app_id или vk_user_id в ссылке
+        if (href.includes('vk_app_id') || href.includes('vk_user_id')) {
+            isVk = true;
+            document.documentElement.classList.add('vk-mode');
+            
+            // Вытаскиваем параметры чисто
+            let params = search.replace('?', '') || hash.replace('#', '');
+            
+            // Если search пустой (иногда ВК так делает), парсим руками из href
+            if (!params && href.includes('?')) {
+                params = href.split('?')[1];
+            }
+            
+            window.vkParams = params;
+        }
+    } catch (e) {
+        console.error("Ошибка детекта VK:", e);
+    }
 })();
 
 
