@@ -9916,9 +9916,10 @@ async def create_promocodes(
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
     АВТОМАТИКА: Синхронизирует статусы Маркета (TM). 
-    Фантомов — удаляет. Ошибки Маркета — откатывает в available.
+    Фантомов — удаляет. Ошибки Маркета — откатывает в available с меткой замены.
     """
     import os
+    import asyncio # 🔥 ДОБАВЛЕНО ДЛЯ SLEEP
     from datetime import datetime, timezone
     from dateutil import parser
 
@@ -9984,6 +9985,10 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
             minutes_passed = (now - trade_time).total_seconds() / 60
 
+            # 🔥 ФИЛЬТР СВЕЖЕСТИ: Ждем минимум 2 минуты перед проверкой
+            if minutes_passed < 2.0:
+                continue
+
             try:
                 # Отправляем запрос на Маркет
                 tm_res = await client.get(
@@ -9991,11 +9996,16 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     params={"key": TM_API_KEY, "custom_id": custom_id}
                 )
                 
+                # 🔥 ЗАЩИТА ОТ БАНА IP: Пауза 1 сек между запросами
+                await asyncio.sleep(1)
+                
                 # 1. Если Маркет лежит или тупит
                 if tm_res.status_code != 200:
                     if minutes_passed > 35:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available", "updated_at": now_iso})
-                        results_log.append(f"#{trade_id}: available (TM API timeout > 35m)")
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
+                            "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
+                        })
+                        results_log.append(f"#{trade_id}: available (TM API timeout > 35m + FORCE_REPLACEMENT)")
                     continue
 
                 tm_data = tm_res.json()
@@ -10003,9 +10013,17 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 
                 # 2. Если Маркет не знает такую сделку
                 if not tm_data.get("success") or not trade_info:
-                    if minutes_passed > 35:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available", "updated_at": now_iso})
-                        results_log.append(f"#{trade_id}: available (TM not found > 35m)")
+                    if tm_data.get("error") == "not found" and minutes_passed > 10:
+                        # 🔥 ПРАВИЛО 10 МИНУТ + ЧЕРНАЯ МЕТКА
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
+                            "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
+                        })
+                        results_log.append(f"#{trade_id}: available (TM not found > 10m + FORCE_REPLACEMENT)")
+                    elif minutes_passed > 35:
+                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
+                            "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
+                        })
+                        results_log.append(f"#{trade_id}: available (TM not found > 35m + FORCE_REPLACEMENT)")
                     continue
 
                 stage = str(trade_info.get("stage"))
@@ -10018,8 +10036,11 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
                 # ПРАВИЛО №2: ОТМЕНА (Продавец отменил или 35 минут прошло без движений)
                 elif stage in ["4", "5"] or (minutes_passed >= 35 and settlement == 0):
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available", "updated_at": now_iso})
-                    results_log.append(f"#{trade_id}: available (stage {stage}, mins: {minutes_passed:.1f})")
+                    # 🔥 ТАКЖЕ ДОБАВЛЕНА ЧЕРНАЯ МЕТКА ПРИ ОТМЕНАХ МАРКЕТА
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
+                        "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
+                    })
+                    results_log.append(f"#{trade_id}: available (stage {stage}, mins: {minutes_passed:.1f} + FORCE_REPLACEMENT)")
 
             except Exception as e:
                 results_log.append(f"#{trade_id}: EXCEPTION {str(e)}")
@@ -16224,22 +16245,63 @@ async def buy_bott_item_proxy(
         if current_lacky == 5:
             for skin, w in zip(all_items, weights):
                 skin_price = float(skin.get('price_rub', 0))
-                if skin_price >= target_value:
+                
+                # 🔥 ГАРАНТ: Скин СТРОГО дороже кейса
+                if skin_price > base_case_price:
                     final_items.append(skin)
-                    if skin_price >= base_case_price * 5.0: final_weights.append(w * 0.001)
-                    elif skin_price >= base_case_price * 1.5: final_weights.append(w * 0.1)
-                    else: final_weights.append(w * 5.0) 
+                    
+                    # Настраиваем шансы, чтобы не раздать джекпоты всем подряд
+                    if skin_price >= base_case_price * 5.0: 
+                        final_weights.append(w * 0.001)  # Очень дорогие (х5 от кейса) - шанс мизерный
+                    elif skin_price >= base_case_price * 1.5: 
+                        final_weights.append(w * 0.1)    # Нормальный плюс (от х1.5) - шанс урезан
+                    else: 
+                        final_weights.append(w * 10.0)   # Окуп "в притирочку" (чуть дороже кейса) - ОГРОМНЫЙ ШАНС
+                        
+            # Защита от дурака: если в кейсе физически нет скинов дороже самого кейса
             if not final_items:
                 final_items, final_weights = all_items, weights
+                
         else:
+            # ==========================================
+            # 🎁 СЕКРЕТНЫЙ МИНИ-ДЖЕКПОТ (Сюрприз для юзера)
+            # ==========================================
+            # Шанс 7% (0.07), что обычная крутка выдаст 100% окуп.
+            # Абузить невозможно, так как это решает чистый рандом на сервере в момент клика.
+            is_surprise_drop = random.random() < 0.07 
+            
+            surprise_items = []
+            surprise_weights = []
+            
+            normal_items = []
+            normal_weights = []
+            
             pity_multiplier = 1.0 + (current_lacky * 0.1)
+            
             for skin, w in zip(all_items, weights):
                 skin_price = float(skin.get('price_rub', 0))
-                final_items.append(skin)
+                
+                # 1. Собираем корзину Сюрприза:
+                # Берем скины СТРОГО дороже кейса, но НЕ ДОРОЖЕ чем в 3 раза (чтобы не отдать нож)
+                if base_case_price < skin_price <= base_case_price * 3.0:
+                    surprise_items.append(skin)
+                    surprise_weights.append(w)
+                
+                # 2. Собираем обычную корзину (стандартная рулетка)
+                normal_items.append(skin)
                 if target_value <= skin_price < base_case_price * 1.5:
-                    final_weights.append(w * pity_multiplier)
+                    normal_weights.append(w * pity_multiplier)
                 else:
-                    final_weights.append(w)
+                    normal_weights.append(w)
+
+            # Если рандом прокнул И в кейсе есть подходящие скины под "сюрприз"
+            if is_surprise_drop and surprise_items:
+                final_items = surprise_items
+                final_weights = surprise_weights
+                logging.info(f"[SHOP] 🎉 Сработал СЮРПРИЗ-ДРОП для юзера! (Окуп х1-х3)")
+            else:
+                final_items = normal_items
+                final_weights = normal_weights
 
         winner = random.choices(final_items, weights=final_weights, k=1)[0]
         
@@ -19744,7 +19806,8 @@ async def withdraw_inventory_item(
         params={
             "id": f"eq.{req.history_id}",
             "user_id": f"eq.{user_id}",
-            "select": "id, status, updated_at, source, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
+            # 🔥 ДОБАВЛЕНО: details в выборку
+            "select": "id, status, updated_at, source, details, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
         }
     )
     
@@ -19818,7 +19881,13 @@ async def withdraw_inventory_item(
     # 🔥 ДЕЛАЕМ УНИКАЛЬНЫМ, ЧТОБЫ ОБХОДИТЬ ОТМЕНЫ (STAGE 5) ОТ МАРКЕТА
     unique_market_id = f"wd_{req.history_id}_{int(time.time())}"
 
-    if has_english_name:
+    # 🔥 ЧИТАЕМ МЕТКУ КРОНА
+    item_details = str(history_record.get('details', ''))
+    force_replacement = "FORCE_REPLACEMENT" in item_details
+
+    delivery_res = {} # Заглушка, чтобы код ниже не упал с ошибкой
+
+    if has_english_name and not force_replacement:
         # ==========================================
         # 📦 ВЫЗОВ КЛАДОВЩИКА (ПЛАН А и Б)
         # ==========================================
@@ -19905,32 +19974,38 @@ async def withdraw_inventory_item(
                     json={"is_reserved": False}
                 )
 
-        # ==========================================
-        # 🔥 ИНЪЕКЦИЯ ПРОВЕРКИ МАРКЕТА (Защита от двойной отправки) 🔥
-        # ==========================================
-        if not delivery_res.get("success"):
-            market_key = os.getenv("CSGO_MARKET_API_KEY")
-            if market_key:
-                try:
-                    # 🔥 ЗАМЕНЯЕМ СЫРОЙ HTTPX НА НАШ КЛАСС
-                    market = MarketCSGO(api_key=market_key)
-                    m_data = await market.check_order_status(unique_market_id)
-                    
-                    # Если success: true и есть данные, Маркет ВЗЯЛ заказ в работу
-                    if m_data and m_data.get("success") and "data" in m_data:
-                        stage = str(m_data["data"].get("stage"))
-                        # stage 1 = Новый, stage 2 = Передан (или передается)
-                        if stage in ["1", "2"]:
-                            logging.info(f"[MARKET SYNC] Спасли от двойной покупки! Заказ {unique_market_id} уже обрабатывается Маркетом.")
-                            
-                            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                                "status": "market_pending",
-                                "tradeofferid": unique_market_id, # 🔥 ДОБАВЛЕНО: Сохраняем ID, чтобы трейд-чекер его нашел!
-                                "updated_at": now_iso
-                            })
-                            return {"success": True, "message": "Предмет закуплен на Маркете и летит к вам! Ожидайте трейд."}
-                except Exception as e:
-                    logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
+    elif force_replacement:
+        # 🔥 СРАБОТАЛА ЧЕРНАЯ МЕТКА КРОНА: Сразу отдаем в замены
+        logging.info(f"[WITHDRAW] Скин {req.history_id} помечен FORCE_REPLACEMENT. Скипаем маркет.")
+        delivery_res = {"success": False}
+
+    # ==========================================
+    # 🔥 ИНЪЕКЦИЯ ПРОВЕРКИ МАРКЕТА (Защита от двойной отправки) 🔥
+    # ==========================================
+    # Игнорируем проверку маркета, если мы здесь из-за force_replacement
+    if not delivery_res.get("success") and not force_replacement:
+        market_key = os.getenv("CSGO_MARKET_API_KEY")
+        if market_key:
+            try:
+                # 🔥 ЗАМЕНЯЕМ СЫРОЙ HTTPX НА НАШ КЛАСС
+                market = MarketCSGO(api_key=market_key)
+                m_data = await market.check_order_status(unique_market_id)
+                
+                # Если success: true и есть данные, Маркет ВЗЯЛ заказ в работу
+                if m_data and m_data.get("success") and "data" in m_data:
+                    stage = str(m_data["data"].get("stage"))
+                    # stage 1 = Новый, stage 2 = Передан (или передается)
+                    if stage in ["1", "2"]:
+                        logging.info(f"[MARKET SYNC] Спасли от двойной покупки! Заказ {unique_market_id} уже обрабатывается Маркетом.")
+                        
+                        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                            "status": "market_pending",
+                            "tradeofferid": unique_market_id, # 🔥 ДОБАВЛЕНО: Сохраняем ID, чтобы трейд-чекер его нашел!
+                            "updated_at": now_iso
+                        })
+                        return {"success": True, "message": "Предмет закуплен на Маркете и летит к вам! Ожидайте трейд."}
+            except Exception as e:
+                logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
 
     # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН
