@@ -932,3 +932,17 @@ body.desktop-mode .toggle-container {
     pointer-events: none;
     z-index: 1;
 }
+
+/* SCHEDULE STYLES */
+        .schedule-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #252525; padding: 12px 15px; border-radius: 12px;
+            border: 1px solid var(--card-border);
+        }
+        .schedule-day { font-size: 13px; font-weight: 700; color: #fff; width: 40%; }
+        .schedule-time { font-size: 13px; color: var(--primary); font-weight: 800; text-align: right; width: 60%; }
+        .schedule-input {
+            width: 60%; background: #1c1c1e; border: 1px solid var(--action);
+            color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 13px; outline: none;
+            font-weight: 700; text-align: right; display: none;
+        }
