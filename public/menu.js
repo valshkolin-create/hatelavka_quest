@@ -2328,17 +2328,133 @@ window.showSecurityBlock = function(message) {
 // ================================================================
 // ЛОГИКА РАСПИСАНИЯ СТРИМОВ
 // ================================================================
-window.openScheduleModal = () => {
-    document.getElementById('schedule-modal').classList.remove('hidden');
+const dayNames = {
+    monday: "Понедельник", tuesday: "Вторник", wednesday: "Среда",
+    thursday: "Четверг", friday: "Пятница", saturday: "Суббота", sunday: "Воскресенье"
+};
+let currentSchedule = {};
+let isScheduleEditMode = false;
+
+window.openScheduleModal = async () => {
+    document.getElementById('modal-schedule').classList.add('modal-active');
+    const container = document.getElementById('schedule-container');
+    const btnEdit = document.getElementById('btn-edit-schedule');
+    const btnSave = document.getElementById('btn-save-schedule');
     
-    // Дергаем виброотклик для красоты, если сидим с телефона
+    // Сброс состояния
+    isScheduleEditMode = false;
+    btnEdit.style.display = 'none';
+    btnSave.style.display = 'none';
+    btnEdit.style.color = "var(--text-sec)";
+    container.innerHTML = '<div style="text-align:center; color:#888;"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
+    
     if (window.Telegram?.WebApp?.HapticFeedback) {
         Telegram.WebApp.HapticFeedback.impactOccurred('light');
+    }
+
+    try {
+        const res = await makeApiRequest('/api/v1/schedule/get', {}, 'POST', true);
+        if (res) {
+            currentSchedule = res.schedule;
+            
+            // Если бэкенд сказал, что это админ - показываем "скрытую" кнопку-карандаш
+            if (res.is_admin) {
+                btnEdit.style.display = 'block';
+            }
+            
+            window.renderSchedule();
+        } else {
+            container.innerHTML = '<div style="text-align:center; color:var(--danger);">Ошибка загрузки расписания</div>';
+        }
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center; color:var(--danger);">Ошибка сети</div>';
     }
 };
 
 window.closeScheduleModal = () => {
-    document.getElementById('schedule-modal').classList.add('hidden');
+    document.getElementById('modal-schedule').classList.remove('modal-active');
+};
+
+window.renderSchedule = () => {
+    const container = document.getElementById('schedule-container');
+    container.innerHTML = '';
+
+    Object.keys(dayNames).forEach(dayKey => {
+        const dayText = dayNames[dayKey];
+        const timeText = currentSchedule[dayKey] || "Выходной";
+
+        const row = document.createElement('div');
+        row.className = 'schedule-row';
+        
+        row.innerHTML = `
+            <div class="schedule-day">${dayText}</div>
+            <div class="schedule-time" id="text-${dayKey}">${escapeHTML(timeText)}</div>
+            <input type="text" class="schedule-input" id="input-${dayKey}" value="${escapeHTML(timeText)}">
+        `;
+        container.appendChild(row);
+    });
+};
+
+window.toggleScheduleEdit = () => {
+    isScheduleEditMode = !isScheduleEditMode;
+    const btnEdit = document.getElementById('btn-edit-schedule');
+    const btnSave = document.getElementById('btn-save-schedule');
+    
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    }
+
+    Object.keys(dayNames).forEach(dayKey => {
+        const textEl = document.getElementById(`text-${dayKey}`);
+        const inputEl = document.getElementById(`input-${dayKey}`);
+        
+        if (isScheduleEditMode) {
+            textEl.style.display = 'none';
+            inputEl.style.display = 'block';
+        } else {
+            // Если отменили редактирование, возвращаем старые значения
+            inputEl.value = currentSchedule[dayKey];
+            textEl.style.display = 'block';
+            inputEl.style.display = 'none';
+        }
+    });
+
+    if (isScheduleEditMode) {
+        btnEdit.style.color = "var(--action)"; // Карандаш зеленеет
+        btnSave.style.display = 'block';
+    } else {
+        btnEdit.style.color = "var(--text-sec)";
+        btnSave.style.display = 'none';
+    }
+};
+
+window.saveSchedule = async () => {
+    const btnSave = document.getElementById('btn-save-schedule');
+    const originalText = btnSave.innerHTML;
+    btnSave.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> СОХРАНЕНИЕ...';
+    btnSave.disabled = true;
+
+    // Собираем новые данные из инпутов
+    const newSchedule = {};
+    Object.keys(dayNames).forEach(dayKey => {
+        newSchedule[dayKey] = document.getElementById(`input-${dayKey}`).value.trim() || "Выходной";
+    });
+
+    try {
+        const res = await makeApiRequest('/api/v1/admin/schedule/update', { schedule: newSchedule }, 'POST');
+        if (res && res.success) {
+            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            customAlert("✅ Расписание успешно обновлено!");
+            currentSchedule = newSchedule;
+            window.toggleScheduleEdit(); 
+            window.renderSchedule(); 
+        }
+    } catch(e) {
+        // Ошибка уже покажется через customAlert внутри твоего makeApiRequest
+    } finally {
+        btnSave.innerHTML = originalText;
+        btnSave.disabled = false;
+    }
 };
 
 // ================================================================
