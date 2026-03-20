@@ -1830,8 +1830,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_that_should_be_changed")
 WIZEBOT_API_KEY = os.getenv("WIZEBOT_API_KEY")
 VK_APP_SECRET = os.getenv("VK_APP_SECRET")
 CSGO_MARKET_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
-        
-
+TWO_ACCOUNT_MARKET_API_KEY = os.getenv("TWO_ACCOUNT_MARKET_API_KEY")
+TWO_ACCOUNT_PAY_PASS = os.getenv("TWO_ACCOUNT_PAY_PASS")
+     
 # --- Paths ---
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "public"
