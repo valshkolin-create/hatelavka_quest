@@ -11305,7 +11305,7 @@ async def mark_promocode_copied(
 ):
     """
     Принимает ID промокода и ставит отметку copied_at в базе.
-    Добавлена авто-активация: если код еще не использован, активируем его при копировании.
+    Авто-активация полностью вырезана.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info:
@@ -11336,27 +11336,7 @@ async def mark_promocode_copied(
 
     # --- ЛОГИКА ДЛЯ ОБЫЧНЫХ ПРОМОКОДОВ ---
     else:
-        # 1. Сначала узнаем инфу о промокоде (нужен номинал для активации)
-        promo_resp = await supabase.get(
-            "/promocodes", 
-            params={"id": f"eq.{request_data.promocode_id}", "telegram_id": f"eq.{user_id}"}
-        )
-        
-        if promo_resp.status_code == 200 and promo_resp.json():
-            p_data = promo_resp.json()[0]
-            
-            # 🔥 АВТО-АКТИВАЦИЯ (если код еще не помечен как использованный)
-            if not p_data.get("is_used"):
-                asyncio.create_task(
-                    activate_single_promocode(
-                        promo_id=p_data['id'],
-                        telegram_id=user_id,
-                        reward_value=p_data.get('reward_value', 0),
-                        description=p_data.get('description', 'Активация при копировании')
-                    )
-                )
-
-        # 2. Ставим отметку о копировании (твой старый код)
+        # Ставим ТОЛЬКО отметку о копировании (без авто-активации)
         await supabase.patch(
             "/promocodes",
             params={
