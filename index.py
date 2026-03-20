@@ -16477,40 +16477,67 @@ async def debug_test_all_tokens():
 
     return {"test_results": results}
 
-@app.get("/api/v1/debug/set_csgo_pay_pass")
-async def set_csgo_pay_pass():
-    """
-    Единоразовый эндпоинт для установки платежного пароля на втором аккаунте маркета.
-    ВАЖНО: После успешного выполнения этот код лучше закомментировать или удалить.
-    """
+
+@app.get("/api/v1/market/second-balance")
+async def get_second_account_balance():
     api_key = os.getenv("TWO_ACCOUNT_MARKET_API_KEY")
-    new_password = os.getenv("TWO_ACCOUNT_PAY_PASS")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Ключ второго аккаунта не настроен")
 
-    if not api_key or not new_password:
-        return {"error": "Ключ или пароль не найдены в переменных окружения Vercel"}
-
-    url = f"https://market.csgo.com/api/v2/set-pay-password?key={api_key}&new_password={new_password}"
-
+    url = f"https://market.csgo.com/api/v2/get-money?key={api_key}"
+    
     async with httpx.AsyncClient() as client:
-        # Делаем запрос к API маркета
         resp = await client.get(url)
+        data = resp.json()
         
-        try:
-            market_data = resp.json()
-        except Exception:
-            market_data = resp.text
-            
-        if resp.status_code == 200:
+        if data.get("success"):
             return {
-                "message": "Запрос отправлен", 
-                "market_response": market_data
+                "money": data.get("money"),
+                "currency": data.get("currency")
             }
         else:
+            raise HTTPException(status_code=400, detail="Не удалось получить баланс с маркета")
+
+
+# Модель для данных, которые пришлет фронтенд
+class TransferRequest(BaseModel):
+    amount: float  # Сумма перевода (например, 150.50)
+
+# 2. Основной эндпоинт для перевода средств
+@app.post("/api/v1/market/transfer")
+async def transfer_money(request: TransferRequest):
+    main_api_key = os.getenv("CSGO_MARKET_API_KEY")          # Куда переводим (основа)
+    sender_api_key = os.getenv("TWO_ACCOUNT_MARKET_API_KEY") # Откуда списываем
+    sender_pay_pass = os.getenv("TWO_ACCOUNT_PAY_PASS")      # Пароль для подтверждения
+
+    if not all([main_api_key, sender_api_key, sender_pay_pass]):
+        raise HTTPException(status_code=500, detail="Отсутствуют ключи в переменных окружения")
+
+    if request.amount <= 0:
+        raise HTTPException(status_code=400, detail="Сумма перевода должна быть больше нуля")
+
+    # Конвертируем сумму по правилам API маркета (1 RUB = 100). 
+    # Если у тебя аккаунты в USD или EUR, умножать нужно на 1000. Здесь сделано для рублей.
+    market_amount = int(request.amount * 100)
+
+    # Формируем URL для перевода
+    url = f"https://market.csgo.com/api/v2/money-send/{market_amount}/{main_api_key}?key={sender_api_key}&pay_pass={sender_pay_pass}"
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url) # Маркет использует GET даже для действий
+        data = resp.json()
+
+        if data.get("success"):
             return {
-                "error": "Ошибка при обращении к маркету", 
-                "status": resp.status_code, 
-                "details": market_data
+                "success": True,
+                "message": "Перевод успешно выполнен",
+                "transferred_amount": request.amount,
+                "details": data
             }
+        else:
+            # Если маркет вернул ошибку (например, неверный пароль или мало денег)
+            error_code = data.get("error", "Неизвестная ошибка")
+            raise HTTPException(status_code=400, detail=f"Ошибка маркета: {error_code}")
 
 # --- 🛠️ РЕМОНТ ПОДПИСОК TWITCH ---
 @app.get("/api/v1/debug/fix_twitch_subs")
