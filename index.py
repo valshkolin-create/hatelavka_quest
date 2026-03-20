@@ -16477,6 +16477,41 @@ async def debug_test_all_tokens():
 
     return {"test_results": results}
 
+@app.get("/api/v1/debug/set_csgo_pay_pass")
+async def set_csgo_pay_pass():
+    """
+    Единоразовый эндпоинт для установки платежного пароля на втором аккаунте маркета.
+    ВАЖНО: После успешного выполнения этот код лучше закомментировать или удалить.
+    """
+    api_key = os.getenv("TWO_ACCOUNT_MARKET_API_KEY")
+    new_password = os.getenv("TWO_ACCOUNT_PAY_PASS")
+
+    if not api_key or not new_password:
+        return {"error": "Ключ или пароль не найдены в переменных окружения Vercel"}
+
+    url = f"https://market.csgo.com/api/v2/set-pay-password?key={api_key}&new_password={new_password}"
+
+    async with httpx.AsyncClient() as client:
+        # Делаем запрос к API маркета
+        resp = await client.get(url)
+        
+        try:
+            market_data = resp.json()
+        except Exception:
+            market_data = resp.text
+            
+        if resp.status_code == 200:
+            return {
+                "message": "Запрос отправлен", 
+                "market_response": market_data
+            }
+        else:
+            return {
+                "error": "Ошибка при обращении к маркету", 
+                "status": resp.status_code, 
+                "details": market_data
+            }
+
 # --- 🛠️ РЕМОНТ ПОДПИСОК TWITCH ---
 @app.get("/api/v1/debug/fix_twitch_subs")
 async def fix_twitch_subs(
