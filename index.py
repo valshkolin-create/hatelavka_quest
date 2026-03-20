@@ -6233,7 +6233,8 @@ async def get_shop_purchases_details_for_admin(
         # 5. Обрабатываем заявки на вывод скинов
         for case in case_purchases:
             user_details = users_data.get(case["user_id"], {})
-            skin_data = case.get("cs_items", {}) 
+            # Добавили "or {}", чтобы если придет None, он превратился в пустой словарь
+            skin_data = case.get("cs_items") or {} 
 
             final_list.append({
                 "id": f"case_{case['id']}", 
