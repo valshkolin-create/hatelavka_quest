@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <title>Управление Steam Ботами</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
     <style>
         :root {
             --bg: #0f0f0f;
@@ -21,107 +24,100 @@
         body {
             background-color: var(--bg); color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0; padding: 20px; padding-bottom: 100px;
+            margin: 0; padding: 16px; padding-bottom: 90px;
             -webkit-tap-highlight-color: transparent;
         }
 
         /* HEADER */
-        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
         .back-btn { 
-            background: none; border: none; color: var(--text-sec); font-size: 16px; 
-            cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; 
+            background: none; border: none; color: var(--text-sec); font-size: 15px; 
+            cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 5px; padding: 0;
         }
-        .page-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
+        .page-title { font-size: 18px; font-weight: 800; margin: 0; color: var(--primary); text-transform: none; }
 
-        /* --- DASHBOARD (НОВЫЙ БЛОК) --- */
+        /* DASHBOARD */
         .dashboard-panel {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 25px;
+            gap: 10px;
+            margin-bottom: 12px;
         }
         .dash-card {
             background: var(--card-bg); border: 1px solid var(--card-border);
-            border-radius: 16px; padding: 15px;
+            border-radius: 14px; padding: 12px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
         }
         .dash-title {
-            font-size: 11px; color: var(--text-sec); text-transform: uppercase;
-            font-weight: 700; margin-bottom: 8px; letter-spacing: 0.5px;
+            font-size: 10px; color: var(--text-sec); text-transform: uppercase;
+            font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px;
         }
-        .dash-value {
-            font-size: 20px; font-weight: 800; color: var(--primary);
-        }
-        .dash-value.rubles::after { content: ' ₽'; font-size: 14px; opacity: 0.8; }
+        .dash-value { font-size: 18px; font-weight: 800; color: var(--primary); }
+        .dash-value.rubles::after { content: ' ₽'; font-size: 12px; opacity: 0.8; }
 
-        /* Toggle Switch (Стиль iOS) */
-        .toggle-switch {
-            position: relative; width: 51px; height: 31px; flex-shrink: 0; margin-bottom: 5px;
-        }
+        /* Toggle Switch */
+        .toggle-switch { position: relative; width: 46px; height: 28px; flex-shrink: 0; margin-bottom: 4px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #39393d; transition: .4s; border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 27px; width: 27px;
-            left: 2px; bottom: 2px; background-color: white; transition: .4s;
-            border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #39393d; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         input:checked + .slider { background-color: var(--action); }
-        input:checked + .slider:before { transform: translateX(20px); }
-        /* ------------------------------- */
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* BUTTONS */
+        .btn-save { 
+            background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; 
+            border: none; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer;
+            width: 100%; margin-top: 15px; text-transform: uppercase; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.25);
+            transition: transform 0.1s;
+        }
+        .btn-save:active { transform: scale(0.97); }
+        
+        .btn-transfer {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white; margin-top: 0; margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
+        }
 
         /* BOTS GRID */
-        .section-title { font-size: 14px; color: var(--text-sec); text-transform: uppercase; font-weight: 800; margin-bottom: 12px; letter-spacing: 0.5px; }
-        .bots-grid { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 12px; 
-        }
-
+        .section-title { font-size: 13px; color: var(--text-sec); text-transform: uppercase; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .bots-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .bot-card {
             background: var(--card-bg); border: 1px solid var(--card-border);
-            border-radius: 16px; padding: 15px; cursor: pointer;
+            border-radius: 14px; padding: 12px; cursor: pointer;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             aspect-ratio: 1 / 1; transition: transform 0.1s, background 0.2s;
             text-align: center; position: relative;
         }
         .bot-card:active { transform: scale(0.96); background: rgba(255,255,255,0.05); }
-        
-        .bot-icon { font-size: 40px; color: #fff; margin-bottom: 10px; opacity: 0.8; }
-        .bot-name { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; }
-        
-        .status-badge {
-            font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 8px;
-            text-transform: uppercase; letter-spacing: 0.5px;
-        }
+        .bot-icon { font-size: 36px; color: #fff; margin-bottom: 8px; opacity: 0.8; }
+        .bot-name { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+        .status-badge { font-size: 9px; font-weight: 800; padding: 4px 6px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         .status-active { background: rgba(40, 167, 69, 0.2); color: var(--action); border: 1px solid rgba(40, 167, 69, 0.4); }
         .status-error { background: rgba(255, 77, 77, 0.2); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.4); }
 
-        /* MODALS (BottomSheet) */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; backdrop-filter: blur(5px); }
-        .modal-active { display: flex; }
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; box-sizing: border-box; }
+        /* MODALS */
+        .modal-overlay { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; 
+            display: flex; align-items: flex-end; backdrop-filter: blur(4px);
+            opacity: 0; visibility: hidden; transition: opacity 0.2s ease;
+        }
+        .modal-active { opacity: 1; visibility: visible; }
+        .bottom-sheet { 
+            background: #1c1c1e; width: 100%; border-radius: 20px 20px 0 0; 
+            padding: 20px; box-sizing: border-box; transform: translateY(100%); transition: transform 0.3s ease;
+        }
+        .modal-active .bottom-sheet { transform: translateY(0); }
 
-        .form-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; margin-top: 15px; }
+        .form-label { font-size: 11px; color: var(--text-sec); margin-bottom: 5px; display: block; margin-top: 12px; }
         .form-input { 
             width: 100%; background: #252525; border: 1px solid var(--card-border);
-            color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; box-sizing: border-box;
+            color: #fff; padding: 10px 12px; border-radius: 10px; font-size: 13px; outline: none; box-sizing: border-box;
             user-select: text !important; -webkit-user-select: text !important;
         }
         .form-input:focus { border-color: var(--primary); }
-
-        .btn-save { 
-            background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; 
-            border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer;
-            width: 100%; margin-top: 20px; text-transform: uppercase; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
-        }
-        .btn-save:active { transform: scale(0.98); }
-        
-        .info-text { font-size: 11px; color: var(--text-sec); margin-top: 10px; text-align: center; line-height: 1.4; }
+        .info-text { font-size: 11px; color: var(--text-sec); margin-top: 8px; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -147,41 +143,60 @@
         </div>
     </div>
 
+    <button class="btn-save btn-transfer" onclick="openTransferModal()">
+        <i class="fa-solid fa-money-right-left"></i> ПЕРЕНЕСТИ БАЛАНС С ТВИНКА
+    </button>
+
     <div class="section-title">Steam Аккаунты</div>
     <div id="bots-grid" class="bots-grid">
-        <div style="text-align:center; color:#555; grid-column:1/-1;">Загрузка аккаунтов...</div>
+        <div style="text-align:center; color:#555; grid-column:1/-1;"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>
     </div>
 
     <div id="modal-auth" class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="bottom-sheet">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0" id="auth-title">Авторизация Бота</h3>
+                <h3 style="margin:0; font-size: 16px;" id="auth-title">Авторизация Бота</h3>
                 <button onclick="closeModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <p class="info-text" style="text-align: left; margin-top: 5px;">Введите данные для получения API сессии. Пароли не хранятся в открытом виде.</p>
+            <p class="info-text" style="text-align: left; margin-top: 5px;">Введите данные для получения API сессии.</p>
 
             <form id="auth-form" onsubmit="event.preventDefault(); submitAuth();">
                 <input type="hidden" id="bot-id">
                 
-                <label class="form-label">Имя бота (для удобства)</label>
+                <label class="form-label">Имя бота</label>
                 <input type="text" id="inp-login" class="form-input" placeholder="Например: Бот-Склад 1" required>
 
-                <label class="form-label">Куки: sessionid</label>
+                <label class="form-label">sessionid</label>
                 <input type="text" id="inp-sessionid" class="form-input" placeholder="Например: 1234567890abcdef12345678" required>
 
-                <label class="form-label">Куки: steamLoginSecure</label>
+                <label class="form-label">steamLoginSecure</label>
                 <input type="text" id="inp-secure" class="form-input" placeholder="Например: 76561198...||..." required>
 
-                <div class="info-text" style="margin-top: 15px; text-align: left;">
-                    <b>Как получить куки:</b><br>
-                    1. Зайди в Steam через браузер (Chrome/Safari).<br>
-                    2. Авторизуйся в аккаунте бота.<br>
-                    3. Нажми F12 -> Application -> Cookies -> steamcommunity.com.<br>
-                    4. Скопируй значения <code>sessionid</code> и <code>steamLoginSecure</code>.
-                </div>
-
                 <button type="submit" class="btn-save">СОХРАНИТЬ КУКИ</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-transfer" class="modal-overlay" onclick="if(event.target===this) closeTransferModal()">
+        <div class="bottom-sheet">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; font-size: 16px;">Перевод баланса</h3>
+                <button onclick="closeTransferModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <p class="info-text" style="text-align: left; margin-top: 5px;">Перевод средств со второго аккаунта на основной.</p>
+
+            <div class="dash-card" style="margin: 12px 0; padding: 10px;">
+                <div class="dash-title">Доступно на твинке</div>
+                <div id="second-balance-val" class="dash-value" style="font-size: 20px;">Загрузка...</div>
+            </div>
+
+            <form id="transfer-form" onsubmit="event.preventDefault(); submitTransfer();">
+                <label class="form-label">Сумма перевода</label>
+                <input type="number" step="0.01" id="inp-transfer-amount" class="form-input" placeholder="Например: 150.50" required>
+
+                <button type="submit" class="btn-save btn-transfer" id="btn-submit-transfer" style="margin-bottom: 0;">ПЕРЕВЕСТИ СРЕДСТВА</button>
             </form>
         </div>
     </div>
@@ -193,7 +208,6 @@
         // 1. ЗАГРУЗКА ИНФОРМАЦИИ О МАРКЕТЕ И НАСТРОЙКАХ
         async function loadMarketData() {
             try {
-                // Запрашиваем баланс маркета и статус переключателя
                 const res = await fetch('/api/v1/admin/market/status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -203,7 +217,6 @@
                 if (res.ok) {
                     const data = await res.json();
                     
-                    // Обновляем баланс
                     const balanceEl = document.getElementById('market-balance');
                     if (data.market_success) {
                         balanceEl.classList.add('rubles');
@@ -213,10 +226,8 @@
                         balanceEl.style.color = "var(--danger)";
                     }
 
-                    // Обновляем переключатель
                     const toggle = document.getElementById('auto-delivery-toggle');
                     const statusText = document.getElementById('delivery-status-text');
-                    
                     const isAuto = data.auto_delivery_enabled === true;
                     toggle.checked = isAuto;
                     
@@ -229,7 +240,7 @@
                     }
                 }
             } catch (e) {
-                console.error("Ошибка загрузки данных маркета", e);
+                console.error("Ошибка", e);
                 document.getElementById('market-balance').innerText = "---";
             }
         }
@@ -239,7 +250,6 @@
             const isEnabled = e.target.checked;
             const statusText = document.getElementById('delivery-status-text');
             
-            // Временный визуальный статус
             statusText.innerText = "СОХРАНЕНИЕ...";
             statusText.style.color = "#888";
 
@@ -247,10 +257,7 @@
                 const res = await fetch('/api/v1/admin/market/toggle_delivery', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        initData: tg.initData,
-                        enabled: isEnabled
-                    })
+                    body: JSON.stringify({ initData: tg.initData, enabled: isEnabled })
                 });
 
                 if (!res.ok) throw new Error("Сбой");
@@ -265,10 +272,9 @@
                     statusText.style.color = "var(--danger)";
                 }
             } catch (err) {
-                // Откат визуального состояния при ошибке
                 e.target.checked = !isEnabled;
                 tg.showAlert("Ошибка сохранения настройки!");
-                loadMarketData(); // Перезагружаем корректные данные
+                loadMarketData(); 
             }
         });
 
@@ -297,7 +303,7 @@
                 bots.forEach(bot => {
                     const isActive = bot.status === 'active';
                     const statusClass = isActive ? 'status-active' : 'status-error';
-                    const statusText = isActive ? '🟢 Работает' : '🔴 Нужен вход';
+                    const statusText = isActive ? '🟢 Работает' : '🔴 Вход';
                     const iconColor = isActive ? 'var(--primary)' : 'var(--text-sec)';
 
                     const div = document.createElement('div');
@@ -311,12 +317,11 @@
                     grid.appendChild(div);
                 });
             } catch (e) {
-                console.error(e);
-                grid.innerHTML = '<div style="text-align:center; color:var(--danger); grid-column:1/-1;">Ошибка соединения с сервером</div>';
+                grid.innerHTML = '<div style="text-align:center; color:var(--danger); grid-column:1/-1;">Ошибка соединения</div>';
             }
         }
 
-        // --- ЛОГИКА МОДАЛОК ---
+        // --- ЛОГИКА МОДАЛОК (АВТОРИЗАЦИЯ) ---
         function openAuthModal(id, name) {
             document.getElementById('bot-id').value = id;
             document.getElementById('auth-title').innerText = "Вход: " + name;
@@ -336,7 +341,7 @@
             const steamLoginSecure = document.getElementById('inp-secure').value.trim();
 
             if (!username || !sessionid || !steamLoginSecure) {
-                tg.showAlert("Бро, заполни все три поля!");
+                tg.showAlert("Заполни все поля!");
                 return;
             }
 
@@ -359,7 +364,6 @@
                 });
 
                 const data = await res.json();
-                
                 if (res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.showAlert("✅ " + data.message);
@@ -370,7 +374,79 @@
                     tg.showAlert("❌ Ошибка: " + (data.detail || "Неизвестная ошибка"));
                 }
             } catch(e) {
-                tg.showAlert("Сбой сервера при сохранении кук.");
+                tg.showAlert("Сбой сервера");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // --- ЛОГИКА МОДАЛОК (ПЕРЕВОД БАЛАНСА) ---
+        async function openTransferModal() {
+            document.getElementById('modal-transfer').classList.add('modal-active');
+            const balanceEl = document.getElementById('second-balance-val');
+            
+            balanceEl.innerText = "Загрузка...";
+            balanceEl.classList.remove('rubles');
+            balanceEl.style.color = "var(--primary)";
+            document.getElementById('inp-transfer-amount').value = '';
+            
+            tg.HapticFeedback.impactOccurred('light');
+
+            try {
+                const res = await fetch('/api/v1/market/second-balance');
+                if (res.ok) {
+                    const data = await res.json();
+                    balanceEl.innerText = parseFloat(data.money).toFixed(2);
+                    if(data.currency === 'RUB') balanceEl.classList.add('rubles');
+                } else {
+                    balanceEl.innerText = "Ошибка API";
+                    balanceEl.style.color = "var(--danger)";
+                }
+            } catch (e) {
+                balanceEl.innerText = "Ошибка сети";
+                balanceEl.style.color = "var(--danger)";
+            }
+        }
+
+        function closeTransferModal() {
+            document.getElementById('modal-transfer').classList.remove('modal-active');
+        }
+
+        async function submitTransfer() {
+            const amountInput = document.getElementById('inp-transfer-amount').value.trim();
+            const amount = parseFloat(amountInput);
+
+            if (!amount || amount <= 0) {
+                tg.showAlert("Введи корректную сумму больше нуля!");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-transfer');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ПЕРЕВОД...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/v1/market/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: amount }) 
+                });
+
+                const data = await res.json();
+                
+                if (res.ok && data.success) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    tg.showAlert(`✅ Успешно переведено: ${amount}`);
+                    closeTransferModal(); 
+                    loadMarketData(); // Обновляем баланс основы
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    tg.showAlert("❌ Ошибка: " + (data.detail || "Не удалось перевести"));
+                }
+            } catch(e) {
+                tg.showAlert("Сбой сервера при переводе.");
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
