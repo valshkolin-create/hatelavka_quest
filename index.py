@@ -3488,6 +3488,70 @@ async def get_bootstrap_data(
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
 
+class ScheduleRequest(BaseModel):
+    initData: str
+
+class ScheduleUpdateRequest(BaseModel):
+    initData: str
+    schedule: dict
+
+@app.post("/api/v1/schedule/get")
+async def get_schedule(
+    request_data: ScheduleRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Отдает расписание и проверяет, является ли юзер админом"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    
+    # Проверяем, админ ли это (ADMIN_IDS у тебя уже импортирован/настроен)
+    is_admin = False
+    if user_info and user_info.get("id") in ADMIN_IDS:
+        is_admin = True
+
+    # Дефолтное расписание, если в базе еще пусто
+    default_schedule = {
+        "monday": "Выходной", "tuesday": "Выходной", "wednesday": "Выходной",
+        "thursday": "Выходной", "friday": "Выходной", "saturday": "Выходной", "sunday": "Выходной"
+    }
+
+    resp = await supabase.get("/settings", params={"key": "eq.stream_schedule"})
+    
+    if resp.status_code == 200 and resp.json():
+        db_schedule = resp.json()[0].get("value", {})
+        # Обновляем дефолтное тем, что есть в базе
+        default_schedule.update(db_schedule)
+
+    return {"is_admin": is_admin, "schedule": default_schedule}
+
+
+@app.post("/api/v1/admin/schedule/update")
+async def update_schedule(
+    request_data: ScheduleUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Сохраняет новое расписание в таблицу settings"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    payload = {
+        "key": "stream_schedule",
+        "value": request_data.schedule
+    }
+
+    # Upsert: обновит запись, если key уже существует (требуется заголовок Prefer)
+    resp = await supabase.post(
+        "/settings", 
+        json=payload, 
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+
+    if resp.status_code not in (200, 201, 204):
+        raise HTTPException(status_code=500, detail="Ошибка сохранения в БД")
+
+    return {"success": True, "message": "Расписание обновлено!"}
+
 # ==========================================
 # 🛒 УПРАВЛЕНИЕ МАРКЕТОМ И АВТОВЫДАЧЕЙ
 # ==========================================
