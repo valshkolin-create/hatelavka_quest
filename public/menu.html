@@ -190,6 +190,8 @@
             <div style="height: 250px; width: 100%; clear: both; pointer-events: none; flex-shrink: 0;"></div>
 
         </div>
+
+        
     </main>
 
     
@@ -235,6 +237,32 @@
                 </div>
                 <button id="gift-close-btn" class="action-btn btn-secondary-action" style="height: 40px;">Круто!</button>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-schedule" class="modal-overlay" onclick="if(event.target===this) closeScheduleModal()">
+        <div class="bottom-sheet">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h3 style="margin:0; font-size: 18px; color: var(--primary);">🗓 Расписание</h3>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <button id="btn-edit-schedule" onclick="toggleScheduleEdit()" style="display:none; background:none; border:none; color:var(--text-sec); font-size:16px;">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button onclick="closeScheduleModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <p class="info-text" style="text-align: left; margin-top: 0; margin-bottom: 15px;">Время указано по МСК.</p>
+
+            <div id="schedule-container" style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="text-align:center; color:#888;"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>
+            </div>
+
+            <button id="btn-save-schedule" class="btn-save" style="display:none; background: linear-gradient(135deg, #28a745, #20c997);" onclick="saveSchedule()">
+                СОХРАНИТЬ РАСПИСАНИЕ
+            </button>
         </div>
     </div>
 
