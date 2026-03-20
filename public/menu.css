@@ -946,3 +946,21 @@ body.desktop-mode .toggle-container {
             color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 13px; outline: none;
             font-weight: 700; text-align: right; display: none;
         }
+
+
+/* Стили для выезжающего снизу окна (Расписание) */
+#modal-schedule.modal-overlay { 
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 10005; 
+    display: flex; align-items: flex-end; backdrop-filter: blur(4px);
+    opacity: 0; visibility: hidden; transition: opacity 0.2s ease;
+}
+#modal-schedule.modal-active { 
+    opacity: 1; visibility: visible; 
+}
+#modal-schedule .bottom-sheet { 
+    background: #1c1c1e; width: 100%; border-radius: 20px 20px 0 0; 
+    padding: 20px; box-sizing: border-box; transform: translateY(100%); transition: transform 0.3s ease;
+}
+#modal-schedule.modal-active .bottom-sheet { 
+    transform: translateY(0); 
+}
