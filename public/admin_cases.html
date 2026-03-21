@@ -892,7 +892,6 @@
         function rerollSingleItem() {
             const form = document.getElementById('edit-form');
             const targetPriceRub = parseFloat(form.price_rub.value);
-            const targetWeight = parseFloat(form.chance_weight.value);
             const linkId = form.link_id.value;
             const itemId = form.id.value;
 
@@ -901,45 +900,44 @@
                 return;
             }
 
-            tg.showConfirm(`Найти другой скин за ~${targetPriceRub} руб.?\nТекущий скин будет удален из кейса.`, async (ok) => {
+            tg.showConfirm(`Заменить скин?\nТекущий скин удалится, и откроется склад для выбора нового.`, async (ok) => {
                 if (!ok) return;
                 
-                closeModal('modal-editor');
-                const cont = document.getElementById('itemsContainer');
-                cont.innerHTML = '<div style="text-align:center; padding:40px; color:var(--primary);"><i class="fa-solid fa-rotate fa-spin fa-2x"></i><br><br>Ищем замену...</div>';
-
+                // 1. Удаляем старый скин из базы
                 try {
-                    // 1. Удаляем старый линк
                     await fetch('/api/v1/admin/cases/delete_item', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({link_id: linkId, id: itemId, case_tag: currentCase})
                     });
-
-                    // 2. Генерируем 1 новый предмет с теми же параметрами
-                    const res = await fetch('/api/v1/admin/cases/auto_generate', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            case_tag: currentCase,
-                            mode: "single",
-                            budget_rub: targetPriceRub,
-                            chance_weight: targetWeight
-                        })
-                    });
-
-                    if (res.ok) {
-                        tg.HapticFeedback.notificationOccurred('success');
-                    } else {
-                        tg.showAlert("Не удалось найти скин на замену.");
-                    }
                 } catch(e) {
-                    tg.showAlert("Сбой при замене");
-                } finally {
-                    loadItems(currentCase);
-                    loadCases();
+                    console.error("Ошибка при удалении старого скина", e);
                 }
+
+                // 2. Закрываем редактор и обновляем фон
+                closeModal('modal-editor');
+                loadItems(currentCase);
+                loadCases();
+
+                // 3. Высчитываем коридор цен (± 20% от цены старого скина)
+                const minPrice = Math.floor(targetPriceRub * 0.8);
+                const maxPrice = Math.ceil(targetPriceRub * 1.2);
+
+                // 4. Открываем склад и вбиваем фильтры
+                document.getElementById('modal-library').classList.add('modal-active');
+                document.getElementById('lib-search-inp').value = '';
+                document.getElementById('lib-price-min').value = minPrice;
+                document.getElementById('lib-price-max').value = maxPrice;
+                
+                currentOffset = 0;
+                hasMoreItems = true;
+                updateModalBalance(); 
+
+                // 5. Автоматически запускаем поиск
+                document.getElementById('lib-results').innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем замену... <i class="fa-solid fa-spinner fa-spin"></i></div>';
+                doSearch(true);
             });
         }
-
+        
         function clearCase() {
             toggleFab();
             tg.showConfirm("ВНИМАНИЕ! Вы точно хотите удалить ВСЕ скины из этого кейса?\n(Они удалятся только отсюда, из глобальной базы они не пропадут)", async (ok) => {
