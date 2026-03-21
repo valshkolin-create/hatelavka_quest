@@ -372,7 +372,7 @@
                     </div>
                     <div style="flex:1">
                         <label class="form-label" style="color:var(--danger)">Реал. (Руб)</label>
-                        <input type="number" name="price_rub" id="inp-price-rub" class="form-input" value="0" step="any" inputmode="decimal">
+                        <input type="number" name="price_rub" id="inp-price-rub" class="form-input" value="0" step="any" inputmode="decimal" oninput="document.getElementById('inp-price').value = Math.ceil(this.value * 0.5); updatePreview()">
                     </div>
                 </div>
 
@@ -563,7 +563,7 @@
                         <div class="card-name">${item.name}</div>
                         <div class="card-meta">
                             <span>w: ${item.chance_weight}</span>
-                            <span class="card-price">${item.price} 🟡</span>
+                            <span class="card-price" style="font-size:12px;">${item.price_rub || 0} ₽ <span style="font-size:10px; color:#aaa; font-weight:normal;">(${item.price} 🎫)</span></span>
                         </div>
                     </div>`;
                 });
@@ -756,7 +756,7 @@
                 market_hash_name: item.market_hash_name,
                 name: cleanName,
                 image_url: item.image_url || '',
-                price: Math.ceil(item.price_rub || 0),
+                price: Math.ceil((item.price_rub || 0) * 0.5), // 🔥 Теперь билеты это 50% от рублей
                 price_rub: item.price_rub || 0,
                 chance_weight: 10,
                 rarity: itemRarity,
@@ -825,7 +825,10 @@
             const img = document.getElementById('inp-img').value || 'https://placehold.co/100';
             document.getElementById('p-img').src = img;
             document.getElementById('p-name').innerText = document.getElementById('inp-name').value || 'Название';
-            document.getElementById('p-price').innerText = (document.getElementById('inp-price').value || 0) + ' 🟡';
+            
+            const priceRub = document.getElementById('inp-price-rub').value || 0;
+            const priceTix = document.getElementById('inp-price').value || 0;
+            document.getElementById('p-price').innerHTML = `${priceRub} ₽ <span style="font-size:11px; color:#aaa; font-weight:normal;">/ ${priceTix} 🎫</span>`;
         }
 
         // --- УМНАЯ АВТОГЕНЕРАЦИЯ (ВЫЗОВ МОДАЛКИ) ---
