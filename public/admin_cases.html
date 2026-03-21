@@ -426,6 +426,7 @@
         let isFetching = false;
         let hasMoreItems = true;
         let currentMarketBalance = 0;
+        let preservedWeight = null; // 🔥 Память для шанса при замене
 
         loadCases();
 
@@ -897,6 +898,8 @@
             const targetPriceRub = parseFloat(form.price_rub.value);
             const linkId = form.link_id.value;
             const itemId = form.id.value;
+            
+            preservedWeight = form.chance_weight.value; // 🔥 Запоминаем шанс старого скина
 
             if (!targetPriceRub || targetPriceRub <= 0) {
                 tg.showAlert("У скина должна быть цена в рублях для поиска замены!");
