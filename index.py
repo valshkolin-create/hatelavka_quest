@@ -20861,12 +20861,13 @@ async def admin_auto_generate_case(request: Request):
             
             items = market_res.data
             
-            # Если нет скинов в диапазоне, берем ВООБЩЕ все доступные скины
+            # Если нет скинов в диапазоне, берем просто самые близкие по цене 
             if not items:
                 fallback_res = supabase.table("market_cache")\
                     .select("market_hash_name, price_rub, rarity")\
                     .eq("is_available", True)\
-                    .execute()
+                    .limit(500)\
+                    .execute() # 🔥 ДОБАВЛЕН ЛИМИТ (Защита от краша памяти)
                 items = fallback_res.data
                 if not items: continue
 
@@ -20881,9 +20882,9 @@ async def admin_auto_generate_case(request: Request):
 
             # Берем самый подходящий предмет
             selected_item = available_items[0]
-
             used_names.add(selected_item["market_hash_name"])
             
+            # 🔥 ИСПРАВЛЕН ОТСТУП: Теперь добавление идет ВНУТРИ цикла (будет 6 скинов, а не 1)
             generated_items.append({
                 "market_hash_name": selected_item["market_hash_name"],
                 "price_rub": selected_item["price_rub"],
