@@ -3031,6 +3031,8 @@ RARITY_COLOR_MAP = {
     "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
 
+# 🔥 ВОТ ЭТА СТРОЧКА БЫЛА ПОТЕРЯНА 🔥
+@app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
     token: str,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -3040,6 +3042,7 @@ async def sync_steam_inventory(
     import traceback
     import asyncio
     import re
+    from fastapi import HTTPException # На всякий случай добавил импорт, чтобы не было ошибки
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -3165,7 +3168,7 @@ async def sync_steam_inventory(
 
         # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
         market_prices_rub = {}
-        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ СКИНЫ ДЛЯ ЗАМЕН 🔥
+        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ МАССОВКУ (ТЕПЕРЬ С МУСОРОМ) 🔥
         
         try:
             async with httpx.AsyncClient() as client:
@@ -3175,23 +3178,25 @@ async def sync_steam_inventory(
                     for item in market_data.get("items", []):
                         m_name = item["market_hash_name"]
                         price = float(item["price"])
-                        volume = int(item.get("volume", 0)) # Продажи за 24ч
-                        
+                        # volume = int(item.get("volume", 0)) # Раньше использовали объем, теперь убираем
+
                         market_prices_rub[m_name] = price
                         
-                        # 🔥 ОТБИРАЕМ КАНДИДАТОВ НА ЗАМЕНУ (Цена 20-3000 руб, популярные)
-                        if 20 <= price <= 3000 and volume > 5:
-                            if "Sticker" not in m_name and "Graffiti" not in m_name and "Capsule" not in m_name:
-                                # Определяем редкость для Маркета
-                                final_rarity = known_rarities.get(m_name) or guess_backend_rarity(m_name, price)
-                                
-                                popular_market_items.append({
-                                    "market_hash_name": m_name,
-                                    "price_rub": price,
-                                    "rarity": final_rarity, # 🔥 ПИШЕМ РЕДКОСТЬ
-                                    "is_available": True,
-                                    "last_sync": "now()"
-                                })
+                        # 🔥 НОВАЯ ЛОГИКА: Берем всё от 0 до 3000 рублей 🔥
+                        if 0 <= price <= 3000:
+                            # Мы УБРАЛИ проверку на Sticker, Graffiti и Capsule.
+                            # Теперь этот копеечный мусор влетит в базу!
+                            
+                            # Определяем редкость для Маркета (визуализация на складе)
+                            final_rarity = known_rarities.get(m_name) or guess_backend_rarity(m_name, price)
+                            
+                            popular_market_items.append({
+                                "market_hash_name": m_name,
+                                "price_rub": price,
+                                "rarity": final_rarity, 
+                                "is_available": True,
+                                "last_sync": "now()"
+                            })
         except Exception as e:
             print(f"Критическая ошибка загрузки цен: {e}")
 
@@ -20598,14 +20603,14 @@ async def admin_cases_search_cache(
 ):
     query = req.query.strip().replace("%", "").replace("?", "").replace("&", "")
     
+    # Если нет ни текста, ни фильтров по цене — не грузим базу, отдаем пустоту
     if len(query) < 2 and req.min_price == 0 and req.max_price >= 9999999:
         return []
 
     try:
-        # 1. Запрашиваем ВСЁ из одной таблицы (добавили image_url в select)
+        # 1. Базовые параметры (без текста)
         market_params = [
-            ("select", "market_hash_name,price_rub,rarity,image_url"), # 🔥 ТУТ ИЗМЕНЕНИЕ
-            ("market_hash_name", f"ilike.*{query}*"),
+            ("select", "market_hash_name,price_rub,rarity,image_url"), # 🔥 Берем только нужное
             ("price_rub", f"gte.{req.min_price}"),
             ("price_rub", f"lte.{req.max_price}"),
             ("order", "price_rub.desc"),
@@ -20613,7 +20618,11 @@ async def admin_cases_search_cache(
             ("offset", str(req.offset))
         ]
         
-        # Делаем всего один быстрый запрос
+        # 🔥 УМНЫЙ ФИЛЬТР: Добавляем поиск по тексту, только если он есть
+        if query:
+            market_params.append(("market_hash_name", f"ilike.*{query}*"))
+        
+        # Делаем один быстрый запрос в Supabase
         res_cache = await supabase.get("/market_cache", params=market_params)
         
         if res_cache.status_code != 200:
@@ -20628,14 +20637,14 @@ async def admin_cases_search_cache(
         unique_items = []
         seen = set()
         
-        # 2. Больше никаких сложных склеек! Просто отдаем то, что пришло.
+        # 2. Чистим дубликаты и формируем красивый ответ для фронтенда
         for it in items:
             name = it.get("market_hash_name", "")
             if name and name not in seen:
                 seen.add(name)
                 unique_items.append({
                     "market_hash_name": name,
-                    # 🔥 Берем картинку прямо из кэша (если пусто - ставим заглушку)
+                    # Берем картинку из кэша, если пусто - ставим заглушку
                     "image_url": it.get("image_url") or "https://placehold.co/150", 
                     "price_rub": it.get("price_rub", 0),
                     "rarity": it.get("rarity", "blue")
