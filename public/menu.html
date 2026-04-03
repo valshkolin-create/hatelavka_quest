@@ -457,7 +457,6 @@
     </div>
     
 <div id="swap-modal" class="modal hidden">
-    <!-- 🔥 Отступ 75px сверху спасает от перекрытия интерфейсом Телеграма -->
     <div class="modal-content" style="margin-top: 75px; height: calc(100vh - 90px); display: flex; flex-direction: column; padding: 15px;">
         <div class="modal-header" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -469,13 +468,13 @@
             <button onclick="closeSwapModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <!-- 🔒 ЭКРАН БЛОКИРОВКИ -->
         <div id="swap-locked-area" class="hidden" style="text-align: center; padding: 20px 10px; overflow-y: auto;">
             <i class="fa-solid fa-lock" style="font-size: 48px; color: #ff3b30; margin-bottom: 15px; filter: drop-shadow(0 0 15px rgba(255,59,48,0.4));"></i>
             <h3 style="color: #fff; margin-bottom: 10px;">SWAP недоступен</h3>
             <p style="font-size: 13px; color: #8e8e93; line-height: 1.4; margin-bottom: 15px;">
                 Обменник доступен только активным зрителям. Для разблокировки нужно написать <b>300 сообщений</b> за месяц на Twitch.
             </p>
+            
             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: bold;">
                     <span style="color: #fff;">Прогресс:</span><span style="color: #ffcc00;"><span id="swap-msg-progress">0</span> / 300</span>
@@ -484,7 +483,16 @@
                     <div id="swap-msg-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ff3b30, #ff9500); transition: width 0.5s ease-out;"></div>
                 </div>
             </div>
+
+            <div style="background: rgba(145, 70, 255, 0.1); border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px; text-align: left;">
+                <i class="fa-brands fa-twitch" style="color: #9146ff; font-size: 24px; filter: drop-shadow(0 0 8px rgba(145, 70, 255, 0.4));"></i>
+                <div style="font-size: 11px; color: #ccc; line-height: 1.4;">
+                    Сообщения считаются <b>автоматически</b> после привязки Twitch профиля. Общайтесь в чате на канале <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" style="color: #9146ff; font-weight: bold; text-decoration: none;">hatelove_ttv</a>!
+                </div>
+            </div>
         </div>
+    </div>
+</div>
 
         <!-- 🔄 ЛОАДЕР -->
         <div id="swap-loader" style="text-align:center; padding:20px; color:#888; flex-grow: 1; display: flex; align-items: center; justify-content: center;">
