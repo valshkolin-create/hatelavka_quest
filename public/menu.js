@@ -92,6 +92,29 @@ async function syncMyPromos() {
 // ИСТОРИЯ УВЕДОМЛЕНИЙ (ЧЕРЕЗ ЛОГОТИП)
 // ================================================================
 
+// Быстрая смена визуала колокольчика без сетевых запросов
+function updateNotificationBadgeUI(count) {
+    const badge = document.getElementById('logo-notification-badge');
+    const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
+    
+    if (!badge) return;
+    
+    if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.classList.remove('hidden');
+        if (bellIcon) {
+            bellIcon.style.color = '#ffd700';
+            bellIcon.style.textShadow = '0 0 8px rgba(255, 215, 0, 0.4)';
+        }
+    } else {
+        badge.classList.add('hidden');
+        if (bellIcon) {
+            bellIcon.style.color = '';
+            bellIcon.style.textShadow = 'none';
+        }
+    }
+}
+
 // 1. Фоновая проверка (Зажигает цифру на бейдже и красит сам колокольчик)
 async function fetchNotificationsBadge() {
     const badge = document.getElementById('logo-notification-badge');
@@ -145,7 +168,7 @@ window.deleteNotification = async function(event, notifId) {
     try {
         // Эндпоинт, который мы сделали на бэке
         await makeApiRequest('/api/v1/notifications/delete', { id: notifId }, 'POST', true);
-        fetchNotificationsBadge(); // Обновляем цифру на колокольчике
+        updateNotificationBadgeUI(hbData.unread_notifications || 0);
     } catch (e) {
         // Если ошибка — возвращаем карточку обратно
         notifCard.style.display = 'flex';
