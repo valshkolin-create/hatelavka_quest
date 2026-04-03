@@ -3094,24 +3094,24 @@ window.executeSwap = async () => {
             if(bottomProgress) bottomProgress.style.display = 'none';
             if(area) area.style.display = 'none';
 
-            // Генерируем экран со скином и нужными функциями из профиля (withdrawItem / exchangeItem)
+            // Генерируем экран со скином и правильными функциями магазина: claimItem и sellForTickets
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ОБМЕН УСПЕШЕН!</h2>
                 <img src="${res.item.image_url}" class="win-img" style="width: 150px; height: 150px; object-fit: contain;">
                 <h3 style="color:#fff; margin-top:15px; margin-bottom: 20px; font-weight: 700; text-align: center; padding: 0 10px;">${res.item.name}</h3>
                 
                 <button class="action-btn btn-buy" style="width: 220px; height: 48px; font-size: 14px; margin-bottom: 10px; box-shadow: 0 0 15px rgba(52, 199, 89, 0.4); background: #34c759; color: #000; border: none; font-weight: 800; border-radius: 8px;" 
-                        onclick="document.getElementById('r-modal').style.display='none'; withdrawItem(${res.item.id}, '${res.item.name.replace(/'/g, "\\'")}')">
+                        onclick="closeRoulette(); claimItem(${res.item.id})">
                     ЗАБРАТЬ В STEAM
                 </button>
                 
                 <button class="action-btn" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #ccc; width: 220px; height: 44px; margin-bottom: 15px; border-radius: 8px;" 
-                        onclick="document.getElementById('r-modal').style.display='none'; exchangeItem(${res.item.id}, ${res.item.price})">
+                        onclick="closeRoulette(); sellForTickets(${res.item.id}, ${res.item.price})">
                     ПРОДАТЬ ЗА ${res.item.price} 🎟️
                 </button>
                 
                 <button class="action-btn btn-secondary-action" style="width: 220px; background: transparent; border: none; color: #888;" 
-                        onclick="document.getElementById('r-modal').style.display='none';">
+                        onclick="closeRoulette();">
                     Закрыть
                 </button>
             `;
@@ -3126,11 +3126,11 @@ window.executeSwap = async () => {
         // Синхронизируем визуальный баланс
         checkBalance(true); 
         
-        // Обновляем инвентарь (чтобы сгоревшие скины пропали, а новый появился в списке, если юзер нажал "Закрыть")
+        // Обновляем данные, если функция существует
         if (typeof loadData === 'function') loadData(true); 
         
     } catch (e) {
-        // Ошибка (например, баланса) сама покажется через customAlert из твоего makeApiRequest
+        // Ошибка сама покажется через customAlert из твоего makeApiRequest
         console.error("Ошибка свапа:", e);
     } finally {
         // Возвращаем кнопку в исходное состояние
