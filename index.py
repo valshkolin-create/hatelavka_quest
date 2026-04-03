@@ -2979,6 +2979,47 @@ async def run_mass_twitch_update():
     except Exception as e:
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}")
 
+@app.get("/api/cron/sync-shop")
+async def cron_sync_shop_categories(
+    secret: str = Query(None),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Защита от чужих вызовов
+    expected_secret = os.getenv("CRON_SECRET", "hatelavka123")
+    if secret != expected_secret:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # 1. Динамически получаем все ID категорий из базы
+        resp = await supabase.get("/shop_cache", params={"select": "category_id"})
+        db_categories = resp.json()
+        
+        # Собираем уникальные ID (используем set для защиты от дубликатов)
+        categories_to_sync = list(set([item["category_id"] for item in db_categories if "category_id" in item]))
+        
+        if not categories_to_sync:
+            return {"status": "success", "message": "Нет категорий для обновления (база пуста)"}
+
+    except Exception as e:
+        logging.error(f"[CRON_SHOP] Ошибка получения списка категорий: {e}")
+        return {"status": "error", "detail": "Не удалось прочитать shop_cache"}
+
+    # 2. Обновляем каждую найденную категорию
+    results = {}
+    for cat_id in categories_to_sync:
+        try:
+            # Вызываем твой бронебойный парсер напрямую
+            items = await fetch_and_cache_goods_background(cat_id, supabase)
+            results[cat_id] = f"Успех: {len(items)} товаров"
+            
+            # Пауза в 1 секунду между категориями (защита от лимитов Bot-t)
+            await asyncio.sleep(1) 
+        except Exception as e:
+            logging.error(f"[CRON_SHOP] Ошибка категории {cat_id}: {e}")
+            results[cat_id] = f"Ошибка: {e}"
+
+    return {"status": "success", "total_categories": len(categories_to_sync), "details": results}
+
 @app.get("/api/cron/update-twitch-statuses")
 async def trigger_twitch_update(secret: str = Query(None)):
     expected_secret = os.getenv("CRON_SECRET", "твой_секретный_пароль_123")
@@ -3355,11 +3396,6 @@ async def get_bootstrap_data(
 ):
     telegram_id = user_info.get("id")
     
-    # 🔥🔥🔥 ВОТ ОН, ТВОЙ КАПКАН! 🔥🔥🔥
-    # Добавляем эту строку прямо сюда. Если юзер в бане, 
-    # функция выкинет 403 ошибку, и код ниже НЕ выполнится.
-    await verify_user_not_banned(telegram_id, supabase)
-
     photo_url = user_info.get("photo_url")
     platform = getattr(req, 'platform', 'tg')
 
@@ -3411,6 +3447,11 @@ async def get_bootstrap_data(
             raise Exception(f"Database RPC Error: {error_msg}")
 
         db_data = db_res.json()
+
+        # 🔥 НОВАЯ ПРОВЕРКА НА БАН (теперь отвечает база данных) 🔥
+        if db_data.get("error") == "BANNED":
+            raise HTTPException(status_code=403, detail="Доступ запрещен. Пользователь заблокирован.")
+
         rpc_data = db_data.get('dashboard', {}) or {}
         user_data = rpc_data.get('profile', {}) or {}
         
@@ -3489,6 +3530,9 @@ async def get_bootstrap_data(
             "cauldron": cauldron_data
         }
 
+    except HTTPException:
+        # Пропускаем HTTPException (например, наш 403 для забаненных) наверх
+        raise
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
@@ -15304,7 +15348,6 @@ RAM_CACHE_TTL = 600  # 10 минут
 @app.post("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
     request_data: ShopCategoryRequest,
-    background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     category_id = request_data.category_id
@@ -15316,43 +15359,26 @@ async def get_bott_goods_proxy(
         if current_time - cache_entry['time'] < RAM_CACHE_TTL:
             return cache_entry['data']
 
-    # 2. Читаем из БД
+    # 2. Читаем из БД (ТОЛЬКО ЧТЕНИЕ, БЕЗ ФОНОВЫХ ЗАДАЧ)
     try:
         resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{category_id}", "select": "data,updated_at"})
         db_data = resp.json()
     except Exception as e:
+        logging.error(f"[SHOP_PROXY] Ошибка БД: {e}")
         db_data = []
 
     cached_goods = []
-    should_update = True
 
     if db_data:
         row = db_data[0]
         cached_goods = row.get("data") or []
-        updated_at_str = row.get("updated_at")
-        if updated_at_str:
-            try:
-                updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
-                if (datetime.now(timezone.utc) - updated_at).total_seconds() < 600:
-                    should_update = False
-            except ValueError:
-                pass
 
-    # 🔥 ФИКС ПУСТОТЫ: Если кэш ВООБЩЕ пустой, мы ЖДЕМ загрузки синхронно (не в фоне)
-    if not cached_goods:
-        cached_goods = await fetch_and_cache_goods_background(category_id, supabase)
-        should_update = False # Уже обновили
-
-    # 3. Сохраняем в ОЗУ
+    # 3. Сохраняем в ОЗУ для следующих быстрых запросов
     if cached_goods:
         RAM_SHOP_CACHE[category_id] = {
-            'time': current_time if not should_update else current_time - RAM_CACHE_TTL,
+            'time': current_time,
             'data': cached_goods
         }
-
-    # 4. Фоновое обновление (если данные старые, но они есть)
-    if should_update:
-        background_tasks.add_task(fetch_and_cache_goods_background, category_id, supabase)
 
     return cached_goods
 
