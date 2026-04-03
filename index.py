@@ -20006,8 +20006,8 @@ async def withdraw_inventory_item(
         params={
             "id": f"eq.{req.history_id}",
             "user_id": f"eq.{user_id}",
-            # 🔥 ДОБАВЛЕНО: details в выборку
-            "select": "id, status, updated_at, source, details, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
+            # 🔥 ДОБАВЛЕНО: details, replaced_name, replaced_price в выборку
+            "select": "id, status, updated_at, source, details, replaced_name, replaced_price, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
         }
     )
     
@@ -20060,19 +20060,24 @@ async def withdraw_inventory_item(
         })
     # ==========================================
 
-    item_data = history_record.get('item', {})
+    item_data = history_record.get('item') or {}
     item_source = history_record.get('source', 'shop') 
-    item_name = item_data.get('name', 'Неизвестный предмет')
+    
+    item_name = history_record.get('replaced_name') or item_data.get('name', 'Неизвестный предмет')
     
     try:
-        target_price_base = float(item_data.get('price', 0)) 
-        target_price_rub = float(item_data.get('price_rub', 0)) 
+        if history_record.get('replaced_price'):
+            target_price_base = float(history_record.get('replaced_price'))
+            target_price_rub = float(history_record.get('replaced_price'))
+        else:
+            target_price_base = float(item_data.get('price', 0)) 
+            target_price_rub = float(item_data.get('price_rub', 0)) 
     except:
         target_price_base = 0.0
         target_price_rub = 0.0
         
     item_condition = item_data.get('condition')
-    market_hash_name = item_data.get('market_hash_name')
+    market_hash_name = history_record.get('replaced_name') or item_data.get('market_hash_name')
 
     has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
     now_iso = datetime.now(timezone.utc).isoformat()
