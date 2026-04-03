@@ -1334,15 +1334,13 @@ body.no-scroll {
 /* =========================================
    ИСПРАВЛЕНИЕ ФОНА RUNCASE
    ========================================= */
-/* Применяем цвет прямо к фоновому слою и убираем картинку */
-body[data-theme="runcase"] .bg-layer {
-    background-image: none !important;
-    background-color: #0c142b !important;
+/* Прячем котел в теме Runcase */
+body[data-theme="runcase"] .cauldron-image-wrapper {
+    display: none !important;
 }
 
-/* ПОЛНОСТЬЮ ОТКЛЮЧАЕМ черную пленку-затемнение, чтобы цвет был чистым */
-body[data-theme="runcase"] .bg-overlay {
-    display: none !important;
+body[data-theme="runcase"] .bg-layer {
+    background-color: #0c142b !important;
 }
 
 /* Отключаем летающие частицы (кружочки), чтобы дизайн был строгим как на сайте */
