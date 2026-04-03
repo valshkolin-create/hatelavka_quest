@@ -3528,6 +3528,8 @@ async def get_bootstrap_data(
             "quests": quests_list,
             "weekly_goals": goals_data,
             "cauldron": cauldron_data
+            "raffles": raffles_data,                 # <-- Отдаем фронтенду
+            "my_active_cases": active_cases_data     # <-- Отдаем фронтенду
         }
 
     except HTTPException:
