@@ -3075,19 +3075,67 @@ window.executeSwap = async () => {
             target_market_name: swapTargetItem.name
         };
 
-        await makeApiRequest('/api/v1/swap/execute', payload, 'POST');
+        // Делаем запрос. Бэкенд теперь вернет { success: true, item: { id, name, image_url, price } }
+        const res = await makeApiRequest('/api/v1/swap/execute', payload, 'POST');
         
+        // Закрываем окно самого обменника
         closeSwapModal();
-        customAlert(`✅ Успешно! Вы получили:\n${swapTargetItem.name.split('|').pop().trim()}`);
         
+        // ПОКАЗЫВАЕМ ПОПАП ПОБЕДЫ (Как в рулетке)
+        const modal = document.getElementById('r-modal');
+        const area = document.getElementById('r-area');
+        const winScreen = document.getElementById('r-win');
+        const topHeader = document.getElementById('r-top-header');
+        const bottomProgress = document.getElementById('r-bottom-progress');
+
+        if (modal && winScreen && res.item) {
+            // Прячем элементы от обычной рулетки (ленту, гарант, заголовок кейса)
+            if(topHeader) topHeader.style.display = 'none';
+            if(bottomProgress) bottomProgress.style.display = 'none';
+            if(area) area.style.display = 'none';
+
+            // Генерируем экран со скином и нужными функциями из профиля (withdrawItem / exchangeItem)
+            winScreen.innerHTML = `
+                <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ОБМЕН УСПЕШЕН!</h2>
+                <img src="${res.item.image_url}" class="win-img" style="width: 150px; height: 150px; object-fit: contain;">
+                <h3 style="color:#fff; margin-top:15px; margin-bottom: 20px; font-weight: 700; text-align: center; padding: 0 10px;">${res.item.name}</h3>
+                
+                <button class="action-btn btn-buy" style="width: 220px; height: 48px; font-size: 14px; margin-bottom: 10px; box-shadow: 0 0 15px rgba(52, 199, 89, 0.4); background: #34c759; color: #000; border: none; font-weight: 800; border-radius: 8px;" 
+                        onclick="document.getElementById('r-modal').style.display='none'; withdrawItem(${res.item.id}, '${res.item.name.replace(/'/g, "\\'")}')">
+                    ЗАБРАТЬ В STEAM
+                </button>
+                
+                <button class="action-btn" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #ccc; width: 220px; height: 44px; margin-bottom: 15px; border-radius: 8px;" 
+                        onclick="document.getElementById('r-modal').style.display='none'; exchangeItem(${res.item.id}, ${res.item.price})">
+                    ПРОДАТЬ ЗА ${res.item.price} 🎟️
+                </button>
+                
+                <button class="action-btn btn-secondary-action" style="width: 220px; background: transparent; border: none; color: #888;" 
+                        onclick="document.getElementById('r-modal').style.display='none';">
+                    Закрыть
+                </button>
+            `;
+            
+            winScreen.style.display = 'flex';
+            modal.style.display = 'flex';
+        } else {
+            // Резервный вариант, если HTML рулетки почему-то не найден
+            customAlert(`✅ Успешно! Вы получили:\n${swapTargetItem.name}`);
+        }
+        
+        // Синхронизируем визуальный баланс
         checkBalance(true); 
+        
+        // Обновляем инвентарь (чтобы сгоревшие скины пропали, а новый появился в списке, если юзер нажал "Закрыть")
         if (typeof loadData === 'function') loadData(true); 
         
     } catch (e) {
-        // Ошибка перехватится
+        // Ошибка (например, баланса) сама покажется через customAlert из твоего makeApiRequest
+        console.error("Ошибка свапа:", e);
     } finally {
+        // Возвращаем кнопку в исходное состояние
         btn.disabled = false;
-        btn.innerText = "СДЕЛАТЬ СВАП";
+        btn.innerText = "ПОДТВЕРДИТЬ СВАП";
     }
 };
 // ================================================================
