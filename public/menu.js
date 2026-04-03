@@ -2805,7 +2805,41 @@ let swapTargetItem = null; // { name, price }
 let globalMarketItems = []; // Кэш витрины
 
 window.openSwapModal = async () => {
+    // 1. Проверяем сообщения (переменная userData УЖЕ есть в твоем menu.js)
+    const msgCount = userData.weekly_message_count || 0;
+    const requiredMsgs = 300;
+    
     document.getElementById('swap-modal').classList.remove('hidden');
+    
+    // 🔒 ЕСЛИ СООБЩЕНИЙ НЕ ХВАТАЕТ -> ПОКАЗЫВАЕМ БЛОКИРОВКУ
+    if (msgCount < requiredMsgs) {
+        document.getElementById('swap-loader').style.display = 'none';
+        document.getElementById('swap-content-area').classList.add('hidden');
+        
+        // Прячем кнопку СВАПа
+        const executeBtn = document.getElementById('execute-swap-btn');
+        if (executeBtn) executeBtn.parentElement.style.display = 'none';
+        
+        // Показываем замок
+        document.getElementById('swap-locked-area').classList.remove('hidden');
+        
+        // Анимация прогресс-бара
+        document.getElementById('swap-msg-progress').textContent = msgCount;
+        const percent = Math.min((msgCount / requiredMsgs) * 100, 100);
+        setTimeout(() => {
+            const bar = document.getElementById('swap-msg-bar');
+            if (bar) bar.style.width = percent + '%';
+        }, 100);
+        return; // Останавливаем выполнение (не грузим инвентарь)
+    }
+
+    // 🔄 ЕСЛИ СООБЩЕНИЙ ХВАТАЕТ -> ПОКАЗЫВАЕМ СВАП
+    document.getElementById('swap-locked-area').classList.add('hidden');
+    
+    // Возвращаем кнопку
+    const executeBtn = document.getElementById('execute-swap-btn');
+    if (executeBtn) executeBtn.parentElement.style.display = 'block';
+    
     document.getElementById('swap-content-area').classList.add('hidden');
     document.getElementById('swap-loader').style.display = 'block';
     
@@ -2815,9 +2849,10 @@ window.openSwapModal = async () => {
 
     try {
         // Грузим параллельно инвентарь юзера и базу маркета
+        // Заменил /api/v1/user/inventory/get на /api/v1/user/inventory (как у тебя в профиле)
         const [inventory, market] = await Promise.all([
-            makeApiRequest('/api/v1/user/inventory/get', {}, 'POST', true),
-            makeApiRequest('/api/v1/shop/market_cache', {}, 'GET', true) // Эндпоинт для получения скинов с БД
+            makeApiRequest('/api/v1/user/inventory', {}, 'POST', true),
+            makeApiRequest('/api/v1/shop/market_cache', {}, 'GET', true) 
         ]);
 
         globalMarketItems = market.filter(m => m.is_available).sort((a, b) => a.price_rub - b.price_rub);
