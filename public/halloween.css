@@ -621,8 +621,8 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
 }
 .viewer-close-btn { 
     position: absolute; 
-    /* Умный отступ: берет шторку Телеграма, если нет - системную шторку, + 15px сверху */
-    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 15px); 
+    /* Опускаем еще ниже шторки (было +15px, стало +35px) */
+    top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 35px); 
     right: 20px; 
     background: none; 
     border: none; 
@@ -630,9 +630,9 @@ body[data-theme="halloween"] .flying-witch { display: block; animation: fly-acro
     font-size: 40px; 
     cursor: pointer; 
     line-height: 1; 
-    padding: 10px; /* Сделал зону клика чуть больше для удобства */
-    text-shadow: 0 0 10px rgba(0,0,0,0.8); /* Усилил тень, чтобы крестик не сливался со светлыми скинами */
-    z-index: 10001; /* Гарантируем, что крестик всегда поверх картинки */
+    padding: 10px; 
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    z-index: 10001; 
 }
 .viewer-content-wrapper { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 100%; max-height: 100%; }
 .viewer-image { max-width: 100%; max-height: 100%; object-fit: contain; }
