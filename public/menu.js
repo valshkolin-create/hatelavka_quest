@@ -2800,46 +2800,46 @@ async function main() {
 // ================================================================
 // SWAP (TRADE-UP КОНТРАКТ)
 // ================================================================
-let swapGivenItems = new Map(); // id -> price
+let swapGivenItems = new Map(); // history_id -> price
 let swapTargetItem = null; // { name, price }
 let globalMarketItems = []; // Кэш витрины
 
 window.openSwapModal = async () => {
-    // 1. Проверяем сообщения (переменная userData УЖЕ есть в твоем menu.js)
-    const msgCount = userData.weekly_message_count || 0;
+    // 1. Проверяем сообщения пользователя с Twitch ЗА МЕСЯЦ
+    const msgCount = userData.monthly_message_count || 0;
     const requiredMsgs = 300;
     
     document.getElementById('swap-modal').classList.remove('hidden');
-    
-    // 🔒 ЕСЛИ СООБЩЕНИЙ НЕ ХВАТАЕТ -> ПОКАЗЫВАЕМ БЛОКИРОВКУ
+
+    // 🔒 ЕСЛИ СООБЩЕНИЙ НЕ ХВАТАЕТ
     if (msgCount < requiredMsgs) {
         document.getElementById('swap-loader').style.display = 'none';
         document.getElementById('swap-content-area').classList.add('hidden');
         
-        // Прячем кнопку СВАПа
         const executeBtn = document.getElementById('execute-swap-btn');
         if (executeBtn) executeBtn.parentElement.style.display = 'none';
         
-        // Показываем замок
-        document.getElementById('swap-locked-area').classList.remove('hidden');
+        const lockedArea = document.getElementById('swap-locked-area');
+        if (lockedArea) lockedArea.classList.remove('hidden');
         
-        // Анимация прогресс-бара
-        document.getElementById('swap-msg-progress').textContent = msgCount;
+        const progressText = document.getElementById('swap-msg-progress');
+        if (progressText) progressText.textContent = msgCount;
+        
         const percent = Math.min((msgCount / requiredMsgs) * 100, 100);
         setTimeout(() => {
             const bar = document.getElementById('swap-msg-bar');
             if (bar) bar.style.width = percent + '%';
         }, 100);
-        return; // Останавливаем выполнение (не грузим инвентарь)
+        return; 
     }
 
-    // 🔄 ЕСЛИ СООБЩЕНИЙ ХВАТАЕТ -> ПОКАЗЫВАЕМ СВАП
-    document.getElementById('swap-locked-area').classList.add('hidden');
+    // 🔄 ЕСЛИ СООБЩЕНИЙ ХВАТАЕТ
+    const lockedArea = document.getElementById('swap-locked-area');
+    if (lockedArea) lockedArea.classList.add('hidden');
     
-    // Возвращаем кнопку
     const executeBtn = document.getElementById('execute-swap-btn');
     if (executeBtn) executeBtn.parentElement.style.display = 'block';
-    
+
     document.getElementById('swap-content-area').classList.add('hidden');
     document.getElementById('swap-loader').style.display = 'block';
     
@@ -2848,16 +2848,21 @@ window.openSwapModal = async () => {
     updateSwapUI();
 
     try {
-        // Грузим параллельно инвентарь юзера и базу маркета
-        // Заменил /api/v1/user/inventory/get на /api/v1/user/inventory (как у тебя в профиле)
-        const [inventory, market] = await Promise.all([
-            makeApiRequest('/api/v1/user/inventory', {}, 'POST', true),
-            makeApiRequest('/api/v1/shop/market_cache', {}, 'GET', true) 
-        ]);
+        let marketRes = [];
+        let inventoryRes = [];
 
-        globalMarketItems = market.filter(m => m.is_available).sort((a, b) => a.price_rub - b.price_rub);
+        // Выполняем запросы и страхуемся от ошибок
+        try {
+            inventoryRes = await makeApiRequest('/api/v1/user/inventory', {}, 'POST', true);
+            const rawMarket = await makeApiRequest('/api/v1/shop/market_cache', {}, 'GET', true);
+            if (Array.isArray(rawMarket)) marketRes = rawMarket;
+        } catch (err) {
+            console.warn("Свап: ошибка загрузки API", err);
+        }
+
+        globalMarketItems = marketRes.filter(m => m.is_available).sort((a, b) => a.price_rub - b.price_rub);
         
-        const availableItems = inventory.filter(item => 
+        const availableItems = (Array.isArray(inventoryRes) ? inventoryRes : []).filter(item => 
             ['pending', 'available'].includes(item.status) && item.is_swapped !== true
         );
 
@@ -2877,43 +2882,47 @@ window.closeSwapModal = () => document.getElementById('swap-modal').classList.ad
 function renderSwapInventory(items) {
     const grid = document.getElementById('swap-inventory-grid');
     if (items.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px;">Нет предметов для обмена</div>';
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет предметов для обмена</div>';
         return;
     }
 
     grid.innerHTML = items.map(item => {
-        const price = parseFloat(item.replaced_price) > 0 ? parseFloat(item.replaced_price) : parseFloat(item.price);
+        // Железно парсим цену
+        const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : (parseFloat(item.price) || 0);
+        
+        // 🔥 ИСПРАВЛЕНИЕ: Используем item.history_id вместо item.id
         return `
-            <div class="swap-card-inv" id="swap-inv-${item.id}" onclick="toggleGiveItem(${item.id}, ${price})" 
+            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price})" 
                  style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 6px; text-align: center; cursor: pointer; position: relative;">
                 <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
-                <div style="font-size: 11px; color: #FFD700; font-weight: bold; margin-top: 4px;">${price}</div>
+                <div style="font-size: 11px; color: #FFD700; font-weight: bold; margin-top: 4px;">${price} 🟡</div>
                 <div class="swap-check hidden" style="position: absolute; top: 4px; right: 4px; background: #34c759; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 9px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
             </div>
         `;
     }).join('');
 }
 
-window.toggleGiveItem = (id, price) => {
-    const card = document.getElementById(`swap-inv-${id}`);
-    if (swapGivenItems.has(id)) {
-        swapGivenItems.delete(id);
+window.toggleGiveItem = (historyId, price) => {
+    const card = document.getElementById(`swap-inv-${historyId}`);
+    if (!card) return;
+
+    if (swapGivenItems.has(historyId)) {
+        swapGivenItems.delete(historyId);
         card.style.borderColor = 'rgba(255,255,255,0.1)';
         card.querySelector('.swap-check').classList.add('hidden');
     } else {
         if (swapGivenItems.size >= 4) return customAlert("Максимум 4 предмета!");
-        swapGivenItems.set(id, price);
+        swapGivenItems.set(historyId, price);
         card.style.borderColor = '#34c759';
         card.querySelector('.swap-check').classList.remove('hidden');
     }
     
-    // Если после отмены предмета сумма стала меньше стоимости выбранного таргета — сбрасываем таргет
     const totalSum = Array.from(swapGivenItems.values()).reduce((a, b) => a + b, 0);
     if (swapTargetItem && swapTargetItem.price > totalSum) {
         swapTargetItem = null;
     }
 
-    renderSwapMarket(); // Перерисовываем маркет (блокируем дорогие)
+    renderSwapMarket(); 
     updateSwapUI();
     if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
 };
@@ -2922,12 +2931,17 @@ function renderSwapMarket() {
     const grid = document.getElementById('swap-market-grid');
     const totalSum = Array.from(swapGivenItems.values()).reduce((a, b) => a + b, 0);
 
+    if (globalMarketItems.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">В маркете пока пусто</div>';
+        return;
+    }
+
     grid.innerHTML = globalMarketItems.map(item => {
         const canAfford = item.price_rub <= totalSum && totalSum > 0;
         const isSelected = swapTargetItem && swapTargetItem.name === item.market_hash_name;
         
         let border = 'rgba(255,255,255,0.05)';
-        let opacity = '0.4'; // По умолчанию тусклые (не хватает денег)
+        let opacity = '0.4'; 
         
         if (canAfford) opacity = '1';
         if (isSelected) border = '#ff9500';
@@ -2937,7 +2951,7 @@ function renderSwapMarket() {
                  style="background: rgba(255,255,255,0.02); border: 2px solid ${border}; opacity: ${opacity}; border-radius: 8px; padding: 6px; text-align: center; cursor: pointer; position: relative; transition: 0.2s;">
                 <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
                 <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px;">${item.market_hash_name.split('|').pop()}</div>
-                <div style="font-size: 11px; color: ${canAfford ? '#ffcc00' : '#888'}; font-weight: bold; margin-top: 2px;">${item.price_rub}</div>
+                <div style="font-size: 11px; color: ${canAfford ? '#ffcc00' : '#888'}; font-weight: bold; margin-top: 2px;">${item.price_rub} 🟡</div>
                 ${isSelected ? '<div style="position: absolute; top: 4px; right: 4px; color: #ff9500;"><i class="fa-solid fa-circle-check"></i></div>' : ''}
             </div>
         `;
@@ -2945,9 +2959,7 @@ function renderSwapMarket() {
 }
 
 window.selectTargetItem = (name, price, canAfford) => {
-    if (!canAfford) return; // Игнорим клик, если не хватает суммы
-    
-    // Если кликнули на уже выбранный — отменяем выбор
+    if (!canAfford) return; 
     if (swapTargetItem && swapTargetItem.name === name) {
         swapTargetItem = null;
     } else {
@@ -2967,12 +2979,13 @@ function updateSwapUI() {
 
     const btn = document.getElementById('execute-swap-btn');
     
+    // Меняем текст кнопки, чтобы юзер понимал, что от него хотят
     if (swapGivenItems.size === 0) {
         btn.disabled = true;
         btn.innerText = "ВЫБЕРИТЕ СВОИ ПРЕДМЕТЫ";
     } else if (!swapTargetItem) {
         btn.disabled = true;
-        btn.innerText = "ВЫБЕРИТЕ ПРЕДМЕТ НА ЗАМЕНУ";
+        btn.innerText = "ВЫБЕРИТЕ СКИН НИЖЕ 👇";
     } else {
         btn.disabled = false;
         btn.innerText = "СДЕЛАТЬ СВАП";
@@ -2996,7 +3009,7 @@ window.executeSwap = async () => {
         
         closeSwapModal();
         customAlert(`✅ Успешно! Вы получили:\n${swapTargetItem.name.split('|').pop().trim()}`);
-        checkBalance(true); // Обновляем данные в фоне
+        checkBalance(true); 
         
     } catch (e) {
         // Ошибка перехватится в makeApiRequest
