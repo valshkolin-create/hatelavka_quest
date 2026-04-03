@@ -2933,18 +2933,19 @@ function renderSwapInventory(items) {
 
     grid.innerHTML = items.map(item => {
         const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : (parseFloat(item.price) || 0);
-        const safeName = (item.name || "Скин").replace(/'/g, "\\'");
         const shortName = (item.name || "Скин").split('|').pop().trim();
-        
+        const isSelected = swapGivenItems.has(item.history_id);
+        const border = isSelected ? '#34c759' : 'transparent';
+
         return `
-            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price}, '${safeName}', '${item.image_url}')" 
-                 style="background: #232325; border: 1px solid transparent; border-radius: 10px; padding: 10px 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: 0.2s;">
-                <img src="${item.image_url}" style="width: 100%; height: 55px; object-fit: contain; margin-bottom: 8px;">
-                <div style="font-size: 10px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-bottom: 4px;">${shortName}</div>
-                <div style="font-size: 12px; color: #FFD700; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price}, '${item.name.replace(/'/g, "\\'")}', '${item.image_url}')" 
+                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
+                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
+                <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
+                <div style="font-size: 11px; color: #FFD700; font-weight: bold; display: flex; align-items: center; gap: 4px;">
                     ${price} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
                 </div>
-                <div class="swap-check hidden" style="position: absolute; top: 6px; right: 6px; background: #34c759; color: #fff; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
+                <div class="swap-check ${isSelected ? '' : 'hidden'}" style="position: absolute; top: 4px; right: 4px; background: #34c759; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
             </div>
         `;
     }).join('');
@@ -2996,7 +2997,7 @@ function renderSwapMarket() {
     const availableMarketItems = globalMarketItems.filter(item => parseFloat(item.price_rub) <= totalSum && totalSum > 0);
 
     if (availableMarketItems.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет доступных скинов под вашу сумму. Выберите более дорогие предметы.</div>';
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет скинов под вашу сумму.</div>';
         return;
     }
 
@@ -3004,18 +3005,17 @@ function renderSwapMarket() {
         const priceRub = parseFloat(item.price_rub) || 0;
         const isSelected = swapTargetItem && swapTargetItem.name === item.market_hash_name;
         const border = isSelected ? '#ff9500' : 'transparent';
-        const bg = isSelected ? 'rgba(255,149,0,0.05)' : '#232325';
-        const safeName = item.market_hash_name.replace(/'/g, "\\'");
         const shortName = item.market_hash_name.split('|').pop().trim();
 
         return `
-            <div onclick="selectTargetItem('${safeName}', ${priceRub}, '${item.image_url}')"
-                 style="background: ${bg}; border: 1px solid ${border}; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: 0.2s;">
-                <img src="${item.image_url}" style="width: 100%; height: 70px; object-fit: contain; margin-bottom: 8px;">
-                <div style="font-size: 11px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-bottom: 6px;">${shortName}</div>
-                <div style="font-size: 13px; color: #ffcc00; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                    ${priceRub} <div style="width: 12px; height: 12px; background: #ffd700; border-radius: 50%;"></div>
+            <div onclick="selectTargetItem('${item.market_hash_name.replace(/'/g, "\\'")}', ${priceRub}, '${item.image_url}')"
+                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
+                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
+                <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
+                <div style="font-size: 11px; color: #ffcc00; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                    ${priceRub} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
                 </div>
+                ${isSelected ? '<div style="position: absolute; top: 4px; right: 4px; background: #ff9500; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>' : ''}
             </div>
         `;
     }).join('');
