@@ -456,47 +456,73 @@
         </div>
     </div>
 
-    <div id="swap-modal" class="modal hidden">
+    Это невероятно крутая механика для защиты от абузеров! Привязать Свап к реальной активности на Твиче — гениальный ход, так ботоводы точно не пройдут.
+
+Чтобы всё работало, мы добавим экран блокировки прямо внутрь модального окна Свапа. Если у юзера меньше 300 сообщений, он увидит красивый прогресс-бар и пояснение. А если больше — сразу откроется сам обменник.
+
+Весь код я кидать не буду, только то, что нужно заменить и добавить.
+
+1. Замени HTML модального окна Свапа
+Найди у себя в коде <div id="swap-modal" class="modal hidden"> и замени его целиком (от открывающего до закрывающего тега) на этот:
+
+HTML
+<div id="swap-modal" class="modal hidden">
     <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column; padding: 15px;">
         <div class="modal-header" style="flex-shrink: 0;">
-            <h3>ОБМЕННИК ПРЕДМЕТОВ </h3>
+            <h3>ОБМЕННИК ПРЕДМЕТОВ</h3>
             <button onclick="closeSwapModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
+        <!-- 🔒 ЭКРАН БЛОКИРОВКИ (Отображается, если нет 300 сообщений) -->
+        <div id="swap-locked-area" class="hidden" style="text-align: center; padding: 20px 10px; overflow-y: auto;">
+            <i class="fa-solid fa-lock" style="font-size: 48px; color: #ff3b30; margin-bottom: 15px; filter: drop-shadow(0 0 15px rgba(255,59,48,0.4));"></i>
+            <h3 style="color: #fff; margin-bottom: 10px;">SWAP недоступен</h3>
+            <p style="font-size: 13px; color: #8e8e93; line-height: 1.4; margin-bottom: 15px;">
+                Обменник доступен только активным зрителям. Для разблокировки нужно написать <b>300 сообщений</b> за неделю на Twitch.
+            </p>
+            
+            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: bold;">
+                    <span style="color: #fff;">Прогресс:</span>
+                    <span style="color: #ffcc00;"><span id="swap-msg-progress">0</span> / 300</span>
+                </div>
+                <div style="width: 100%; height: 6px; background: #333; border-radius: 3px; overflow: hidden;">
+                    <div id="swap-msg-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ff3b30, #ff9500); transition: width 0.5s ease-out;"></div>
+                </div>
+            </div>
+
+            <div style="font-size: 11px; color: #ccc; line-height: 1.5; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; text-align: left; border-left: 3px solid #2AABEE;">
+                💡 Сообщения считаются <b>автоматически</b> после привязки Twitch в профиле.<br><br>
+                Общайтесь в чате на канале <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" style="color: #2AABEE; text-decoration: none; font-weight: bold;">HATElove_ttv <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i></a>, чтобы открыть доступ!
+            </div>
+        </div>
+
+        <!-- 🔄 ОБЫЧНЫЙ ЭКРАН СВАПА -->
         <div id="swap-loader" style="text-align:center; padding:20px; color:#888;">
             <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка данных...
         </div>
 
         <div id="swap-content-area" class="hidden" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; gap: 15px; padding-bottom: 10px;">
-            
-            <!-- ЗОНА 1: ЧТО ОТДАЕМ -->
             <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <span style="font-size: 12px; color: #8e8e93; text-transform: uppercase; font-weight: 800;">Отдаете (до 4 шт)</span>
                     <span style="font-size: 14px; color: #fff; font-weight: bold;"><span id="swap-give-sum">0</span> 🟡</span>
                 </div>
-                <div id="swap-inventory-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 150px; overflow-y: auto;">
-                    <!-- Инвентарь юзера -->
-                </div>
+                <div id="swap-inventory-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 150px; overflow-y: auto;"></div>
             </div>
 
             <div style="text-align: center; color: #444;"><i class="fa-solid fa-arrow-down"></i></div>
 
-            <!-- ЗОНА 2: ЧТО ПОЛУЧАЕМ -->
             <div style="background: rgba(255,149,0,0.05); border: 1px solid rgba(255,149,0,0.2); border-radius: 12px; padding: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <span style="font-size: 12px; color: #ff9500; text-transform: uppercase; font-weight: 800;">Получаете (1 шт)</span>
                     <span style="font-size: 14px; color: #ffcc00; font-weight: bold;"><span id="swap-take-price">0</span> 🟡</span>
                 </div>
-                <div id="swap-market-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 250px; overflow-y: auto;">
-                    <!-- Витрина для свапа -->
-                </div>
+                <div id="swap-market-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 250px; overflow-y: auto;"></div>
             </div>
-
         </div>
 
-        <!-- КНОПКА ПОДТВЕРЖДЕНИЯ -->
-        <div style="margin-top: 10px; flex-shrink: 0;">
+        <div id="swap-footer" style="margin-top: 10px; flex-shrink: 0;">
             <button id="execute-swap-btn" onclick="executeSwap()" class="action-btn btn-buy" style="height: 48px; width: 100%; font-size: 14px; background: linear-gradient(135deg, #ff3b30, #ff9500); color: #fff; border-radius: 12px;" disabled>
                 ВЫБЕРИТЕ ПРЕДМЕТЫ
             </button>
