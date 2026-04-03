@@ -195,30 +195,23 @@
 
     <img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDd2azc1aXVvcmE3eG81a3FxZDlya2M4c3NmNDZweHFnOW8za3d2eiZlcD12MV9pbnRlcm5hbF_naWZfYnlfaWQmY3Q9cw/GqegZvkq9kgxuk1kTC/giphy.gif" alt="Flying Witch" class="flying-witch">
 
-    <footer class="app-footer">
-        <a href="/leaderboard" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
-            <span>Лидерборд</span>
+    <nav class="floating-bottom-bar">
+        <a href="/leaderboard" class="nav-item">
+            <i class="fa-solid fa-trophy"></i><span>Топ</span>
         </a>
-        <a href="/menu#quests" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div>
-            <span>Задания</span>
+        <a href="/quests" class="nav-item" id="nav-quests">
+            <i class="fa-solid fa-check-double"></i><span>Задания</span>
         </a>
-        
-        <a href="/menu" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
-            <span>Главная</span>
+        <a href="/" class="nav-item" id="nav-dashboard">
+            <i class="fa-solid fa-house"></i><span>Главная</span>
         </a>
-        
-        <a href="/events" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
-            <span>Гринд</span>
+        <a href="/events" class="nav-item active">
+            <i class="fa-solid fa-fire"></i><span>Гринд</span>
         </a>
-        <a href="/auction" class="footer-item">
-            <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
-            <span>Аукцион</span>
+        <a href="/auction" class="nav-item">
+            <i class="fa-solid fa-gavel"></i><span>Аукцион</span>
         </a>
-    </footer>
+    </nav>
 
     <script src="halloween.js"></script>
 </body>
