@@ -1572,15 +1572,16 @@ body[data-theme="runcase"] .viewer-image {
    КРАСИВЫЙ БЛОК СТАТИСТИКИ ВНИЗУ (Всего участников / Твое место)
    ========================================= */
 /* Блок статистики (теперь над лидербордом) */
+/* Блок статистики (над лидербордом) */
 .bottom-stats-block {
-    display: none; /* Скрыто для всех тем по умолчанию */
+    display: none; 
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px; /* Отступ снизу, чтобы не прилипало к таблице лидеров */
-    padding: 10px 15px; /* Сильно уменьшили внутренние отступы */
+    margin: 0; /* УБРАЛИ лишний отступ, теперь расстояние сверху и снизу будет идеально ровным */
+    padding: 8px 15px; /* Сделали сам блок тоньше */
     background: var(--surface-primary);
     border: 1px solid var(--border-color);
-    border-radius: 12px; /* Скругление чуть меньше */
+    border-radius: 10px; /* Чуть уменьшили скругление */
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
@@ -1588,7 +1589,7 @@ body[data-theme="runcase"] .viewer-image {
 body[data-theme="runcase"] .bottom-stats-block {
     background: linear-gradient(135deg, #171b2c 0%, #262f47 100%);
     border-radius: 8px;
-    display: flex; /* JS переопределит это, но на всякий случай */
+    display: flex;
 }
 
 /* Стили элементов внутри блока */
@@ -1601,22 +1602,23 @@ body[data-theme="runcase"] .bottom-stats-block {
 
 .bottom-stat-divider {
     width: 1px;
-    height: 30px; /* Сделали палочку-разделитель короче */
+    height: 25px; /* Сделали палочку-разделитель еще короче */
     background: var(--border-color);
 }
 
 .bottom-stat-label {
-    font-size: 10px; /* Сделали подпись меньше */
+    font-size: 10px;
     color: var(--text-color-muted);
     text-transform: uppercase;
-    margin-bottom: 3px;
+    margin-bottom: 2px; /* Прижали подпись плотнее к цифрам */
     font-weight: 700;
 }
 
 .bottom-stat-value {
-    font-size: 18px; /* Сильно уменьшили цифры (было 24px) */
+    font-size: 18px; 
     font-weight: 800;
     color: #fff;
+    line-height: 1; /* Убрали лишнее пространство у шрифта */
 }
 
 /* --- Адаптация под тему RUNCASE --- */
