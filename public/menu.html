@@ -457,18 +457,19 @@
     </div>
     
 <div id="swap-modal" class="modal hidden">
-    <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column; padding: 15px;">
+    <!-- Сделали высоту 95vh, чтобы окно было максимально большим -->
+    <div class="modal-content" style="height: 95vh; max-height: 95vh; display: flex; flex-direction: column; padding: 15px;">
         <div class="modal-header" style="flex-shrink: 0;">
             <h3>ОБМЕННИК ПРЕДМЕТОВ</h3>
             <button onclick="closeSwapModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <!-- 🔒 ЭКРАН БЛОКИРОВКИ (Отображается, если нет 300 сообщений) -->
+        <!-- 🔒 ЭКРАН БЛОКИРОВКИ -->
         <div id="swap-locked-area" class="hidden" style="text-align: center; padding: 20px 10px; overflow-y: auto;">
             <i class="fa-solid fa-lock" style="font-size: 48px; color: #ff3b30; margin-bottom: 15px; filter: drop-shadow(0 0 15px rgba(255,59,48,0.4));"></i>
             <h3 style="color: #fff; margin-bottom: 10px;">SWAP недоступен</h3>
             <p style="font-size: 13px; color: #8e8e93; line-height: 1.4; margin-bottom: 15px;">
-                Обменник доступен только активным зрителям. Для разблокировки нужно написать <b>300 сообщений</b> за неделю на Twitch.
+                Обменник доступен только активным зрителям. Для разблокировки нужно написать <b>300 сообщений</b> за месяц на Twitch.
             </p>
             
             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
@@ -492,29 +493,32 @@
             <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка данных...
         </div>
 
-        <div id="swap-content-area" class="hidden" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; gap: 15px; padding-bottom: 10px;">
-            <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div id="swap-content-area" class="hidden" style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0; gap: 10px; padding-bottom: 10px;">
+            
+            <!-- ЗОНА 1: ЧТО ОТДАЕМ (Растягивается гибко) -->
+            <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;">
                     <span style="font-size: 12px; color: #8e8e93; text-transform: uppercase; font-weight: 800;">Отдаете (до 4 шт)</span>
                     <span style="font-size: 14px; color: #fff; font-weight: bold;"><span id="swap-give-sum">0</span> 🟡</span>
                 </div>
-                <div id="swap-inventory-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 150px; overflow-y: auto;"></div>
+                <div id="swap-inventory-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex-grow: 1; overflow-y: auto; align-content: flex-start;"></div>
             </div>
 
-            <div style="text-align: center; color: #444;"><i class="fa-solid fa-arrow-down"></i></div>
+            <div style="text-align: center; color: #444; flex-shrink: 0;"><i class="fa-solid fa-arrow-down"></i></div>
 
-            <div style="background: rgba(255,149,0,0.05); border: 1px solid rgba(255,149,0,0.2); border-radius: 12px; padding: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <!-- ЗОНА 2: ЧТО ПОЛУЧАЕМ (Растягивается гибко, занимает чуть больше места) -->
+            <div style="background: rgba(255,149,0,0.05); border: 1px solid rgba(255,149,0,0.2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; flex: 1.5; min-height: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;">
                     <span style="font-size: 12px; color: #ff9500; text-transform: uppercase; font-weight: 800;">Получаете (1 шт)</span>
                     <span style="font-size: 14px; color: #ffcc00; font-weight: bold;"><span id="swap-take-price">0</span> 🟡</span>
                 </div>
-                <div id="swap-market-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 250px; overflow-y: auto;"></div>
+                <div id="swap-market-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex-grow: 1; overflow-y: auto; align-content: flex-start;"></div>
             </div>
         </div>
 
         <div id="swap-footer" style="margin-top: 10px; flex-shrink: 0;">
             <button id="execute-swap-btn" onclick="executeSwap()" class="action-btn btn-buy" style="height: 48px; width: 100%; font-size: 14px; background: linear-gradient(135deg, #ff3b30, #ff9500); color: #fff; border-radius: 12px;" disabled>
-                ВЫБЕРИТЕ ПРЕДМЕТЫ
+                ВЫБЕРИТЕ СВОИ ПРЕДМЕТЫ
             </button>
         </div>
     </div>
