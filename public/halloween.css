@@ -1621,3 +1621,9 @@ body[data-theme="runcase"] .bottom-stat-value {
     color: #ffffff !important; /* Делаем цифры белыми, как в оригинале */
     text-shadow: none;
 }
+
+/* ИСПРАВЛЕНИЕ: Убираем пикселизацию картинок на мобильных телефонах */
+img {
+    image-rendering: auto !important;
+    -webkit-user-drag: none;
+}
