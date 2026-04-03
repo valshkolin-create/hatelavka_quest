@@ -2891,17 +2891,22 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 
 
 # ==========================================
-# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB (ОПТИМИЗИРОВАННЫЙ)
+# ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB (ОПТИМИЗИРОВАННЫЙ x30)
 # ==========================================
 
 async def run_mass_twitch_update():
-    """Логика пакетной проверки: берем 30 юзеров (оптимально для таймаута 30с)"""
-    logging.info("⏳ Запуск пакетного обновления Twitch (30 юзеров)...")
+    """Логика пакетной проверки: берем 30 юзеров и проверяем всех ОДНОВРЕМЕННО"""
+    logging.info("⚡ Запуск РЕАКТИВНОГО пакетного обновления Twitch (30 юзеров)...")
     try:
         broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
         client_id = os.getenv("TWITCH_CLIENT_ID")
         client_secret = os.getenv("TWITCH_CLIENT_SECRET")
 
+        if not broadcaster_id or not client_id:
+            logging.error("❌ Отсутствуют ключи Twitch в переменных окружения!")
+            return
+
+        # 1. Получаем токен стримера (Синхронный запрос, тут это нормально)
         br_resp = supabase.table("users").select("telegram_id, twitch_access_token, twitch_refresh_token").eq("twitch_id", broadcaster_id).execute()
         br_data = br_resp.data if hasattr(br_resp, 'data') else br_resp
         
@@ -2928,22 +2933,44 @@ async def run_mass_twitch_update():
 
             br_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": client_id} if broadcaster_token else None
 
-            # ЛИМИТ 30 ЮЗЕРОВ (чтобы уложиться в 30 секунд для cron-job.org)
+            # 2. Берем 30 самых "старых" юзеров из БД
             resp = supabase.table("users").select(
                 "telegram_id, twitch_id, twitch_status, twitch_access_token"
             ).not_.is_("twitch_id", "null").order("last_twitch_sync").limit(30).execute()
             
             users = resp.data if hasattr(resp, 'data') else resp
-            
-            for user in users:
-                twitch_id = user.get("twitch_id")
-                if not twitch_id or twitch_id == broadcaster_id:
-                    continue
+            valid_users = [u for u in users if u.get("twitch_id") and u.get("twitch_id") != broadcaster_id]
 
-                new_status = "none"
-                user_token = user.get("twitch_access_token")
+            if not valid_users:
+                logging.info("✅ Нет пользователей для обновления.")
+                return
+
+            # 🔥 МАССОВАЯ ПРОВЕРКА МОДЕРОВ И VIP (1 запрос вместо 60) 🔥
+            mods_set, vips_set = set(), set()
+            
+            if br_headers:
+                # Склеиваем 30 ID в одну строку: &user_id=123&user_id=456...
+                query_string = "&".join([f"user_id={u['twitch_id']}" for u in valid_users])
                 
-                # Проверки Сабки, Модерки и VIP
+                # Запрашиваем модеров сразу пачкой
+                m_resp = await client.get(f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
+                if m_resp.status_code == 200:
+                    mods_set = {item['user_id'] for item in m_resp.json().get("data", [])}
+
+                # Запрашиваем VIP сразу пачкой
+                v_resp = await client.get(f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
+                if v_resp.status_code == 200:
+                    vips_set = {item['user_id'] for item in v_resp.json().get("data", [])}
+
+            # 🔥 АСИНХРОННАЯ МЯСОРУБКА ДЛЯ ПОДПИСОК И БАЗЫ ДАННЫХ 🔥
+            db_client = await get_background_client() # Используем твой быстрый фоновый клиент
+
+            async def process_single_user(user):
+                twitch_id = user.get("twitch_id")
+                user_token = user.get("twitch_access_token")
+                new_status = "none"
+                
+                # 1. Проверяем Сабку (Нужен личный токен юзера, поэтому отдельный запрос)
                 if user_token:
                     try:
                         u_headers = {"Authorization": f"Bearer {user_token}", "Client-Id": client_id}
@@ -2952,32 +2979,31 @@ async def run_mass_twitch_update():
                             new_status = "subscriber"
                     except: pass
 
-                if br_headers:
-                    try:
-                        m_url = f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
-                        m_resp = await client.get(m_url, headers=br_headers)
-                        if m_resp.status_code == 200 and len(m_resp.json().get("data", [])) > 0:
-                            new_status = "moderator"
-
-                        v_url = f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
-                        v_resp = await client.get(v_url, headers=br_headers)
-                        if v_resp.status_code == 200 and len(v_resp.json().get("data", [])) > 0:
-                            new_status = "vip"
-                    except: pass
+                # 2. Накатываем статусы Модера/VIP из наших массовых сетов (Они важнее сабки)
+                if twitch_id in mods_set:
+                    new_status = "moderator"
+                if twitch_id in vips_set:
+                    new_status = "vip"
                 
+                # 3. Обновляем статус в БД (Асинхронно!)
                 update_payload = {"last_twitch_sync": datetime.now(timezone.utc).isoformat()}
                 if new_status != user.get("twitch_status"):
                     update_payload["twitch_status"] = new_status
                     logging.info(f"🔄 Изменен статус для {twitch_id}: {user.get('twitch_status')} -> {new_status}")
                     
-                supabase.table("users").update(update_payload).eq("telegram_id", user.get("telegram_id")).execute()
-                    
-                # ПАУЗА 0.1 СЕКУНДЫ (для ускорения)
-                await asyncio.sleep(0.1) 
-                
-        logging.info("✅ Пакетное обновление (30 юзеров) завершено.")
+                await db_client.patch(
+                    "/users",
+                    params={"telegram_id": f"eq.{user.get('telegram_id')}"},
+                    json=update_payload
+                )
+
+            # Запускаем обработку всех 30 юзеров ОДНОВРЕМЕННО
+            tasks = [process_single_user(u) for u in valid_users]
+            await asyncio.gather(*tasks)
+
+        logging.info("✅ Пакетное обновление (30 юзеров) завершено МГНОВЕННО.")
     except Exception as e:
-        logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}")
+        logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}", exc_info=True)
 
 @app.get("/api/cron/sync-shop")
 async def cron_sync_shop_categories(
