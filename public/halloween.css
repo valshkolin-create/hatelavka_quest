@@ -1571,50 +1571,52 @@ body[data-theme="runcase"] .viewer-image {
 /* =========================================
    КРАСИВЫЙ БЛОК СТАТИСТИКИ ВНИЗУ (Всего участников / Твое место)
    ========================================= */
+/* Блок статистики (теперь над лидербордом) */
 .bottom-stats-block {
-    display: flex;
+    display: none; /* Скрыто для всех тем по умолчанию */
     justify-content: space-between;
     align-items: center;
-    margin-top: 15px; /* Отступ сверху от секции наград */
-    padding: 20px 15px;
+    margin-bottom: 15px; /* Отступ снизу, чтобы не прилипало к таблице лидеров */
+    padding: 10px 15px; /* Сильно уменьшили внутренние отступы */
     background: var(--surface-primary);
     border: 1px solid var(--border-color);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px; /* Скругление чуть меньше */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
+/* Показываем только в RUNCASE */
+body[data-theme="runcase"] .bottom-stats-block {
+    background: linear-gradient(135deg, #171b2c 0%, #262f47 100%);
+    border-radius: 8px;
+    display: flex; /* JS переопределит это, но на всякий случай */
+}
+
+/* Стили элементов внутри блока */
 .bottom-stat-item {
     display: flex;
     flex-direction: column;
     align-items: center;
     flex: 1;
-    text-align: center;
 }
 
 .bottom-stat-divider {
     width: 1px;
-    height: 45px;
+    height: 30px; /* Сделали палочку-разделитель короче */
     background: var(--border-color);
-    opacity: 0.8;
 }
 
 .bottom-stat-label {
-    font-size: 11px;
+    font-size: 10px; /* Сделали подпись меньше */
     color: var(--text-color-muted);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 6px;
+    margin-bottom: 3px;
     font-weight: 700;
 }
 
 .bottom-stat-value {
-    font-size: 26px;
+    font-size: 18px; /* Сильно уменьшили цифры (было 24px) */
     font-weight: 800;
-    color: var(--primary-color);
-    text-shadow: 0 2px 10px var(--glow-color);
-    line-height: 1;
+    color: #fff;
 }
 
 /* --- Адаптация под тему RUNCASE --- */
