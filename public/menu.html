@@ -457,8 +457,8 @@
     </div>
     
 <div id="swap-modal" class="modal hidden">
+    <!-- 🔥 Отступ 75px сверху спасает от перекрытия интерфейсом Телеграма -->
     <div class="modal-content" style="margin-top: 75px; height: calc(100vh - 90px); display: flex; flex-direction: column; padding: 15px;">
-        
         <div class="modal-header" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <button id="swap-back-btn" class="hidden" onclick="swapGoBack()" style="background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
@@ -469,6 +469,7 @@
             <button onclick="closeSwapModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
+        <!-- 🔒 ЭКРАН БЛОКИРОВКИ -->
         <div id="swap-locked-area" class="hidden" style="text-align: center; padding: 20px 10px; overflow-y: auto;">
             <i class="fa-solid fa-lock" style="font-size: 48px; color: #ff3b30; margin-bottom: 15px; filter: drop-shadow(0 0 15px rgba(255,59,48,0.4));"></i>
             <h3 style="color: #fff; margin-bottom: 10px;">SWAP недоступен</h3>
@@ -485,6 +486,7 @@
             </div>
         </div>
 
+        <!-- 🔄 ЛОАДЕР -->
         <div id="swap-loader" style="text-align:center; padding:20px; color:#888; flex-grow: 1; display: flex; align-items: center; justify-content: center;">
             <div><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i><br>Загрузка данных...</div>
         </div>
