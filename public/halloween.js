@@ -584,21 +584,22 @@ function renderPage(eventData, leaderboardData = {}) {
     dom.userLeaderboardRank.textContent = userRank;
 
     // === БЛОК СТАТИСТИКИ (ТОЛЬКО ДЛЯ ТЕМЫ RUNCASE) ===
-    const defaultRewardSection = document.querySelector('.default-reward-section');
-    if (defaultRewardSection) {
+    const leaderboardSection = document.querySelector('.leaderboard-section');
+    if (leaderboardSection) {
         let bottomStats = document.getElementById('bottom-stats-block');
         if (!bottomStats) {
             bottomStats = document.createElement('div');
             bottomStats.id = 'bottom-stats-block';
             bottomStats.className = 'bottom-stats-block';
-            defaultRewardSection.parentNode.insertBefore(bottomStats, defaultRewardSection.nextSibling);
+            // Вставляем ровно ПЕРЕД таблицей лидеров
+            leaderboardSection.parentNode.insertBefore(bottomStats, leaderboardSection);
         }
 
         // Проверяем тему: если RUNCASE — показываем и обновляем, иначе — скрываем
         if (document.body.dataset.theme === 'runcase') {
             const displayRank = (currentUserIndex !== -1) ? `#${currentUserIndex + 1}` : '—';
             bottomStats.innerHTML = `
-                <div class="bottom-stat-item">
+                <div class="bottom-stat-item clickable-stat" onclick="window.location.href='/leaderboard'">
                     <span class="bottom-stat-label">Всего участников</span>
                     <span class="bottom-stat-value">${totalParticipants}</span>
                 </div>
