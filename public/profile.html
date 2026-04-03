@@ -1904,7 +1904,7 @@ function renderInventory(items) {
     const statusWeight = { 
         'market_pending': 1, 'sent': 1, 'offer_sent': 1, 'auto_queued': 1, 'pending': 1,
         'available': 2, 'processing': 2, 'failed': 2, 'canceled': 2,
-        'received': 3, 'exchanged': 4 
+        'received': 3, 'exchanged': 4, 'exchanged_swap': 4 // <--- ДОБАВИЛИ СЮДА
     };
     
     items.sort((a, b) => {
@@ -2003,6 +2003,16 @@ function renderInventory(items) {
                     +${ticketVal} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i>
                 </div>`;
         }
+        // 👇👇👇 ДОБАВЛЯЕМ ЭТОТ БЛОК 👇👇👇
+        else if (status === 'exchanged_swap') {
+            cardOpacity = '0.5';
+            statusLabel = '<span style="color:#ff9500; font-size:9px;"><i class="fa-solid fa-fire"></i> ИСПОЛЬЗОВАНО В SWAP</span>';
+            rightContentHtml = `
+                <div style="text-align: right; color: #888; font-size: 11px; font-weight: 700;">
+                    СОЖЖЕНО
+                </div>`;
+        }
+        // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
         else {
             if (status === 'failed' || status === 'canceled') {
                 statusLabel = '<span style="color:#ff3b30; font-size:9px;"><i class="fa-solid fa-rotate-left"></i> ОТМЕНЕНО (МОЖНО ПОВТОРИТЬ)</span>';
