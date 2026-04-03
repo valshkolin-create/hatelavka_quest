@@ -3522,12 +3522,16 @@ async def get_bootstrap_data(
         goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
         cauldron_data = db_data.get('cauldron') or {"is_visible_to_users": False}
 
+        # 🔥 ВОТ ЭТИ ДВЕ СТРОКИ ТЫ ПРОПУСТИЛ 🔥
+        raffles_data = db_data.get('raffles') or []
+        active_cases_data = db_data.get('active_cases') or []
+
         return {
             "user": user_data,
             "menu": menu_content,
             "quests": quests_list,
             "weekly_goals": goals_data,
-            "cauldron": cauldron_data
+            "cauldron": cauldron_data,               # <-- 🔥 Не забудь запятую здесь!
             "raffles": raffles_data,                 # <-- Отдаем фронтенду
             "my_active_cases": active_cases_data     # <-- Отдаем фронтенду
         }
