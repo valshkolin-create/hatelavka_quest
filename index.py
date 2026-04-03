@@ -8748,31 +8748,41 @@ async def user_heartbeat(
     if request_data.platform == "vk":
         user_info = is_valid_vk_query(request_data.initData, VK_APP_SECRET)
         if user_info and "id" in user_info:
-            # Для ВК используем отрицательный ID
             telegram_id = -1 * abs(user_info["id"])
     else:
         user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
         if user_info and "id" in user_info:
             telegram_id = user_info["id"]
 
-    # Если авторизация не прошла, просто говорим фронтенду "не активен"
     if not user_info or not telegram_id:
         return {"is_active": False}
 
     now = time.time()
 
     try:
-        # 2. ЧТЕНИЕ (RPC)
-        # Передаем правильный (возможно отрицательный) ID в базу
-        rpc_resp = await supabase.post("/rpc/get_user_heartbeat_data", json={"p_telegram_id": telegram_id})
-        
-        # Если база вернула ошибку 400 (например, неверный тип данных), логируем и выходим
-        if rpc_resp.status_code == 400:
-             logging.error(f"Heartbeat RPC Error 400: {rpc_resp.text}")
-             return {"is_active": False}
+        # 🔥 2. ДЕЛАЕМ ДВА ЗАПРОСА В БД ПАРАЛЛЕЛЬНО 🔥
+        rpc_task = supabase.post("/rpc/get_user_heartbeat_data", json={"p_telegram_id": telegram_id})
+        # Вытаскиваем только ID непрочитанных уведомлений, чтобы не качать лишний текст
+        notif_task = supabase.get(
+            "/in_app_notifications", 
+            params={"user_id": f"eq.{telegram_id}", "is_read": "eq.false", "select": "id"}
+        )
 
-        rpc_resp.raise_for_status()
+        results = await asyncio.gather(rpc_task, notif_task, return_exceptions=True)
+        rpc_resp, notif_resp = results
+
+        if isinstance(rpc_resp, Exception) or rpc_resp.status_code == 400:
+            logging.error(f"Heartbeat RPC Error: {rpc_resp}")
+            return {"is_active": False}
+
         data = rpc_resp.json()
+
+        # 🔥 Считаем уведомления и вкладываем их прямо в ответ heartbeat 🔥
+        unread_count = 0
+        if not isinstance(notif_resp, Exception) and notif_resp.status_code == 200:
+            unread_count = len(notif_resp.json())
+            
+        data['unread_notifications'] = unread_count
 
         # 3. ЗАПИСЬ ОНЛАЙНА (В фоне)
         last_write_time = HEARTBEAT_DB_CACHE.get(telegram_id, 0)
@@ -8783,7 +8793,6 @@ async def user_heartbeat(
         return data
 
     except Exception as e:
-        # Логируем ошибку, но не роняем сервер
         logging.error(f"Heartbeat execution error: {e}")
         return {"is_active": False}
         
