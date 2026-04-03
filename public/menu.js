@@ -3007,13 +3007,13 @@ function renderSwapMarket() {
         const border = isSelected ? '#ff9500' : 'transparent';
         const shortName = item.market_hash_name.split('|').pop().trim();
 
-        // ДОБАВЛЕН КЛАСС class="swap-card-inv" и исправлена верстка галочки под единый стиль
+        // 🔥 ДОБАВЛЕНО: min-width: 0, overflow: hidden, width: 100% чтобы текст обрезался, а не ломал сетку
         return `
             <div class="swap-card-inv" onclick="selectTargetItem('${item.market_hash_name.replace(/'/g, "\\'")}', ${priceRub}, '${item.image_url}')"
-                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
-                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
+                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s; min-width: 0; overflow: hidden; width: 100%;">
+                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain; flex-shrink: 0;">
                 <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
-                <div style="font-size: 11px; color: #ffcc00; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                <div style="font-size: 11px; color: #ffcc00; font-weight: bold; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
                     ${priceRub} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
                 </div>
                 <div class="swap-check ${isSelected ? '' : 'hidden'}" style="position: absolute; top: 4px; right: 4px; background: #ff9500; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
