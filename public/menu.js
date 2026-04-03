@@ -3069,14 +3069,7 @@ function renderSwapConfirmation() {
 }
 
 // ФИНАЛ: Запуск обмена
-window.executeSwap = async () => {
-    if (swapGivenItems.size === 0 || !swapTargetItem) return;
-
-    const btn = document.getElementById('swap-main-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Выполняем...';
-
-    try {
+try {
         const payload = {
             history_ids: Array.from(swapGivenItems.keys()),
             target_market_name: swapTargetItem.name
@@ -3086,7 +3079,9 @@ window.executeSwap = async () => {
         
         closeSwapModal();
         customAlert(`✅ Успешно! Вы получили:\n${swapTargetItem.name.split('|').pop().trim()}`);
-        checkBalance(true); 
+        
+        checkBalance(true); // Обновляем шапку
+        if (typeof loadData === 'function') loadData(true); // 🔥 ДОБАВЛЕНО: Обновляем инвентарь в профиле!
         
     } catch (e) {
         // Ошибка перехватится
