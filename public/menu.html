@@ -457,10 +457,15 @@
     </div>
     
 <div id="swap-modal" class="modal hidden">
-    <!-- Сделали высоту 95vh, чтобы окно было максимально большим -->
-    <div class="modal-content" style="height: 95vh; max-height: 95vh; display: flex; flex-direction: column; padding: 15px;">
-        <div class="modal-header" style="flex-shrink: 0;">
-            <h3>ОБМЕННИК ПРЕДМЕТОВ</h3>
+    <!-- 🔥 Отступ 75px сверху спасает от перекрытия интерфейсом Телеграма -->
+    <div class="modal-content" style="margin-top: 75px; height: calc(100vh - 90px); display: flex; flex-direction: column; padding: 15px;">
+        <div class="modal-header" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button id="swap-back-btn" class="hidden" onclick="swapGoBack()" style="background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <h3 style="margin: 0; font-size: 16px; text-transform: uppercase;">ОБМЕННИК</h3>
+            </div>
             <button onclick="closeSwapModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
@@ -471,53 +476,71 @@
             <p style="font-size: 13px; color: #8e8e93; line-height: 1.4; margin-bottom: 15px;">
                 Обменник доступен только активным зрителям. Для разблокировки нужно написать <b>300 сообщений</b> за месяц на Twitch.
             </p>
-            
             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: bold;">
-                    <span style="color: #fff;">Прогресс:</span>
-                    <span style="color: #ffcc00;"><span id="swap-msg-progress">0</span> / 300</span>
+                    <span style="color: #fff;">Прогресс:</span><span style="color: #ffcc00;"><span id="swap-msg-progress">0</span> / 300</span>
                 </div>
                 <div style="width: 100%; height: 6px; background: #333; border-radius: 3px; overflow: hidden;">
                     <div id="swap-msg-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ff3b30, #ff9500); transition: width 0.5s ease-out;"></div>
                 </div>
             </div>
-
-            <div style="font-size: 11px; color: #ccc; line-height: 1.5; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; text-align: left; border-left: 3px solid #2AABEE;">
-                💡 Сообщения считаются <b>автоматически</b> после привязки Twitch в профиле.<br><br>
-                Общайтесь в чате на канале <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" style="color: #2AABEE; text-decoration: none; font-weight: bold;">HATElove_ttv <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px;"></i></a>, чтобы открыть доступ!
-            </div>
         </div>
 
-        <!-- 🔄 ОБЫЧНЫЙ ЭКРАН СВАПА -->
-        <div id="swap-loader" style="text-align:center; padding:20px; color:#888;">
-            <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка данных...
+        <!-- 🔄 ЛОАДЕР -->
+        <div id="swap-loader" style="text-align:center; padding:20px; color:#888; flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+            <div><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i><br>Загрузка данных...</div>
         </div>
 
-        <div id="swap-content-area" class="hidden" style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0; gap: 10px; padding-bottom: 10px;">
+        <!-- 🛠️ КОНТЕЙНЕР ЭТАПОВ -->
+        <div id="swap-content-area" class="hidden" style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0; padding-bottom: 10px; padding-top: 10px;">
             
-            <!-- ЗОНА 1: ЧТО ОТДАЕМ (Растягивается гибко) -->
-            <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; flex: 1; min-height: 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;">
-                    <span style="font-size: 12px; color: #8e8e93; text-transform: uppercase; font-weight: 800;">Отдаете (до 4 шт)</span>
+            <!-- ЭТАП 1: ЧТО ОТДАЕМ -->
+            <div id="swap-step-1" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 10px;">
+                    <span style="font-size: 12px; color: #8e8e93; font-weight: 800;">ОТДАЕТЕ (ДО 4 ШТ)</span>
                     <span style="font-size: 14px; color: #fff; font-weight: bold;"><span id="swap-give-sum">0</span> 🟡</span>
                 </div>
+                <!-- Инвентарь тянется на всю высоту -->
                 <div id="swap-inventory-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex-grow: 1; overflow-y: auto; align-content: flex-start;"></div>
             </div>
 
-            <div style="text-align: center; color: #444; flex-shrink: 0;"><i class="fa-solid fa-arrow-down"></i></div>
-
-            <!-- ЗОНА 2: ЧТО ПОЛУЧАЕМ (Растягивается гибко, занимает чуть больше места) -->
-            <div style="background: rgba(255,149,0,0.05); border: 1px solid rgba(255,149,0,0.2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; flex: 1.5; min-height: 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;">
-                    <span style="font-size: 12px; color: #ff9500; text-transform: uppercase; font-weight: 800;">Получаете (1 шт)</span>
+            <!-- ЭТАП 2: ЧТО ПОЛУЧАЕМ -->
+            <div id="swap-step-2" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0; background: rgba(255,149,0,0.05); border: 1px solid rgba(255,149,0,0.2); padding: 10px; border-radius: 10px;">
+                    <span style="font-size: 12px; color: #ff9500; font-weight: 800;">ВЫБЕРИТЕ ЗАМЕНУ</span>
                     <span style="font-size: 14px; color: #ffcc00; font-weight: bold;"><span id="swap-take-price">0</span> 🟡</span>
                 </div>
+                <!-- Маркет тянется на всю высоту -->
                 <div id="swap-market-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex-grow: 1; overflow-y: auto; align-content: flex-start;"></div>
             </div>
+
+            <!-- ЭТАП 3: ПОДТВЕРЖДЕНИЕ -->
+            <div id="swap-step-3" class="hidden" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                <h2 style="color: #fff; margin-bottom: 5px;">Готовы к обмену?</h2>
+                <p style="color: #8e8e93; font-size: 12px; margin-bottom: 25px; text-align: center;">Одобрите операцию для получения скина</p>
+                
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px;">
+                    <div style="flex: 1; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 14px; border: 1px dashed rgba(255,255,255,0.1); text-align: center; display: flex; flex-direction: column; align-items: center;">
+                        <span style="font-size: 10px; color: #888; text-transform: uppercase; font-weight: 800; margin-bottom: 8px;">Вы отдаете</span>
+                        <div id="swap-confirm-give-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;"></div>
+                        <span style="font-size: 12px; color: #fff; font-weight: bold; margin-top: 8px;"><span id="swap-confirm-sum">0</span> 🟡</span>
+                    </div>
+                    
+                    <i class="fa-solid fa-arrow-right" style="color: #ff9500; font-size: 24px; filter: drop-shadow(0 0 8px rgba(255,149,0,0.5));"></i>
+                    
+                    <div style="flex: 1; background: rgba(255,149,0,0.1); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,149,0,0.3); text-align: center; display: flex; flex-direction: column; align-items: center;">
+                        <span style="font-size: 10px; color: #ff9500; text-transform: uppercase; font-weight: 800; margin-bottom: 8px;">Вы получаете</span>
+                        <img id="swap-confirm-take-img" src="" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px;">
+                        <span id="swap-confirm-take-name" style="font-size: 9px; color: #fff; margin-bottom: 5px; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">Название</span>
+                        <span style="font-size: 12px; color: #ffcc00; font-weight: bold;"><span id="swap-confirm-take-price">0</span> 🟡</span>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <div id="swap-footer" style="margin-top: 10px; flex-shrink: 0;">
-            <button id="execute-swap-btn" onclick="executeSwap()" class="action-btn btn-buy" style="height: 48px; width: 100%; font-size: 14px; background: linear-gradient(135deg, #ff3b30, #ff9500); color: #fff; border-radius: 12px;" disabled>
+            <button id="swap-main-btn" onclick="handleSwapMainBtn()" class="action-btn btn-buy" style="height: 48px; width: 100%; font-size: 14px; background: linear-gradient(135deg, #ff3b30, #ff9500); color: #fff; border-radius: 12px;" disabled>
                 ВЫБЕРИТЕ СВОИ ПРЕДМЕТЫ
             </button>
         </div>
