@@ -599,7 +599,7 @@ function renderPage(eventData, leaderboardData = {}) {
         if (document.body.dataset.theme === 'runcase') {
             const displayRank = (currentUserIndex !== -1) ? `#${currentUserIndex + 1}` : '—';
             bottomStats.innerHTML = `
-                <div class="bottom-stat-item clickable-stat" onclick="window.location.href='/leaderboard'">
+                <div class="bottom-stat-item">
                     <span class="bottom-stat-label">Всего участников</span>
                     <span class="bottom-stat-value">${totalParticipants}</span>
                 </div>
