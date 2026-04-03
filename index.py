@@ -19331,12 +19331,12 @@ async def get_user_inventory(
     
     user_id = user_data['id']
 
-    # 🔥 Добавили replaced_image_url и is_swapped в выборку
+    # 🔥 Добавили replaced_image_url, replaced_rarity и is_swapped в выборку
     resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, replaced_image_url, is_swapped, item:cs_items(id, name, image_url, rarity, price)",
+            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, price)",
             "order": "created_at.desc"
         }
     )
@@ -19359,9 +19359,9 @@ async def get_user_inventory(
             "history_id": row['id'],
             "item_id": item_data.get('id'),
             "name": row.get('replaced_name') or item_data.get('name', 'Секретный скин'),
-            # 🔥 Берем картинку из замены, а если её нет — из оригинального предмета
             "image_url": row.get('replaced_image_url') or item_data.get('image_url', ''),
-            "rarity": item_data.get('rarity', 'common'),
+            # 🔥 Берем рарность из замены, а если её нет — из оригинального предмета
+            "rarity": row.get('replaced_rarity') or item_data.get('rarity', 'common'),
             "price": ticket_val, 
             "status": row['status'],
             "received_at": row['created_at'],
@@ -19627,12 +19627,13 @@ async def execute_directed_swap(
     # 6. Выдаем новый предмет с клеймом is_swapped = True
     new_history_payload = {
         "user_id": user_id,
-        "item_id": None, # ID из cs_items нет, так как скин берется напрямую с маркета
+        "item_id": None, 
         "replaced_name": target_item.get('market_hash_name'),
         "status": "available",
         "replaced_price": target_price,
-        "replaced_image_url": target_item.get('image_url'), # 🔥 КЛАДЕМ КАРТИНКУ СЮДА
-        "is_swapped": True # Защита от бесконечного абуза
+        "replaced_image_url": target_item.get('image_url'),
+        "replaced_rarity": target_item.get('rarity', 'common'), # 🔥 СОХРАНЯЕМ РЕДКОСТЬ
+        "is_swapped": True 
     }
     
     # Отправляем в БД и просим вернуть созданную строку (чтобы получить сгенерированный ID)
