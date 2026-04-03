@@ -1016,28 +1016,23 @@ async function initDynamicRaffleSlider(preloadedData = null) {
     };
     // --- КОНЕЦ ВНУТРЕННЕЙ ФУНКЦИИ ---
 
-    // Если данные переданы из синхронного запуска Promise.all, рисуем сразу
+    // Если данные переданы напрямую из нового bootstrap, рисуем сразу
     if (preloadedData) {
         renderRaffles(preloadedData);
         return;
     }
 
-    // Иначе пытаемся моментально отрендерить из кэша
-    const cachedRaffles = localStorage.getItem('raffle_cache_v1');
-    if (cachedRaffles) {
-        try { renderRaffles(JSON.parse(cachedRaffles)); } catch(e) {}
-    }
-
-    // Тихо запрашиваем свежие данные с сервера
+    // Иначе пытаемся моментально отрендерить из общего кэша бутстрапа
     try {
-        const data = await makeApiRequest('/api/v1/raffles/active', {}, 'POST', true);
-        localStorage.setItem('raffle_cache_v1', JSON.stringify(data));
-        renderRaffles(data); 
-    } catch (e) {
-        console.warn("Raffle mini-slider error:", e);
-        if (!cachedRaffles) {
-            container.innerHTML = '<span style="font-size:12px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
+        const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+        if (cachedBootstrap && cachedBootstrap.raffles) {
+            renderRaffles(cachedBootstrap.raffles);
+        } else {
+            // Если и кэша нет (юзер зашел впервые), просто показываем красивую заглушку
+            container.innerHTML = '<span style="font-size:14px; font-weight:800; color:#fff; text-transform:uppercase;">РОЗЫГРЫШИ</span>';
         }
+    } catch(e) {
+        container.innerHTML = '<span style="font-size:12px; font-weight:800; color:#ff3b30;">ОШИБКА</span>';
     }
 }
 
@@ -1045,6 +1040,8 @@ async function renderFullInterface(data) {
     userData = data.user || {}; 
     allQuests = data.quests || [];
     const menuContent = data.menu;
+
+    window.activeFreeCases = data.my_active_cases || [];
 
     if (document.getElementById('ticketStats')) {
         document.getElementById('ticketStats').textContent = userData.tickets || 0;
@@ -2628,7 +2625,6 @@ async function main() {
     }
 
     // 🔥 ИСПРАВЛЕННАЯ ПРОВЕРКА ТЕЛЕГРАМА 🔥
-    // Мы заходим сюда ТОЛЬКО если это НЕ ВК
     if (!window.isVk && window.Telegram?.WebApp) {
         console.log("🤖 Режим Телеграм: ожидание initData...");
         let attempts = 0;
@@ -2655,11 +2651,10 @@ async function main() {
     console.log("✅ Авторизация пройдена успешно. Платформа:", window.isVk ? 'VK' : 'TG');
     
     // 3. ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОСЫ
-    await syncMyPromos();
+    // 🔥 syncMyPromos УДАЛЕН, ОН БОЛЬШЕ НЕ НУЖЕН 🔥
     checkBalance(true);
 
     try {
-        // Если даже после ожидания токена нет — тихо выходим (возможно, юзер открыл просто в браузере)
         if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden'); 
             return; 
@@ -2669,15 +2664,14 @@ async function main() {
         
         // 1. Читаем ВЕСЬ кэш
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || 'null');
-        const cachedRaffles = JSON.parse(localStorage.getItem('cache_raffles') || 'null');
         const cachedShopRaw = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
         const cachedShop = cachedShopRaw[2716312];
         const cachedP2P = JSON.parse(localStorage.getItem('cache_p2p') || 'null');
 
         // Если ВСЁ есть в кэше — рисуем мгновенно (Stale-While-Revalidate)
-        if (cachedBootstrap && !cachedBootstrap.maintenance && cachedRaffles && cachedShop) {
+        if (cachedBootstrap && !cachedBootstrap.maintenance && cachedShop) {
             await renderFullInterface(cachedBootstrap);
-            initDynamicRaffleSlider(cachedRaffles);
+            initDynamicRaffleSlider(cachedBootstrap.raffles || []); // 🔥 Берем из бутстрапа
             loadCategory(2716312, cachedShop);
             checkActiveTradesBackground(cachedP2P);
             setupSlider();
@@ -2696,15 +2690,11 @@ async function main() {
             updateLoading(10); 
         }      
         
-        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (С ЗАЩИТОЙ ОТ ПАДЕНИЯ ОТДЕЛЬНЫХ МОДУЛЕЙ)
-        let bootstrapData, rafflesData, shopData, p2pData;
+        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (ТОЛЬКО НУЖНОЕ)
+        let bootstrapData, shopData, p2pData;
         
-        [bootstrapData, rafflesData, shopData, p2pData] = await Promise.all([
-            // Bootstrap критичен, если он упадет - летим в catch (это правильно)
+        [bootstrapData, shopData, p2pData] = await Promise.all([
             makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-            
-            // Остальные модули глушим при ошибке, возвращая null. Приложение загрузится без них.
-            makeApiRequest('/api/v1/raffles/active', {}, 'POST', true).catch(e => { console.warn('Raffles error', e); return null; }),
             makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true).catch(e => { console.warn('Shop error', e); return null; }),
             makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { console.warn('P2P error', e); return null; })
         ]);
@@ -2734,7 +2724,6 @@ async function main() {
 
         // Сохраняем свежий кэш
         if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
-        if (rafflesData) localStorage.setItem('cache_raffles', JSON.stringify(rafflesData));
         if (p2pData) localStorage.setItem('cache_p2p', JSON.stringify(p2pData));
         if (shopData) {
             const newShopCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
@@ -2743,8 +2732,10 @@ async function main() {
         }
 
         // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД
-        if (bootstrapData) await renderFullInterface(bootstrapData);
-        if (rafflesData) initDynamicRaffleSlider(rafflesData);
+        if (bootstrapData) {
+            await renderFullInterface(bootstrapData);
+            initDynamicRaffleSlider(bootstrapData.raffles || []); // 🔥 Берем из бутстрапа
+        }
         if (shopData) loadCategory(2716312, shopData);
         if (p2pData) checkActiveTradesBackground(p2pData);
         setupSlider();
@@ -2764,7 +2755,7 @@ async function main() {
         console.error("Critical error in main:", e);
         
         // 🔥 БЕТОННЫЙ ФИКС: Если это блок ИЛИ бан — мгновенно выходим и ничего не рисуем поверх!
-        if (e.message === "Security Block" || e.message === "USER_BANNED") {
+        if (e.message === "Security Block" || e.message === "USER_BANNED" || e.message === "Bot Auth Required") {
             if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
             return; 
         }
