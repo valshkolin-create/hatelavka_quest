@@ -567,7 +567,7 @@ function renderPage(eventData, leaderboardData = {}) {
         }
     }
 
-    // 3. Статистика текущего пользователя
+   // 3. Статистика текущего пользователя
     let userRank = 'N/A';
     let userContribution = 0;
     const totalParticipants = allParticipants.length;
@@ -583,34 +583,35 @@ function renderPage(eventData, leaderboardData = {}) {
     dom.userContributionTotal.textContent = userContribution;
     dom.userLeaderboardRank.textContent = userRank;
 
-    // === НОВЫЙ КРАСИВЫЙ БЛОК СТАТИСТИКИ ВНИЗУ ===
+    // === БЛОК СТАТИСТИКИ (ТОЛЬКО ДЛЯ ТЕМЫ RUNCASE) ===
     const defaultRewardSection = document.querySelector('.default-reward-section');
     if (defaultRewardSection) {
         let bottomStats = document.getElementById('bottom-stats-block');
-        
-        // Создаем блок, если его еще нет
         if (!bottomStats) {
             bottomStats = document.createElement('div');
             bottomStats.id = 'bottom-stats-block';
             bottomStats.className = 'bottom-stats-block';
-            // Вставляем ровно ПОСЛЕ секции наград
             defaultRewardSection.parentNode.insertBefore(bottomStats, defaultRewardSection.nextSibling);
         }
-        
-        // Форматируем вывод места (если не участвует, пишем прочерк)
-        const displayRank = (currentUserIndex !== -1) ? `#${currentUserIndex + 1}` : '—';
-        
-        bottomStats.innerHTML = `
-            <div class="bottom-stat-item">
-                <span class="bottom-stat-label">Всего участников</span>
-                <span class="bottom-stat-value">${totalParticipants}</span>
-            </div>
-            <div class="bottom-stat-divider"></div>
-            <div class="bottom-stat-item">
-                <span class="bottom-stat-label">Твое место</span>
-                <span class="bottom-stat-value" style="color: var(--action-color);">${displayRank}</span>
-            </div>
-        `;
+
+        // Проверяем тему: если RUNCASE — показываем и обновляем, иначе — скрываем
+        if (document.body.dataset.theme === 'runcase') {
+            const displayRank = (currentUserIndex !== -1) ? `#${currentUserIndex + 1}` : '—';
+            bottomStats.innerHTML = `
+                <div class="bottom-stat-item">
+                    <span class="bottom-stat-label">Всего участников</span>
+                    <span class="bottom-stat-value">${totalParticipants}</span>
+                </div>
+                <div class="bottom-stat-divider"></div>
+                <div class="bottom-stat-item">
+                    <span class="bottom-stat-label">Твое место</span>
+                    <span class="bottom-stat-value">${displayRank}</span>
+                </div>
+            `;
+            bottomStats.style.display = 'flex';
+        } else {
+            bottomStats.style.display = 'none';
+        }
     }
 
     // 4. Режим поддержки канала
