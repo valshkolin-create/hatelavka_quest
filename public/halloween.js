@@ -1362,11 +1362,19 @@ function renderPage(eventData, leaderboardData = {}) {
     });
 
     // --- ИНИЦИАЛИЗАЦИЯ ---
+    // --- ИНИЦИАЛИЗАЦИЯ ---
     console.log('[INIT] Добавляем обработчики событий.');
     tg.ready();
     console.log('[INIT] Telegram.WebApp.ready() вызван.');
     tg.expand();
     console.log('[INIT] Telegram.WebApp.expand() вызван.');
+
+    // Включаем системную кнопку "Назад" в шапке Telegram
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => {
+        // Возвращает на предыдущую страницу
+        window.history.back(); 
+    });
     // ✅ ВСТАВЬТЕ ВМЕСТО НЕЕ ЭТОТ БЛОК:
     console.log('[INIT] Запуск проверок...');
     
