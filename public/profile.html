@@ -1926,12 +1926,14 @@ function renderInventory(items) {
         
         const rData = getRarityData(item.rarity); 
         
-        // 🔥 НОВАЯ МЕХАНИКА ЗАМЕНЫ 🔥
-        const isReplaced = !!item.replaced_name; 
-        const displayName = isReplaced ? item.replaced_name : item.name;
-        const ticketVal = isReplaced && item.replaced_price ? item.replaced_price : (item.price || 0);
+        / 🔥 НОВАЯ МЕХАНИКА ЗАМЕНЫ И СВАПА 🔥
+        const isSwapped = item.is_swapped === true;
+        const isReplaced = !!item.replaced_name && !isSwapped; // Обычная замена (не свап)
+        
+        const displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
+        const ticketVal = (isReplaced || isSwapped) && item.replaced_price ? item.replaced_price : (item.price || 0);
 
-        // 💡 Генерируем контент для квадратика с картинкой: если замена — иконка обмена, иначе — картинка скина
+        // 💡 Генерируем контент: если это ОБЫЧНАЯ замена — иконка обмена, иначе (свап или обычный дроп) — картинка скина
         const imageContentHtml = isReplaced 
             ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
             : `<img src="${item.image_url}" style="max-width: 90%; max-height: 90%; object-fit: contain;" loading="lazy" decoding="async">`;
