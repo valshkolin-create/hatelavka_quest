@@ -2798,6 +2798,141 @@ async function main() {
     }
 }
 // ================================================================
+// SWAP (TRADE-UP КОНТРАКТ)
+// ================================================================
+let swapSelectedItems = new Set();
+let swapTotalSum = 0;
+
+window.openSwapModal = async () => {
+    document.getElementById('swap-modal').classList.remove('hidden');
+    const grid = document.getElementById('swap-items-grid');
+    const loader = document.getElementById('swap-inventory-loader');
+    
+    // Сброс данных
+    swapSelectedItems.clear();
+    updateSwapUI();
+    grid.innerHTML = '';
+    loader.style.display = 'block';
+
+    try {
+        // Допустим, у тебя есть эндпоинт получения инвентаря
+        // Если у тебя он называется иначе — поменяй URL
+        const inventory = await makeApiRequest('/api/v1/user/inventory/get', {}, 'POST', true);
+        
+        loader.style.display = 'none';
+
+        // Фильтруем: берем только те, что доступны, и НЕ свапнутые
+        const availableItems = inventory.filter(item => 
+            ['pending', 'available'].includes(item.status) && item.is_swapped !== true
+        );
+
+        if (availableItems.length === 0) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">Нет подходящих предметов для Свапа</div>';
+            return;
+        }
+
+        grid.innerHTML = availableItems.map(item => {
+            // Берем актуальную цену
+            const price = parseFloat(item.replaced_price) > 0 ? parseFloat(item.replaced_price) : parseFloat(item.price);
+            
+            return `
+                <div class="swap-card" id="swap-item-${item.id}" onclick="toggleSwapItem(${item.id}, ${price})" 
+                     style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; text-align: center; cursor: pointer; transition: 0.2s; position: relative;">
+                    <img src="${item.image_url}" style="width: 100%; height: 60px; object-fit: contain; margin-bottom: 5px;">
+                    <div style="font-size: 10px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</div>
+                    <div style="font-size: 11px; color: #FFD700; font-weight: bold; margin-top: 4px;">${price} 🟡</div>
+                    <div class="swap-checkmark hidden" style="position: absolute; top: 4px; right: 4px; background: #34c759; color: #fff; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (e) {
+        loader.style.display = 'none';
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #ff3b30;">Ошибка загрузки инвентаря</div>';
+    }
+};
+
+window.closeSwapModal = () => document.getElementById('swap-modal').classList.add('hidden');
+
+window.toggleSwapItem = (id, price) => {
+    const card = document.getElementById(`swap-item-${id}`);
+    const checkmark = card.querySelector('.swap-checkmark');
+
+    if (swapSelectedItems.has(id)) {
+        swapSelectedItems.delete(id);
+        swapTotalSum -= price;
+        card.style.border = '1px solid rgba(255,255,255,0.1)';
+        card.style.background = 'rgba(255,255,255,0.05)';
+        checkmark.classList.add('hidden');
+    } else {
+        if (swapSelectedItems.size >= 4) {
+            customAlert("Максимум 4 предмета!");
+            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+            return;
+        }
+        swapSelectedItems.add(id);
+        swapTotalSum += price;
+        card.style.border = '1px solid #ff9500';
+        card.style.background = 'rgba(255, 149, 0, 0.1)';
+        checkmark.classList.remove('hidden');
+    }
+
+    if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+    updateSwapUI();
+};
+
+function updateSwapUI() {
+    document.getElementById('swap-count').innerText = swapSelectedItems.size;
+    
+    // Бэкенд будет искать скин от 80% до 100% стоимости
+    const maxPrice = Math.floor(swapTotalSum);
+    const minPrice = Math.floor(swapTotalSum * 0.8);
+
+    document.getElementById('swap-min-price').innerText = minPrice;
+    document.getElementById('swap-total-price').innerText = maxPrice;
+
+    const btn = document.getElementById('execute-swap-btn');
+    if (swapSelectedItems.size === 0) {
+        btn.disabled = true;
+        btn.innerText = "ВЫБЕРИТЕ ПРЕДМЕТЫ";
+        btn.style.opacity = "0.5";
+    } else {
+        btn.disabled = false;
+        btn.innerText = "СВАПНУТЬ ПРЕДМЕТЫ!";
+        btn.style.opacity = "1";
+    }
+}
+
+window.executeSwap = async () => {
+    if (swapSelectedItems.size === 0) return;
+
+    const btn = document.getElementById('execute-swap-btn');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Выполняем контракт...';
+
+    try {
+        const historyIds = Array.from(swapSelectedItems);
+        const res = await makeApiRequest('/api/v1/swap/execute', { history_ids: historyIds }, 'POST');
+        
+        closeSwapModal();
+        
+        // Показываем выигранный скин (можно юзануть твою рулетку или просто алерт)
+        // Если хочешь показать красивую рулетку из 1 скина:
+        let fakeStrip = Array(80).fill({ name: "Mystery Item", image_url: "https://via.placeholder.com/150", rarity: "common" });
+        fakeStrip[60] = res.winner;
+        launchRoulette(fakeStrip, res.winner, [], 1, "SWAP КОНТРАКТ");
+
+    } catch (e) {
+        // Ошибка покажется через customAlert из твоего makeApiRequest
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+};
+// ================================================================
 // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ (УНИВЕРСАЛЬНАЯ БРОНЯ)
 // ================================================================
 try {
