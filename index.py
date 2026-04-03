@@ -19535,6 +19535,123 @@ async def check_trade_status_endpoint(
 
 # 2. Обменять скин на билеты (FIX 400 ERROR)
 
+class SwapRequest(BaseModel):
+    initData: str
+    history_ids: list[int]
+
+@app.post("/api/v1/swap/execute")
+async def execute_swap(
+    req: SwapRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Auth failed")
+
+    user_id = user_data['id']
+    await verify_user_not_banned(user_id, supabase)
+
+    # 1. Проверяем лимиты
+    if len(req.history_ids) < 1 or len(req.history_ids) > 4:
+        raise HTTPException(status_code=400, detail="Выберите от 1 до 4 предметов")
+
+    # 2. Достаем предметы юзера
+    id_list_str = ",".join(map(str, req.history_ids))
+    check_resp = await supabase.get(
+        "/cs_history",
+        params={
+            "id": f"in.({id_list_str})",
+            "user_id": f"eq.{user_id}",
+            "status": "in.(pending,failed,available,canceled)",
+            "select": "id, replaced_price, is_swapped, item:cs_items(price)"
+        }
+    )
+    rows = check_resp.json()
+
+    # Проверка, что все предметы найдены и принадлежат юзеру
+    if len(rows) != len(req.history_ids):
+        raise HTTPException(status_code=400, detail="Один или несколько предметов недоступны для обмена")
+
+    total_budget = 0.0
+
+    # 3. Считаем сумму и проверяем на абуз
+    for row in rows:
+        if row.get("is_swapped") == True:
+            raise HTTPException(status_code=400, detail="Предметы, полученные в Свапе, нельзя использовать повторно!")
+        
+        replaced = row.get('replaced_price')
+        if replaced and float(replaced) > 0:
+            total_budget += float(replaced)
+        else:
+            item_data = row.get('item') or {}
+            total_budget += float(item_data.get('price', 0))
+
+    if total_budget <= 0:
+        raise HTTPException(status_code=400, detail="Сумма предметов равна нулю")
+
+    # 4. Ищем скин на маркете (Правило: от 80% до 100% стоимости)
+    min_price = total_budget * 0.8
+    market_resp = await supabase.get(
+        "/market_cache",
+        params={
+            "price_rub": f"gte.{min_price}",
+            "and": f"(price_rub.lte.{total_budget})",
+            "is_available": "eq.true"
+        }
+    )
+    market_items = market_resp.json()
+
+    # 5. Если в диапазоне 80-100% ничего нет, берем самый дорогой предмет, который дешевле total_budget
+    if not market_items:
+        fallback_resp = await supabase.get(
+            "/market_cache",
+            params={
+                "price_rub": f"lte.{total_budget}",
+                "is_available": "eq.true",
+                "order": "price_rub.desc",
+                "limit": 50  # Берем 50 ближайших
+            }
+        )
+        market_items = fallback_resp.json()
+
+    if not market_items:
+        raise HTTPException(status_code=400, detail="К сожалению, в базе нет подходящих скинов под эту сумму.")
+
+    # Выбираем случайного победителя
+    winner = random.choice(market_items)
+
+    # 6. Оформляем транзакцию (Удаляем старые, выдаем новый)
+    # Сначала помечаем старые как 'exchanged_swap' (сгорели в контракте)
+    await supabase.patch(
+        "/cs_history",
+        params={"id": f"in.({id_list_str})"},
+        json={"status": "exchanged_swap"}
+    )
+
+    # Затем создаем новый предмет с пометкой is_swapped = True
+    new_history_payload = {
+        "user_id": user_id,
+        "item_name": winner.get('market_hash_name'),
+        "status": "available",
+        "replaced_price": winner.get('price_rub'),
+        "is_swapped": True  # Защита от ре-свапа
+    }
+    
+    insert_resp = await supabase.post("/cs_history", json=new_history_payload)
+    inserted_data = insert_resp.json()
+    new_history_id = inserted_data[0]['id'] if inserted_data else 0
+
+    # Возвращаем данные для фронтенда (чтобы рулетка красиво показала дроп)
+    winner_for_ui = {
+        "id": new_history_id,
+        "name": winner.get('market_hash_name'),
+        "price": winner.get('price_rub'),
+        "image_url": winner.get('image_url'),
+        "rarity": winner.get('rarity', 'purple')
+    }
+
+    return {"success": True, "winner": winner_for_ui}
+
 @app.post("/api/v1/user/inventory/sell")
 async def sell_inventory_item(
     req: InventorySellRequest,
