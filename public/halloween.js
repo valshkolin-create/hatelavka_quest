@@ -570,6 +570,8 @@ function renderPage(eventData, leaderboardData = {}) {
     // 3. Статистика текущего пользователя
     let userRank = 'N/A';
     let userContribution = 0;
+    const totalParticipants = allParticipants.length;
+
     const currentUserIndex = allParticipants.findIndex(p =>
          (currentUserData.id && p.user_id === currentUserData.id) ||
          (!currentUserData.id && p.full_name === currentUserData.full_name)
@@ -580,6 +582,31 @@ function renderPage(eventData, leaderboardData = {}) {
     }
     dom.userContributionTotal.textContent = userContribution;
     dom.userLeaderboardRank.textContent = userRank;
+
+    // --- НОВОЕ: БАННЕР В ТЕМЕ RUNCASE ДЛЯ ТЕХ, КТО НЕ В ТОПЕ ---
+    let runcaseBanner = document.getElementById('runcase-personal-banner');
+    if (!runcaseBanner) {
+        runcaseBanner = document.createElement('div');
+        runcaseBanner.id = 'runcase-personal-banner';
+        runcaseBanner.className = 'runcase-personal-banner hidden';
+        // Вставляем прямо над заголовком таблицы лидеров
+        const lbHeader = document.querySelector('.leaderboard-header');
+        if (lbHeader) lbHeader.parentNode.insertBefore(runcaseBanner, lbHeader);
+    }
+
+    // Проверяем, есть ли пользователь в видимом списке победителей (среди тех, кому назначен приз)
+    const isUserInVisibleTop = top20.filter((p, index) => {
+        const rank = index + 1;
+        return numericRewards.some(r => parseInt(r.place) === rank);
+    }).some(p => (currentUserData.id && p.user_id === currentUserData.id) || (!currentUserData.id && p.full_name === currentUserData.full_name));
+
+    // Если пользователя нет в топе и участники существуют — показываем плашку
+    if (!isUserInVisibleTop && totalParticipants > 0) {
+        runcaseBanner.innerHTML = `<span>Ваше место: <strong>${userRank}</strong> из ${totalParticipants}</span> <span>Вклад: <strong>${userContribution}</strong></span>`;
+        runcaseBanner.classList.remove('hidden');
+    } else {
+        runcaseBanner.classList.add('hidden');
+    }
 
     // 4. Режим поддержки канала
     if (dom.rulesModal && !window.originalRulesHtml) {
