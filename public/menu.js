@@ -3184,7 +3184,7 @@ try {
 
     // 4. ФОНОВЫЕ ПРОЦЕССЫ
     clearInterval(heartbeatInterval);
-    heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 30000);
+    heartbeatInterval = setInterval(() => { if (!document.hidden) refreshDataSilently(); }, 60000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshDataSilently(); });
 
 } catch (e) { 
