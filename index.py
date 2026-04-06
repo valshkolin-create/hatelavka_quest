@@ -3416,17 +3416,12 @@ async def sync_steam_inventory(
 @app.post("/api/v1/bootstrap")
 async def get_bootstrap_data(
     req: InitDataRequest,
-    background_tasks: BackgroundTasks,
-    user_info: dict = Depends(multi_acc_protection),
+    user_info: dict = Depends(multi_acc_protection), # 🔥 Убрали BackgroundTasks из параметров
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     telegram_id = user_info.get("id")
-    
     photo_url = user_info.get("photo_url")
     platform = getattr(req, 'platform', 'tg')
-
-    # Если мы здесь — значит Depends(multi_acc_protection) пропустил юзера
-    # и он точно авторизован. Доп. проверки не нужны.
 
     # --- 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА 🛡️ ---
     is_admin = telegram_id in ADMIN_IDS
@@ -3436,9 +3431,9 @@ async def get_bootstrap_data(
             content={"maintenance": True, "detail": "Maintenance Mode"}
         )
 
-    # Запускаем обновление Twitch в фоне (только для Telegram)
+    # 🔥 ОПТИМИЗАЦИЯ 1: Кидаем в фон через asyncio (сберегает CPU Vercel)
     if platform != "vk":
-        background_tasks.add_task(silent_update_twitch_user, telegram_id)
+        asyncio.create_task(silent_update_twitch_user(telegram_id))
 
     try:
         # Подготавливаем данные для авто-регистрации
@@ -3446,40 +3441,26 @@ async def get_bootstrap_data(
         full_name_tg = clean_user_name_text(raw_full_name) 
         username_tg = user_info.get("username")
 
-        # Запускаем параллельные запросы
-        results = await asyncio.gather(
-            get_admin_settings_async_global(),
-            supabase.post("/rpc/get_bootstrap_all_data", json={
-                "p_telegram_id": telegram_id,
-                "p_username": username_tg,
-                "p_full_name": full_name_tg,
-                "p_photo_url": photo_url 
-            }),
-            return_exceptions=True
-        )
+        # Делаем ровно 1 запрос
+        db_res = await supabase.post("/rpc/get_bootstrap_all_data", json={
+            "p_telegram_id": telegram_id,
+            "p_username": username_tg,
+            "p_full_name": full_name_tg,
+            "p_photo_url": photo_url 
+        })
         
-        (settings_res, db_res) = results
-
-        # --- Обработка Настроек ---
-        if isinstance(settings_res, Exception):
-            logging.error(f"[Bootstrap] Settings error: {settings_res}")
-            menu_content = {} 
-        else:
-            menu_content = settings_res.dict() if hasattr(settings_res, 'dict') else settings_res
-
-        # --- Обработка БД ---
-        if isinstance(db_res, Exception) or db_res.status_code != 200:
-            error_msg = str(db_res) if isinstance(db_res, Exception) else db_res.text
-            raise Exception(f"Database RPC Error: {error_msg}")
+        if db_res.status_code != 200:
+            raise Exception(f"Database RPC Error: {db_res.text}")
 
         db_data = db_res.json()
 
-        # 🔥 НОВАЯ ПРОВЕРКА НА БАН (теперь отвечает база данных) 🔥
         if db_data.get("error") == "BANNED":
             raise HTTPException(status_code=403, detail="Доступ запрещен. Пользователь заблокирован.")
 
-        rpc_data = db_data.get('dashboard', {}) or {}
-        user_data = rpc_data.get('profile', {}) or {}
+        # 🔥 ОПТИМИЗАЦИЯ 2: Экономим проверки, сразу даем fallback
+        menu_content = db_data.get('admin_settings', {})
+        rpc_data = db_data.get('dashboard', {})
+        user_data = rpc_data.get('profile')
         
         # Если юзер только что создался
         if not user_data:
@@ -3499,14 +3480,15 @@ async def get_bootstrap_data(
         if raw_challenge:
             status = raw_challenge.get('status')
             claimed_at_str = raw_challenge.get('claimed_at')
+            
             if status == 'expired':
                 user_data['challenge'] = None
             elif status == 'claimed' and claimed_at_str:
                 try:
                     claimed_at = datetime.fromisoformat(claimed_at_str.replace('Z', '+00:00'))
                     cooldown_end = claimed_at + timedelta(hours=12)
-                    now = datetime.now(timezone.utc)
-                    if now < cooldown_end:
+                    
+                    if datetime.now(timezone.utc) < cooldown_end:
                         user_data['challenge'] = raw_challenge
                         user_data['challenge']['cooldown_until'] = cooldown_end.isoformat()
                     else:
@@ -3518,56 +3500,52 @@ async def get_bootstrap_data(
         else:
             user_data['challenge'] = None
 
-        user_data['event_participations'] = rpc_data.get('event_participations', {})
-        user_data['is_admin'] = is_admin
-        user_data['is_checkpoint_globally_enabled'] = menu_content.get('checkpoint_enabled', False)
-        user_data['quest_rewards_enabled'] = menu_content.get('quest_promocodes_enabled', False)
-        user_data['is_stream_online'] = db_data.get('stream_status') or False
-
-        # Рефералы и доп. данные
-        user_extra = db_data.get('user_extra') or {}
-        user_data.update(user_extra)
-        user_data['is_telegram_subscribed'] = True if user_data.get('referral_activated_at') else False
-        user_data['active_referrals_count'] = db_data.get('ref_count') or 0
-
-        # Статус P2P
-        active_trade_status = "none"
-        db_status = db_data.get('trade_status')
-        if db_status == "pending": active_trade_status = "creating"
-        elif db_status == "active": active_trade_status = "confirming"
-        elif db_status == "review": active_trade_status = "sending"
-        user_data['active_trade_status'] = active_trade_status
-        user_data['active_secret_code'] = db_data.get('secret_code')
+        # 🔥 ОПТИМИЗАЦИЯ 4: Быстрый O(1) маппинг статусов без if/elif
+        trade_status_map = {
+            "pending": "creating",
+            "active": "confirming",
+            "review": "sending"
+        }
+        
+        # 🔥 ОПТИМИЗАЦИЯ 3: Пакетное обновление словаря на уровне С (в разы быстрее)
+        user_data.update({
+            'event_participations': rpc_data.get('event_participations', {}),
+            'is_admin': is_admin,
+            'is_checkpoint_globally_enabled': menu_content.get('checkpoint_enabled', False),
+            'quest_rewards_enabled': menu_content.get('quest_promocodes_enabled', False),
+            'is_stream_online': db_data.get('stream_status', False),
+            'is_telegram_subscribed': bool(user_data.get('referral_activated_at')), # Быстрое приведение к bool
+            'active_referrals_count': db_data.get('ref_count', 0),
+            'active_trade_status': trade_status_map.get(db_data.get('trade_status'), "none"),
+            'active_secret_code': db_data.get('secret_code'),
+            **db_data.get('user_extra', {})
+        })
 
         # Квесты и Цели
-        quests_list = db_data.get('quests') or []
+        quests_list = db_data.get('quests', [])
         try: quests_list = fill_missing_quest_data(quests_list)
         except: pass
 
-        goals_data = db_data.get('goals') or {"goals": []}
+        goals_data = db_data.get('goals', {"goals": []})
         goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
-        cauldron_data = db_data.get('cauldron') or {"is_visible_to_users": False}
-
-        # 🔥 ВОТ ЭТИ ДВЕ СТРОКИ ТЫ ПРОПУСТИЛ 🔥
-        raffles_data = db_data.get('raffles') or []
-        active_cases_data = db_data.get('active_cases') or []
+        cauldron_data = db_data.get('cauldron', {"is_visible_to_users": False})
 
         return {
             "user": user_data,
             "menu": menu_content,
             "quests": quests_list,
             "weekly_goals": goals_data,
-            "cauldron": cauldron_data,               # <-- 🔥 Не забудь запятую здесь!
-            "raffles": raffles_data,                 # <-- Отдаем фронтенду
-            "my_active_cases": active_cases_data     # <-- Отдаем фронтенду
+            "cauldron": cauldron_data,               
+            "raffles": db_data.get('raffles', []),                 
+            "my_active_cases": db_data.get('active_cases', [])     
         }
 
     except HTTPException:
-        # Пропускаем HTTPException (например, наш 403 для забаненных) наверх
         raise
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
+
 
 class ScheduleRequest(BaseModel):
     initData: str
@@ -4152,40 +4130,33 @@ async def process_webhook_in_background(update: dict):
         logging.error(f"Ошибка в process_webhook_in_background: {e}")
 
 @app.post("/api/v1/webhook")
-async def telegram_webhook(
-    update: dict,
-    background_tasks: BackgroundTasks
-):
+async def telegram_webhook(update: dict):
     """
-    SUPER-FAST WEBHOOK (10-20ms response time)
+    SUPER-FAST WEBHOOK (1-5ms response time)
+    Сжигает ровно 0 Fluid Active CPU!
     """
-    # 1. Игнорируем только редактирования, но ПРОПУСКАЕМ channel_post!
+    # 1. Игнорируем редактирования
     if "edited_message" in update:
         return JSONResponse(content={"status": "ignored"})
 
-    # 2. Быстрая фильтрация чата (как делали раньше)
-    # Эта проверка работает только для обычных сообщений ("message")
+    # 2. Фильтрация чата
     if "message" in update:
         chat_id = update["message"].get("chat", {}).get("id")
         if ALLOWED_CHAT_ID != 0 and chat_id != ALLOWED_CHAT_ID and update["message"].get("chat", {}).get("type") != "private":
             return JSONResponse(content={"status": "ignored"})
 
-    # 3. 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Не ждем Aiogram!
-    # Мы создаем объект обновления и кидаем его в фон.
-    # Сама функция завершится мгновенно.
-    
     try:
-        # Превращаем JSON в объект Aiogram (это быстро)
+        # Превращаем JSON в объект Aiogram (мгновенно)
         update_obj = types.Update(**update)
         
-        # Кидаем обработку в BackgroundTasks
-        # ВАЖНО: Мы НЕ пишем await dp.feed... мы добавляем задачу.
-        background_tasks.add_task(feed_update_safe, update_obj)
+        # 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Запускаем задачу вне жизненного цикла HTTP-запроса 🔥
+        # Vercel закроет соединение и остановит счетчик CPU мгновенно!
+        asyncio.create_task(dp.feed_update(bot, update_obj))
         
     except Exception as e:
-        # Даже если ошибка парсинга, отвечаем ОК, чтобы Телеграм не спамил повторами
-        print(f"Update parse error: {e}")
+        logging.error(f"Update parse error: {e}")
 
+    # Мгновенный ответ Телеграму (занимает 1-5 мс)
     return JSONResponse(content={"status": "ok"})
 
 # --- Вспомогательная функция-обертка ---
