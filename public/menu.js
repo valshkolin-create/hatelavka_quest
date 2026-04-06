@@ -1198,7 +1198,7 @@ async function loadCategory(catId, preloadedData = null) {
     // 3. ФОНОВОЕ ОБНОВЛЕНИЕ: Тихо идем на сервер за свежими ценами и наличием
     try {
         // isSilent = true, чтобы экран не перекрывался серым лоадером
-        const items = await makeApiRequest(`/api/v1/shop/goods?category_id=${catId}`, null, 'GET', true);
+        const items = await makeApiRequest(`/api/v1/shop/goods?category_id=${catId}`, {}, 'GET', true);
         
         // Если юзер еще не переключил вкладку, пока шел запрос
         if (window.currentCategoryId === catId) {
