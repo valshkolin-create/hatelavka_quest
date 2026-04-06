@@ -5348,14 +5348,18 @@ async def keep_alive_ping():
 
 @app.get("/api/v1/shop/case_contents")
 async def get_case_contents(
+    response: Response, # 🔥 ДОБАВЛЕНО: объект response для управления заголовками
     case_name: str, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # 🔥 МАГИЯ VERCEL: Кэшируем содержимое кейса на 1 час (3600 секунд)
+    response.headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=7200"
+
     try:
         logging.info(f"[SHOP] Загрузка содержимого (Relational) для: {case_name}")
 
         # Делаем JOIN запрос: берем связи + данные предмета
-        response = await supabase.get(
+        resp = await supabase.get(
             "/cs_case_contents", 
             params={
                 "case_tag": f"eq.{case_name}",
@@ -5363,7 +5367,7 @@ async def get_case_contents(
             }
         )
         
-        raw_data = response.json()
+        raw_data = resp.json()
         
         if not raw_data:
             logging.warning(f"[SHOP] Кейс '{case_name}' пуст (нет связей)!")
@@ -5389,7 +5393,7 @@ async def get_case_contents(
     except Exception as e:
         logging.error(f"[SHOP] Error getting relational contents: {e}")
         raise HTTPException(status_code=500, detail="Ошибка загрузки содержимого")
-
+        
 @app.get("/api/v1/telegram/tasks")
 async def get_telegram_tasks(
     request: Request,
@@ -5965,7 +5969,13 @@ async def get_cs_winners(request: Request):
 
 # 1. Получение списка кейсов и цен (Для магазина и Админки)
 @app.get("/api/v1/p2p/cases")
-async def get_p2p_cases(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_p2p_cases(
+    response: Response, # 🔥 ДОБАВЛЕНО
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 🔥 МАГИЯ VERCEL: Кэшируем список кейсов для Trade-In на 5 минут
+    response.headers["Cache-Control"] = "public, s-maxage=300, stale-while-revalidate=600"
+    
     resp = await supabase.get("/case_prices", params={"is_active": "eq.true", "order": "price_in_coins.desc"})
     return resp.json()
 
@@ -19664,7 +19674,13 @@ async def execute_directed_swap(
     }
 
 @app.get("/api/v1/shop/market_cache")
-async def get_market_items(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_market_items(
+    response: Response, # 🔥 ДОБАВЛЕНО
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 🔥 МАГИЯ VERCEL: Кэшируем витрину обменника на 2 минуты
+    response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=240"
+    
     resp = await supabase.get(
         "/market_cache",
         params={"is_available": "eq.true", "select": "market_hash_name,price_rub,image_url"}
