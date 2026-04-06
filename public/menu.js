@@ -2718,7 +2718,7 @@ async function main() {
         
         [bootstrapData, shopData, p2pData] = await Promise.all([
             makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-            makeApiRequest('/api/v1/shop/goods', { category_id: 2716312 }, 'POST', true).catch(e => { console.warn('Shop error', e); return null; }),
+            makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true).catch(e => { console.warn('Shop error', e); return null; }),
             makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { console.warn('P2P error', e); return null; })
         ]);
 
