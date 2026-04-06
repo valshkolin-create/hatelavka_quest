@@ -15386,14 +15386,20 @@ RAM_SHOP_CACHE = {}
 RAM_CACHE_TTL = 600  # 10 минут
 
 # --- ОПТИМИЗИРОВАННЫЙ ЭНДПОИНТ МАГАЗИНА ---
-@app.post("/api/v1/shop/goods")
+# 🔥 ИЗМЕНЕНО: @app.post заменен на @app.get
+@app.get("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
-    request_data: ShopCategoryRequest,
+    response: Response,             # 🔥 ИЗМЕНЕНО: Добавлен объект response для заголовков
+    category_id: int = Query(...),  # 🔥 ИЗМЕНЕНО: Теперь берем ID из URL
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    category_id = request_data.category_id
+    # 🔥 МАГИЯ VERCEL: Включаем Edge-кэш на 60 секунд. 
+    # Vercel сам будет отдавать этот ответ, не дергая ваш сервер
+    response.headers["Cache-Control"] = "public, s-maxage=60, stale-while-revalidate=120"
+
     current_time = time.time()
     
+    # --- ВЕСЬ ОСТАЛЬНОЙ КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ ---
     # 1. Читаем из ОЗУ
     if category_id in RAM_SHOP_CACHE:
         cache_entry = RAM_SHOP_CACHE[category_id]
