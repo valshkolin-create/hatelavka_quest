@@ -313,84 +313,89 @@ function updateLoading(percent) {
         const result = await response.json();
 
        if (!response.ok) {
-            // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
-if (response.status === 403 && result.detail === "BANNED") {
-    document.body.innerHTML = `
-        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
-            <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
-            
-            <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
-            
-            <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
-                Твой аккаунт заблокирован за нарушение правил системы.
-            </p>
+            // Приводим ошибку к верхнему регистру для железной проверки (чтобы ловить BANNED, banned, BAN и т.д.)
+            const errorDetail = result.detail ? result.detail.toUpperCase() : (result.message ? result.message.toUpperCase() : "");
 
-            <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
-                <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
-            </a>
+            // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
+            if (response.status === 403 && errorDetail.includes("BAN")) {
+                document.body.innerHTML = `
+                    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
+                        <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
+                        
+                        <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
+                        
+                        <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
+                            Твой аккаунт заблокирован за нарушение правил системы.
+                        </p>
 
-            <p style="color: #555; font-size: 11px; margin-top: 25px; line-height: 1.4;">
-                Если ты считаешь, что это произошло по ошибке,<br>напиши в поддержку для разбора ситуации.
-            </p>
-        </div>
-        <style>
-            @keyframes banPulse {
-                0% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(1.05); opacity: 0.8; }
-                100% { transform: scale(1); opacity: 1; }
-            }
-        </style>
-    `;
-    
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
+                        <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
+                            <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
+                        </a>
 
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-        Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-    }
-    
-    throw new Error("USER_BANNED");
+                        <p style="color: #555; font-size: 11px; margin-top: 25px; line-height: 1.4;">
+                            Если ты считаешь, что это произошло по ошибке,<br>напиши в поддержку для разбора ситуации.
+                        </p>
+                    </div>
+                    <style>
+                        @keyframes banPulse {
+                            0% { transform: scale(1); opacity: 1; }
+                            50% { transform: scale(1.05); opacity: 0.8; }
+                            100% { transform: scale(1); opacity: 1; }
+                        }
+                    </style>
+                `;
+                
+                document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed';
+
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                }
+                
+                throw new Error("USER_BANNED");
+            }
+
+            // 👇 ВОТ СЮДА ВСТАВЛЯЕМ НАШУ ПРОВЕРКУ БОТА 👇
+            if (errorDetail.includes("НЕ НАЙДЕН ПОЛЬЗОВАТЕЛЬ") || errorDetail.includes("BOT_USER_NOT_FOUND")) {
+                window.showBotAuthWarning();
+                throw new Error("Bot Auth Required");
+            }
+            // 👆 КОНЕЦ ВСТАВКИ 👆
+
+            // 🛡️ 2. ДУБЛИКАТЫ (400 DUPLICATE_TRADE_LINK / DUPLICATE_TWITCH)
+            if (response.status === 400 && (errorDetail.includes("DUPLICATE_TRADE_LINK") || errorDetail.includes("DUPLICATE_TWITCH"))) {
+                let msg = errorDetail.includes("DUPLICATE_TRADE_LINK")
+                    ? "Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите правильную ссылку ниже."
+                    : "Этот Twitch-аккаунт уже привязан к другому пользователю! Обратитесь в поддержку.";
+                
+                window.showSecurityBlock(msg);
+                throw new Error("Security Block");
+            }
+
+            // Обычная проверка на 403 (другие ограничения)
+            if (response.status === 403) {
+                // Если это какая-то другая 403 ошибка, показываем её текстом, а не окном трейд-ссылки
+                customAlert(result.detail || result.message || "Доступ ограничен.");
+                throw new Error("Security Block");
+            }
+            
+            throw new Error(result.detail || result.message || 'Ошибка сервера');
+        }
+        return result;
+    } catch (e) {
+        if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
+        
+        // 🔥 ВАЖНО: Если это Бан, Блок или Ошибка Бота, НЕ показываем стандартный customAlert поверх нашего окна
+        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED', 'Bot Auth Required'];
+        if (!silentErrors.includes(e.message) && !isSilent) {
+             customAlert(`Ошибка: ${e.message}`);
+        }
+        throw e;
+    } finally {
+        if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    }
 }
 
-            // 👇 ВОТ СЮДА ВСТАВЛЯЕМ НАШУ ПРОВЕРКУ БОТА 👇
-            if (result.detail && (result.detail.includes("Не найден пользователь") || result.detail === "BOT_USER_NOT_FOUND")) {
-                window.showBotAuthWarning();
-                throw new Error("Bot Auth Required");
-            }
-            // 👆 КОНЕЦ ВСТАВКИ 👆
-
-            // 🛡️ 2. ДУБЛИКАТЫ (400 DUPLICATE_TRADE_LINK / DUPLICATE_TWITCH)
-            if (response.status === 400 && (result.detail === "DUPLICATE_TRADE_LINK" || result.detail === "DUPLICATE_TWITCH")) {
-                let msg = result.detail === "DUPLICATE_TRADE_LINK"
-                    ? "Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите правильную ссылку ниже."
-                    : "Этот Twitch-аккаунт уже привязан к другому пользователю! Обратитесь в поддержку.";
-                
-                window.showSecurityBlock(msg);
-                throw new Error("Security Block");
-            }
-
-            // Обычная проверка на 403 (другие ограничения)
-            if (response.status === 403) {
-                window.showSecurityBlock(result.detail || "Доступ ограничен.");
-                throw new Error("Security Block");
-            }
-            
-            throw new Error(result.detail || result.message || 'Ошибка сервера');
-        }
-        return result;
-    } catch (e) {
-        if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
-        
-        // 🔥 ВАЖНО: Если это Бан, Блок или Ошибка Бота, НЕ показываем стандартный customAlert поверх нашего окна
-        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED', 'Bot Auth Required'];
-        if (!silentErrors.includes(e.message) && !isSilent) {
-             customAlert(`Ошибка: ${e.message}`);
-        }
-        throw e;
-    } finally {
-        if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
-    }
-}
 // Предзагрузка массива картинок
 function preloadImages(urls) {
     const promises = urls.map(url => {
