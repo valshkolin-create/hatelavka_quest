@@ -3515,7 +3515,8 @@ async def get_bootstrap_data(
             'active_referrals_count': db_data.get('ref_count', 0),
             'active_trade_status': trade_status_map.get(db_data.get('trade_status'), "none"),
             'active_secret_code': db_data.get('secret_code'),
-            **db_data.get('user_extra', {})
+            **db_data.get('user_extra', {}),
+            **db_data.get('user_settings', {})  # 🔥 ВОТ ОНА — РАСПАКОВКА НАСТРОЕК
         })
 
         # Квесты и Цели
