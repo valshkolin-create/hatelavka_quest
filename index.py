@@ -15205,16 +15205,13 @@ async def buy_promo_endpoint(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Покупка реального промокода из таблицы promocodes за монеты."""
+    """Покупка реального промокода за 10 монет с автозачислением."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # --- НАСТРОЙКИ ЦЕНЫ ---
-    COST_IN_COINS = 10.0   # Сколько монет стоит покупка
-    REWARD_STARS = 50      # Какой номинал промокода искать в базе (например, промокод на 50 звезд)
-    # Убедись, что в таблице 'promocodes' есть свободные коды с reward_value = 50 (или сколько ты поставишь)
-    # ----------------------
+    COST_IN_COINS = 10.0
+    REWARD_STARS = 50 
 
     try:
         response = await supabase.post(
@@ -15226,22 +15223,41 @@ async def buy_promo_endpoint(
             }
         )
         
-        # Обработка ошибок от SQL (например, если коды закончились)
         if response.status_code != 200:
             error_data = response.json()
             error_msg = error_data.get("message", "Ошибка покупки")
-            # Если коды закончились, база вернет нашу ошибку 'Промокоды закончились...'
             raise HTTPException(status_code=400, detail=error_msg)
 
-        return response.json()
+        purchase_data = response.json()
+        # Обычно RPC возвращает объект или список с данными промокода
+        promo_id = purchase_data[0].get('id') if isinstance(purchase_data, list) else purchase_data.get('id')
 
-    except httpx.HTTPStatusError as e:
-        error_msg = e.response.json().get("message", e.response.text)
-        raise HTTPException(status_code=400, detail=error_msg)
+        # 🔥🔥🔥 АВТО-НАЧИСЛЕНИЕ И КОЛОКОЛЬЧИК 🔥🔥🔥
+        async def process_delivery():
+            # 1. Начисляем монетки (твоя функция)
+            await activate_single_promocode(
+                promo_id=promo_id,
+                telegram_id=user_info["id"],
+                reward_value=REWARD_STARS,
+                description=f"Покупка в магазине ({REWARD_STARS})"
+            )
+            # 2. Пишем в колокольчик (твоя функция)
+            await create_in_app_notification(
+                supabase=supabase,
+                user_id=user_info["id"],
+                title="💰 Покупка в магазине",
+                message=f"Вы приобрели {REWARD_STARS} монет. Они уже зачислены на ваш баланс!",
+                notif_type="system"
+            )
+
+        asyncio.create_task(process_delivery())
+
+        return purchase_data
+
     except Exception as e:
         logging.error(f"Promo buy error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
+        
 # Модель для запроса конкретной категории
 class ShopCategoryRequest(BaseModel):
     initData: str
@@ -16394,19 +16410,33 @@ async def buy_dynamic_promo_endpoint(
             }
         )
         
-        # Обработка ошибок SQL (например, код кончился или мало денег)
         if response.status_code != 200:
-            error_data = response.json()
-            # Пытаемся достать понятное сообщение
-            msg = error_data.get("message", "Ошибка покупки")
+            msg = response.json().get("message", "Ошибка покупки")
             raise HTTPException(status_code=400, detail=msg)
 
-        return response.json()
+        purchase_data = response.json()
+        promo_id = purchase_data[0].get('id') if isinstance(purchase_data, list) else purchase_data.get('id')
 
-    except httpx.HTTPStatusError as e:
-        # Ловим ошибки от raise exception в SQL
-        error_msg = e.response.json().get("message", e.response.text)
-        raise HTTPException(status_code=400, detail=error_msg)
+        # 🔥🔥🔥 АВТО-НАЧИСЛЕНИЕ И КОЛОКОЛЬЧИК 🔥🔥🔥
+        async def process_delivery():
+            await activate_single_promocode(
+                promo_id=promo_id,
+                telegram_id=user_info["id"],
+                reward_value=request_data.reward_value,
+                description=f"Покупка: {request_data.reward_value}"
+            )
+            await create_in_app_notification(
+                supabase=supabase,
+                user_id=user_info["id"],
+                title="🛍️ Успешная покупка",
+                message=f"Вы успешно обменяли гринд-монетки на {request_data.reward_value} обычных монет!",
+                notif_type="system"
+            )
+
+        asyncio.create_task(process_delivery())
+
+        return purchase_data
+
     except Exception as e:
         logging.error(f"Buy promo error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
