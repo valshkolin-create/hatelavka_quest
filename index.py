@@ -178,54 +178,44 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
         logging.error(f"⚠️ Ошибка системы пополнения: {e}")
         return False
 
+# Если где-то выше нет глобального клиента, создаем его:
+if 'global_bott_client' not in globals():
+    global_bott_client = httpx.AsyncClient(timeout=10.0, limits=httpx.Limits(max_keepalive_connections=50))
+
 async def get_user_balance_from_bott(telegram_id: int) -> float | None:
-    """
-    Асинхронно получает текущий баланс пользователя из Bot-t по его Telegram ID.
-    Использует глобальные переменные из конфига бота.
-    """
+    """Асинхронно получает баланс, используя глобальный клиент для скорости."""
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
-    
-    # Query параметры (токен и секретный ключ)
-    params = {
-        "botToken": BOTT_BOT_TOKEN
-    }
+    params = {"botToken": BOTT_BOT_TOKEN}
     if BOTT_SECRET_KEY:
         params["secretKey"] = BOTT_SECRET_KEY
         
-    # Body параметры (ID бота из конфига и Telegram ID юзера)
     payload = {
-        "bot_id": int(BOTT_BOT_ID), # Переводим "233790" в число, как просит API
+        "bot_id": int(BOTT_BOT_ID),
         "telegram_id": telegram_id
     }
+    headers = {"accept": "application/json", "content-type": "application/json"}
     
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/json"
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(url, headers=headers, params=params, json=payload)
-            response.raise_for_status() 
-            data = response.json()
+    try:
+        # 🔥 ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ КЛИЕНТ
+        response = await global_bott_client.post(url, headers=headers, params=params, json=payload)
+        response.raise_for_status() 
+        data = response.json()
+        
+        if isinstance(data, dict):
+            if "data" in data and "money" in data["data"]:
+                return float(data["data"]["money"]) / 100
+            elif "money" in data:
+                return float(data["money"]) / 100
+        
+        logging.warning(f"Баланс не найден в ответе Bot-t для tg_id {telegram_id}. Ответ: {data}")
+        return 0.0
             
-            # Достаем баланс из ответа Bot-t и переводим из копеек в рубли/монеты
-            if isinstance(data, dict):
-                if "data" in data and "money" in data["data"]:
-                    return float(data["data"]["money"]) / 100  # <-- ДЕЛИМ НА 100
-                elif "money" in data:
-                    return float(data["money"]) / 100          # <-- ДЕЛИМ НА 100
-            
-            # В логе тоже логично поменять слово для порядка
-            logging.warning(f"Баланс (money) не найден в ответе Bot-t для tg_id {telegram_id}. Ответ: {data}")
-            return 0.0
-                
-        except httpx.HTTPStatusError as e:
-            logging.error(f"❌ Ошибка API Bot-t при получении баланса (HTTP {e.response.status_code}): {e.response.text}")
-            return None
-        except Exception as e:
-            logging.error(f"❌ Сетевая ошибка при запросе баланса из Bot-t: {e}")
-            return None
+    except httpx.HTTPStatusError as e:
+        logging.error(f"❌ Ошибка API Bot-t при получении баланса (HTTP {e.response.status_code}): {e.response.text}")
+        return None
+    except Exception as e:
+        logging.error(f"❌ Сетевая ошибка при запросе баланса из Bot-t: {e}")
+        return None
         
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
@@ -15240,8 +15230,6 @@ async def buy_promo_endpoint(
                 promo_id = find_id_resp.json()[0]['id']
 
         if promo_id:
-            # 🔥 ФИКС 1: Мгновенно ставим метку авто-зачисления для профиля!
-            await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={"auto_is_used": True})
 
             async def process_delivery():
                 # 🔥 ФИКС 2: Колокольчик шлем ПЕРВЫМ, он сработает за миллисекунду
@@ -15701,30 +15689,24 @@ async def background_bott_sync_task(telegram_id: int, init_data: str):
 # =========================================================================
 
 async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str = "Бонус от HATElavka"):
-    """
-    Функция для начисления реального баланса в систему Bot-t.
-    Вызывай ее, когда юзер активирует промокод, рефералку или выигрывает монеты.
-    """
+    """Начисляет баланс через глобальный клиент."""
     if not bott_internal_id:
         return False
         
     url = "https://api.bot-t.com/v1/bot/user/add-balance"
-    params = {
-        "botToken": BOTT_BOT_TOKEN,
-        "secretKey": BOTT_SECRET_KEY
-    }
+    params = {"botToken": BOTT_BOT_TOKEN, "secretKey": BOTT_SECRET_KEY}
     payload = {
         "bot_id": int(BOTT_BOT_ID),
         "user_id": int(bott_internal_id),
         "sum": float(amount),
         "comment": comment,
-        "isNotice": False, # Уведомление в боте (True/False)
+        "isNotice": False, 
         "isSendComment": False
     }
     
     try:
-        client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=10.0)
-        resp = await client.post(url, params=params, json=payload)
+        # 🔥 ИСПОЛЬЗУЕМ ТОТ ЖЕ ГЛОБАЛЬНЫЙ КЛИЕНТ
+        resp = await global_bott_client.post(url, params=params, json=payload)
         
         if resp.status_code == 200 and resp.json().get("result"):
             logging.info(f"✅ Начислено {amount} монет юзеру {bott_internal_id} в Bot-t")
@@ -16437,8 +16419,6 @@ async def buy_dynamic_promo_endpoint(
                 promo_id = find_id_resp.json()[0]['id']
 
         if promo_id:
-            # 🔥 ФИКС 1: Мгновенная метка авто-зачисления
-            await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={"auto_is_used": True})
 
             async def process_delivery():
                 # 🔥 ФИКС 2: Моментальный колокольчик
