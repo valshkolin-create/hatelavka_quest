@@ -7818,9 +7818,22 @@ async def twitch_oauth_callback(
             })
             if dup_resp.status_code == 200 and len(dup_resp.json()) > 0:
                 logging.warning(f"🛑 [SECURITY] Юзер {telegram_id} попытался привязать занятый Twitch: {twitch_login}")
+                
+                # ---> ДОБАВЛЕНО: Отправляем сообщение от лица бота <---
+                bot_token = os.getenv("BOT_TOKEN") # Убедись, что токен бота есть в ENV
+                if bot_token:
+                    tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                    try:
+                        await client.post(tg_url, json={
+                            "chat_id": telegram_id,
+                            "text": f"⚠️ Ошибка! Twitch-аккаунт <b>{twitch_login}</b> уже привязан к другому Telegram.",
+                            "parse_mode": "HTML"
+                        })
+                    except Exception as e:
+                        logging.error(f"Не удалось отправить сообщение в ТГ: {e}")
+
                 bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
                 app_name = os.getenv("APP_SHORT_NAME", "profile")
-                # Возвращаем в бота с параметром ошибки
                 return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=duplicate_twitch", status_code=303)
 
             # 4. ОПРЕДЕЛЕНИЕ СТАТУСА (ИСПРАВЛЕНО)
