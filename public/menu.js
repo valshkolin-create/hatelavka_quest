@@ -883,6 +883,12 @@ async function checkGift() {
     } catch (e) {}
 }
 
+// Вспомогательная функция для склонения слов (1 билет, 2 билета, 5 билетов)
+function declOfNum(number, titles) {
+    const cases = [2, 0, 1, 1, 1, 2];
+    return titles[ (number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5] ];
+}
+
 function renderGiftResult(result) {
     dom.giftContentInitial.classList.add('hidden'); 
     dom.giftContentResult.classList.remove('hidden');
@@ -896,11 +902,15 @@ function renderGiftResult(result) {
 
     if (result.type === 'tickets') { 
         dom.giftResultIcon.innerHTML = "🎟️"; 
-        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> билетов!`; 
+        // Склоняем билеты: билет, билета, билетов
+        const ticketWord = declOfNum(result.value, ['билет', 'билета', 'билетов']);
+        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> ${ticketWord}!`; 
     } 
     else if (result.type === 'coins') { 
         dom.giftResultIcon.innerHTML = "💰"; 
-        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> монет!`; 
+        // Склоняем монеты (в винительном падеже, так как "Вы получили кого/что?"): монету, монеты, монет
+        const coinWord = declOfNum(result.value, ['монету', 'монеты', 'монет']);
+        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> ${coinWord}!`; 
         // ❌ Убрали отсюда dom.giftPromoBlock.classList.remove('hidden');
     } 
     else if (result.type === 'skin') { 
@@ -937,6 +947,7 @@ function renderGiftResult(result) {
         };
     }
 }
+
 // Туториал
 const tutorialSteps = [
     { element: '.top-header', title: 'Ваш Профиль и Баланс', text: 'Сверху находится ваш профиль и баланс монет/билетов.' },
