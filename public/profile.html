@@ -2281,31 +2281,44 @@ window.checkTradeStatus = async function(historyId) {
     }
 
     // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ ---
+    // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ ПРОФИЛЯ (ОПТИМИЗИРОВАННАЯ) ---
     async function loadData(isSilent = false) {
         if (!isSilent) showLoader();
         try {
-            // Фоновые задачи
-            if (!isSilent) {
-                makeApiRequest("/api/v1/user/sync_balance", {}, 'POST', true).catch(console.warn);
-                makeApiRequest("/api/v1/user/sync_referral", {}, 'POST', true).catch(console.warn);
+            // 1. ЧИТАЕМ КЭШ: Берем bootstrap, который уже загрузил menu.js
+            let bootstrapData = JSON.parse(localStorage.getItem('cache_bootstrap'));
+            let needBootstrapFetch = !bootstrapData; // Если кэша вдруг нет, придется качать
+
+            // 2. Готовим запросы. Инвентарь и награды качаем всегда.
+            const promises = [
+                makeApiRequest("/api/v1/user/rewards", {}, 'POST', true),
+                makeApiRequest("/api/v1/user/inventory", {}, 'POST', true)
+            ];
+
+            // Если кэша bootstrap нет (юзер зашел сразу по прямой ссылке в профиль) — добавляем его в очередь
+            if (needBootstrapFetch) {
+                promises.push(makeApiRequest("/api/v1/bootstrap", {}, 'POST', true));
             }
 
-            // Запускаем запросы одновременно
-            const [bootstrapData, rewards, inventory, userSettings] = await Promise.all([
-                makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-                makeApiRequest("/api/v1/user/rewards", {}, 'POST', true),
-                makeApiRequest("/api/v1/user/inventory", {}, 'POST', true),
-                makeApiRequest("/api/v1/user/settings/get", {}, 'POST', true)
-            ]);
+            // 3. Выполняем все нужные запросы разом
+            const results = await Promise.all(promises);
+            const rewards = results[0];
+            const inventory = results[1];
+            
+            // Если пришлось качать bootstrap, сохраняем его
+            if (needBootstrapFetch) {
+                bootstrapData = results[2];
+                localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
+            }
 
-            // Объединяем данные
-            const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu, ...userSettings };
+            // 4. Собираем пользователя и рендерим
+            const fullUserData = { ...bootstrapData.user, ...bootstrapData.menu };
 
             if (dom.profileName) {
                 dom.profileName.textContent = fullUserData.is_guest ? "Гость" : (fullUserData.full_name || 'Профиль');
             }
             
-            // Быстрый рендер
+            // Быстрый рендер без лишних обращений к базе!
             renderSettingsList(fullUserData); 
             renderRewards(rewards);
             renderInventory(inventory);
