@@ -7810,6 +7810,19 @@ async def twitch_oauth_callback(
             tw_user = u_json["data"][0]
             twitch_id, twitch_login = tw_user["id"], tw_user["login"]
 
+            🔥 НОВАЯ ПРОВЕРКА НА ДУБЛИКАТ (ПЕРЕД СОХРАНЕНИЕМ) 🔥
+            dup_resp = await supabase.get("/users", params={
+                "twitch_id": f"eq.{twitch_id}",
+                "telegram_id": f"neq.{telegram_id}",
+                "select": "telegram_id"
+            })
+            if dup_resp.status_code == 200 and len(dup_resp.json()) > 0:
+                logging.warning(f"🛑 [SECURITY] Юзер {telegram_id} попытался привязать занятый Twitch: {twitch_login}")
+                bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
+                app_name = os.getenv("APP_SHORT_NAME", "profile")
+                # Возвращаем в бота с параметром ошибки
+                return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=duplicate_twitch", status_code=303)
+
             # 4. ОПРЕДЕЛЕНИЕ СТАТУСА (ИСПРАВЛЕНО)
             new_status = "none"
 
