@@ -883,64 +883,72 @@ async function checkGift() {
     } catch (e) {}
 }
 
-// Вспомогательная функция для склонения слов (1 билет, 2 билета, 5 билетов)
+// Вспомогательная функция для склонения слов
 function declOfNum(number, titles) {
     const cases = [2, 0, 1, 1, 1, 2];
     return titles[ (number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5] ];
 }
 
 function renderGiftResult(result) {
+    // 1. Прячем начальный экран подарка и показываем экран результата
     dom.giftContentInitial.classList.add('hidden'); 
     dom.giftContentResult.classList.remove('hidden');
     
+    // Прячем кнопку "Открыть", если она есть
     const giftBtn = document.getElementById('daily-gift-btn'); 
     if (giftBtn) giftBtn.style.display = 'none'; 
     
+    // Прячем сам контейнер подарка на фоне и жестко скрываем блок с промокодом
     dom.giftContainer.classList.add('hidden'); 
-    // Железобетонно скрываем блок с промокодом всегда
     dom.giftPromoBlock.classList.add('hidden'); 
 
+    // 2. ОТРИСОВКА ИКОНКИ И ТЕКСТА НАГРАДЫ (СЕРВЕРНОЙ!)
     if (result.type === 'tickets') { 
         dom.giftResultIcon.innerHTML = "🎟️"; 
-        // Склоняем билеты: билет, билета, билетов
         const ticketWord = declOfNum(result.value, ['билет', 'билета', 'билетов']);
-        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> ${ticketWord}!`; 
+        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b>&nbsp;${ticketWord}!`; 
     } 
     else if (result.type === 'coins') { 
         dom.giftResultIcon.innerHTML = "💰"; 
-        // Склоняем монеты (в винительном падеже, так как "Вы получили кого/что?"): монету, монеты, монет
         const coinWord = declOfNum(result.value, ['монету', 'монеты', 'монет']);
-        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> ${coinWord}!`; 
-        // ❌ Убрали отсюда dom.giftPromoBlock.classList.remove('hidden');
+        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b>&nbsp;${coinWord}!`; 
     } 
     else if (result.type === 'skin') { 
-        dom.giftResultIcon.innerHTML = `<img src="${escapeHTML(result.meta.image_url)}" style="width:100px; height:100px; object-fit:contain;">`; 
-        dom.giftResultText.innerHTML = `<b>${escapeHTML(result.meta.name)}</b>`; 
+        // Если вдруг вернешь скины, логика останется рабочей
+        dom.giftResultIcon.innerHTML = `<img src="${escapeHTML(result.meta?.image_url || '')}" style="width:100px; height:100px; object-fit:contain;">`; 
+        dom.giftResultText.innerHTML = `<b>${escapeHTML(result.meta?.name || 'Скин')}</b>`; 
     }
 
+    // 3. ОТРИСОВКА ЗАГОЛОВКА И КНОПКИ ЗАКРЫТИЯ (В зависимости от подписки)
     if (result.subscription_required) {
+        // ЮЗЕР НЕ ПОДПИСАН (Дразнилка)
+        
+        // Возвращаем кнопку подарка, чтобы он мог нажать ее снова после подписки
         if (giftBtn) giftBtn.style.display = 'flex'; 
+        
         dom.giftResultTitle.textContent = "ПОЧТИ ТВОЁ!"; 
         dom.giftResultTitle.style.color = "#ff3b30";
         
-        // ❌ Убрали логику "заблюренного" промокода
-        
         dom.giftCloseBtn.textContent = "Подписаться и забрать"; 
         dom.giftCloseBtn.style.background = "#0088cc";
+        
+        // Кнопка ведет на канал
         dom.giftCloseBtn.onclick = (e) => { 
             e.preventDefault(); 
-            Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv"); 
+            Telegram.WebApp.openTelegramLink("https://t.me/hatelove_ttv"); 
             dom.giftModalOverlay.classList.add('hidden'); 
             unlockAppScroll(); 
         };
     } else {
+        // ЮЗЕР ПОДПИСАН (Реальная награда)
+        
         dom.giftResultTitle.textContent = "Поздравляем!"; 
         dom.giftResultTitle.style.color = "#34c759";
         
-        // ❌ Убрали логику подстановки текста самого кода
-        
         dom.giftCloseBtn.textContent = "Круто!"; 
         dom.giftCloseBtn.style.background = "#555";
+        
+        // Кнопка просто закрывает модалку
         dom.giftCloseBtn.onclick = () => { 
             dom.giftModalOverlay.classList.add('hidden'); 
             unlockAppScroll(); 
