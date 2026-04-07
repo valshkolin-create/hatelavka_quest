@@ -219,12 +219,12 @@ async def get_user_balance_from_bott(telegram_id: int) -> float | None:
         
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
-    Точечный активатор. Бронебойная версия с сохранением старого баланса.
+    Точечный активатор. Уведомление создается только ПОСЛЕ успешного зачисления в Bot-t.
     """
     try:
         client = await get_background_client()
         
-        # 🔥 ДОБАВИЛИ timeout=30.0 (ждем базу до 30 секунд вместо стандартных 5)
+        # 1. Получаем внутренний ID пользователя
         u_resp = await client.get(
             "/users", 
             params={"telegram_id": f"eq.{telegram_id}", "select": "bott_internal_id"},
@@ -235,23 +235,23 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
         if u_data and isinstance(u_data, list) and len(u_data) > 0 and u_data[0].get("bott_internal_id"):
             bott_id = u_data[0]["bott_internal_id"]
             
-            # --- УДАЛЯЕМ ИЛИ КОММЕНТИРУЕМ ЭТОТ БЛОК ---
-            # old_balance = 0.0
-            # try:
-            #     bal_resp = await get_user_balance_from_bott(telegram_id)
-            #     if bal_resp is not None:
-            #         old_balance = round(float(bal_resp), 2)
-            # except Exception as bal_err:
-            #     logging.warning(f"Не удалось получить старый баланс: {bal_err}")
-            
-            # А вместо него ставим просто заглушку:
-            old_balance = 0.0
+            old_balance = 0.0 # Заглушка для скорости
 
-            # 3. Начисляем реальные монеты в Bot-t
+            # 2. Начисляем реальные монеты в Bot-t
             success = await add_balance_to_bott(bott_id, reward_value, f"🎁 {description}")
             
-            # 4. Если Bot-t принял деньги, НАМЕРТВО скрываем код и пишем старый баланс
+            # 3. Если Bot-t принял деньги, создаем уведомление и закрываем код
             if success:
+                # 🔥 НОВОЕ: Создаем уведомление "по факту" начисления
+                await client.post("/notifications", json={
+                    "telegram_id": telegram_id,
+                    "title": "Баланс пополнен!",
+                    "message": f"Начислено {reward_value} монет за {description}",
+                    "type": "success",
+                    "is_read": False
+                }, timeout=30.0)
+
+                # Помечаем промокод как использованный
                 patch_resp = await client.patch(
                     "/promocodes",
                     params={"id": f"eq.{promo_id}"},
@@ -261,15 +261,15 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
                         "old_balance": old_balance,
                         "claimed_at": datetime.now(timezone.utc).isoformat()
                     },
-                    timeout=30.0 # 🔥 СЮДА ТОЖЕ ДОБАВИЛИ ТАЙМАУТ 30 СЕК
+                    timeout=30.0
                 )
                 
                 if patch_resp.status_code >= 400:
                     logging.error(f"❌ ОШИБКА БД ПРИ СКРЫТИИ КОДА {promo_id}: {patch_resp.text}")
                 else:
-                    logging.info(f"⚡ УСПЕХ: Код {promo_id} начислен. Старый баланс: {old_balance}")
+                    logging.info(f"⚡ УСПЕХ: Код {promo_id} начислен и уведомление отправлено.")
             else:
-                logging.error(f"❌ Bot-t отклонил начисление для кода {promo_id}")
+                logging.error(f"❌ Bot-t отклонил начисление для кода {promo_id}. Уведомление не отправлено.")
         else:
             logging.error(f"❌ Не удалось найти bott_internal_id для юзера {telegram_id}")
 
