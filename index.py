@@ -3452,7 +3452,8 @@ async def get_bootstrap_data(
         db_data = db_res.json()
 
         if db_data.get("error") == "BANNED":
-            raise HTTPException(status_code=403, detail="Доступ запрещен. Пользователь заблокирован.")
+    # Теперь фронтенд 100% поймет, что это именно бан, и покажет красивый экран!
+    raise HTTPException(status_code=403, detail="BANNED")
 
         # 🔥 ОПТИМИЗАЦИЯ 2: Экономим проверки, сразу даем fallback
         menu_content = db_data.get('admin_settings', {})
