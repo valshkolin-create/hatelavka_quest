@@ -224,21 +224,23 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
     try:
         client = await get_background_client()
         
-        # 1. Достаем внутренний ID юзера для Bot-t
-        u_resp = await client.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bott_internal_id"})
+        # 🔥 ДОБАВИЛИ timeout=30.0 (ждем базу до 30 секунд вместо стандартных 5)
+        u_resp = await client.get(
+            "/users", 
+            params={"telegram_id": f"eq.{telegram_id}", "select": "bott_internal_id"},
+            timeout=30.0 
+        )
         u_data = u_resp.json()
         
         if u_data and isinstance(u_data, list) and len(u_data) > 0 and u_data[0].get("bott_internal_id"):
             bott_id = u_data[0]["bott_internal_id"]
             
-            # 🔥 НОВОЕ: 2. Узнаем текущий (старый) баланс юзера в Bot-t ПЕРЕД начислением
             old_balance = 0.0
             try:
                 bal_resp = await get_user_balance_from_bott(telegram_id)
                 if bal_resp is not None:
-                    old_balance = round(float(bal_resp), 2) # Округляем для красоты
+                    old_balance = round(float(bal_resp), 2)
             except Exception as bal_err:
-                # Поправил лог: выводим telegram_id, раз уж ищем по нему
                 logging.warning(f"Не удалось получить старый баланс для tg_id {telegram_id}: {bal_err}")
 
             # 3. Начисляем реальные монеты в Bot-t
@@ -252,9 +254,10 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
                     json={
                         "is_used": True, 
                         "auto_is_used": True,
-                        "old_balance": old_balance, # 🔥 ЗАПИСЫВАЕМ СТАРЫЙ БАЛАНС В БАЗУ
+                        "old_balance": old_balance,
                         "claimed_at": datetime.now(timezone.utc).isoformat()
-                    }
+                    },
+                    timeout=30.0 # 🔥 СЮДА ТОЖЕ ДОБАВИЛИ ТАЙМАУТ 30 СЕК
                 )
                 
                 if patch_resp.status_code >= 400:
