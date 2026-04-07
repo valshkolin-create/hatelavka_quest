@@ -15237,28 +15237,29 @@ async def buy_promo_endpoint(
                 promo_id = find_id_resp.json()[0]['id']
 
         if promo_id:
+            # 🔥 ВМЕСТО create_task ИСПОЛЬЗУЕМ ПРЯМОЙ AWAIT (КАК В АДМИНКЕ) 🔥
+            
+            # 1. Сначала реально зачисляем монеты в Bot-t (ждем ответа)
+            await activate_single_promocode(
+                promo_id=promo_id,
+                telegram_id=user_info["id"],
+                reward_value=REWARD_STARS,
+                description=f"Покупка в магазине ({REWARD_STARS})"
+            )
 
-            async def process_delivery():
-                # 🔥 ФИКС 2: Колокольчик шлем ПЕРВЫМ, он сработает за миллисекунду
-                await create_in_app_notification(
-                    supabase=supabase,
-                    user_id=user_info["id"],
-                    title="💰 Покупка в магазине",
-                    message=f"Вы приобрели {REWARD_STARS} монет. Они зачисляются на ваш баланс в боте!",
-                    notif_type="system"
-                )
-                # А теперь идем в долгий Bot-t API
-                await activate_single_promocode(
-                    promo_id=promo_id,
-                    telegram_id=user_info["id"],
-                    reward_value=REWARD_STARS,
-                    description=f"Покупка в магазине ({REWARD_STARS})"
-                )
-
-            asyncio.create_task(process_delivery())
+            # 2. Только после успешного начисления шлем уведомление
+            await create_in_app_notification(
+                supabase=supabase,
+                user_id=user_info["id"],
+                title="💰 Покупка в магазине",
+                message=f"Вы приобрели {REWARD_STARS} монет. Баланс обновлен!",
+                notif_type="system"
+            )
+            
         else:
             logging.error(f"Не найден ID кода для автоактивации. Данные: {purchase_data}")
 
+        # Возвращаем ответ только когда всё начислилось
         return purchase_data
 
     except Exception as e:
@@ -16396,6 +16397,7 @@ class BuyPromoRequest(BaseModel):
 @app.post("/api/v1/user/grind/buy_item")
 async def buy_dynamic_promo_endpoint(
     request_data: BuyPromoRequest,
+    background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
@@ -16426,25 +16428,25 @@ async def buy_dynamic_promo_endpoint(
                 promo_id = find_id_resp.json()[0]['id']
 
         if promo_id:
+            # 🔥 ВМЕСТО asyncio.create_task ИСПОЛЬЗУЕМ ПРЯМОЙ AWAIT 🔥
+            
+            # 1. Сначала реально зачисляем монеты (ждем ответа от Bot-t)
+            await activate_single_promocode(
+                promo_id=promo_id,
+                telegram_id=user_info["id"],
+                reward_value=request_data.reward_value,
+                description=f"Покупка: {request_data.reward_value}"
+            )
 
-            async def process_delivery():
-                # 🔥 ФИКС 2: Моментальный колокольчик
-                await create_in_app_notification(
-                    supabase=supabase,
-                    user_id=user_info["id"],
-                    title="🛍️ Успешная покупка",
-                    message=f"Вы обменяли гринд-монетки. +{request_data.reward_value} монет отправлены на ваш баланс!",
-                    notif_type="system"
-                )
-                # Долгий запрос на начисление
-                await activate_single_promocode(
-                    promo_id=promo_id,
-                    telegram_id=user_info["id"],
-                    reward_value=request_data.reward_value,
-                    description=f"Покупка: {request_data.reward_value}"
-                )
-
-            asyncio.create_task(process_delivery())
+            # 2. Только когда Bot-t ответил "ОК", шлем колокольчик
+            await create_in_app_notification(
+                supabase=supabase,
+                user_id=user_info["id"],
+                title="🛍️ Успешная покупка",
+                message=f"На баланс зачислено {request_data.reward_value} монет!",
+                notif_type="system"
+            )
+            
         else:
             logging.error(f"Не найден ID динамического кода. Данные: {purchase_data}")
 
