@@ -1431,6 +1431,9 @@ window.showTwitchBlock = function(message) {
 
     async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
         if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
+        
+        let isSystemBan = false; // 🔥 Флаг, который спасет нас от ошибки
+
         try {
             const response = await fetch(url, { 
                 method: method, 
@@ -1442,54 +1445,57 @@ window.showTwitchBlock = function(message) {
             const result = await response.json();
 
             if (!response.ok) {
-            const errorDetail = result.detail ? result.detail.toUpperCase() : (result.message ? result.message.toUpperCase() : "");
+                const errorDetail = result.detail ? result.detail.toUpperCase() : (result.message ? result.message.toUpperCase() : "");
 
-            // 💀 1. ВЕЧНЫЙ ЭКРАН БАНА
-            if (response.status === 403 && errorDetail.includes("BAN")) {
-                document.body.innerHTML = `
-                    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
-                        <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
-                        <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
-                        <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">Твой аккаунт заблокирован за нарушение правил системы.</p>
-                        <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
-                            <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
-                        </a>
-                    </div>
-                    <style>@keyframes banPulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }</style>
-                `;
-                document.body.style.overflow = 'hidden';
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-                throw new Error("USER_BANNED");
-            }
+                // 💀 1. ВЕЧНЫЙ ЭКРАН БАНА
+                if (response.status === 403 && errorDetail.includes("BAN")) {
+                    isSystemBan = true; // Активируем флаг
+                    document.body.innerHTML = `
+                        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
+                            <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
+                            <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
+                            <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">Твой аккаунт заблокирован за нарушение правил системы.</p>
+                            <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
+                                <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
+                            </a>
+                        </div>
+                        <style>@keyframes banPulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }</style>
+                    `;
+                    document.body.style.overflow = 'hidden';
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                    throw new Error("USER_BANNED");
+                }
 
-            // 👇 2. БОТ НЕ НАЙДЕН
-            if (errorDetail.includes("НЕ НАЙДЕН ПОЛЬЗОВАТЕЛЬ") || errorDetail.includes("BOT_USER_NOT_FOUND")) {
-                if (typeof window.showBotAuthWarning === "function") window.showBotAuthWarning();
-                throw new Error("Bot Auth Required");
-            }
+                // 👇 2. БОТ НЕ НАЙДЕН
+                if (errorDetail.includes("НЕ НАЙДЕН ПОЛЬЗОВАТЕЛЬ") || errorDetail.includes("BOT_USER_NOT_FOUND")) {
+                    if (typeof window.showBotAuthWarning === "function") window.showBotAuthWarning();
+                    throw new Error("Bot Auth Required");
+                }
 
-            // 🛡️ 3. ДУБЛИКАТЫ
-            if (response.status === 400) {
-                if (errorDetail.includes("DUPLICATE_TWITCH")) {
-                    if (typeof window.showTwitchBlock === "function") window.showTwitchBlock("Этот Twitch-аккаунт уже привязан к другому пользователю! Нажми кнопку ниже, чтобы перепривязать правильный аккаунт.");
+                // 🛡️ 3. ДУБЛИКАТЫ
+                if (response.status === 400) {
+                    if (errorDetail.includes("DUPLICATE_TWITCH")) {
+                        if (typeof window.showTwitchBlock === "function") window.showTwitchBlock("Этот Twitch-аккаунт уже привязан к другому пользователю! Нажми кнопку ниже, чтобы перепривязать правильный аккаунт.");
+                        throw new Error("Security Block");
+                    }
+                    if (errorDetail.includes("DUPLICATE_TRADE_LINK")) {
+                        if (typeof window.showSecurityBlock === "function") window.showSecurityBlock("Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите свою.");
+                        throw new Error("Security Block");
+                    }
+                }
+
+                // Обычная проверка на 403
+                if (response.status === 403) {
+                    if (typeof window.showSecurityBlock === "function") window.showSecurityBlock(result.detail || "Доступ ограничен.");
                     throw new Error("Security Block");
                 }
-                if (errorDetail.includes("DUPLICATE_TRADE_LINK")) {
-                    if (typeof window.showSecurityBlock === "function") window.showSecurityBlock("Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите свою.");
-                    throw new Error("Security Block");
-                }
-            }
 
-            // Обычная проверка на 403
-            if (response.status === 403) {
-                if (typeof window.showSecurityBlock === "function") window.showSecurityBlock(result.detail || "Доступ ограничен.");
-                throw new Error("Security Block");
+                throw new Error(result.detail || 'Ошибка сервера');
             }
-
-            throw new Error(result.detail || 'Ошибка сервера');
-        }
             return result;
         } catch (e) { 
+            if (e.message === 'USER_BANNED') isSystemBan = true; // Дублируем проверку флага на всякий случай
+
             // Пропускаем ошибки, чтобы не спамить стандартным алертом
             const isSystemError = e.message === 'Security Block' || e.message === 'USER_BANNED' || e.message === 'Bot Auth Required';
             
@@ -1498,19 +1504,18 @@ window.showTwitchBlock = function(message) {
             }
             throw e; 
         } finally { 
-            // 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА 🔥
             // Ищем, есть ли на экране хоть одно блокирующее окно
             const hasBlockers = document.getElementById('security-trade-modal') || 
                                 document.getElementById('security-twitch-modal') || 
                                 document.getElementById('bot-auth-modal');
             
-            // Прячем лоадер ТОЛЬКО если блокировок нет. 
-            // Если блокировка есть — лоадер остается висеть вечным непробиваемым щитом
-            if (!isSilent && !hasBlockers && e?.message !== 'USER_BANNED') {
+            // 🔥 БЕЗ ПЕРЕМЕННОЙ e 🔥 Прячем лоадер ТОЛЬКО если блокировок нет
+            if (!isSilent && !hasBlockers && !isSystemBan) {
                 hideLoader(); 
             }
         }
     }
+    
     // --- УНИВЕРСАЛЬНОЕ ОКНО (с поддержкой одной кнопки) ---
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30', showCancel = true) {
         const overlay = document.createElement('div'); 
@@ -2349,7 +2354,7 @@ window.checkTradeStatus = async function(historyId) {
             localStorage.removeItem('auth_source');
         }
 
-        // 3. Настройка кнопки "Назад" (если кто-то нажмет HTML-стрелочку)
+
         // 3. Настройка кнопки "Назад"
         const headerBackBtn = document.getElementById('header-back-btn');
         const headerSpacer = document.getElementById('header-spacer');
@@ -2383,7 +2388,6 @@ window.checkTradeStatus = async function(historyId) {
         await loadData(); 
     }
 
-    // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ ---
     // --- ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ ПРОФИЛЯ (ОПТИМИЗИРОВАННАЯ) ---
     async function loadData(isSilent = false) {
         if (!isSilent) showLoader();
@@ -2428,12 +2432,25 @@ window.checkTradeStatus = async function(historyId) {
 
         } catch (e) {
             console.error(e);
-            // Защищаем наши красивые окна от перекрытия generic ошибкой!
-            if (!isSilent && e.message !== 'Security Block' && e.message !== 'USER_BANNED' && e.message !== 'Bot Auth Required') {
+            
+            // Проверяем, системная ли это ошибка (наши кастомные блокировки)
+            const isSystemError = e.message === 'Security Block' || e.message === 'USER_BANNED' || e.message === 'Bot Auth Required';
+            
+            // Показываем обычную ошибку "Ошибка соединения с сервером", 
+            // ТОЛЬКО если это не наша системная блокировка
+            if (!isSilent && !isSystemError) {
                 showCustomAlert("Ошибка соединения с сервером", true);
             }
         } finally {
-            if (!isSilent) hideLoader();
+            // 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: Ищем блокирующие окна 🔥
+            const hasBlockers = document.getElementById('security-trade-modal') || 
+                                document.getElementById('security-twitch-modal') || 
+                                document.getElementById('bot-auth-modal');
+            
+            // Прячем лоадер ТОЛЬКО если нет окон блокировки и нет экрана бана
+            if (!isSilent && !hasBlockers && !document.body.innerHTML.includes('banPulse')) {
+                hideLoader();
+            }
         }
     }
     
