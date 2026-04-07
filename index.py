@@ -15205,13 +15205,13 @@ async def buy_promo_endpoint(
     request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Покупка реального промокода за 10 монет с автозачислением."""
+    """Покупка реального промокода за монеты с моментальным UI-откликом."""
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    COST_IN_COINS = 10.0
-    REWARD_STARS = 50 
+    COST_IN_COINS = 10.0  
+    REWARD_STARS = 50     
 
     try:
         response = await supabase.post(
@@ -15229,28 +15229,40 @@ async def buy_promo_endpoint(
             raise HTTPException(status_code=400, detail=error_msg)
 
         purchase_data = response.json()
-        # Обычно RPC возвращает объект или список с данными промокода
+        
+        # Надежно достаем promo_id
         promo_id = purchase_data[0].get('id') if isinstance(purchase_data, list) else purchase_data.get('id')
+        promo_code_text = purchase_data[0].get('promo_code') if isinstance(purchase_data, list) else purchase_data.get('promo_code')
 
-        # 🔥🔥🔥 АВТО-НАЧИСЛЕНИЕ И КОЛОКОЛЬЧИК 🔥🔥🔥
-        async def process_delivery():
-            # 1. Начисляем монетки (твоя функция)
-            await activate_single_promocode(
-                promo_id=promo_id,
-                telegram_id=user_info["id"],
-                reward_value=REWARD_STARS,
-                description=f"Покупка в магазине ({REWARD_STARS})"
-            )
-            # 2. Пишем в колокольчик (твоя функция)
-            await create_in_app_notification(
-                supabase=supabase,
-                user_id=user_info["id"],
-                title="💰 Покупка в магазине",
-                message=f"Вы приобрели {REWARD_STARS} монет. Они уже зачислены на ваш баланс!",
-                notif_type="system"
-            )
+        if not promo_id and promo_code_text:
+            find_id_resp = await supabase.get("/promocodes", params={"code": f"eq.{promo_code_text}", "select": "id"})
+            if find_id_resp.status_code == 200 and find_id_resp.json():
+                promo_id = find_id_resp.json()[0]['id']
 
-        asyncio.create_task(process_delivery())
+        if promo_id:
+            # 🔥 ФИКС 1: Мгновенно ставим метку авто-зачисления для профиля!
+            await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={"auto_is_used": True})
+
+            async def process_delivery():
+                # 🔥 ФИКС 2: Колокольчик шлем ПЕРВЫМ, он сработает за миллисекунду
+                await create_in_app_notification(
+                    supabase=supabase,
+                    user_id=user_info["id"],
+                    title="💰 Покупка в магазине",
+                    message=f"Вы приобрели {REWARD_STARS} монет. Они зачисляются на ваш баланс в боте!",
+                    notif_type="system"
+                )
+                # А теперь идем в долгий Bot-t API
+                await activate_single_promocode(
+                    promo_id=promo_id,
+                    telegram_id=user_info["id"],
+                    reward_value=REWARD_STARS,
+                    description=f"Покупка в магазине ({REWARD_STARS})"
+                )
+
+            asyncio.create_task(process_delivery())
+        else:
+            logging.error(f"Не найден ID кода для автоактивации. Данные: {purchase_data}")
 
         return purchase_data
 
@@ -16415,25 +16427,39 @@ async def buy_dynamic_promo_endpoint(
             raise HTTPException(status_code=400, detail=msg)
 
         purchase_data = response.json()
+        
         promo_id = purchase_data[0].get('id') if isinstance(purchase_data, list) else purchase_data.get('id')
+        promo_code_text = purchase_data[0].get('promo_code') if isinstance(purchase_data, list) else purchase_data.get('promo_code')
 
-        # 🔥🔥🔥 АВТО-НАЧИСЛЕНИЕ И КОЛОКОЛЬЧИК 🔥🔥🔥
-        async def process_delivery():
-            await activate_single_promocode(
-                promo_id=promo_id,
-                telegram_id=user_info["id"],
-                reward_value=request_data.reward_value,
-                description=f"Покупка: {request_data.reward_value}"
-            )
-            await create_in_app_notification(
-                supabase=supabase,
-                user_id=user_info["id"],
-                title="🛍️ Успешная покупка",
-                message=f"Вы успешно обменяли гринд-монетки на {request_data.reward_value} обычных монет!",
-                notif_type="system"
-            )
+        if not promo_id and promo_code_text:
+            find_id_resp = await supabase.get("/promocodes", params={"code": f"eq.{promo_code_text}", "select": "id"})
+            if find_id_resp.status_code == 200 and find_id_resp.json():
+                promo_id = find_id_resp.json()[0]['id']
 
-        asyncio.create_task(process_delivery())
+        if promo_id:
+            # 🔥 ФИКС 1: Мгновенная метка авто-зачисления
+            await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={"auto_is_used": True})
+
+            async def process_delivery():
+                # 🔥 ФИКС 2: Моментальный колокольчик
+                await create_in_app_notification(
+                    supabase=supabase,
+                    user_id=user_info["id"],
+                    title="🛍️ Успешная покупка",
+                    message=f"Вы обменяли гринд-монетки. +{request_data.reward_value} монет отправлены на ваш баланс!",
+                    notif_type="system"
+                )
+                # Долгий запрос на начисление
+                await activate_single_promocode(
+                    promo_id=promo_id,
+                    telegram_id=user_info["id"],
+                    reward_value=request_data.reward_value,
+                    description=f"Покупка: {request_data.reward_value}"
+                )
+
+            asyncio.create_task(process_delivery())
+        else:
+            logging.error(f"Не найден ID динамического кода. Данные: {purchase_data}")
 
         return purchase_data
 
