@@ -235,13 +235,17 @@ async def activate_single_promocode(promo_id: int, telegram_id: int, reward_valu
         if u_data and isinstance(u_data, list) and len(u_data) > 0 and u_data[0].get("bott_internal_id"):
             bott_id = u_data[0]["bott_internal_id"]
             
+            # --- УДАЛЯЕМ ИЛИ КОММЕНТИРУЕМ ЭТОТ БЛОК ---
+            # old_balance = 0.0
+            # try:
+            #     bal_resp = await get_user_balance_from_bott(telegram_id)
+            #     if bal_resp is not None:
+            #         old_balance = round(float(bal_resp), 2)
+            # except Exception as bal_err:
+            #     logging.warning(f"Не удалось получить старый баланс: {bal_err}")
+            
+            # А вместо него ставим просто заглушку:
             old_balance = 0.0
-            try:
-                bal_resp = await get_user_balance_from_bott(telegram_id)
-                if bal_resp is not None:
-                    old_balance = round(float(bal_resp), 2)
-            except Exception as bal_err:
-                logging.warning(f"Не удалось получить старый баланс для tg_id {telegram_id}: {bal_err}")
 
             # 3. Начисляем реальные монеты в Bot-t
             success = await add_balance_to_bott(bott_id, reward_value, f"🎁 {description}")
