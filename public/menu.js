@@ -313,8 +313,8 @@ function updateLoading(percent) {
         const result = await response.json();
 
        if (!response.ok) {
-            // Приводим ошибку к верхнему регистру для железной проверки (чтобы ловить BANNED, banned, BAN и т.д.)
-            const errorDetail = result.detail ? result.detail.toUpperCase() : (result.message ? result.message.toUpperCase() : "");
+            // Приводим detail к верхнему регистру, чтобы ловить BANNED, banned, BAN и т.д.
+            const errorDetail = result.detail ? result.detail.toUpperCase() : "";
 
             // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
             if (response.status === 403 && errorDetail.includes("BAN")) {
@@ -355,27 +355,30 @@ function updateLoading(percent) {
                 throw new Error("USER_BANNED");
             }
 
-            // 👇 ВОТ СЮДА ВСТАВЛЯЕМ НАШУ ПРОВЕРКУ БОТА 👇
-            if (errorDetail.includes("НЕ НАЙДЕН ПОЛЬЗОВАТЕЛЬ") || errorDetail.includes("BOT_USER_NOT_FOUND")) {
+            // 👇 ПРОБЛЕМА С АВТОРИЗАЦИЕЙ БОТА 👇
+            if (errorDetail.includes("НЕ НАЙДЕН ПОЛЬЗОВАТЕЛЬ") || errorDetail === "BOT_USER_NOT_FOUND") {
                 window.showBotAuthWarning();
                 throw new Error("Bot Auth Required");
             }
-            // 👆 КОНЕЦ ВСТАВКИ 👆
 
             // 🛡️ 2. ДУБЛИКАТЫ (400 DUPLICATE_TRADE_LINK / DUPLICATE_TWITCH)
-            if (response.status === 400 && (errorDetail.includes("DUPLICATE_TRADE_LINK") || errorDetail.includes("DUPLICATE_TWITCH"))) {
-                let msg = errorDetail.includes("DUPLICATE_TRADE_LINK")
-                    ? "Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите правильную ссылку ниже."
-                    : "Этот Twitch-аккаунт уже привязан к другому пользователю! Обратитесь в поддержку.";
-                
-                window.showSecurityBlock(msg);
-                throw new Error("Security Block");
+            if (response.status === 400) {
+                if (errorDetail === "DUPLICATE_TRADE_LINK") {
+                    // Если дубликат трейда — вызываем твое красивое окно с вводом трейд-ссылки
+                    window.showSecurityBlock("Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите правильную ссылку ниже.");
+                    throw new Error("Security Block");
+                } 
+                if (errorDetail === "DUPLICATE_TWITCH") {
+                    // Если дубликат Твича — просто показываем алерт, без поля ввода трейд-ссылки
+                    customAlert("Этот Twitch-аккаунт уже привязан к другому пользователю! Обратитесь в поддержку.");
+                    throw new Error("Security Block");
+                }
             }
 
             // Обычная проверка на 403 (другие ограничения)
             if (response.status === 403) {
-                // Если это какая-то другая 403 ошибка, показываем её текстом, а не окном трейд-ссылки
-                customAlert(result.detail || result.message || "Доступ ограничен.");
+                // Если прилетело 403, но это не бан — тоже показываем алерт, чтобы не просило стим-ссылку просто так
+                customAlert(result.detail || "Доступ ограничен.");
                 throw new Error("Security Block");
             }
             
