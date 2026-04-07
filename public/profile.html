@@ -1301,6 +1301,84 @@ window.showSecurityBlock = function(message) {
     };
 };
 
+    // --- ОКНО: БОТ НЕ НАЙДЕН ---
+window.hasShownBotAuthWarning = false;
+window.showBotAuthWarning = function() {
+    if (window.hasShownBotAuthWarning || document.getElementById('bot-auth-modal')) return;
+    window.hasShownBotAuthWarning = true;
+    
+    if(dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    const overlay = document.createElement('div');
+    overlay.id = 'bot-auth-modal';
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.98); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-family: sans-serif; opacity: 0; transition: opacity 0.3s;";
+    
+    overlay.innerHTML = `
+        <div style="padding: 24px 20px; width: 90%; max-width: 340px; background: #1c1c1e; border-radius: 20px; border: 1px solid rgba(42,171,238,0.4); text-align: center; box-shadow: 0 0 50px rgba(0,0,0,1);">
+            <i class="fa-brands fa-telegram" style="font-size:48px; color:#2AABEE; margin-bottom:15px; display:block;"></i>
+            <h3 style="color: #2AABEE; font-size: 22px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Бот тебя не знает</h3>
+            <div style="margin-bottom: 20px; font-size: 14px; color: #fff; line-height: 1.4; opacity: 0.9;">По правилам Telegram боты не могут писать первыми. Чтобы всё работало, запусти бота:</div>
+            
+            <a href="https://t.me/HATElavka_bot" target="_blank" onclick="if(window.Telegram?.WebApp) { tg.openTelegramLink('https://t.me/HATElavka_bot'); return false; }" style="display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(42, 171, 238, 0.1); padding: 14px; border-radius: 12px; text-decoration: none; color: #fff; border: 1px solid rgba(42, 171, 238, 0.3); margin-bottom: 15px;">
+                <i class="fa-solid fa-robot" style="color: #2AABEE; font-size: 18px;"></i>
+                <span style="font-size: 14px; font-weight: 800; text-transform: uppercase;">Основной бот</span>
+            </a>
+            <button id="close-bot-auth-btn" style="width: 100%; padding: 16px; background: #333; color: #fff; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; cursor: pointer;">Я всё понял</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.style.opacity = '1');
+
+    overlay.querySelector('#close-bot-auth-btn').onclick = function() {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 300);
+    };
+};
+
+// --- ОКНО: ДУБЛИКАТ TWITCH ---
+window.showTwitchBlock = function(message) {
+    if(dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
+    const old = document.getElementById('security-twitch-modal');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'security-twitch-modal';
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.98); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-family: sans-serif; opacity: 0; transition: opacity 0.3s;";
+    
+    overlay.innerHTML = `
+        <div style="padding: 24px 20px; width: 90%; max-width: 340px; background: #1c1c1e; border-radius: 20px; border: 1px solid rgba(145, 70, 255, 0.4); text-align: center; box-shadow: 0 0 50px rgba(0,0,0,1);">
+            <i class="fa-brands fa-twitch" style="font-size:48px; color:#9146ff; margin-bottom:15px; display:block;"></i>
+            <h3 style="color: #9146ff; font-size: 22px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Ошибка привязки</h3>
+            <div style="margin-bottom: 20px; font-size: 14px; color: #fff; line-height: 1.4; opacity: 0.9;">${message}</div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="twitch-relink-btn" style="width: 100%; padding: 16px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+                    <i class="fa-brands fa-twitch"></i> Перепривязать
+                </button>
+                <button id="twitch-support-btn" style="width: 100%; background: rgba(255,255,255,0.05); color: #8e8e93; border: none; border-radius: 12px; padding: 14px; font-size: 13px; font-weight: 600; cursor: pointer;">Написать в поддержку</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.style.opacity = '1');
+
+    overlay.querySelector('#twitch-relink-btn').onclick = async function() {
+        this.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin-fast"></i> ЗАГРУЗКА...';
+        this.disabled = true;
+        try {
+            const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}&redirect=/`);
+            const data = await response.json();
+            if (data.url) { tg.openLink(data.url); setTimeout(() => tg.close(), 500); } 
+            else { this.innerHTML = 'ОШИБКА ССЫЛКИ'; }
+        } catch (err) { 
+            this.innerHTML = 'ОШИБКА СЕТИ';
+            setTimeout(() => { this.innerHTML = '<i class="fa-brands fa-twitch"></i> ПЕРЕПРИВЯЗАТЬ'; this.disabled = false; }, 2000);
+        }
+    };
+
+    overlay.querySelector('#twitch-support-btn').onclick = () => { tg.openTelegramLink("https://t.me/hatelove_twitch"); };
+};
+
     function showNotification(message, type = 'info') {
         const container = document.getElementById('notification-area');
         if (!container) return;
@@ -1364,15 +1442,15 @@ window.showSecurityBlock = function(message) {
         const result = await response.json();
 
         if (!response.ok) {
+            const errorDetail = result.detail ? result.detail.toUpperCase() : (result.message ? result.message.toUpperCase() : "");
+
             // 💀 1. ВЕЧНЫЙ ЭКРАН БАНА
-            if (response.status === 403 && result.detail === "BANNED") {
+            if (response.status === 403 && errorDetail.includes("BAN")) {
                 document.body.innerHTML = `
                     <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
                         <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
                         <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
-                        <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">
-                            Твой аккаунт заблокирован за нарушение правил системы.
-                        </p>
+                        <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">Твой аккаунт заблокирован за нарушение правил системы.</p>
                         <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
                             <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
                         </a>
@@ -1384,10 +1462,22 @@ window.showSecurityBlock = function(message) {
                 throw new Error("USER_BANNED");
             }
 
-            // 🛡️ 2. ДУБЛИКАТЫ TRADE LINK
-            if (response.status === 400 && result.detail === "DUPLICATE_TRADE_LINK") {
-                window.showSecurityBlock("Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите свою.");
-                throw new Error("Security Block");
+            // 👇 2. БОТ НЕ НАЙДЕН
+            if (errorDetail.includes("НЕ НАЙДЕН ПОЛЬЗОВАТЕЛЬ") || errorDetail.includes("BOT_USER_NOT_FOUND")) {
+                window.showBotAuthWarning();
+                throw new Error("Bot Auth Required");
+            }
+
+            // 🛡️ 3. ДУБЛИКАТЫ (Трейд-ссылка или Твич)
+            if (response.status === 400) {
+                if (errorDetail.includes("DUPLICATE_TWITCH")) {
+                    window.showTwitchBlock("Этот Twitch-аккаунт уже привязан к другому пользователю! Нажми кнопку ниже, чтобы перепривязать правильный аккаунт.");
+                    throw new Error("Security Block");
+                }
+                if (errorDetail.includes("DUPLICATE_TRADE_LINK")) {
+                    window.showSecurityBlock("Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажи свою.");
+                    throw new Error("Security Block");
+                }
             }
 
             // Обычная проверка на 403 (другие ограничения)
@@ -1398,16 +1488,6 @@ window.showSecurityBlock = function(message) {
 
             throw new Error(result.detail || 'Ошибка сервера');
         }
-        return result;
-    } catch (e) { 
-        if (e.message !== 'Security Block' && e.message !== 'USER_BANNED' && !isSilent) {
-            tg.showAlert(`Ошибка: ${e.message}`); 
-        }
-        throw e; 
-    } finally { 
-        if (!isSilent) hideLoader(); 
-    }
-}
     // --- УНИВЕРСАЛЬНОЕ ОКНО (с поддержкой одной кнопки) ---
     function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30', showCancel = true) {
         const overlay = document.createElement('div'); 
