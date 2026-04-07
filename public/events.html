@@ -677,7 +677,7 @@
         <div class="modal-header">
             <div class="shop-tabs">
                 <button class="tab-btn active" id="tab-tickets" onclick="switchTab('tickets')">Билеты</button>
-                <button class="tab-btn" id="tab-promos" onclick="switchTab('promos')">Промокоды</button>
+                <button class="tab-btn" id="tab-promos" onclick="switchTab('promos')">Монеты</button>
             </div>
             <button class="modal-close-btn" onclick="closeShopModal()">&times;</button>
         </div>
@@ -1313,7 +1313,7 @@
     };
 
     window.buyItem = async (val) => {
-        tg.showConfirm(`Купить код на ${val} звезд?`, async (ok) => {
+        tg.showConfirm(`Обменять гринд-монеты на ${val} основных монет?`, async (ok) => {
             if(ok) {
                 try {
                     const response = await fetch('/api/v1/user/grind/buy_item', {
@@ -1330,7 +1330,9 @@
                     const res = await response.json();
                     userState.coins = parseFloat(res.new_coins);
                     updateUI();
-                    showSuccess(`Промокод на ${val} звезд успешно куплен!`, res.promo_code);
+                    
+                    // 🔥 ИЗМЕНЕНО ТУТ: Убрали res.promo_code, чтобы плашка не появлялась
+                    showSuccess(`Успешно! +${val} монет зачислено на ваш баланс.`);
                     
                 } catch(e) { tg.showAlert(e.message || 'Не удалось купить'); }
             }
@@ -1354,7 +1356,8 @@
                 promos.forEach(p => {
                     shopItems.push({
                         type: 'promo', cost: p.reward_value, reward: p.reward_value,
-                        title: `Код на ${p.reward_value} 🟡`, quantity: p.quantity
+                        // ИЗМЕНЕНА СТРОЧКА НИЖЕ:
+                        title: `+${p.reward_value} на баланс 🟡`, quantity: p.quantity
                     });
                 });
                 shopItems.sort((a, b) => a.cost - b.cost);
