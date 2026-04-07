@@ -884,28 +884,59 @@ async function checkGift() {
 }
 
 function renderGiftResult(result) {
-    dom.giftContentInitial.classList.add('hidden'); dom.giftContentResult.classList.remove('hidden');
-    const giftBtn = document.getElementById('daily-gift-btn'); if (giftBtn) giftBtn.style.display = 'none'; 
-    dom.giftContainer.classList.add('hidden'); dom.giftPromoBlock.classList.add('hidden'); 
+    dom.giftContentInitial.classList.add('hidden'); 
+    dom.giftContentResult.classList.remove('hidden');
+    
+    const giftBtn = document.getElementById('daily-gift-btn'); 
+    if (giftBtn) giftBtn.style.display = 'none'; 
+    
+    dom.giftContainer.classList.add('hidden'); 
+    // Железобетонно скрываем блок с промокодом всегда
+    dom.giftPromoBlock.classList.add('hidden'); 
 
-    if (result.type === 'tickets') { dom.giftResultIcon.innerHTML = "🎟️"; dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> билетов!`; } 
-    else if (result.type === 'coins') { dom.giftResultIcon.innerHTML = "💰"; dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> монет!`; dom.giftPromoBlock.classList.remove('hidden'); } 
-    else if (result.type === 'skin') { dom.giftResultIcon.innerHTML = `<img src="${escapeHTML(result.meta.image_url)}" style="width:100px; height:100px; object-fit:contain;">`; dom.giftResultText.innerHTML = `<b>${escapeHTML(result.meta.name)}</b>`; }
+    if (result.type === 'tickets') { 
+        dom.giftResultIcon.innerHTML = "🎟️"; 
+        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> билетов!`; 
+    } 
+    else if (result.type === 'coins') { 
+        dom.giftResultIcon.innerHTML = "💰"; 
+        dom.giftResultText.innerHTML = `Вы получили <b>${result.value}</b> монет!`; 
+        // ❌ Убрали отсюда dom.giftPromoBlock.classList.remove('hidden');
+    } 
+    else if (result.type === 'skin') { 
+        dom.giftResultIcon.innerHTML = `<img src="${escapeHTML(result.meta.image_url)}" style="width:100px; height:100px; object-fit:contain;">`; 
+        dom.giftResultText.innerHTML = `<b>${escapeHTML(result.meta.name)}</b>`; 
+    }
 
     if (result.subscription_required) {
         if (giftBtn) giftBtn.style.display = 'flex'; 
-        dom.giftResultTitle.textContent = "ПОЧТИ ТВОЁ!"; dom.giftResultTitle.style.color = "#ff3b30";
-        if (result.type === 'coins') { dom.giftPromoCode.textContent = "🔒 ПОДПИШИСЬ"; dom.giftPromoCode.style.filter = "blur(5px)"; }
-        dom.giftCloseBtn.textContent = "Подписаться и забрать"; dom.giftCloseBtn.style.background = "#0088cc";
-        dom.giftCloseBtn.onclick = (e) => { e.preventDefault(); Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv"); dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
+        dom.giftResultTitle.textContent = "ПОЧТИ ТВОЁ!"; 
+        dom.giftResultTitle.style.color = "#ff3b30";
+        
+        // ❌ Убрали логику "заблюренного" промокода
+        
+        dom.giftCloseBtn.textContent = "Подписаться и забрать"; 
+        dom.giftCloseBtn.style.background = "#0088cc";
+        dom.giftCloseBtn.onclick = (e) => { 
+            e.preventDefault(); 
+            Telegram.WebApp.openTelegramLink("https://t.me/hatelovettv"); 
+            dom.giftModalOverlay.classList.add('hidden'); 
+            unlockAppScroll(); 
+        };
     } else {
-        dom.giftResultTitle.textContent = "Поздравляем!"; dom.giftResultTitle.style.color = "#34c759";
-        if (result.type === 'coins') { dom.giftPromoCode.textContent = result.meta.code; dom.giftPromoCode.style.filter = "none"; }
-        dom.giftCloseBtn.textContent = "Круто!"; dom.giftCloseBtn.style.background = "#555";
-        dom.giftCloseBtn.onclick = () => { dom.giftModalOverlay.classList.add('hidden'); unlockAppScroll(); };
+        dom.giftResultTitle.textContent = "Поздравляем!"; 
+        dom.giftResultTitle.style.color = "#34c759";
+        
+        // ❌ Убрали логику подстановки текста самого кода
+        
+        dom.giftCloseBtn.textContent = "Круто!"; 
+        dom.giftCloseBtn.style.background = "#555";
+        dom.giftCloseBtn.onclick = () => { 
+            dom.giftModalOverlay.classList.add('hidden'); 
+            unlockAppScroll(); 
+        };
     }
 }
-
 // Туториал
 const tutorialSteps = [
     { element: '.top-header', title: 'Ваш Профиль и Баланс', text: 'Сверху находится ваш профиль и баланс монет/билетов.' },
