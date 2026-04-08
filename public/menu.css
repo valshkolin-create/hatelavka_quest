@@ -844,22 +844,19 @@ body.desktop-mode .toggle-container {
     color: #ffd700;
 }
 
-/* --- ВТОРОЙ РЯД: Сетка под две отдельные фигуры --- */
-.row-two-grid {
-    display: grid;
-    /* ИЗМЕНЕНО: теперь оба столбца ровно по 1fr (одинаковые) */
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; 
-    gap: 10px; 
-    height: 110px; 
-    width: 100%;
-    
-    /* Увеличиваем это значение, чтобы "всосать" блок еще выше */
-    margin-top: -30px; 
-    
-    margin-bottom: 20px;
-}
+/* --- ВТОРОЙ РЯД: Сетка под две одинаковые колонки --- */
+    .row-two-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; 
+        gap: 10px; 
+        height: 110px; 
+        width: 100%;
+        margin-top: -30px; 
+        margin-bottom: 20px;
+        position: relative; /* Обязательно для позиционирования калаша */
+    }
 
-/* Блок Расписания и Траста (общие стили карточки) */
+    /* Общие стили для обеих кнопок */
     .schedule-box {
         background: transparent !important;
         border: none !important;
@@ -879,9 +876,8 @@ body.desktop-mode .toggle-container {
         min-width: 0;
         box-sizing: border-box;
         
-        overflow: visible; 
-        /* Обязательно relative, чтобы калаш не улетал за пределы блока */
         position: relative; 
+        z-index: 2; /* Текст находится под калашом, но доступен для клика */
     }
 /* Эффект нажатия оставляем */
 .schedule-box:active {
