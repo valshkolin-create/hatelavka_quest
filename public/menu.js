@@ -3249,7 +3249,7 @@ window.executeSwap = async () => {
 };
 
 // ================================================================
-// ОКНО ТРАСТ-ФАКТОРА (ПРЕМИУМ ВЕРСИЯ - МАКСИМАЛЬНО СЖАТАЯ)
+// ОКНО ТРАСТ-ФАКТОРА (ПРЕМИУМ ВЕРСИЯ - ИДЕАЛЬНО СЖАТАЯ И РОВНАЯ)
 // ================================================================
 window.openTrustModal = () => {
     // Получаем баллы пользователя (если нет - ставим дефолт 30)
@@ -3257,7 +3257,7 @@ window.openTrustModal = () => {
     const percent = Math.max(0, Math.min(100, score)); 
     
     // Определяем статус, цвет и множитель
-    let levelText = 'Обычный';
+    let levelText = 'Серый';
     let levelColor = '#8e8e93';
     let multiplierText = 'Цены x2 🪙';
     
@@ -3272,62 +3272,64 @@ window.openTrustModal = () => {
     }
 
     const html = `
-        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; gap: 8px;">
+        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; box-sizing: border-box;">
             
-            <div>
-                <div style="font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1;">Уровень доверия</div>
-                <div style="font-size: 10px; color: #888; margin-top: 2px; line-height: 1.1;">
-                    Показатель надежности вашего аккаунта. Чем выше траст, тем выгоднее цены в магазине.
-                </div>
+            <div style="font-size: 10px; color: #888; line-height: 1.1; width: 100%;">
+                Система поощряет активных зрителей и наказывает «штрафников». Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
-            <div style="display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 10px; line-height: 1;">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%;">
                 <span style="color: #777; font-weight: 600;">СТАТУС:</span>
                 <span style="color: ${levelColor}; font-weight: 800; text-transform: uppercase; background: ${levelColor}15; padding: 2px 6px; border-radius: 4px; border: 1px solid ${levelColor}40; letter-spacing: 0.5px;">${levelText}</span>
                 <span style="color: #555;">•</span>
                 <span style="color: #aaa; font-weight: 600;">${multiplierText}</span>
             </div>
 
-            <div style="position: relative; width: 100%; margin-top: 8px;">
-                <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 14px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); transition: left 1s cubic-bezier(0.25, 1, 0.5, 1); z-index: 2;">
+            <div style="position: relative; width: 100%; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
+                
+                <div style="position: absolute; top: -11px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 12px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 1s cubic-bezier(0.25, 1, 0.5, 1); z-index: 2;">
                     <i class="fa-solid fa-caret-down"></i>
                 </div>
                 
-                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #ff3b30 30%, #3a3a3c 30%, #3a3a3c 80%, #34c759 80%, #34c759 100%); box-shadow: 0 0 12px ${levelColor}60; position: relative; z-index: 1;"></div>
+                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #ff3b30 15%, #3a3a3c 30%, #3a3a3c 70%, #34c759 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; position: relative; z-index: 1;"></div>
                 
-                <div style="position: relative; width: 100%; height: 12px; margin-top: 2px; font-size: 9px; color: #666; font-weight: 800; line-height: 1;">
+                <div style="position: relative; width: 100%; height: 10px; font-size: 9px; color: #666; font-weight: 800; line-height: 1; margin-top: 2px;">
                     <span style="position: absolute; left: 0;">0</span>
-                    <span style="position: absolute; left: 30%; transform: translateX(-50%);">30</span>
-                    <span style="position: absolute; left: 80%; transform: translateX(-50%);">80</span>
+                    <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
+                    <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
                     <span style="position: absolute; left: 100%; transform: translateX(-100%);">100</span>
                 </div>
             </div>
 
-            <div>
-                <span style="font-size: 32px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 15px ${levelColor}50; line-height: 0.8;">${score.toFixed(1)}</span>
-                <span style="font-size: 11px; color: #666; font-weight: 700; position: relative; top: -3px; line-height: 1;">/ 100</span>
+            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-top: 4px;">
+                <span style="font-size: 32px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 12px ${levelColor}40; letter-spacing: -1px;">${score.toFixed(1)}</span>
+                <span style="font-size: 10px; color: #666; font-weight: 700; margin-left: 2px; margin-bottom: 2px;">/ 100</span>
             </div>
 
-            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; overflow: hidden;">
-                <summary style="padding: 6px 10px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1;">
-                    <span style="display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-bolt" style="color: #FFD700;"></i> Как повысить траст?
+            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; overflow: hidden; width: 100%; box-sizing: border-box;">
+                <summary style="padding: 6px 8px; font-weight: 700; font-size: 10px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1;">
+                    <span style="display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-circle-info" style="color: #FFD700;"></i> Как работает система?
                     </span>
                     <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 9px; color: #888; transition: transform 0.2s;"></i>
                 </summary>
                 
-                <div style="padding: 0 10px 6px 10px; font-size: 10px; color: #aaa;">
-                    <div style="display: flex; justify-content: space-between; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.03); line-height: 1;">
-                        <span>Смотреть стримы Twitch</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5</b>
+                <div style="padding: 6px 8px; font-size: 9px; color: #aaa; background: rgba(0,0,0,0.2);">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; line-height: 1;">
+                        <span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Мах 80</b>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 4px; line-height: 1;">
-                        <span>Общаться в чате Twitch</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.2</b>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; line-height: 1;">
+                        <span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Мах 80</b>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 4px; line-height: 1;">
-                        <span>Общаться в чате Telegram</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.3</b>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; line-height: 1;">
+                        <span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5/день</b>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 4px; line-height: 1;">
-                        <span>Ежедневно забирать Гринд</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+1.0</b>
+
+                    <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.2;">
+                        * Механика выхода: Для «Красных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Серый» статус.
                     </div>
                 </div>
             </details>
@@ -3335,7 +3337,7 @@ window.openTrustModal = () => {
             <style>
                 .trust-faq-accordion > summary::-webkit-details-marker { display: none; }
                 .trust-faq-accordion[open] .accordion-arrow { transform: rotate(180deg); }
-                .trust-faq-accordion[open] > summary { border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 4px; }
+                .trust-faq-accordion[open] > summary { border-bottom: 1px solid rgba(255,255,255,0.05); }
             </style>
         </div>
     `;
@@ -3343,9 +3345,9 @@ window.openTrustModal = () => {
     // Вызов модального окна
     showShopModal({
         title: `
-            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:15px; font-weight: 800; color: #fff; line-height: 1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:15px; font-weight: 900; color: #fff; line-height: 1; letter-spacing: 0.5px;">
                 ТРАСТ-ФАКТОР
-                <i class="fa-solid fa-xmark" style="color:#8e8e93; font-size:18px; cursor:pointer; padding: 0 5px; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#8e8e93'" onclick="document.querySelector('.custom-confirm-overlay').remove();"></i>
+                <i class="fa-solid fa-xmark" style="color:#8e8e93; font-size:16px; cursor:pointer; padding: 0 5px; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#8e8e93'" onclick="document.querySelector('.custom-confirm-overlay').remove();"></i>
             </div>
         `,
         subtitle: html,
