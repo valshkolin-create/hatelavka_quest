@@ -1284,22 +1284,29 @@ window.showSecurityBlock = function(message) {
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
             return;
         }
+        
         saveBtn.disabled = true;
         saveBtn.innerText = "ПРОВЕРКА...";
+        
         try {
             const res = await fetch('/api/v1/user/trade_link/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ trade_link: v, initData: tg.initData })
             });
-            if (res.ok) window.location.reload();
-            else throw new Error();
+            
+            if (res.ok) {
+                // 🔥 Сбрасываем кэш перед релоадом, чтобы защита снялась
+                localStorage.removeItem('cache_bootstrap');
+                window.location.reload();
+            } else {
+                throw new Error();
+            }
         } catch (e) {
             saveBtn.disabled = false;
             saveBtn.innerText = "ОШИБКА. ПОВТОРИ";
         }
     };
-};
 
     function showNotification(message, type = 'info') {
         const container = document.getElementById('notification-area');
@@ -2507,7 +2514,20 @@ window.checkTradeStatus = async function(historyId) {
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
-        if (target.closest('#unlink-twitch-btn')) { showCustomConfirmHTML("Отвязать Twitch?", async (c)=>{ await makeApiRequest('/api/v1/user/twitch/unlink'); c(); window.location.reload(); }); return; }
+        iif (target.closest('#unlink-twitch-btn')) { 
+    showCustomConfirmHTML("Отвязать Twitch?", async (c) => { 
+        try {
+            await makeApiRequest('/api/v1/user/twitch/unlink'); 
+            // 🔥 УБИВАЕМ КЭШ, чтобы при релоаде скачались новые данные без Твича
+            localStorage.removeItem('cache_bootstrap'); 
+            c(); 
+            window.location.reload(); 
+        } catch (e) {
+            c(); // Закрываем модалку, если с сервера прилетела ошибка
+        }
+    }); 
+    return; 
+}
         
         // Попапы "Безопасно?"
         if (target.closest('#twitch-trust-btn')) { document.getElementById('twitch-trust-popup').classList.add('visible'); return; }
@@ -2538,33 +2558,41 @@ window.checkTradeStatus = async function(historyId) {
 
     // --- Обработчик сохранения ссылки ---
     dom.popupSaveBtn.onclick = async () => {
-        const v = dom.popupTradeLinkInput.value.trim();
-        const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
+    const v = dom.popupTradeLinkInput.value.trim();
+    const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
 
-        if (!v.startsWith(requiredPrefix) || !v.includes("partner=") || !v.includes("token=")) {
-            dom.popupTradeLinkInput.classList.add('error-input');
-            showCustomAlert("<b>Неверный формат ссылки!</b><br><br>Скопируйте ссылку целиком из настроек Steam (должны быть partner и token).", true);
-            return;
-        }
+    // СТРОГАЯ ПРОВЕРКА: ссылка должна быть полной
+    if (!v.startsWith(requiredPrefix) || !v.includes("partner=") || !v.includes("token=")) {
+        dom.popupTradeLinkInput.classList.add('error-input');
+        showCustomAlert("<b>Неверный формат ссылки!</b><br><br>Убедитесь, что скопировали её целиком (включая partner и token) из настроек Steam.", true);
+        return;
+    }
 
-        try {
-            showLoader();
-            dom.popupTradeLinkInput.classList.remove('error-input');
-            await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: v });
-            dom.customPopupOverlay.classList.remove('visible');
-            showNotification("Trade Link сохранен!", "success");
-            
-            // Обновляем текст на странице
-            const display = document.getElementById('trade-link-display');
-            if (display) display.textContent = v;
-            
-            setTimeout(() => loadData(true), 500); 
-        } catch (e) {
-            showCustomAlert("Ошибка сохранения:<br>" + e.message, true);
-        } finally {
-            hideLoader();
-        }
-    };
+    try {
+        showLoader();
+        dom.popupTradeLinkInput.classList.remove('error-input');
+        
+        // Отправляем запрос на сервер
+        await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: v });
+        
+        // 🔥 ВОТ ОН, ФИКС: Убиваем кэш профиля, чтобы данные обновились при следующем входе!
+        localStorage.removeItem('cache_bootstrap'); 
+        
+        dom.customPopupOverlay.classList.remove('visible');
+        showNotification("Trade Link сохранен!", "success");
+        
+        // Обновляем текст в профиле сразу (визуально)
+        const display = document.getElementById('trade-link-display');
+        if (display) display.textContent = v;
+        const btn = document.getElementById('edit-trade-link-btn');
+        if (btn) btn.textContent = 'Изменить';
+
+    } catch (e) {
+        showCustomAlert("Ошибка сохранения:<br>" + e.message, true);
+    } finally {
+        hideLoader();
+    }
+};
 
     dom.popupCancelBtn.onclick = () => {
         dom.popupTradeLinkInput.classList.remove('error-input');
