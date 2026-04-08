@@ -3311,7 +3311,7 @@ window.openTrustModal = () => {
     }
 
     const html = `
-        <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; box-sizing: border-box;">
+        <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; box-sizing: border-box;">
             
             <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center;">
 Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
@@ -3329,7 +3329,7 @@ window.openTrustModal = () => {
                 <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
             </div>
 
-            <div style="position: relative; width: 85%; margin-top: 10px; margin-bottom: 0;">
+            <div style="position: relative; width: 85%; margin-top: 0px; margin-bottom: 0;">
                 
             <div style="position: absolute; top: -6px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; line-height: 1;">
                 <i class="fa-solid fa-caret-down"></i>
