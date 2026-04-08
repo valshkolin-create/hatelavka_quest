@@ -487,22 +487,20 @@ async function checkBalance(updateUI = true) {
     }
 
     try {
-        // 🔥 ЗАМЕНИЛИ ГОЛЫЙ FETCH НА ТВОЙ MAKE_API_REQUEST 🔥
-        // Флаг isSilent = true, чтобы лоадер не моргал на весь экран при фоновом обновлении
         const data = await makeApiRequest('/api/v1/shop/smart_balance', {}, 'POST', true);
         
         if (updateUI && data) {
-            // Сохраняем свежий баланс в кэш
             localStorage.setItem('smart_balance_cache', JSON.stringify(data));
             renderBalanceUI(data.balance, data.tickets);
         }
     } catch (err) {
-        // Ошибка (включая окно Bot Auth) уже перехватится и покажется внутри makeApiRequest
         console.warn("[SHOP BALANCE] Фоновое обновление прервано:", err.message);
     } finally { 
         setTimeout(() => { 
             isBalanceLoading = false; 
-            if (iconCoins) iconCoins.classList.remove('fa-spin'); 
+            // 🔥 Ищем элемент заново перед снятием класса, чтобы не потерять ссылку
+            const currentIcon = document.getElementById('refresh-icon');
+            if (currentIcon) currentIcon.classList.remove('fa-spin'); 
         }, 500); 
     }
 }
@@ -2881,7 +2879,7 @@ async function main() {
             localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
         }
 
-        // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД ИЗ FAT PAYLOAD
+       // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД ИЗ FAT PAYLOAD
         if (bootstrapData) {
             // 1. Основной интерфейс
             await renderFullInterface(bootstrapData);
@@ -2890,6 +2888,10 @@ async function main() {
             // 2. Баланс (из бутстрапа)
             if (bootstrapData.user) {
                 renderBalanceUI(bootstrapData.user.balance, bootstrapData.user.tickets);
+                
+                // 🔥 ТОРМОЗИМ ИКОНКУ ПОСЛЕ ПЕРВОЙ ЗАГРУЗКИ 🔥
+                const refreshIcon = document.getElementById('refresh-icon');
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
             }
 
             // 3. Уведомления (из бутстрапа)
