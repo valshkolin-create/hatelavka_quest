@@ -2514,8 +2514,8 @@ window.checkTradeStatus = async function(historyId) {
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
-        iif (target.closest('#unlink-twitch-btn')) { 
-    showCustomConfirmHTML("Отвязать Twitch?", async (c) => { 
+        if (target.closest('#unlink-twitch-btn')) { 
+    showCustomConfirmHTML("Отвязать Twitch?", async (c) => {
         try {
             await makeApiRequest('/api/v1/user/twitch/unlink'); 
             // 🔥 УБИВАЕМ КЭШ, чтобы при релоаде скачались новые данные без Твича
