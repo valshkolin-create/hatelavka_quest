@@ -2245,8 +2245,14 @@ window.checkTradeStatus = async function(historyId) {
             sessionStorage.setItem('auth_handled_session', 'true');
             showNotification('✅ Авторизация успешна!', 'success');
             
+            // 🔥 ГЛАВНЫЙ ФИКС: Убиваем кэш профиля и квестов!
+            // Теперь идущий следом loadData() гарантированно скачает свежие данные с Твичем.
+            localStorage.removeItem('cache_bootstrap');
+            localStorage.removeItem('quests_cache_v1'); // Очищаем и квесты, чтобы открылись Twitch-задания
+
             const source = localStorage.getItem('auth_source');
             if (source !== 'profile') {
+                // Если юзер привязывал не из профиля, уводим его на главную
                 setTimeout(() => {
                     window.location.href = '/'; 
                 }, 1000);
