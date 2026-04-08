@@ -19816,10 +19816,6 @@ class TwitchCampaignActionRequest(BaseModel):
     campaign_id: int
 
 
-# ==========================================
-# 2. ЭНДПОИНТЫ ДЛЯ АДМИНКИ
-# ==========================================
-
 @app.post("/api/v1/admin/twitch_campaigns/create")
 async def create_twitch_campaign(
     req: TwitchCampaignCreate,
@@ -19949,11 +19945,6 @@ async def stop_twitch_campaign(
         raise HTTPException(status_code=404, detail="Кампания не найдена")
         
     return {"status": "success", "message": "Раздача успешно остановлена!"}
-
-
-# ==========================================
-# 3. ЭНДПОИНТ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (ОБРАБОТКА КЛИКА)
-# ==========================================
 
 @app.post("/api/v1/twitch/click")
 async def handle_twitch_click(
