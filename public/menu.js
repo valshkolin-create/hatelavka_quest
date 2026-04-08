@@ -3281,83 +3281,85 @@ window.openTrustModal = () => {
     const score = userData.trust_score ? parseFloat(userData.trust_score) : 30.0;
     const percent = Math.max(0, Math.min(100, score)); 
     
-    // Определяем статус, цвет и множитель
-    let levelText = 'Серый';
+    // Новые статусы по твоему ТЗ
+    let levelText = 'Базовый';
     let levelColor = '#8e8e93';
     let multiplierText = 'Цены x2 🪙';
     
     if (score < 30) { 
-        levelText = 'Штрафник'; 
+        levelText = 'Пониженный'; 
         levelColor = '#ff3b30'; 
         multiplierText = 'Цены x3 💸';
     } else if (score >= 80) { 
-        levelText = 'Элита'; 
+        levelText = 'Повышенный'; 
         levelColor = '#34c759'; 
         multiplierText = 'Цены x1 💎';
     }
 
     const html = `
-        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box; gap: 0;">
+        <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box;">
             
-            <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center; margin-bottom: 12px; margin-top: 0;">
-Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
+            <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center; margin-bottom: 15px;">
+            Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
-            <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%; margin-bottom: 20px;">
                 <span style="color: #777; font-weight: 600;">СТАТУС:</span>
-                <span style="color: ${levelColor}; font-weight: 800; text-transform: uppercase; background: ${levelColor}15; padding: 2px 6px; border-radius: 4px; border: 1px solid ${levelColor}40; letter-spacing: 0.5px;">${levelText}</span>
+                <span style="color: ${levelColor}; font-weight: 800; text-transform: uppercase; background: ${levelColor}15; padding: 3px 6px; border-radius: 4px; border: 1px solid ${levelColor}40; letter-spacing: 0.5px;">${levelText}</span>
                 <span style="color: #555;">•</span>
                 <span style="color: #aaa; font-weight: 600;">${multiplierText}</span>
             </div>
 
-            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-bottom: 25px;">
+            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-bottom: 20px;">
                 <span style="font-size: 34px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 12px ${levelColor}40; letter-spacing: -1px; margin: 0;">${score.toFixed(1)}</span>
                 <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
             </div>
 
-           <div style="position: relative; width: 85%; margin: 15px auto 25px auto;">
-    
-    <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
-        <i class="fa-solid fa-caret-down"></i>
-    </div>
-    
-    <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
-    
-
-    <div style="position: absolute; top: 14px; left: 0; width: 100%; font-size: 10px; font-weight: 800; line-height: 1;">
-        <span style="position: absolute; top: 0; left: 0%; transform: translateX(-50%); color: #666;">0</span>
-        <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
-        <span style="position: absolute; top: 0; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
-        <span style="position: absolute; top: 0; left: 100%; transform: translateX(-50%); color: #666;">100</span>
-    </div>
-    
-</div>
+            <!-- ИДЕАЛЬНО ОТЦЕНТРИРОВАННЫЙ ПРОГРЕСС БАР -->
+            <div style="position: relative; width: 85%; margin: 15px auto 35px auto;">
+                
+                <!-- Стрелочка -->
+                <div style="position: absolute; top: -18px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 18px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
+                    <i class="fa-solid fa-caret-down"></i>
+                </div>
+                
+                <!-- Полоса -->
+                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
+                
+                <!-- Физический блок для цифр (чтобы аккордеон не наезжал сверху) -->
+                <div style="position: relative; width: 100%; height: 15px; margin-top: 10px;">
+                    <span style="position: absolute; left: 0%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800;">0</span>
+                    <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #8e8e93; font-size: 10px; font-weight: 800;">30</span>
+                    <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759; font-size: 10px; font-weight: 800;">80</span>
+                    <span style="position: absolute; left: 100%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800;">100</span>
+                </div>
             </div>
 
-            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; margin: 10;">
-                <summary style="padding: 10px 12px; font-weight: 700; font-size: 10px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;">
+            <!-- ИСПРАВЛЕННЫЙ АККОРДЕОН -->
+            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; margin: 0 0 10px 0;">
+                <summary style="padding: 12px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;">
                     <span style="display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-circle-info" style="color: #FFD700; font-size: 12px;"></i> Как работает система?
+                        <i class="fa-solid fa-circle-info" style="color: #FFD700; font-size: 14px;"></i> Как работает система?
                     </span>
-                    <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 10px; color: #888; transition: transform 0.2s;"></i>
+                    <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 12px; color: #888; transition: transform 0.2s;"></i>
                 </summary>
                 
-                <div style="padding: 10px 12px; font-size: 9px; color: #aaa; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; margin: 0; display: flex; flex-direction: column; gap: 6px;">
+                <div style="padding: 12px; font-size: 10px; color: #aaa; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; margin: 0; display: flex; flex-direction: column; gap: 8px;">
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Мах 80</b>
+                        <span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b>
                     </div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Мах 80</b>
+                        <span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b>
                     </div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5/день</b>
+                        <span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5 балла/день</b>
                     </div>
 
-                    <div style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.4; margin-top: 4px;">
-                        * Механика выхода: Для «Красных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Серый» статус.
+                    <div style="padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.4; margin-top: 4px;">
+                        * Механика выхода: Для «Пониженных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Базовый» статус.
                     </div>
                 </div>
             </details>
