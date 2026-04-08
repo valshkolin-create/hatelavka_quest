@@ -3247,6 +3247,65 @@ window.executeSwap = async () => {
         btn.innerText = "ПОДТВЕРДИТЬ СВАП";
     }
 };
+
+// ================================================================
+// ОКНО ТРАСТ-ФАКТОРА
+// ================================================================
+window.openTrustModal = () => {
+    // Достаем баллы юзера (если нет - ставим дефолт 30)
+    const score = userData.trust_score ? parseFloat(userData.trust_score).toFixed(1) : "30.0";
+    const level = userData.trust_level || 'gray';
+    
+    // Определяем цвет и статус для заголовка
+    let statusText = '⚪ Обычный';
+    if (level === 'red') statusText = '🔴 Штрафник';
+    if (level === 'green') statusText = '🟢 Элита';
+
+    const html = `
+        <div style="text-align: left; font-size: 12px; color: #ddd; line-height: 1.4;">
+            <div style="margin-bottom: 15px; text-align: center;">
+                <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase;">Твои баллы активности:</div>
+                <div style="font-size: 24px; font-weight: 900; color: #fff; font-family: 'SF Mono', monospace;">${score} / 100</div>
+            </div>
+
+            <div style="margin-bottom: 15px;"><b>Траст-фактор</b> напрямую влияет на цены в магазине. Чем ты активнее — тем дешевле кейсы!</div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: rgba(255,59,48,0.1); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,59,48,0.2);">
+                <div style="width: 14px; height: 14px; background: #ff3b30; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px rgba(255,59,48,0.5);"></div>
+                <span><b style="color:#ff3b30;">Красный (0-29):</b> Штрафник. Все цены x3 💸</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="width: 14px; height: 14px; background: #8e8e93; border-radius: 50%; flex-shrink: 0;"></div>
+                <span><b style="color:#aaa;">Серый (30-79):</b> Обычный. Цены x2 🪙</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: rgba(52,199,89,0.1); padding: 8px; border-radius: 8px; border: 1px solid rgba(52,199,89,0.2);">
+                <div style="width: 14px; height: 14px; background: #34c759; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px rgba(52,199,89,0.5);"></div>
+                <span><b style="color:#34c759;">Зеленый (80-100):</b> Элита. Цены без наценки (x1) 💎</span>
+            </div>
+            
+            <div style="background: rgba(255,215,0,0.05); padding: 12px; border-radius: 12px; border: 1px dashed rgba(255,215,0,0.3);">
+                <div style="color: #FFD700; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; font-size: 11px;"><i class="fa-solid fa-arrow-trend-up"></i> Как поднять траст?</div>
+                <ul style="margin: 0; padding-left: 15px; color: #ccc;">
+                    <li style="margin-bottom: 4px;">Смотреть стримы на Twitch</li>
+                    <li style="margin-bottom: 4px;">Общаться в чате Twitch</li>
+                    <li style="margin-bottom: 4px;">Общаться в чате Telegram</li>
+                    <li>Ежедневно забирать Гринд</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    showShopModal({
+        title: "📊 " + statusText,
+        subtitle: html,
+        confirmText: "ВСЁ ПОНЯТНО",
+        confirmClass: "btn-yellow-modal",
+        showCancel: false,
+        onConfirm: (close) => close()
+    });
+};
 // ================================================================
 // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ (УНИВЕРСАЛЬНАЯ БРОНЯ)
 // ================================================================
