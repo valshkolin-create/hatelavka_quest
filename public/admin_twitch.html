@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Управление Twitch Drops</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg: #0f0f0f; --card-bg: #1e1e1e; --primary: #9146FF; --text: #ffffff; --text-sec: #aaaaaa; }
+        body { background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding: 20px; padding-bottom: 100px; }
+        
+        .header { display: flex; align-items: center; margin-bottom: 20px; font-size: 20px; font-weight: 800; color: var(--primary); }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-sec); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
+        .form-group input, .form-group textarea {
+            width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid #333;
+            color: var(--text); padding: 12px; border-radius: 10px; font-size: 14px; outline: none;
+        }
+        
+        .btn-submit {
+            background: var(--primary); color: #fff; border: none; padding: 15px; width: 100%;
+            border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase;
+        }
+        
+        .stats-box { background: var(--card-bg); padding: 15px; border-radius: 12px; margin-top: 20px; border-left: 3px solid var(--primary); }
+        .camp-title { font-weight: bold; margin-bottom: 10px; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sec); margin-bottom: 5px; }
+        .stat-val { color: #fff; font-weight: bold; }
+        .btn-stop { background: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: none; padding: 8px; border-radius: 6px; width: 100%; margin-top: 10px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="header"><i class="fa-brands fa-twitch" style="margin-right: 10px;"></i> Создать Twitch Drop</div>
+
+    <div class="form-group">
+        <label>Внутреннее название (для тебя)</label>
+        <input type="text" id="inp-title" placeholder="Например: Стрим 15.05 Вечер">
+    </div>
+    <div class="form-group">
+        <label>Текст поста (в Telegram)</label>
+        <textarea id="inp-text" rows="4" placeholder="Залетай на стрим! Первые 10 получат кейс..."></textarea>
+    </div>
+    <div class="form-group">
+        <label>Ссылка на картинку (Pinterest / URL)</label>
+        <input type="text" id="inp-image" placeholder="https://i.pinimg.com/...">
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+            <label>Сколько кейсов?</label>
+            <input type="number" id="inp-limit" value="10">
+        </div>
+        <div class="form-group">
+            <label>Жизнь ссылки (часов)</label>
+            <input type="number" id="inp-ttl" value="2">
+        </div>
+    </div>
+    <div class="form-group">
+        <label>Какой кейс выдаем? (Точное название)</label>
+        <input type="text" id="inp-case" placeholder="Кейс | Лентяй">
+    </div>
+
+    <button class="btn-submit" id="btn-create" onclick="createCampaign()">Запустить Дроп 🚀</button>
+
+    <h2 style="font-size: 16px; margin-top: 30px;">Активные раздачи</h2>
+    <div id="stats-container">Загрузка...</div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        async function createCampaign() {
+            const btn = document.getElementById('btn-create');
+            btn.innerHTML = 'Загрузка...'; btn.disabled = true;
+
+            const payload = {
+                initData: tg.initData,
+                title: document.getElementById('inp-title').value,
+                post_text: document.getElementById('inp-text').value,
+                image_url: document.getElementById('inp-image').value,
+                winners_limit: parseInt(document.getElementById('inp-limit').value),
+                ttl_hours: parseInt(document.getElementById('inp-ttl').value),
+                target_case_name: document.getElementById('inp-case').value
+            };
+
+            try {
+                const res = await fetch('/api/v1/admin/twitch_campaigns/create', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                tg.showAlert(data.message);
+                loadStats(); // Обновляем стату
+            } catch (e) {
+                tg.showAlert("Ошибка создания");
+            } finally {
+                btn.innerHTML = 'Запустить Дроп 🚀'; btn.disabled = false;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/v1/admin/twitch_campaigns/list', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({initData: tg.initData})
+                });
+                const list = await res.json();
+                const cont = document.getElementById('stats-container');
+                cont.innerHTML = '';
+                
+                if(!list.length) { cont.innerHTML = '<div style="color:#aaa; font-size: 12px;">Нет кампаний</div>'; return; }
+
+                list.forEach(c => {
+                    const st = c.stats;
+                    const statusText = c.is_active ? '<span style="color:#28a745">Активна</span>' : '<span style="color:#ff4d4d">Завершена</span>';
+                    
+                    cont.innerHTML += `
+                    <div class="stats-box" style="${!c.is_active ? 'opacity: 0.5; border-color: #555;' : ''}">
+                        <div class="camp-title">${c.title} (${statusText})</div>
+                        <div class="stat-row"><span>Всего переходов:</span> <span class="stat-val">${st.total_clicks}</span></div>
+                        <div class="stat-row"><span>Выдано кейсов:</span> <span class="stat-val" style="color:var(--primary)">${st.winners} / ${c.winners_limit}</span></div>
+                        <div class="stat-row"><span>Выдано билетов:</span> <span class="stat-val">${st.tickets_given}</span></div>
+                        ${c.is_active ? `<button class="btn-stop" onclick="stopCamp(${c.id})">Остановить досрочно</button>` : ''}
+                    </div>`;
+                });
+            } catch (e) { document.getElementById('stats-container').innerHTML = 'Ошибка загрузки'; }
+        }
+
+        async function stopCamp(id) {
+            if(!confirm("Точно остановить?")) return;
+            try {
+                await fetch('/api/v1/admin/twitch_campaigns/stop', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({initData: tg.initData, campaign_id: id})
+                });
+                loadStats();
+            } catch(e) { alert("Ошибка"); }
+        }
+
+        // Грузим стату при открытии
+        loadStats();
+    </script>
+</body>
+</html>
