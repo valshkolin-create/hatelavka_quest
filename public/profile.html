@@ -2522,15 +2522,33 @@ window.checkTradeStatus = async function(historyId) {
         const target = e.target;
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
         if (target.closest('#unlink-twitch-btn')) { 
+            const btn = target.closest('#unlink-twitch-btn');
+            
             showCustomConfirmHTML("Отвязать Twitch?", async (c) => { 
+                // Даем мгновенный визуальный отклик на самой кнопке
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                btn.style.opacity = '0.7';
+
                 try {
+                    // Отправляем запрос на бэкенд
                     await makeApiRequest('/api/v1/user/twitch/unlink'); 
-                    // 🔥 УБИВАЕМ КЭШ, чтобы при релоаде скачались новые данные без Твича
+                    
+                    // Чистим кэши
                     localStorage.removeItem('cache_bootstrap'); 
-                    c(); 
-                    window.location.reload(); 
+                    localStorage.removeItem('quests_cache_v1');
+                    
+                    c(); // Закрываем модалку подтверждения
+                    showNotification("Twitch успешно отвязан", "success");
+                    
+                    // 🔥 МАГИЯ ЗДЕСЬ: Делаем "мягкую" перезагрузку вместо location.reload()
+                    // Это покажет красивый лоадер, скачает новые данные без Твича и плавно перерисует меню
+                    await loadData(false); 
+                    
                 } catch (e) {
-                    c(); // Закрываем модалку, если с сервера прилетела ошибка
+                    c(); // Закрываем модалку при ошибке
+                    btn.innerHTML = originalText;
+                    btn.style.opacity = '1';
                 }
             }); 
             return; 
