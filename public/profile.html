@@ -2523,36 +2523,85 @@ window.checkTradeStatus = async function(historyId) {
         tg.openTelegramLink(url);
     };
 
-    // --- GLOBAL LISTENERS ---
+    / --- GLOBAL LISTENERS ---
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
-        if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
+
+        // --- 1. Открытие окна Trade Link ---
+        if (target.closest('#edit-trade-link-btn')) { 
+            let linkTxt = document.getElementById('trade-link-display').textContent;
+            dom.popupTradeLinkInput.value = linkTxt.includes('не привязана') ? '' : linkTxt; 
+            dom.customPopupOverlay.classList.add('visible'); 
+            return; 
+        }
+
+        // --- 2. Ссылка "Где найти?" (Нативно через Telegram) ---
+        if (target.closest('.popup-help a')) {
+            e.preventDefault(); 
+            tg.openLink(target.closest('a').href); 
+            return;
+        }
+
+        // --- 3. Кнопка "Отмена" (Trade Link) ---
+        if (target.closest('#popup-cancel-btn')) {
+            dom.popupTradeLinkInput.classList.remove('error-input');
+            dom.customPopupOverlay.classList.remove('visible');
+            return;
+        }
+
+        // --- 4. Кнопка "Сохранить" (Trade Link) ---
+        if (target.closest('#popup-save-btn')) {
+            const v = dom.popupTradeLinkInput.value.trim();
+            const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
+
+            if (!v.startsWith(requiredPrefix) || !v.includes("partner=") || !v.includes("token=")) {
+                dom.popupTradeLinkInput.classList.add('error-input');
+                showCustomAlert("<b>Неверный формат ссылки!</b><br><br>Убедитесь, что скопировали её целиком (включая partner и token) из настроек Steam.", true);
+                return;
+            }
+
+            try {
+                showLoader();
+                dom.popupTradeLinkInput.classList.remove('error-input');
+                await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: v });
+                
+                // Убиваем кэш, чтобы профиль обновился
+                localStorage.removeItem('cache_bootstrap'); 
+                
+                dom.customPopupOverlay.classList.remove('visible');
+                showNotification("Trade Link сохранен!", "success");
+                
+                // Обновляем текст в профиле мгновенно
+                const display = document.getElementById('trade-link-display');
+                if (display) display.textContent = v;
+                const btn = document.getElementById('edit-trade-link-btn');
+                if (btn) btn.textContent = 'Изменить';
+            } catch (err) {
+                showCustomAlert("Ошибка сохранения:<br>" + err.message, true);
+            } finally {
+                hideLoader();
+            }
+            return;
+        }
+
+        // --- 5. Отвязка Twitch ---
         if (target.closest('#unlink-twitch-btn')) { 
             const btn = target.closest('#unlink-twitch-btn');
             
             showCustomConfirmHTML("Отвязать Twitch?", async (c) => { 
-                // Даем мгновенный визуальный отклик на самой кнопке
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                 btn.style.opacity = '0.7';
 
                 try {
-                    // Отправляем запрос на бэкенд
                     await makeApiRequest('/api/v1/user/twitch/unlink'); 
-                    
-                    // Чистим кэши
                     localStorage.removeItem('cache_bootstrap'); 
                     localStorage.removeItem('quests_cache_v1');
-                    
-                    c(); // Закрываем модалку подтверждения
+                    c(); 
                     showNotification("Twitch успешно отвязан", "success");
-                    
-                    // 🔥 МАГИЯ ЗДЕСЬ: Делаем "мягкую" перезагрузку вместо location.reload()
-                    // Это покажет красивый лоадер, скачает новые данные без Твича и плавно перерисует меню
-                    await loadData(false); 
-                    
-                } catch (e) {
-                    c(); // Закрываем модалку при ошибке
+                    await loadData(false); // Мягкая загрузка без мерцания
+                } catch (err) {
+                    c();
                     btn.innerHTML = originalText;
                     btn.style.opacity = '1';
                 }
@@ -2560,11 +2609,11 @@ window.checkTradeStatus = async function(historyId) {
             return; 
         }
         
-        // Попапы "Безопасно?"
+        // --- 6. Попапы "Безопасно?" ---
         if (target.closest('#twitch-trust-btn')) { document.getElementById('twitch-trust-popup').classList.add('visible'); return; }
         if (target.closest('#steam-trust-btn')) { document.getElementById('steam-trust-popup').classList.add('visible'); return; }
         
-        // Кнопка "Где использовать"
+        // --- 7. Кнопка "Где использовать" ---
         const howToBtn = target.closest('.reward-how-to-use-btn');
         if (howToBtn) { 
             const img = document.getElementById('how-to-use-gif');
@@ -2573,9 +2622,9 @@ window.checkTradeStatus = async function(historyId) {
             return; 
         }
         
-        // Кнопка перехода в бота
+        // --- 8. Кнопка перехода в бота ---
         if (target.closest('#send-promo-cmd')) {
-            tg.HapticFeedback.impactOccurred('medium');
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
             tg.openTelegramLink("https://t.me/HATElavka_bot?start=promo");
             return; 
         }
