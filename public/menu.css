@@ -847,7 +847,8 @@ body.desktop-mode .toggle-container {
 /* --- ВТОРОЙ РЯД: Сетка под две отдельные фигуры --- */
 .row-two-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important; 
+    /* ИЗМЕНЕНО: теперь оба столбца ровно по 1fr (одинаковые) */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; 
     gap: 10px; 
     height: 110px; 
     width: 100%;
