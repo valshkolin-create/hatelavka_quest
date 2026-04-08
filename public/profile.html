@@ -2241,23 +2241,25 @@ window.checkTradeStatus = async function(historyId) {
         // Проверяем, показывали ли мы уже уведомление в этой сессии
         const isAuthHandled = sessionStorage.getItem('auth_handled_session');
 
-        if (startParam === 'auth_success' && !isAuthHandled) {
-            sessionStorage.setItem('auth_handled_session', 'true');
-            showNotification('✅ Авторизация успешна!', 'success');
-            
-            // 🔥 ГЛАВНЫЙ ФИКС: Убиваем кэш профиля и квестов!
-            // Теперь идущий следом loadData() гарантированно скачает свежие данные с Твичем.
+        if (startParam === 'auth_success') {
+            // 🔥 Очищаем кэш В ЛЮБОМ СЛУЧАЕ, если в ссылке есть auth_success.
+            // Это решит проблему, даже если юзер перешел сюда с главной страницы.
             localStorage.removeItem('cache_bootstrap');
-            localStorage.removeItem('quests_cache_v1'); // Очищаем и квесты, чтобы открылись Twitch-задания
+            localStorage.removeItem('quests_cache_v1');
 
-            const source = localStorage.getItem('auth_source');
-            if (source !== 'profile') {
-                // Если юзер привязывал не из профиля, уводим его на главную
-                setTimeout(() => {
-                    window.location.href = '/'; 
-                }, 1000);
+            if (!isAuthHandled) {
+                sessionStorage.setItem('auth_handled_session', 'true');
+                showNotification('✅ Авторизация успешна!', 'success');
+                
+                const source = localStorage.getItem('auth_source');
+                if (source !== 'profile') {
+                    // Если юзер привязывал не из профиля, уводим его на главную
+                    setTimeout(() => {
+                        window.location.href = '/'; 
+                    }, 1000);
+                }
+                localStorage.removeItem('auth_source');
             }
-            localStorage.removeItem('auth_source');
         }
 
         // 3. Настройка кнопки "Назад" (если кто-то нажмет HTML-стрелочку)
@@ -2411,6 +2413,10 @@ window.checkTradeStatus = async function(historyId) {
 
                                 // Помечаем, что авторизация запущена из профиля
                                 localStorage.setItem('auth_source', 'profile');
+                                
+                                // 🔥 БРОНЕБОЙНЫЙ ФИКС: Очищаем кэш прямо перед уходом на Твич!
+                                localStorage.removeItem('cache_bootstrap');
+                                localStorage.removeItem('quests_cache_v1');
 
                                 // Запрашиваем ссылку у бэкенда
                                 const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
