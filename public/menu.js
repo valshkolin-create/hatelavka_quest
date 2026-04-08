@@ -849,26 +849,58 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
         } catch(e) { actionBtn.disabled = false; actionBtn.textContent = "Ошибка сети"; }
     }
 
-    async function runCheck() {
+    async function runCheck(isManualClick = false) {
         if (!popup.classList.contains('visible')) return; 
+        
         try {
-            const fresh = await makeApiRequest('/api/v1/bootstrap', {}, 'POST', true);
-            if (fresh && fresh.user) { userData = fresh.user; if (userData.twitch_id) renderTwitchSection(); }
+            // 🔥 Делаем запрос к серверу ТОЛЬКО если юзер нажал кнопку "Проверить снова" руками
+            if (isManualClick) {
+                actionBtn.disabled = true; 
+                actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                const fresh = await makeApiRequest('/api/v1/bootstrap', {}, 'POST', true);
+                if (fresh && fresh.user) { 
+                    userData = fresh.user; 
+                    if (userData.twitch_id) renderTwitchSection(); 
+                }
+            }
             
+            // Проверку подписки ТГ оставляем (ее в бутстрапе нет)
             let tgOk = false;
-            try { const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: Telegram.WebApp.initData }, 'POST', true); if (tgRes && tgRes.is_subscribed) tgOk = true; } catch(e) {}
+            try { 
+                const tgRes = await makeApiRequest('/api/v1/user/check_subscription', {}, 'POST', true); 
+                if (tgRes && tgRes.is_subscribed) tgOk = true; 
+            } catch(e) {}
             
             const twitchOk = !!userData.twitch_id;
-            if (tgOk) { stepTg.style.border = '1px solid #34c759'; document.getElementById('icon-tg').className = 'fa-solid fa-circle-check'; document.getElementById('icon-tg').style.color = '#34c759'; }
-            if (tgOk && twitchOk) {
-                actionBtn.disabled = false; actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁"; actionBtn.style.background = "#FFD700"; actionBtn.style.color = "#000"; actionBtn.onclick = claimReward; 
-            } else {
-                actionBtn.disabled = false; actionBtn.textContent = "Проверить снова"; actionBtn.onclick = runCheck;
+            
+            if (tgOk) { 
+                stepTg.style.border = '1px solid #34c759'; 
+                document.getElementById('icon-tg').className = 'fa-solid fa-circle-check'; 
+                document.getElementById('icon-tg').style.color = '#34c759'; 
             }
-        } catch (e) { actionBtn.disabled = false; actionBtn.textContent = "Ошибка проверки"; }
+            
+            if (tgOk && twitchOk) {
+                actionBtn.disabled = false; 
+                actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁"; 
+                actionBtn.style.background = "#FFD700"; 
+                actionBtn.style.color = "#000"; 
+                actionBtn.onclick = claimReward; 
+            } else {
+                actionBtn.disabled = false; 
+                actionBtn.textContent = "Проверить снова"; 
+                // Теперь при ручном клике передаем true
+                actionBtn.onclick = () => runCheck(true);
+            }
+        } catch (e) { 
+            actionBtn.disabled = false; 
+            actionBtn.textContent = "Ошибка проверки"; 
+            actionBtn.onclick = () => runCheck(true);
+        }
     }
-    setTimeout(runCheck, 400);
-}
+    
+    // Запускаем автоматическую проверку при открытии окна (isManualClick = false)
+    setTimeout(() => runCheck(false), 400);
+} // <-- Это закрывающая скобка функции openWelcomePopup
 
 // Подарки
 async function checkGift() {
@@ -1202,11 +1234,6 @@ async function renderFullInterface(data) {
     updateShortcutStatuses(userData, allQuests);
     updateShopTile(userData.active_trade_status || 'none');
     
-    setTimeout(() => { 
-        if (typeof checkGift === 'function') checkGift(); 
-    }, 1000);
-}
-
 // ================================================================
 // 1В1 ЛОГИКА КЕЙСОВ ИЗ SHOP.HTML
 // ================================================================
@@ -2735,7 +2762,7 @@ async function main() {
     
     // 3. ТЕПЕРЬ БЕЗОПАСНО ЗАПУСКАЕМ ЗАПРОСЫ
     // 🔥 syncMyPromos УДАЛЕН, ОН БОЛЬШЕ НЕ НУЖЕН 🔥
-    checkBalance(true);
+    // УБРАНО: checkBalance(true); — теперь баланс приходит в bootstrap
 
     try {
         if (!isVk && window.Telegram && !Telegram.WebApp.initData) { 
@@ -2749,14 +2776,16 @@ async function main() {
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || 'null');
         const cachedShopRaw = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
         const cachedShop = cachedShopRaw[2716312];
-        const cachedP2P = JSON.parse(localStorage.getItem('cache_p2p') || 'null');
 
         // Если ВСЁ есть в кэше — рисуем мгновенно (Stale-While-Revalidate)
         if (cachedBootstrap && !cachedBootstrap.maintenance && cachedShop) {
             await renderFullInterface(cachedBootstrap);
             initDynamicRaffleSlider(cachedBootstrap.raffles || []); // 🔥 Берем из бутстрапа
             loadCategory(2716312, cachedShop);
-            checkActiveTradesBackground(cachedP2P);
+            
+            // Берем P2P из кэшированного бутстрапа, если есть
+            if (cachedBootstrap.p2p_trades) checkActiveTradesBackground(cachedBootstrap.p2p_trades);
+            
             setupSlider();
             
             isCached = true;
@@ -2773,13 +2802,12 @@ async function main() {
             updateLoading(10); 
         }      
         
-        // 2. ЗАПРАШИВАЕМ ВСЁ ПАРАЛЛЕЛЬНО (ТОЛЬКО НУЖНОЕ)
-        let bootstrapData, shopData, p2pData;
+        // 2. ЗАПРАШИВАЕМ ТОЛЬКО 2 ВЕЩИ ПАРАЛЛЕЛЬНО (Бутстрап и Магазин)
+        let bootstrapData, shopData;
         
-        [bootstrapData, shopData, p2pData] = await Promise.all([
+        [bootstrapData, shopData] = await Promise.all([
             makeApiRequest("/api/v1/bootstrap", {}, 'POST', true),
-            makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true).catch(e => { console.warn('Shop error', e); return null; }),
-            makeApiRequest('/api/v1/p2p/my_trades', {}, 'POST', true).catch(e => { console.warn('P2P error', e); return null; })
+            makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true).catch(e => { console.warn('Shop error', e); return null; })
         ]);
 
         if (!isCached) updateLoading(60);
@@ -2807,23 +2835,43 @@ async function main() {
 
         // Сохраняем свежий кэш
         if (bootstrapData) localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
-        if (p2pData) localStorage.setItem('cache_p2p', JSON.stringify(p2pData));
         if (shopData) {
             const newShopCache = JSON.parse(localStorage.getItem('shop_items_cache') || '{}');
             newShopCache[2716312] = shopData;
             localStorage.setItem('shop_items_cache', JSON.stringify(newShopCache));
         }
 
-        // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД
+        // 3. РЕНДЕРИМ ВСЁ СИНХРОННО ЗА ОДИН ПРОХОД ИЗ FAT PAYLOAD
         if (bootstrapData) {
+            // 1. Основной интерфейс
             await renderFullInterface(bootstrapData);
-            initDynamicRaffleSlider(bootstrapData.raffles || []); // 🔥 Берем из бутстрапа
+            initDynamicRaffleSlider(bootstrapData.raffles || []);
+            
+            // 2. Баланс (из бутстрапа)
+            if (bootstrapData.user) {
+                renderBalanceUI(bootstrapData.user.balance, bootstrapData.user.tickets);
+            }
+
+            // 3. Уведомления (из бутстрапа)
+            if (bootstrapData.unread_notifications !== undefined) {
+                updateNotificationBadgeUI(bootstrapData.unread_notifications);
+            }
+
+            // 4. Подарки (из бутстрапа)
+            if (bootstrapData.gift_available && dom.giftContainer) {
+                dom.giftContainer.classList.remove('hidden');
+            }
+
+            // 5. P2P трейды (из бутстрапа)
+            if (bootstrapData.p2p_trades) {
+                checkActiveTradesBackground(bootstrapData.p2p_trades);
+            }
         }
+        
         if (shopData) loadCategory(2716312, shopData);
-        if (p2pData) checkActiveTradesBackground(p2pData);
         setupSlider();
 
-        fetchNotificationsBadge();
+        // УБРАНО: fetchNotificationsBadge(); — теперь бейджик ставится из бутстрапа выше
 
         if (!isCached) updateLoading(100);
 
@@ -2856,7 +2904,6 @@ async function main() {
             `;
         }
     }
-}
 // ================================================================
 // SWAP (TRADE-UP КОНТРАКТ) 3 ЭТАПА
 // ================================================================
