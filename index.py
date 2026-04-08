@@ -16274,20 +16274,38 @@ async def buy_bott_item_proxy(
 
         # 🔥 ФОНОВАЯ ЗАДАЧА: Отправка данных в Bot-T (только если за коины) 🔥
         if currency != 'tickets':
-            async def send_to_bott_bg(b_id, cat_id, u_id, sec_key):
-                url = "https://api.bot-t.com/v1/shopdigital/order-public/create"
-                payload = {
-                    "bot_id": int(b_id), "category_id": cat_id, "count": 1,
-                    "user_id": int(u_id), "secret_user_key": sec_key
-                }
+            async def send_to_bott_bg(b_id, cat_id, u_id, sec_key, base_cost, final_cost):
                 try:
                     async with httpx.AsyncClient(timeout=15.0) as client:
-                        resp = await client.post(url, json=payload)
-                        logging.info(f"[Bot-T BG] Response: {resp.status_code}")
+                        # 1. Создаем заказ в магазине (Bot-T сам спишет БАЗОВУЮ цену, например 5 монет)
+                        url_order = "https://api.bot-t.com/v1/shopdigital/order-public/create"
+                        payload_order = {"bot_id": int(b_id), "category_id": cat_id, "count": 1, "user_id": int(u_id), "secret_user_key": sec_key}
+                        await client.post(url_order, json=payload_order)
+
+                        # 2. Считаем штраф за плохой траст (например: 15 - 5 = 10)
+                        penalty = final_cost - base_cost
+                        
+                        # 3. Если есть штраф, списываем разницу вручную через subtract-balance!
+                        if penalty > 0:
+                            url_sub = "https://api.bot-t.com/v1/bot/user/subtract-balance"
+                            # Берем токены из твоих глобальных переменных
+                            params = {
+                                "botToken": BOTT_BOT_TOKEN, 
+                                "secretKey": BOTT_SECRET_KEY
+                            }
+                            payload_sub = {
+                                "bot_id": int(b_id),
+                                "user_id": int(u_id), # bott_internal_id
+                                "sum": float(penalty),
+                                "comment": "Наценка за Траст-фактор"
+                            }
+                            await client.post(url_sub, params=params, json=payload_sub)
+                            
                 except Exception as e:
                     logging.error(f"[Bot-T BG Error]: {e}")
                     
-            background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key)
+            # Передаем базовую (price) и финальную (final_price) цену!
+            background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key, price, final_price)
             
     else:
         # === ЛОГИКА ТРАТЫ КУПОНА (ПЕРЕНОС ID ИЗ ОЖИДАНИЯ В ИСПОЛЬЗОВАННЫЕ) ===
