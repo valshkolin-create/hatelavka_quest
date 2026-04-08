@@ -3438,16 +3438,27 @@ async def get_bootstrap_data(
         full_name_tg = clean_user_name_text(raw_full_name) 
         username_tg = user_info.get("username")
 
-        # Делаем ровно 1 запрос
-        db_res = await supabase.post("/rpc/get_bootstrap_all_data", json={
+        # 🔥 ОПТИМИЗАЦИЯ: ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ПАРАЛЛЕЛЬНО! 🔥
+        rpc_task = supabase.post("/rpc/get_bootstrap_all_data", json={
             "p_telegram_id": telegram_id,
             "p_username": username_tg,
             "p_full_name": full_name_tg,
             "p_photo_url": photo_url 
         })
         
-        if db_res.status_code != 200:
-            raise Exception(f"Database RPC Error: {db_res.text}")
+        # Параллельно запрашиваем то, что раньше фронт просил отдельными запросами
+        notifs_task = supabase.get("/in_app_notifications", params={"user_id": f"eq.{telegram_id}", "is_read": "is.false", "select": "id"})
+        p2p_task = supabase.get("/p2p_trades", params={"user_id": f"eq.{telegram_id}", "order": "created_at.desc"})
+        balance_task = supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, tickets, last_new_year_gift_at"})
+
+        # Выполняем разом, экономя время
+        db_res, notifs_res, p2p_res, balance_res = await asyncio.gather(
+            rpc_task, notifs_task, p2p_task, balance_task, return_exceptions=True
+        )
+        
+        # Проверяем ответ основной функции
+        if isinstance(db_res, Exception) or db_res.status_code != 200:
+            raise Exception(f"Database RPC Error: {getattr(db_res, 'text', str(db_res))}")
 
         db_data = db_res.json()
 
@@ -3520,6 +3531,37 @@ async def get_bootstrap_data(
             **db_data.get('user_settings', {})  # 🔥 ВОТ ОНА — РАСПАКОВКА НАСТРОЕК
         })
 
+        # --- 🔥 НОВЫЙ БЛОК: Распаковываем доп. данные ---
+        
+        # 1. Баланс и Подарок
+        gift_available = True
+        if not isinstance(balance_res, Exception) and balance_res.status_code == 200:
+            b_data = balance_res.json()
+            if b_data:
+                # Отдаем баланс в рублях (делим копейки на 100)
+                user_data["balance"] = b_data[0].get("bot_t_coins", 0) / 100.0
+                user_data["tickets"] = b_data[0].get("tickets", 0)
+                
+                last_gift = b_data[0].get('last_new_year_gift_at')
+                if last_gift:
+                    last_dt = datetime.fromisoformat(last_gift.replace('Z', '+00:00'))
+                    if last_dt.date() == datetime.now(timezone.utc).date():
+                        gift_available = False
+
+        # 2. Уведомления
+        unread_count = 0
+        if not isinstance(notifs_res, Exception) and notifs_res.status_code == 200:
+            n_data = notifs_res.json()
+            if isinstance(n_data, list):
+                unread_count = len(n_data)
+
+        # 3. P2P Трейды
+        p2p_trades = []
+        if not isinstance(p2p_res, Exception) and p2p_res.status_code == 200:
+            p_data = p2p_res.json()
+            if isinstance(p_data, list):
+                p2p_trades = p_data
+
         # Квесты и Цели
         quests_list = db_data.get('quests', [])
         try: quests_list = fill_missing_quest_data(quests_list)
@@ -3536,7 +3578,12 @@ async def get_bootstrap_data(
             "weekly_goals": goals_data,
             "cauldron": cauldron_data,               
             "raffles": db_data.get('raffles', []),                 
-            "my_active_cases": db_data.get('active_cases', [])     
+            "my_active_cases": db_data.get('active_cases', []),
+            
+            # 👇 ЭТИ ДАННЫЕ УЙДУТ НА ФРОНТ ИЗБАВИВ ОТ 4 ЛИШНИХ ЗАПРОСОВ 👇
+            "unread_notifications": unread_count,
+            "gift_available": gift_available,
+            "p2p_trades": p2p_trades
         }
 
     except HTTPException:
