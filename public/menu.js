@@ -1332,6 +1332,21 @@ function renderItems(items) {
 
     const fragment = document.createDocumentFragment();
 
+    // ==========================================
+    // 🔥 РАСЧЕТ МНОЖИТЕЛЯ ТРАСТ-ФАКТОРА 🔥
+    // ==========================================
+    const trustLevel = userData.trust_level || 'gray';
+    let trustMultiplier = 2; // Дефолт (Серый статус)
+    
+    if (trustLevel === 'green') trustMultiplier = 1;
+    else if (trustLevel === 'red') trustMultiplier = 3;
+
+    // Маленькая красная плашка, если есть наценка
+    const multiplierBadge = trustMultiplier > 1 
+        ? `<span style="color: #ff3b30; font-size: 9px; font-weight: 900; margin-left: 2px;">(x${trustMultiplier})</span>` 
+        : '';
+    // ==========================================
+
     items.forEach(item => {
         const el = document.createElement('div');
         el.className = 'shop-item';
@@ -1348,6 +1363,11 @@ function renderItems(items) {
         const safeImg = item.image_url || "";
         const cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '').trim();
 
+        // 🔥 ПРИМЕНЯЕМ МНОЖИТЕЛЬ К ЦЕНЕ 🔥
+        const originalPrice = parseFloat(item.price) || 0;
+        const displayPrice = originalPrice * trustMultiplier;
+        const displayPriceTickets = (originalPrice * 2) * trustMultiplier; // Билеты = (база * 2) * множитель
+
         if (item.is_folder) {
             // ЕСЛИ ЭТО КАТЕГОРИЯ
             el.innerHTML = `
@@ -1360,63 +1380,68 @@ function renderItems(items) {
                 </div>
             `;
        } else if (isCase) {
-    // ЕСЛИ ЭТО КЕЙС — проверяем наличие имени кейса в глобальном массиве (синхронизация с БД)
-    let showFreeButton = window.activeFreeCases.includes(item.name);
-    
-    if (showFreeButton) {
-        // РИСУЕМ КНОПКУ БЕСПЛАТНО (ЧИСТЫЙ НЕОН, ТОЛЬКО ЗЕЛЕНЫЙ И ЧЕРНЫЙ)
-        buttonHtml = `
-            <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
-                <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" 
-                    style="background: transparent; 
-                           color: #34c759; 
-                           /* Только зеленое свечение и черный контур */
-                           text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 
-                                        0 0 20px rgba(52, 199, 89, 0.4), 
-                                        0 0 15px #000, 
-                                        0 0 25px #000;
-                           width: 100%; 
-                           height: 100%; 
-                           border: none; 
-                           box-shadow: none; /* Убираем любую внешнюю подсветку */
-                           border-radius: 12px; 
-                           font-weight: 900; 
-                           font-size: 16px; 
-                           display: flex; 
-                           align-items: center; 
-                           justify-content: center; 
-                           text-transform: uppercase;
-                           cursor: pointer;
-                           outline: none;
-                           transition: transform 0.2s ease;">
-                    ОТКРЫТЬ БЕСПЛАТНО
-                </button>
-            </div>
-        `;
-    } else {
-                // СТАНДАРТНЫЕ КНОПКИ
+            // ЕСЛИ ЭТО КЕЙС — проверяем наличие имени кейса в глобальном массиве (синхронизация с БД)
+            let showFreeButton = window.activeFreeCases.includes(item.name);
+            
+            if (showFreeButton) {
+                // РИСУЕМ КНОПКУ БЕСПЛАТНО
+                buttonHtml = `
+                    <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
+                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" 
+                            style="background: transparent; 
+                                   color: #34c759; 
+                                   text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 
+                                                0 0 20px rgba(52, 199, 89, 0.4), 
+                                                0 0 15px #000, 
+                                                0 0 25px #000;
+                                   width: 100%; 
+                                   height: 100%; 
+                                   border: none; 
+                                   box-shadow: none; 
+                                   border-radius: 12px; 
+                                   font-weight: 900; 
+                                   font-size: 16px; 
+                                   display: flex; 
+                                   align-items: center; 
+                                   justify-content: center; 
+                                   text-transform: uppercase;
+                                   cursor: pointer;
+                                   outline: none;
+                                   transition: transform 0.2s ease;">
+                            ОТКРЫТЬ БЕСПЛАТНО
+                        </button>
+                    </div>
+                `;
+            } else {
+                // СТАНДАРТНЫЕ КНОПКИ (С УМНОЖЕННЫМИ ЦЕНАМИ)
                 buttonHtml = `
                     <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${item.price}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">Открыть за ${item.price} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i></button>
-                        <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${item.price * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть за ${item.price * 2} 🎟️</button>
+                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            Открыть за ${displayPrice} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i> ${multiplierBadge}
+                        </button>
+                        <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">
+                            Открыть за ${displayPriceTickets} 🎟️ ${multiplierBadge}
+                        </button>
                     </div>
                 `;
             }
             
             el.innerHTML = `
                 <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
-                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${item.price})" style="background: transparent; padding-top: 80%;">
+                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${displayPrice})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
                 </div>
                 <div class="item-info" style="padding: 0 10px 10px 10px; flex-grow: 0;">${buttonHtml}</div>
             `;
         } else {
-            // ЕСЛИ ЭТО ОБЫЧНЫЙ ПРЕДМЕТ
+            // ЕСЛИ ЭТО ОБЫЧНЫЙ ПРЕДМЕТ (С УМНОЖЕННОЙ ЦЕНОЙ)
             let stockText = item.count === null ? '∞ шт.' : `${item.count} шт.`;
             let btnHtml = item.count === 0 
                 ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
-                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${item.price}, '${safeName}', '${safeImg}')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">Купить за ${item.price} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i></button>`;
+                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    Купить за ${displayPrice} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i> ${multiplierBadge}
+                   </button>`;
             
             el.innerHTML = `
                 <div class="item-image-wrapper" onclick="openCaseContents(event, '${safeName}')" style="width: 100%; padding-top: 100%; position: relative; background: transparent; cursor: pointer;">
