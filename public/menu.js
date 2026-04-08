@@ -3290,13 +3290,13 @@ window.openTrustModal = () => {
                 <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
             </div>
 
-            <div style="position: relative; width: 100%; padding-bottom: 20px; margin-bottom: 8px;">
+            <div style="position: relative; width: 100%; height: 25px; margin-bottom: 12px; margin-top: 10px;">
                 
-                <div style="position: absolute; top: -11px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 15px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 0.4s ease;">
+                <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 0.4s ease;">
                     <i class="fa-solid fa-caret-down"></i>
                 </div>
                 
-                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; margin: 0;"></div>
+                <div style="position: absolute; top: 0; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; margin: 0;"></div>
                 
                 <div style="position: absolute; top: 12px; width: 100%; font-size: 10px; color: #666; font-weight: 800; line-height: 1;">
                     <span style="position: absolute; left: 0;">0</span>
