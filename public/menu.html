@@ -157,20 +157,28 @@
             </div>
         </div>
         
-        <div class="row-two-grid">
+        <d<div class="row-two-grid">
             
             <div class="schedule-box" onclick="openScheduleModal()">
                 <span class="schedule-title">Расписание стримов</span>
                 <span class="schedule-subtitle">Нажмите, чтобы ознакомиться!</span>
             </div>
             
-            <div class="weapon-box">
-                <img src="https://i.postimg.cc/rpbKB3s4/4.webp" alt="AK-47" class="weapon-huge-img">
+            <div style="position: relative; width: 100%; height: 100%;">
+                
+                <div class="schedule-box" onclick="openTrustModal()" style="position: absolute; inset: 0; z-index: 2;">
+                    <span class="schedule-title" style="font-size: 13px;">ТВОЙ ТРАСТ-ФАКТОР</span>
+                    <span class="schedule-subtitle" style="font-size: 8px; margin-top: 0; opacity: 0.7;">ТРАСТ-ФАКТОР ПОЛЬЗОВАТЕЛЯ</span>
+                    <span class="schedule-subtitle" style="margin-top: 4px;">Нажмите, чтобы ознакомиться!</span>
+                </div>
+
+                <div class="weapon-box" style="position: absolute; inset: 0; z-index: 10; pointer-events: none;">
+                    <img src="https://i.postimg.cc/rpbKB3s4/4.webp" alt="AK-47" class="weapon-huge-img">
+                </div>
+
             </div>
 
         </div>
-        
-    </div> <!-- ВОТ ЗДЕСЬ МЫ ЗАКРЫЛИ ВЛАДКУ "ГЛАВНАЯ" (view-dashboard) -->
 
     <div id="view-shop" class="view-section"> <!-- А ЗДЕСЬ ОТКРЫЛИ ВЛАДКУ "КЕЙСЫ" (view-shop) -->
                 
