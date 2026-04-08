@@ -1489,23 +1489,32 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     const isLinkValid = await validateUserTradeLink();
     if (!isLinkValid) return; 
 
+    // 🔥 РАСЧЕТ НАЦЕНКИ ДЛЯ ДИАЛОГА И ВИЗУАЛЬНОГО СПИСАНИЯ 🔥
+    const trustLevel = userData.trust_level || 'gray';
+    let trustMultiplier = 2; // Дефолт (Серый)
+    if (trustLevel === 'green') trustMultiplier = 1;
+    else if (trustLevel === 'red') trustMultiplier = 3;
+
+    // Итоговая цена для показа пользователю
+    const displayPrice = price * trustMultiplier;
+
     // 1. ПРОВЕРКА ЧЕРЕЗ ГЛОБАЛЬНЫЙ МАССИВ (СИНХРОНИЗАЦИЯ С БД)
     let isFreeOpen = window.activeFreeCases.includes(name);
     
     // Флаг для бэкенда, чтобы он понял: код вводить не надо, чекай базу по ID
     let activeCoupon = isFreeOpen ? "FREE_BY_ID" : null;
     
-    // Формируем сообщение
+    // Формируем сообщение (ПОКАЗЫВАЕМ УМНОЖЕННУЮ ЦЕНУ)
     let confirmMsg = isFreeOpen 
         ? `Использовать активный купон и открыть "${name}" БЕСПЛАТНО?`
-        : `Открыть "${name}" за ${price} ${currency === 'coins' ? '🟡' : '🎟️'}?`;
+        : `Открыть "${name}" за ${displayPrice} ${currency === 'coins' ? '🟡' : '🎟️'}?`;
 
     customConfirm(confirmMsg, async (ok) => {
         if (!ok) return;
         const loader = document.getElementById('purchase-loader');
         if (loader) { loader.querySelector('.loader-text').innerText = "Крутим барабан..."; loader.classList.add('active'); }
 
-        // ⚡ ОПТИМИСТИЧНОЕ СПИСАНИЕ БАЛАНСА (СРАЗУ)
+        // ⚡ ОПТИМИСТИЧНОЕ СПИСАНИЕ БАЛАНСА (С УЧЕТОМ НАЦЕНКИ)
         // Списываем баланс ТОЛЬКО если НЕТ КУПОНА
         if (!activeCoupon) {
             const balanceEl = currency === 'coins' ? document.getElementById('user-balance') : document.getElementById('ticketStats');
@@ -1513,26 +1522,31 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             if (balanceEl) {
                 // Убираем пробелы и парсим число
                 currentVisualBalance = parseInt(balanceEl.textContent.replace(/\s/g, '')) || 0;
-                // Если монет визуально хватает — списываем
-                if (currentVisualBalance >= price) {
-                    renderBalanceUI(
-                        // Убрали умножение на 100!
-                        currency === 'coins' ? (currentVisualBalance - price) : undefined, 
-                        currency === 'tickets' ? (currentVisualBalance - price) : undefined
-                    );
+                
+                // Если монет визуально не хватает — тормозим сразу
+                if (currentVisualBalance < displayPrice) {
+                    if (loader) loader.classList.remove('active');
+                    return customAlert(`Недостаточно средств! Цена для вас: ${displayPrice}`);
                 }
+
+                // Списываем УМНОЖЕННУЮ сумму, чтобы не было визуальных скачков
+                renderBalanceUI(
+                    // Убрали умножение на 100!
+                    currency === 'coins' ? (currentVisualBalance - displayPrice) : undefined, 
+                    currency === 'tickets' ? (currentVisualBalance - displayPrice) : undefined
+                );
             }
         }
 
         try {
-            // Формируем нагрузку для покупки
+            // Формируем нагрузку для покупки (ПЕРЕДАЕМ БАЗОВУЮ ЦЕНУ, БЭК УМНОЖИТ САМ)
             const buyPayload = { item_id: id, price: price, title: name, image_url: imageUrl, currency: currency };
             // Если есть купон — отправляем его на бэкенд
             if (activeCoupon) {
                 buyPayload.coupon_code = activeCoupon;
             }
 
-            // Параллельно запускаем запрос на содержимое кейса и покупку
+            // Параллельно запускаем запрос на содержимое кейса и покупку (ТУТ ТЕПЕРЬ V2)
             const contentsPromise = makeApiRequest(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(name)}`, {}, 'GET', true);
             const buyPromise = makeApiRequest('/api/v1/shop/buy', buyPayload, 'POST');
             
@@ -3281,7 +3295,7 @@ window.openTrustModal = () => {
     const score = userData.trust_score ? parseFloat(userData.trust_score) : 30.0;
     const percent = Math.max(0, Math.min(100, score)); 
     
-    // Новые статусы по твоему ТЗ
+    // Статусы
     let levelText = 'Базовый';
     let levelColor = '#8e8e93';
     let multiplierText = 'Цены x2 🪙';
@@ -3297,46 +3311,41 @@ window.openTrustModal = () => {
     }
 
     const html = `
-        <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box;">
+        <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; box-sizing: border-box;">
             
-            <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center; margin-bottom: 15px;">
-            Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
+            <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center;">
+                Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
-            <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 10px; line-height: 1; width: 100%;">
                 <span style="color: #777; font-weight: 600;">СТАТУС:</span>
                 <span style="color: ${levelColor}; font-weight: 800; text-transform: uppercase; background: ${levelColor}15; padding: 3px 6px; border-radius: 4px; border: 1px solid ${levelColor}40; letter-spacing: 0.5px;">${levelText}</span>
                 <span style="color: #555;">•</span>
                 <span style="color: #aaa; font-weight: 600;">${multiplierText}</span>
             </div>
 
-            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-bottom: 20px;">
+            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8;">
                 <span style="font-size: 34px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 12px ${levelColor}40; letter-spacing: -1px; margin: 0;">${score.toFixed(1)}</span>
                 <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
             </div>
 
-            <!-- ИДЕАЛЬНО ОТЦЕНТРИРОВАННЫЙ ПРОГРЕСС БАР -->
-            <div style="position: relative; width: 85%; margin: 15px auto 35px auto;">
+            <div style="position: relative; width: 85%; margin-top: 15px; margin-bottom: 5px;">
                 
-                <!-- Стрелочка -->
-                <div style="position: absolute; top: -18px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 18px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
+                <div style="position: absolute; bottom: 10px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 18px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
                     <i class="fa-solid fa-caret-down"></i>
                 </div>
                 
-                <!-- Полоса -->
                 <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
                 
-                <!-- Физический блок для цифр (чтобы аккордеон не наезжал сверху) -->
-                <div style="position: relative; width: 100%; height: 15px; margin-top: 10px;">
-                    <span style="position: absolute; left: 0%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800;">0</span>
-                    <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #8e8e93; font-size: 10px; font-weight: 800;">30</span>
-                    <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759; font-size: 10px; font-weight: 800;">80</span>
-                    <span style="position: absolute; left: 100%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800;">100</span>
+                <div style="position: relative; width: 100%; height: 16px; margin-top: 6px;">
+                    <span style="position: absolute; top: 0; left: 0%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800; line-height: 1;">0</span>
+                    <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93; font-size: 10px; font-weight: 800; line-height: 1;">30</span>
+                    <span style="position: absolute; top: 0; left: 80%; transform: translateX(-50%); color: #34c759; font-size: 10px; font-weight: 800; line-height: 1;">80</span>
+                    <span style="position: absolute; top: 0; left: 100%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800; line-height: 1;">100</span>
                 </div>
             </div>
 
-            <!-- ИСПРАВЛЕННЫЙ АККОРДЕОН -->
-            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; margin: 0 0 10px 0;">
+            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block;">
                 <summary style="padding: 12px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;">
                     <span style="display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                         <i class="fa-solid fa-circle-info" style="color: #FFD700; font-size: 14px;"></i> Как работает система?
@@ -3345,19 +3354,15 @@ window.openTrustModal = () => {
                 </summary>
                 
                 <div style="padding: 12px; font-size: 10px; color: #aaa; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; margin: 0; display: flex; flex-direction: column; gap: 8px;">
-                    
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b>
                     </div>
-                    
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b>
                     </div>
-                    
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5 балла/день</b>
                     </div>
-
                     <div style="padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.4; margin-top: 4px;">
                         * Механика выхода: Для «Пониженных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Базовый» статус.
                     </div>
@@ -3372,7 +3377,6 @@ window.openTrustModal = () => {
         </div>
     `;
     
-    // Вызов модального окна
     showShopModal({
         title: `
             <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:15px; font-weight: 900; color: #fff; line-height: 1; letter-spacing: 0.5px;">
