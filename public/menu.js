@@ -3249,59 +3249,87 @@ window.executeSwap = async () => {
 };
 
 // ================================================================
-// ОКНО ТРАСТ-ФАКТОРА
+// ОКНО ТРАСТ-ФАКТОРА (КОМПАКТНАЯ ВЕРСИЯ С АККОРДЕОНОМ)
 // ================================================================
 window.openTrustModal = () => {
-    // Достаем баллы юзера (если нет - ставим дефолт 30)
-    const score = userData.trust_score ? parseFloat(userData.trust_score).toFixed(1) : "30.0";
-    const level = userData.trust_level || 'gray';
+    // Получаем баллы пользователя (если нет - ставим дефолт 30)
+    const score = userData.trust_score ? parseFloat(userData.trust_score) : 30.0;
+    const percent = Math.max(0, Math.min(100, score)); // Защита от выхода за края
     
-    // Определяем цвет и статус для заголовка
-    let statusText = '⚪ Обычный';
-    if (level === 'red') statusText = '🔴 Штрафник';
-    if (level === 'green') statusText = '🟢 Элита';
+    // Определяем статус и цвет
+    let levelText = 'Серый (Обычный)';
+    let levelColor = '#8e8e93';
+    let multiplierText = 'Цены в магазине x2 🪙';
+    
+    if (score < 30) { 
+        levelText = 'Красный (Штрафник)'; 
+        levelColor = '#ff3b30'; 
+        multiplierText = 'Цены в магазине x3 💸';
+    } else if (score >= 80) { 
+        levelText = 'Зеленый (Элита)'; 
+        levelColor = '#34c759'; 
+        multiplierText = 'Базовые цены (x1) 💎';
+    }
 
     const html = `
-        <div style="text-align: left; font-size: 12px; color: #ddd; line-height: 1.4;">
-            <div style="margin-bottom: 15px; text-align: center;">
-                <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase;">Твои баллы активности:</div>
-                <div style="font-size: 24px; font-weight: 900; color: #fff; font-family: 'SF Mono', monospace;">${score} / 100</div>
+        <div style="text-align: center; color: #ddd; padding: 5px 0;">
+            
+            <div style="font-size: 13px; color: #8e8e93; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">У вас баллов:</div>
+            <div style="font-size: 32px; font-weight: 900; color: ${levelColor}; margin-bottom: 25px; font-family: 'SF Mono', monospace; text-shadow: 0 0 15px ${levelColor}40;">
+                ${score.toFixed(1)} <span style="font-size: 14px; color: #666;">/ 100</span>
             </div>
 
-            <div style="margin-bottom: 15px;"><b>Траст-фактор</b> напрямую влияет на цены в магазине. Чем ты активнее — тем дешевле кейсы!</div>
-            
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: rgba(255,59,48,0.1); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,59,48,0.2);">
-                <div style="width: 14px; height: 14px; background: #ff3b30; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px rgba(255,59,48,0.5);"></div>
-                <span><b style="color:#ff3b30;">Красный (0-29):</b> Штрафник. Все цены x3 💸</span>
+            <div style="position: relative; width: 100%; height: 35px; margin-bottom: 20px;">
+                
+                <div style="position: absolute; top: -2px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 20px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8)); transition: left 1s cubic-bezier(0.25, 1, 0.5, 1);">
+                    <i class="fa-solid fa-caret-down"></i>
+                </div>
+                
+                <div style="position: absolute; top: 20px; left: 0; width: 100%; height: 8px; border-radius: 4px; background: linear-gradient(to right, #ff3b30 0%, #ff3b30 25%, #8e8e93 35%, #8e8e93 75%, #34c759 85%, #34c759 100%); box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>
+                
+                <div style="position: absolute; top: 32px; left: 0; width: 100%; display: flex; justify-content: space-between; font-size: 9px; color: #888; font-weight: 800;">
+                    <span>0</span>
+                    <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
+                    <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
+                    <span>100</span>
+                </div>
             </div>
-            
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                <div style="width: 14px; height: 14px; background: #8e8e93; border-radius: 50%; flex-shrink: 0;"></div>
-                <span><b style="color:#aaa;">Серый (30-79):</b> Обычный. Цены x2 🪙</span>
+
+            <div style="font-size: 13px; color: #ccc; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                Статус: <b style="color: ${levelColor}; text-transform: uppercase;">${levelText}</b><br>
+                <span style="font-size: 11px; opacity: 0.8; margin-top: 4px; display: inline-block;">${multiplierText}</span>
             </div>
+
+            <details class="trust-faq-accordion" style="background: rgba(255,215,0,0.05); border-radius: 12px; border: 1px solid rgba(255,215,0,0.2); text-align: left;">
+                <summary style="padding: 12px 15px; font-weight: 800; font-size: 12px; color: #FFD700; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-arrow-trend-up"></i> Как поднять траст?
+                    </span>
+                    <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 12px; transition: transform 0.2s;"></i>
+                </summary>
+                
+                <div style="padding: 0 15px 15px 15px; font-size: 11px; color: #ccc; line-height: 1.5;">
+                    <ul style="margin: 0; padding-left: 15px;">
+                        <li style="margin-bottom: 6px;">Смотреть стримы на Twitch</li>
+                        <li style="margin-bottom: 6px;">Общаться в чате Twitch</li>
+                        <li style="margin-bottom: 6px;">Общаться в чате Telegram</li>
+                        <li>Ежедневно забирать Гринд</li>
+                    </ul>
+                </div>
+            </details>
             
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: rgba(52,199,89,0.1); padding: 8px; border-radius: 8px; border: 1px solid rgba(52,199,89,0.2);">
-                <div style="width: 14px; height: 14px; background: #34c759; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px rgba(52,199,89,0.5);"></div>
-                <span><b style="color:#34c759;">Зеленый (80-100):</b> Элита. Цены без наценки (x1) 💎</span>
-            </div>
-            
-            <div style="background: rgba(255,215,0,0.05); padding: 12px; border-radius: 12px; border: 1px dashed rgba(255,215,0,0.3);">
-                <div style="color: #FFD700; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; font-size: 11px;"><i class="fa-solid fa-arrow-trend-up"></i> Как поднять траст?</div>
-                <ul style="margin: 0; padding-left: 15px; color: #ccc;">
-                    <li style="margin-bottom: 4px;">Смотреть стримы на Twitch</li>
-                    <li style="margin-bottom: 4px;">Общаться в чате Twitch</li>
-                    <li style="margin-bottom: 4px;">Общаться в чате Telegram</li>
-                    <li>Ежедневно забирать Гринд</li>
-                </ul>
-            </div>
+            <style>
+                .trust-faq-accordion > summary::-webkit-details-marker { display: none; }
+                .trust-faq-accordion[open] .accordion-arrow { transform: rotate(180deg); }
+            </style>
         </div>
     `;
     
     showShopModal({
-        title: "📊 " + statusText,
+        title: "ТРАСТ-ФАКТОР",
         subtitle: html,
-        confirmText: "ВСЁ ПОНЯТНО",
-        confirmClass: "btn-yellow-modal",
+        confirmText: "ЗАКРЫТЬ",
+        confirmClass: "btn-secondary-action",
         showCancel: false,
         onConfirm: (close) => close()
     });
