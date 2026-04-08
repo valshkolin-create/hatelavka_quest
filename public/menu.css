@@ -921,7 +921,7 @@ body.desktop-mode .toggle-container {
 
 /* Сам автомат (настраиваем адекватный размер) */
 .weapon-huge-img {
-    width: 90%; /* Занимает 90% от ширины всего экрана/блока */
+    width: 210%;
     max-width: 450px; /* Защита, чтобы на компах он не стал на весь экран */
     object-fit: contain;
     pointer-events: none;
@@ -929,7 +929,7 @@ body.desktop-mode .toggle-container {
     
     /* Если нужно чуть-чуть подвинуть его, используй transform без scale. 
        Например: сдвинуть чуть вниз и вправо */
-    transform: translateY(5px) translateX(0px); 
+    transform: translateY(105px) translateX(70px); 
 }
 
 /* SCHEDULE STYLES */
