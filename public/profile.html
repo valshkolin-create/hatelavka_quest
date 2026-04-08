@@ -2636,40 +2636,6 @@ window.checkTradeStatus = async function(historyId) {
         showCustomConfirmHTML(message, () => {}, "ПОНЯТНО", btnColor, false);
     }
 
-    dom.popupSaveBtn.onclick = async () => {
-        const v = dom.popupTradeLinkInput.value.trim();
-        const requiredPrefix = "https://steamcommunity.com/tradeoffer/new";
-
-        // СТРОГАЯ ПРОВЕРКА: ссылка должна быть полной
-        if (!v.startsWith(requiredPrefix) || !v.includes("partner=") || !v.includes("token=")) {
-            dom.popupTradeLinkInput.classList.add('error-input');
-            // ЗАМЕНА tg.showAlert на наше окно
-            showCustomAlert("<b>Неверный формат ссылки!</b><br><br>Убедитесь, что скопировали её целиком (включая partner и token) из настроек Steam.", true);
-            return;
-        }
-
-        try {
-            showLoader();
-            dom.popupTradeLinkInput.classList.remove('error-input');
-            await makeApiRequest('/api/v1/user/trade_link/save', { trade_link: v });
-            dom.customPopupOverlay.classList.remove('visible');
-            
-            showNotification("Trade Link сохранен!", "success");
-            
-            // Обновляем текст в профиле сразу
-            const display = document.getElementById('trade-link-display');
-            if (display) display.textContent = v;
-            const btn = document.getElementById('edit-trade-link-btn');
-            if (btn) btn.textContent = 'Изменить';
-
-            // Если всё же хочешь перезагрузку: window.location.reload();
-        } catch (e) {
-            showCustomAlert("Ошибка сохранения:<br>" + e.message, true);
-        } finally {
-            hideLoader();
-        }
-    };
-
     if(dom.notifyCloseBtn) dom.notifyCloseBtn.onclick = () => dom.notifyOverlay.classList.remove('visible');
     document.getElementById('how-to-use-close').onclick = () => document.getElementById('how-to-use-popup').classList.remove('visible');
     document.getElementById('twitch-trust-close').onclick = () => document.getElementById('twitch-trust-popup').classList.remove('visible');
