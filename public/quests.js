@@ -2020,56 +2020,61 @@ function setupEventListeners() {
         });
     }
 
-    // 2. Авто-проверка профиля при возврате
-    document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState === 'visible' && activeProfileCheck) {
-            console.log("🔄 Пользователь вернулся, проверяем:", activeProfileCheck);
-            const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
-            if (!userId) return;
+   // Добавляем глобальный флаг прямо перед слушателем
+let isProfileChecking = false;
 
-            const taskKey = activeProfileCheck === 'surname' ? 'tg_surname' : 'tg_bio';
-            await new Promise(r => setTimeout(r, 1500));
+document.addEventListener('visibilitychange', async () => {
+    // 🔥 ФИКС: Добавляем проверку на !isProfileChecking
+    if (document.visibilityState === 'visible' && activeProfileCheck && !isProfileChecking) {
+        console.log("🔄 Пользователь вернулся, проверяем:", activeProfileCheck);
+        const userId = Telegram.WebApp.initDataUnsafe?.user?.id;
+        if (!userId) return;
 
-            try {
-                const data = await makeApiRequest('/api/v1/telegram/claim_daily', { 
-                    user_id: userId, 
-                    task_key: taskKey 
-                }, 'POST', true);
-                
-                if (data && data.success) {
-                    const popup = document.getElementById('profilePopup');
-                    if (popup) popup.remove();
-                    activeProfileCheck = null;
+        // 🔥 СРАЗУ блокируем от повторных срабатываний
+        isProfileChecking = true; 
 
-                    // 🔥 ИЗМЕНЕНИЕ ЗДЕСЬ: Добавили true, чтобы страница перезагрузилась при закрытии
-                    injectRewardPopup(data.reward || 0, "Профиль подтвержден!", true);
+        const taskKey = activeProfileCheck === 'surname' ? 'tg_surname' : 'tg_bio';
+        await new Promise(r => setTimeout(r, 1500));
 
-                    // Обновляем галочку в списке (фоном)
-                    if (telegramTasksCache) {
-                        const task = telegramTasksCache.find(t => t.task_key === taskKey);
-                        if (task) {
-                            task.is_completed = true;
-                            if (data.day) task.current_day = data.day;
-                        }
+        try {
+            const data = await makeApiRequest('/api/v1/telegram/claim_daily', { 
+                user_id: userId, 
+                task_key: taskKey 
+            }, 'POST', true);
+            
+            if (data && data.success) {
+                const popup = document.getElementById('profilePopup');
+                if (popup) popup.remove();
+                activeProfileCheck = null;
+
+                injectRewardPopup(data.reward || 0, "Профиль подтвержден!", true);
+
+                if (telegramTasksCache) {
+                    const task = telegramTasksCache.find(t => t.task_key === taskKey);
+                    if (task) {
+                        task.is_completed = true;
+                        if (data.day) task.current_day = data.day;
                     }
-
-                    // Обновляем сетку (фоном)
-                    const container = dom.modalContainer;
-                    if (container && telegramTasksCache) {
-                        renderTelegramGrid(telegramTasksCache, container);
-                    }
-                    
-                    // Обновляем счетчик билетов (фоном)
-                    const stats = document.getElementById('ticketStats');
-                    if(stats && data.reward) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
-                } else {
-                    console.log("Проверка не прошла, ждем следующей попытки...");
                 }
-            } catch (e) {
-                console.error("Ошибка авто-проверки:", e);
+
+                const container = dom.modalContainer;
+                if (container && telegramTasksCache) {
+                    renderTelegramGrid(telegramTasksCache, container);
+                }
+                
+                const stats = document.getElementById('ticketStats');
+                if(stats && data.reward) stats.innerText = parseInt(stats.innerText || '0') + data.reward;
+            } else {
+                console.log("Проверка не прошла, ждем следующей попытки...");
             }
+        } catch (e) {
+            console.error("Ошибка авто-проверки:", e);
+        } finally {
+            // 🔥 Обязательно снимаем блокировку, чтобы можно было проверить еще раз, если юзер снова уйдет/вернется
+            isProfileChecking = false;
         }
-    });
+    }
+});
 
     // 3. Аккордеон
     document.addEventListener('click', (e) => {
