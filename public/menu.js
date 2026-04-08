@@ -3275,7 +3275,7 @@ window.openTrustModal = () => {
         <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box; gap: 0;">
             
             <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center; margin-bottom: 12px; margin-top: 0;">
-            Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
+Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
             <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%; margin-bottom: 15px;">
@@ -3290,20 +3290,20 @@ window.openTrustModal = () => {
                 <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
             </div>
 
-            <div style="position: relative; width: 100%; height: 25px; margin-bottom: 12px; margin-top: 10px;">
+            <div style="position: relative; width: 90%; height: 25px; margin: 10px auto 12px auto;">
                 
-                <div style="position: absolute; top: -52px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 0.4s ease;">
-                    <i class="fa-solid fa-caret-down"></i>
-                </div>
+                <div style="position: absolute; top: -52px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 0.4s ease; width: 30px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
+    <i class="fa-solid fa-caret-down"></i>
+</div>
                 
                 <div style="position: absolute; top: 0; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; margin: 0;"></div>
                 
-                <div style="position: absolute; top: 12px; width: 100%; font-size: 10px; color: #666; font-weight: 800; line-height: 1;">
+               <div style="position: absolute; top: 12px; width: 100%; font-size: 10px; color: #666; font-weight: 800; line-height: 1;">
                     <span style="position: absolute; left: 0;">0</span>
                     <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
                     <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
                     <span style="position: absolute; right: 0;">100</span>
-                </div>
+</div>
             </div>
 
             <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; margin: 10;">
