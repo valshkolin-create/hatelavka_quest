@@ -8497,7 +8497,7 @@ async def delete_all_user_promocodes(request_data: InitDataRequest, supabase: ht
     
     return {"message": "Все промокоды успешно удалены из вашего списка."}
 
-@@app.post("/api/v1/user/twitch/unlink")
+@app.post("/api/v1/user/twitch/unlink")
 async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info: 
