@@ -19777,20 +19777,6 @@ async def execute_directed_swap(
 from pydantic import BaseModel
 from typing import Optional
 
-Вот абсолютно весь код для бэкенда, собранный в один готовый блок.
-
-Скопируй его и вставь в свой файл с роутами (например, туда, где у тебя лежат остальные админские эндпоинты и вебхуки).
-
-Перед вставкой убедись, что у тебя в этом файле импортированы bot, CHANNEL_ID, is_valid_init_data, get_supabase_client, ADMIN_IDS, ALL_VALID_TOKENS и create_in_app_notification.
-
-Python
-import uuid
-import httpx
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
 # ==========================================
 # 1. PYDANTIC СХЕМЫ (МОДЕЛИ ДАННЫХ)
 # ==========================================
@@ -19989,7 +19975,7 @@ async def handle_twitch_click(
                 "message": "Время действия этой ссылки истекло 🕒 Но стрим еще идет, залетай!",
                 "twitch_url": "https://www.twitch.tv/hatelove_ttv"
             }
-    # === КОНЕЦ НОВОГО БЛОКА ===
+
     # 4. Ищем авто-код
     desc_search = f"Авто-код Twitch: {campaign['title']}"
     code_res = await supabase.from_("cs_codes").select("*").eq("description", desc_search).single().execute()
