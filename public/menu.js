@@ -3290,19 +3290,22 @@ window.openTrustModal = () => {
                 <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
             </div>
 
-            <div style="position: relative; width: 90%; height: 25px; margin: 10px auto 12px auto;">
-                
-                <div style="position: absolute; top: -52px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 0.4s ease; width: 30px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
-    <i class="fa-solid fa-caret-down"></i>
-</div>
-                
-                <div style="position: absolute; top: 0; width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; margin: 0;"></div>
-                
-               <div style="position: absolute; top: 12px; width: 100%; font-size: 10px; color: #666; font-weight: 800; line-height: 1;">
-                    <span style="position: absolute; left: 0;">0</span>
-                    <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
-                    <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
-                    <span style="position: absolute; right: 0;">100</span>
+           <div style="position: relative; width: 85%; margin: 15px auto 25px auto;">
+    
+    <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
+        <i class="fa-solid fa-caret-down"></i>
+    </div>
+    
+    <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
+    
+
+    <div style="position: absolute; top: 14px; left: 0; width: 100%; font-size: 10px; font-weight: 800; line-height: 1;">
+        <span style="position: absolute; top: 0; left: 0%; transform: translateX(-50%); color: #666;">0</span>
+        <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
+        <span style="position: absolute; top: 0; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
+        <span style="position: absolute; top: 0; left: 100%; transform: translateX(-50%); color: #666;">100</span>
+    </div>
+    
 </div>
             </div>
 
