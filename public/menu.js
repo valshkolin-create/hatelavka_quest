@@ -3314,7 +3314,7 @@ window.openTrustModal = () => {
         <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; box-sizing: border-box;">
             
             <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center;">
-                Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
+Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
             <div style="display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 10px; line-height: 1; width: 100%;">
@@ -3331,13 +3331,13 @@ window.openTrustModal = () => {
 
             <div style="position: relative; width: 85%; margin-top: 15px; margin-bottom: 5px;">
                 
-                <div style="position: absolute; bottom: 10px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 18px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; white-space: nowrap;">
-                    <i class="fa-solid fa-caret-down"></i>
-                </div>
+            <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; line-height: 1;">
+                <i class="fa-solid fa-caret-down"></i>
+            </div>
                 
                 <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
                 
-                <div style="position: relative; width: 100%; height: 16px; margin-top: 6px;">
+                <div style="position: relative; width: 100%; height: 12px; margin-top: 4px;">
                     <span style="position: absolute; top: 0; left: 0%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800; line-height: 1;">0</span>
                     <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93; font-size: 10px; font-weight: 800; line-height: 1;">30</span>
                     <span style="position: absolute; top: 0; left: 80%; transform: translateX(-50%); color: #34c759; font-size: 10px; font-weight: 800; line-height: 1;">80</span>
@@ -3345,30 +3345,7 @@ window.openTrustModal = () => {
                 </div>
             </div>
 
-            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block;">
-                <summary style="padding: 12px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;">
-                    <span style="display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-circle-info" style="color: #FFD700; font-size: 14px;"></i> Как работает система?
-                    </span>
-                    <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 12px; color: #888; transition: transform 0.2s;"></i>
-                </summary>
-                
-                <div style="padding: 12px; font-size: 10px; color: #aaa; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; margin: 0; display: flex; flex-direction: column; gap: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5 балла/день</b>
-                    </div>
-                    <div style="padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.4; margin-top: 4px;">
-                        * Механика выхода: Для «Пониженных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Базовый» статус.
-                    </div>
-                </div>
-            </details>
-            
+           <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block;"><summary style="padding: 10px 12px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;"><span style="display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fa-solid fa-circle-info" style="color: #FFD700; font-size: 14px;"></i> Как работает система?</span><i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 12px; color: #888; transition: transform 0.2s;"></i></summary><div style="padding: 10px 12px; font-size: 10px; color: #aaa; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; margin: 0; display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0;"><span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b></div><div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0;"><span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b></div><div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0;"><span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5 балла/день</b></div><div style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.3; margin-top: 2px;">* Механика выхода: Для «Пониженных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Базовый» статус.</div></div></details>            
             <style>
                 .trust-faq-accordion > summary::-webkit-details-marker { display: none; }
                 .trust-faq-accordion[open] .accordion-arrow { transform: rotate(180deg); }
