@@ -7,82 +7,130 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root { --bg: #0f0f0f; --card-bg: #1e1e1e; --primary: #9146FF; --text: #ffffff; --text-sec: #aaaaaa; }
-        body { background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding: 20px; padding-bottom: 100px; }
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');
+
+        :root {
+            --bg-color: #0a0a0c;
+            --card-bg: #1c1c1e;
+            --primary: #9146FF;
+            --primary-hover: #7a38d6;
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+            --border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        body {
+            background-color: var(--bg-color); color: var(--text-main);
+            font-family: 'Montserrat', -apple-system, sans-serif;
+            margin: 0; padding: 20px; padding-bottom: 60px;
+        }
+
+        /* Header */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
+        .back-button { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .page-title { font-size: 18px; font-weight: 800; margin: 0; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+
+        /* Cards */
+        .admin-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
         
-        .header { display: flex; align-items: center; margin-bottom: 20px; font-size: 20px; font-weight: 800; color: var(--primary); }
-        
+        /* Form */
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 12px; color: var(--text-sec); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
         .form-group input, .form-group textarea {
-            width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid #333;
-            color: var(--text); padding: 12px; border-radius: 10px; font-size: 14px; outline: none;
+            width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);
+            color: var(--text-main); padding: 14px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.3s;
         }
-        
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); background: rgba(145, 70, 255, 0.05); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        /* Buttons */
         .btn-submit {
-            background: var(--primary); color: #fff; border: none; padding: 15px; width: 100%;
-            border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase;
+            background: var(--primary); color: #fff; border: none; padding: 16px; width: 100%;
+            border-radius: 14px; font-size: 15px; font-weight: 800; cursor: pointer; text-transform: uppercase;
+            display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px;
         }
-        
-        .stats-box { background: var(--card-bg); padding: 15px; border-radius: 12px; margin-top: 20px; border-left: 3px solid var(--primary); }
-        .camp-title { font-weight: bold; margin-bottom: 10px; }
-        .stat-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sec); margin-bottom: 5px; }
+        .btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        /* Stats Box */
+        .stats-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; margin-top: 15px; border-left: 3px solid var(--primary); }
+        .stats-box.disabled { opacity: 0.6; border-left-color: #555; }
+        .camp-title { font-weight: bold; margin-bottom: 10px; font-size: 15px; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
         .stat-val { color: #fff; font-weight: bold; }
-        .btn-stop { background: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: none; padding: 8px; border-radius: 6px; width: 100%; margin-top: 10px; font-weight: bold; cursor: pointer; }
+        .btn-stop { background: rgba(255, 77, 77, 0.15); color: #ff4d4d; border: 1px solid rgba(255, 77, 77, 0.3); padding: 10px; border-radius: 10px; width: 100%; margin-top: 12px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="header"><i class="fa-brands fa-twitch" style="margin-right: 10px;"></i> Создать Twitch Drop</div>
+    <div class="page-header">
+        <a href="/admin" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
+        <h1 class="page-title"><i class="fa-brands fa-twitch"></i> Twitch Drops</h1>
+        <div style="width: 60px;"></div>
+    </div>
 
-    <div class="form-group">
-        <label>Внутреннее название (для тебя)</label>
-        <input type="text" id="inp-title" placeholder="Например: Стрим 15.05 Вечер">
-    </div>
-    <div class="form-group">
-        <label>Текст поста (в Telegram)</label>
-        <textarea id="inp-text" rows="4" placeholder="Залетай на стрим! Первые 10 получат кейс..."></textarea>
-    </div>
-    <div class="form-group">
-        <label>Ссылка на картинку (Pinterest / URL)</label>
-        <input type="text" id="inp-image" placeholder="https://i.pinimg.com/...">
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+    <div class="admin-card">
         <div class="form-group">
-            <label>Сколько кейсов?</label>
-            <input type="number" id="inp-limit" value="10">
+            <label>Название (для админки)</label>
+            <input type="text" id="inp-title" placeholder="Стрим 15.05 Вечер" autocomplete="off">
         </div>
         <div class="form-group">
-            <label>Жизнь ссылки (часов)</label>
-            <input type="number" id="inp-ttl" value="2">
+            <label>Текст поста в TG</label>
+            <textarea id="inp-text" rows="3" placeholder="Первые 10 заберут кейс!"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Ссылка на картинку (URL)</label>
+            <input type="url" id="inp-image" placeholder="https://..." autocomplete="off">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Сколько кейсов?</label>
+                <input type="number" id="inp-limit" value="10" min="1">
+            </div>
+            <div class="form-group">
+                <label>Жизнь ссылки (часы)</label>
+                <input type="number" id="inp-ttl" value="4" min="1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Точное название кейса</label>
+            <input type="text" id="inp-case" placeholder="Кейс | Лентяй" autocomplete="off">
+        </div>
+        <button class="btn-submit" id="btn-create" onclick="createCampaign()">
+            <i class="fa-solid fa-rocket"></i> Запустить Дроп
+        </button>
+    </div>
+
+    <div class="admin-card">
+        <h2 style="font-size: 16px; margin: 0 0 15px 0; color: var(--primary);">
+            <i class="fa-solid fa-chart-simple"></i> Статистика раздач
+        </h2>
+        <div id="stats-container">
+            <p style="text-align: center; color: #777; font-size: 13px;">Загрузка данных...</p>
         </div>
     </div>
-    <div class="form-group">
-        <label>Какой кейс выдаем? (Точное название)</label>
-        <input type="text" id="inp-case" placeholder="Кейс | Лентяй">
-    </div>
-
-    <button class="btn-submit" id="btn-create" onclick="createCampaign()">Запустить Дроп 🚀</button>
-
-    <h2 style="font-size: 16px; margin-top: 30px;">Активные раздачи</h2>
-    <div id="stats-container">Загрузка...</div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
         async function createCampaign() {
+            const title = document.getElementById('inp-title').value.trim();
+            const text = document.getElementById('inp-text').value.trim();
+            const image = document.getElementById('inp-image').value.trim();
+            const caseName = document.getElementById('inp-case').value.trim();
+
+            if (!title || !text || !image || !caseName) {
+                tg.HapticFeedback.notificationOccurred('warning');
+                tg.showAlert("Заполните все поля!"); return;
+            }
+
             const btn = document.getElementById('btn-create');
-            btn.innerHTML = 'Загрузка...'; btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Запуск...'; btn.disabled = true;
 
             const payload = {
-                initData: tg.initData,
-                title: document.getElementById('inp-title').value,
-                post_text: document.getElementById('inp-text').value,
-                image_url: document.getElementById('inp-image').value,
+                initData: tg.initData, title: title, post_text: text, image_url: image,
                 winners_limit: parseInt(document.getElementById('inp-limit').value),
-                ttl_hours: parseInt(document.getElementById('inp-ttl').value),
-                target_case_name: document.getElementById('inp-case').value
+                ttl_hours: parseInt(document.getElementById('inp-ttl').value), target_case_name: caseName
             };
 
             try {
@@ -90,13 +138,17 @@
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
                 });
                 const data = await res.json();
-                tg.showAlert(data.message);
-                loadStats(); // Обновляем стату
-            } catch (e) {
-                tg.showAlert("Ошибка создания");
-            } finally {
-                btn.innerHTML = 'Запустить Дроп 🚀'; btn.disabled = false;
-            }
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    tg.showAlert(data.message);
+                    document.getElementById('inp-title').value = '';
+                    document.getElementById('inp-text').value = '';
+                    loadStats(); // Обновляем стату сразу после создания!
+                } else {
+                    tg.showAlert(data.detail || "Ошибка");
+                }
+            } catch (e) { tg.showAlert("Сбой сети"); } 
+            finally { btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Запустить Дроп'; btn.disabled = false; }
         }
 
         async function loadStats() {
@@ -109,36 +161,39 @@
                 const cont = document.getElementById('stats-container');
                 cont.innerHTML = '';
                 
-                if(!list.length) { cont.innerHTML = '<div style="color:#aaa; font-size: 12px;">Нет кампаний</div>'; return; }
+                if(!list.length) { cont.innerHTML = '<p style="color:#777; font-size: 13px; text-align: center;">Пока нет раздач</p>'; return; }
 
                 list.forEach(c => {
                     const st = c.stats;
-                    const statusText = c.is_active ? '<span style="color:#28a745">Активна</span>' : '<span style="color:#ff4d4d">Завершена</span>';
+                    const isActive = c.is_active;
+                    const statusHtml = isActive ? '<span style="color:#28a745">Активно</span>' : '<span style="color:#ff4d4d">Завершено</span>';
                     
                     cont.innerHTML += `
-                    <div class="stats-box" style="${!c.is_active ? 'opacity: 0.5; border-color: #555;' : ''}">
-                        <div class="camp-title">${c.title} (${statusText})</div>
+                    <div class="stats-box ${isActive ? '' : 'disabled'}">
+                        <div class="camp-title">${c.title} (${statusHtml})</div>
                         <div class="stat-row"><span>Всего переходов:</span> <span class="stat-val">${st.total_clicks}</span></div>
-                        <div class="stat-row"><span>Выдано кейсов:</span> <span class="stat-val" style="color:var(--primary)">${st.winners} / ${c.winners_limit}</span></div>
-                        <div class="stat-row"><span>Выдано билетов:</span> <span class="stat-val">${st.tickets_given}</span></div>
-                        ${c.is_active ? `<button class="btn-stop" onclick="stopCamp(${c.id})">Остановить досрочно</button>` : ''}
+                        <div class="stat-row"><span>Выдано кейсов:</span> <span class="stat-val" style="color: ${isActive ? 'var(--primary)' : '#fff'}">${st.winners} / ${c.winners_limit}</span></div>
+                        <div class="stat-row"><span>Утешительных билетов:</span> <span class="stat-val">${st.tickets_given}</span></div>
+                        ${isActive ? `<button class="btn-stop" onclick="stopCamp(${c.id})"><i class="fa-solid fa-stop"></i> Остановить раздачу</button>` : ''}
                     </div>`;
                 });
-            } catch (e) { document.getElementById('stats-container').innerHTML = 'Ошибка загрузки'; }
+            } catch (e) { document.getElementById('stats-container').innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки</p>'; }
         }
 
         async function stopCamp(id) {
-            if(!confirm("Точно остановить?")) return;
-            try {
-                await fetch('/api/v1/admin/twitch_campaigns/stop', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({initData: tg.initData, campaign_id: id})
-                });
-                loadStats();
-            } catch(e) { alert("Ошибка"); }
+            tg.showConfirm("Точно остановить эту раздачу досрочно?", async (confirm) => {
+                if(!confirm) return;
+                try {
+                    await fetch('/api/v1/admin/twitch_campaigns/stop', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                        body: JSON.stringify({initData: tg.initData, campaign_id: id})
+                    });
+                    tg.HapticFeedback.notificationOccurred('success');
+                    loadStats();
+                } catch(e) { tg.showAlert("Ошибка остановки"); }
+            });
         }
 
-        // Грузим стату при открытии
         loadStats();
     </script>
 </body>
