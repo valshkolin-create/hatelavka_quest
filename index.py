@@ -8497,12 +8497,27 @@ async def delete_all_user_promocodes(request_data: InitDataRequest, supabase: ht
     
     return {"message": "Все промокоды успешно удалены из вашего списка."}
 
-@app.post("/api/v1/user/twitch/unlink")
+@@app.post("/api/v1/user/twitch/unlink")
 async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info: raise HTTPException(status_code=401, detail="Неверные данные аутентификации")
+    if not user_info or "id" not in user_info: 
+        raise HTTPException(status_code=401, detail="Неверные данные аутентификации")
+    
     telegram_id = user_info["id"]
-    await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"twitch_id": None, "twitch_login": None})
+    
+    # Сохраняем ответ в переменную
+    response = await supabase.patch(
+        "/users", 
+        params={"telegram_id": f"eq.{telegram_id}"}, 
+        json={"twitch_id": None, "twitch_login": None}
+    )
+    
+    # Проверяем, успешен ли запрос к БД
+    if response.is_error:
+        # Можно вывести response.text() в консоль для дебага
+        print(f"Supabase error: {response.text}") 
+        raise HTTPException(status_code=500, detail="Ошибка при обновлении базы данных")
+
     return {"message": "Аккаунт Twitch успешно отвязан."}
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
