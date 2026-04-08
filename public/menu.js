@@ -3275,7 +3275,7 @@ window.openTrustModal = () => {
         <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box; gap: 0;">
             
             <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center; margin-bottom: 12px; margin-top: 0;">
-                Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
+            Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
             <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%; margin-bottom: 15px;">
