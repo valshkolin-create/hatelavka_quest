@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HATELOVE TWITCH DROP</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+        body {
+            background-color: #0a0a0c; color: #fff; font-family: 'Montserrat', sans-serif;
+            margin: 0; padding: 20px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; height: 100vh; text-align: center;
+        }
+        .twitch-logo { font-size: 80px; color: #9146FF; margin-bottom: 20px; text-shadow: 0 0 20px rgba(145, 70, 255, 0.5); }
+        h1 { font-size: 24px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; }
+        p { font-size: 14px; color: #aaa; margin-bottom: 30px; line-height: 1.5; }
+        
+        .btn-twitch {
+            background: #9146FF; color: #fff; border: none; padding: 18px 30px;
+            border-radius: 14px; font-size: 16px; font-weight: 900; width: 100%;
+            text-transform: uppercase; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 5px 20px rgba(145, 70, 255, 0.4);
+        }
+        .btn-twitch:active { transform: scale(0.95); }
+        
+        .result-box {
+            margin-top: 20px; padding: 15px; border-radius: 12px; font-size: 14px; 
+            font-weight: 700; display: none; animation: fadeIn 0.5s ease;
+        }
+        .result-winner { background: rgba(40, 167, 69, 0.1); border: 1px solid #28a745; color: #28a745; }
+        .result-participant { background: rgba(255, 184, 0, 0.1); border: 1px solid #FFB800; color: #FFB800; }
+        .result-expired { background: rgba(255, 77, 77, 0.1); border: 1px solid #ff4d4d; color: #ff4d4d; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <i class="fa-brands fa-twitch twitch-logo"></i>
+    <h1>TWITCH DROP</h1>
+    <p>Переходи на прямую трансляцию прямо сейчас. Успей первым и забери бесплатный кейс в инвентарь!</p>
+
+    <button class="btn-twitch" id="main-btn" onclick="claimAndGo()">
+        <i class="fa-solid fa-play" style="margin-right: 8px;"></i> ПЕРЕЙТИ НА СТРИМ
+    </button>
+
+    <div id="result-msg" class="result-box"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Достаем ID кампании из параметра startapp (формат: tw_123_TW_ABC)
+        const startParam = tg.initDataUnsafe?.start_param || "";
+        let campaignId = null;
+        
+        if (startParam.startsWith('tw_')) {
+            const parts = startParam.split('_');
+            campaignId = parseInt(parts[1]);
+        }
+
+        async function claimAndGo() {
+            const btn = document.getElementById('main-btn');
+            const resBox = document.getElementById('result-msg');
+            
+            if (!campaignId) {
+                resBox.className = "result-box result-expired";
+                resBox.innerText = "❌ Неверная ссылка!";
+                resBox.style.display = "block";
+                return;
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ОБРАБОТКА...';
+            btn.style.opacity = '0.7';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/v1/twitch/click', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        initData: tg.initData,
+                        campaign_id: campaignId
+                    })
+                });
+                
+                const data = await res.json();
+                resBox.style.display = "block";
+
+                // Оформляем блок в зависимости от статуса
+                if (data.status === 'winner') resBox.className = "result-box result-winner";
+                else if (data.status === 'participant') resBox.className = "result-box result-participant";
+                else resBox.className = "result-box result-expired";
+                
+                resBox.innerText = data.message || "Успешно!";
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> ГОТОВО';
+
+                // Даем юзеру 2 секунды прочитать сообщение о призе, затем кидаем на Твич
+                if (data.twitch_url) {
+                    setTimeout(() => {
+                        tg.openLink(data.twitch_url);
+                        tg.close(); // Закрываем Mini App
+                    }, 2000);
+                }
+
+            } catch (e) {
+                resBox.className = "result-box result-expired";
+                resBox.innerText = "⚠️ Ошибка сети. Попробуй еще раз.";
+                resBox.style.display = "block";
+                btn.innerHTML = 'ПЕРЕЙТИ НА СТРИМ';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
+    </script>
+</body>
+</html>
