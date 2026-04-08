@@ -1233,6 +1233,7 @@ async function renderFullInterface(data) {
 
     updateShortcutStatuses(userData, allQuests);
     updateShopTile(userData.active_trade_status || 'none');
+    }
     
 // ================================================================
 // 1В1 ЛОГИКА КЕЙСОВ ИЗ SHOP.HTML
