@@ -2515,19 +2515,19 @@ window.checkTradeStatus = async function(historyId) {
         const target = e.target;
         if (target.closest('#edit-trade-link-btn')) { dom.popupTradeLinkInput.value = document.getElementById('trade-link-display').textContent; dom.customPopupOverlay.classList.add('visible'); return; }
         if (target.closest('#unlink-twitch-btn')) { 
-    showCustomConfirmHTML("Отвязать Twitch?", async (c) => {
-        try {
-            await makeApiRequest('/api/v1/user/twitch/unlink'); 
-            // 🔥 УБИВАЕМ КЭШ, чтобы при релоаде скачались новые данные без Твича
-            localStorage.removeItem('cache_bootstrap'); 
-            c(); 
-            window.location.reload(); 
-        } catch (e) {
-            c(); // Закрываем модалку, если с сервера прилетела ошибка
+            showCustomConfirmHTML("Отвязать Twitch?", async (c) => { 
+                try {
+                    await makeApiRequest('/api/v1/user/twitch/unlink'); 
+                    // 🔥 УБИВАЕМ КЭШ, чтобы при релоаде скачались новые данные без Твича
+                    localStorage.removeItem('cache_bootstrap'); 
+                    c(); 
+                    window.location.reload(); 
+                } catch (e) {
+                    c(); // Закрываем модалку, если с сервера прилетела ошибка
+                }
+            }); 
+            return; 
         }
-    }); 
-    return; 
-}
         
         // Попапы "Безопасно?"
         if (target.closest('#twitch-trust-btn')) { document.getElementById('twitch-trust-popup').classList.add('visible'); return; }
