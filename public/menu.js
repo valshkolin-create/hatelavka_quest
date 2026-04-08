@@ -3292,7 +3292,7 @@ window.openTrustModal = () => {
 
             <div style="position: relative; width: 100%; height: 25px; margin-bottom: 12px; margin-top: 10px;">
                 
-                <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 0.4s ease;">
+                <div style="position: absolute; top: -52px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 0.4s ease;">
                     <i class="fa-solid fa-caret-down"></i>
                 </div>
                 
@@ -3306,7 +3306,7 @@ window.openTrustModal = () => {
                 </div>
             </div>
 
-            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; margin: 0;">
+            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; margin: 10;">
                 <summary style="padding: 10px 12px; font-weight: 700; font-size: 10px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;">
                     <span style="display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                         <i class="fa-solid fa-circle-info" style="color: #FFD700; font-size: 12px;"></i> Как работает система?
