@@ -3249,7 +3249,7 @@ window.executeSwap = async () => {
 };
 
 // ================================================================
-// ОКНО ТРАСТ-ФАКТОРА (ПРЕМИУМ ВЕРСИЯ - ИДЕАЛЬНО СЖАТАЯ И РОВНАЯ)
+// ОКНО ТРАСТ-ФАКТОРА (ПРЕМИУМ ВЕРСИЯ - ИДЕАЛЬНАЯ ИЕРАРХИЯ)
 // ================================================================
 window.openTrustModal = () => {
     // Получаем баллы пользователя (если нет - ставим дефолт 30)
@@ -3272,9 +3272,9 @@ window.openTrustModal = () => {
     }
 
     const html = `
-        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; box-sizing: border-box;">
+        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box;">
             
-            <div style="font-size: 10px; color: #888; line-height: 1.2; width: 100%; text-align: center; margin-bottom: 10px;">
+            <div style="font-size: 10px; color: #888; line-height: 1.2; width: 100%; margin-bottom: 12px;">
                 Система поощряет активных зрителей. Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
@@ -3285,24 +3285,26 @@ window.openTrustModal = () => {
                 <span style="color: #aaa; font-weight: 600;">${multiplierText}</span>
             </div>
 
-            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-bottom: 16px;">
+            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-bottom: 15px;">
                 <span style="font-size: 32px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 12px ${levelColor}40; letter-spacing: -1px;">${score.toFixed(1)}</span>
                 <span style="font-size: 10px; color: #666; font-weight: 700; margin-left: 2px; margin-bottom: 2px;">/ 100</span>
             </div>
 
-            <div style="position: relative; width: 100%; margin-bottom: 16px; display: flex; flex-direction: column; align-items: center;">
+            <div style="width: 100%; margin-bottom: 15px; display: block; box-sizing: border-box;">
                 
-                <div style="position: absolute; top: -12px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 14px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); transition: left 1s cubic-bezier(0.25, 1, 0.5, 1); z-index: 2;">
-                    <i class="fa-solid fa-caret-down"></i>
+                <div style="position: relative; width: 100%; height: 12px; margin-bottom: 3px;">
+                    <div style="position: absolute; top: 0; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 14px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));">
+                        <i class="fa-solid fa-caret-down"></i>
+                    </div>
                 </div>
                 
-                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #ff3b30 20%, #3a3a3c 30%, #3a3a3c 70%, #34c759 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; position: relative; z-index: 1;"></div>
+                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
                 
-                <div style="position: relative; width: 100%; height: 10px; font-size: 9px; color: #666; font-weight: 800; line-height: 1; margin-top: 4px;">
-                    <span style="position: absolute; left: 0;">0</span>
-                    <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
-                    <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
-                    <span style="position: absolute; left: 100%; transform: translateX(-100%);">100</span>
+                <div style="position: relative; width: 100%; height: 12px; margin-top: 4px; font-size: 9px; color: #666; font-weight: 800; line-height: 1;">
+                    <span style="position: absolute; top: 0; left: 0;">0</span>
+                    <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
+                    <span style="position: absolute; top: 0; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
+                    <span style="position: absolute; top: 0; left: 100%; transform: translateX(-100%);">100</span>
                 </div>
             </div>
 
@@ -3314,21 +3316,21 @@ window.openTrustModal = () => {
                     <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 9px; color: #888; transition: transform 0.2s;"></i>
                 </summary>
                 
-                <div style="padding: 10px; font-size: 9px; color: #aaa; background: rgba(0,0,0,0.2); border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                <div style="padding: 10px; font-size: 9px; color: #aaa; background: rgba(0,0,0,0.2); border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; display: flex; flex-direction: column; gap: 8px;">
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center; line-height: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Мах 80</b>
                     </div>
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; line-height: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Мах 80</b>
                     </div>
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; line-height: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5/день</b>
                     </div>
 
-                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.3;">
+                    <div style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.3; margin-top: 2px;">
                         * Механика выхода: Для «Красных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Серый» статус.
                     </div>
                 </div>
