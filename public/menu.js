@@ -3329,15 +3329,15 @@ window.openTrustModal = () => {
                 <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
             </div>
 
-            <div style="position: relative; width: 85%; margin-top: 15px; margin-bottom: 5px;">
+            <div style="position: relative; width: 85%; margin-top: 10px; margin-bottom: 0;">
                 
-            <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; line-height: 1;">
+            <div style="position: absolute; top: -6px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; line-height: 1;">
                 <i class="fa-solid fa-caret-down"></i>
             </div>
                 
                 <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
                 
-                <div style="position: relative; width: 100%; height: 12px; margin-top: 4px;">
+                <div style="position: relative; width: 100%; height: 10px; margin-top: 0;">
                     <span style="position: absolute; top: 0; left: 0%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800; line-height: 1;">0</span>
                     <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93; font-size: 10px; font-weight: 800; line-height: 1;">30</span>
                     <span style="position: absolute; top: 0; left: 80%; transform: translateX(-50%); color: #34c759; font-size: 10px; font-weight: 800; line-height: 1;">80</span>
