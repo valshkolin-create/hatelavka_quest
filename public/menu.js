@@ -3272,35 +3272,33 @@ window.openTrustModal = () => {
     }
 
     const html = `
-        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box;">
+        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box; gap: 0;">
             
-            <div style="font-size: 10px; color: #888; line-height: 1.2; width: 100%; margin-bottom: 12px;">
+            <div style="font-size: 10px; color: #888; line-height: 1.2; width: 100%; margin-bottom: 10px; margin-top: 0;">
                 Система поощряет активных зрителей. Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
-            <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; line-height: 1; width: 100%; margin-bottom: 15px;">
                 <span style="color: #777; font-weight: 600;">СТАТУС:</span>
                 <span style="color: ${levelColor}; font-weight: 800; text-transform: uppercase; background: ${levelColor}15; padding: 2px 6px; border-radius: 4px; border: 1px solid ${levelColor}40; letter-spacing: 0.5px;">${levelText}</span>
                 <span style="color: #555;">•</span>
                 <span style="color: #aaa; font-weight: 600;">${multiplierText}</span>
             </div>
 
-            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-bottom: 15px;">
-                <span style="font-size: 32px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 12px ${levelColor}40; letter-spacing: -1px;">${score.toFixed(1)}</span>
+            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin-bottom: 20px;">
+                <span style="font-size: 32px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 12px ${levelColor}40; letter-spacing: -1px; margin: 0;">${score.toFixed(1)}</span>
                 <span style="font-size: 10px; color: #666; font-weight: 700; margin-left: 2px; margin-bottom: 2px;">/ 100</span>
             </div>
 
-            <div style="width: 100%; margin-bottom: 15px; display: block; box-sizing: border-box;">
+            <div style="position: relative; width: 100%; height: 6px; margin-bottom: 25px; margin-top: 5px;">
                 
-                <div style="position: relative; width: 100%; height: 12px; margin-bottom: 3px;">
-                    <div style="position: absolute; top: 0; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 14px; z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));">
-                        <i class="fa-solid fa-caret-down"></i>
-                    </div>
+                <div style="position: absolute; bottom: 8px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 14px; z-index: 2; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));">
+                    <i class="fa-solid fa-caret-down"></i>
                 </div>
                 
-                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
+                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 80%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; margin: 0;"></div>
                 
-                <div style="position: relative; width: 100%; height: 12px; margin-top: 4px; font-size: 9px; color: #666; font-weight: 800; line-height: 1;">
+                <div style="position: absolute; top: 10px; width: 100%; font-size: 9px; color: #666; font-weight: 800; line-height: 1;">
                     <span style="position: absolute; top: 0; left: 0;">0</span>
                     <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93;">30</span>
                     <span style="position: absolute; top: 0; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
@@ -3308,15 +3306,15 @@ window.openTrustModal = () => {
                 </div>
             </div>
 
-            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block;">
-                <summary style="padding: 8px 10px; font-weight: 700; font-size: 10px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px;">
+            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; margin: 0;">
+                <summary style="padding: 8px 10px; font-weight: 700; font-size: 10px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;">
                     <span style="display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                         <i class="fa-solid fa-circle-info" style="color: #FFD700;"></i> Как работает система?
                     </span>
                     <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 9px; color: #888; transition: transform 0.2s;"></i>
                 </summary>
                 
-                <div style="padding: 10px; font-size: 9px; color: #aaa; background: rgba(0,0,0,0.2); border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="padding: 8px 10px; font-size: 9px; color: #aaa; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; margin: 0; display: flex; flex-direction: column; gap: 5px;">
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Мах 80</b>
@@ -3330,7 +3328,7 @@ window.openTrustModal = () => {
                         <span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5/день</b>
                     </div>
 
-                    <div style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.3; margin-top: 2px;">
+                    <div style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.3; margin-top: 2px;">
                         * Механика выхода: Для «Красных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Серый» статус.
                     </div>
                 </div>
