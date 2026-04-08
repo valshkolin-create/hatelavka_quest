@@ -3249,93 +3249,109 @@ window.executeSwap = async () => {
 };
 
 // ================================================================
-// ОКНО ТРАСТ-ФАКТОРА (КОМПАКТНАЯ ВЕРСИЯ СО СКРОЛЛОМ И КРЕСТИКОМ)
+// ОКНО ТРАСТ-ФАКТОРА (ПРЕМИУМ ВЕРСИЯ - КОМПАКТНАЯ)
 // ================================================================
 window.openTrustModal = () => {
     // Получаем баллы пользователя (если нет - ставим дефолт 30)
     const score = userData.trust_score ? parseFloat(userData.trust_score) : 30.0;
     const percent = Math.max(0, Math.min(100, score)); // Защита от выхода за края
     
-    // Определяем статус и цвет
-    let levelText = 'Серый (Обычный)';
+    // Определяем статус, цвет и множитель
+    let levelText = 'Обычный';
     let levelColor = '#8e8e93';
-    let multiplierText = 'Цены в магазине x2 🪙';
+    let multiplierText = 'Цены x2 🪙';
     
     if (score < 30) { 
-        levelText = 'Красный (Штрафник)'; 
+        levelText = 'Штрафник'; 
         levelColor = '#ff3b30'; 
-        multiplierText = 'Цены в магазине x3 💸';
+        multiplierText = 'Цены x3 💸';
     } else if (score >= 80) { 
-        levelText = 'Зеленый (Элита)'; 
+        levelText = 'Элита'; 
         levelColor = '#34c759'; 
-        multiplierText = 'Базовые цены (x1) 💎';
+        multiplierText = 'Цены x1 💎';
     }
 
     const html = `
-        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding-right: 5px; text-align: center; color: #ddd;">
+        <div style="max-height: 50vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             
-            <div style="font-size: 11px; color: #8e8e93; margin-bottom: 2px; text-transform: uppercase; font-weight: 700;">У вас баллов:</div>
-            <div style="font-size: 28px; font-weight: 900; color: ${levelColor}; margin-bottom: 12px; font-family: 'SF Mono', monospace; text-shadow: 0 0 15px ${levelColor}40;">
-                ${score.toFixed(1)} <span style="font-size: 12px; color: #666;">/ 100</span>
+            <div style="margin-bottom: 12px;">
+                <div style="font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Уровень доверия</div>
+                <div style="font-size: 10px; color: #888; margin-top: 2px; line-height: 1.3;">
+                    Показатель надежности вашего аккаунта. Чем выше траст, тем выгоднее цены в магазине.
+                </div>
             </div>
 
-            <div style="position: relative; width: 100%; height: 35px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 10px; margin-bottom: 15px;">
+                <span style="color: #777; font-weight: 600;">СТАТУС:</span>
+                <span style="color: ${levelColor}; font-weight: 800; text-transform: uppercase; background: ${levelColor}15; padding: 2px 6px; border-radius: 4px; border: 1px solid ${levelColor}40; letter-spacing: 0.5px;">${levelText}</span>
+                <span style="color: #555;">•</span>
+                <span style="color: #aaa; font-weight: 600;">${multiplierText}</span>
+            </div>
+
+            <div style="position: relative; width: 100%; margin-bottom: 6px;">
                 
-                <div style="position: absolute; top: -6px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 18px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8)); transition: left 1s cubic-bezier(0.25, 1, 0.5, 1);">
+                <div style="position: absolute; top: -14px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 14px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); transition: left 1s cubic-bezier(0.25, 1, 0.5, 1); z-index: 2;">
                     <i class="fa-solid fa-caret-down"></i>
                 </div>
                 
-                <div style="position: absolute; top: 15px; left: 0; width: 100%; height: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); background: linear-gradient(to right, #ff3b30 0%, #ff3b30 25%, #222224 35%, #222224 75%, #34c759 85%, #34c759 100%); box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>
+                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #ff3b30 30%, #3a3a3c 30%, #3a3a3c 80%, #34c759 80%, #34c759 100%); box-shadow: 0 0 12px ${levelColor}60; position: relative; z-index: 1;"></div>
                 
-                <div style="position: absolute; top: 27px; left: 0; width: 100%; display: flex; justify-content: space-between; font-size: 9px; color: #888; font-weight: 800;">
-                    <span>0</span>
-                    <span style="position: absolute; left: 30%; transform: translateX(-50%); color: #666;">30</span>
-                    <span style="position: absolute; left: 80%; transform: translateX(-50%); color: #34c759;">80</span>
-                    <span>100</span>
+                <div style="position: relative; width: 100%; height: 12px; margin-top: 4px; font-size: 9px; color: #666; font-weight: 800;">
+                    <span style="position: absolute; left: 0;">0</span>
+                    <span style="position: absolute; left: 30%; transform: translateX(-50%);">30</span>
+                    <span style="position: absolute; left: 80%; transform: translateX(-50%);">80</span>
+                    <span style="position: absolute; left: 100%; transform: translateX(-100%);">100</span>
                 </div>
             </div>
 
-            <div style="font-size: 12px; color: #ccc; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                Статус: <b style="color: ${levelColor}; text-transform: uppercase;">${levelText}</b><br>
-                <span style="font-size: 10px; opacity: 0.8; margin-top: 2px; display: inline-block;">${multiplierText}</span>
+            <div style="margin-bottom: 12px;">
+                <span style="font-size: 32px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 15px ${levelColor}50; line-height: 1;">${score.toFixed(1)}</span>
+                <span style="font-size: 11px; color: #666; font-weight: 700; position: relative; top: -3px;">/ 100</span>
             </div>
 
-            <details class="trust-faq-accordion" style="background: rgba(255,215,0,0.05); border-radius: 10px; border: 1px solid rgba(255,215,0,0.2); text-align: left; margin-bottom: 5px;">
-                <summary style="padding: 10px 12px; font-weight: 800; font-size: 11px; color: #FFD700; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-arrow-trend-up"></i> Как поднять траст?
+            <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; overflow: hidden;">
+                <summary style="padding: 8px 10px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05);">
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-bolt" style="color: #FFD700;"></i> Как повысить траст?
                     </span>
-                    <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 10px; transition: transform 0.2s;"></i>
+                    <i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 9px; color: #888; transition: transform 0.2s;"></i>
                 </summary>
                 
-                <div style="padding: 0 12px 12px 12px; font-size: 10px; color: #ccc; line-height: 1.4;">
-                    <ul style="margin: 0; padding-left: 15px;">
-                        <li style="margin-bottom: 4px;">Смотреть стримы на Twitch</li>
-                        <li style="margin-bottom: 4px;">Общаться в чате Twitch</li>
-                        <li style="margin-bottom: 4px;">Общаться в чате Telegram</li>
-                        <li>Ежедневно забирать Гринд</li>
-                    </ul>
+                <div style="padding: 0 10px 8px 10px; font-size: 10px; color: #aaa;">
+                    <div style="display: flex; justify-content: space-between; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.03);">
+                        <span>Смотреть стримы Twitch</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5</b>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                        <span>Общаться в чате Twitch</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.2</b>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                        <span>Общаться в чате Telegram</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.3</b>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                        <span>Ежедневно забирать Гринд</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+1.0</b>
+                    </div>
                 </div>
             </details>
             
             <style>
                 .trust-faq-accordion > summary::-webkit-details-marker { display: none; }
                 .trust-faq-accordion[open] .accordion-arrow { transform: rotate(180deg); }
+                .trust-faq-accordion[open] > summary { border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 6px; }
             </style>
         </div>
     `;
     
-    // В title мы встраиваем заголовок и КРЕСТИК (fa-xmark) для мгновенного закрытия
+    // Вызов модального окна
     showShopModal({
         title: `
-            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:15px; font-weight: 800; color: #fff;">
                 ТРАСТ-ФАКТОР
-                <i class="fa-solid fa-xmark" style="color:#8e8e93; font-size:18px; cursor:pointer; padding: 0 5px;" onclick="document.querySelector('.custom-confirm-overlay').remove();"></i>
+                <i class="fa-solid fa-xmark" style="color:#8e8e93; font-size:18px; cursor:pointer; padding: 0 5px; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#8e8e93'" onclick="document.querySelector('.custom-confirm-overlay').remove();"></i>
             </div>
         `,
         subtitle: html,
         confirmText: "ПОНЯТНО",
-        confirmClass: "btn-yellow-modal",
+        confirmClass: "btn-yellow-modal", // Твой CSS класс для кнопки
         showCancel: false,
         onConfirm: (close) => close()
     });
