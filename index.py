@@ -19773,6 +19773,294 @@ async def execute_directed_swap(
         }
     }
 
+# Модель для создания кампании из админки
+from pydantic import BaseModel
+from typing import Optional
+
+Вот абсолютно весь код для бэкенда, собранный в один готовый блок.
+
+Скопируй его и вставь в свой файл с роутами (например, туда, где у тебя лежат остальные админские эндпоинты и вебхуки).
+
+Перед вставкой убедись, что у тебя в этом файле импортированы bot, CHANNEL_ID, is_valid_init_data, get_supabase_client, ADMIN_IDS, ALL_VALID_TOKENS и create_in_app_notification.
+
+Python
+import uuid
+import httpx
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# ==========================================
+# 1. PYDANTIC СХЕМЫ (МОДЕЛИ ДАННЫХ)
+# ==========================================
+
+class TwitchCampaignCreate(BaseModel):
+    initData: str
+    title: str
+    post_text: str
+    image_url: str
+    winners_limit: int
+    target_case_name: str
+    ttl_hours: int = 4  # Время жизни ссылки в часах (по умолчанию 2)
+
+class TwitchClickRequest(BaseModel):
+    initData: str
+    campaign_id: int
+
+class TwitchAdminRequest(BaseModel):
+    initData: str
+
+class TwitchCampaignActionRequest(BaseModel):
+    initData: str
+    campaign_id: int
+
+
+# ==========================================
+# 2. ЭНДПОИНТЫ ДЛЯ АДМИНКИ
+# ==========================================
+
+@app.post("/api/v1/admin/twitch_campaigns/create")
+async def create_twitch_campaign(
+    req: TwitchCampaignCreate,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Создание розыгрыша-перехода, авто-кода и публикация поста в канал"""
+    # 1. Проверка админа
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. Генерируем уникальный код для cs_codes
+    unique_code = f"TW_{uuid.uuid4().hex[:6].upper()}"
+
+    # 3. Сохраняем код в таблицу cs_codes
+    code_data = {
+        "code": unique_code,
+        "max_uses": req.winners_limit,
+        "current_uses": 0,
+        "is_active": True,
+        "description": f"Авто-код Twitch: {req.title}",
+        "target_case_name": req.target_case_name,
+        "used_by_ids": [],
+        "activated_by_ids": []
+    }
+    await supabase.from_("cs_codes").insert(code_data).execute()
+
+    # Высчитываем время протухания (текущее время + ttl_hours)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=req.ttl_hours)
+
+    # 4. Сохраняем саму кампанию
+    campaign_data = {
+        "title": req.title,
+        "post_text": req.post_text,
+        "image_url": req.image_url,
+        "winners_limit": req.winners_limit,
+        "is_active": True,
+        "expires_at": expires_at.isoformat() # Записываем время смерти
+    }
+    camp_res = await supabase.from_("twitch_campaigns").insert(campaign_data).select("id").single().execute()
+    campaign_id = camp_res.data["id"]
+
+    # 5. ПУБЛИКАЦИЯ ПОСТА В TELEGRAM
+    # startapp передает ID кампании и уникальный код внутрь приложения
+    mini_app_link = f"https://t.me/HATElavka_bot/roulette?startapp=tw_{campaign_id}_{unique_code}"
+    
+    keyboard = InlineKeyboardMarkup()
+    btn = InlineKeyboardButton(text="Забрать кейс и на Твич! 🚀", url=mini_app_link)
+    keyboard.add(btn)
+
+    try:
+        await bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=req.image_url,
+            caption=req.post_text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Ошибка публикации поста в ТГ: {e}")
+        return {
+            "status": "warning", 
+            "message": "Кампания создана, но бот не смог отправить пост в канал!"
+        }
+
+    return {"status": "success", "message": "Кампания создана, пост успешно опубликован!"}
+
+
+@app.post("/api/v1/admin/twitch_campaigns/list")
+async def get_twitch_campaigns_list(
+    req: TwitchAdminRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Вывод списка кампаний со статистикой переходов и наград"""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    camp_res = await supabase.from_("twitch_campaigns").select("*").order("id", desc=True).execute()
+    campaigns = camp_res.data or []
+
+    results = []
+    for camp in campaigns:
+        camp_id = camp["id"]
+        
+        # Считаем ВСЕ клики
+        all_clicks_res = await supabase.from_("twitch_clicks").select("id", count="exact").eq("campaign_id", camp_id).execute()
+        total_clicks = all_clicks_res.count or 0
+        
+        # Считаем ПОБЕДИТЕЛЕЙ
+        winners_res = await supabase.from_("twitch_clicks").select("id", count="exact").eq("campaign_id", camp_id).eq("is_winner", True).execute()
+        total_winners = winners_res.count or 0
+        
+        # Утешительные билеты
+        losers = total_clicks - total_winners
+        tickets_given = losers * 5
+        
+        camp["stats"] = {
+            "total_clicks": total_clicks,
+            "winners": total_winners,
+            "tickets_given": tickets_given
+        }
+        
+        # Авто-отключение, если лимит исчерпан
+        if total_winners >= camp["winners_limit"] and camp["is_active"]:
+            camp["is_active"] = False
+            await supabase.from_("twitch_campaigns").update({"is_active": False}).eq("id", camp_id).execute()
+
+        results.append(camp)
+
+    return results
+
+
+@app.post("/api/v1/admin/twitch_campaigns/stop")
+async def stop_twitch_campaign(
+    req: TwitchCampaignActionRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Досрочная (ручная) остановка раздачи"""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    res = await supabase.from_("twitch_campaigns").update({"is_active": False}).eq("id", req.campaign_id).execute()
+    
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Кампания не найдена")
+        
+    return {"status": "success", "message": "Раздача успешно остановлена!"}
+
+
+# ==========================================
+# 3. ЭНДПОИНТ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (ОБРАБОТКА КЛИКА)
+# ==========================================
+
+@app.post("/api/v1/twitch/click")
+async def handle_twitch_click(
+    req: TwitchClickRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обработка перехода на Twitch: проверка мест, выдача кейса или билетов"""
+    # 1. Авторизация
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    tg_id_int = int(user_info['id'])
+    tg_id_str = str(user_info['id']) 
+
+    # 2. Проверяем дубликаты (чтобы не фармили билеты)
+    check_click = await supabase.from_("twitch_clicks").select("id").eq("campaign_id", req.campaign_id).eq("telegram_id", tg_id_int).execute()
+    if check_click.data:
+        return {
+            "status": "already_clicked", 
+            "message": "Ты уже забрал свою награду за этот переход! Приятного просмотра!",
+            "twitch_url": "https://www.twitch.tv/hatelove_ttv"
+        }
+
+   # 3. Проверяем кампанию на активность
+    camp_res = await supabase.from_("twitch_campaigns").select("*").eq("id", req.campaign_id).single().execute()
+    if not camp_res.data or not camp_res.data.get("is_active"):
+        raise HTTPException(status_code=404, detail="Раздача не найдена или уже завершена")
+        
+    campaign = camp_res.data
+
+    # === НОВЫЙ БЛОК: Проверка на протухание ===
+    if campaign.get("expires_at"):
+        # Парсим время из базы и сравниваем с текущим
+        expires_at = datetime.fromisoformat(campaign["expires_at"].replace('Z', '+00:00'))
+        if datetime.now(timezone.utc) > expires_at:
+            # Выключаем кампанию в БД, чтобы она пометилась как завершенная
+            await supabase.from_("twitch_campaigns").update({"is_active": False}).eq("id", req.campaign_id).execute()
+            
+            return {
+                "status": "expired",
+                "message": "Время действия этой ссылки истекло 🕒 Но стрим еще идет, залетай!",
+                "twitch_url": "https://www.twitch.tv/hatelove_ttv"
+            }
+    # === КОНЕЦ НОВОГО БЛОКА ===
+    # 4. Ищем авто-код
+    desc_search = f"Авто-код Twitch: {campaign['title']}"
+    code_res = await supabase.from_("cs_codes").select("*").eq("description", desc_search).single().execute()
+    
+    if not code_res.data:
+        raise HTTPException(status_code=500, detail="Код для этой кампании не найден")
+
+    cs_code = code_res.data
+    activated_list = cs_code.get("activated_by_ids", []) or []
+    used_list = cs_code.get("used_by_ids", []) or []
+    
+    # Считаем места
+    total_claims = len(activated_list) + len(used_list)
+    is_winner = total_claims < cs_code["max_uses"]
+    target_case = cs_code.get("target_case_name", "Секретный кейс")
+
+    # 5. ВЫДАЧА НАГРАДЫ
+    if is_winner:
+        # Победитель -> добавляем в activated_by_ids
+        activated_list.append(tg_id_str)
+        await supabase.from_("cs_codes").update({
+            "activated_by_ids": activated_list
+        }).eq("idx", cs_code["idx"]).execute()
+        
+        # Отправляем in-app уведомление
+        await create_in_app_notification(
+            supabase=supabase,
+            user_id=tg_id_int,
+            title="🎁 Twitch Дроп!",
+            message=f"Ты успел в ТОП первых! Бесплатное открытие для «{target_case}» уже ждет тебя в рулетке.",
+            notif_type="system" 
+        )
+        
+        reward_msg = f"🎉 Красавчик, ты успел! Бесплатный «{target_case}» доступен в боте!"
+        status_code = "winner"
+    else:
+        # Опоздал -> даем 5 билетов
+        user_res = await supabase.from_("users").select("tickets").eq("telegram_id", tg_id_int).single().execute()
+        current_tickets = user_res.data.get("tickets", 0) if user_res.data else 0
+        
+        await supabase.from_("users").update({
+            "tickets": current_tickets + 5
+        }).eq("telegram_id", tg_id_int).execute()
+        
+        reward_msg = "😔 Чуть-чуть не успел... Но держи 5 утешительных билетов!"
+        status_code = "participant"
+
+    # 6. Записываем клик в историю
+    click_data = {
+        "campaign_id": req.campaign_id,
+        "telegram_id": tg_id_int,
+        "is_winner": is_winner,
+        "reward_issued": True
+    }
+    await supabase.from_("twitch_clicks").insert(click_data).execute()
+
+    return {
+        "status": status_code,
+        "message": reward_msg,
+        "twitch_url": "https://www.twitch.tv/hatelove_ttv"
+    }
+    
 @app.get("/api/v1/shop/market_cache")
 async def get_market_items(
     response: Response, # 🔥 ДОБАВЛЕНО
