@@ -908,22 +908,28 @@ body.desktop-mode .toggle-container {
     text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
 
-/* Фигура 2: Блок под Автомат */
+/* Фигура 2: Обертка под Автомат (ОБЯЗАТЕЛЬНО абсолютная, чтобы лежать поверх сетки) */
 .weapon-box {
+    position: absolute;
+    inset: 0; /* Растягиваем на всю ширину и высоту row-two-grid */
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
+    pointer-events: none; /* Защита от кликов на контейнере */
+    z-index: 10;
 }
 
-/* Сам огромный автомат */
+/* Сам автомат (настраиваем адекватный размер) */
 .weapon-huge-img {
-    width: 120%;
-    max-width: none;
-    transform: scale(2.2) translateY(37%) translateX(10%); 
+    width: 90%; /* Занимает 90% от ширины всего экрана/блока */
+    max-width: 450px; /* Защита, чтобы на компах он не стал на весь экран */
     object-fit: contain;
     pointer-events: none;
     z-index: 1;
+    
+    /* Если нужно чуть-чуть подвинуть его, используй transform без scale. 
+       Например: сдвинуть чуть вниз и вправо */
+    transform: translateY(5px) translateX(0px); 
 }
 
 /* SCHEDULE STYLES */
