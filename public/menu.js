@@ -1397,7 +1397,7 @@ function renderItems(items) {
 
         if (item.is_folder) {
             el.innerHTML = `
-                <div class="item-title" style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${escapeHTML(cleanName)}</div>
+                <div class="item-title" style="position: absolute; top: -7px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${escapeHTML(cleanName)}</div>
                 <div class="item-image-wrapper" onclick="openFolder(${item.id})" style="width: 100%; padding-top: 100%; position: relative; background: transparent; cursor: pointer;">
                     <img src="${safeImg}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" style="position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                 </div>
@@ -1409,11 +1409,11 @@ function renderItems(items) {
             let showFreeButton = window.activeFreeCases.includes(item.name);
             
             if (showFreeButton) {
-                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:70px; align-items:center; justify-content:center;">
+                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
                     <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: transparent; color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 0 0 20px rgba(52, 199, 89, 0.4); width: 100%; height: 100%; border: none; border-radius: 12px; font-weight: 900; font-size: 13px; display: flex; align-items: center; justify-content: center; text-transform: uppercase; cursor: pointer; outline: none; transition: transform 0.2s ease;">БЕСПЛАТНО</button>
                 </div>`;
             } else if (originalPrice === 9999) {
-                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:70px; align-items:center; justify-content:center;">
+                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
                     <button class="action-btn" onclick="showCouponCaseInfo('${safeName}')" style="background: rgba(145, 70, 255, 0.1); color: #9146FF; border: 1px solid rgba(145, 70, 255, 0.4); width: 100%; height: 100%; border-radius: 12px; font-weight: 900; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-transform: uppercase; cursor: pointer; transition: 0.2s ease;"><i class="fa-solid fa-lock" style="font-size: 14px; margin-bottom: 2px;"></i>КУПОННЫЙ</button>
                 </div>`;
             } else {
