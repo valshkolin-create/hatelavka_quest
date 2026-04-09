@@ -361,9 +361,12 @@ html, body {
 
 .shop-item { 
     background: var(--surface-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); 
-    border-radius: 16px; /* Чуть уменьшили скругление */
+    border-radius: 16px; 
     border: 1px solid var(--border-glass); box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
     overflow: hidden; display: flex; flex-direction: column; position: relative; transition: transform 0.1s; 
+    
+    /* 🔥 ДОБАВЛЕНО: Даем безопасную зону сверху, чтобы текст не резался об края карточки */
+    padding-top: 6px !important; 
 }
 .shop-item:active { transform: scale(0.98); }
 
@@ -654,9 +657,15 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 
 /* Название кейса сверху */
 .case-top-title {
-    padding: 8px 5px 0 5px !important; /* Отступ от верхнего края */
-    min-height: 32px !important;       /* Место под 2-3 строчки текста */
-    margin-bottom: -12px !important;   /* 🔥 Притягивает кейс вверх, заголовок "висит" над ним */
+    /* Даем нормальный отступ сверху от края карты */
+    padding: 8px 5px 0 5px !important; 
+    
+    /* 🔥 ДАЕМ МЕСТО ДЛЯ ТЕКСТА: фиксированная минимальная высота */
+    min-height: 30px !important; 
+    
+    /* 🔥 МАГИЯ: Отрицательный отступ притягивает картинку кейса ВВЕРХ к тексту */
+    margin-bottom: -12px !important; 
+    
     font-size: 10.5px !important; 
     font-weight: 900 !important;
     color: #fff !important;
@@ -664,9 +673,12 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     text-transform: uppercase !important;
     line-height: 1.1 !important;
     display: block !important;
-    white-space: normal !important;
+    white-space: normal !important; 
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+    
+    /* Чтобы текст всегда был поверх картинки, если они пересекутся */
     position: relative !important;
-    z-index: 20 !important;            /* Текст всегда поверх картинки */
+    z-index: 20 !important;
 }
 
 .case-top-title .item-subtitle {
