@@ -1476,7 +1476,7 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="font-size:13px; font-weight:900; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase; margin-top: -6px; padding-bottom: 2px; line-height: 1.3;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
@@ -3150,8 +3150,8 @@ function renderSwapInventory(items) {
         const border = isSelected ? '#34c759' : 'transparent';
 
         return `
-            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price}, '${item.name.replace(/'/g, "\\'")}', '${item.image_url}')" 
-                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
+            <div class="swap-card-inv" onclick="selectTargetItem('${item.market_hash_name.replace(/'/g, "\\'")}', ${priceRub}, '${item.image_url}')"
+     style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s; min-width: 0; overflow: hidden;">
                 <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
                 <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
                 <div style="font-size: 11px; color: #FFD700; font-weight: bold; display: flex; align-items: center; gap: 4px;">
