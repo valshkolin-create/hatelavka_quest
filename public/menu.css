@@ -654,7 +654,9 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 
 /* Название кейса сверху */
 .case-top-title {
-    padding: 4px 4px 2px 4px !important; /* 🔥 Подняли текст выше (было 8px) */
+    padding: 8px 5px 0 5px !important; /* Отступ от верхнего края */
+    min-height: 32px !important;       /* Место под 2-3 строчки текста */
+    margin-bottom: -12px !important;   /* 🔥 Притягивает кейс вверх, заголовок "висит" над ним */
     font-size: 10.5px !important; 
     font-weight: 900 !important;
     color: #fff !important;
@@ -662,8 +664,9 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     text-transform: uppercase !important;
     line-height: 1.1 !important;
     display: block !important;
-    white-space: normal !important; 
-    text-shadow: none !important;
+    white-space: normal !important;
+    position: relative !important;
+    z-index: 20 !important;            /* Текст всегда поверх картинки */
 }
 
 .case-top-title .item-subtitle {
