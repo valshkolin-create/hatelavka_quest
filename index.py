@@ -19876,7 +19876,8 @@ async def create_twitch_campaign(
         "image_url": req.image_url,
         "winners_limit": req.winners_limit,
         "is_active": True,
-        "expires_at": expires_at.isoformat()
+        "expires_at": expires_at.isoformat(),
+        "target_case_name": req.target_case_name # 🔥 ДОБАВИЛИ ЭТУ СТРОКУ
     }
     
     camp_res = await supabase.post("/twitch_campaigns", json=campaign_data, headers={"Prefer": "return=representation"})
@@ -19978,16 +19979,26 @@ async def get_campaign_info(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """Отдает фронтенду инфу о призе до клика"""
+    # 1. Получаем кампанию
     camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
     if camp_res.status_code != 200 or not camp_res.json():
         raise HTTPException(status_code=404, detail="Кампания не найдена")
     
     camp = camp_res.json()[0]
+    
+    # 2. 🔥 ДОСТАЕМ НАЗВАНИЕ ИЗ КОДА 🔥
+    desc_search = f"Авто-код Twitch: {camp['title']}"
+    code_res = await supabase.get("/cs_codes", params={"description": f"eq.{desc_search}"})
+    
+    target_case_name = "Секретный кейс"
+    if code_res.status_code == 200 and code_res.json():
+        target_case_name = code_res.json()[0].get("target_case_name", "Секретный кейс")
+
     return {
-        "target_case_name": camp.get("target_case_name", "Секретный кейс"),
+        "target_case_name": target_case_name,
         "winners_limit": camp.get("winners_limit", 0)
     }
-
+    
 @app.post("/api/v1/twitch/click")
 async def handle_twitch_click(
     req: TwitchClickRequest,
