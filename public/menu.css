@@ -654,16 +654,17 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 
 /* Название кейса сверху */
 .case-top-title {
-    padding: 6px 6px 4px 6px !important; /* 🔥 Приподняли текст выше */
-    font-size: 11px !important; /* 🔥 Уменьшили под 3 колонки */
+    padding: 6px 6px 4px 6px !important; 
+    /* УБРАЛИ font-size: 11px !important; чтобы JS скрипт снова мог уменьшать длинные названия! */
     font-weight: 900 !important;
     color: #fff !important;
     text-align: center !important;
     text-transform: uppercase !important;
     line-height: 1.1 !important;
     display: block !important;
-    white-space: normal !important; 
+    white-space: nowrap !important; /* 🔥 ВОЗВРАЩАЕМ nowrap, чтобы THE NOOT-NOOT был в 1 строку */
     text-shadow: none !important;
+    z-index: 1 !important; /* 🔥 Опускаем текст ПОД картинку */
 }
 
 .case-top-title .item-subtitle {
@@ -678,6 +679,8 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 .case-img-wrap {
     padding-top: 80%;
     background: #000000; /* Чистый черный специально для кейсов */
+    position: relative; /* 🔥 Добавляем для работы z-index */
+    z-index: 2; /* 🔥 ПОДНИМАЕМ картинку НАД текстом */
 }
 
 /* Сама картинка кейса (зум и сдвиг) */
