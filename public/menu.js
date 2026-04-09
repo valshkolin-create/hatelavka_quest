@@ -1426,7 +1426,7 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="position: absolute; top: -7px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="position: absolute; top: -7px; left: 50%; transform: translateX(-50%); z-index: 10; white-space: nowrap; pointer-events: none; width: auto !important; max-width: 140% !important; padding: 2px 8px !important; border-radius: 10px !important; font-size: 13px; font-weight: 800; color: #fff; text-align: center; text-transform: uppercase;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
