@@ -1359,9 +1359,9 @@ function renderItems(items) {
     if (trustLevel === 'green') trustMultiplier = 1;
     else if (trustLevel === 'red') trustMultiplier = 3;
 
-    // Маленькая красная плашка, если есть наценка
+    // Маленькая плашка, если есть наценка (ЧЕРНАЯ)
     const multiplierBadge = trustMultiplier > 1 
-        ? `<span style="background: rgba(0,0,0,0.2); color: #fff; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: 900; margin-left: 2px; border: 1px solid rgba(255,255,255,0.1);">x${trustMultiplier}</span>` 
+        ? `<span style="background: rgba(255,255,255,0.4); color: #000; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: 900; margin-left: 2px; border: 1px solid rgba(0,0,0,0.15);">x${trustMultiplier}</span>` 
         : '';
     // ==========================================
 
@@ -1373,6 +1373,8 @@ function renderItems(items) {
         el.style.background = 'transparent'; 
         el.style.boxShadow = 'none';
         el.style.border = 'none';
+        // Даем тексту безопасное место сверху, не ломая границы самой карточки
+        el.style.paddingTop = '8px';
 
         let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
@@ -1458,7 +1460,7 @@ function renderItems(items) {
                     <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
                         <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.1s;">
                             <span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span> 
-                            <i class="fa-solid fa-coins" style="font-size: 11px; color: #000; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>
+                            <i class="fa-solid fa-coins" style="font-size: 11px; color: #000; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>
                             ${multiplierBadge}
                         </button>
                         <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 32px; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.1s;">
@@ -1488,7 +1490,7 @@ function renderItems(items) {
                 ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
                 : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.1s;">
                     <span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span> 
-                    <i class="fa-solid fa-coins" style="font-size: 11px; color: #000; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>
+                    <i class="fa-solid fa-coins" style="font-size: 11px; color: #000; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>
                     ${multiplierBadge}
                    </button>`;
             
