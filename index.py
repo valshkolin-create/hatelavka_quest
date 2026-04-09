@@ -19886,6 +19886,9 @@ async def create_twitch_campaign(
     campaign_id = camp_res.json()[0]["id"]
 
 # 3. Публикация в ТГ
+    import os  # 🔥 Добавили импорт на случай, если его нет в начале файла
+    CHANNEL_ID = os.getenv("CHANNEL_ID", "@hatelove_ttv")  # 🔥 Решение проблемы: определяем канал
+
     # Заменили roulette на twitch, как указано в BotFather 👇
     mini_app_link = f"https://t.me/HATElavka_bot/twitch?startapp=tw_{campaign_id}_{unique_code}"
     
