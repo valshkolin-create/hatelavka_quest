@@ -12,17 +12,51 @@
         body {
             background-color: #0a0a0c; color: #fff; font-family: 'Montserrat', sans-serif;
             margin: 0; padding: 20px; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; height: 100vh; text-align: center;
+            align-items: center; justify-content: center; min-height: 100vh; text-align: center;
             box-sizing: border-box;
         }
         
-        .twitch-logo { font-size: 80px; color: #9146FF; margin-bottom: 15px; filter: drop-shadow(0 0 20px rgba(145, 70, 255, 0.4)); }
-        h1 { font-size: 26px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; }
-        p { font-size: 14px; color: #aaa; margin-bottom: 35px; line-height: 1.5; max-width: 300px; }
+        .twitch-logo { 
+            font-size: 60px; color: #9146FF; margin-bottom: 15px; 
+            filter: drop-shadow(0 0 20px rgba(145, 70, 255, 0.4)); 
+        }
+        
+        h1 { 
+            font-size: 22px; font-weight: 900; margin: 0 0 15px 0; 
+            text-transform: uppercase; letter-spacing: 1px; line-height: 1.3;
+        }
+        h1 span { color: #9146FF; }
+
+        .description { 
+            font-size: 13px; color: #aaa; margin-bottom: 25px; 
+            line-height: 1.6; max-width: 320px; 
+        }
+
+        /* Карточка с призом */
+        .prize-card {
+            background: linear-gradient(135deg, rgba(145, 70, 255, 0.15) 0%, rgba(145, 70, 255, 0.05) 100%);
+            border: 1px solid rgba(145, 70, 255, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 320px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+            display: none; /* Скрыта до загрузки данных */
+            animation: fadeIn 0.5s ease;
+        }
+        .prize-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #9146FF;
+        }
+        .prize-label { font-size: 10px; color: #aaa; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 5px; }
+        .prize-name { font-size: 18px; font-weight: 900; color: #fff; margin-bottom: 12px; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
+        .prize-count { font-size: 13px; color: #ffd700; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; }
         
         .btn-twitch {
             background: #9146FF; color: #fff; border: none; padding: 20px;
-            border-radius: 16px; font-size: 16px; font-weight: 900; width: 100%; max-width: 320px;
+            border-radius: 16px; font-size: 15px; font-weight: 900; width: 100%; max-width: 320px;
             text-transform: uppercase; cursor: pointer; transition: 0.2s;
             box-shadow: 0 8px 25px rgba(145, 70, 255, 0.4);
             display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -31,22 +65,34 @@
         .btn-twitch:disabled { opacity: 0.7; transform: none; }
         
         .result-box {
-            margin-top: 25px; padding: 15px; border-radius: 12px; font-size: 14px; 
+            margin-top: 20px; padding: 15px; border-radius: 12px; font-size: 13px; 
             font-weight: 700; display: none; width: 100%; max-width: 320px; box-sizing: border-box;
+            line-height: 1.5; animation: fadeIn 0.4s ease;
         }
         .result-winner { background: rgba(40, 167, 69, 0.15); border: 1px solid #28a745; color: #28a745; }
         .result-participant { background: rgba(255, 184, 0, 0.15); border: 1px solid #FFB800; color: #FFB800; }
         .result-expired { background: rgba(255, 77, 77, 0.15); border: 1px solid #ff4d4d; color: #ff4d4d; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
     <i class="fa-brands fa-twitch twitch-logo"></i>
-    <h1>TWITCH DROP</h1>
-    <p>Жми на кнопку, чтобы перейти на прямую трансляцию. Успей в ТОП первых и забери бесплатный кейс в свой инвентарь!</p>
+    <h1>Переход на страницу<br><span>HATElove</span></h1>
+    
+    <div class="description">
+        Стрим уже идет! Залетай на трансляцию прямо сейчас. Успеешь в числе первых — система автоматически выдаст тебе дроп. Остальные получат билеты!
+    </div>
+
+    <div class="prize-card" id="prize-card">
+        <div class="prize-label">Главный приз:</div>
+        <div class="prize-name" id="prize-name"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>
+        <div class="prize-count"><i class="fa-solid fa-gift"></i> Доступно: <span id="prize-limit">...</span> шт.</div>
+    </div>
 
     <button class="btn-twitch" id="main-btn" onclick="claimAndGo()">
-        <i class="fa-solid fa-play"></i> ПЕРЕЙТИ НА СТРИМ
+        <i class="fa-solid fa-play"></i> ПЕРЕЙТИ И ЗАБРАТЬ
     </button>
 
     <div id="result-msg" class="result-box"></div>
@@ -55,7 +101,6 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Читаем параметры отовсюду (Telegram WebApp или обычный браузер)
         const urlParams = new URLSearchParams(window.location.search);
         const startParam = tg.initDataUnsafe?.start_param || urlParams.get('start_param') || "";
         
@@ -64,10 +109,34 @@
         
         if (startParam === 'tw_test') {
             isTestMode = true;
-            campaignId = 999; // Фейковый ID для тестов
+            campaignId = 999;
         } else if (startParam.startsWith('tw_')) {
             const parts = startParam.split('_');
             campaignId = parseInt(parts[1]);
+        }
+
+        // Подгружаем информацию о призе при открытии страницы
+        async function fetchPrizeInfo() {
+            if (!campaignId) return;
+            
+            if (isTestMode) {
+                document.getElementById('prize-name').innerText = "Кейс | Тестовый (Эмуляция)";
+                document.getElementById('prize-limit').innerText = "10";
+                document.getElementById('prize-card').style.display = "block";
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/v1/twitch/campaign_info/${campaignId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('prize-name').innerText = data.target_case_name;
+                    document.getElementById('prize-limit').innerText = data.winners_limit;
+                    document.getElementById('prize-card').style.display = "block";
+                }
+            } catch (e) {
+                console.error("Не удалось загрузить инфу о призе");
+            }
         }
 
         async function claimAndGo() {
@@ -82,29 +151,27 @@
                 return;
             }
 
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ОБРАБОТКА...';
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ПРОВЕРКА...';
             btn.disabled = true;
 
-            // === РЕЖИМ ЭМУЛЯЦИИ (ДЛЯ АДМИНА) ===
             if (isTestMode) {
                 setTimeout(() => {
                     resBox.className = "result-box result-winner";
-                    resBox.innerText = "🛠 [ТЕСТ] 🎉 Красавчик, ты успел! Бесплатный «Кейс | Тестовый» доступен в боте!";
+                    resBox.innerText = "🛠 [ТЕСТ] 🎉 Красавчик, ты успел! Бесплатный кейс добавлен в твой профиль.";
                     resBox.style.display = "block";
                     btn.innerHTML = '<i class="fa-solid fa-check"></i> ПРИЯТНОГО ПРОСМОТРА';
                     if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                     
                     setTimeout(() => {
                         tg.showAlert("Эмуляция завершена! В реальной жизни здесь открылся бы Твич.");
-                        btn.innerHTML = '<i class="fa-solid fa-play"></i> ПЕРЕЙТИ НА СТРИМ';
+                        btn.innerHTML = '<i class="fa-solid fa-play"></i> ПЕРЕЙТИ И ЗАБРАТЬ';
                         btn.disabled = false;
                         resBox.style.display = "none";
-                    }, 2500);
+                    }, 3000);
                 }, 1500);
                 return;
             }
 
-            // === БОЕВОЙ РЕЖИМ ===
             try {
                 const res = await fetch('/api/v1/twitch/click', {
                     method: 'POST',
@@ -130,7 +197,7 @@
                 }
                 
                 resBox.innerText = data.message || "Успешно!";
-                btn.innerHTML = '<i class="fa-solid fa-check"></i> ПРИЯТНОГО ПРОСМОТРА';
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> ОТКРЫВАЮ СТРИМ...';
 
                 if (data.twitch_url) {
                     setTimeout(() => {
@@ -144,11 +211,14 @@
                 resBox.innerText = "⚠️ Сбой сети. Попробуй нажать еще раз.";
                 resBox.style.display = "block";
                 
-                btn.innerHTML = '<i class="fa-solid fa-play"></i> ПЕРЕЙТИ НА СТРИМ';
+                btn.innerHTML = '<i class="fa-solid fa-play"></i> ПЕРЕЙТИ И ЗАБРАТЬ';
                 btn.disabled = false;
                 if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
             }
         }
+
+        // Запускаем подгрузку инфы о призе
+        fetchPrizeInfo();
     </script>
 </body>
 </html>
