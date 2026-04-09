@@ -1592,19 +1592,26 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
     
     document.getElementById('r-case-name').innerText = (rawCaseName || "").replace(/^(Кейс|Case)\s*\|\s*/i, '').trim();
     
-    let currentLacky = lacky || 1; 
-    const dots = document.querySelectorAll('#r-bottom-progress .r-progress-dot');
-    dots.forEach((dot, index) => {
-        dot.className = 'r-progress-dot'; 
-        if (index < currentLacky) { dot.classList.add('active'); if (index === 4 && currentLacky === 5) dot.classList.add('guaranteed'); }
-    });
+    const bottomProgress = document.getElementById('r-bottom-progress');
 
-    const progressTextEl = document.getElementById('r-progress-text');
-    if (currentLacky === 5) progressTextEl.innerHTML = '<span style="color: #ffcc00; font-size: 11px;">🔥 ГАРАНТ АКТИВЕН 🔥</span>';
-    else progressTextEl.innerHTML = `Осталось <span style="color: #fff; font-weight: 800;">${5 - currentLacky}</span> до гаранта`;
+    // 🔥 СКРЫВАЕМ ПОЛОСКУ ГАРАНТА, ЕСЛИ БЭКЕНД ПРИСЛАЛ LACKY = 0 🔥
+    if (!lacky || lacky === 0) {
+        bottomProgress.style.display = 'none';
+    } else {
+        bottomProgress.style.display = 'flex';
+        let currentLacky = lacky; 
+        const dots = document.querySelectorAll('#r-bottom-progress .r-progress-dot');
+        dots.forEach((dot, index) => {
+            dot.className = 'r-progress-dot'; 
+            if (index < currentLacky) { dot.classList.add('active'); if (index === 4 && currentLacky === 5) dot.classList.add('guaranteed'); }
+        });
+
+        const progressTextEl = document.getElementById('r-progress-text');
+        if (currentLacky === 5) progressTextEl.innerHTML = '<span style="color: #ffcc00; font-size: 11px;">🔥 ГАРАНТ АКТИВЕН 🔥</span>';
+        else progressTextEl.innerHTML = `Осталось <span style="color: #fff; font-weight: 800;">${5 - currentLacky}</span> до гаранта`;
+    }
 
     document.getElementById('r-top-header').style.display = 'flex';
-    document.getElementById('r-bottom-progress').style.display = 'flex';
 
     track.style.transition = 'none'; track.style.transform = 'translateX(0)';
     area.style.display = 'block'; winScreen.style.display = 'none'; modal.style.display = 'flex';
