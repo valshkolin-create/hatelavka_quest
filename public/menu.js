@@ -1307,6 +1307,20 @@ async function loadCategory(catId, preloadedData = null) {
     }
 }
 
+// ================================================================
+// ФУНКЦИЯ ДЛЯ КРАСИВОГО ДИАЛОГА КУПОННОГО КЕЙСА
+// ================================================================
+window.showCouponCaseInfo = function(caseName) {
+    showShopModal({
+        title: "🎟️ Купонный кейс",
+        subtitle: `Кейс <b>"${caseName}"</b> невозможно купить за обычные монеты или билеты.<br><br>Он выдается <b>исключительно</b> во время стримов, на специальных ивентах, аукционах или лично от Валька в виде промокодов!<br><br>Следите за трансляциями, чтобы забрать его бесплатно.`,
+        confirmText: "ПОНЯТНО",
+        confirmClass: "btn-purple-modal", // Если такого класса нет, будет просто обычная кнопка
+        showCancel: false,
+        onConfirm: (close) => close()
+    });
+};
+
 function renderItems(items) {
     const container = document.getElementById('shop-grid');
     container.innerHTML = '';
@@ -1325,10 +1339,16 @@ function renderItems(items) {
         // 2. Сортировка кейсов/предметов по цене по возрастанию (самые дешевые - первые)
         const priceA = parseFloat(a.price) || 0;
         const priceB = parseFloat(b.price) || 0;
+
+        // 🔥 КУПОННЫЕ КЕЙСЫ (9999) ОТПРАВЛЯЕМ В САМЫЙ НИЗ 🔥
+        if (priceA === 9999 && priceB !== 9999) return 1;
+        if (priceA !== 9999 && priceB === 9999) return -1;
+
         return priceA - priceB;
     });
 
     const fragment = document.createDocumentFragment();
+    let couponHeaderAdded = false; // Флаг для заголовка купонных кейсов
 
     // ==========================================
     // 🔥 РАСЧЕТ МНОЖИТЕЛЯ ТРАСТ-ФАКТОРА 🔥
@@ -1365,6 +1385,19 @@ function renderItems(items) {
         const originalPrice = parseFloat(item.price) || 0;
         const displayPrice = originalPrice * trustMultiplier;
         const displayPriceTickets = (originalPrice * 2) * trustMultiplier; // Билеты = (база * 2) * множитель
+
+        // 🔥 ДОБАВЛЯЕМ ЗАГОЛОВОК ДЛЯ КУПОННЫХ КЕЙСОВ 🔥
+        if (originalPrice === 9999 && !couponHeaderAdded && !item.is_folder) {
+            const headerEl = document.createElement('div');
+            headerEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            headerEl.innerHTML = `
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(145, 70, 255, 0.5));"></div>
+                <span style="font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 0 15px rgba(145, 70, 255, 0.6);">🎟️ Ивентовые кейсы</span>
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, rgba(145, 70, 255, 0.5));"></div>
+            `;
+            fragment.appendChild(headerEl);
+            couponHeaderAdded = true;
+        }
 
         if (item.is_folder) {
             // ЕСЛИ ЭТО КАТЕГОРИЯ
@@ -1410,6 +1443,17 @@ function renderItems(items) {
                         </button>
                     </div>
                 `;
+            } else if (originalPrice === 9999) {
+                // 🔥 КУПОННАЯ КНОПКА (если купона на аккаунте нет) 🔥
+                buttonHtml = `
+                    <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
+                        <button class="action-btn" onclick="showCouponCaseInfo('${safeName}')"
+                            style="background: rgba(145, 70, 255, 0.1); color: #9146FF; border: 1px solid rgba(145, 70, 255, 0.4); width: 100%; height: 100%; border-radius: 12px; font-weight: 900; font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-transform: uppercase; cursor: pointer; transition: 0.2s ease;">
+                            <i class="fa-solid fa-lock" style="font-size: 16px; margin-bottom: 2px;"></i>
+                            КУПОННЫЙ
+                        </button>
+                    </div>
+                `;
             } else {
                 // СТАНДАРТНЫЕ КНОПКИ (С УМНОЖЕННЫМИ ЦЕНАМИ)
                 buttonHtml = `
@@ -1424,9 +1468,12 @@ function renderItems(items) {
                 `;
             }
             
+            // Если цена 9999, передаем null в просмотр содержимого, чтобы не ломался расчет окупаемости
+            const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
+
             el.innerHTML = `
                 <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
-                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${displayPrice})" style="background: transparent; padding-top: 80%;">
+                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
                 </div>
@@ -1776,6 +1823,15 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
             profitChance = ((goodDropWeight / totalWeight) * 100).toFixed(1);
         }
         
+        // 🔥 ДОБАВЛЯЕМ ЛОГИКУ ВИЗУАЛА ДЛЯ КУПОННЫХ КЕЙСОВ 🔥
+        let priceDisplayHtml = casePriceCoins 
+            ? `${casePriceCoins} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 15px;"></i>` 
+            : `<span style="font-size: 14px; font-weight: 900; color: #9146FF; text-shadow: 0 0 10px rgba(145,70,255,0.4);"><i class="fa-solid fa-lock"></i> ИВЕНТ</span>`;
+            
+        let chanceDisplayHtml = casePriceCoins
+            ? `<div style="font-size: 18px; font-weight: 900; color: ${profitChance > 15 ? '#34c759' : '#ffcc00'};">${profitChance}%</div>`
+            : `<div style="font-size: 18px; font-weight: 900; color: #8e8e93;">--</div>`;
+        
         // Рендерим плашку с оптимизированным спойлером и премиальными иконками монет
         statsBlock.innerHTML = `
             <div style="background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 16px;">
@@ -1783,13 +1839,13 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                 <div style="display: flex; justify-content: space-around; align-items: center;">
                     <div style="text-align: center;">
                         <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Шанс на хороший скин</div>
-                        <div style="font-size: 18px; font-weight: 900; color: ${profitChance > 15 ? '#34c759' : '#ffcc00'};">${profitChance}%</div>
+                        ${chanceDisplayHtml}
                     </div>
                     <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.1);"></div>
                     <div style="text-align: center;">
                         <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Цена кейса</div>
                         <div style="font-size: 18px; font-weight: 900; color: #fff; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                            ${casePriceCoins || '?'} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 15px;"></i>
+                            ${priceDisplayHtml}
                         </div>
                     </div>
                 </div>
@@ -1827,7 +1883,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
                 </div>
             </div>
         `;
-
+        
         // Рендерим сами предметы (со "Светофором" и иконкой fa-coins)
         list.innerHTML = data.map(item => {
             let rClass = 'blue'; 
