@@ -3003,45 +3003,67 @@ async def run_mass_twitch_update():
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}", exc_info=True)
 
 @app.get("/api/cron/sync-shop")
-async def cron_sync_shop_categories(
-    secret: str = Query(None),
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    # Защита от чужих вызовов
+async def cron_sync_shop_categories(secret: str = Query(None)):
+    # 1. Проверка секрета
     expected_secret = os.getenv("CRON_SECRET", "hatelavka123")
     if secret != expected_secret:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
+    results = {}
+
     try:
-        # 1. Динамически получаем все ID категорий из базы
-        resp = await supabase.get("/shop_cache", params={"select": "category_id"})
-        db_categories = resp.json()
+        # 2. Получаем список ID из БД, которые уже есть
+        async with httpx.AsyncClient(
+            base_url=f"{SUPABASE_URL}/rest/v1", 
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        ) as client:
+            resp = await client.get("/shop_cache", params={"select": "category_id"})
+            db_categories = resp.json() if resp.status_code == 200 else []
         
-        # Собираем уникальные ID (используем set для защиты от дубликатов)
-        categories_to_sync = list(set([item["category_id"] for item in db_categories if "category_id" in item]))
+        # Собираем уникальные стартовые ID
+        start_categories = [int(item["category_id"]) for item in db_categories if "category_id" in item]
         
-        if not categories_to_sync:
-            return {"status": "success", "message": "Нет категорий для обновления (база пуста)"}
+        if 0 not in start_categories:
+            start_categories.append(0)
 
     except Exception as e:
-        logging.error(f"[CRON_SHOP] Ошибка получения списка категорий: {e}")
-        return {"status": "error", "detail": "Не удалось прочитать shop_cache"}
+        logging.error(f"[CRON_SHOP] Критическая ошибка инициализации: {e}")
+        return {"status": "error", "message": str(e)}
 
-    # 2. Обновляем каждую найденную категорию
-    results = {}
-    for cat_id in categories_to_sync:
+    # 3. УМНАЯ ОЧЕРЕДЬ (КРОУЛЕР)
+    queue = set(start_categories) # Очередь на обработку
+    processed = set()             # Уже обработанные в этом цикле (чтобы не зациклиться)
+
+    while queue:
+        # Берем один ID из очереди
+        cat_id = queue.pop()
+        processed.add(cat_id)
+
         try:
-            # Вызываем твой бронебойный парсер напрямую
-            items = await fetch_and_cache_goods_background(cat_id, supabase)
-            results[cat_id] = f"Успех: {len(items)} товаров"
-            
-            # Пауза в 1 секунду между категориями (защита от лимитов Bot-t)
-            await asyncio.sleep(1) 
-        except Exception as e:
-            logging.error(f"[CRON_SHOP] Ошибка категории {cat_id}: {e}")
-            results[cat_id] = f"Ошибка: {e}"
+            # Парсим товары и папки внутри этой категории
+            items = await fetch_and_cache_goods_background(cat_id)
+            results[cat_id] = f"Успешно: {len(items)} элементов"
 
-    return {"status": "success", "total_categories": len(categories_to_sync), "details": results}
+            # 🔥 МАГИЯ: Ищем новые папки внутри полученных данных
+            for item in items:
+                # Если это папка, и мы её еще не обрабатывали и не добавляли в очередь
+                if item.get("is_folder"):
+                    new_cat_id = item.get("id")
+                    if new_cat_id is not None and new_cat_id not in processed and new_cat_id not in queue:
+                        queue.add(new_cat_id) # Добавляем в очередь!
+
+            # Защита от лимитов
+            await asyncio.sleep(1.2) 
+            
+        except Exception as e:
+            logging.error(f"[CRON_SHOP] Ошибка на категории {cat_id}: {e}")
+            results[cat_id] = f"Ошибка: {str(e)}"
+
+    return {
+        "status": "success", 
+        "processed_categories": len(processed), 
+        "details": results
+    }
 
 @app.get("/api/cron/update-twitch-statuses")
 async def trigger_twitch_update(secret: str = Query(None)):
