@@ -1350,7 +1350,7 @@ function renderItems(items) {
     const fragment = document.createDocumentFragment();
     let couponHeaderAdded = false; // Флаг для заголовка купонных кейсов
 
-    // ==========================================
+   // ==========================================
     // 🔥 РАСЧЕТ МНОЖИТЕЛЯ ТРАСТ-ФАКТОРА 🔥
     // ==========================================
     const trustLevel = userData.trust_level || 'gray';
@@ -1361,7 +1361,7 @@ function renderItems(items) {
 
     // Маленькая красная плашка, если есть наценка
     const multiplierBadge = trustMultiplier > 1 
-        ? `<span style="color: #ff3b30; font-size: 9px; font-weight: 900; margin-left: 2px;">(x${trustMultiplier})</span>` 
+        ? `<span style="background: rgba(0,0,0,0.2); color: #fff; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: 900; margin-left: 2px; border: 1px solid rgba(255,255,255,0.1);">x${trustMultiplier}</span>` 
         : '';
     // ==========================================
 
@@ -1417,21 +1417,19 @@ function renderItems(items) {
             if (showFreeButton) {
                 // РИСУЕМ КНОПКУ БЕСПЛАТНО
                 buttonHtml = `
-                    <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
+                    <div class="case-buttons-container" style="display:flex; width:100%; height:70px; align-items:center; justify-content:center;">
                         <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" 
                             style="background: transparent; 
                                    color: #34c759; 
                                    text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 
-                                                0 0 20px rgba(52, 199, 89, 0.4), 
-                                                0 0 15px #000, 
-                                                0 0 25px #000;
+                                                0 0 20px rgba(52, 199, 89, 0.4);
                                    width: 100%; 
                                    height: 100%; 
                                    border: none; 
                                    box-shadow: none; 
                                    border-radius: 12px; 
                                    font-weight: 900; 
-                                   font-size: 16px; 
+                                   font-size: 13px; 
                                    display: flex; 
                                    align-items: center; 
                                    justify-content: center; 
@@ -1439,30 +1437,34 @@ function renderItems(items) {
                                    cursor: pointer;
                                    outline: none;
                                    transition: transform 0.2s ease;">
-                            ОТКРЫТЬ БЕСПЛАТНО
+                            БЕСПЛАТНО
                         </button>
                     </div>
                 `;
             } else if (originalPrice === 9999) {
-                // 🔥 КУПОННАЯ КНОПКА (если купона на аккаунте нет) 🔥
+                // 🔥 КУПОННАЯ КНОПКА 🔥
                 buttonHtml = `
-                    <div class="case-buttons-container" style="display:flex; width:100%; height:74px; align-items:center; justify-content:center;">
+                    <div class="case-buttons-container" style="display:flex; width:100%; height:70px; align-items:center; justify-content:center;">
                         <button class="action-btn" onclick="showCouponCaseInfo('${safeName}')"
-                            style="background: rgba(145, 70, 255, 0.1); color: #9146FF; border: 1px solid rgba(145, 70, 255, 0.4); width: 100%; height: 100%; border-radius: 12px; font-weight: 900; font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-transform: uppercase; cursor: pointer; transition: 0.2s ease;">
-                            <i class="fa-solid fa-lock" style="font-size: 16px; margin-bottom: 2px;"></i>
+                            style="background: rgba(145, 70, 255, 0.1); color: #9146FF; border: 1px solid rgba(145, 70, 255, 0.4); width: 100%; height: 100%; border-radius: 12px; font-weight: 900; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-transform: uppercase; cursor: pointer; transition: 0.2s ease;">
+                            <i class="fa-solid fa-lock" style="font-size: 14px; margin-bottom: 2px;"></i>
                             КУПОННЫЙ
                         </button>
                     </div>
                 `;
             } else {
-                // СТАНДАРТНЫЕ КНОПКИ (С УМНОЖЕННЫМИ ЦЕНАМИ)
+                // 🔥 КОМПАКТНЫЕ ПРЕМИУМ-КНОПКИ: ТОЛЬКО ЦИФРЫ И ИКОНКИ 🔥
                 buttonHtml = `
                     <div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            Открыть за ${displayPrice} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i> ${multiplierBadge}
+                        <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.1s;">
+                            <span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span> 
+                            <i class="fa-solid fa-coins" style="font-size: 11px; color: #000; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>
+                            ${multiplierBadge}
                         </button>
-                        <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">
-                            Открыть за ${displayPriceTickets} 🎟️ ${multiplierBadge}
+                        <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 32px; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.1s;">
+                            <span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPriceTickets}</span> 
+                            <i class="fa-solid fa-ticket" style="font-size: 11px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>
+                            ${multiplierBadge}
                         </button>
                     </div>
                 `;
@@ -1480,12 +1482,14 @@ function renderItems(items) {
                 <div class="item-info" style="padding: 0 10px 10px 10px; flex-grow: 0;">${buttonHtml}</div>
             `;
         } else {
-            // ЕСЛИ ЭТО ОБЫЧНЫЙ ПРЕДМЕТ (С УМНОЖЕННОЙ ЦЕНОЙ)
+            // 🔥 ДЛЯ ОБЫЧНЫХ СКИНОВ ТОЖЕ ТОЛЬКО ЦИФРА И ИКОНКА 🔥
             let stockText = item.count === null ? '∞ шт.' : `${item.count} шт.`;
             let btnHtml = item.count === 0 
-                ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
-                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 34px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    Купить за ${displayPrice} <i class="fa-solid fa-coins" style="font-size: 12px; color: #000;"></i> ${multiplierBadge}
+                ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
+                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.1s;">
+                    <span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span> 
+                    <i class="fa-solid fa-coins" style="font-size: 11px; color: #000; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>
+                    ${multiplierBadge}
                    </button>`;
             
             el.innerHTML = `
