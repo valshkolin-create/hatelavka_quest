@@ -55,12 +55,17 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Читаем ID кампании из ссылки (формат tw_123_TW_XXX)
+        // Читаем параметры отовсюду (Telegram WebApp или обычный браузер)
         const urlParams = new URLSearchParams(window.location.search);
         const startParam = tg.initDataUnsafe?.start_param || urlParams.get('start_param') || "";
-        let campaignId = null;
         
-        if (startParam.startsWith('tw_')) {
+        let campaignId = null;
+        let isTestMode = false;
+        
+        if (startParam === 'tw_test') {
+            isTestMode = true;
+            campaignId = 999; // Фейковый ID для тестов
+        } else if (startParam.startsWith('tw_')) {
             const parts = startParam.split('_');
             campaignId = parseInt(parts[1]);
         }
@@ -73,15 +78,34 @@
                 resBox.className = "result-box result-expired";
                 resBox.innerText = "❌ Ссылка повреждена или устарела.";
                 resBox.style.display = "block";
-                tg.HapticFeedback.notificationOccurred('error');
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
 
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ПРОВЕРКА...';
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ОБРАБОТКА...';
             btn.disabled = true;
 
+            // === РЕЖИМ ЭМУЛЯЦИИ (ДЛЯ АДМИНА) ===
+            if (isTestMode) {
+                setTimeout(() => {
+                    resBox.className = "result-box result-winner";
+                    resBox.innerText = "🛠 [ТЕСТ] 🎉 Красавчик, ты успел! Бесплатный «Кейс | Тестовый» доступен в боте!";
+                    resBox.style.display = "block";
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> ПРИЯТНОГО ПРОСМОТРА';
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    
+                    setTimeout(() => {
+                        tg.showAlert("Эмуляция завершена! В реальной жизни здесь открылся бы Твич.");
+                        btn.innerHTML = '<i class="fa-solid fa-play"></i> ПЕРЕЙТИ НА СТРИМ';
+                        btn.disabled = false;
+                        resBox.style.display = "none";
+                    }, 2500);
+                }, 1500);
+                return;
+            }
+
+            // === БОЕВОЙ РЕЖИМ ===
             try {
-                // Отправляем клик на бэкенд
                 const res = await fetch('/api/v1/twitch/click', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -94,22 +118,20 @@
                 const data = await res.json();
                 resBox.style.display = "block";
 
-                // Оформляем статус
                 if (data.status === 'winner') {
                     resBox.className = "result-box result-winner";
-                    tg.HapticFeedback.notificationOccurred('success');
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                 } else if (data.status === 'participant') {
                     resBox.className = "result-box result-participant";
-                    tg.HapticFeedback.notificationOccurred('warning');
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
                 } else {
                     resBox.className = "result-box result-expired";
-                    tg.HapticFeedback.notificationOccurred('error');
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
                 }
                 
                 resBox.innerText = data.message || "Успешно!";
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> ПРИЯТНОГО ПРОСМОТРА';
 
-                // Задержка 2.5 секунды, чтобы юзер прочитал, что он выиграл, и открытие Твича
                 if (data.twitch_url) {
                     setTimeout(() => {
                         tg.openLink(data.twitch_url);
@@ -124,7 +146,7 @@
                 
                 btn.innerHTML = '<i class="fa-solid fa-play"></i> ПЕРЕЙТИ НА СТРИМ';
                 btn.disabled = false;
-                tg.HapticFeedback.notificationOccurred('error');
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
             }
         }
     </script>
