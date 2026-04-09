@@ -1473,6 +1473,7 @@ function renderItems(items) {
                         </button>
                     </div>
                 `;
+            } // <--- ВОТ ЭТУ СКОБКУ Я ПОТЕРЯЛ В ПРОШЛЫЙ РАЗ!
             
             // Если цена 9999, передаем null в просмотр содержимого, чтобы не ломался расчет окупаемости
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
