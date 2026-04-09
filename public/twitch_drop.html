@@ -56,7 +56,8 @@
         tg.expand();
 
         // Читаем ID кампании из ссылки (формат tw_123_TW_XXX)
-        const startParam = tg.initDataUnsafe?.start_param || "";
+        const urlParams = new URLSearchParams(window.location.search);
+        const startParam = tg.initDataUnsafe?.start_param || urlParams.get('start_param') || "";
         let campaignId = null;
         
         if (startParam.startsWith('tw_')) {
