@@ -397,27 +397,7 @@ html, body {
 .btn-buy-tickets { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; }
 .btn-secondary-action { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.05); }
 
-.case-info-overlay {
-    position: absolute;
-    top: 72%; /* В другой строке у тебя может быть 80%, оставляй как есть */
-    left: 0;
-    right: 0;
-    
-    /* 🔥 ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ: МЕНЯЕМ -200px НА 0 🔥 */
-    bottom: 0; 
-    
-    background: rgba(0, 0, 0, 0.6); 
-    backdrop-filter: blur(2px);
-    color: var(--primary-color);
-    font-size: 7.5px; 
-    font-weight: 700;
-    text-transform: uppercase;
-    text-align: center;
-    padding-top: 5px; /* Или 6px, как у тебя было */
-    z-index: 1; 
-    pointer-events: none; 
-    letter-spacing: 0.5px;
-}
+.case-info-overlay { position: absolute; top: 80%; left: 0; right: 0; bottom: -200px; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); color: var(--primary-color); font-size: 8px; font-weight: 700; text-transform: uppercase; text-align: center; padding-top: 6px; z-index: 1; pointer-events: none; }
 /* ==========================================
    КНОПКА P2P ОБМЕНА
 ========================================== */
@@ -676,29 +656,29 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 ========================================== */
 
 /* Название кейса сверху */
-/* Название кейса сверху */
 .case-top-title {
-    /* 🔥 ИЗМЕНЕНО: Уменьшили верхний отступ с 8px до 0px, чтобы поднять текст максимально высоко */
-    padding: 0px 5px 0 5px !important; 
+    /* Даем нормальный отступ сверху от края карты */
+    padding: 8px 5px 0 5px !important; 
     
-    min-height: 32px !important;       
-    margin-bottom: -12px !important;   
+    /* 🔥 ДАЕМ МЕСТО ДЛЯ ТЕКСТА: фиксированная минимальная высота */
+    min-height: 30px !important; 
+    
+    /* 🔥 МАГИЯ: Отрицательный отступ притягивает картинку кейса ВВЕРХ к тексту */
+    margin-bottom: -12px !important; 
+    
     font-size: 10.5px !important; 
     font-weight: 900 !important;
     color: #fff !important;
     text-align: center !important;
     text-transform: uppercase !important;
-    
-    /* 🔥 ИЗМЕНЕНО: Даем чуть больше воздуха строкам (было 1.1) */
-    line-height: 1.25 !important; 
-    
+    line-height: 1.1 !important;
     display: block !important;
-    white-space: normal !important;
-    position: relative !important;
-    z-index: 20 !important;            
+    white-space: normal !important; 
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
     
-    /* 🔥 ДОБАВЛЕНО: Запрещаем внутреннюю обрезку самого текстового блока */
-    overflow: visible !important; 
+    /* Чтобы текст всегда был поверх картинки, если они пересекутся */
+    position: relative !important;
+    z-index: 20 !important;
 }
 
 .case-top-title .item-subtitle {
