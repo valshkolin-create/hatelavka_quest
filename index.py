@@ -16401,13 +16401,15 @@ async def buy_bott_item_proxy(
                 if skin_price > base_case_price:
                     final_items.append(skin)
                     
-                    # Настраиваем шансы, чтобы не раздать джекпоты всем подряд
+                    # ⚖️ Мягкая балансировка шансов
                     if skin_price >= base_case_price * 5.0: 
-                        final_weights.append(w * 0.001)  # Очень дорогие (х5 от кейса) - шанс мизерный
-                    elif skin_price >= base_case_price * 1.5: 
-                        final_weights.append(w * 0.1)    # Нормальный плюс (от х1.5) - шанс урезан
+                        final_weights.append(w * 0.02)  # Очень дорогие (х5) - небольшой шанс (было 0.001)
+                    elif skin_price >= base_case_price * 2.0: 
+                        final_weights.append(w * 0.3)   # Хороший плюс (х2-х5) - средний шанс (было 0.1)
+                    elif skin_price >= base_case_price * 1.2:
+                        final_weights.append(w * 1.0)   # Нормальный окуп (х1.2-х2) - оставляем базовый шанс из БД
                     else: 
-                        final_weights.append(w * 10.0)   # Окуп "в притирочку" (чуть дороже кейса) - ОГРОМНЫЙ ШАНС
+                        final_weights.append(w * 1.5)   # Мелкий окуп (чуть дороже кейса) - слегка повышенный шанс (БЫЛО 10.0!)
                         
             # Защита от дурака: если в кейсе физически нет скинов дороже самого кейса
             if not final_items:
