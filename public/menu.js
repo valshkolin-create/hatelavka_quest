@@ -1367,10 +1367,10 @@ function renderItems(items) {
         el.style.boxShadow = 'none';
         el.style.border = 'none';
         
-        // 🔥 ПОЧИНКА РАЗМЕРА: резервируем 28px под заголовок, чтобы карточка не уменьшалась
-        el.style.paddingTop = '28px'; 
+        // 🔥 ПОЧИНКА: Возвращаем скрытие лишнего (neat look) и бронируем место сверху
+        el.style.paddingTop = '32px'; // Увеличили чуть-чуть, чтобы тексту было просторно
         el.style.position = 'relative';
-        el.style.overflow = 'visible'; 
+        el.style.overflow = 'hidden'; // ВЕРНУЛИ HIDDEN: теперь края карточки снова четкие
 
         let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
@@ -1426,7 +1426,7 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="position: absolute; top: -7px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; font-weight: 800; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
