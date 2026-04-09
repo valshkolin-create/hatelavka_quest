@@ -1456,6 +1456,7 @@ function renderItems(items) {
     });
     
     container.appendChild(fragment);
+} // 🔥 <--- ДОБАВЬ ВОТ ЭТУ СКОБКУ! ОНА ЗАКРЫВАЕТ ФУНКЦИЮ renderItems
 
 async function validateUserTradeLink() {
     const loader = document.getElementById('purchase-loader');
