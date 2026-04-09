@@ -16401,15 +16401,15 @@ async def buy_bott_item_proxy(
                 if skin_price > base_case_price:
                     final_items.append(skin)
                     
-                    # ⚖️ Мягкая балансировка шансов
+                    # 🛡️ БЕЗОПАСНАЯ БАЛАНСИРОВКА (Защита от банкротства)
                     if skin_price >= base_case_price * 5.0: 
-                        final_weights.append(w * 0.02)  # Очень дорогие (х5) - небольшой шанс (было 0.001)
+                        final_weights.append(w * 0.005)  # Очень дорогие (х5) - шанс всё еще мизерный, но в 5 раз выше старого
                     elif skin_price >= base_case_price * 2.0: 
-                        final_weights.append(w * 0.3)   # Хороший плюс (х2-х5) - средний шанс (было 0.1)
+                        final_weights.append(w * 0.05)   # Хороший плюс (х2-х5) - падает редко, как праздник
                     elif skin_price >= base_case_price * 1.2:
-                        final_weights.append(w * 1.0)   # Нормальный окуп (х1.2-х2) - оставляем базовый шанс из БД
+                        final_weights.append(w * 0.5)    # Нормальный окуп (х1.2-х2) - шанс урезан вдвое от базового
                     else: 
-                        final_weights.append(w * 1.5)   # Мелкий окуп (чуть дороже кейса) - слегка повышенный шанс (БЫЛО 10.0!)
+                        final_weights.append(w * 3.0)    # Мелкий окуп (копейки сверху) - падает чаще всего (но не х10, как раньше)
                         
             # Защита от дурака: если в кейсе физически нет скинов дороже самого кейса
             if not final_items:
