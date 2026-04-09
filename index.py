@@ -19889,9 +19889,12 @@ async def create_twitch_campaign(
     # Заменили roulette на twitch, как указано в BotFather 👇
     mini_app_link = f"https://t.me/HATElavka_bot/twitch?startapp=tw_{campaign_id}_{unique_code}"
     
-    keyboard = InlineKeyboardMarkup()
-    btn = InlineKeyboardButton(text="Забрать кейс и на Твич! 🚀", url=mini_app_link)
-    keyboard.add(btn)
+    # Формируем кнопку сразу по правилам Aiogram 3
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Забрать кейс и на Твич! 🚀", url=mini_app_link)]
+        ]
+    )
 
     try:
         await bot.send_photo(
