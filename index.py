@@ -16367,8 +16367,17 @@ async def buy_bott_item_proxy(
         if not rows or not isinstance(rows, list):
             raise HTTPException(status_code=500, detail="Кейс не настроен в базе.")
 
-        current_lacky = last_lacky + 1
-        if current_lacky > 5: current_lacky = 1 
+        # 🔥 ПРОВЕРЯЕМ, ЯВЛЯЕТСЯ ЛИ КЕЙС ИВЕНТОВЫМ (9999) 🔥
+        is_event_case = float(price) == 9999
+
+        if is_event_case:
+            current_lacky = 0        # Для генерации дропа считаем, что гаранта нет
+            db_lacky = last_lacky    # В базу сохраняем старое значение, чтобы не сбить прогресс юзера
+        else:
+            current_lacky = last_lacky + 1
+            if current_lacky > 5: 
+                current_lacky = 1 
+            db_lacky = current_lacky
 
         all_items = []
         weights = []
@@ -16459,7 +16468,7 @@ async def buy_bott_item_proxy(
                 "case_name": str(item_title),
                 "code_used": current_code,
                 "status": "pending", 
-                "lacky": current_lacky,
+                "lacky": db_lacky,  # 🔥 ВОТ ЗДЕСЬ МЕНЯЕМ current_lacky НА db_lacky 🔥
                 "source": "shop",
                 "details": f"Выигрыш: {winner['name']}"
             }, headers={"Prefer": "return=representation"})
@@ -16483,7 +16492,7 @@ async def buy_bott_item_proxy(
             "winner": winner_output,
             "roulette_strip": roulette_strip,
             "history_id": history_id,
-            "lacky": current_lacky,
+            "lacky": 0 if is_event_case else current_lacky,  # 🔥 ПЕРЕДАЕМ 0 ДЛЯ СКРЫТИЯ ПОЛОСКИ 🔥
             "messages": [f"Выпало: {winner['name']}"]
         }
 
