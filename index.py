@@ -19854,7 +19854,7 @@ async def create_twitch_campaign(
 
     unique_code = f"TW_{uuid.uuid4().hex[:6].upper()}"
 
-    # 1. Сохраняем код (используем POST вместо insert)
+    # 1. Сохраняем код
     code_data = {
         "code": unique_code,
         "max_uses": req.winners_limit,
@@ -19865,7 +19865,11 @@ async def create_twitch_campaign(
         "used_by_ids": [],
         "activated_by_ids": []
     }
-    await supabase.post("/cs_codes", json=code_data, headers={"Prefer": "return=representation"})
+    
+    # Рекомендую тоже проверять ответ от создания кода
+    code_res = await supabase.post("/cs_codes", json=code_data, headers={"Prefer": "return=representation"})
+    if code_res.status_code not in (200, 201):
+        print(f"[Supabase Error] Не удалось создать код: {code_res.text}")
 
     expires_at = datetime.now(timezone.utc) + timedelta(hours=req.ttl_hours)
 
@@ -19877,23 +19881,31 @@ async def create_twitch_campaign(
         "winners_limit": req.winners_limit,
         "is_active": True,
         "expires_at": expires_at.isoformat(),
-        "target_case_name": req.target_case_name # 🔥 ДОБАВИЛИ ЭТУ СТРОКУ
+        "target_case_name": req.target_case_name
     }
     
     camp_res = await supabase.post("/twitch_campaigns", json=campaign_data, headers={"Prefer": "return=representation"})
-    if camp_res.status_code not in (200, 201) or not camp_res.json():
-        raise HTTPException(status_code=500, detail="Ошибка сохранения кампании")
+    
+    # БЕЗОПАСНАЯ проверка ответа БД
+    if camp_res.status_code not in (200, 201):
+        error_msg = camp_res.text # Вытягиваем текст ошибки
+        print(f"[Supabase Error] Ошибка сохранения кампании: HTTP {camp_res.status_code} - {error_msg}")
+        raise HTTPException(status_code=500, detail=f"Ошибка БД: {error_msg}")
         
-    campaign_id = camp_res.json()[0]["id"]
+    try:
+        camp_json = camp_res.json()
+        if not camp_json or not isinstance(camp_json, list):
+            raise ValueError(f"Неожиданный ответ от БД: {camp_json}")
+        campaign_id = camp_json[0]["id"]
+    except Exception as e:
+        print(f"[JSON Error] Ошибка парсинга ответа: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка обработки ответа от БД")
 
-# 3. Публикация в ТГ
-    import os  # 🔥 Добавили импорт на случай, если его нет в начале файла
-    CHANNEL_ID = os.getenv("CHANNEL_ID", "@hatelove_ttv")  # 🔥 Решение проблемы: определяем канал
+    # 3. Публикация в ТГ
+    CHANNEL_ID = os.getenv("CHANNEL_ID", "@hatelove_ttv")
 
-    # Заменили roulette на twitch, как указано в BotFather 👇
     mini_app_link = f"https://t.me/HATElavka_bot/twitch?startapp=tw_{campaign_id}_{unique_code}"
     
-    # Формируем кнопку сразу по правилам Aiogram 3
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Забрать кейс и на Твич! 🚀", url=mini_app_link)]
@@ -19901,6 +19913,7 @@ async def create_twitch_campaign(
     )
 
     try:
+        # Убедитесь, что объект bot доступен в этой области видимости
         await bot.send_photo(
             chat_id=CHANNEL_ID,
             photo=req.image_url,
@@ -19909,8 +19922,8 @@ async def create_twitch_campaign(
             parse_mode="HTML"
         )
     except Exception as e:
-        print(f"Ошибка публикации поста в ТГ: {e}")
-        return {"status": "warning", "message": "Кампания создана, но бот не смог отправить пост!"}
+        print(f"[Telegram Error] Ошибка публикации поста в ТГ: {e}")
+        return {"status": "warning", "message": f"Кампания создана (ID: {campaign_id}), но пост не отправлен: {e}"}
 
     return {"status": "success", "message": "Кампания создана, пост успешно опубликован!"}
 
@@ -19947,10 +19960,13 @@ async def get_twitch_campaigns_list(
             "tickets_given": tickets_given
         }
         
-        # Авто-отключение
-        if total_winners >= camp["winners_limit"] and camp.get("is_active"):
-            camp["is_active"] = False
-            await supabase.patch("/twitch_campaigns", params={"id": f"eq.{camp_id}"}, json={"is_active": False})
+        # 🔥 ВОТ ЗДЕСЬ МЫ УБРАЛИ АВТО-ОТКЛЮЧЕНИЕ 🔥
+        # Теперь кампания не будет менять is_active на False, когда кейсы закончатся.
+        # Она закроется только по таймеру (expires_at) из другой функции.
+        #
+        # if total_winners >= camp["winners_limit"] and camp.get("is_active"):
+        #     camp["is_active"] = False
+        #     await supabase.patch("/twitch_campaigns", params={"id": f"eq.{camp_id}"}, json={"is_active": False})
 
         results.append(camp)
 
@@ -20027,8 +20043,13 @@ async def handle_twitch_click(
         
     campaign = camp_res.json()[0]
 
+    # 🔥 ИСПРАВЛЕНИЕ 1: Отдаем красивый JSON вместо жесткой ошибки, если кампания выключена
     if not campaign.get("is_active"):
-        raise HTTPException(status_code=404, detail="Раздача уже завершена")
+        return {
+            "status": "expired",
+            "message": "Раздача была досрочно завершена 🛑 Но стрим еще идет, залетай!",
+            "twitch_url": "https://www.twitch.tv/hatelove_ttv"
+        }
 
     # Проверка на протухание
     if campaign.get("expires_at"):
@@ -20045,8 +20066,13 @@ async def handle_twitch_click(
     desc_search = f"Авто-код Twitch: {campaign['title']}"
     code_res = await supabase.get("/cs_codes", params={"description": f"eq.{desc_search}"})
     
+    # 🔥 ИСПРАВЛЕНИЕ 2: Красивый JSON вместо ошибки, если промокод не найден
     if code_res.status_code != 200 or not code_res.json():
-        raise HTTPException(status_code=500, detail="Код для этой кампании не найден")
+        return {
+            "status": "expired",
+            "message": "⚠️ Ошибка: промокод для этой кампании не найден.",
+            "twitch_url": "https://www.twitch.tv/hatelove_ttv"
+        }
 
     cs_code = code_res.json()[0]
     target_case = cs_code.get("target_case_name", "Секретный кейс")
