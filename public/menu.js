@@ -1379,6 +1379,7 @@ function renderItems(items) {
         el.style.border = 'none';
         // Даем тексту безопасное место сверху, не ломая границы самой карточки
         el.style.paddingTop = '8px';
+        el.style.overflow = 'visible'; // 🔥 ДОБАВИТЬ ЭТО! Разрешаем выходить за границы
 
         let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
@@ -1478,12 +1479,12 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="position: relative; top: -6px; width: 100%; font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; overflow:visible; z-index:10; pointer-events:none;">${formatItemName(cleanName)}</div>
-                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
+                <div class="item-title case-top-title" style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 13px; font-weight: 800; color: #fff; z-index: 0; pointer-events: none; text-transform: uppercase;">${formatItemName(cleanName)}</div>
+                <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="position: relative; z-index: 2; background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
                 </div>
-                <div class="item-info" style="padding: 0 10px 10px 10px; flex-grow: 0;">${buttonHtml}</div>
+                <div class="item-info" style="position: relative; z-index: 2; padding: 0 10px 10px 10px; flex-grow: 0;">${buttonHtml}</div>
             `;
         } else {
             // 🔥 ДЛЯ ОБЫЧНЫХ СКИНОВ ТОЖЕ ТОЛЬКО ЦИФРА И ИКОНКА 🔥
