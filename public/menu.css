@@ -654,8 +654,8 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 
 /* Название кейса сверху */
 .case-top-title {
-    padding: 6px 6px 4px 6px !important; /* 🔥 Приподняли текст выше */
-    font-size: 11px !important; /* 🔥 Уменьшили под 3 колонки */
+    padding: 4px 4px 2px 4px !important; /* 🔥 Подняли текст выше (было 8px) */
+    font-size: 10.5px !important; 
     font-weight: 900 !important;
     color: #fff !important;
     text-align: center !important;
@@ -667,17 +667,17 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 }
 
 .case-top-title .item-subtitle {
-    font-size: 9px !important; /* 🔥 Уменьшили подзаголовок */
+    font-size: 8.5px !important;
     color: var(--primary-color) !important;
     font-weight: 700 !important;
     display: block !important;
-    margin-top: 2px !important;
+    margin-top: 1px !important;
 }
 
 /* Контейнер картинки кейса */
 .case-img-wrap {
     padding-top: 80%;
-    background: #000000; /* Чистый черный специально для кейсов */
+    background: #000000; 
 }
 
 /* Сама картинка кейса (зум и сдвиг) */
@@ -700,18 +700,18 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 /* Плашка "Посмотреть дроп" */
 .case-info-overlay {
     position: absolute;
-    top: 76%; /* 🔥 Приподняли выше (было 80%) */
+    top: 72%; /* 🔥 Подняли выше (было 80%) */
     left: 0;
     right: 0;
     bottom: -200px; 
     background: rgba(0, 0, 0, 0.6); 
     backdrop-filter: blur(2px);
     color: var(--primary-color);
-    font-size: 8px; /* 🔥 Уменьшили шрифт (было 9px) */
+    font-size: 7.5px; /* 🔥 Уменьшили шрифт */
     font-weight: 700;
     text-transform: uppercase;
     text-align: center;
-    padding-top: 6px; /* 🔥 Уменьшили отступ сверху */
+    padding-top: 5px; 
     z-index: 1; 
     pointer-events: none; 
     letter-spacing: 0.5px;
@@ -725,15 +725,14 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
     margin-top: auto;
 }
 
-/* 🔥 МАЛЕНЬКАЯ ЗОЛОТАЯ ИКОНКА В КНОПКЕ "ОТКРЫТЬ ЗА" 🔥 */
-.shop-grid .shop-item .btn-buy i {
-    font-size: 10px !important; /* Компактный размер */
-    color: #ffd700 !important; /* Яркий цвет */
-    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.9)); /* Премиальный блеск */
-    margin-top: -1px;
+/* 🔥 ЧИНИМ МОНЕТКУ (Черная на желтом, без глоу) 🔥 */
+.shop-grid .shop-item .btn-buy i.fa-coins {
+    color: #000 !important;
+    filter: none !important; 
+    font-size: 11px !important;
 }
 
-/* --- СТИЛИ ДЛЯ СКЕЛЕТОНА (ЗАГРУЗКА КЕЙСОВ 1В1) --- */
+/* --- СТИЛИ ДЛЯ СКЕЛЕТОНА (ВОССТАНОВЛЕНО) --- */
 .skeleton {
     background: #2c2c2e; 
     border-radius: 12px;
