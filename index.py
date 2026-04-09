@@ -20049,16 +20049,33 @@ async def handle_twitch_click(
         raise HTTPException(status_code=500, detail="Код для этой кампании не найден")
 
     cs_code = code_res.json()[0]
-    activated_list = cs_code.get("activated_by_ids", []) or []
-    used_list = cs_code.get("used_by_ids", []) or []
-    
-    total_claims = len(activated_list) + len(used_list)
-    is_winner = total_claims < cs_code["max_uses"]
     target_case = cs_code.get("target_case_name", "Секретный кейс")
 
+    # ==========================================
+    # 🔥 ЖЕСТКИЙ КОНТРОЛЬ ЛИМИТОВ 🔥
+    # ==========================================
+    # 1. Считаем реальных победителей по независимой таблице кликов (ее невозможно затереть)
+    clicks_res = await supabase.get("/twitch_clicks", params={
+        "campaign_id": f"eq.{req.campaign_id}", 
+        "is_winner": "is.true", 
+        "select": "id"
+    })
+    current_winners_count = len(clicks_res.json()) if clicks_res.status_code == 200 else 0
+
+    is_winner = current_winners_count < campaign["winners_limit"]
+
     if is_winner:
-        activated_list.append(tg_id_str)
-        await supabase.patch("/cs_codes", params={"code": f"eq.{cs_code['code']}"}, json={"activated_by_ids": activated_list})
+        # 2. Запрашиваем САМУЮ свежую версию кода прямо перед сохранением, 
+        # чтобы одновременные клики не затирали массив друг друга
+        fresh_code_res = await supabase.get("/cs_codes", params={"code": f"eq.{cs_code['code']}"})
+        if fresh_code_res.status_code == 200 and fresh_code_res.json():
+            fresh_code = fresh_code_res.json()[0]
+            activated_list = fresh_code.get("activated_by_ids", []) or []
+            
+            if tg_id_str not in activated_list:
+                activated_list.append(tg_id_str)
+                # Сохраняем надежно по самому промокоду
+                await supabase.patch("/cs_codes", params={"code": f"eq.{cs_code['code']}"}, json={"activated_by_ids": activated_list})
         
         await create_in_app_notification(
             supabase=supabase,
@@ -20071,6 +20088,7 @@ async def handle_twitch_click(
         reward_msg = f"🎉 Красавчик, ты успел! Бесплатный «{target_case}» доступен в боте!"
         status_code = "winner"
     else:
+        # Лимит исчерпан, выдаем билеты
         user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id_int}"})
         current_tickets = user_res.json()[0].get("tickets", 0) if user_res.status_code == 200 and user_res.json() else 0
         
@@ -20079,6 +20097,7 @@ async def handle_twitch_click(
         reward_msg = "😔 Чуть-чуть не успел... Но держи 5 утешительных билетов!"
         status_code = "participant"
 
+    # 3. Сохраняем сам клик
     click_data = {
         "campaign_id": req.campaign_id,
         "telegram_id": tg_id_int,
