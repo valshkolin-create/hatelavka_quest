@@ -57,7 +57,11 @@
         .camp-title { font-weight: bold; margin-bottom: 10px; font-size: 15px; }
         .stat-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
         .stat-val { color: #fff; font-weight: bold; }
-        .btn-stop { background: rgba(255, 77, 77, 0.15); color: #ff4d4d; border: 1px solid rgba(255, 77, 77, 0.3); padding: 10px; border-radius: 10px; width: 100%; margin-top: 12px; font-weight: bold; cursor: pointer; }
+        
+        .action-buttons-row { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-action { flex: 1; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 12px; border: 1px solid transparent; display: flex; justify-content: center; align-items: center; gap: 5px; }
+        .btn-stop { background: rgba(255, 77, 77, 0.15); color: #ff4d4d; border-color: rgba(255, 77, 77, 0.3); }
+        .btn-emulate { background: rgba(145, 70, 255, 0.15); color: #9146FF; border-color: rgba(145, 70, 255, 0.3); }
     </style>
 </head>
 <body>
@@ -143,7 +147,7 @@
                     tg.showAlert(data.message);
                     document.getElementById('inp-title').value = '';
                     document.getElementById('inp-text').value = '';
-                    loadStats(); // Обновляем стату сразу после создания!
+                    loadStats(); 
                 } else {
                     tg.showAlert(data.detail || "Ошибка");
                 }
@@ -168,13 +172,22 @@
                     const isActive = c.is_active;
                     const statusHtml = isActive ? '<span style="color:#28a745">Активно</span>' : '<span style="color:#ff4d4d">Завершено</span>';
                     
+                    let actionButtons = '';
+                    if (isActive) {
+                        actionButtons = `
+                        <div class="action-buttons-row">
+                            <button class="btn-action btn-stop" onclick="stopCamp(${c.id})"><i class="fa-solid fa-stop"></i> Стоп</button>
+                            <button class="btn-action btn-emulate" onclick="emulateDrop(${c.id})"><i class="fa-solid fa-eye"></i> Тест перехода</button>
+                        </div>`;
+                    }
+
                     cont.innerHTML += `
                     <div class="stats-box ${isActive ? '' : 'disabled'}">
                         <div class="camp-title">${c.title} (${statusHtml})</div>
                         <div class="stat-row"><span>Всего переходов:</span> <span class="stat-val">${st.total_clicks}</span></div>
                         <div class="stat-row"><span>Выдано кейсов:</span> <span class="stat-val" style="color: ${isActive ? 'var(--primary)' : '#fff'}">${st.winners} / ${c.winners_limit}</span></div>
                         <div class="stat-row"><span>Утешительных билетов:</span> <span class="stat-val">${st.tickets_given}</span></div>
-                        ${isActive ? `<button class="btn-stop" onclick="stopCamp(${c.id})"><i class="fa-solid fa-stop"></i> Остановить раздачу</button>` : ''}
+                        ${actionButtons}
                     </div>`;
                 });
             } catch (e) { document.getElementById('stats-container').innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки</p>'; }
@@ -192,6 +205,12 @@
                     loadStats();
                 } catch(e) { tg.showAlert("Ошибка остановки"); }
             });
+        }
+
+        function emulateDrop(id) {
+            // Перекидываем на страницу дропа, подставляя параметр в URL
+            // Убедись, что файл-заглушка называется именно так, как указано здесь
+            window.location.href = `/twitch_drop.html?start_param=tw_${id}_TEST`;
         }
 
         loadStats();
