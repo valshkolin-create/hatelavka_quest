@@ -1374,8 +1374,6 @@ function renderItems(items) {
         el.style.boxShadow = 'none';
         el.style.border = 'none';
 
-        el.style.overflow = 'visible'; // 🔥 ВОТ ЭТА СТРОКА СПАСЕТ ОТ ОБРЕЗКИ
-
         let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
         const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
@@ -1476,7 +1474,7 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="font-size:13px; font-weight:900; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase; margin-top: -6px; padding-bottom: 2px; line-height: 1.3;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
