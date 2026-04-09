@@ -19923,6 +19923,21 @@ async def stop_twitch_campaign(
         
     return {"status": "success", "message": "Раздача успешно остановлена!"}
 
+@app.get("/api/v1/twitch/campaign_info/{campaign_id}")
+async def get_campaign_info(
+    campaign_id: int,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Отдает фронтенду инфу о призе до клика"""
+    camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
+    if camp_res.status_code != 200 or not camp_res.json():
+        raise HTTPException(status_code=404, detail="Кампания не найдена")
+    
+    camp = camp_res.json()[0]
+    return {
+        "target_case_name": camp.get("target_case_name", "Секретный кейс"),
+        "winners_limit": camp.get("winners_limit", 0)
+    }
 
 @app.post("/api/v1/twitch/click")
 async def handle_twitch_click(
