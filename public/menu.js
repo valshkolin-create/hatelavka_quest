@@ -1377,10 +1377,13 @@ function renderItems(items) {
         el.style.background = 'transparent'; 
         el.style.boxShadow = 'none';
         el.style.border = 'none';
-        // РАЗРЕШАЕМ ВЫХОД ЗА ГРАНИЦЫ ДЛЯ ЗАГОЛОВКОВ
-        el.style.paddingTop = '8px';
+        
+        // ВАЖНО: Резервируем место под заголовок, чтобы карточка не уменьшалась
+        el.style.paddingTop = '25px'; 
         el.style.overflow = 'visible'; 
         el.style.position = 'relative';
+        el.style.display = 'flex';
+        el.style.flexDirection = 'column';
 
         let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
@@ -1410,7 +1413,7 @@ function renderItems(items) {
         if (item.is_folder) {
             // ЕСЛИ ЭТО КАТЕГОРИЯ
             el.innerHTML = `
-                <div class="item-title" style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; font-weight: 800; color: #fff; z-index: 0; pointer-events: none; white-space: nowrap; text-transform: uppercase;">${escapeHTML(cleanName)}</div>
+                <div class="item-title" style="position: absolute; top: 0px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 13px; font-weight: 800; color: #fff; z-index: 0; pointer-events: none; white-space: nowrap; text-transform: uppercase;">${escapeHTML(cleanName)}</div>
                 <div class="item-image-wrapper" onclick="openFolder(${item.id})" style="position: relative; z-index: 2; width: 100%; padding-top: 100%; background: transparent; cursor: pointer; overflow: hidden; border-radius: inherit;">
                     <img src="${safeImg}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" style="position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                 </div>
@@ -1419,7 +1422,7 @@ function renderItems(items) {
                 </div>
             `;
        } else if (isCase) {
-            // ЕСЛИ ЭТО КЕЙС
+            // ЕСЛИ ЭТО КЕЙС — проверяем наличие имени кейса в глобальном массиве (синхронизация с БД)
             let showFreeButton = window.activeFreeCases.includes(item.name);
             
             if (showFreeButton) {
@@ -1459,7 +1462,7 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: max-content; white-space: nowrap; font-size: 13px; font-weight: 800; color: #fff; z-index: 0; pointer-events: none; text-transform: uppercase; text-align: center;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="position: absolute; top: 0px; left: 50%; transform: translateX(-50%); width: max-content; white-space: nowrap; font-size: 13px; font-weight: 800; color: #fff; z-index: 0; pointer-events: none; text-transform: uppercase; text-align: center;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="position: relative; z-index: 2; background: transparent; padding-top: 80%; overflow: hidden; border-radius: inherit;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
@@ -1477,7 +1480,7 @@ function renderItems(items) {
                    </button>`;
             
             el.innerHTML = `
-                <div class="item-title" style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: max-content; white-space: nowrap; font-size: 11px; font-weight: 600; color: #fff; z-index: 0; pointer-events: none; text-align: center;">${formatItemName(cleanName)}</div>
+                <div class="item-title" style="position: absolute; top: 0px; left: 50%; transform: translateX(-50%); width: max-content; white-space: nowrap; font-size: 11px; font-weight: 600; color: #fff; z-index: 0; pointer-events: none; text-align: center;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper" onclick="openCaseContents(event, '${safeName}')" style="position: relative; z-index: 2; width: 100%; padding-top: 100%; background: transparent; cursor: pointer; overflow: hidden; border-radius: inherit;">
                     <img src="${safeImg}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" style="position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                 </div>
