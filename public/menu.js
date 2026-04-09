@@ -1313,7 +1313,7 @@ async function loadCategory(catId, preloadedData = null) {
 window.showCouponCaseInfo = function(caseName) {
     showShopModal({
         title: "🎟️ Купонный кейс",
-        subtitle: `Кейс <b>"${caseName}"</b> невозможно купить за обычные монеты или билеты.<br><br>Он выдается <b>исключительно</b> во время стримов, на специальных ивентах, аукционах или лично от Валька в виде промокодов!<br><br>Следите за трансляциями, чтобы забрать его бесплатно.`,
+        subtitle: `<b>"${caseName}"</b> невозможно купить за обычные монеты или билеты.<br><br>Он выдается <b>исключительно</b> во время стримов, на специальных ивентах, аукционах или лично от Валька в виде промокодов!<br><br>Следите за трансляциями, чтобы забрать его бесплатно.`,
         confirmText: "ПОНЯТНО",
         confirmClass: "btn-purple-modal", // Если такого класса нет, будет просто обычная кнопка
         showCancel: false,
@@ -1426,7 +1426,7 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 1; white-space: nowrap; pointer-events: none; width: auto !important; max-width: 95% !important; padding: 2px 8px !important; border-radius: 10px !important; font-size: 13px; font-weight: 800; color: #fff; text-align: center; text-transform: uppercase; background: rgba(0,0,0,0.6) !important;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 1; white-space: nowrap; pointer-events: none; width: auto !important; max-width: 95% !important; padding: 2px 8px !important; font-weight: 800; color: #fff; text-align: center; text-transform: uppercase; background: transparent !important;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
@@ -1456,16 +1456,6 @@ function renderItems(items) {
     });
     
     container.appendChild(fragment);
-
-    // 🔥 АВТО-УМЕНЬШЕНИЕ (ТВОЕ РОДНОЕ)
-    container.querySelectorAll('.case-top-title').forEach(title => {
-        let fontSize = 13; 
-        while (title.scrollWidth > title.offsetWidth && fontSize > 5) {
-            fontSize -= 0.5;
-            title.style.fontSize = fontSize + 'px';
-        }
-    });
-}
 
 async function validateUserTradeLink() {
     const loader = document.getElementById('purchase-loader');
