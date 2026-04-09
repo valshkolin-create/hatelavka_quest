@@ -1456,6 +1456,16 @@ function renderItems(items) {
     });
     
     container.appendChild(fragment);
+
+    // 🔥 ВОЗВРАЩАЕМ АВТО-УМЕНЬШЕНИЕ ТЕКСТА 🔥
+    container.querySelectorAll('.case-top-title').forEach(title => {
+        let fontSize = 10; // Начинаем с 10px (как у всех остальных)
+        // Если текст не влезает, уменьшаем его вплоть до 5px
+        while (title.scrollWidth > title.offsetWidth && fontSize > 5) {
+            fontSize -= 0.5;
+            title.style.fontSize = fontSize + 'px';
+        }
+    });
 } // 🔥 <--- ДОБАВЬ ВОТ ЭТУ СКОБКУ! ОНА ЗАКРЫВАЕТ ФУНКЦИЮ renderItems
 
 async function validateUserTradeLink() {
