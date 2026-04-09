@@ -655,15 +655,15 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 /* Название кейса сверху */
 .case-top-title {
     padding: 6px 6px 4px 6px !important; 
-    font-size: 10px !important; /* 🔥 Жестко задаем размер (как у Первооткрывателя) */
+    font-size: 8px !important; /* 🔥 ЕДИНЫЙ РАЗМЕР ДЛЯ ВСЕХ (как у Первооткрывателя) */
     font-weight: 900 !important;
     color: #fff !important;
     text-align: center !important;
     text-transform: uppercase !important;
     line-height: 1.1 !important;
     display: block !important;
-    white-space: nowrap !important;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.8) !important; /* 🔥 Красивая тень вместо черного фона */
+    white-space: nowrap !important; /* Всегда в 1 строку */
+    text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.8) !important; /* Тень вместо фона */
     z-index: 1 !important; 
 }
 
