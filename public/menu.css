@@ -656,29 +656,29 @@ html.vk-mode #main-content { position: absolute !important; width: 100% !importa
 ========================================== */
 
 /* Название кейса сверху */
+/* Название кейса сверху */
 .case-top-title {
-    /* Даем нормальный отступ сверху от края карты */
-    padding: 8px 5px 0 5px !important; 
+    /* 🔥 ИЗМЕНЕНО: Уменьшили верхний отступ с 8px до 0px, чтобы поднять текст максимально высоко */
+    padding: 0px 5px 0 5px !important; 
     
-    /* 🔥 ДАЕМ МЕСТО ДЛЯ ТЕКСТА: фиксированная минимальная высота */
-    min-height: 30px !important; 
-    
-    /* 🔥 МАГИЯ: Отрицательный отступ притягивает картинку кейса ВВЕРХ к тексту */
-    margin-bottom: -12px !important; 
-    
+    min-height: 32px !important;       
+    margin-bottom: -12px !important;   
     font-size: 10.5px !important; 
     font-weight: 900 !important;
     color: #fff !important;
     text-align: center !important;
     text-transform: uppercase !important;
-    line-height: 1.1 !important;
-    display: block !important;
-    white-space: normal !important; 
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
     
-    /* Чтобы текст всегда был поверх картинки, если они пересекутся */
+    /* 🔥 ИЗМЕНЕНО: Даем чуть больше воздуха строкам (было 1.1) */
+    line-height: 1.25 !important; 
+    
+    display: block !important;
+    white-space: normal !important;
     position: relative !important;
-    z-index: 20 !important;
+    z-index: 20 !important;            
+    
+    /* 🔥 ДОБАВЛЕНО: Запрещаем внутреннюю обрезку самого текстового блока */
+    overflow: visible !important; 
 }
 
 .case-top-title .item-subtitle {
