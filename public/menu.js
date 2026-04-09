@@ -1359,14 +1359,13 @@ function renderItems(items) {
     if (trustLevel === 'green') trustMultiplier = 1;
     else if (trustLevel === 'red') trustMultiplier = 3;
 
-    // 🔥 ПЛАШКИ: Отдельно для монет (черная) и билетов (оригинальная белая)
-    // position: absolute; right: 6px; прибьет их к краю, и они не будут прыгать
+    // 🔥 ПЛАШКИ: Сделаны меньше и зафиксированы в верхнем правом углу (top: 3px; right: 3px;)
     const multiplierBadgeCoins = trustMultiplier > 1 
-        ? `<span style="position: absolute; right: 6px; background: rgba(255,255,255,0.5); color: #000; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: 900; border: 1px solid rgba(0,0,0,0.15);">x${trustMultiplier}</span>` 
+        ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(255,255,255,0.7); color: #000; padding: 1px 3px; border-radius: 3px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(0,0,0,0.15);">x${trustMultiplier}</span>` 
         : '';
         
     const multiplierBadgeTickets = trustMultiplier > 1 
-        ? `<span style="position: absolute; right: 6px; background: rgba(0,0,0,0.2); color: #fff; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: 900; border: 1px solid rgba(255,255,255,0.1);">x${trustMultiplier}</span>` 
+        ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.4); color: #fff; padding: 1px 3px; border-radius: 3px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(255,255,255,0.1);">x${trustMultiplier}</span>` 
         : '';
     // ==========================================
 
@@ -1413,7 +1412,7 @@ function renderItems(items) {
                     <img src="${safeImg}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" style="position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                 </div>
                 <div class="item-info" style="padding: 10px; display: flex; flex-direction: column; flex-grow: 1; gap: 4px; text-align: center; z-index: 8;">
-                    <div class="item-title" style="font-size: 13px; font-weight: 800; color: #fff;">${escapeHTML(cleanName)}</div>
+                    <div class="item-title" style="position: relative; top: -6px; font-size: 13px; font-weight: 800; color: #fff;">${escapeHTML(cleanName)}</div>
                     <button class="action-btn btn-folder" onclick="openFolder(${item.id})" style="background: rgba(255, 255, 255, 0.1); color: #fff; width: 100%; height: 34px; min-height: 34px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Открыть <i class="fa-solid fa-chevron-right" style="font-size:10px; margin-left:3px;"></i></button>
                 </div>
             `;
@@ -1473,13 +1472,13 @@ function renderItems(items) {
                         </button>
                     </div>
                 `;
-            } // <--- ВОТ ЭТУ СКОБКУ Я ПОТЕРЯЛ В ПРОШЛЫЙ РАЗ!
+            }
             
             // Если цена 9999, передаем null в просмотр содержимого, чтобы не ломался расчет окупаемости
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="position: relative; top: -6px; font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; text-transform:uppercase;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
@@ -1501,7 +1500,7 @@ function renderItems(items) {
                     <img src="${safeImg}" class="item-image" loading="lazy" onload="this.classList.add('loaded')" style="position: absolute; top: 10%; left: 10%; width: 80%; height: 80%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                 </div>
                 <div class="item-info" style="padding: 10px; display: flex; flex-direction: column; flex-grow: 1; gap: 4px; text-align: center; z-index: 8;">
-                    <div class="item-title" style="font-size: 11px; font-weight: 600; color: #fff; line-height: 1.2; min-height: 34px; display: flex; align-items: center; justify-content: center;">${formatItemName(cleanName)}</div>
+                    <div class="item-title" style="position: relative; top: -6px; font-size: 11px; font-weight: 600; color: #fff; line-height: 1.2; min-height: 34px; display: flex; align-items: center; justify-content: center;">${formatItemName(cleanName)}</div>
                     <div class="item-meta" style="display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; margin-bottom: 6px;">
                         <div class="item-stock" style="color: #8E8E93;">${stockText}</div>
                     </div>
@@ -1834,7 +1833,7 @@ window.openCaseContents = async function(event, caseName, casePriceCoins) {
         // 🔥 ДОБАВЛЯЕМ ЛОГИКУ ВИЗУАЛА ДЛЯ КУПОННЫХ КЕЙСОВ 🔥
         let priceDisplayHtml = casePriceCoins 
             ? `${casePriceCoins} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 15px;"></i>` 
-            : `<span style="font-size: 14px; font-weight: 900; color: #9146FF; text-shadow: 0 0 10px rgba(145,70,255,0.4);"><i class="fa-solid fa-lock"></i> ИВЕНТ</span>`;
+            : `<span style="font-size: 14px; font-weight: 900; color: #9146FF; text-shadow: 0 0 10px rgba(145,70,255,0.4);"><i class="fa-solid fa-lock"></i> КУПОН</span>`;
             
         let chanceDisplayHtml = casePriceCoins
             ? `<div style="font-size: 18px; font-weight: 900; color: ${profitChance > 15 ? '#34c759' : '#ffcc00'};">${profitChance}%</div>`
