@@ -1478,7 +1478,7 @@ function renderItems(items) {
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="position: relative; top: -6px; width: 100%; font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:normal; word-wrap:break-word; line-height:1.1; text-transform:uppercase;">${formatItemName(cleanName)}</div>
+                <div class="item-title case-top-title" style="position: relative; top: -6px; width: 100%; font-size:13px; font-weight:800; color:#fff; text-align:center; white-space:nowrap; overflow:hidden;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
@@ -1516,7 +1516,7 @@ function renderItems(items) {
     // Авто-уменьшение шрифта для длинных названий кейсов
     container.querySelectorAll('.case-top-title').forEach(title => {
         let fontSize = 13; 
-        while (title.scrollWidth > title.offsetWidth && fontSize > 7) {
+        while (title.scrollWidth > title.offsetWidth && fontSize > 5) {
             fontSize -= 0.5;
             title.style.fontSize = fontSize + 'px';
         }
