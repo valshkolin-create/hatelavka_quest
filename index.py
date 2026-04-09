@@ -16175,6 +16175,14 @@ async def buy_bott_item_proxy(
     # =========================================================================
     if not is_free_purchase:
         
+        # 🔥 НОВАЯ ПРОВЕРКА ДЛЯ ИВЕНТОВЫХ КЕЙСОВ 🔥
+        if float(price) == 9999:
+            raise HTTPException(
+                status_code=403, 
+                detail="Этот кейс нельзя купить. Он выдается только за участие в ивентах!"
+            )
+        # ===========================================
+
         # 🔥 ВЫЧИСЛЯЕМ ФИНАЛЬНУЮ ЦЕНУ С УЧЕТОМ ТРАСТА 🔥
         multipliers = {'green': 1.0, 'gray': 2.0, 'red': 3.0}
         multiplier = multipliers.get(current_trust, 2.0)
