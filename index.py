@@ -20047,7 +20047,7 @@ async def handle_twitch_click(
 
     if is_winner:
         activated_list.append(tg_id_str)
-        await supabase.patch("/cs_codes", params={"idx": f"eq.{cs_code['idx']}"}, json={"activated_by_ids": activated_list})
+        await supabase.patch("/cs_codes", params={"code": f"eq.{cs_code['code']}"}, json={"activated_by_ids": activated_list})
         
         await create_in_app_notification(
             supabase=supabase,
