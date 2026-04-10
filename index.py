@@ -19820,11 +19820,11 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from typing import List import Optional  # 🔥 ДОБАВЛЕН ИМПОРТ ДЛЯ LIST
+from typing import List, Optional
 import httpx
 import os
 import asyncio
-import json # 🔥 ДОБАВЛЕН ИМПОРТ ДЛЯ ПАРСИНГА КЭША
+import json
 
 # ==========================================
 # 1. PYDANTIC СХЕМЫ (МОДЕЛИ ДАННЫХ)
