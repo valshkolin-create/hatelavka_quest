@@ -20046,64 +20046,72 @@ async def redirect_to_twitch(
     return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
 
 # ==========================================
-# 6. FOSSABOT (ПРИЕМ КОДОВ ИЗ ЧАТА С ГРУППИРОВКОЙ)
-# ==========================================
-# ==========================================
-# 6. FOSSABOT (ПРЯМОЙ МЕТОД - БЫСТРО И НАДЕЖНО)
+# 6. FOSSABOT (ПРОФЕССИОНАЛЬНЫЙ МЕТОД ЧЕРЕЗ HEADERS)
 # ==========================================
 @app.get("/api/v1/twitch/fossabot_claim", response_class=PlainTextResponse)
 async def handle_fossabot_claim(
-    user: str = Query(...),      # Логин (hatelove_ttv)
-    display: str = Query(...),   # Ник (Valentin)
-    code: str = Query(...),      # Всё сообщение из чата
-    secret: str = Query(None),   # Наш секретный ключ
+    # FastAPI сам преобразует x-fossabot-customapitoken в x_fossabot_customapitoken
+    x_fossabot_customapitoken: str = Header(None), 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Защита от «умников»
-    if secret != "HATE_SECRET_99":
-        return "Доступ запрещен"
+    # Если токена нет, значит кто-то просто зашел по ссылке из браузера
+    if not x_fossabot_customapitoken:
+        return ""
 
-    print(f"DEBUG: Сообщение: {code}, От: {user}")
+    # 1. Спрашиваем у Fossabot детали сообщения по его токену
+    async with httpx.AsyncClient() as client:
+        fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{x_fossabot_customapitoken}")
+    
+    if fb_res.status_code != 200:
+        return "" 
 
-    # 2. Извлекаем DROP-код
-    match = re.search(r'\b(DROP-[A-Z0-9_]+)\b', code.strip().upper())
+    fb_data = fb_res.json()
+    message_data = fb_data.get("message")
+    if not message_data:
+        return ""
+
+    # Вытаскиваем данные из официального контекста Fossabot
+    twitch_user = message_data["user"]["login"].lower()
+    twitch_display_name = message_data["user"]["display_name"]
+    full_message = message_data["content"] # Тот самый текст из чата!
+
+    # 2. Ищем DROP-код в тексте
+    match = re.search(r'\b(DROP-[A-Z0-9_]+)\b', full_message.upper())
     if not match:
-        return "" # В сообщении нет кода, просто игнорим
+        return ""
     
     extracted_code = match.group(1)
 
-    # 3. Ищем промокод в базе
+    # 3. Ищем код в нашей базе
     code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
     if code_res.status_code != 200 or not code_res.json():
         return "" 
 
     cs_code = code_res.json()[0]
     campaign_id = cs_code.get("campaign_id")
-
     if not campaign_id:
-        return "⚠️ Ошибка: код не привязан к раздаче."
+        return "⚠️ Код не привязан к раздаче!"
 
-    # 4. Ищем кампанию
+    # 4. Проверка кампании
     camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
     if camp_res.status_code != 200 or not camp_res.json():
         return ""
-        
     campaign = camp_res.json()[0]
     if not campaign.get("is_active"):
         return ""
 
-    # 5. Ищем юзера в базе по Twitch-логину
-    user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{user}", "select": "telegram_id"})
+    # 5. Проверка привязки юзера
+    user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
     if user_res.status_code != 200 or not user_res.json():
-        return f"@{display}, твой Twitch не привязан! 🛑 Зайди в HATElavka_bot."
+        return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в HATElavka_bot."
     
     tg_id_int = int(user_res.json()[0]["telegram_id"])
 
-    # 6. Вызов RPC (Проверка лимитов и запись клика)
+    # 6. Запускаем RPC функцию обработки клика
     rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
         "p_campaign_id": campaign_id,
         "p_telegram_id": tg_id_int,
-        "p_twitch_name": display,
+        "p_twitch_name": twitch_display_name,
         "p_winners_limit": campaign["winners_limit"]
     })
     
@@ -20118,18 +20126,18 @@ async def handle_fossabot_claim(
     is_leader = res_data['is_leader']
     batch_time = res_data['batch_time']
 
-    # 7. Выдача награды
+    # 7. Если выиграл — шлем пуш в ТГ
     if is_winner:
-        # Уведомление в Telegram
         await create_in_app_notification(
             supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
             message=f"Бесплатное открытие для «{campaign['target_case_name']}» уже ждет тебя!", notif_type="system" 
         )
 
-    # 8. Ответ в чат (только от Лидера пачки)
+    # 8. Финальный аккорд: Лидер пачки отвечает в чат за всех
     if not is_leader:
         return ""
 
+    # Ждем, пока остальные запросы из этой же секунды запишутся
     await asyncio.sleep(2.5)
 
     batch_clicks = await supabase.get(
@@ -20150,7 +20158,6 @@ async def handle_fossabot_claim(
         msg_parts.append(campaign["fail_msg"].replace("{users}", l_text))
 
     return " | ".join(msg_parts)
-
 # ==========================================
 # 7. СТАТИСТИКА (АДМИНКА)
 # ==========================================
