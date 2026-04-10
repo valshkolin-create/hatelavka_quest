@@ -20004,6 +20004,7 @@ async def edit_twitch_campaign_post(
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
+    # 1. Достаем актуальную кампанию из базы
     camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{req.campaign_id}"})
     if camp_res.status_code != 200 or not camp_res.json():
         raise HTTPException(status_code=404, detail="Кампания не найдена")
@@ -20014,15 +20015,20 @@ async def edit_twitch_campaign_post(
     if not tg_message_id:
         return {"status": "error", "message": "Нет поста в ТГ (тихий тест)."}
 
+    # 2. Достаем промокод, привязанный к этой кампании
     code_res = await supabase.get("/cs_codes", params={"campaign_id": f"eq.{req.campaign_id}"})
     unique_code = code_res.json()[0]["code"] if (code_res.status_code == 200 and code_res.json()) else "СЕКРЕТ"
 
+    # 3. Собираем текст с твоими отступами и копируемым кодом
+    # winners_limit и target_case_name теперь берутся из БД (campaign), чтобы не было ошибок
     full_new_text = (
-        f"❕ Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
-    
+        f"{req.new_post_text}\n\n"
+        
+        f"❕ Первые <b>{campaign['winners_limit']}</b> зрителей, кто напишет код на стриме, получат <b>«{campaign['target_case_name']}»</b>!\n\n"
+        
         f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
-    
-        f"❕ Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче):\n"
+        
+        f"❕ Код (нажми, чтобы скопировать):\n"
         f"<code>{unique_code}</code>"
     )
 
@@ -20039,10 +20045,12 @@ async def edit_twitch_campaign_post(
 
     CHANNEL_ID = os.getenv("CHANNEL_ID", "@hatelove_ttv")
     try:
+        # 4. Обновляем пост в канале
         await bot.edit_message_caption(
             chat_id=CHANNEL_ID, message_id=tg_message_id,
             caption=full_new_text, reply_markup=keyboard, parse_mode="HTML"
         )
+        # 5. Обновляем текст в базе данных для синхронизации
         await supabase.patch("/twitch_campaigns", params={"id": f"eq.{req.campaign_id}"}, json={"post_text": req.new_post_text})
     except Exception as e:
         return {"status": "error", "message": f"Ошибка редактирования в ТГ: {e}"}
