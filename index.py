@@ -19973,12 +19973,11 @@ async def create_twitch_campaign(
     full_post_text = (
     f"{req.post_text}\n\n"
     
-    f"❕ Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
+    f"🔥 Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
     
     f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
     
-    f"❕ Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче):\n"
-    f"<code>{unique_code}</code>"
+    f"🎁 Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче): <code>{unique_code}</code>"
 )
 
     try:
@@ -20022,15 +20021,14 @@ async def edit_twitch_campaign_post(
     # 3. Собираем текст с твоими отступами и копируемым кодом
     # winners_limit и target_case_name теперь берутся из БД (campaign), чтобы не было ошибок
     full_new_text = (
-        f"{req.new_post_text}\n\n"
+    f"{req.new_post_text}\n\n"
         
-        f"❕ Первые <b>{campaign['winners_limit']}</b> зрителей, кто напишет код на стриме, получат <b>«{campaign['target_case_name']}»</b>!\n\n"
-        
-        f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
-        
-        f"❕ Код (нажми, чтобы скопировать):\n"
-        f"<code>{unique_code}</code>"
-    )
+    f"🔥 Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
+    
+    f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
+    
+    f"🎁 Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче): <code>{unique_code}</code>"
+)
 
     WEB_APP_URL = os.getenv("WEB_APP_URL", "https://hatelavka-quest.vercel.app").rstrip("/")
     tracking_link = f"{WEB_APP_URL}/api/v1/twitch/redirect?campaign_id={req.campaign_id}"
