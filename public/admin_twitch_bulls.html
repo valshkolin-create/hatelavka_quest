@@ -22,7 +22,6 @@
             --divider-glass-color: rgba(58, 58, 60, 0.6);
             --danger-color: #ff3b30;
             --warning-color: #ff9500;
-            --status-approved-color: #5856d6;
             --twitch-color: #9146FF;
         }
         
@@ -33,39 +32,43 @@
             color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
+        /* Адаптация под шторки Telegram и iOS */
         #app-container {
-            height: 100vh; overflow-y: auto !important; -webkit-overflow-scrolling: touch;
+            height: 100vh; 
+            overflow-y: auto !important; 
+            -webkit-overflow-scrolling: touch;
             position: relative; z-index: 10; display: block; box-sizing: border-box;
-            padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 20px) 20px 50px; 
+            padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 20px);
+            padding-bottom: calc(var(--tg-viewport-safe-area-inset-bottom, env(safe-area-inset-bottom, 20px)) + 80px);
+            padding-left: 15px; padding-right: 15px;
         }
 
         .hidden { display: none !important; }
         
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .page-header-title { margin: 0; font-size: 22px; font-weight: 700; text-align: center; flex-grow: 1; }
-        .back-button { background: none; border: none; color: var(--action-color); font-size: 16px; cursor: pointer; padding: 5px; font-weight: 500; text-decoration: none; }
+        .page-header-title { margin: 0; font-size: 20px; font-weight: 700; text-align: center; flex-grow: 1; }
+        .back-button { background: none; border: none; color: var(--action-color); font-size: 16px; cursor: pointer; padding: 5px; font-weight: 600; text-decoration: none; }
         
-        .admin-form { display: flex; flex-direction: column; gap: 15px; text-align: left; }
-        .admin-form input, .admin-form select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background-color: #333; color: white; font-size: 16px; box-sizing: border-box; }
-        .admin-form label { font-weight: 600; font-size: 14px; margin-top: 5px; display: flex; align-items: center; gap: 6px; }
+        .admin-form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+        .admin-form input, .admin-form select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background-color: #333; color: white; font-size: 15px; box-sizing: border-box; }
+        .admin-form label { font-weight: 600; font-size: 13px; margin-top: 5px; display: flex; align-items: center; gap: 6px; }
         
         .admin-action-btn { flex-grow: 1; border: none; padding: 10px; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
         .admin-action-btn.approve { background-color: var(--primary-color); }
         .admin-action-btn.reject { background-color: var(--danger-color); }
-        .admin-action-btn.confirm { background-color: var(--action-color); }
         
         /* Лоадер */
         .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         .spinner { width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Модалки */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1001; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
-        .modal-content { background-color: var(--surface-glass-bg); border: 1px solid var(--divider-glass-color); padding: 20px; border-radius: 14px; width: 90%; max-width: 400px; max-height: 80vh; display: flex; flex-direction: column; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; }
-        .modal-title { font-size: 18px; font-weight: 600; margin: 0; }
-        .modal-close-btn { background: none; border: none; color: var(--text-color-muted); font-size: 24px; cursor: pointer; }
-        .modal-body { overflow-y: auto; }
+        /* Модалки (Адаптированы под мобилу) */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1001; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); padding: env(safe-area-inset-top, 20px) 10px env(safe-area-inset-bottom, 20px); box-sizing: border-box; }
+        .modal-content { background-color: var(--surface-glass-bg); border: 1px solid var(--divider-glass-color); padding: 15px; border-radius: 14px; width: 100%; max-width: 400px; max-height: calc(100vh - env(safe-area-inset-top, 40px) - env(safe-area-inset-bottom, 40px)); display: flex; flex-direction: column; box-sizing: border-box; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; flex-shrink: 0; }
+        .modal-title { font-size: 17px; font-weight: 700; margin: 0; }
+        .modal-close-btn { background: none; border: none; color: var(--text-color-muted); font-size: 24px; cursor: pointer; padding: 0 5px; }
+        .modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; flex-grow: 1; padding-right: 5px; }
         
         .prompt-actions { display:flex; gap: 10px; margin-top: 15px; }
         .prompt-actions > * { flex:1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
@@ -73,54 +76,67 @@
         .prompt-actions .cancel-btn { background-color: #555; color: white; }
 
         .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--divider-glass-color); }
-        .setting-label { font-size: 15px; font-weight: 500; }
-        .toggle-switch { position: relative; display: inline-block; width: 51px; height: 31px; }
+        .setting-label { font-size: 14px; font-weight: 500; }
+        .toggle-switch { position: relative; display: inline-block; width: 44px; height: 26px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
-        .toggle-slider:before { position: absolute; content: ""; height: 23px; width: 23px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .toggle-slider { background-color: var(--primary-color); }
-        input:checked + .toggle-slider:before { transform: translateX(20px); }
+        input:checked + .toggle-slider:before { transform: translateX(18px); }
 
         /* ==========================================
-           СТИЛИ СПЕЦИФИЧНО ДЛЯ TWITCH
+           СЕТКА TWITCH (4 В РЯД) И ШРИФТЫ
            ========================================== */
-        .pending-actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 10px 0; }
-        .admin-icon-button { display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; text-decoration: none; color: var(--text-color); gap: 8px; position: relative; }
-        .admin-icon-button .icon-wrapper { width: 64px; height: 64px; background-color: var(--surface-glass-bg); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; position: relative; }
-        .admin-icon-button .icon-wrapper img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; }
-        .admin-icon-button span { font-size: 12px; font-weight: 500; line-height: 1.2; }
+        .pending-actions-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 4 значка в ряд */
+            gap: 10px; 
+            padding: 10px 0; 
+        }
         
-        .notification-badge { position: absolute; top: -6px; right: -8px; background-color: var(--danger-color); color: white; border-radius: 50%; min-width: 20px; height: 20px; padding: 0 4px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1; box-sizing: border-box; box-shadow: 0 0 0 2px var(--surface-glass-bg); z-index: 3; }
+        .admin-icon-button { display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; text-decoration: none; color: var(--text-color); gap: 6px; position: relative; }
+        .admin-icon-button .icon-wrapper { width: 54px; height: 54px; background-color: var(--surface-glass-bg); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; position: relative; }
+        .admin-icon-button .icon-wrapper img { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+        
+        /* ЖИРНЫЙ ШРИФТ ПОД ИКОНКАМИ */
+        .admin-icon-button span { font-size: 10px; font-weight: 700; line-height: 1.1; word-break: break-word; }
+        
+        .notification-badge { position: absolute; top: -5px; right: -5px; background-color: var(--danger-color); color: white; border-radius: 50%; min-width: 18px; height: 18px; padding: 0 4px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; line-height: 1; box-sizing: border-box; box-shadow: 0 0 0 2px var(--surface-glass-bg); z-index: 3; }
 
-        .reward-shortcut-btn { position: absolute; top: -6px; left: -6px; width: 26px; height: 26px; background-color: #555; border: none; border-radius: 50%; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .reward-shortcut-btn { position: absolute; top: -6px; left: -6px; width: 24px; height: 24px; background-color: #555; border: none; border-radius: 50%; color: white; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
         .reward-purchases-link { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; text-decoration: none; }
 
         /* Покупки */
         .purchase-item { padding: 12px 0; border-bottom: 1px solid var(--divider-glass-color); position: relative; }
         .purchase-item:last-child { border-bottom: none; }
-        .purchase-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .purchase-item-header strong { font-size: 15px; }
-        .purchase-status-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px; color: white; }
+        .purchase-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .purchase-item-header strong { font-size: 14px; }
+        .purchase-status-badge { font-size: 10px; font-weight: 700; padding: 3px 6px; border-radius: 6px; color: white; }
         .purchase-status-Привязан { background-color: var(--primary-color); }
-        .purchase-status-Не\.привязан { background-color: var(--status-inactive-color); }
+        .purchase-status-Не\.привязан { background-color: var(--text-color-muted); }
         
-        .purchase-item p { margin: 4px 0; font-size: 13px; color: var(--text-color-muted); }
-        .purchase-view-status { margin: 2px 0 6px; font-size: 11px; font-weight: 600; }
+        .purchase-item p { margin: 4px 0; font-size: 12px; color: var(--text-color-muted); }
+        .purchase-view-status { margin: 2px 0 6px; font-size: 11px; font-weight: 700; }
         .purchase-view-status.status-not-viewed { color: var(--text-color-muted); }
         .purchase-view-status.status-viewed { color: var(--primary-color); }
         
-        .purchase-user-input { background-color: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-top: 8px; word-break: break-all; }
-        .purchase-actions { margin-top: 12px; display: flex; gap: 10px; }
-        .purchase-actions .issue-promo-btn { background-color: var(--warning-color); font-size: 13px; padding: 8px; }
-        .purchase-actions .issue-tickets-btn { background-color: var(--action-color); font-size: 13px; padding: 8px; }
-        .purchase-actions .delete-purchase-btn { background-color: var(--danger-color); font-size: 13px; padding: 8px; flex-grow: 0; min-width: 40px; }
-        .purchase-actions .rewarded-info { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--primary-color); width: 100%; }
+        .purchase-user-input { background-color: rgba(0,0,0,0.4); padding: 8px; border-radius: 8px; font-family: monospace; font-size: 12px; margin-top: 8px; word-break: break-all; }
+        /* Ссылка внутри user_input */
+        .purchase-user-input a { color: var(--action-color); text-decoration: underline; font-weight: bold; }
+        
+        .purchase-win-info { font-weight: 700; color: var(--text-color); background-color: rgba(0,0,0,0.3); border: 1px solid rgba(255,215,0,0.2); border-left: 3px solid #ffd700; padding: 8px 10px; border-radius: 6px; margin: 8px 0 4px; word-break: break-word; font-size: 13px; }
 
-        .purchase-progress { font-size: 13px; font-weight: 500; margin-top: 8px !important; margin-bottom: 8px !important; background-color: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 6px; }
+        .purchase-actions { margin-top: 12px; display: flex; gap: 8px; }
+        .purchase-actions .issue-promo-btn { background-color: var(--warning-color); font-size: 12px; padding: 8px; font-weight: 700; }
+        .purchase-actions .issue-tickets-btn { background-color: var(--action-color); font-size: 12px; padding: 8px; font-weight: 700; }
+        .purchase-actions .delete-purchase-btn { background-color: var(--danger-color); font-size: 14px; padding: 8px; flex-grow: 0; min-width: 40px; }
+        .purchase-actions .rewarded-info { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--primary-color); width: 100%; }
+
+        .purchase-progress { font-size: 12px; font-weight: 600; margin-top: 8px !important; margin-bottom: 8px !important; background-color: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 6px; }
         .purchase-progress .progress-good { color: var(--primary-color); }
         .purchase-progress .progress-bad { color: var(--warning-color); }
         
-        .purchase-warning { font-size: 13px; font-weight: 600; color: var(--warning-color); margin: 8px 0 0 !important; padding: 8px 10px; background-color: rgba(255, 149, 0, 0.1); border: 1px solid rgba(255, 149, 0, 0.3); border-radius: 6px; display: flex; align-items: center; gap: 8px; }
+        .purchase-warning { font-size: 12px; font-weight: 700; color: var(--warning-color); margin: 8px 0 0 !important; padding: 8px 10px; background-color: rgba(255, 149, 0, 0.1); border: 1px solid rgba(255, 149, 0, 0.3); border-radius: 6px; display: flex; align-items: center; gap: 6px; }
     </style>
 </head>
 <body>
@@ -133,7 +149,7 @@
         <div class="page-header">
             <a href="admin.html" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
             <h1 class="page-header-title">Twitch Награды</h1>
-            <button id="reload-twitch-rewards-btn" class="back-button" style="width: 60px; font-size: 18px; text-align: right; padding-right: 5px;">
+            <button id="reload-twitch-rewards-btn" class="back-button" style="width: 40px; font-size: 18px; text-align: right; padding: 0;">
                 <i class="fa-solid fa-rotate-right"></i>
             </button>
         </div>
@@ -146,7 +162,7 @@
     <div id="twitch-reward-settings-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="twitch-settings-title" class="modal-title">Настройки награды</h2>
+                <h2 id="twitch-settings-title" class="modal-title">Настройки</h2>
                 <button class="modal-close-btn" data-close-modal="twitch-reward-settings-modal">&times;</button>
             </div>
             <div class="modal-body">
@@ -161,44 +177,44 @@
                         <label class="toggle-switch"><input type="checkbox" name="notify_admin"><span class="toggle-slider"></span></label>
                     </div>
                     <div class="setting-item">
-                        <span class="setting-label">Показывать сообщение юзера</span>
+                        <span class="setting-label">Показывать сообщение</span>
                         <label class="toggle-switch"><input type="checkbox" name="show_user_input"><span class="toggle-slider"></span></label>
                     </div>
-                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
-                        <label>Условие для выдачи (необязательно)</label>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
+                        <label>Условие для выдачи</label>
                         <select name="condition_type">
                             <option value="">Нет условия</option>
-                            <option value="twitch_messages_session">Сообщения Twitch (за стрим)</option>
-                            <option value="twitch_messages_week">Сообщения Twitch (за неделю)</option>
-                            <option value="twitch_messages_month">Сообщения Twitch (за месяц)</option>
+                            <option value="twitch_messages_session">Сообщения (за стрим)</option>
+                            <option value="twitch_messages_week">Сообщения (за неделю)</option>
+                            <option value="twitch_messages_month">Сообщения (за месяц)</option>
                         </select>
-                        <input type="number" name="target_value" placeholder="Например, 500" style="margin-top: 10px;">
+                        <input type="number" name="target_value" placeholder="Цель: 500" style="margin-top: 8px;">
                     </div>
                     
-                    <div style="margin-top: 15px;" id="legacy-promocode-field-wrapper">
-                      <label for="promocode-amount-input">Сумма промокода (звёзды)</label>
-                      <input type="number" id="promocode-amount-input" name="promocode_amount" placeholder="Например, 10">
+                    <div style="margin-top: 10px;" id="legacy-promocode-field-wrapper">
+                      <label>Сумма промокода (звёзды)</label>
+                      <input type="number" name="promocode_amount" placeholder="Например, 10">
                     </div>
 
-                    <div class="admin-feature-6971" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
-                        <label for="reward-type-select">Тип награды</label>
+                    <div class="admin-feature-6971" style="display: none; margin-top: 10px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color);">
+                        <label>Тип награды</label>
                         <select id="reward-type-select" name="reward_type">
                             <option value="promocode">Промокод (Звёзды)</option>
                             <option value="tickets">Билеты (Розыгрыши)</option>
                             <option value="none">Нет (только лог)</option>
                         </select>
-                        <label for="reward-amount-input" style="margin-top: 10px;">Количество</label>
+                        <label style="margin-top: 10px;">Количество</label>
                         <input type="number" id="reward-amount-input" name="reward_amount" placeholder="Например, 10">
                         
-                        <label for="reward-sort-order-input" style="margin-top: 10px;">Порядковый номер (#)</label>
-                        <input type="number" id="reward-sort-order-input" name="sort_order" placeholder="Пусто = в конец">
+                        <label style="margin-top: 10px;">Порядковый номер (#)</label>
+                        <input type="number" name="sort_order" placeholder="Пусто = в конец">
                     </div>
                     
                     <div class="prompt-actions" style="margin-top: 20px;">
                         <button type="button" class="cancel-btn" data-close-modal="twitch-reward-settings-modal">Отмена</button>
                         <button type="submit" class="confirm-btn">Сохранить</button>
                     </div>
-                    <div style="margin-top: 25px; border-top: 1px solid var(--divider-glass-color); padding-top: 15px;">
+                    <div style="margin-top: 15px;">
                         <button type="button" id="delete-twitch-reward-btn" class="admin-action-btn reject" style="width: 100%;">Удалить награду</button>
                     </div>
                 </form>
@@ -209,10 +225,12 @@
     <div id="twitch-purchases-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="twitch-purchases-title" class="modal-title">Покупки награды</h2>
-                <button id="refresh-purchases-btn" title="Обновить список" style="background:none; border:none; color:var(--action-color); font-size:20px; cursor:pointer;"><i class="fa-solid fa-rotate-right"></i></button>
-                <button id="delete-all-purchases-btn" class="admin-action-btn reject hidden" style="margin-left: auto; margin-right: 10px; padding: 6px 10px; font-size: 12px; width:auto;" title="Удалить все покупки"><i class="fa-solid fa-trash-can"></i></button>
-                <button class="modal-close-btn" data-close-modal="twitch-purchases-modal">&times;</button>
+                <h2 id="twitch-purchases-title" class="modal-title">Покупки</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="refresh-purchases-btn" title="Обновить" style="background:none; border:none; color:var(--action-color); font-size:18px; cursor:pointer;"><i class="fa-solid fa-rotate-right"></i></button>
+                    <button id="delete-all-purchases-btn" class="admin-action-btn reject hidden" style="padding: 5px 8px; font-size: 12px; width:auto;" title="Удалить все"><i class="fa-solid fa-trash-can"></i></button>
+                    <button class="modal-close-btn" data-close-modal="twitch-purchases-modal">&times;</button>
+                </div>
             </div>
             <div id="twitch-purchases-body" class="modal-body"></div>
         </div>
@@ -220,8 +238,8 @@
 
     <div id="password-prompt-overlay" class="modal-overlay hidden">
         <div class="modal-content" style="text-align: center; max-width: 300px;">
-            <h3>Введите пароль администратора</h3>
-            <input type="password" id="password-prompt-input" class="admin-form" style="margin-top: 15px; width:100%; padding:10px; box-sizing:border-box;">
+            <h3 style="margin-top: 0;">Пароль администратора</h3>
+            <input type="password" id="password-prompt-input" class="admin-form" style="width:100%; padding:10px; box-sizing:border-box;">
             <div class="prompt-actions">
                 <button id="password-prompt-cancel" class="cancel-btn" data-close-modal="password-prompt-overlay">Отмена</button>
                 <button id="password-prompt-confirm" class="confirm-btn">Войти</button>
@@ -230,11 +248,9 @@
     </div>
 
     <script>
-        // Инициализация TG
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Глобальные переменные
         let hasAdminAccess = false;
         const ADMIN_PASSWORD = '6971';
         let afterPasswordCallback = null;
@@ -251,12 +267,19 @@
         // --- УТИЛИТЫ ---
         function showLoader() { document.getElementById('loader-overlay').classList.remove('hidden'); }
         function hideLoader() { document.getElementById('loader-overlay').classList.add('hidden'); }
+        
         function escapeHTML(str) {
             if (typeof str !== 'string') return str;
             return str.replace(/[&<>"']/g, match => ({'&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#39;'})[match]);
         }
 
-        // Универсальное окно подтверждения
+        // Делает ссылки кликабельными (для Trade URL)
+        function makeLinksClickable(text) {
+            if (!text) return '';
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+        }
+
         function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Удалить', btnColor = '#ff3b30') {
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay';
@@ -266,7 +289,7 @@
             box.style.cssText = 'max-width: 320px; text-align: center; animation: popIn 0.2s forwards;';
             
             box.innerHTML = `
-                <h3 style="margin: 0 0 20px; font-size: 16px; font-weight: 600;">${text}</h3>
+                <h3 style="margin: 0 0 15px; font-size: 15px; font-weight: 700;">${text}</h3>
                 <div class="prompt-actions" style="margin-top: 0;">
                     <button id="custom-cancel-btn" class="cancel-btn">Отмена</button>
                     <button id="custom-confirm-btn" class="confirm-btn" style="background-color: ${btnColor};">${btnText}</button>
@@ -281,7 +304,6 @@
             overlay.querySelector('#custom-confirm-btn').onclick = () => { onConfirmCallback(close); close(); };
         }
 
-        // API Запросы
         async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
             if (!isSilent) showLoader();
             try {
@@ -314,7 +336,7 @@
             }
         }
 
-        // --- ОСНОВНАЯ ЛОГИКА TWITCH ---
+        // --- ЛОГИКА TWITCH ---
         
         async function loadTwitchRewards() {
             const container = document.getElementById('twitch-rewards-container');
@@ -330,13 +352,12 @@
 
                 rewards.forEach((reward, index) => {
                     if (index === 9) {
-                        const dividerHtml = `
-                        <div style="grid-column: 1 / -1; padding: 20px 5px 10px;">
-                            <h3 style="margin: 0; font-size: 14px; color: var(--text-color-muted); border-bottom: 1px solid var(--divider-glass-color); padding-bottom: 8px;">
-                                <i class="fa-solid fa-box-archive" style="margin-right: 8px;"></i> Архивные
+                        container.insertAdjacentHTML('beforeend', `
+                        <div style="grid-column: 1 / -1; padding: 10px 5px 5px;">
+                            <h3 style="margin: 0; font-size: 13px; color: var(--text-color-muted); border-bottom: 1px solid var(--divider-glass-color); padding-bottom: 6px;">
+                                <i class="fa-solid fa-box-archive"></i> Архивные
                             </h3>
-                        </div>`;
-                        container.insertAdjacentHTML('beforeend', dividerHtml);
+                        </div>`);
                     }
 
                     const itemDiv = document.createElement('div');
@@ -360,7 +381,7 @@
                     container.appendChild(itemDiv);
                 }); 
             } catch (e) {
-                container.innerHTML = `<p style="text-align: center; color: var(--danger-color); grid-column: 1/-1;">Ошибка: ${e.message}</p>`;
+                container.innerHTML = `<p style="color: var(--danger-color); grid-column: 1/-1;">Ошибка: ${e.message}</p>`;
             } finally {
                 hideLoader();
             }
@@ -462,21 +483,36 @@
                     let actionBtns = '';
                     if (p.rewarded_at) {
                         actionBtns = `
-                            <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
+                            <div class="rewarded-info"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
                             <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                     } else {
                         let issueBtn = '';
                         if (p.status !== 'Привязан') {
-                            issueBtn = `<div class="rewarded-info" style="flex-grow: 1; color: var(--warning-color);"><i class="fa-solid fa-link-slash"></i> Ожидает привязки</div>`;
+                            issueBtn = `<div class="rewarded-info" style="color: var(--warning-color);"><i class="fa-solid fa-link-slash"></i> Ждет привязки</div>`;
                         } else {
                             if (rType === 'tickets') issueBtn = `<button class="admin-action-btn issue-tickets-btn" data-purchase-id="${p.id}" data-amount="${rAmount}">Выдать ${rAmount} 🎟️</button>`;
                             else if (rType === 'promocode') issueBtn = `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}">Выдать ${rAmount} ⭐</button>`;
-                            else issueBtn = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">Выдача не требуется</div>`;
+                            else issueBtn = `<div class="rewarded-info" style="color: var(--text-color-muted);">Выдача не нужна</div>`;
                         }
                         actionBtns = `${issueBtn}<button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
                     }
 
-                    let userInputHtml = p.user_input ? `<div class="purchase-user-input">${escapeHTML(p.user_input)}</div>` : '';
+                    // --- ИСПРАВЛЕНИЕ: ПАРСИНГ "ВЫИГРЫШ:" И ССЫЛКИ ---
+                    let userInputHtml = '';
+                    let rouletteWinHtml = '';
+                    let rawUserInput = p.user_input || '';
+
+                    if (rawUserInput) {
+                        if (rawUserInput.startsWith("Выигрыш:")) {
+                            const parts = rawUserInput.split("| Сообщение:");
+                            rouletteWinHtml = `<div class="purchase-win-info">${escapeHTML(parts[0].trim())}</div>`;
+                            rawUserInput = (parts.length > 1) ? parts[1].trim() : '';
+                        }
+                        if (rawUserInput) {
+                            // Сначала экранируем опасные теги, потом делаем ссылки кликабельными
+                            userInputHtml = `<div class="purchase-user-input">${makeLinksClickable(escapeHTML(rawUserInput))}</div>`;
+                        }
+                    }
 
                     return `
                     <div class="purchase-item" id="purchase-item-${p.id}" data-purchase-id="${p.id}" data-condition-met="${isConditionMet}">
@@ -486,8 +522,8 @@
                         </div>
                         <p>Дата: ${date}</p>
                         <p class="purchase-view-status ${viewClass}">${viewText}</p>
-                        ${p.trade_link ? `<p>Трейд: <a href="${p.trade_link}" target="_blank" style="color:var(--action-color);">Открыть</a></p>` : ''}
-                        ${progressHtml} ${warningHtml} ${userInputHtml}
+                        ${p.trade_link ? `<p>Трейд: <a href="${p.trade_link}" target="_blank" style="color:var(--action-color); font-weight:700;">Открыть</a></p>` : ''}
+                        ${progressHtml} ${warningHtml} ${rouletteWinHtml} ${userInputHtml}
                         <div class="purchase-actions">${actionBtns}</div>
                     </div>`;
                 }).join('');
@@ -497,23 +533,18 @@
             }
         }
 
-        // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
+        // --- ИНИЦИАЛИЗАЦИЯ И СЛУШАТЕЛИ ---
         document.addEventListener('DOMContentLoaded', async () => {
             
-            // 1. Проверка пользователя (Админ/Модер)
+            // Проверка прав
             try {
                 const userData = await makeApiRequest("/api/v1/user/me", {}, 'POST', true);
-                if (userData && userData.is_admin) {
-                    hasAdminAccess = true; // Главный админ
-                }
-            } catch (e) {
-                console.error("Не удалось определить роль", e);
-            }
+                if (userData && userData.is_admin) hasAdminAccess = true;
+            } catch (e) { console.error("Роль не определена", e); }
 
-            // Запускаем отрисовку списка
             loadTwitchRewards();
 
-            // Делегирование кликов для динамических элементов
+            // ДЕЛЕГИРОВАНИЕ КЛИКОВ
             document.body.addEventListener('click', async (e) => {
                 const target = e.target;
 
@@ -525,12 +556,7 @@
                 }
 
                 // Кнопка обновления
-                if (target.closest('#reload-twitch-rewards-btn')) {
-                    loadTwitchRewards();
-                    return;
-                }
-                
-                // Обновление покупок
+                if (target.closest('#reload-twitch-rewards-btn')) { loadTwitchRewards(); return; }
                 if (target.closest('#refresh-purchases-btn')) {
                     const btn = target.closest('#refresh-purchases-btn');
                     openTwitchPurchases(btn.dataset.rewardId, btn.dataset.rewardTitle);
@@ -560,7 +586,7 @@
 
                 // Отметка "Просмотрено"
                 const link = target.closest('a');
-                if (link && link.closest('.purchase-item')) {
+                if (link && link.closest('.purchase-item') && !link.target) { // Игнорируем внешние ссылки target="_blank"
                     const item = link.closest('.purchase-item');
                     const statusEl = item.querySelector('.purchase-view-status');
                     if (statusEl && !statusEl.classList.contains('status-viewed')) {
@@ -629,7 +655,7 @@
                 }
             });
 
-            // Сабмит формы настроек
+            // Форма настроек
             document.getElementById('twitch-reward-settings-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const form = e.target;
@@ -673,7 +699,7 @@
                 });
             });
 
-            // Смена типа награды (прячет/показывает поле количества)
+            // Смена типа
             document.getElementById('reward-type-select').addEventListener('change', (e) => {
                 const isNone = e.target.value === 'none';
                 const input = document.getElementById('reward-amount-input');
@@ -682,7 +708,7 @@
                 input.previousElementSibling.style.display = isNone ? 'none' : 'block';
             });
 
-            // Подтверждение пароля модератором
+            // Пароль модератора
             document.getElementById('password-prompt-confirm').addEventListener('click', async () => {
                 const pw = document.getElementById('password-prompt-input').value;
                 if (pw === ADMIN_PASSWORD) {
@@ -698,6 +724,10 @@
                         } else tg.showAlert('Неверный пароль');
                     } catch (e) { tg.showAlert('Ошибка проверки'); }
                 }
+            });
+            
+            document.getElementById('password-prompt-cancel').addEventListener('click', () => {
+                 document.getElementById('password-prompt-overlay').classList.add('hidden');
             });
         });
     </script>
