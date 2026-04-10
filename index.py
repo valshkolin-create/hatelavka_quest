@@ -5526,25 +5526,30 @@ async def check_cs_code(
         return {"valid": False, "message": "Неверный код"}
 
     promo = code_data[0]
+
+    # 🔥 ФИКС 1: Запрещаем ручную активацию кодов Твича
+    if promo.get("campaign_id") is not None:
+        return {
+            "valid": False, 
+            "message": "Этот код активируется только через чат Твича во время раздачи! 📺"
+        }
     
-    # СНАЧАЛА ДОСТАЕМ СПИСКИ (до проверки лимитов)
+    # Дальнейшая логика только для ОБЫЧНЫХ промокодов (где нет campaign_id)
     used_by = promo.get('used_by_ids') or []
     activated_by = promo.get('activated_by_ids') or []
 
-    # 🔥 2. ГЛАВНЫЙ ФИКС БРОНИ: Считаем реальную занятость (Использованные + Забронированные)
     total_reserved_slots = len(used_by) + len(activated_by)
 
     if total_reserved_slots >= promo['max_uses']:
         return {"valid": False, "message": "Все активации этого кода уже забронированы или разобраны!"}
 
-    # 3. Проверяем, не использовал ли (used_by_ids) или не активировал ли уже (activated_by_ids)
     if user_id in used_by:
         return {"valid": False, "message": "Вы уже использовали этот код"}
     
     if user_id in activated_by:
         return {"valid": False, "message": "Этот код уже активирован на вашем аккаунте!"}
 
-    # 4. Записываем ID юзера в список активировавших (БРОНИРУЕМ СЛОТ ПРЯМО СЕЙЧАС)
+    # 4. Записываем ID юзера в список активировавших (для ОБЫЧНЫХ кодов)
     activated_by.append(user_id)
     await supabase.patch(
         f"/cs_codes?code=eq.{code}",
@@ -19963,9 +19968,9 @@ async def create_twitch_campaign(
 
     full_post_text = (
         f"{req.post_text}\n\n"
-        f"🎁 Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n"
-        f"🎫 Остальные участники получат по <b>5 билетов</b>.\n\n"
-        f"🔥 Код: <b>{unique_code}</b>"
+        f"❕ Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n"
+        f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
+        f"❕ Код: <b>{unique_code} (его нужно просто написать в чат!)</b>"
     )
 
     try:
