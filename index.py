@@ -20046,66 +20046,85 @@ async def redirect_to_twitch(
     return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
 
 # ==========================================
-# 6. FOSSABOT (ПОЛНАЯ ОПТИМИЗИРОВАННАЯ ВЕРСИЯ)
+# 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
 # ==========================================
 @app.get("/api/v1/twitch/fossabot_claim", response_class=PlainTextResponse)
 async def handle_fossabot_claim(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # Достаем токен Fossabot для авторизации
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
-    if not token: return "❌ Нет токена"
+    if not token: 
+        return ""
 
     try:
-        # 1. Данные от Fossabot
+        # 1. Получаем контекст сообщения от Fossabot
         async with httpx.AsyncClient() as client:
             fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=5.0)
         
+        if fb_res.status_code != 200:
+            return ""
+
         fb_data = fb_res.json()
         message_data = fb_data.get("message")
+        if not message_data: return ""
+
         twitch_user = message_data["user"]["login"].lower()
         twitch_display_name = message_data["user"]["display_name"]
         full_message = message_data["content"]
+        
         print(f"DEBUG: [1] Юзер: {twitch_user}, Сообщение: {full_message}")
 
-        # 2. Поиск кода
+        # 2. Поиск DROP-кода (регулярка)
         match = re.search(r'\b(DROP-[A-Z0-9_]+)\b', full_message.upper())
-        if not match: return ""
+        if not match: 
+            return ""
+        
         extracted_code = match.group(1)
-        print(f"DEBUG: [2] Код извлечен: {extracted_code}")
 
-        # 3. Поиск в cs_codes
+        # --- ШАГ 3: АНТИ-ФЛУД СИСТЕМА (3 попытки за 5 минут) ---
+        # Считаем, сколько раз юзер «тыкал» код за последние 5 минут
+        five_min_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+        spam_res = await supabase.get("/twitch_clicks", params={
+            "twitch_name": f"eq.{twitch_display_name}",
+            "created_at": f"gte.{five_min_ago}",
+            "select": "count",
+            "count": "exact"
+        })
+        
+        # Получаем количество попыток (в Supabase count возвращается в заголовках или через len)
+        attempts_count = len(spam_res.json()) if spam_res.status_code == 200 else 0
+
+        if attempts_count >= 3:
+            # Если 3 и более попыток — отправляем команду мута для Fossabot
+            print(f"DEBUG: МУТ за флуд: {twitch_display_name}")
+            return f"/timeout {twitch_user} 300 | @{twitch_display_name}, ты исчерпал 3 попытки за 5 минут! Отдохни от кода 5 минут. ⛔"
+        
+        # 4. Поиск кода в БД
         code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
         if code_res.status_code != 200 or not code_res.json():
-            print(f"DEBUG: [3] Код {extracted_code} НЕ НАЙДЕН в БД или не активен. Status: {code_res.status_code}")
-            return "" # Если тут ошибка, бот молчит
+            # Если кода нет, уведомляем о попытке (чтобы юзер видел счетчик)
+            return f"@{twitch_display_name}, код «{extracted_code}» не найден или не активен! (Попытка {attempts_count + 1}/3) 🔍"
 
         cs_code = code_res.json()[0]
         campaign_id = cs_code.get("campaign_id")
-        print(f"DEBUG: [4] Код найден! Campaign_id: {campaign_id}")
-
-        if not campaign_id: return "❌ В базе у кода не прописан campaign_id"
-
-        # 4. Проверка кампании
-        camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
+        
+        # 5. Проверка кампании
+        camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}", "is_active": "is.true"})
         if camp_res.status_code != 200 or not camp_res.json():
-            print(f"DEBUG: [5] Кампания {campaign_id} не найдена!")
-            return ""
+            return f"@{twitch_display_name}, раздача по этому коду уже завершена. ⌛"
         
         campaign = camp_res.json()[0]
-        print(f"DEBUG: [6] Кампания найдена и активна: {campaign.get('is_active')}")
 
-        # 5. Проверка юзера
+        # 6. Проверка привязки юзера
         user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
         if user_res.status_code != 200 or not user_res.json():
-            print(f"DEBUG: [7] Юзер {twitch_user} не найден в таблице users!")
-            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в HATElavka_bot."
+            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в @HATElavka_bot и привяжи его в профиле."
         
         tg_id_int = int(user_res.json()[0]["telegram_id"])
-        print(f"DEBUG: [8] Юзер найден, TG_ID: {tg_id_int}")
 
-        # 6. Вызов RPC
-        print(f"DEBUG: [9] Вызываем RPC process_twitch_claim_v3...")
+        # 7. Вызов RPC (обработка клика)
         rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
             "p_campaign_id": campaign_id,
             "p_telegram_id": tg_id_int,
@@ -20114,52 +20133,74 @@ async def handle_fossabot_claim(
         })
         
         rpc_data_raw = rpc_res.json()
-        print(f"DEBUG: [10] Ответ RPC: {rpc_data_raw}")
-
+        # Ответ может прийти как список [{}], выравниваем
         res_data = rpc_data_raw[0] if isinstance(rpc_data_raw, list) and rpc_data_raw else rpc_data_raw
-        is_leader = res_data.get('is_leader')
-        is_winner = res_data.get('is_winner')
-        
-        print(f"DEBUG: [11] Win: {is_winner}, Leader: {is_leader}")
 
+        # --- ОБРАБОТКА ДУБЛИКАТА ---
+        if res_data.get('is_duplicate'):
+            return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Дождись итогов. 🎫"
+
+        is_winner = res_data.get('is_winner')
+        is_leader = res_data.get('is_leader')
+        batch_time = res_data.get('batch_time')
+
+        # 8. Награда победителя (Пуш в ТГ)
         if is_winner:
-            # Обновляем активацию кода
+            # Отмечаем в cs_codes
             activated_list = cs_code.get("activated_by_ids", []) or []
             if str(tg_id_int) not in activated_list:
                 activated_list.append(str(tg_id_int))
                 await supabase.patch("/cs_codes", params={"code": f"eq.{extracted_code}"}, json={"activated_by_ids": activated_list})
-                print(f"DEBUG: [12] Код {extracted_code} отмечен как активированный юзером {tg_id_int}")
+            
+            # Фоновое уведомление
+            await create_in_app_notification(
+                supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
+                message=f"Бесплатное открытие для «{campaign['target_case_name']}» уже ждет тебя!", notif_type="system" 
+            )
 
+        # 9. Только ЛИДЕР отвечает в чат за всю группу
         if not is_leader:
-            print(f"DEBUG: [13] Юзер не лидер, выходим.")
+            # Если не лидер, можно написать короткое подтверждение (по желанию), 
+            # но лучше молчать, чтобы не засорять чат.
             return ""
 
-        # 7. Сбор пачки (только для лидера)
-        print(f"DEBUG: [14] Лидер ждет пачку 2.5с...")
-        await asyncio.sleep(2.5)
+        # Ждем сборку «пачки» (те, кто нажал в эту же секунду)
+        print(f"DEBUG: Лидер {twitch_display_name} собирает пачку...")
+        await asyncio.sleep(2.6)
 
-        batch_clicks_res = await supabase.get("/twitch_clicks", params={"campaign_id": f"eq.{campaign_id}", "created_at": f"gte.{res_data['batch_time']}"})
+        # Получаем всех участников пачки
+        # Используем фильтр по campaign_id и сортировку (надежнее, чем время)
+        batch_clicks_res = await supabase.get("/twitch_clicks", params={
+            "campaign_id": f"eq.{campaign_id}",
+            "order": "created_at.desc",
+            "limit": "30"
+        })
         clicks_data = batch_clicks_res.json() if batch_clicks_res.status_code == 200 else []
-        print(f"DEBUG: [15] Собрано кликов: {len(clicks_data)}")
+        
+        if not clicks_data:
+            # Если БД не успела выдать список, берем текущего лидера как единственного участника
+            clicks_data = [{"twitch_name": twitch_display_name, "is_winner": is_winner}]
 
-        winners = list(set([c['twitch_name'] for c in clicks_data if c['is_winner']]))
-        losers = list(set([c['twitch_name'] for c in clicks_data if not c['is_winner']]))
+        # Группируем ники
+        winners_list = list(set([c['twitch_name'] for c in clicks_data if c.get('is_winner')]))
+        losers_list = list(set([c['twitch_name'] for c in clicks_data if not c.get('is_winner')]))
 
         msg_parts = []
-        if winners:
-            w_text = ", ".join([f"@{w}" for w in winners])
-            msg_parts.append(campaign["success_msg"].replace("{users}", w_text).replace("{case}", campaign['target_case_name']))
-        if losers:
-            l_text = ", ".join([f"@{l}" for l in losers])
-            msg_parts.append(campaign["fail_msg"].replace("{users}", l_text))
+        if winners_list:
+            w_names = ", ".join([f"@{w}" for w in winners_list])
+            msg_parts.append(campaign["success_msg"].replace("{users}", w_names).replace("{case}", campaign['target_case_name']))
+        
+        if losers_list:
+            l_names = ", ".join([f"@{l}" for l in losers_list])
+            msg_parts.append(campaign["fail_msg"].replace("{users}", l_names))
 
         final_msg = " | ".join(msg_parts)
-        print(f"DEBUG: [16] ИТОГОВЫЙ ОТВЕТ: {final_msg}")
+        print(f"DEBUG: Финальный ответ: {final_msg}")
         return final_msg
 
     except Exception as e:
-        print(f"DEBUG: [ERROR] Крит: {str(e)}")
-        return f"⚠️ Системная ошибка: {str(e)}"
+        print(f"DEBUG: КРИТИЧЕСКАЯ ОШИБКА: {str(e)}")
+        return f"⚠️ Ошибка системы: {str(e)}"
     
 # ==========================================
 # 7. СТАТИСТИКА (АДМИНКА)
