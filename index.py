@@ -19971,11 +19971,15 @@ async def create_twitch_campaign(
     )
 
     full_post_text = (
-        f"{req.post_text}\n\n"
-        f"❕ Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n"
-        f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
-        f"❕ Код: <b>{unique_code} (его нужно просто написать в чате на твиче!)</b>"
-    )
+    f"{req.post_text}\n\n"
+    
+    f"❕ Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
+    
+    f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
+    
+    f"❕ Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче):\n"
+    f"<code>{unique_code}</code>"
+)
 
     try:
         sent_message = await bot.send_photo(
@@ -20014,10 +20018,12 @@ async def edit_twitch_campaign_post(
     unique_code = code_res.json()[0]["code"] if (code_res.status_code == 200 and code_res.json()) else "СЕКРЕТ"
 
     full_new_text = (
-        f"{req.new_post_text}\n\n"
-        f"🎁 Первые <b>{campaign['winners_limit']}</b> зрителей, кто напишет код на стриме, получат <b>«{campaign['target_case_name']}»</b>!\n"
-        f"🎫 Остальные участники получат по <b>5 билетов</b>.\n\n"
-        f"🔥 Код: <b>{unique_code}</b>"
+        f"❕ Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
+    
+        f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
+    
+        f"❕ Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче):\n"
+        f"<code>{unique_code}</code>"
     )
 
     WEB_APP_URL = os.getenv("WEB_APP_URL", "https://hatelavka-quest.vercel.app").rstrip("/")
@@ -20077,7 +20083,6 @@ REDIRECT_PAGE_TEMPLATE = """
             text-transform: uppercase; cursor: pointer; transition: 0.2s;
             box-shadow: 0 10px 30px rgba(145, 70, 255, 0.4);
             display: flex; align-items: center; justify-content: center; gap: 12px;
-            text-decoration: none;
         }
         .btn-twitch:active { transform: scale(0.96); box-shadow: 0 5px 15px rgba(145, 70, 255, 0.4); }
         .footer-note { margin-top: 30px; font-size: 11px; color: #444; text-transform: uppercase; font-weight: 700; }
@@ -20089,7 +20094,7 @@ REDIRECT_PAGE_TEMPLATE = """
     <i class="fa-brands fa-twitch twitch-logo"></i>
     <h1>Внешний переход<br><span>HATElove</span></h1>
     <div class="description">
-        Нажми на кнопку ниже, чтобы открыть трансляцию в приложении <b>Twitch</b> или внешнем браузере.
+        Нажми на кнопку ниже, чтобы открыть трансляцию в приложении <b>Twitch</b>. Окно закроется автоматически.
     </div>
     <button class="btn-twitch" id="main-btn" onclick="openTwitch()">
         <i class="fa-solid fa-external-link"></i> ОТКРЫТЬ В TWITCH
@@ -20097,17 +20102,24 @@ REDIRECT_PAGE_TEMPLATE = """
     <div class="footer-note">hatelove_ttv</div>
 
     <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
         function openTwitch() {
             const url = "TWITCH_URL_PLACEHOLDER";
             
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
-                window.Telegram.WebApp.openLink(url);
-                setTimeout(() => { window.Telegram.WebApp.close(); }, 1000);
+            // Если мы внутри Telegram WebApp (Mini App)
+            if (tg.initData) {
+                // Открываем во внешнем браузере/приложении
+                tg.openLink(url);
+                // Даем 500мс на выполнение команды и закрываем наше окно перехода
+                setTimeout(() => {
+                    tg.close();
+                }, 500);
             } else {
-                window.location.href = "twitch://stream/hatelove_ttv";
-                setTimeout(function() {
-                    window.location.href = url;
-                }, 800);
+                // Если открыто просто в браузере
+                window.location.href = url;
             }
         }
     </script>
@@ -20118,20 +20130,27 @@ REDIRECT_PAGE_TEMPLATE = """
 @app.get("/api/v1/twitch/redirect")
 async def redirect_to_twitch(
     campaign_id: int,
+    request: Request, # Добавляем request для проверки устройства
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Логируем переход
+    # 1. Засчитываем клик
     try:
         await supabase.post("/rpc/increment_twitch_redirects", json={"p_campaign_id": campaign_id})
     except:
         pass
-    
-    twitch_url = "https://www.twitch.tv/hatelove_ttv"
-    
-    # Просто заменяем заглушку в тексте на реальную ссылку
-    response_html = REDIRECT_PAGE_TEMPLATE.replace("TWITCH_URL_PLACEHOLDER", twitch_url)
-    
-    return HTMLResponse(content=response_html)
+
+    # 2. Определяем устройство
+    user_agent = request.headers.get("user-agent", "").lower()
+    is_mobile = any(word in user_agent for word in ["iphone", "android", "mobile"])
+
+    if is_mobile:
+        # 🔥 МОБИЛКА: Открываем через Лавку (Mini App)
+        # Параметр tw_{id} передастся в приложение как start_param
+        lavka_link = f"https://t.me/HATElavka_bot/app?startapp=tw_{campaign_id}"
+        return RedirectResponse(url=lavka_link)
+    else:
+        # 💻 ПК: Сразу на Twitch, без лишних окон
+        return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
 # ==========================================
 # 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
 # ==========================================
