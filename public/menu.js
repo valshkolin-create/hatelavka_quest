@@ -1349,6 +1349,7 @@ function renderItems(items) {
 
     const fragment = document.createDocumentFragment();
     let couponHeaderAdded = false;
+    let regularHeaderAdded = false; // 🔥 Флаг для разделителя основных кейсов
 
     // 🔥 РАСЧЕТ ТРАСТ-ФАКТОРА
     const trustLevel = userData.trust_level || 'gray';
@@ -1389,6 +1390,7 @@ function renderItems(items) {
         const displayPrice = originalPrice * trustMultiplier;
         const displayPriceTickets = (originalPrice * 2) * trustMultiplier;
 
+        // ЗАГОЛОВОК КУПОННЫХ КЕЙСОВ
         if (originalPrice === 9999 && !couponHeaderAdded && !item.is_folder) {
             const headerEl = document.createElement('div');
             headerEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
@@ -1399,6 +1401,19 @@ function renderItems(items) {
             `;
             fragment.appendChild(headerEl);
             couponHeaderAdded = true;
+        }
+
+        // 🔥 СТЕНА-РАЗДЕЛИТЕЛЬ ДЛЯ ОСНОВНЫХ КЕЙСОВ (без коробки)
+        if (hasFreeCoupon && originalPrice !== 9999 && !item.is_folder && !regularHeaderAdded) {
+            const sepEl = document.createElement('div');
+            sepEl.style.cssText = "grid-column: 1 / -1; margin: 30px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            sepEl.innerHTML = `
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
+                <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Основные кейсы</span>
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, rgba(255, 255, 255, 0.15));"></div>
+            `;
+            fragment.appendChild(sepEl);
+            regularHeaderAdded = true;
         }
 
         if (item.is_folder) {
