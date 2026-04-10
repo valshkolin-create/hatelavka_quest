@@ -1396,9 +1396,9 @@ function renderItems(items) {
             // 👇 Здесь поменяли 25px на 10px
             headerEl.style.cssText = "grid-column: 1 / -1; margin: 10px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
             headerEl.innerHTML = `
-                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(145, 70, 255, 0.5));"></div>
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
                 <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Купонные кейсы</span>
-                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, rgba(145, 70, 255, 0.5));"></div>
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, rgba(255, 255, 255, 0.15));"></div>
             `;
             fragment.appendChild(headerEl);
             couponHeaderAdded = true;
