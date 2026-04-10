@@ -20132,10 +20132,10 @@ REDIRECT_PAGE_TEMPLATE = """
 @app.get("/api/v1/twitch/redirect")
 async def redirect_to_twitch(
     campaign_id: int,
-    request: Request, # Добавляем request для проверки устройства
+    request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Засчитываем клик
+    # 1. Засчитываем клик в базе
     try:
         await supabase.post("/rpc/increment_twitch_redirects", json={"p_campaign_id": campaign_id})
     except:
@@ -20146,10 +20146,14 @@ async def redirect_to_twitch(
     is_mobile = any(word in user_agent for word in ["iphone", "android", "mobile"])
 
     if is_mobile:
-        # 🔥 МОБИЛКА: Открываем через Лавку (Mini App)
-        # Параметр tw_{id} передастся в приложение как start_param
-        lavka_link = f"https://t.me/HATElavka_bot/app?startapp=tw_{campaign_id}"
-        return RedirectResponse(url=lavka_link)
+        # 🔥 МОБИЛКА: Показываем страницу-переходник (Bridge Page)
+        twitch_url = "https://www.twitch.tv/hatelove_ttv"
+        
+        # Подставляем реальную ссылку в твой HTML-шаблон
+        response_html = REDIRECT_PAGE_TEMPLATE.replace("TWITCH_URL_PLACEHOLDER", twitch_url)
+        
+        # Отдаем HTML прямо в браузер
+        return HTMLResponse(content=response_html)
     else:
         # 💻 ПК: Сразу на Twitch, без лишних окон
         return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
