@@ -19821,7 +19821,7 @@ async def execute_directed_swap(
 
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -19830,7 +19830,7 @@ import httpx
 import os
 import asyncio
 import json
-import HTMLResponse
+
 
 # ==========================================
 # 1. PYDANTIC СХЕМЫ (МОДЕЛИ ДАННЫХ)
