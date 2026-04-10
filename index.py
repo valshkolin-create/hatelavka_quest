@@ -20050,113 +20050,116 @@ async def redirect_to_twitch(
 # ==========================================
 @app.get("/api/v1/twitch/fossabot_claim", response_class=PlainTextResponse)
 async def handle_fossabot_claim(
-    request: Request, # 🔥 Берем весь объект запроса для глубокого анализа
+    request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Пытаемся достать токен всеми способами
-    # Сначала из заголовков (стандарт Fossabot)
-    token = request.headers.get("x-fossabot-customapitoken")
-    
-    # Если в заголовках нет, попробуем из параметров (на всякий случай)
-    if not token:
-        token = request.query_params.get("token")
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: return "❌ Нет токена"
 
-    print(f"DEBUG: Входящий запрос! Token found: {token is not None}")
+    try:
+        # 1. Данные от Fossabot
+        async with httpx.AsyncClient() as client:
+            fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=5.0)
+        
+        fb_data = fb_res.json()
+        message_data = fb_data.get("message")
+        twitch_user = message_data["user"]["login"].lower()
+        twitch_display_name = message_data["user"]["display_name"]
+        full_message = message_data["content"]
+        print(f"DEBUG: [1] Юзер: {twitch_user}, Сообщение: {full_message}")
 
-    if not token:
-        return "DEBUG: No token provided"
+        # 2. Поиск кода
+        match = re.search(r'\b(DROP-[A-Z0-9_]+)\b', full_message.upper())
+        if not match: return ""
+        extracted_code = match.group(1)
+        print(f"DEBUG: [2] Код извлечен: {extracted_code}")
 
-    # 2. Спрашиваем контекст у Fossabot
-    async with httpx.AsyncClient() as client:
-        fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}")
-    
-    if fb_res.status_code != 200:
-        print(f"DEBUG: Fossabot API Error: {fb_res.status_code}")
-        return "" 
+        # 3. Поиск в cs_codes
+        code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
+        if code_res.status_code != 200 or not code_res.json():
+            print(f"DEBUG: [3] Код {extracted_code} НЕ НАЙДЕН в БД или не активен. Status: {code_res.status_code}")
+            return "" # Если тут ошибка, бот молчит
 
-    fb_data = fb_res.json()
-    message_data = fb_data.get("message")
-    if not message_data:
-        return ""
+        cs_code = code_res.json()[0]
+        campaign_id = cs_code.get("campaign_id")
+        print(f"DEBUG: [4] Код найден! Campaign_id: {campaign_id}")
 
-    twitch_user = message_data["user"]["login"].lower()
-    twitch_display_name = message_data["user"]["display_name"]
-    full_message = message_data["content"]
-    
-    print(f"DEBUG: Сообщение: {full_message} от {twitch_user}")
+        if not campaign_id: return "❌ В базе у кода не прописан campaign_id"
 
-    # 3. Извлекаем код
-    match = re.search(r'\b(DROP-[A-Z0-9_]+)\b', full_message.upper())
-    if not match:
-        return ""
-    
-    extracted_code = match.group(1)
+        # 4. Проверка кампании
+        camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
+        if camp_res.status_code != 200 or not camp_res.json():
+            print(f"DEBUG: [5] Кампания {campaign_id} не найдена!")
+            return ""
+        
+        campaign = camp_res.json()[0]
+        print(f"DEBUG: [6] Кампания найдена и активна: {campaign.get('is_active')}")
 
-    # 4. Поиск кода в базе
-    code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
-    if code_res.status_code != 200 or not code_res.json():
-        return "" 
+        # 5. Проверка юзера
+        user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
+        if user_res.status_code != 200 or not user_res.json():
+            print(f"DEBUG: [7] Юзер {twitch_user} не найден в таблице users!")
+            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в HATElavka_bot."
+        
+        tg_id_int = int(user_res.json()[0]["telegram_id"])
+        print(f"DEBUG: [8] Юзер найден, TG_ID: {tg_id_int}")
 
-    cs_code = code_res.json()[0]
-    campaign_id = cs_code.get("campaign_id")
+        # 6. Вызов RPC
+        print(f"DEBUG: [9] Вызываем RPC process_twitch_claim_v3...")
+        rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
+            "p_campaign_id": campaign_id,
+            "p_telegram_id": tg_id_int,
+            "p_twitch_name": twitch_display_name,
+            "p_winners_limit": campaign["winners_limit"]
+        })
+        
+        rpc_data_raw = rpc_res.json()
+        print(f"DEBUG: [10] Ответ RPC: {rpc_data_raw}")
 
-    # 5. Кампания
-    camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
-    if camp_res.status_code != 200 or not camp_res.json():
-        return ""
-    campaign = camp_res.json()[0]
+        res_data = rpc_data_raw[0] if isinstance(rpc_data_raw, list) and rpc_data_raw else rpc_data_raw
+        is_leader = res_data.get('is_leader')
+        is_winner = res_data.get('is_winner')
+        
+        print(f"DEBUG: [11] Win: {is_winner}, Leader: {is_leader}")
 
-    # 6. Юзер
-    user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
-    if user_res.status_code != 200 or not user_res.json():
-        return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в HATElavka_bot."
-    
-    tg_id_int = int(user_res.json()[0]["telegram_id"])
+        if is_winner:
+            # Обновляем активацию кода
+            activated_list = cs_code.get("activated_by_ids", []) or []
+            if str(tg_id_int) not in activated_list:
+                activated_list.append(str(tg_id_int))
+                await supabase.patch("/cs_codes", params={"code": f"eq.{extracted_code}"}, json={"activated_by_ids": activated_list})
+                print(f"DEBUG: [12] Код {extracted_code} отмечен как активированный юзером {tg_id_int}")
 
-    # 7. RPC
-    rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
-        "p_campaign_id": campaign_id,
-        "p_telegram_id": tg_id_int,
-        "p_twitch_name": twitch_display_name,
-        "p_winners_limit": campaign["winners_limit"]
-    })
-    
-    # 🔥 ФИКС: Обработка ответа RPC (список или объект)
-    rpc_data = rpc_res.json()
-    res_data = rpc_data[0] if isinstance(rpc_data, list) and rpc_data else rpc_data
+        if not is_leader:
+            print(f"DEBUG: [13] Юзер не лидер, выходим.")
+            return ""
 
-    if not res_data or res_data.get('is_duplicate'):
-        return ""
+        # 7. Сбор пачки (только для лидера)
+        print(f"DEBUG: [14] Лидер ждет пачку 2.5с...")
+        await asyncio.sleep(2.5)
 
-    is_winner = res_data.get('is_winner')
-    is_leader = res_data.get('is_leader')
-    batch_time = res_data.get('batch_time')
+        batch_clicks_res = await supabase.get("/twitch_clicks", params={"campaign_id": f"eq.{campaign_id}", "created_at": f"gte.{res_data['batch_time']}"})
+        clicks_data = batch_clicks_res.json() if batch_clicks_res.status_code == 200 else []
+        print(f"DEBUG: [15] Собрано кликов: {len(clicks_data)}")
 
-    if is_winner:
-        # Уведомление
-        await create_in_app_notification(
-            supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
-            message=f"Бесплатное открытие для «{campaign['target_case_name']}» уже ждет тебя!", notif_type="system" 
-        )
+        winners = list(set([c['twitch_name'] for c in clicks_data if c['is_winner']]))
+        losers = list(set([c['twitch_name'] for c in clicks_data if not c['is_winner']]))
 
-    if not is_leader:
-        return ""
+        msg_parts = []
+        if winners:
+            w_text = ", ".join([f"@{w}" for w in winners])
+            msg_parts.append(campaign["success_msg"].replace("{users}", w_text).replace("{case}", campaign['target_case_name']))
+        if losers:
+            l_text = ", ".join([f"@{l}" for l in losers])
+            msg_parts.append(campaign["fail_msg"].replace("{users}", l_text))
 
-    # 8. Финал (Лидер)
-    await asyncio.sleep(2.5)
-    batch_clicks = await supabase.get("/twitch_clicks", params={"campaign_id": f"eq.{campaign_id}", "created_at": f"gte.{batch_time}"})
-    clicks_data = batch_clicks.json() if batch_clicks.status_code == 200 else []
+        final_msg = " | ".join(msg_parts)
+        print(f"DEBUG: [16] ИТОГОВЫЙ ОТВЕТ: {final_msg}")
+        return final_msg
 
-    winners = list(set([c['twitch_name'] for c in clicks_data if c['is_winner']]))
-    losers = list(set([c['twitch_name'] for c in clicks_data if not c['is_winner']]))
-
-    msg_parts = []
-    if winners:
-        msg_parts.append(campaign["success_msg"].replace("{users}", ", ".join([f"@{w}" for w in winners])).replace("{case}", campaign['target_case_name']))
-    if losers:
-        msg_parts.append(campaign["fail_msg"].replace("{users}", ", ".join([f"@{l}" for l in losers])))
-
-    return " | ".join(msg_parts)
+    except Exception as e:
+        print(f"DEBUG: [ERROR] Крит: {str(e)}")
+        return f"⚠️ Системная ошибка: {str(e)}"
     
 # ==========================================
 # 7. СТАТИСТИКА (АДМИНКА)
