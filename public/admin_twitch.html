@@ -12,103 +12,189 @@
         :root {
             --bg-color: #0a0a0c;
             --card-bg: #1c1c1e;
-            --primary: #9146FF;
+            --primary: #9146FF; /* Twitch color */
             --primary-hover: #7a38d6;
             --text-main: #ffffff;
             --text-muted: #aaaaaa;
             --border-color: rgba(255, 255, 255, 0.08);
+            --danger: #ff4d4d;
+            --success: #28a745;
         }
 
         body {
             background-color: var(--bg-color); color: var(--text-main);
             font-family: 'Montserrat', -apple-system, sans-serif;
-            margin: 0; padding: 20px; padding-bottom: 60px;
+            margin: 0;
+            /* Адаптация под челку и системные шторки */
+            padding: calc(env(safe-area-inset-top) + 15px) 
+                     calc(env(safe-area-inset-right) + 15px) 
+                     calc(env(safe-area-inset-bottom) + 15px) 
+                     calc(env(safe-area-inset-left) + 15px);
+            box-sizing: border-box;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Выключаем прокрутку всего body */
         }
 
         /* Header */
-        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; flex-shrink: 0; }
         .back-button { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
         .page-title { font-size: 18px; font-weight: 800; margin: 0; color: var(--primary); display: flex; align-items: center; gap: 8px; }
 
-        /* Cards */
-        .admin-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+        /* Tabs (Вкладки) */
+        .tabs { display: flex; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 4px; margin-bottom: 15px; flex-shrink: 0; }
+        .tab-btn { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text-muted); background: none; border: none; border-radius: 10px; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         
+        /* Content Areas */
+        .tab-content { display: none; flex: 1; overflow-y: auto; padding-bottom: 20px; }
+        .tab-content.active { display: block; }
+        
+        /* Скрываем скроллбар для красоты, но оставляем прокрутку внутри таба */
+        .tab-content::-webkit-scrollbar { width: 0; }
+
         /* Form */
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
-        .form-group input, .form-group textarea {
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 700; text-transform: uppercase; }
+        .form-group input, .form-group textarea, .form-group select {
             width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color);
-            color: var(--text-main); padding: 14px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.3s;
+            color: var(--text-main); padding: 12px; border-radius: 10px; font-size: 13px; outline: none; transition: 0.3s;
+            font-family: inherit;
         }
-        .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); background: rgba(145, 70, 255, 0.05); }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--primary); background: rgba(145, 70, 255, 0.05); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        /* Toggle Switch */
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 12px;}
+        .toggle-switch { position: relative; width: 42px; height: 24px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #39393d; transition: .3s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(18px); }
 
         /* Buttons */
         .btn-submit {
-            background: var(--primary); color: #fff; border: none; padding: 16px; width: 100%;
-            border-radius: 14px; font-size: 15px; font-weight: 800; cursor: pointer; text-transform: uppercase;
-            display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px;
+            background: var(--primary); color: #fff; border: none; padding: 14px; width: 100%;
+            border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase;
+            display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 5px;
         }
         .btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
 
         /* Stats Box */
-        .stats-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; margin-top: 15px; border-left: 3px solid var(--primary); }
+        .stats-box { background: var(--card-bg); padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 3px solid var(--primary); border: 1px solid var(--border-color); }
         .stats-box.disabled { opacity: 0.6; border-left-color: #555; }
-        .camp-title { font-weight: bold; margin-bottom: 10px; font-size: 15px; }
-        .stat-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+        .camp-title { font-weight: bold; margin-bottom: 10px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
         .stat-val { color: #fff; font-weight: bold; }
-        .btn-stop { background: rgba(255, 77, 77, 0.15); color: #ff4d4d; border: 1px solid rgba(255, 77, 77, 0.3); padding: 10px; border-radius: 10px; width: 100%; margin-top: 12px; font-weight: bold; cursor: pointer; }
         
-        /* Кнопка ТЕСТ */
-        .btn-test { background: rgba(145, 70, 255, 0.15); color: #9146FF; border: 1px solid rgba(145, 70, 255, 0.3); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; gap: 5px; align-items: center; font-size: 12px; }
+        .btn-group-card { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+        .btn-card { padding: 10px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; text-align: center; border: none; text-transform: uppercase; }
+        .btn-edit { background: rgba(145, 70, 255, 0.15); color: var(--primary); border: 1px solid rgba(145, 70, 255, 0.3); }
+        .btn-stop { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: 0.2s; backdrop-filter: blur(5px); }
+        .modal-active { opacity: 1; visibility: visible; }
+        .modal-content { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; width: 100%; padding: 20px; transform: scale(0.95); transition: 0.2s; }
+        .modal-active .modal-content { transform: scale(1); }
     </style>
 </head>
 <body>
 
     <div class="page-header">
         <a href="/admin" class="back-button"><i class="fa-solid fa-arrow-left"></i> Назад</a>
-        <h1 class="page-title"><i class="fa-brands fa-twitch"></i> Twitch Drops</h1>
-        <button class="btn-test" onclick="window.location.href='/twitch_drop.html?start_param=tw_test'"><i class="fa-solid fa-eye"></i> Тест</button>
+        <h1 class="page-title"><i class="fa-brands fa-twitch"></i> Drops</h1>
+        <div style="width: 50px;"></div> </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('create')"><i class="fa-solid fa-plus"></i> Создать</button>
+        <button class="tab-btn" onclick="switchTab('manage')"><i class="fa-solid fa-list-check"></i> Управление</button>
     </div>
 
-    <div class="admin-card">
-        <div class="form-group">
-            <label>Название (для админки)</label>
-            <input type="text" id="inp-title" placeholder="Стрим 15.05 Вечер" autocomplete="off">
+    <div id="tab-create" class="tab-content active">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Название (для админа)</label>
+                <input type="text" id="inp-title" placeholder="Стрим 15.05" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Код на стриме</label>
+                <input type="text" id="inp-code" placeholder="DROP-WINTER" autocomplete="off" style="text-transform: uppercase;">
+            </div>
         </div>
+
         <div class="form-group">
-            <label>Текст поста в TG</label>
-            <textarea id="inp-text" rows="3" placeholder="Первые 10 заберут кейс!"></textarea>
+            <label>Приз (Из кэша магазина)</label>
+            <select id="inp-case">
+                <option value="">Загрузка кейсов...</option>
+            </select>
         </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Лимит победителей</label>
+                <input type="number" id="inp-limit" value="10" min="1">
+            </div>
+            <div class="form-group">
+                <label>Жизнь кода (часы)</label>
+                <input type="number" id="inp-ttl" value="4" min="1">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Сообщение: Победа <span>{case} {users}</span></label>
+                <input type="text" id="inp-success" value="🎉 {case} улетает к: {users}!" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Сообщение: Билеты <span>{users}</span></label>
+                <input type="text" id="inp-fail" value="🎫 Утешительные 5 билетов получают: {users}" autocomplete="off">
+            </div>
+        </div>
+
         <div class="form-group">
             <label>Ссылка на картинку (URL)</label>
             <input type="url" id="inp-image" placeholder="https://..." autocomplete="off">
         </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Сколько кейсов?</label>
-                <input type="number" id="inp-limit" value="10" min="1">
-            </div>
-            <div class="form-group">
-                <label>Жизнь ссылки (часы)</label>
-                <input type="number" id="inp-ttl" value="4" min="1">
-            </div>
-        </div>
+
         <div class="form-group">
-            <label>Точное название кейса</label>
-            <input type="text" id="inp-case" placeholder="Кейс | Лентяй" autocomplete="off">
+            <label>Текст поста в TG</label>
+            <textarea id="inp-text" rows="2" placeholder="Залетайте на стрим!"></textarea>
         </div>
+
+        <div class="toggle-row">
+            <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">Тихий режим (Без поста)</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="inp-silent">
+                <span class="slider"></span>
+            </label>
+        </div>
+
         <button class="btn-submit" id="btn-create" onclick="createCampaign()">
             <i class="fa-solid fa-rocket"></i> Запустить Дроп
         </button>
     </div>
 
-    <div class="admin-card">
-        <h2 style="font-size: 16px; margin: 0 0 15px 0; color: var(--primary);">
-            <i class="fa-solid fa-chart-simple"></i> Статистика раздач
-        </h2>
+    <div id="tab-manage" class="tab-content">
         <div id="stats-container">
-            <p style="text-align: center; color: #777; font-size: 13px;">Загрузка данных...</p>
+            <div style="text-align:center; padding: 20px; color: var(--text-muted);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка статистики...
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-edit" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; color: var(--primary);"><i class="fa-solid fa-pen"></i> Изменить пост ТГ</h3>
+            <input type="hidden" id="edit-camp-id">
+            <div class="form-group">
+                <label>Новый текст поста</label>
+                <textarea id="edit-post-text" rows="5"></textarea>
+            </div>
+            <button class="btn-submit" id="btn-save-edit" onclick="submitEdit()">Сохранить изменения</button>
+            <button class="btn-submit" style="background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); margin-top: 10px;" onclick="closeModal()">Отмена</button>
         </div>
     </div>
 
@@ -116,24 +202,77 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        // Инициализация
+        document.addEventListener("DOMContentLoaded", () => {
+            loadCases();
+            loadStats();
+        });
+
+        // Переключение табов
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+            tg.HapticFeedback.impactOccurred('light');
+
+            if(tabId === 'manage') loadStats();
+        }
+
+        // 1. Загрузка кейсов из кэша
+        async function loadCases() {
+            const select = document.getElementById('inp-case');
+            try {
+                const res = await fetch(`/api/v1/admin/twitch_campaigns/cases?initData=${encodeURIComponent(tg.initData)}`);
+                if (!res.ok) throw new Error();
+                const cases = await res.json();
+                
+                select.innerHTML = '';
+                if(cases.length === 0) {
+                    select.innerHTML = '<option value="">Кейсы не найдены в кэше</option>';
+                    return;
+                }
+                cases.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.name;
+                    opt.textContent = c.name;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                select.innerHTML = '<option value="">Ошибка загрузки кэша</option>';
+            }
+        }
+
+        // 2. Создание кампании
         async function createCampaign() {
             const title = document.getElementById('inp-title').value.trim();
+            const customCode = document.getElementById('inp-code').value.trim();
+            const caseName = document.getElementById('inp-case').value.trim();
             const text = document.getElementById('inp-text').value.trim();
             const image = document.getElementById('inp-image').value.trim();
-            const caseName = document.getElementById('inp-case').value.trim();
 
-            if (!title || !text || !image || !caseName) {
+            if (!title || !customCode || !caseName || (!text && !document.getElementById('inp-silent').checked) || !image) {
                 tg.HapticFeedback.notificationOccurred('warning');
-                tg.showAlert("Заполните все поля!"); return;
+                tg.showAlert("Заполните основные поля!"); return;
             }
 
             const btn = document.getElementById('btn-create');
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Запуск...'; btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Запуск...'; 
+            btn.disabled = true;
 
             const payload = {
-                initData: tg.initData, title: title, post_text: text, image_url: image,
+                initData: tg.initData, 
+                title: title, 
+                post_text: text || " ", 
+                image_url: image,
                 winners_limit: parseInt(document.getElementById('inp-limit').value),
-                ttl_hours: parseInt(document.getElementById('inp-ttl').value), target_case_name: caseName
+                ttl_hours: parseInt(document.getElementById('inp-ttl').value), 
+                target_case_name: caseName,
+                custom_code: customCode,
+                success_msg: document.getElementById('inp-success').value,
+                fail_msg: document.getElementById('inp-fail').value,
+                is_silent: document.getElementById('inp-silent').checked
             };
 
             try {
@@ -144,16 +283,22 @@
                 if (res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.showAlert(data.message);
+                    // Очистка формы
                     document.getElementById('inp-title').value = '';
+                    document.getElementById('inp-code').value = '';
                     document.getElementById('inp-text').value = '';
-                    loadStats(); 
+                    switchTab('manage'); // Переключаем на управление
                 } else {
                     tg.showAlert(data.detail || "Ошибка");
                 }
             } catch (e) { tg.showAlert("Сбой сети"); } 
-            finally { btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Запустить Дроп'; btn.disabled = false; }
+            finally { 
+                btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Запустить Дроп'; 
+                btn.disabled = false; 
+            }
         }
 
+        // 3. Загрузка статистики
         async function loadStats() {
             try {
                 const res = await fetch('/api/v1/admin/twitch_campaigns/list', {
@@ -164,27 +309,35 @@
                 const cont = document.getElementById('stats-container');
                 cont.innerHTML = '';
                 
-                if(!list.length) { cont.innerHTML = '<p style="color:#777; font-size: 13px; text-align: center;">Пока нет раздач</p>'; return; }
+                if(!list.length) { cont.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">Пока нет раздач</div>'; return; }
 
                 list.forEach(c => {
                     const st = c.stats;
                     const isActive = c.is_active;
-                    const statusHtml = isActive ? '<span style="color:#28a745">Активно</span>' : '<span style="color:#ff4d4d">Завершено</span>';
-
+                    const statusHtml = isActive ? '<span style="color:var(--success)">АКТИВНО</span>' : '<span style="color:var(--danger)">ЗАВЕРШЕНО</span>';
+                    
                     cont.innerHTML += `
                     <div class="stats-box ${isActive ? '' : 'disabled'}">
-                        <div class="camp-title">${c.title} (${statusHtml})</div>
-                        <div class="stat-row"><span>Всего переходов:</span> <span class="stat-val">${st.total_clicks}</span></div>
-                        <div class="stat-row"><span>Выдано кейсов:</span> <span class="stat-val" style="color: ${isActive ? 'var(--primary)' : '#fff'}">${st.winners} / ${c.winners_limit}</span></div>
+                        <div class="camp-title">${c.title} <span style="font-size:10px;">${statusHtml}</span></div>
+                        <div class="stat-row"><span>Переходов на Твич:</span> <span class="stat-val">${st.stream_redirects || 0}</span></div>
+                        <div class="stat-row"><span>Всего введено кодов:</span> <span class="stat-val">${st.total_claims}</span></div>
+                        <div class="stat-row"><span>Кейсов выдано:</span> <span class="stat-val" style="color: ${isActive ? 'var(--primary)' : '#fff'}">${st.winners} / ${c.winners_limit}</span></div>
                         <div class="stat-row"><span>Утешительных билетов:</span> <span class="stat-val">${st.tickets_given}</span></div>
-                        ${isActive ? `<button class="btn-stop" onclick="stopCamp(${c.id})"><i class="fa-solid fa-stop"></i> Остановить раздачу</button>` : ''}
+                        
+                        ${isActive ? `
+                        <div class="btn-group-card">
+                            <button class="btn-card btn-edit" onclick="openModal(${c.id}, \`${(c.post_text || '').replace(/"/g, '&quot;')}\`)"><i class="fa-solid fa-pen"></i> Текст ТГ</button>
+                            <button class="btn-card btn-stop" onclick="stopCamp(${c.id})"><i class="fa-solid fa-stop"></i> Остановка</button>
+                        </div>
+                        ` : ''}
                     </div>`;
                 });
-            } catch (e) { document.getElementById('stats-container').innerHTML = '<p style="color:red; text-align:center;">Ошибка загрузки</p>'; }
+            } catch (e) { document.getElementById('stats-container').innerHTML = '<div style="text-align:center; color:red; padding:20px;">Ошибка загрузки</div>'; }
         }
 
+        // 4. Остановка
         async function stopCamp(id) {
-            tg.showConfirm("Точно остановить эту раздачу досрочно?", async (confirm) => {
+            tg.showConfirm("Досрочно остановить раздачу?", async (confirm) => {
                 if(!confirm) return;
                 try {
                     await fetch('/api/v1/admin/twitch_campaigns/stop', {
@@ -197,7 +350,41 @@
             });
         }
 
-        loadStats();
+        // 5. Модалка редактирования
+        function openModal(id, text) {
+            document.getElementById('edit-camp-id').value = id;
+            document.getElementById('edit-post-text').value = text;
+            document.getElementById('modal-edit').classList.add('modal-active');
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-edit').classList.remove('modal-active');
+        }
+
+        async function submitEdit() {
+            const id = document.getElementById('edit-camp-id').value;
+            const newText = document.getElementById('edit-post-text').value.trim();
+            const btn = document.getElementById('btn-save-edit');
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохраняем...'; btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/v1/admin/twitch_campaigns/edit_post', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({initData: tg.initData, campaign_id: parseInt(id), new_post_text: newText})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    closeModal();
+                    loadStats(); // Перезагружаем, чтобы обновился текст в кнопке
+                } else {
+                    tg.showAlert(data.message || "Ошибка");
+                }
+            } catch(e) { tg.showAlert("Сбой сети"); }
+            finally { btn.innerHTML = 'Сохранить изменения'; btn.disabled = false; }
+        }
     </script>
 </body>
 </html>
