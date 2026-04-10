@@ -19814,14 +19814,21 @@ async def execute_directed_swap(
         }
     }
 
-# Модель для создания кампании из админки
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from typing import List import Optional  # 🔥 ДОБАВЛЕН ИМПОРТ ДЛЯ LIST
+import httpx
+import os
+import asyncio
+import json # 🔥 ДОБАВЛЕН ИМПОРТ ДЛЯ ПАРСИНГА КЭША
 
 # ==========================================
 # 1. PYDANTIC СХЕМЫ (МОДЕЛИ ДАННЫХ)
 # ==========================================
-
 class TwitchCampaignCreate(BaseModel):
     initData: str
     title: str
@@ -19829,11 +19836,11 @@ class TwitchCampaignCreate(BaseModel):
     image_url: str
     winners_limit: int
     target_case_name: str
-    ttl_hours: int = 4  # Время жизни ссылки в часах (по умолчанию 2)
-
-class TwitchClickRequest(BaseModel):
-    initData: str
-    campaign_id: int
+    ttl_hours: int = 4
+    custom_code: str  
+    success_msg: str = "🎉 {case} улетает к: {users}!"  
+    fail_msg: str = "🎫 Утешительные 5 билетов получают: {users}"
+    is_silent: bool = False
 
 class TwitchAdminRequest(BaseModel):
     initData: str
@@ -19842,7 +19849,47 @@ class TwitchCampaignActionRequest(BaseModel):
     initData: str
     campaign_id: int
 
+class TwitchCampaignEditRequest(BaseModel):
+    initData: str
+    campaign_id: int
+    new_post_text: str  
 
+class CaseInfo(BaseModel):
+    name: str
+
+# ==========================================
+# 2. ПОЛУЧЕНИЕ НАЗВАНИЙ КЕЙСОВ (ИЗ КЭША)
+# ==========================================
+@app.get("/api/v1/admin/twitch_campaigns/cases", response_model=List[CaseInfo])
+async def get_available_cases(
+    initData: str = Query(..., description="Авторизация админа"),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Возвращает список названий всех кейсов для выпадающего меню в админке"""
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    cache_res = await supabase.get(
+        "/shop_cache", 
+        params={"category_id": "eq.2716312", "select": "data"} 
+    )
+    
+    if cache_res.status_code != 200 or not cache_res.json():
+        return [] 
+
+    try:
+        row = cache_res.json()[0]
+        cases_data = json.loads(row["data"]) 
+        case_names = [{"name": case["name"]} for case in cases_data]
+        return case_names
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        print(f"Ошибка парсинга кэша: {e}")
+        return []
+
+# ==========================================
+# 3. СОЗДАНИЕ И ПУБЛИКАЦИЯ
+# ==========================================
 @app.post("/api/v1/admin/twitch_campaigns/create")
 async def create_twitch_campaign(
     req: TwitchCampaignCreate,
@@ -19852,11 +19899,30 @@ async def create_twitch_campaign(
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    unique_code = f"TW_{uuid.uuid4().hex[:6].upper()}"
+    unique_code = req.custom_code.strip().upper()
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=req.ttl_hours)
 
-    # 1. Сохраняем код
+    campaign_data = {
+        "title": req.title,
+        "post_text": req.post_text,
+        "image_url": req.image_url,
+        "winners_limit": req.winners_limit,
+        "is_active": True,
+        "expires_at": expires_at.isoformat(),
+        "target_case_name": req.target_case_name,
+        "success_msg": req.success_msg,
+        "fail_msg": req.fail_msg,
+        "redirect_clicks": 0
+    }
+    camp_res = await supabase.post("/twitch_campaigns", json=campaign_data, headers={"Prefer": "return=representation"})
+    if camp_res.status_code not in (200, 201):
+        raise HTTPException(status_code=500, detail="Ошибка БД кампании")
+        
+    campaign_id = camp_res.json()[0]["id"]
+
     code_data = {
         "code": unique_code,
+        "campaign_id": campaign_id,  
         "max_uses": req.winners_limit,
         "current_uses": 0,
         "is_active": True,
@@ -19865,69 +19931,214 @@ async def create_twitch_campaign(
         "used_by_ids": [],
         "activated_by_ids": []
     }
-    
-    # Рекомендую тоже проверять ответ от создания кода
-    code_res = await supabase.post("/cs_codes", json=code_data, headers={"Prefer": "return=representation"})
+    code_res = await supabase.post("/cs_codes", json=code_data)
     if code_res.status_code not in (200, 201):
-        print(f"[Supabase Error] Не удалось создать код: {code_res.text}")
+        raise HTTPException(status_code=500, detail="Ошибка создания кода")
 
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=req.ttl_hours)
+    if req.is_silent:
+        return {"status": "success", "message": f"ТИХИЙ ТЕСТ: Кампания {campaign_id} создана. Код '{unique_code}' активен!"}
 
-    # 2. Сохраняем кампанию
-    campaign_data = {
-        "title": req.title,
-        "post_text": req.post_text,
-        "image_url": req.image_url,
-        "winners_limit": req.winners_limit,
-        "is_active": True,
-        "expires_at": expires_at.isoformat(),
-        "target_case_name": req.target_case_name
-    }
-    
-    camp_res = await supabase.post("/twitch_campaigns", json=campaign_data, headers={"Prefer": "return=representation"})
-    
-    # БЕЗОПАСНАЯ проверка ответа БД
-    if camp_res.status_code not in (200, 201):
-        error_msg = camp_res.text # Вытягиваем текст ошибки
-        print(f"[Supabase Error] Ошибка сохранения кампании: HTTP {camp_res.status_code} - {error_msg}")
-        raise HTTPException(status_code=500, detail=f"Ошибка БД: {error_msg}")
-        
-    try:
-        camp_json = camp_res.json()
-        if not camp_json or not isinstance(camp_json, list):
-            raise ValueError(f"Неожиданный ответ от БД: {camp_json}")
-        campaign_id = camp_json[0]["id"]
-    except Exception as e:
-        print(f"[JSON Error] Ошибка парсинга ответа: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка обработки ответа от БД")
-
-    # 3. Публикация в ТГ
     CHANNEL_ID = os.getenv("CHANNEL_ID", "@hatelove_ttv")
-
-    mini_app_link = f"https://t.me/HATElavka_bot/twitch?startapp=tw_{campaign_id}_{unique_code}"
+    WEB_APP_URL = os.getenv("WEB_APP_URL", "https://hatelavka-quest.vercel.app").rstrip("/")
     
+    tracking_link = f"{WEB_APP_URL}/api/v1/twitch/redirect?campaign_id={campaign_id}"
+    mini_app_link = "https://t.me/HATElavka_bot/app" 
+
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Забрать кейс и на Твич! 🚀", url=mini_app_link)]
+            [InlineKeyboardButton(text="Смотреть стрим 📺", url=tracking_link)],
+            [InlineKeyboardButton(text="ПЕРЕЙТИ К ОТКРЫТИЮ 📦", url=mini_app_link)]
         ]
     )
 
+    full_post_text = (
+        f"{req.post_text}\n\n"
+        f"🎁 Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n"
+        f"🎫 Остальные участники получат по <b>5 билетов</b>.\n\n"
+        f"🔥 Код: <b>{unique_code}</b>"
+    )
+
     try:
-        # Убедитесь, что объект bot доступен в этой области видимости
-        await bot.send_photo(
-            chat_id=CHANNEL_ID,
-            photo=req.image_url,
-            caption=req.post_text,
-            reply_markup=keyboard,
-            parse_mode="HTML"
+        sent_message = await bot.send_photo(
+            chat_id=CHANNEL_ID, photo=req.image_url,
+            caption=full_post_text, reply_markup=keyboard, parse_mode="HTML"
         )
+        await supabase.patch("/twitch_campaigns", params={"id": f"eq.{campaign_id}"}, json={"tg_message_id": sent_message.message_id})
     except Exception as e:
-        print(f"[Telegram Error] Ошибка публикации поста в ТГ: {e}")
-        return {"status": "warning", "message": f"Кампания создана (ID: {campaign_id}), но пост не отправлен: {e}"}
+        return {"status": "warning", "message": f"Создано, но пост не вышел: {e}"}
 
-    return {"status": "success", "message": "Кампания создана, пост успешно опубликован!"}
+    return {"status": "success", "message": "Раздача запущена!"}
 
+# ==========================================
+# 4. РЕДАКТИРОВАНИЕ ПОСТА
+# ==========================================
+@app.post("/api/v1/admin/twitch_campaigns/edit_post")
+async def edit_twitch_campaign_post(
+    req: TwitchCampaignEditRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
 
+    camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{req.campaign_id}"})
+    if camp_res.status_code != 200 or not camp_res.json():
+        raise HTTPException(status_code=404, detail="Кампания не найдена")
+    
+    campaign = camp_res.json()[0]
+    tg_message_id = campaign.get("tg_message_id")
+    
+    if not tg_message_id:
+        return {"status": "error", "message": "Нет поста в ТГ (тихий тест)."}
+
+    code_res = await supabase.get("/cs_codes", params={"campaign_id": f"eq.{req.campaign_id}"})
+    unique_code = code_res.json()[0]["code"] if (code_res.status_code == 200 and code_res.json()) else "СЕКРЕТ"
+
+    full_new_text = (
+        f"{req.new_post_text}\n\n"
+        f"🎁 Первые <b>{campaign['winners_limit']}</b> зрителей, кто напишет код на стриме, получат <b>«{campaign['target_case_name']}»</b>!\n"
+        f"🎫 Остальные участники получат по <b>5 билетов</b>.\n\n"
+        f"🔥 Код: <b>{unique_code}</b>"
+    )
+
+    WEB_APP_URL = os.getenv("WEB_APP_URL", "https://hatelavka-quest.vercel.app").rstrip("/")
+    tracking_link = f"{WEB_APP_URL}/api/v1/twitch/redirect?campaign_id={req.campaign_id}"
+    mini_app_link = "https://t.me/HATElavka_bot/app" 
+    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Смотреть стрим 📺", url=tracking_link)],
+            [InlineKeyboardButton(text="ПЕРЕЙТИ К ОТКРЫТИЮ 📦", url=mini_app_link)]
+        ]
+    )
+
+    CHANNEL_ID = os.getenv("CHANNEL_ID", "@hatelove_ttv")
+    try:
+        await bot.edit_message_caption(
+            chat_id=CHANNEL_ID, message_id=tg_message_id,
+            caption=full_new_text, reply_markup=keyboard, parse_mode="HTML"
+        )
+        await supabase.patch("/twitch_campaigns", params={"id": f"eq.{req.campaign_id}"}, json={"post_text": req.new_post_text})
+    except Exception as e:
+        return {"status": "error", "message": f"Ошибка редактирования в ТГ: {e}"}
+
+    return {"status": "success", "message": "Текст поста обновлен!"}
+
+# ==========================================
+# 5. ПЕРЕНАПРАВЛЕНИЕ (КНОПКА СТРИМА)
+# ==========================================
+@app.get("/api/v1/twitch/redirect")
+async def redirect_to_twitch(
+    campaign_id: int,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    await supabase.post("/rpc/increment_twitch_redirects", json={"p_campaign_id": campaign_id})
+    return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
+
+# ==========================================
+# 6. FOSSABOT (ПРИЕМ КОДОВ ИЗ ЧАТА С ГРУППИРОВКОЙ)
+# ==========================================
+@app.get("/api/v1/twitch/fossabot_claim", response_class=PlainTextResponse)
+async def handle_fossabot_claim(
+    token: str = Query(...),
+    code: str = Query(...),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    code = code.strip().upper()
+
+    async with httpx.AsyncClient() as client:
+        fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}")
+    if fb_res.status_code != 200:
+        return "" 
+
+    fb_data = fb_res.json()
+    if not fb_data.get("message"):
+        return ""
+        
+    twitch_user = fb_data["message"]["user"]["login"].lower()
+    twitch_display_name = fb_data["message"]["user"]["display_name"]
+
+    code_res = await supabase.get("/cs_codes", params={"code": f"eq.{code}", "is_active": "is.true"})
+    if code_res.status_code != 200 or not code_res.json():
+        return "" 
+
+    cs_code = code_res.json()[0]
+    target_case = cs_code.get("target_case_name", "Секретный кейс")
+    campaign_id = cs_code.get("campaign_id")
+
+    if not campaign_id:
+        return ""
+
+    camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
+    if camp_res.status_code != 200 or not camp_res.json():
+        return ""
+        
+    campaign = camp_res.json()[0]
+    if not campaign.get("is_active"):
+        return ""
+
+    user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
+    if user_res.status_code != 200 or not user_res.json():
+        return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в HATElavka_bot."
+    
+    tg_id_int = int(user_res.json()[0]["telegram_id"])
+
+    rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
+        "p_campaign_id": campaign_id,
+        "p_telegram_id": tg_id_int,
+        "p_twitch_name": twitch_display_name,
+        "p_winners_limit": campaign["winners_limit"]
+    })
+    
+    if rpc_res.status_code != 200:
+        return "" 
+
+    data = rpc_res.json()
+    if data.get('is_duplicate'):
+        return ""
+
+    is_winner = data['is_winner']
+    is_leader = data['is_leader']
+    batch_time = data['batch_time']
+
+    if is_winner:
+        activated_list = cs_code.get("activated_by_ids", []) or []
+        if str(tg_id_int) not in activated_list:
+            activated_list.append(str(tg_id_int))
+            await supabase.patch("/cs_codes", params={"code": f"eq.{code}"}, json={"activated_by_ids": activated_list})
+        
+        await create_in_app_notification(
+            supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
+            message=f"Бесплатное открытие для «{target_case}» уже ждет тебя!", notif_type="system" 
+        )
+
+    if not is_leader:
+        return ""
+
+    await asyncio.sleep(2.5)
+
+    batch_clicks = await supabase.get(
+        "/twitch_clicks", 
+        params={"campaign_id": f"eq.{campaign_id}", "created_at": f"gte.{batch_time}"}
+    )
+    clicks_data = batch_clicks.json() if batch_clicks.status_code == 200 else []
+
+    winners = list(set([c['twitch_name'] for c in clicks_data if c['is_winner']]))
+    losers = list(set([c['twitch_name'] for c in clicks_data if not c['is_winner']]))
+
+    msg_parts = []
+    if winners:
+        w_text = ", ".join([f"@{w}" for w in winners])
+        msg_parts.append(campaign["success_msg"].replace("{users}", w_text).replace("{case}", target_case))
+    if losers:
+        l_text = ", ".join([f"@{l}" for l in losers])
+        msg_parts.append(campaign["fail_msg"].replace("{users}", l_text))
+
+    return " | ".join(msg_parts)
+
+# ==========================================
+# 7. СТАТИСТИКА (АДМИНКА)
+# ==========================================
 @app.post("/api/v1/admin/twitch_campaigns/list")
 async def get_twitch_campaigns_list(
     req: TwitchAdminRequest,
@@ -19943,36 +20154,26 @@ async def get_twitch_campaigns_list(
     results = []
     for camp in campaigns:
         camp_id = camp["id"]
-        
-        # Получаем все клики для этой кампании
         clicks_res = await supabase.get("/twitch_clicks", params={"campaign_id": f"eq.{camp_id}", "select": "id,is_winner"})
         clicks_data = clicks_res.json() if clicks_res.status_code == 200 else []
         
         total_clicks = len(clicks_data)
         total_winners = len([c for c in clicks_data if c.get("is_winner")])
-        
         losers = total_clicks - total_winners
-        tickets_given = losers * 5
         
         camp["stats"] = {
-            "total_clicks": total_clicks,
+            "stream_redirects": camp.get("redirect_clicks", 0),
+            "total_claims": total_clicks,
             "winners": total_winners,
-            "tickets_given": tickets_given
+            "tickets_given": losers * 5
         }
-        
-        # 🔥 ВОТ ЗДЕСЬ МЫ УБРАЛИ АВТО-ОТКЛЮЧЕНИЕ 🔥
-        # Теперь кампания не будет менять is_active на False, когда кейсы закончатся.
-        # Она закроется только по таймеру (expires_at) из другой функции.
-        #
-        # if total_winners >= camp["winners_limit"] and camp.get("is_active"):
-        #     camp["is_active"] = False
-        #     await supabase.patch("/twitch_campaigns", params={"id": f"eq.{camp_id}"}, json={"is_active": False})
-
         results.append(camp)
 
     return results
 
-
+# ==========================================
+# 8. ОСТАНОВКА (АДМИНКА)
+# ==========================================
 @app.post("/api/v1/admin/twitch_campaigns/stop")
 async def stop_twitch_campaign(
     req: TwitchCampaignActionRequest,
@@ -19983,160 +20184,10 @@ async def stop_twitch_campaign(
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     res = await supabase.patch("/twitch_campaigns", params={"id": f"eq.{req.campaign_id}"}, json={"is_active": False}, headers={"Prefer": "return=representation"})
-    
     if res.status_code not in (200, 204) or not res.json():
         raise HTTPException(status_code=404, detail="Кампания не найдена")
         
-    return {"status": "success", "message": "Раздача успешно остановлена!"}
-
-@app.get("/api/v1/twitch/campaign_info/{campaign_id}")
-async def get_campaign_info(
-    campaign_id: int,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """Отдает фронтенду инфу о призе до клика"""
-    # 1. Получаем кампанию
-    camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
-    if camp_res.status_code != 200 or not camp_res.json():
-        raise HTTPException(status_code=404, detail="Кампания не найдена")
-    
-    camp = camp_res.json()[0]
-    
-    # 2. 🔥 ДОСТАЕМ НАЗВАНИЕ ИЗ КОДА 🔥
-    desc_search = f"Авто-код Twitch: {camp['title']}"
-    code_res = await supabase.get("/cs_codes", params={"description": f"eq.{desc_search}"})
-    
-    target_case_name = "Секретный кейс"
-    if code_res.status_code == 200 and code_res.json():
-        target_case_name = code_res.json()[0].get("target_case_name", "Секретный кейс")
-
-    return {
-        "target_case_name": target_case_name,
-        "winners_limit": camp.get("winners_limit", 0)
-    }
-    
-@app.post("/api/v1/twitch/click")
-async def handle_twitch_click(
-    req: TwitchClickRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info:
-        raise HTTPException(status_code=401, detail="Не авторизован")
-    
-    tg_id_int = int(user_info['id'])
-    tg_id_str = str(user_info['id']) 
-
-    # Проверка на дубликаты
-    check_click = await supabase.get("/twitch_clicks", params={"campaign_id": f"eq.{req.campaign_id}", "telegram_id": f"eq.{tg_id_int}"})
-    if check_click.status_code == 200 and check_click.json():
-        return {
-            "status": "already_clicked", 
-            "message": "Ты уже забрал свою награду за этот переход! Приятного просмотра!",
-            "twitch_url": "https://www.twitch.tv/hatelove_ttv"
-        }
-
-    # Достаем кампанию
-    camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{req.campaign_id}"})
-    if camp_res.status_code != 200 or not camp_res.json():
-        raise HTTPException(status_code=404, detail="Раздача не найдена")
-        
-    campaign = camp_res.json()[0]
-
-    # 🔥 ИСПРАВЛЕНИЕ 1: Отдаем красивый JSON вместо жесткой ошибки, если кампания выключена
-    if not campaign.get("is_active"):
-        return {
-            "status": "expired",
-            "message": "Раздача была досрочно завершена 🛑 Но стрим еще идет, залетай!",
-            "twitch_url": "https://www.twitch.tv/hatelove_ttv"
-        }
-
-    # Проверка на протухание
-    if campaign.get("expires_at"):
-        expires_at = datetime.fromisoformat(campaign["expires_at"].replace('Z', '+00:00'))
-        if datetime.now(timezone.utc) > expires_at:
-            await supabase.patch("/twitch_campaigns", params={"id": f"eq.{req.campaign_id}"}, json={"is_active": False})
-            return {
-                "status": "expired",
-                "message": "Время действия этой ссылки истекло 🕒 Но стрим еще идет, залетай!",
-                "twitch_url": "https://www.twitch.tv/hatelove_ttv"
-            }
-
-    # Ищем код
-    desc_search = f"Авто-код Twitch: {campaign['title']}"
-    code_res = await supabase.get("/cs_codes", params={"description": f"eq.{desc_search}"})
-    
-    # 🔥 ИСПРАВЛЕНИЕ 2: Красивый JSON вместо ошибки, если промокод не найден
-    if code_res.status_code != 200 or not code_res.json():
-        return {
-            "status": "expired",
-            "message": "⚠️ Ошибка: промокод для этой кампании не найден.",
-            "twitch_url": "https://www.twitch.tv/hatelove_ttv"
-        }
-
-    cs_code = code_res.json()[0]
-    target_case = cs_code.get("target_case_name", "Секретный кейс")
-
-    # ==========================================
-    # 🔥 ЖЕСТКИЙ КОНТРОЛЬ ЛИМИТОВ 🔥
-    # ==========================================
-    # 1. Считаем реальных победителей по независимой таблице кликов (ее невозможно затереть)
-    clicks_res = await supabase.get("/twitch_clicks", params={
-        "campaign_id": f"eq.{req.campaign_id}", 
-        "is_winner": "is.true", 
-        "select": "id"
-    })
-    current_winners_count = len(clicks_res.json()) if clicks_res.status_code == 200 else 0
-
-    is_winner = current_winners_count < campaign["winners_limit"]
-
-    if is_winner:
-        # 2. Запрашиваем САМУЮ свежую версию кода прямо перед сохранением, 
-        # чтобы одновременные клики не затирали массив друг друга
-        fresh_code_res = await supabase.get("/cs_codes", params={"code": f"eq.{cs_code['code']}"})
-        if fresh_code_res.status_code == 200 and fresh_code_res.json():
-            fresh_code = fresh_code_res.json()[0]
-            activated_list = fresh_code.get("activated_by_ids", []) or []
-            
-            if tg_id_str not in activated_list:
-                activated_list.append(tg_id_str)
-                # Сохраняем надежно по самому промокоду
-                await supabase.patch("/cs_codes", params={"code": f"eq.{cs_code['code']}"}, json={"activated_by_ids": activated_list})
-        
-        await create_in_app_notification(
-            supabase=supabase,
-            user_id=tg_id_int,
-            title="🎁 Twitch Дроп!",
-            message=f"Ты успел в ТОП первых! Бесплатное открытие для «{target_case}» уже ждет тебя в рулетке.",
-            notif_type="system" 
-        )
-        
-        reward_msg = f"🎉 Красавчик, ты успел! Бесплатный «{target_case}» доступен в боте!"
-        status_code = "winner"
-    else:
-        # Лимит исчерпан, выдаем билеты
-        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id_int}"})
-        current_tickets = user_res.json()[0].get("tickets", 0) if user_res.status_code == 200 and user_res.json() else 0
-        
-        await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id_int}"}, json={"tickets": current_tickets + 5})
-        
-        reward_msg = "😔 Чуть-чуть не успел... Но держи 5 утешительных билетов!"
-        status_code = "participant"
-
-    # 3. Сохраняем сам клик
-    click_data = {
-        "campaign_id": req.campaign_id,
-        "telegram_id": tg_id_int,
-        "is_winner": is_winner,
-        "reward_issued": True
-    }
-    await supabase.post("/twitch_clicks", json=click_data)
-
-    return {
-        "status": status_code,
-        "message": reward_msg,
-        "twitch_url": "https://www.twitch.tv/hatelove_ttv"
-    }
+    return {"status": "success", "message": "Раздача остановлена!"}
     
 @app.get("/api/v1/shop/market_cache")
 async def get_market_items(
