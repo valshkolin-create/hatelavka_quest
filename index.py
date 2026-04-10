@@ -20099,7 +20099,7 @@ async def handle_fossabot_claim(
         if attempts_count >= 3:
             # Если 3 и более попыток — отправляем команду мута для Fossabot
             print(f"DEBUG: МУТ за флуд: {twitch_display_name}")
-            return f"/timeout {twitch_user} 300 | @{twitch_display_name}, ты исчерпал 3 попытки за 5 минут! Отдохни от кода 5 минут. ⛔"
+            return f"/timeout {twitch_user} 300 | @{twitch_display_name}, ты исчерпал 3 попытки за 5 минут! Отдохни 5 минут. ⛔"
         
         # 4. Поиск кода в БД
         code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
@@ -20120,7 +20120,7 @@ async def handle_fossabot_claim(
         # 6. Проверка привязки юзера
         user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
         if user_res.status_code != 200 or not user_res.json():
-            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в @HATElavka_bot и привяжи его в профиле."
+            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в ТГ бота @HATElavka_bot и привяжи его в профиле."
         
         tg_id_int = int(user_res.json()[0]["telegram_id"])
 
@@ -20138,7 +20138,7 @@ async def handle_fossabot_claim(
 
         # --- ОБРАБОТКА ДУБЛИКАТА ---
         if res_data.get('is_duplicate'):
-            return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Дождись итогов. 🎫"
+            return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Ожидай получения. 🎫"
 
         is_winner = res_data.get('is_winner')
         is_leader = res_data.get('is_leader')
