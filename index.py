@@ -7841,12 +7841,26 @@ async def twitch_oauth_start(request: Request, initData: str = Query(...)):
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
     request: Request, 
-    code: str = Query(...), 
     state: str = Query(...),
+    code: str = Query(None),  # 🔥 Делаем необязательным
+    error: str = Query(None), # 🔥 Ловим возможную ошибку от Twitch
+    error_description: str = Query(None),
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # 1. Ловим отказ пользователя или ошибку от Twitch (например, redirect_mismatch)
+    if error:
+        logging.warning(f"🛑 [Twitch Auth] Ошибка авторизации: {error} - {error_description}")
+        bot_user = os.getenv("BOT_USERNAME", "HATElavka_bot")
+        app_name = os.getenv("APP_SHORT_NAME", "profile")
+        return RedirectResponse(url=f"https://t.me/{bot_user}/{app_name}?startapp=auth_error", status_code=303)
+
+    # 2. Если кода нет и это прямой переход по ссылке
+    if not code:
+        logging.error("❌ [Twitch Auth] Отсутствует параметр code.")
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
     try:
-        # 1. Декодируем и валидируем юзера Telegram
+        # 3. Декодируем и валидируем юзера Telegram
         init_data = base64.urlsafe_b64decode(state).decode()
         user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
         if not user_info:
