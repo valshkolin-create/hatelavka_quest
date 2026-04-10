@@ -19929,6 +19929,7 @@ async def create_twitch_campaign(
         "fail_msg": req.fail_msg,
         "redirect_clicks": 0
     }
+    
     camp_res = await supabase.post("/twitch_campaigns", json=campaign_data, headers={"Prefer": "return=representation"})
     if camp_res.status_code not in (200, 201):
         raise HTTPException(status_code=500, detail="Ошибка БД кампании")
@@ -19946,6 +19947,7 @@ async def create_twitch_campaign(
         "used_by_ids": [],
         "activated_by_ids": []
     }
+    
     code_res = await supabase.post("/cs_codes", json=code_data)
     if code_res.status_code not in (200, 201):
         raise HTTPException(status_code=500, detail="Ошибка создания кода")
@@ -19956,13 +19958,14 @@ async def create_twitch_campaign(
     CHANNEL_ID = os.getenv("CHANNEL_ID", "@hatelove_ttv")
     WEB_APP_URL = os.getenv("WEB_APP_URL", "https://hatelavka-quest.vercel.app").rstrip("/")
     
+    # Ссылка на наш новый HTML-переходник
     tracking_link = f"{WEB_APP_URL}/api/v1/twitch/redirect?campaign_id={campaign_id}"
     mini_app_link = "https://t.me/HATElavka_bot/app" 
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Смотреть стрим 📺", url=tracking_link)],
-            [InlineKeyboardButton(text="ПЕРЕЙТИ К ОТКРЫТИЮ 📦", url=mini_app_link)]
+            [InlineKeyboardButton(text="📺 СМОТРЕТЬ стрим", url=tracking_link)],
+            [InlineKeyboardButton(text="🛍️ ПЕРЕЙТИ в лавку", url=mini_app_link)]
         ]
     )
 
@@ -19970,7 +19973,7 @@ async def create_twitch_campaign(
         f"{req.post_text}\n\n"
         f"❕ Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n"
         f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
-        f"❕ Код: <b>{unique_code} (его нужно просто написать в чат!)</b>"
+        f"❕ Код: <b>{unique_code} (его нужно просто написать в чате на твиче!)</b>"
     )
 
     try:
@@ -20022,8 +20025,8 @@ async def edit_twitch_campaign_post(
     
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Смотреть стрим 📺", url=tracking_link)],
-            [InlineKeyboardButton(text="ПЕРЕЙТИ К ОТКРЫТИЮ 📦", url=mini_app_link)]
+            [InlineKeyboardButton(text="📺 СМОТРЕТЬ стрим", url=tracking_link)],
+            [InlineKeyboardButton(text="🛍️ ПЕРЕЙТИ в лавку", url=mini_app_link)]
         ]
     )
 
@@ -20047,9 +20050,82 @@ async def redirect_to_twitch(
     campaign_id: int,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # 1. Сразу засчитываем переход в базе (как и было)
     await supabase.post("/rpc/increment_twitch_redirects", json={"p_campaign_id": campaign_id})
-    return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
+    
+    # Ссылка на твой канал
+    twitch_url = "https://www.twitch.tv/hatelove_ttv"
 
+    # 2. Возвращаем красивую страницу вместо скучного 302 редиректа
+    content = f"""
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        <title>HATElove Redirect</title>
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+            body {{
+                background-color: #0a0a0c; color: #fff; font-family: 'Montserrat', sans-serif;
+                margin: 0; padding: 20px; display: flex; flex-direction: column; 
+                align-items: center; justify-content: center; min-height: 100vh; text-align: center;
+                box-sizing: border-box;
+            }}
+            .twitch-logo {{ 
+                font-size: 80px; color: #9146FF; margin-bottom: 20px; 
+                filter: drop-shadow(0 0 25px rgba(145, 70, 255, 0.5)); 
+            }}
+            h1 {{ font-size: 24px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; line-height: 1.3; }}
+            h1 span {{ color: #9146FF; }}
+            .description {{ font-size: 14px; color: #aaa; margin-bottom: 40px; line-height: 1.6; max-width: 280px; }}
+            .btn-twitch {{
+                background: #9146FF; color: #fff; border: none; padding: 22px;
+                border-radius: 18px; font-size: 16px; font-weight: 900; width: 100%; max-width: 320px;
+                text-transform: uppercase; cursor: pointer; transition: 0.2s;
+                box-shadow: 0 10px 30px rgba(145, 70, 255, 0.4);
+                display: flex; align-items: center; justify-content: center; gap: 12px;
+                text-decoration: none;
+            }}
+            .btn-twitch:active {{ transform: scale(0.96); box-shadow: 0 5px 15px rgba(145, 70, 255, 0.4); }}
+            .footer-note {{ margin-top: 30px; font-size: 11px; color: #444; text-transform: uppercase; font-weight: 700; }}
+            @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+            body > * {{ animation: fadeIn 0.6s ease forwards; }}
+        </style>
+    </head>
+    <body>
+        <i class="fa-brands fa-twitch twitch-logo"></i>
+        <h1>Внешний переход<br><span>HATElove</span></h1>
+        <div class="description">
+            Нажми на кнопку ниже, чтобы открыть трансляцию в приложении <b>Twitch</b> или внешнем браузере.
+        </div>
+        <button class="btn-twitch" id="main-btn" onclick="openTwitch()">
+            <i class="fa-solid fa-external-link"></i> ОТКРЫТЬ В TWITCH
+        </button>
+        <div class="footer-note">hatelove_ttv</div>
+
+        <script>
+            function openTwitch() {{
+                const url = "{twitch_url}";
+                
+                // Проверяем, запущены ли мы внутри Telegram WebApp
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {{
+                    window.Telegram.WebApp.openLink(url);
+                    setTimeout(() => {{ window.Telegram.WebApp.close(); }}, 1000);
+                }} else {{
+                    // Если открыто просто в браузере (In-App или обычном)
+                    // Пытаемся вызвать протокол приложения, если нет - просто редирект
+                    window.location.href = "twitch://stream/hatelove_ttv";
+                    setTimeout(function() {{
+                        window.location.href = url;
+                    }}, 800);
+                }}
+            }}
+        </script>
+    </body>
+    </html>
 # ==========================================
 # 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
 # ==========================================
