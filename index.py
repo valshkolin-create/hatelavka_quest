@@ -19880,10 +19880,20 @@ async def get_available_cases(
 
     try:
         row = cache_res.json()[0]
-        cases_data = json.loads(row["data"]) 
-        case_names = [{"name": case["name"]} for case in cases_data]
+        raw_data = row.get("data", [])
+        
+        # 🔥 ИСПРАВЛЕНИЕ: Supabase (JSONB) уже отдает готовый список, 
+        # json.loads() не нужен. Но на всякий случай делаем проверку:
+        if isinstance(raw_data, str):
+            import json
+            cases_data = json.loads(raw_data)
+        else:
+            cases_data = raw_data
+            
+        case_names = [{"name": case.get("name", "Неизвестный кейс")} for case in cases_data]
         return case_names
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        
+    except Exception as e:
         print(f"Ошибка парсинга кэша: {e}")
         return []
 
