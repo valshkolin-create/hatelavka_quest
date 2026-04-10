@@ -390,7 +390,7 @@ html, body {
 }
 .action-btn:active { transform: scale(0.96); }
 
-.btn-buy { background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); }
+.btn-buy { background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: none; }
 .btn-buy-tickets { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; }
 .btn-secondary-action { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.05); }
 
