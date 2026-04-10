@@ -1393,10 +1393,11 @@ function renderItems(items) {
         // ЗАГОЛОВОК КУПОННЫХ КЕЙСОВ
         if (originalPrice === 9999 && !couponHeaderAdded && !item.is_folder) {
             const headerEl = document.createElement('div');
-            headerEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            // 👇 Здесь поменяли 25px на 10px
+            headerEl.style.cssText = "grid-column: 1 / -1; margin: 10px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
             headerEl.innerHTML = `
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(145, 70, 255, 0.5));"></div>
-                <span style="font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 0 15px rgba(145, 70, 255, 0.6);">🎟️ Купонные кейсы</span>
+                <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Купонные кейсы</span>
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, rgba(145, 70, 255, 0.5));"></div>
             `;
             fragment.appendChild(headerEl);
