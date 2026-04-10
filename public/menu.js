@@ -1331,13 +1331,19 @@ function renderItems(items) {
     }
 
     // 🔥 ДОБАВЛЕНА СОРТИРОВКА
+    // Проверяем, есть ли сейчас бесплатные купонные кейсы
+    const hasFreeCoupon = items.some(i => parseFloat(i.price) === 9999 && window.activeFreeCases.includes(i.name));
+
     items.sort((a, b) => {
         if (a.is_folder && !b.is_folder) return -1;
         if (!a.is_folder && b.is_folder) return 1;
         const priceA = parseFloat(a.price) || 0;
         const priceB = parseFloat(b.price) || 0;
-        if (priceA === 9999 && priceB !== 9999) return 1;
-        if (priceA !== 9999 && priceB === 9999) return -1;
+        
+        // Если есть халява — кидаем 9999 наверх (-1), иначе вниз (1) как было раньше
+        if (priceA === 9999 && priceB !== 9999) return hasFreeCoupon ? -1 : 1;
+        if (priceA !== 9999 && priceB === 9999) return hasFreeCoupon ? 1 : -1;
+        
         return priceA - priceB;
     });
 
