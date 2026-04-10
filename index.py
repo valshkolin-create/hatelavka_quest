@@ -20044,7 +20044,13 @@ async def handle_fossabot_claim(
     code: str = Query(...),
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    code = code.strip().upper()
+    # 🔥 ИЗВЛЕКАЕМ КОД ИЗ ВСЕГО СООБЩЕНИЯ ЧАТА
+    # Если юзер написал "Ура DROP-WINTER спасибо", код найдет только "DROP-WINTER"
+    match = re.search(r'\b(DROP-[A-Z0-9_]+)\b', code.strip().upper())
+    if not match:
+        return "" # Если слова формата DROP-... нет в сообщении, молчим
+    
+    extracted_code = match.group(1)
 
     async with httpx.AsyncClient() as client:
         fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}")
@@ -20058,7 +20064,8 @@ async def handle_fossabot_claim(
     twitch_user = fb_data["message"]["user"]["login"].lower()
     twitch_display_name = fb_data["message"]["user"]["display_name"]
 
-    code_res = await supabase.get("/cs_codes", params={"code": f"eq.{code}", "is_active": "is.true"})
+    # Ищем наш извлеченный код в базе
+    code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
     if code_res.status_code != 200 or not code_res.json():
         return "" 
 
@@ -20105,7 +20112,8 @@ async def handle_fossabot_claim(
         activated_list = cs_code.get("activated_by_ids", []) or []
         if str(tg_id_int) not in activated_list:
             activated_list.append(str(tg_id_int))
-            await supabase.patch("/cs_codes", params={"code": f"eq.{code}"}, json={"activated_by_ids": activated_list})
+            # Сохраняем активацию по нашему extracted_code
+            await supabase.patch("/cs_codes", params={"code": f"eq.{extracted_code}"}, json={"activated_by_ids": activated_list})
         
         await create_in_app_notification(
             supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
