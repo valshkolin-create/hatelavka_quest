@@ -20018,17 +20018,16 @@ async def edit_twitch_campaign_post(
     code_res = await supabase.get("/cs_codes", params={"campaign_id": f"eq.{req.campaign_id}"})
     unique_code = code_res.json()[0]["code"] if (code_res.status_code == 200 and code_res.json()) else "СЕКРЕТ"
 
-    # 3. Собираем текст с твоими отступами и копируемым кодом
-    # winners_limit и target_case_name теперь берутся из БД (campaign), чтобы не было ошибок
+    # 3. Собираем текст в одну строку (код + описание)
     full_new_text = (
-    f"{req.new_post_text}\n\n"
+        f"{req.new_post_text}\n\n"
         
-    f"🔥 Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
-    
-    f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
-    
-    f"🎁 Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче): <code>{unique_code}</code>"
-)
+        f"🔥 Первые <b>{campaign['winners_limit']}</b> зрителей, кто напишет код на стриме, получат <b>«{campaign['target_case_name']}»</b>!\n\n"
+        
+        f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
+        
+        f"🎁 Код (нажми, чтобы скопировать): <code>{unique_code}</code>"
+    )
 
     WEB_APP_URL = os.getenv("WEB_APP_URL", "https://hatelavka-quest.vercel.app").rstrip("/")
     tracking_link = f"{WEB_APP_URL}/api/v1/twitch/redirect?campaign_id={req.campaign_id}"
@@ -20054,7 +20053,7 @@ async def edit_twitch_campaign_post(
         return {"status": "error", "message": f"Ошибка редактирования в ТГ: {e}"}
 
     return {"status": "success", "message": "Текст поста обновлен!"}
-
+    
 # ==========================================
 # 5. ПЕРЕНАПРАВЛЕНИЕ (КНОПКА СТРИМА)
 # ==========================================
