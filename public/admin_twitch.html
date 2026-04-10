@@ -94,6 +94,12 @@
         .btn-edit { background: rgba(145, 70, 255, 0.15); color: var(--primary); border: 1px solid rgba(145, 70, 255, 0.3); }
         .btn-stop { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); }
 
+        /* Фикс для выпадающего списка кейсов */
+        select option {
+        background-color: #1c1c1e; /* Темный фон */
+        color: #ffffff; /* Белый текст */
+        }
+
         /* Modal */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: 0.2s; backdrop-filter: blur(5px); }
         .modal-active { opacity: 1; visibility: visible; }
