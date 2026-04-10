@@ -19830,6 +19830,7 @@ import httpx
 import os
 import asyncio
 import json
+import HTMLResponse
 
 # ==========================================
 # 1. PYDANTIC СХЕМЫ (МОДЕЛИ ДАННЫХ)
@@ -20045,87 +20046,92 @@ async def edit_twitch_campaign_post(
 # ==========================================
 # 5. ПЕРЕНАПРАВЛЕНИЕ (КНОПКА СТРИМА)
 # ==========================================
+# Выносим HTML в константу БЕЗ префикса f
+REDIRECT_PAGE_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HATElove Redirect</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+        body {
+            background-color: #0a0a0c; color: #fff; font-family: 'Montserrat', sans-serif;
+            margin: 0; padding: 20px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; min-height: 100vh; text-align: center;
+            box-sizing: border-box;
+        }
+        .twitch-logo { 
+            font-size: 80px; color: #9146FF; margin-bottom: 20px; 
+            filter: drop-shadow(0 0 25px rgba(145, 70, 255, 0.5)); 
+        }
+        h1 { font-size: 24px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; line-height: 1.3; }
+        h1 span { color: #9146FF; }
+        .description { font-size: 14px; color: #aaa; margin-bottom: 40px; line-height: 1.6; max-width: 280px; }
+        .btn-twitch {
+            background: #9146FF; color: #fff; border: none; padding: 22px;
+            border-radius: 18px; font-size: 16px; font-weight: 900; width: 100%; max-width: 320px;
+            text-transform: uppercase; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 10px 30px rgba(145, 70, 255, 0.4);
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            text-decoration: none;
+        }
+        .btn-twitch:active { transform: scale(0.96); box-shadow: 0 5px 15px rgba(145, 70, 255, 0.4); }
+        .footer-note { margin-top: 30px; font-size: 11px; color: #444; text-transform: uppercase; font-weight: 700; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body > * { animation: fadeIn 0.6s ease forwards; }
+    </style>
+</head>
+<body>
+    <i class="fa-brands fa-twitch twitch-logo"></i>
+    <h1>Внешний переход<br><span>HATElove</span></h1>
+    <div class="description">
+        Нажми на кнопку ниже, чтобы открыть трансляцию в приложении <b>Twitch</b> или внешнем браузере.
+    </div>
+    <button class="btn-twitch" id="main-btn" onclick="openTwitch()">
+        <i class="fa-solid fa-external-link"></i> ОТКРЫТЬ В TWITCH
+    </button>
+    <div class="footer-note">hatelove_ttv</div>
+
+    <script>
+        function openTwitch() {
+            const url = "TWITCH_URL_PLACEHOLDER";
+            
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+                window.Telegram.WebApp.openLink(url);
+                setTimeout(() => { window.Telegram.WebApp.close(); }, 1000);
+            } else {
+                window.location.href = "twitch://stream/hatelove_ttv";
+                setTimeout(function() {
+                    window.location.href = url;
+                }, 800);
+            }
+        }
+    </script>
+</body>
+</html>
+"""
+
 @app.get("/api/v1/twitch/redirect")
 async def redirect_to_twitch(
     campaign_id: int,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Сразу засчитываем переход в базе (как и было)
-    await supabase.post("/rpc/increment_twitch_redirects", json={"p_campaign_id": campaign_id})
+    # Логируем переход
+    try:
+        await supabase.post("/rpc/increment_twitch_redirects", json={"p_campaign_id": campaign_id})
+    except:
+        pass
     
-    # Ссылка на твой канал
     twitch_url = "https://www.twitch.tv/hatelove_ttv"
-
-    # 2. Возвращаем красивую страницу вместо скучного 302 редиректа
-    content = f"""
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-        <title>HATElove Redirect</title>
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
-            body {{
-                background-color: #0a0a0c; color: #fff; font-family: 'Montserrat', sans-serif;
-                margin: 0; padding: 20px; display: flex; flex-direction: column; 
-                align-items: center; justify-content: center; min-height: 100vh; text-align: center;
-                box-sizing: border-box;
-            }}
-            .twitch-logo {{ 
-                font-size: 80px; color: #9146FF; margin-bottom: 20px; 
-                filter: drop-shadow(0 0 25px rgba(145, 70, 255, 0.5)); 
-            }}
-            h1 {{ font-size: 24px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; line-height: 1.3; }}
-            h1 span {{ color: #9146FF; }}
-            .description {{ font-size: 14px; color: #aaa; margin-bottom: 40px; line-height: 1.6; max-width: 280px; }}
-            .btn-twitch {{
-                background: #9146FF; color: #fff; border: none; padding: 22px;
-                border-radius: 18px; font-size: 16px; font-weight: 900; width: 100%; max-width: 320px;
-                text-transform: uppercase; cursor: pointer; transition: 0.2s;
-                box-shadow: 0 10px 30px rgba(145, 70, 255, 0.4);
-                display: flex; align-items: center; justify-content: center; gap: 12px;
-                text-decoration: none;
-            }}
-            .btn-twitch:active {{ transform: scale(0.96); box-shadow: 0 5px 15px rgba(145, 70, 255, 0.4); }}
-            .footer-note {{ margin-top: 30px; font-size: 11px; color: #444; text-transform: uppercase; font-weight: 700; }}
-            @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-            body > * {{ animation: fadeIn 0.6s ease forwards; }}
-        </style>
-    </head>
-    <body>
-        <i class="fa-brands fa-twitch twitch-logo"></i>
-        <h1>Внешний переход<br><span>HATElove</span></h1>
-        <div class="description">
-            Нажми на кнопку ниже, чтобы открыть трансляцию в приложении <b>Twitch</b> или внешнем браузере.
-        </div>
-        <button class="btn-twitch" id="main-btn" onclick="openTwitch()">
-            <i class="fa-solid fa-external-link"></i> ОТКРЫТЬ В TWITCH
-        </button>
-        <div class="footer-note">hatelove_ttv</div>
-
-        <script>
-            function openTwitch() {{
-                const url = "{twitch_url}";
-                
-                // Проверяем, запущены ли мы внутри Telegram WebApp
-                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {{
-                    window.Telegram.WebApp.openLink(url);
-                    setTimeout(() => {{ window.Telegram.WebApp.close(); }}, 1000);
-                }} else {{
-                    // Если открыто просто в браузере (In-App или обычном)
-                    // Пытаемся вызвать протокол приложения, если нет - просто редирект
-                    window.location.href = "twitch://stream/hatelove_ttv";
-                    setTimeout(function() {{
-                        window.location.href = url;
-                    }}, 800);
-                }}
-            }}
-        </script>
-    </body>
-    </html>
+    
+    # Просто заменяем заглушку в тексте на реальную ссылку
+    response_html = REDIRECT_PAGE_TEMPLATE.replace("TWITCH_URL_PLACEHOLDER", twitch_url)
+    
+    return HTMLResponse(content=response_html)
 # ==========================================
 # 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
 # ==========================================
