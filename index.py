@@ -20068,7 +20068,6 @@ REDIRECT_PAGE_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HATElove Redirect</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
@@ -20077,6 +20076,7 @@ REDIRECT_PAGE_TEMPLATE = """
             margin: 0; padding: 20px; display: flex; flex-direction: column; 
             align-items: center; justify-content: center; min-height: 100vh; text-align: center;
             box-sizing: border-box;
+            overflow: hidden;
         }
         .twitch-logo { 
             font-size: 80px; color: #9146FF; margin-bottom: 20px; 
@@ -20091,6 +20091,9 @@ REDIRECT_PAGE_TEMPLATE = """
             text-transform: uppercase; cursor: pointer; transition: 0.2s;
             box-shadow: 0 10px 30px rgba(145, 70, 255, 0.4);
             display: flex; align-items: center; justify-content: center; gap: 12px;
+            text-decoration: none;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
         }
         .btn-twitch:active { transform: scale(0.96); box-shadow: 0 5px 15px rgba(145, 70, 255, 0.4); }
         .footer-note { margin-top: 30px; font-size: 11px; color: #444; text-transform: uppercase; font-weight: 700; }
@@ -20102,7 +20105,7 @@ REDIRECT_PAGE_TEMPLATE = """
     <i class="fa-brands fa-twitch twitch-logo"></i>
     <h1>Внешний переход<br><span>HATElove</span></h1>
     <div class="description">
-        Нажми на кнопку ниже, чтобы открыть трансляцию в приложении <b>Twitch</b>. Окно закроется автоматически.
+        Нажми на кнопку ниже, чтобы открыть трансляцию в приложении <b>Twitch</b> или внешнем браузере.
     </div>
     <button class="btn-twitch" id="main-btn" onclick="openTwitch()">
         <i class="fa-solid fa-external-link"></i> ОТКРЫТЬ В TWITCH
@@ -20110,25 +20113,18 @@ REDIRECT_PAGE_TEMPLATE = """
     <div class="footer-note">hatelove_ttv</div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-
         function openTwitch() {
             const url = "TWITCH_URL_PLACEHOLDER";
             
-            // Если мы внутри Telegram WebApp (Mini App)
-            if (tg.initData) {
-                // Открываем во внешнем браузере/приложении
-                tg.openLink(url);
-                // Даем 500мс на выполнение команды и закрываем наше окно перехода
-                setTimeout(() => {
-                    tg.close();
-                }, 500);
-            } else {
-                // Если открыто просто в браузере
+            // Пытаемся вызвать протокол приложения Twitch
+            // На мобилках это сразу предложит открыть приложение
+            window.location.href = "twitch://stream/hatelove_ttv";
+            
+            // Если через 600мс ничего не произошло (нет приложения), 
+            // просто переходим по обычной ссылке в браузере
+            setTimeout(function() {
                 window.location.href = url;
-            }
+            }, 600);
         }
     </script>
 </body>
