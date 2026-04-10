@@ -7829,7 +7829,8 @@ async def twitch_oauth_start(request: Request, initData: str = Query(...)):
             "client_id": TWITCH_CLIENT_ID,
             "redirect_uri": TWITCH_REDIRECT_URI,
             "scope": scopes_list,
-            "state": state 
+            "state": state,
+            "force_verify": "true"  # 🔥 ВОТ ЭТОТ ПАРАМЕТР СПАСАЕТ ОТ БАГА НА ANDROID 🔥
         }
         
         query_string = urlencode(params)
