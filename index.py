@@ -16160,7 +16160,7 @@ async def buy_bott_item_proxy(
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
 
    # =========================================================================
-    # 🌟 ЛОГИКА КУПОНОВ (ПРОВЕРКА) - ИСПРАВЛЕНО
+    # 🌟 ЛОГИКА КУПОНОВ (ПРОВЕРКА)
     # =========================================================================
     coupon_code = getattr(request_data, 'coupon_code', None)
     is_free_purchase = False
@@ -16169,54 +16169,53 @@ async def buy_bott_item_proxy(
     if coupon_code:
         coupon_code = coupon_code.strip()
         if coupon_code:
-            # 🔥 МАГИЯ СИНХРОНИЗАЦИИ: Ищем код, который юзер ВВЕЛ (used_by_ids)
+            # 🔥 МАГИЯ СИНХРОНИЗАЦИИ: Если фронт просит открыть по ID
             if coupon_code == "FREE_BY_ID":
                 code_res = await supabase.get(
                     "/cs_codes", 
                     params={
-                        "target_case_name": f"eq.{item_title}", 
-                        "activated_by_ids": f"cs.{{{telegram_id}}}", # ИЩЕМ В АКТИВИРОВАННЫХ
+                        "target_case_name": f"eq.{item_title}", # Ищем именно этот кейс
+                        "activated_by_ids": f"cs.{{{telegram_id}}}", # Где твой ID есть в массиве активаций
                         "is_active": "eq.true"
                     }
                 )
             else:
+                # Старая логика (если вдруг код прислали напрямую)
                 code_res = await supabase.get("/cs_codes", params={"code": f"eq.{coupon_code}", "is_active": "eq.true"})
             
             code_data = code_res.json()
             
+            # Проверяем, нашла ли база что-нибудь
             if not code_data or not isinstance(code_data, list) or len(code_data) == 0:
                 raise HTTPException(status_code=400, detail="⛔ Неверный код или вы его не активировали!")
                 
-            # 🔥 ФИЛЬТРУЕМ: Оставляем только тот код, который ЕЩЕ НЕ ОТКРЫТ
-            user_id_int = int(telegram_id)
-            valid_promo = None
+            promo_data = code_data[0]
             
-            for promo in code_data:
-                act_ids = promo.get('activated_by_ids') or []
-                if user_id_int not in act_ids:
-                    valid_promo = promo
-                    break
-                    
-            if not valid_promo:
-                raise HTTPException(status_code=400, detail="⛔ Вы уже открыли этот бесплатный кейс!")
-                
-            promo_data = valid_promo
+            # 🔥 ВАЖНО: Подменяем заглушку на реальный код из базы
             coupon_code = promo_data['code']
             
+            # --- СТАРТ НОВОЙ ЛОГИКИ ЗАЩИТЫ БРОНИ ---
             used_ids = promo_data.get('used_by_ids') or []
             activated_ids = promo_data.get('activated_by_ids') or []
+            user_id_int = int(telegram_id)
 
-            # Проверяем, вводил ли юзер код
-            is_reserved_by_me = user_id_int in used_ids
+            # Проверяем, забронировал ли этот юзер себе место заранее через check_code
+            is_reserved_by_me = user_id_int in activated_ids
 
+            # Если юзер НЕ бронировал купон (пытается пропихнуть код напрямую при покупке)
             if not is_reserved_by_me:
-                total_taken_slots = len(used_ids)
+                # Считаем вообще все занятые места (и открытые, и забронированные)
+                total_taken_slots = len(used_ids) + len(activated_ids)
                 if total_taken_slots >= promo_data['max_uses']:
-                    raise HTTPException(status_code=400, detail="⛔ Мест нет! Все купоны уже разобраны.")
+                    raise HTTPException(status_code=400, detail="⛔ Мест нет! Все купоны уже забронированы или разобраны.")
+            # --- КОНЕЦ НОВОЙ ЛОГИКИ ЗАЩИТЫ БРОНИ ---
 
             target_case_name = promo_data.get('target_case_name')
             if target_case_name and target_case_name.strip().lower() != item_title.strip().lower():
                 raise HTTPException(status_code=400, detail="⛔ Этот купон предназначен для другого кейса!")
+                
+            if user_id_int in used_ids:
+                raise HTTPException(status_code=400, detail="⛔ Вы уже использовали этот код!")
                 
             is_free_purchase = True
 
@@ -16365,17 +16364,15 @@ async def buy_bott_item_proxy(
             # Передаем базовую (price) и финальную (final_price) цену!
             background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key, price, final_price)
             
-   else:
+    else:
         # === ЛОГИКА ТРАТЫ КУПОНА (ПЕРЕНОС ID ИЗ ОЖИДАНИЯ В ИСПОЛЬЗОВАННЫЕ) ===
         used_ids = promo_data.get('used_by_ids') or []
         activated_ids = promo_data.get('activated_by_ids') or []
         u_id = int(telegram_id)
 
-        # 1. Добавляем в ИСПОЛЬЗОВАННЫЕ
         if u_id not in used_ids:
             used_ids.append(u_id)
 
-        # 2. УДАЛЯЕМ из АКТИВИРОВАННЫХ (как у тебя и было изначально!)
         if u_id in activated_ids:
             activated_ids.remove(u_id)
 
@@ -16383,7 +16380,7 @@ async def buy_bott_item_proxy(
             "/cs_codes", 
             params={"code": f"eq.{coupon_code}"}, 
             json={
-                "current_uses": promo_data.get('current_uses', 0) + 1,
+                "current_uses": promo_data['current_uses'] + 1,
                 "used_by_ids": used_ids,
                 "activated_by_ids": activated_ids
             }
