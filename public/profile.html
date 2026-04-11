@@ -2428,13 +2428,16 @@ window.checkTradeStatus = async function(historyId) {
                                 const data = await response.json();
 
                                 if (data.url) {
-                                    // 🔥 МАГИЯ ДЛЯ ANDROID: Принудительно открываем внешний браузер (Chrome/Яндекс)
+                                    // 🔥 БРОНЕБОЙНАЯ МАГИЯ ДЛЯ ANDROID 🔥
                                     if (tg.platform === 'android') {
-                                        // Отрезаем https:// для правильного формата intent
+                                        // Отрезаем https:// 
                                         const urlWithoutHttps = data.url.replace(/^https?:\/\//, '');
-                                        const intentUrl = `intent://${urlWithoutHttps}#Intent;scheme=https;end;`;
                                         
-                                        // Создаем невидимую ссылку и кликаем по ней
+                                        // Формируем Intent с ПРИНУДИТЕЛЬНЫМ указанием пакета Chrome.
+                                        // Это запретит Андроиду открывать приложение Twitch!
+                                       const intentUrl = `intent://${urlWithoutHttps}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end;`;
+                                        
+                                        // Кликаем
                                         const a = document.createElement('a');
                                         a.href = intentUrl;
                                         a.target = '_blank';
@@ -2442,11 +2445,10 @@ window.checkTradeStatus = async function(historyId) {
                                         a.click();
                                         document.body.removeChild(a);
                                     } else {
-                                        // Для iOS и ПК (где бага нет) оставляем стандартный метод
+                                        // Для iOS и ПК
                                         tg.openLink(data.url);
                                     }
 
-                                    // Пауза перед закрытием приложения
                                     setTimeout(() => {
                                         tg.close();
                                     }, 500);
