@@ -20294,11 +20294,9 @@ async def handle_fossabot_claim(
 
         # 8. Награда победителя (Пуш в ТГ)
         if is_winner:
-            # 🔥 ИСПРАВЛЕНИЕ: ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ 🔥
-            # База данных сама безопасно добавит ID в массив, предотвращая Race Condition
             await supabase.post("/rpc/add_twitch_winner", json={
                 "p_code": extracted_code, 
-                "p_user_id": str(tg_id_int)
+                "p_user_id": tg_id_int  # <-- Передаем как чистое число
             })
             
             # Фоновое уведомление
