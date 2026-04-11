@@ -1595,10 +1595,21 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             // ⚡ ЕСЛИ ОШИБКА
             checkBalance(true); 
             
-            // Здесь тоже исправляем ключ, чтобы битый купон не висел в памяти
-            if (activeCoupon && err.message && (err.message.includes('закончились') || err.message.includes('использовали') || err.message.includes('Неверный'))) {
-                localStorage.removeItem('active_coupon_data'); // Исправлено!
-                loadCategory(2716312);
+            // 🔥 УЛЬТИМАТИВНЫЙ ФИКС: Если пытались открыть бесплатно и получили ЛЮБУЮ ошибку
+            // (лимит, уже активирован, сгорел и т.д.) — жестко сбрасываем визуал кейса.
+            if (isFreeOpen) {
+                console.warn("Сброс бесплатного кейса из-за отказа сервера:", err.message);
+                
+                // 1. Выкидываем кейс из халявных
+                window.activeFreeCases = window.activeFreeCases.filter(n => n !== name);
+                
+                // 2. Чистим локальный кэш
+                localStorage.removeItem('active_coupon_data'); 
+                
+                // 3. Мгновенно перерисовываем витрину (кнопка станет платной)
+                if (typeof itemsCache !== 'undefined' && typeof window.currentCategoryId !== 'undefined') {
+                    renderItems(itemsCache[window.currentCategoryId] || []);
+                }
             }
         } finally { 
             if (loader) loader.classList.remove('active'); 
