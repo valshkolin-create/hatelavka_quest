@@ -2428,8 +2428,23 @@ window.checkTradeStatus = async function(historyId) {
                                 const data = await response.json();
 
                                 if (data.url) {
-                                    // Открываем внешнюю ссылку
-                                    tg.openLink(data.url);
+                                    // 🔥 МАГИЯ ДЛЯ ANDROID: Принудительно открываем внешний браузер (Chrome/Яндекс)
+                                    if (tg.platform === 'android') {
+                                        // Отрезаем https:// для правильного формата intent
+                                        const urlWithoutHttps = data.url.replace(/^https?:\/\//, '');
+                                        const intentUrl = `intent://${urlWithoutHttps}#Intent;scheme=https;end;`;
+                                        
+                                        // Создаем невидимую ссылку и кликаем по ней
+                                        const a = document.createElement('a');
+                                        a.href = intentUrl;
+                                        a.target = '_blank';
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                    } else {
+                                        // Для iOS и ПК (где бага нет) оставляем стандартный метод
+                                        tg.openLink(data.url);
+                                    }
 
                                     // Пауза перед закрытием приложения
                                     setTimeout(() => {
