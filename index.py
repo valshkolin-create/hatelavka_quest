@@ -17319,7 +17319,7 @@ async def list_advent_days(req: InitDataRequest, supabase: httpx.AsyncClient = D
     return r.json()
 
 # --- 🎄 ЛОГИКА НОВОГОДНЕГО ПОДАРКА 🎄 ---
-
+# --- 1. ЭНДПОИНТ ПРОВЕРКИ (Для фронтенда) ---
 @app.post("/api/v1/gift/check")
 async def check_gift_availability(
     request_data: GiftCheckRequest,
@@ -17330,21 +17330,39 @@ async def check_gift_availability(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info['id']
-    
-    # Получаем время последнего подарка
-    resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "last_new_year_gift_at"})
+
+    # 1. Проверка глобального выключателя
+    # (Предполагаем, что ваши настройки лежат в таблице /settings)
+    settings_resp = await supabase.get("/settings", params={"limit": "1"})
+    if settings_resp.status_code == 200 and settings_resp.json():
+        settings_data = settings_resp.json()[0]
+        if settings_data.get("bonus_gift_enabled") is False:
+            return {"available": False} # Отдаем False, чтобы кнопка в UI пропала
+
+    # 2. Проверка лимита и бана пользователя
+    resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "last_new_year_gift_at, is_banned"})
     user_data = resp.json()
     
     available = True
-    if user_data and user_data[0]['last_new_year_gift_at']:
-        last_gift = datetime.fromisoformat(user_data[0]['last_new_year_gift_at'].replace('Z', '+00:00'))
-        now = datetime.now(timezone.utc)
-        # Если подарок был получен сегодня (по дате UTC), то недоступен
-        if last_gift.date() == now.date():
-            available = False
+    if user_data:
+        # Если в бане — отключаем подарок
+        if user_data[0].get('is_banned'):
+            return {"available": False}
+
+        last_gift_str = user_data[0].get('last_new_year_gift_at')
+        if last_gift_str:
+            last_gift_utc = datetime.fromisoformat(last_gift_str.replace('Z', '+00:00'))
+            last_gift_msk = last_gift_utc + timedelta(hours=3)
+            now_msk = datetime.now(timezone.utc) + timedelta(hours=3)
+            
+            # Если сегодня по МСК уже брал — недоступно
+            if last_gift_msk.date() == now_msk.date():
+                available = False
             
     return {"available": available}
 
+
+# --- 2. ЭНДПОИНТ ПОЛУЧЕНИЯ НАГРАДЫ (Основная логика) ---
 @app.post("/api/v1/gift/claim")
 async def claim_gift(
     request_data: GiftClaimRequest,
@@ -17356,137 +17374,132 @@ async def claim_gift(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     telegram_id = user_info['id']
+    now_utc = datetime.now(timezone.utc)
+    now_msk = now_utc + timedelta(hours=3)
+    claim_time_str = now_msk.isoformat()
 
-    # Проверка: получал ли уже подарок (это блокируем жестко)
-    check_resp = await check_gift_availability(GiftCheckRequest(initData=request_data.initData), supabase)
-    if not check_resp['available']:
-        raise HTTPException(status_code=400, detail="Подарок уже получен сегодня! Приходите завтра.")
+    # --- 2. ПРОВЕРКА ГЛОБАЛЬНОГО ВЫКЛЮЧАТЕЛЯ ---
+    settings_resp = await supabase.get("/settings", params={"limit": "1"})
+    if settings_resp.status_code == 200 and settings_resp.json():
+        settings_data = settings_resp.json()[0]
+        if settings_data.get("bonus_gift_enabled") is False:
+            raise HTTPException(status_code=400, detail="Раздача подарков сейчас отключена!")
 
-    # --- 2. ПРОВЕРКА ПОДПИСКИ (МЯГКАЯ) ---
+    # --- 3. ПРОВЕРКА БАЗЫ (Лимит в сутки и Бан) ---
+    user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "last_new_year_gift_at, is_banned"})
+    user_data = user_resp.json()
+
+    if user_data:
+        if user_data[0].get('is_banned'):
+            raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован.")
+
+        last_gift_str = user_data[0].get('last_new_year_gift_at')
+        if last_gift_str:
+            last_gift_utc = datetime.fromisoformat(last_gift_str.replace('Z', '+00:00'))
+            last_gift_msk = last_gift_utc + timedelta(hours=3)
+            if last_gift_msk.date() == now_msk.date():
+                raise HTTPException(status_code=400, detail="Подарок уже получен сегодня! Приходите завтра.")
+
+    # --- 4. ПРОВЕРКА ПОДПИСКИ ---
     REQUIRED_CHANNEL_ID = -1002144676097
-    is_subscribed = False # По умолчанию считаем, что не подписан
-    
+    is_subscribed = False
     try:
         chat_member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL_ID, user_id=telegram_id)
         if chat_member.status in ["creator", "administrator", "member", "restricted"]:
              is_subscribed = True
     except Exception as e:
         logging.error(f"Ошибка проверки подписки: {e}")
-        # Если ошибка API, можно дать поблажку, но для строгости оставим False
         pass
 
-    # --- 3. РАСЧЕТ НАГРАДЫ ---
-    # Мы рассчитываем, что выпало, но НЕ ЗАПИСЫВАЕМ в базу, если нет подписки
-    
-    prize_type = "none"
-    prize_value = 0
-    prize_meta = {}
-
-    # === БИЛЕТЫ ИЛИ МОНЕТЫ (Шанс 50% на 50%) ===
-    if random.random() < 0.5:
-        # --- БИЛЕТЫ (от 1 до 10) ---
-        amount = random.randint(1, 10)
-        
-        prize_type = "tickets"
-        prize_value = amount
-        
-        # ЗАПИСЬ В БАЗУ ТОЛЬКО ЕСЛИ ПОДПИСАН
-        if is_subscribed:
-            await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": amount})
-            logging.info(f"🎁 GIFT: Юзер {telegram_id} получил {amount} билетов.")
-        
-    else:
-        # --- МОНЕТЫ (от 1 до 5) ---
-        prize_type = "coins"
-        
-        # Если ПОДПИСАН — берем реальный код из базы
-        if is_subscribed:
-            # Ищем свободные коды номиналом <= 5
-            response_codes = await supabase.get(
-                "/promocodes",
-                params={
-                    "select": "id,code,reward_value",
-                    "is_used": "eq.false",
-                    "telegram_id": "is.null",
-                    "reward_value": "lte.5",
-                    "order": "reward_value.asc",
-                    "limit": "50"
-                }
-            )
-            available_codes = response_codes.json()
-
-            if not available_codes:
-                # Фолбэк на билеты, если коды кончились (от 1 до 10 билетов)
-                fallback_amount = random.randint(1, 10)
-                prize_type = "tickets"
-                prize_value = fallback_amount
-                await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": fallback_amount})
-                logging.info(f"🎁 GIFT: Коды кончились. Юзер {telegram_id} получил {fallback_amount} билетов (фолбэк).")
-            else:
-                count = len(available_codes)
-                random_index = int(random.triangular(0, count - 1, 0))
-                promo = available_codes[random_index]
-                
-                amount = promo.get('reward_value') or random.randint(1, 5)
-                prize_value = amount
-                code_str = promo['code']
-                
-                # Закрепляем код в нашей базе
-                await supabase.patch(
-                    "/promocodes", 
-                    params={"id": f"eq.{promo['id']}"}, 
-                    json={
-                        "is_used": True,
-                        "telegram_id": telegram_id,
-                        "reward_value": amount,
-                        "description": f"Новогодний подарок ({amount} монеток)",
-                        "claimed_at": datetime.now(timezone.utc).isoformat()
-                    }
-                )
-
-                # 🔥🔥🔥 МГНОВЕННАЯ АВТО-АКТИВАЦИЯ В BOT-T 🔥🔥🔥
-                asyncio.create_task(
-                    activate_single_promocode(
-                        promo_id=promo['id'],
-                        telegram_id=telegram_id,
-                        reward_value=amount,
-                        description=f"Новогодний подарок ({amount} монеток)"
-                    )
-                )
-
-                prize_meta = {"code": code_str}
-                logging.info(f"🎁 GIFT: Юзер {telegram_id} забрал код {code_str} на {amount} монет.")
-
-        else:
-            # ЕСЛИ НЕ ПОДПИСАН — Генерируем "Фейк" для показа (от 1 до 5)
-            amount = random.randint(1, 5) 
-            prize_value = amount
-            # Код скрываем
-            prize_meta = {"code": "🔒 ПОДПИШИСЬ"} 
-
-    # --- 4. ФИНАЛ ---
-    
-    # Если НЕ ПОДПИСАН — возвращаем данные для тизера
+    # Если НЕ ПОДПИСАН — возвращаем данные для тизера, В БАЗУ НИЧЕГО НЕ ПИШЕМ
+    # (Это позволяет юзеру подписаться и попробовать снова)
     if not is_subscribed:
         return {
-            "type": prize_type,
-            "value": prize_value,
-            "meta": prize_meta,
+            "type": "none",
+            "value": random.randint(1, 5),
+            "meta": {"code": "🔒 ПОДПИШИСЬ"},
             "subscription_required": True,
             "message": "Подпишись, чтобы забрать награду!"
         }
 
-    # 1. ВЫЧИСЛЯЕМ МОСКОВСКОЕ ВРЕМЯ (UTC + 3 часа)
-    # Важно: убедитесь, что наверху файла есть: from datetime import timedelta
-    moscow_now = datetime.now(timezone.utc) + timedelta(hours=3)
-    claim_time_str = moscow_now.isoformat()
-
-    # Если ПОДПИСАН — обновляем дату получения подарка в базе
+    # --- 5. 🔥 БЛОКИРОВКА (LOCK) 🔥 ---
+    # Если подписан и время подошло — СРАЗУ блокируем от повторных запросов
     await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
-        "last_new_year_gift_at": datetime.now(timezone.utc).isoformat() # В базе лучше хранить UTC
+        "last_new_year_gift_at": now_utc.isoformat()
     })
 
-    # 2. ВОЗВРАЩАЕМ ВРЕМЯ НА ТЕЛЕФОН
+    # --- 6. РАСЧЕТ И ВЫДАЧА НАГРАДЫ ---
+    prize_type = "none"
+    prize_value = 0
+    prize_meta = {}
+
+    if random.random() < 0.5:
+        # --- БИЛЕТЫ (от 1 до 10) ---
+        amount = random.randint(1, 10)
+        prize_type = "tickets"
+        prize_value = amount
+        
+        await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": amount})
+        logging.info(f"🎁 GIFT: Юзер {telegram_id} получил {amount} билетов.")
+        
+    else:
+        # --- МОНЕТЫ (Коды) ---
+        prize_type = "coins"
+        
+        # Запрашиваем 1 код (снижает шанс коллизий)
+        response_codes = await supabase.get(
+            "/promocodes",
+            params={
+                "select": "id,code,reward_value",
+                "is_used": "eq.false",
+                "telegram_id": "is.null",
+                "reward_value": "lte.5",
+                "order": "reward_value.asc",
+                "limit": "1" 
+            }
+        )
+        available_codes = response_codes.json()
+
+        if not available_codes:
+            # Фолбэк на билеты, если коды кончились
+            fallback_amount = random.randint(1, 10)
+            prize_type = "tickets"
+            prize_value = fallback_amount
+            await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": fallback_amount})
+            logging.info(f"🎁 GIFT: Коды кончились. Юзер {telegram_id} получил {fallback_amount} билетов (фолбэк).")
+        else:
+            promo = available_codes[0]
+            amount = promo.get('reward_value') or random.randint(1, 5)
+            prize_value = amount
+            code_str = promo['code']
+            
+            # Закрепляем код
+            await supabase.patch(
+                "/promocodes", 
+                params={"id": f"eq.{promo['id']}"}, 
+                json={
+                    "is_used": True,
+                    "telegram_id": telegram_id,
+                    "reward_value": amount,
+                    "description": f"Новогодний подарок ({amount} монеток)",
+                    "claimed_at": now_utc.isoformat()
+                }
+            )
+
+            # 🔥🔥🔥 МГНОВЕННАЯ АВТО-АКТИВАЦИЯ В BOT-T 🔥🔥🔥
+            asyncio.create_task(
+                activate_single_promocode(
+                    promo_id=promo['id'],
+                    telegram_id=telegram_id,
+                    reward_value=amount,
+                    description=f"Новогодний подарок ({amount} монеток)"
+                )
+            )
+
+            prize_meta = {"code": code_str}
+            logging.info(f"🎁 GIFT: Юзер {telegram_id} забрал код {code_str} на {amount} монет.")
+
+    # --- 7. ФИНАЛ ---
     return {
         "type": prize_type,
         "value": prize_value,
@@ -17494,7 +17507,6 @@ async def claim_gift(
         "subscription_required": False,
         "claimed_at": claim_time_str  
     }
-
 
 # =======================================================
 # 🚀 МАССОВАЯ АВТОВЫДАЧА (ФИНАЛЬНАЯ ВЕРСИЯ)
