@@ -20193,6 +20193,9 @@ async def redirect_to_twitch(
 # ==========================================
 # 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
 # ==========================================
+# ==========================================
+# 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
+# ==========================================
 @app.get("/api/v1/twitch/fossabot_claim", response_class=PlainTextResponse)
 async def handle_fossabot_claim(
     request: Request,
@@ -20283,7 +20286,7 @@ async def handle_fossabot_claim(
 
         # --- ОБРАБОТКА ДУБЛИКАТА ---
         if res_data.get('is_duplicate'):
-            return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Ожидай получения. 🎫"
+            return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Зайди в лавку чтобы его там найти!."
 
         is_winner = res_data.get('is_winner')
         is_leader = res_data.get('is_leader')
@@ -20291,11 +20294,12 @@ async def handle_fossabot_claim(
 
         # 8. Награда победителя (Пуш в ТГ)
         if is_winner:
-            # Отмечаем в cs_codes
-            activated_list = cs_code.get("activated_by_ids", []) or []
-            if str(tg_id_int) not in activated_list:
-                activated_list.append(str(tg_id_int))
-                await supabase.patch("/cs_codes", params={"code": f"eq.{extracted_code}"}, json={"activated_by_ids": activated_list})
+            # 🔥 ИСПРАВЛЕНИЕ: ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ 🔥
+            # База данных сама безопасно добавит ID в массив, предотвращая Race Condition
+            await supabase.post("/rpc/add_twitch_winner", json={
+                "p_code": extracted_code, 
+                "p_user_id": str(tg_id_int)
+            })
             
             # Фоновое уведомление
             await create_in_app_notification(
