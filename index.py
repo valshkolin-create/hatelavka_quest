@@ -3589,6 +3589,7 @@ async def get_bootstrap_data(
             p_data = p2p_res.json()
             if isinstance(p_data, list):
                 p2p_trades = p_data
+                
 
         # Квесты и Цели
         quests_list = db_data.get('quests', [])
@@ -5571,19 +5572,25 @@ async def get_my_promos(
     user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(401, "Unauthorized")
     
-    user_id = int(user_info['id'])
+    user_id = str(user_info['id']) # ID как строка, так как в массивах БД они часто хранятся строками
 
-    # Ищем все коды, где наш ID есть в списке активировавших (activated_by_ids)
-    # Используем фильтр .cs. (contains) для поиска ID внутри массива
+    # Ищем все коды, которые юзер "забронировал" (ввел код)
     res = await supabase.get("/cs_codes", params={
-        "activated_by_ids": f"cs.{{{user_id}}}",
+        "used_by_ids": f"cs.{{{user_id}}}", # Юзер ЕСТЬ в списке использовавших код
         "is_active": "eq.true"
     })
     
     codes_data = res.json()
     
-    # Собираем список названий кейсов, которые для этого юзера сейчас бесплатны
-    active_cases = [item['target_case_name'] for item in codes_data if item.get('target_case_name')]
+    # 🔥 ФИЛЬТРАЦИЯ: Оставляем только те кейсы, которые юзер ЕЩЕ НЕ ОТКРЫЛ 🔥
+    active_cases = []
+    for item in codes_data:
+        activated_ids = item.get('activated_by_ids') or []
+        
+        # Если юзера НЕТ в списке активировавших (открывших кейс), значит купон еще ждет его
+        if user_id not in activated_ids:
+            if item.get('target_case_name'):
+                active_cases.append(item['target_case_name'])
     
     return {"active_cases": active_cases}
     
