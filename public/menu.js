@@ -3309,38 +3309,37 @@ function updateSwapBtnStep1() {
     }
 }
 
-// ЭТАП 2: Выбор с маркета
+// ЭТАП 2: Выбор с маркета (С БРОНЕЙ ОТ МУСОРА И КЕЙСОВ)
 window.renderSwapMarket = function() {
     const grid = document.getElementById('swap-market-grid');
     const searchInput = document.getElementById('swap-search-input');
     const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-    // Считаем общую сумму отданных предметов
     const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
 
-    // 🔥 НАСТРОЙКА "ОКНА ЦЕН" (от 70% до 100% суммы) 🔥
     const minPrice = totalSum * 0.70; 
     const maxPrice = totalSum;
 
-    // Фильтруем глобальный кэш
+    // 🔥 ЧЕРНЫЙ СПИСОК (Фронтенд-броня) 🔥
+    const blacklist = ["sticker |", "graffiti |", "patch |", "music kit |", "pin |", "charm |", "pass |", "case", "кейс"];
+
     const availableMarketItems = globalMarketItems.filter(item => {
         const priceRub = parseFloat(item.price_rub) || 0;
         
-        // 1. Отсекаем скины, которые не попадают в бюджет (от 70% до 100%)
-        // Если юзер еще ничего не выбрал (totalSum <= 0), маркет будет пуст
-        if (totalSum <= 0 || priceRub > maxPrice || priceRub < minPrice) {
-            return false;
-        }
+        // 1. Фильтр бюджета
+        if (totalSum <= 0 || priceRub > maxPrice || priceRub < minPrice) return false;
 
-        // 2. Отсекаем по поисковому запросу (ищет и по названию, и по качеству)
-        if (searchQuery && !item.market_hash_name.toLowerCase().includes(searchQuery)) {
-            return false;
-        }
+        const lowerName = item.market_hash_name.toLowerCase();
+        
+        // 2. Фильтр поиска
+        if (searchQuery && !lowerName.includes(searchQuery)) return false;
+
+        // 3. Фильтр мусора и кейсов
+        if (blacklist.some(junk => lowerName.includes(junk))) return false;
 
         return true;
     });
 
-    // Если скинов в этом ценовом окне нет
     if (availableMarketItems.length === 0) {
         if (totalSum <= 0) {
             grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Сначала выберите свои скины для обмена.</div>';
@@ -3357,12 +3356,10 @@ window.renderSwapMarket = function() {
         const isSelected = swapTargetItem && swapTargetItem.name === item.market_hash_name;
         const border = isSelected ? '#ff9500' : 'transparent';
 
-        // Умный парсинг имени и качества
         let weapon = "";
         let skinName = item.market_hash_name;
         let condition = "";
 
-        // Регулярка вытаскивает: 1. Оружие, 2. Скин, 3. Качество
         const match = item.market_hash_name.match(/^(.*?)\s*\|\s*(.*?)(?:\s*\((.*?)\))?$/);
         if (match) {
             weapon = match[1];            
@@ -3380,16 +3377,17 @@ window.renderSwapMarket = function() {
             ? `<div style="font-size: 9px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${escapeHTML(weapon)}</div>` 
             : '';
 
+        // Защищаем кавычки в названии для data-id
+        const safeDataId = item.market_hash_name.replace(/"/g, '&quot;');
+
         return `
-            <div class="swap-card-inv" onclick="selectTargetItem('${item.market_hash_name.replace(/'/g, "\\'")}', ${priceRub}, '${item.image_url}')"
-                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 140px; justify-content: space-between; box-sizing: border-box; transition: 0.2s; min-width: 0; overflow: hidden; width: 100%;">
+            <div class="swap-card-inv market-card-item" data-id="${safeDataId}" onclick="selectTargetItem('${item.market_hash_name.replace(/'/g, "\\'")}', ${priceRub}, '${item.image_url}')"
+                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 140px; justify-content: space-between; box-sizing: border-box; transition: border-color 0.2s; min-width: 0; overflow: hidden; width: 100%;">
                 
                 <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain; flex-shrink: 0;">
                 
                 ${weaponHtml}
-                
                 <div style="font-size: 10px; color: #fff; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: ${weapon ? '2px' : '4px'};">${escapeHTML(skinName)}</div>
-                
                 ${conditionHtml}
                 
                 <div style="font-size: 11px; color: #ffcc00; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 4px; flex-shrink: 0; margin-top: auto; padding-top: 6px;">
@@ -3403,11 +3401,33 @@ window.renderSwapMarket = function() {
 };
 
 window.selectTargetItem = (name, price, imageUrl) => {
+    // 1. Обновляем данные о выбранном скине
     if (swapTargetItem && swapTargetItem.name === name) swapTargetItem = null;
     else swapTargetItem = { name, price, image_url: imageUrl };
     
     document.getElementById('swap-take-price').innerText = swapTargetItem ? swapTargetItem.price : 0;
-    renderSwapMarket();
+    
+    // 2. СНИМАЕМ ВЫДЕЛЕНИЕ со всех карточек на витрине (чтобы снять рамки с прошлых кликов)
+    document.querySelectorAll('#swap-market-grid .market-card-item').forEach(card => {
+        card.style.borderColor = 'transparent';
+        const check = card.querySelector('.swap-check');
+        if (check) check.classList.add('hidden');
+    });
+
+    // 3. СТАВИМ ВЫДЕЛЕНИЕ на ту, которую кликнули (БЕЗ ПЕРЕЗАГРУЗКИ КАРТИНОК)
+    if (swapTargetItem) {
+        // Экранируем двойные кавычки для безопасного поиска
+        const safeSelector = swapTargetItem.name.replace(/"/g, '\\"');
+        const targetCard = document.querySelector(`#swap-market-grid .market-card-item[data-id="${safeSelector}"]`);
+        
+        if (targetCard) {
+            targetCard.style.borderColor = '#ff9500';
+            const check = targetCard.querySelector('.swap-check');
+            if (check) check.classList.remove('hidden');
+        }
+    }
+    
+    // 4. Обновляем кнопку и дергаем виброотклик
     updateSwapBtnStep2();
     if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
 };
