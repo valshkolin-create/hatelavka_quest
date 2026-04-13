@@ -20424,17 +20424,17 @@ async def stop_twitch_campaign(
 @app.get("/api/v1/shop/market_cache")
 async def get_market_items(
     response: Response,
+    max_price: float = None, # 🔥 Добавили параметр
+    min_price: float = None, # 🔥 Добавили параметр
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 🔥 МАГИЯ VERCEL: Кэшируем витрину обменника на 2 минуты
     response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=240"
     
-    # ИСПОЛЬЗУЕМ СПИСОК КОРТЕЖЕЙ, чтобы передать несколько одинаковых ключей
     query_params = [
         ("select", "market_hash_name,price_rub,image_url"),
         ("is_available", "eq.true"),
         
-        # 🗑️ ВЫРЕЗАЕМ МУСОР НА УРОВНЕ БАЗЫ ДАННЫХ 🗑️
+        # Вырезаем мусор сразу в БД
         ("market_hash_name", "not.ilike.*Sticker |*"),
         ("market_hash_name", "not.ilike.*Graffiti |*"),
         ("market_hash_name", "not.ilike.*Patch |*"),
@@ -20443,19 +20443,21 @@ async def get_market_items(
         ("market_hash_name", "not.ilike.*Charm |*"),
         ("market_hash_name", "not.ilike.*Pass |*"),
         
-        # 📈 ПРОБИВАЕМ ЛИМИТ И СОРТИРУЕМ 📈
-        # Запрашиваем 4000 строк (база отдаст только чистые скины)
-        ("limit", "4000"),
-        # Сортируем от дорогих к дешевым, чтобы первыми шли самые сочные скины
-        ("order", "price_rub.desc")
+        ("order", "price_rub.desc"),
+        ("limit", "4000")
     ]
     
+    # Если фронт прислал нам бюджет — фильтруем!
+    if max_price is not None:
+        query_params.append(("price_rub", f"lte.{max_price}"))
+    if min_price is not None:
+        query_params.append(("price_rub", f"gte.{min_price}"))
+        
     resp = await supabase.get(
         "/market_cache",
         params=query_params
     )
     
-    # Защита от падения: если БД недоступна, возвращаем пустой список
     if resp.status_code != 200:
         return []
 
