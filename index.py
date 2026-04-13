@@ -20423,16 +20423,42 @@ async def stop_twitch_campaign(
     
 @app.get("/api/v1/shop/market_cache")
 async def get_market_items(
-    response: Response, # 🔥 ДОБАВЛЕНО
+    response: Response,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     # 🔥 МАГИЯ VERCEL: Кэшируем витрину обменника на 2 минуты
     response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=240"
     
+    # ИСПОЛЬЗУЕМ СПИСОК КОРТЕЖЕЙ, чтобы передать несколько одинаковых ключей
+    query_params = [
+        ("select", "market_hash_name,price_rub,image_url"),
+        ("is_available", "eq.true"),
+        
+        # 🗑️ ВЫРЕЗАЕМ МУСОР НА УРОВНЕ БАЗЫ ДАННЫХ 🗑️
+        ("market_hash_name", "not.ilike.*Sticker |*"),
+        ("market_hash_name", "not.ilike.*Graffiti |*"),
+        ("market_hash_name", "not.ilike.*Patch |*"),
+        ("market_hash_name", "not.ilike.*Music Kit |*"),
+        ("market_hash_name", "not.ilike.*Pin |*"),
+        ("market_hash_name", "not.ilike.*Charm |*"),
+        ("market_hash_name", "not.ilike.*Pass |*"),
+        
+        # 📈 ПРОБИВАЕМ ЛИМИТ И СОРТИРУЕМ 📈
+        # Запрашиваем 4000 строк (база отдаст только чистые скины)
+        ("limit", "4000"),
+        # Сортируем от дорогих к дешевым, чтобы первыми шли самые сочные скины
+        ("order", "price_rub.desc")
+    ]
+    
     resp = await supabase.get(
         "/market_cache",
-        params={"is_available": "eq.true", "select": "market_hash_name,price_rub,image_url"}
+        params=query_params
     )
+    
+    # Защита от падения: если БД недоступна, возвращаем пустой список
+    if resp.status_code != 200:
+        return []
+
     return resp.json()
     
 @app.post("/api/v1/user/inventory/sell")
