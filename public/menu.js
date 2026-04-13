@@ -3219,14 +3219,45 @@ function updateSwapBtnStep1() {
 }
 
 // ЭТАП 2: Выбор с маркета
-function renderSwapMarket() {
+window.renderSwapMarket = function() {
     const grid = document.getElementById('swap-market-grid');
+    const searchInput = document.getElementById('swap-search-input');
+    const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    // Считаем общую сумму отданных предметов
     const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
 
-    const availableMarketItems = globalMarketItems.filter(item => parseFloat(item.price_rub) <= totalSum && totalSum > 0);
+    // 🔥 НАСТРОЙКА "ОКНА ЦЕН" (от 70% до 100% суммы) 🔥
+    const minPrice = totalSum * 0.70; 
+    const maxPrice = totalSum;
 
+    // Фильтруем глобальный кэш
+    const availableMarketItems = globalMarketItems.filter(item => {
+        const priceRub = parseFloat(item.price_rub) || 0;
+        
+        // 1. Отсекаем скины, которые не попадают в бюджет (от 70% до 100%)
+        // Если юзер еще ничего не выбрал (totalSum <= 0), маркет будет пуст
+        if (totalSum <= 0 || priceRub > maxPrice || priceRub < minPrice) {
+            return false;
+        }
+
+        // 2. Отсекаем по поисковому запросу (ищет и по названию, и по качеству)
+        if (searchQuery && !item.market_hash_name.toLowerCase().includes(searchQuery)) {
+            return false;
+        }
+
+        return true;
+    });
+
+    // Если скинов в этом ценовом окне нет
     if (availableMarketItems.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет скинов под вашу сумму.</div>';
+        if (totalSum <= 0) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Сначала выберите свои скины для обмена.</div>';
+        } else if (searchQuery) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">По вашему запросу ничего не найдено.</div>';
+        } else {
+            grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет скинов в диапазоне<br><b style="color:#ffd700;">от ${minPrice.toFixed(0)} до ${maxPrice.toFixed(0)} монеток</b>.</div>`;
+        }
         return;
     }
 
@@ -3234,22 +3265,51 @@ function renderSwapMarket() {
         const priceRub = parseFloat(item.price_rub) || 0;
         const isSelected = swapTargetItem && swapTargetItem.name === item.market_hash_name;
         const border = isSelected ? '#ff9500' : 'transparent';
-        const shortName = item.market_hash_name.split('|').pop().trim();
 
-        // 🔥 ДОБАВЛЕНО: min-width: 0, overflow: hidden, width: 100% чтобы текст обрезался, а не ломал сетку
+        // Умный парсинг имени и качества
+        let weapon = "";
+        let skinName = item.market_hash_name;
+        let condition = "";
+
+        // Регулярка вытаскивает: 1. Оружие, 2. Скин, 3. Качество
+        const match = item.market_hash_name.match(/^(.*?)\s*\|\s*(.*?)(?:\s*\((.*?)\))?$/);
+        if (match) {
+            weapon = match[1];            
+            skinName = match[2];          
+            condition = match[3] || "";   
+        } else {
+            skinName = item.market_hash_name.split('|').pop().trim();
+        }
+
+        const conditionHtml = condition 
+            ? `<div style="font-size: 8px; color: #8e8e93; background: rgba(255,255,255,0.05); padding: 2px 4px; border-radius: 4px; margin-top: 4px;">${escapeHTML(condition)}</div>` 
+            : '';
+            
+        const weaponHtml = weapon 
+            ? `<div style="font-size: 9px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${escapeHTML(weapon)}</div>` 
+            : '';
+
         return `
             <div class="swap-card-inv" onclick="selectTargetItem('${item.market_hash_name.replace(/'/g, "\\'")}', ${priceRub}, '${item.image_url}')"
-                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s; min-width: 0; overflow: hidden; width: 100%;">
+                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 140px; justify-content: space-between; box-sizing: border-box; transition: 0.2s; min-width: 0; overflow: hidden; width: 100%;">
+                
                 <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain; flex-shrink: 0;">
-                <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
-                <div style="font-size: 11px; color: #ffcc00; font-weight: bold; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                
+                ${weaponHtml}
+                
+                <div style="font-size: 10px; color: #fff; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: ${weapon ? '2px' : '4px'};">${escapeHTML(skinName)}</div>
+                
+                ${conditionHtml}
+                
+                <div style="font-size: 11px; color: #ffcc00; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 4px; flex-shrink: 0; margin-top: auto; padding-top: 6px;">
                     ${priceRub} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
                 </div>
+                
                 <div class="swap-check ${isSelected ? '' : 'hidden'}" style="position: absolute; top: 4px; right: 4px; background: #ff9500; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
             </div>
         `;
     }).join('');
-}
+};
 
 window.selectTargetItem = (name, price, imageUrl) => {
     if (swapTargetItem && swapTargetItem.name === name) swapTargetItem = null;
