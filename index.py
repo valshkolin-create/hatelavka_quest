@@ -17386,26 +17386,45 @@ async def claim_gift(
     claim_time_str = now_msk.isoformat()
 
     # --- 2. ПРОВЕРКА ГЛОБАЛЬНОГО ВЫКЛЮЧАТЕЛЯ ---
-    settings_resp = await supabase.get("/settings", params={"limit": "1"})
-    if settings_resp.status_code == 200 and settings_resp.json():
-        settings_data = settings_resp.json()[0]
-        if settings_data.get("bonus_gift_enabled") is False:
-            raise HTTPException(status_code=400, detail="Раздача подарков сейчас отключена!")
+    settings_resp = await supabase.get("/settings", params={"key": "eq.bonus_gift_enabled", "limit": "1"})
+    
+    if settings_resp.status_code != 200:
+        logging.error(f"Ошибка получения настроек: {settings_resp.text}")
+        raise HTTPException(status_code=500, detail="Ошибка сервера при проверке настроек")
+
+    settings_json = settings_resp.json()
+    if not settings_json:
+        raise HTTPException(status_code=500, detail="Настройка выдачи подарков не найдена")
+
+    raw_value = settings_json[0].get("value")
+    # Железобетонная проверка на выключение:
+    if raw_value is False or str(raw_value).strip().lower() == "false":
+        raise HTTPException(status_code=400, detail="Раздача подарков сейчас отключена!")
 
     # --- 3. ПРОВЕРКА БАЗЫ (Лимит в сутки и Бан) ---
-    user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "last_new_year_gift_at, is_banned"})
+    user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "id, last_new_year_gift_at, is_banned"})
+    
+    if user_resp.status_code != 200:
+        raise HTTPException(status_code=500, detail="Ошибка при проверке пользователя")
+        
     user_data = user_resp.json()
 
-    if user_data:
-        if user_data[0].get('is_banned'):
-            raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован.")
+    # Если юзера нет в базе — блокируем (Fail-Closed)
+    if not user_data:
+        raise HTTPException(status_code=403, detail="Пользователь не найден в базе. Сначала запустите бота.")
 
-        last_gift_str = user_data[0].get('last_new_year_gift_at')
-        if last_gift_str:
-            last_gift_utc = datetime.fromisoformat(last_gift_str.replace('Z', '+00:00'))
-            last_gift_msk = last_gift_utc + timedelta(hours=3)
-            if last_gift_msk.date() == now_msk.date():
-                raise HTTPException(status_code=400, detail="Подарок уже получен сегодня! Приходите завтра.")
+    user_record = user_data[0]
+    
+    is_banned = user_record.get('is_banned')
+    if is_banned is True or str(is_banned).strip().lower() == "true":
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован.")
+
+    last_gift_str = user_record.get('last_new_year_gift_at')
+    if last_gift_str:
+        last_gift_utc = datetime.fromisoformat(last_gift_str.replace('Z', '+00:00'))
+        last_gift_msk = last_gift_utc + timedelta(hours=3)
+        if last_gift_msk.date() == now_msk.date():
+            raise HTTPException(status_code=400, detail="Подарок уже получен сегодня! Приходите завтра.")
 
     # --- 4. ПРОВЕРКА ПОДПИСКИ ---
     REQUIRED_CHANNEL_ID = -1002144676097
@@ -17418,8 +17437,7 @@ async def claim_gift(
         logging.error(f"Ошибка проверки подписки: {e}")
         pass
 
-    # Если НЕ ПОДПИСАН — возвращаем данные для тизера, В БАЗУ НИЧЕГО НЕ ПИШЕМ
-    # (Это позволяет юзеру подписаться и попробовать снова)
+    # Если НЕ ПОДПИСАН — возвращаем данные для тизера
     if not is_subscribed:
         return {
             "type": "none",
@@ -17430,10 +17448,13 @@ async def claim_gift(
         }
 
     # --- 5. 🔥 БЛОКИРОВКА (LOCK) 🔥 ---
-    # Если подписан и время подошло — СРАЗУ блокируем от повторных запросов
-    await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
+    patch_resp = await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
         "last_new_year_gift_at": now_utc.isoformat()
     })
+    
+    if patch_resp.status_code not in (200, 204):
+        logging.error(f"Ошибка обновления last_new_year_gift_at: {patch_resp.text}")
+        raise HTTPException(status_code=500, detail="Ошибка сохранения данных. Попробуйте еще раз.")
 
     # --- 6. РАСЧЕТ И ВЫДАЧА НАГРАДЫ ---
     prize_type = "none"
@@ -17441,7 +17462,7 @@ async def claim_gift(
     prize_meta = {}
 
     if random.random() < 0.5:
-        # --- БИЛЕТЫ (от 1 до 10) ---
+        # --- БИЛЕТЫ ---
         amount = random.randint(1, 10)
         prize_type = "tickets"
         prize_value = amount
@@ -17453,7 +17474,6 @@ async def claim_gift(
         # --- МОНЕТЫ (Коды) ---
         prize_type = "coins"
         
-        # Запрашиваем 1 код (снижает шанс коллизий)
         response_codes = await supabase.get(
             "/promocodes",
             params={
@@ -17465,10 +17485,10 @@ async def claim_gift(
                 "limit": "1" 
             }
         )
-        available_codes = response_codes.json()
+        available_codes = response_codes.json() if response_codes.status_code == 200 else []
 
         if not available_codes:
-            # Фолбэк на билеты, если коды кончились
+            # Фолбэк на билеты
             fallback_amount = random.randint(1, 10)
             prize_type = "tickets"
             prize_value = fallback_amount
@@ -17480,7 +17500,6 @@ async def claim_gift(
             prize_value = amount
             code_str = promo['code']
             
-            # Закрепляем код
             await supabase.patch(
                 "/promocodes", 
                 params={"id": f"eq.{promo['id']}"}, 
@@ -17493,7 +17512,7 @@ async def claim_gift(
                 }
             )
 
-            # 🔥🔥🔥 МГНОВЕННАЯ АВТО-АКТИВАЦИЯ В BOT-T 🔥🔥🔥
+            # Авто-активация
             asyncio.create_task(
                 activate_single_promocode(
                     promo_id=promo['id'],
