@@ -3321,7 +3321,12 @@ window.renderSwapMarket = function() {
     const maxPrice = totalSum;
 
     // 🔥 ЧЕРНЫЙ СПИСОК (Фронтенд-броня) 🔥
-    const blacklist = ["sticker |", "graffiti |", "patch |", "music kit |", "pin |", "charm |", "pass |", "case", "кейс"];
+    // Внутри функции renderSwapMarket
+const blacklist = [
+    "sticker |", "graffiti |", "patch |", "music kit |", 
+    "pin |", "charm |", "pass |", "case", "кейс",
+    "capsule", "капсула", "terminal", "терминал", "token" // 🔥 Добавили эти
+];
 
     const availableMarketItems = globalMarketItems.filter(item => {
         const priceRub = parseFloat(item.price_rub) || 0;
