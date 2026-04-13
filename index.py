@@ -20435,8 +20435,8 @@ async def get_market_items(
         ("is_available", "eq.true"),
         
         # 🔥 1. СТРОГИЙ ФИЛЬТР КАРТИНОК 🔥
-        ("image_url", "not.is.null"),     # Картинка должна существовать в БД
-        ("image_url", "ilike.http*"),     # Ссылка должна начинаться на http/https
+        ("image_url", "not.is.null"),     # Картинка должна существовать
+        ("image_url", "ilike.http*"),     # Ссылка должна быть валидной
         
         # 🗑️ 2. ВЫРЕЗАЕМ МУСОРНЫЕ ПРЕДМЕТЫ 🗑️
         ("market_hash_name", "not.ilike.*Sticker |*"),
@@ -20447,7 +20447,14 @@ async def get_market_items(
         ("market_hash_name", "not.ilike.*Charm |*"),
         ("market_hash_name", "not.ilike.*Pass |*"),
         
-        # 📦 Если хочешь вообще убрать КЕЙСЫ из обмена, раскомментируй строки ниже:
+        # 🚫 3. НОВЫЕ ФИЛЬТРЫ: Капсулы, Терминалы, Токены 🚫
+        ("market_hash_name", "not.ilike.*Capsule*"),
+        ("market_hash_name", "not.ilike.*Капсула*"),
+        ("market_hash_name", "not.ilike.*Terminal*"),
+        ("market_hash_name", "not.ilike.*Терминал*"),
+        ("market_hash_name", "not.ilike.*Token*"), # Жетоны зрителя тоже в топку
+        
+        # 📦 Если хочешь убрать КЕЙСЫ, раскомментируй строки ниже:
         # ("market_hash_name", "not.ilike.*Case*"),
         # ("market_hash_name", "not.ilike.*Кейс*"),
         
@@ -20455,7 +20462,7 @@ async def get_market_items(
         ("limit", "4000")
     ]
     
-    # 💰 3. ПРИМЕНЯЕМ ОКНО ЦЕН (Бюджет юзера) 💰
+    # 💰 4. ПРИМЕНЯЕМ ОКНО ЦЕН (Бюджет юзера) 💰
     if max_price is not None:
         query_params.append(("price_rub", f"lte.{max_price}"))
     if min_price is not None:
