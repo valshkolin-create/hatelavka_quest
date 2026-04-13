@@ -3071,29 +3071,21 @@ window.openSwapModal = async () => {
     swapGivenItems.clear();
     swapTargetItem = null;
     currentSwapStep = 1;
+    
+    // 🔥 Очищаем кэш маркета при каждом открытии окна
+    globalMarketItems = []; 
 
     try {
-        let marketRes = [];
         let inventoryRes = [];
 
         try {
+            // Запрашиваем ТОЛЬКО инвентарь пользователя
             inventoryRes = await makeApiRequest('/api/v1/user/inventory', {}, 'POST', true);
-            let rawMarket = await makeApiRequest('/api/v1/shop/market_cache', {}, 'GET', true).catch(() => null);
-            if (!rawMarket) rawMarket = await makeApiRequest('/api/v1/shop/market_cache', {}, 'POST', true).catch(() => []);
-            
-            if (Array.isArray(rawMarket)) marketRes = rawMarket;
-            else if (rawMarket && Array.isArray(rawMarket.items)) marketRes = rawMarket.items;
-            else if (rawMarket && Array.isArray(rawMarket.data)) marketRes = rawMarket.data;
         } catch (err) {
-            console.warn("Свап: ошибка загрузки API", err);
+            console.warn("Свап: ошибка загрузки инвентаря", err);
         }
-
-        // 🔥 ФИЛЬТР МАРКЕТА (Только с картинками) + Сортировка
-        globalMarketItems = marketRes
-            .filter(m => m.is_available !== false && m.image_url && m.image_url.startsWith('http'))
-            .sort((a, b) => parseFloat(b.price_rub) - parseFloat(a.price_rub));
         
-        // 🔥 ФИЛЬТР ИНВЕНТАРЯ (Только с картинками)
+        // 🔥 ФИЛЬТР ИНВЕНТАРЯ (Только с картинками и доступные)
         const availableItems = (Array.isArray(inventoryRes) ? inventoryRes : [])
             .filter(item => 
                 ['pending', 'available'].includes(item.status) && 
@@ -3102,7 +3094,9 @@ window.openSwapModal = async () => {
             );
 
         renderSwapInventory(availableItems);
-        renderSwapMarket();
+        
+        // renderSwapMarket() мы отсюда удалили, потому что маркет теперь рисуется 
+        // только на 2 шаге после нажатия кнопки "Далее"
         
         document.getElementById('swap-loader').style.display = 'none';
         document.getElementById('swap-content-area').classList.remove('hidden');
@@ -3147,38 +3141,60 @@ window.swapGoBack = () => {
     if (currentSwapStep > 1) goToSwapStep(currentSwapStep - 1);
 };
 
-window.handleSwapMainBtn = () => {
-    if (currentSwapStep === 1) goToSwapStep(2);
-    else if (currentSwapStep === 2) goToSwapStep(3);
-    else if (currentSwapStep === 3) executeSwap();
-};
+window.handleSwapMainBtn = async () => {
+    // ==========================================
+    // ЛОГИКА ШАГА 1 -> ПЕРЕХОД НА ШАГ 2
+    // ==========================================
+    if (currentSwapStep === 1) {
+        const btn = document.getElementById('swap-main-btn');
+        const originalText = btn.innerText;
 
-function renderSwapInventory(items) {
-    const grid = document.getElementById('swap-inventory-grid');
-    if (items.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет предметов для обмена</div>';
-        return;
+        // Считаем сумму выбранных предметов
+        const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
+        
+        if (totalSum <= 0) {
+            return customAlert("Выберите хотя бы один предмет для обмена!");
+        }
+
+        // Включаем визуальную загрузку на кнопке
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Подбор скинов...';
+        btn.disabled = true;
+
+        // Высчитываем минимальную цену (70% от суммы)
+        const minPrice = totalSum * 0.70;
+
+        try {
+            // 🔥 ДЕЛАЕМ ТОЧЕЧНЫЙ ЗАПРОС К БЭКЕНДУ 🔥
+            let rawMarket = await makeApiRequest(`/api/v1/shop/market_cache?min_price=${minPrice}&max_price=${totalSum}`, {}, 'GET', true);
+            
+            let marketRes = [];
+            if (Array.isArray(rawMarket)) marketRes = rawMarket;
+            else if (rawMarket && Array.isArray(rawMarket.items)) marketRes = rawMarket.items;
+            else if (rawMarket && Array.isArray(rawMarket.data)) marketRes = rawMarket.data;
+
+            // Обновляем глобальный массив ТОЛЬКО подходящими скинами
+            globalMarketItems = marketRes;
+            
+            // Если всё скачалось успешно — переключаем экран
+            goToSwapStep(2);
+        } catch(e) {
+            customAlert("Не удалось загрузить варианты для замены.");
+        } finally {
+            // Возвращаем кнопку в исходный вид
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    } 
+    // ==========================================
+    // ЛОГИКА ОСТАЛЬНЫХ ШАГОВ (Осталась твоя)
+    // ==========================================
+    else if (currentSwapStep === 2) {
+        goToSwapStep(3);
+    } 
+    else if (currentSwapStep === 3) {
+        executeSwap();
     }
-
-    grid.innerHTML = items.map(item => {
-        const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : (parseFloat(item.price) || 0);
-        const shortName = (item.name || "Скин").split('|').pop().trim();
-        const isSelected = swapGivenItems.has(item.history_id);
-        const border = isSelected ? '#34c759' : 'transparent';
-
-        return `
-            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price}, '${item.name.replace(/'/g, "\\'")}', '${item.image_url}')" 
-                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
-                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
-                <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
-                <div style="font-size: 11px; color: #FFD700; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                    ${price} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
-                </div>
-                <div class="swap-check ${isSelected ? '' : 'hidden'}" style="position: absolute; top: 4px; right: 4px; background: #34c759; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
-            </div>
-        `;
-    }).join('');
-}
+};
 
 window.toggleGiveItem = (historyId, price, name, imageUrl) => {
     const card = document.getElementById(`swap-inv-${historyId}`);
