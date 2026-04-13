@@ -2306,7 +2306,38 @@ document.body.addEventListener('click', async (event) => {
 
 // Добавляем слушатели на кнопки подарков
 document.getElementById('daily-gift-btn')?.addEventListener('click', () => { document.getElementById('gift-modal-overlay').classList.remove('hidden'); document.getElementById('gift-content-initial').classList.remove('hidden'); document.getElementById('gift-content-result').classList.add('hidden'); });
-document.getElementById('gift-open-btn')?.addEventListener('click', async () => { try { document.getElementById('gift-open-btn').disabled = true; const res = await makeApiRequest('/api/v1/gift/claim', {}, 'POST'); renderGiftResult(res); checkBalance(true); } catch (e) { document.getElementById('gift-open-btn').disabled = false; } });
+document.getElementById('gift-open-btn')?.addEventListener('click', async function() { 
+    const btn = this;
+    const originalHtml = btn.innerHTML; // Запоминаем исходный текст (например, "Открыть")
+    
+    try { 
+        // 1. Мгновенно блокируем кнопку и показываем спиннер
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Открываем...';
+        
+        // 2. Делаем запрос к нашему новому бронебойному эндпоинту
+        const res = await makeApiRequest('/api/v1/gift/claim', {}, 'POST'); 
+        
+        // 3. Рисуем результат (успех или просьба подписаться)
+        renderGiftResult(res); 
+        checkBalance(true); 
+        
+        // 4. Возвращаем кнопку в исходное состояние (на случай, если юзер не подписан 
+        // и ему придется нажимать ее снова после подписки)
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+
+    } catch (e) { 
+        // Если пришла ошибка (например, 400 "Уже забрал" или "Отключено")
+        // makeApiRequest УЖЕ показал customAlert, поэтому нам остается только:
+        
+        btn.disabled = false; 
+        btn.innerHTML = originalHtml;
+        
+        // Закрываем окно подарка, чтобы оно не висело на фоне ошибки
+        document.getElementById('gift-modal-overlay').classList.add('hidden');
+    } 
+});
 document.getElementById('gift-x-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 document.getElementById('gift-close-btn')?.addEventListener('click', () => document.getElementById('gift-modal-overlay').classList.add('hidden'));
 
