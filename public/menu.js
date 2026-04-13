@@ -3026,6 +3026,8 @@ async function main() {
         }
     }
 } // 🔥 <--- ДОБАВЬ ВОТ ЭТУ СКОБКУ СЮДА! ОНА ЗАКРЫВАЕТ ФУНКЦИЮ main()
+
+
 // ================================================================
 // SWAP (TRADE-UP КОНТРАКТ) 3 ЭТАПА
 // ================================================================
@@ -3240,6 +3242,61 @@ window.toggleGiveItem = (historyId, price, name, imageUrl) => {
     updateSwapBtnStep1();
     if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
 };
+
+function renderSwapInventory(items) {
+    const grid = document.getElementById('swap-inventory-grid');
+    if (items.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет предметов для обмена</div>';
+        return;
+    }
+
+    grid.innerHTML = items.map(item => {
+        const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : (parseFloat(item.price) || 0);
+        const shortName = (item.name || "Скин").split('|').pop().trim();
+        const isSelected = swapGivenItems.has(item.history_id);
+        const border = isSelected ? '#34c759' : 'transparent';
+
+        return `
+            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price}, '${item.name.replace(/'/g, "\\'")}', '${item.image_url}')" 
+                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
+                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
+                <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
+                <div style="font-size: 11px; color: #FFD700; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                    ${price} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
+                </div>
+                <div class="swap-check ${isSelected ? '' : 'hidden'}" style="position: absolute; top: 4px; right: 4px; background: #34c759; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.toggleGiveItem = (historyId, price, name, imageUrl) => {
+    const card = document.getElementById(`swap-inv-${historyId}`);
+    if (!card) return;
+
+    if (swapGivenItems.has(historyId)) {
+        swapGivenItems.delete(historyId);
+        card.style.borderColor = 'transparent';
+        card.style.background = '#232325';
+        card.querySelector('.swap-check').classList.add('hidden');
+    } else {
+        if (swapGivenItems.size >= 4) return customAlert("Максимум 4 предмета!");
+        swapGivenItems.set(historyId, { price, name, image_url: imageUrl });
+        card.style.borderColor = '#34c759';
+        card.style.background = 'rgba(52,199,89,0.05)';
+        card.querySelector('.swap-check').classList.remove('hidden');
+    }
+    
+    const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
+    if (swapTargetItem && swapTargetItem.price > totalSum) {
+        swapTargetItem = null;
+    }
+
+    document.getElementById('swap-give-sum').innerText = totalSum;
+    updateSwapBtnStep1(); 
+    if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+};
+
 
 function updateSwapBtnStep1() {
     const btn = document.getElementById('swap-main-btn');
