@@ -20424,8 +20424,8 @@ async def stop_twitch_campaign(
 @app.get("/api/v1/shop/market_cache")
 async def get_market_items(
     response: Response,
-    max_price: float = None, # 🔥 Добавили параметр
-    min_price: float = None, # 🔥 Добавили параметр
+    max_price: float = None,
+    min_price: float = None,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=240"
@@ -20434,7 +20434,11 @@ async def get_market_items(
         ("select", "market_hash_name,price_rub,image_url"),
         ("is_available", "eq.true"),
         
-        # Вырезаем мусор сразу в БД
+        # 🔥 1. СТРОГИЙ ФИЛЬТР КАРТИНОК 🔥
+        ("image_url", "not.is.null"),     # Картинка должна существовать в БД
+        ("image_url", "ilike.http*"),     # Ссылка должна начинаться на http/https
+        
+        # 🗑️ 2. ВЫРЕЗАЕМ МУСОРНЫЕ ПРЕДМЕТЫ 🗑️
         ("market_hash_name", "not.ilike.*Sticker |*"),
         ("market_hash_name", "not.ilike.*Graffiti |*"),
         ("market_hash_name", "not.ilike.*Patch |*"),
@@ -20443,11 +20447,15 @@ async def get_market_items(
         ("market_hash_name", "not.ilike.*Charm |*"),
         ("market_hash_name", "not.ilike.*Pass |*"),
         
+        # 📦 Если хочешь вообще убрать КЕЙСЫ из обмена, раскомментируй строки ниже:
+        # ("market_hash_name", "not.ilike.*Case*"),
+        # ("market_hash_name", "not.ilike.*Кейс*"),
+        
         ("order", "price_rub.desc"),
         ("limit", "4000")
     ]
     
-    # Если фронт прислал нам бюджет — фильтруем!
+    # 💰 3. ПРИМЕНЯЕМ ОКНО ЦЕН (Бюджет юзера) 💰
     if max_price is not None:
         query_params.append(("price_rub", f"lte.{max_price}"))
     if min_price is not None:
