@@ -3038,11 +3038,15 @@ window.openSwapModal = async () => {
     const msgCount = userData.monthly_message_count || 0;
     const requiredMsgs = 300;
     
-    document.getElementById('swap-modal').classList.remove('hidden');
+    const modal = document.getElementById('swap-modal');
+    if (modal) modal.classList.remove('hidden');
 
+    // Проверка на количество сообщений
     if (msgCount < requiredMsgs) {
-        document.getElementById('swap-loader').style.display = 'none';
-        document.getElementById('swap-content-area').classList.add('hidden');
+        const loader = document.getElementById('swap-loader');
+        if (loader) loader.style.display = 'none';
+        
+        document.getElementById('swap-content-area')?.classList.add('hidden');
         document.getElementById('swap-footer').style.display = 'none';
         
         const lockedArea = document.getElementById('swap-locked-area');
@@ -3063,48 +3067,62 @@ window.openSwapModal = async () => {
         return; 
     }
 
-    document.getElementById('swap-locked-area').classList.add('hidden');
+    // Если сообщений хватает — готовим окно к загрузке
+    document.getElementById('swap-locked-area')?.classList.add('hidden');
     document.getElementById('swap-footer').style.display = 'block';
-    document.getElementById('swap-content-area').classList.add('hidden');
-    document.getElementById('swap-loader').style.display = 'flex';
+    document.getElementById('swap-content-area')?.classList.add('hidden');
+    
+    const loader = document.getElementById('swap-loader');
+    if (loader) {
+        loader.style.display = 'flex';
+        // Сбрасываем текст лоадера на случай, если там висит старая ошибка
+        loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка инвентаря...';
+    }
     
     swapGivenItems.clear();
     swapTargetItem = null;
     currentSwapStep = 1;
+    globalMarketItems = []; // Чистим кэш
     
-    // 🔥 Очищаем кэш маркета при каждом открытии окна
-    globalMarketItems = []; 
-
     try {
         let inventoryRes = [];
 
         try {
-            // Запрашиваем ТОЛЬКО инвентарь пользователя
+            // Запрашиваем инвентарь (тихий режим)
             inventoryRes = await makeApiRequest('/api/v1/user/inventory', {}, 'POST', true);
         } catch (err) {
             console.warn("Свап: ошибка загрузки инвентаря", err);
         }
         
-        // 🔥 ФИЛЬТР ИНВЕНТАРЯ (Только с картинками и доступные)
-        const availableItems = (Array.isArray(inventoryRes) ? inventoryRes : [])
-            .filter(item => 
-                ['pending', 'available'].includes(item.status) && 
-                item.is_swapped !== true && 
-                item.image_url && item.image_url.startsWith('http')
-            );
+        // 🔥 БРОНЯ 1: Безопасный парсинг (на случай, если бэк вернул объект, а не массив)
+        let rawItems = [];
+        if (Array.isArray(inventoryRes)) rawItems = inventoryRes;
+        else if (inventoryRes && Array.isArray(inventoryRes.items)) rawItems = inventoryRes.items;
+        else if (inventoryRes && Array.isArray(inventoryRes.data)) rawItems = inventoryRes.data;
+
+        // 🔥 БРОНЯ 2: Защита от null-элементов и битых скинов
+        const availableItems = rawItems.filter(item => 
+            item && // Защита от пустого объекта
+            item.status && ['pending', 'available'].includes(item.status) && 
+            item.is_swapped !== true && 
+            item.image_url && item.image_url.startsWith('http')
+        );
 
         renderSwapInventory(availableItems);
         
-        // renderSwapMarket() мы отсюда удалили, потому что маркет теперь рисуется 
-        // только на 2 шаге после нажатия кнопки "Далее"
+        if (loader) loader.style.display = 'none';
+        document.getElementById('swap-content-area')?.classList.remove('hidden');
         
-        document.getElementById('swap-loader').style.display = 'none';
-        document.getElementById('swap-content-area').classList.remove('hidden');
-        
+        // Переходим к первому шагу
         goToSwapStep(1);
 
     } catch (e) {
-        document.getElementById('swap-loader').innerHTML = '<span style="color:#ff3b30;">Ошибка загрузки</span>';
+        // 🔥 Если вдруг упадет, мы точно увидим почему 🔥
+        console.error("КРИТИЧЕСКАЯ ОШИБКА В СВАПЕ:", e);
+        if (loader) {
+            loader.innerHTML = '<span style="color:#ff3b30;">Ошибка интерфейса. Откройте консоль (F12)</span>';
+            loader.style.display = 'flex';
+        }
     }
 };
 
