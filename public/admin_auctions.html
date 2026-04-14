@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Auctions</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #ffd700;
+            --accent: #28a745;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+            --text-sec: #aaaaaa;
+            --blur: 10px;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 20px;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 100px;
+        }
+
+        /* --- Header --- */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .back-btn:active { color: var(--text); transform: scale(0.95); }
+        .page-title { font-size: 20px; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .icon-btn { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 14px; transition: 0.2s; }
+        .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
+
+        /* --- Tabs --- */
+        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; overflow-x: auto; }
+        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; }
+        .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+
+        /* --- Forms --- */
+        .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
+        .admin-form input, .admin-form select, .admin-form textarea {
+            width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
+            color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
+        }
+        .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
+        
+        .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+        .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* Toggles */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid var(--card-border); }
+        .toggle-switch { position: relative; width: 40px; height: 22px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* --- Buttons Grid --- */
+        .submit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .action-submit-btn {
+            border: none; padding: 15px; border-radius: 14px; font-weight: 700; font-size: 13px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+            transition: 0.2s; height: 80px; position: relative; overflow: hidden;
+        }
+        .action-submit-btn i { font-size: 18px; margin-bottom: 2px; }
+        .action-submit-btn:active { transform: scale(0.97); opacity: 0.8; }
+
+        .btn-instant { grid-column: 1 / -1; background: var(--primary); color: #000; font-size: 16px; }
+        .btn-schedule { background: rgba(100, 181, 239, 0.15); color: #64b5ef; border: 1px solid rgba(100, 181, 239, 0.2); }
+        .btn-silent { background: rgba(255, 255, 255, 0.05); color: var(--text-sec); border: 1px solid rgba(255, 255, 255, 0.1); }
+
+        /* --- Preview --- */
+        .preview-box { background: #182533; border-radius: 12px; padding: 12px; margin-top: 20px; border-left: 3px solid var(--primary); transition: 0.3s; }
+        .prev-img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: none; }
+        .prev-img.show { display: block; }
+        .prev-text { font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+        .prev-btn { background: rgba(100, 181, 239, 0.15); color: #64b5ef; text-align: center; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+
+        /* --- Cards List --- */
+        .raffle-card {
+            background: var(--card-bg); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px;
+            position: relative; 
+        }
+        .raffle-card.completed { opacity: 0.7; border-color: transparent; }
+        .raffle-card.silent { border-left: 3px solid #64b5ef; }
+        
+        .card-header { display: flex; gap: 12px; margin-bottom: 12px; }
+        .card-thumb { width: 50px; height: 50px; border-radius: 10px; background: #222; object-fit: cover; }
+        .card-meta { flex: 1; }
+        .card-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+        
+        .status-badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+        .st-active { background: rgba(40, 167, 69, 0.2); color: var(--accent); }
+        .st-done { background: rgba(255, 255, 255, 0.1); color: var(--text-sec); }
+        .st-silent { background: rgba(100, 181, 239, 0.2); color: #64b5ef; border: 1px solid rgba(100, 181, 239, 0.3); }
+        .st-scheduled { background: rgba(255, 215, 0, 0.2); color: var(--primary); border: 1px solid rgba(255, 215, 0, 0.3); }
+        
+        .card-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .action-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 100px; }
+        .btn-parts { background: rgba(255,255,255,0.1); color: var(--text); }
+        .btn-finish { background: rgba(255, 77, 77, 0.2); color: var(--danger); }
+        .btn-copy { background: rgba(255, 215, 0, 0.15); color: var(--primary); }
+        .btn-publish { background: rgba(50, 215, 75, 0.2); color: #32d74b; border: 1px solid rgba(50, 215, 75, 0.3); }
+
+        /* --- Winner Box --- */
+        .winner-section { border-top: 1px dashed rgba(255,255,255,0.1); margin-top: 10px; padding-top: 10px; }
+        .winner-tag { font-size: 9px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+        .winner-name { font-weight: 700; font-size: 14px; margin: 2px 0 5px; }
+
+        /* --- Custom Modals --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-overlay.center { align-items: center; }
+        .modal-active { display: flex; }
+        
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 80vh; display: flex; flex-direction: column; }
+        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); }
+        
+        .alert-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .alert-msg { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; }
+        .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
+        .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
+
+        /* FAB & SEARCH STYLES */
+        .fab-container { position: fixed; bottom: 30px; right: 20px; z-index: 90; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+        .fab-main {
+            width: 60px; height: 60px; background: var(--primary); color: #000; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 26px;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4); cursor: pointer; transition: transform 0.2s;
+        }
+        .search-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px;
+            background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px;
+        }
+        .search-img { width: 40px; height: 30px; object-fit: contain; }
+        .search-info { flex: 1; min-width: 0; }
+        .search-btn { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
+        <h1 class="page-title">Панель Аукционов</h1>
+        <a href="/auctions" class="icon-btn"><i class="fa-solid fa-eye"></i></a>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('create')">Конструктор</button>
+        <button class="tab" onclick="switchTab('list')">Активные</button>
+        <button class="tab" onclick="switchTab('scheduled')">Отложенные</button>
+        <button class="tab" onclick="switchTab('completed')">Завершенные</button>
+    </div>
+
+    <div id="tab-create" class="tab-content">
+        <form id="create-form" class="admin-form">
+            
+            <div id="schedule-setup" class="section-box hidden" style="border-color: #64b5ef;">
+                <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-regular fa-clock"></i> Время старта</h3>
+                <input type="datetime-local" name="start_time" id="inp-start-time">
+                <div style="font-size:11px;color:#aaa;margin-top:5px;">Выберите время для автоматической публикации.</div>
+            </div>
+            
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-gear"></i> Механика аукциона</h3>
+                
+                <div class="cond-grid">
+                    <div>
+                        <label>Таймер после ставки (в часах)</label>
+                        <input type="number" name="bid_cooldown_hours" value="24" required oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label>Анти-снайпер (доп. минут)</label>
+                        <input type="number" name="snipe_guard_minutes" value="5" required oninput="updatePreview()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-list-check"></i> Условия входа</h3>
+
+                <div class="cond-grid">
+                    <div>
+                        <label>🎫 Мин. ставка (Билеты)</label>
+                        <input type="number" name="min_required_tickets" value="1" placeholder="1" oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label>⛔ Макс. баланс (для новичков)</label>
+                        <input type="number" name="max_allowed_tickets" value="0" placeholder="0 (Без лимита)">
+                    </div>
+                </div>
+                <div style="font-size:11px;color:#aaa;margin-top:10px;">* Если Макс. баланс > 0, в аукционе смогут участвовать только те, у кого билетов меньше этого числа.</div>
+            </div>
+            
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-pen-fancy"></i> Оформление лота</h3>
+                
+                <label>Название лота</label>
+                <input type="text" name="prize" id="inp-prize" placeholder="AWP | Asiimov" required oninput="updatePreview()">
+
+                <label>Качество (Wear)</label>
+                <select name="quality" id="inp-quality" onchange="updatePreview()">
+                    <option value="">Без качества</option>
+                    <option value="FN">Factory New (Прямо с завода)</option>
+                    <option value="MW">Minimal Wear (Немного поношенное)</option>
+                    <option value="FT">Field-Tested (После полевых испытаний)</option>
+                    <option value="WW">Well-Worn (Поношенное)</option>
+                    <option value="BS">Battle-Scarred (Закаленное в боях)</option>
+                </select>
+
+                <label>Картинка для поста/карточки (URL)</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" name="image" id="inp-img" placeholder="https://..." oninput="updatePreview()">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload-post').click()" style="flex-shrink: 0; background: var(--card-bg);">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </button>
+                    <input type="file" id="file-upload-post" hidden accept="image/*" onchange="uploadImage(this, 'inp-img')">
+                </div>
+
+                <label>Редкость предмета (Цвет подсветки)</label>
+                <select name="rarity" id="inp-rarity" onchange="updatePreview()">
+                    <option value="common">Ширпотреб (Серый)</option>
+                    <option value="uncommon">Промышленное (Синий)</option>
+                    <option value="rare">Армейское (Фиолетовый)</option>
+                    <option value="mythical">Запрещенное (Розовый)</option>
+                    <option value="legendary">Засекреченное (Малиновый)</option>
+                    <option value="ancient">Тайное (Красный)</option>
+                    <option value="immortal">★ Нож / Перчатки (Золотой)</option>
+                </select>
+
+                <label>Текст поста</label>
+                <textarea name="desc" id="inp-desc" rows="3" placeholder="Описание лота..." oninput="updatePreview()"></textarea>
+            </div>
+
+            <div class="preview-box" id="preview-box">
+                <div style="font-size: 10px; text-transform: uppercase; color: #777; margin-bottom: 5px;">Telegram Preview</div>
+                <img src="" id="prev-img" class="prev-img">
+                <div class="prev-text" id="prev-txt"></div>
+                <div class="prev-btn">Сделать ставку 🔨</div>
+            </div>
+
+            <div class="submit-actions">
+                <button type="button" onclick="submitAuction(false)" class="action-submit-btn btn-instant">
+                    <i class="fa-solid fa-rocket"></i>
+                    <span>ЗАПУСТИТЬ СЕЙЧАС</span>
+                </button>
+
+                <button type="button" onclick="toggleScheduleMode()" id="btn-schedule" class="action-submit-btn btn-schedule">
+                    <i class="fa-regular fa-clock"></i>
+                    <span>В отложенные</span>
+                </button>
+
+                <button type="button" onclick="submitAuction(true)" class="action-submit-btn btn-silent">
+                    <i class="fa-solid fa-ghost"></i>
+                    <span>Тихий (App only)</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="tab-list" class="tab-content hidden">
+        <div id="list-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-scheduled" class="tab-content hidden">
+        <div id="scheduled-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-completed" class="tab-content hidden">
+        <div id="completed-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка истории...
+            </div>
+        </div>
+    </div>
+
+    <div class="fab-container" id="fabMenu">
+        <div class="fab-main" onclick="openLibrarySearch()">
+            <i class="fa-solid fa-box-open"></i>
+        </div>
+    </div>
+
+    <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
+        <div class="bottom-sheet" style="height: 85vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0">Склад скинов</h3>
+                <button onclick="closeModal('modal-library')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="admin-form" style="margin-top: 15px;">
+                <input type="text" id="lib-search-inp" class="form-input" placeholder="Название (AK-47)..." oninput="debounceSearch()">
+            </div>
+
+            <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;" onscroll="handleScroll(this)">
+                <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-alert" class="modal-overlay center">
+        <div class="alert-box">
+            <div class="alert-title" id="alert-title">Title</div>
+            <div class="alert-msg" id="alert-msg">Message</div>
+            <button class="alert-btn" id="alert-ok">OK</button>
+            <button class="alert-btn cancel hidden" id="alert-cancel">Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let searchTimeout = null;
+
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
+            if (document.getElementById('modal-alert').classList.contains('modal-active')) {
+                closeModal('modal-alert'); return;
+            }
+            if (document.getElementById('modal-library').classList.contains('modal-active')) {
+                closeModal('modal-library'); return;
+            }
+            window.location.href = '/admin';
+        });
+
+        function goBack() { window.location.href = '/admin'; }
+        
+        function switchTab(t) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+            document.getElementById('tab-' + t).classList.remove('hidden');
+            
+            const tabs = document.querySelectorAll('.tab');
+            const fab = document.getElementById('fabMenu');
+            
+            if(t === 'create') {
+                tabs[0].classList.add('active');
+                fab.style.display = 'flex'; 
+            }
+            else {
+                fab.style.display = 'none';
+                if(t === 'list') { tabs[1].classList.add('active'); loadAuctions(); }
+                else if(t === 'scheduled') { tabs[2].classList.add('active'); loadAuctions(); }
+                else if(t === 'completed') { tabs[3].classList.add('active'); loadAuctions(); }
+            }
+        }
+
+        /* --- МАГИЯ ПОИСКА ПО СКЛАДУ --- */
+        let currentOffset = 0;
+        let isFetching = false;
+        let hasMoreItems = true;
+
+        function openLibrarySearch() {
+            document.getElementById('modal-library').classList.add('modal-active');
+            document.getElementById('lib-search-inp').value = '';
+            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>';
+            currentOffset = 0;
+            hasMoreItems = true;
+        }
+
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            currentOffset = 0; 
+            hasMoreItems = true;
+            searchTimeout = setTimeout(() => doSearch(true), 500);
+        }
+
+        function handleScroll(el) {
+            if (el.scrollHeight - el.scrollTop <= el.clientHeight + 50) {
+                if (!isFetching && hasMoreItems) {
+                    currentOffset += 30; 
+                    doSearch(false);
+                }
+            }
+        }
+
+        async function doSearch(isNewSearch) {
+            if (isFetching || !hasMoreItems) return;
+
+            const q = document.getElementById('lib-search-inp').value.trim();
+            const cont = document.getElementById('lib-results');
+            
+            if (q.length < 2) {
+                if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Введите название...</div>';
+                return;
+            }
+            
+            isFetching = true;
+            
+            if (isNewSearch) {
+                cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем в базе... <i class="fa-solid fa-spinner fa-spin"></i></div>';
+            } else {
+                const loader = document.createElement('div');
+                loader.id = 'scroll-loader';
+                loader.style = 'text-align:center; padding:10px; color:var(--primary);';
+                loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                cont.appendChild(loader);
+            }
+
+            try {
+                // Используем тот же эндпоинт, что и в розыгрышах (search_cache)
+                const res = await fetch('/api/v1/admin/cases/search_cache', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ query: q, min_price: 0, max_price: 9999999, offset: currentOffset })
+                });
+                const items = await res.json();
+                
+                if (isNewSearch) cont.innerHTML = '';
+                else {
+                    const l = document.getElementById('scroll-loader');
+                    if (l) l.remove();
+                }
+
+                if (!items || items.length === 0) {
+                    hasMoreItems = false;
+                    if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
+                    return;
+                }
+
+                if (items.length < 30) hasMoreItems = false;
+
+                items.forEach(item => {
+                    const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
+                    
+                    const rarityColors = {
+                        'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
+                        'purple': '#8847ff', 'pink': '#d32ce6', 'red': '#eb4b4b', 'gold': '#ffd700'
+                    };
+                    const rColor = rarityColors[item.rarity?.toLowerCase()] || '#4b69ff';
+
+                    cont.innerHTML += `
+                    <div class="search-item" style="border-left: 3px solid ${rColor};">
+                        <img src="${item.image_url}" class="search-img" onerror="this.src='https://placehold.co/40'">
+                        <div class="search-info">
+                            <div style="font-weight:700; font-size:12px; color:#fff;">${item.market_hash_name}</div>
+                            <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
+                        </div>
+                        <button class="search-btn" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
+                    </div>`;
+                });
+            } catch(e) { 
+                console.error(e); 
+                if(isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
+            } finally {
+                isFetching = false;
+            }
+        }
+
+        function selectFromCache(jsonStr) {
+            const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
+            closeModal('modal-library');
+            
+            let cleanName = item.market_hash_name;
+            let qualityCode = "";
+
+            const wearMap = {
+                'factory new': 'FN', 'прямо с завода': 'FN',
+                'minimal wear': 'MW', 'немного поношенное': 'MW',
+                'field-tested': 'FT', 'после полевых испытаний': 'FT',
+                'well-worn': 'WW', 'поношенное': 'WW',
+                'battle-scarred': 'BS', 'закаленное в боях': 'BS'
+            };
+
+            const conditionMatch = cleanName.match(/(.*?)\s+\(([^)]+)\)$/);
+            if (conditionMatch) {
+                cleanName = conditionMatch[1].trim(); 
+                const rawWear = conditionMatch[2].toLowerCase().trim(); 
+                if (wearMap[rawWear]) {
+                    qualityCode = wearMap[rawWear]; 
+                }
+            }
+            
+            document.getElementById('inp-prize').value = cleanName; 
+            document.getElementById('inp-img').value = item.image_url || '';
+            document.getElementById('inp-quality').value = qualityCode || ""; 
+            
+            // Маппинг на значения селекта rarity в аукционах
+            const rarityMap = {
+                'common': 'common', 'gray': 'common', 'industrial': 'uncommon', 
+                'light_blue': 'uncommon', 'milspec': 'rare', 'blue': 'rare', 
+                'restricted': 'mythical', 'purple': 'mythical', 
+                'classified': 'legendary', 'pink': 'legendary', 
+                'covert': 'ancient', 'red': 'ancient',
+                'gold': 'immortal', 'knife': 'immortal', 'contraband': 'immortal'
+            };
+            
+            const itemRarity = (item.rarity || 'blue').toLowerCase();
+            document.getElementById('inp-rarity').value = rarityMap[itemRarity] || 'rare';
+            
+            updatePreview();
+            
+            if(window.Telegram?.WebApp?.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
+        }
+        
+        /* --- ОСТАЛЬНАЯ ЛОГИКА --- */
+        function toggleScheduleMode() {
+            const box = document.getElementById('schedule-setup');
+            const btn = document.getElementById('btn-schedule');
+            
+            if (box.classList.contains('hidden')) {
+                box.classList.remove('hidden');
+                btn.innerHTML = `<i class="fa-solid fa-check"></i><span>СОЗДАТЬ ОТЛОЖЕННЫЙ</span>`;
+                btn.style.background = "var(--primary)";
+                btn.style.color = "#000";
+                document.querySelector('.admin-form').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                submitAuction(false, true); // true = scheduled
+            }
+        }
+
+        async function publishAuction(id) {
+            showConfirm('Опубликовать сейчас?', 'Аукцион появится в канале немедленно, а статус сменится на Активен.', async () => {
+                try {
+                    const res = await fetch('/api/v1/admin/auctions/publish_manual', {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({initData: tg.initData, auction_id: id})
+                    });
+                    const d = await res.json();
+                    
+                    if (res.ok) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        showCustomAlert('Успех', d.message || 'Аукцион опубликован');
+                        loadAuctions(); 
+                    } else {
+                        showCustomAlert('Ошибка', d.message || 'Не удалось опубликовать');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showCustomAlert('Ошибка', 'Сбой соединения');
+                }
+            });
+        }
+
+        function updatePreview() {
+            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+
+            const prize = getVal('inp-prize') || 'Лот';
+            const quality = getVal('inp-quality');
+            const desc = getVal('inp-desc');
+            const imgUrl = getVal('inp-img');
+            
+            const getInpVal = (name) => { const el = document.querySelector(`input[name="${name}"]`); return el ? el.value : ''; };
+
+            const cd = getInpVal('bid_cooldown_hours') || '24';
+            const snipe = getInpVal('snipe_guard_minutes') || '5';
+            const minTix = getInpVal('min_required_tickets') || '1';
+            
+            const prizeFull = quality ? `${prize} (${quality})` : prize;
+            let html = `🔨 <b>АУКЦИОН НАЧАЛСЯ!</b>\n\n`;
+            
+            if (desc) html += `<i>${desc}</i>\n\n`;
+            html += `🎁 <b>Лот:</b> ${prizeFull}\n`;
+            html += `\n📌 <b>Правила:</b>\n`;
+            
+            html += `└ Мин. ставка: ${minTix} 🎟️\n`;
+            html += `└ Таймер: ${cd} ч.\n`;
+            html += `└ Анти-снайпер: +${snipe} мин.\n`;
+
+            html += `\n👇 <b>Жми кнопку, чтобы сделать первую ставку!</b>`;
+
+            const imgEl = document.getElementById('prev-img');
+            if (imgUrl) { 
+                imgEl.src = imgUrl; 
+                imgEl.classList.add('show'); 
+            } else { 
+                imgEl.classList.remove('show'); 
+            }
+
+            document.getElementById('prev-txt').innerHTML = html.replace(/\n/g, '<br>');
+        }
+
+        async function uploadImage(input, targetId) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const btn = input.previousElementSibling;
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/v1/upload', {
+                    method: 'POST', body: formData 
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById(targetId).value = data.url;
+                    updatePreview(); 
+                    showCustomAlert('Готово', 'Картинка загружена!');
+                } else {
+                    showCustomAlert('Ошибка', 'Не удалось загрузить фото');
+                }
+            } catch (e) {
+                console.error(e);
+                showCustomAlert('Ошибка', 'Сбой соединения');
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.disabled = false;
+                input.value = ''; 
+            }
+        }
+
+        async function submitAuction(isSilentMode, isScheduled = false) {
+            const form = document.getElementById('create-form');
+            if(!form.reportValidity()) return;
+
+            const fd = new FormData(form);
+            
+            const schedBox = document.getElementById('schedule-setup');
+            if (isScheduled && !fd.get('start_time')) {
+                showCustomAlert('Внимание', 'Укажите время старта для отложенного аукциона!');
+                return;
+            }
+            
+            const payload = {
+                initData: tg.initData,
+                title: fd.get('prize'),
+                image_url: fd.get('image'),
+                rarity: fd.get('rarity'),
+                wear: fd.get('quality'),
+                bid_cooldown_hours: parseInt(fd.get('bid_cooldown_hours') || 24),
+                snipe_guard_minutes: parseInt(fd.get('snipe_guard_minutes') || 5),
+                min_required_tickets: parseInt(fd.get('min_required_tickets') || 1),
+                max_allowed_tickets: parseInt(fd.get('max_allowed_tickets') || 0),
+                is_active: !isScheduled && !isSilentMode, // Если сразу - то активен. (Хотя бэкенд может сам рулить)
+                is_visible: !isScheduled, // Отложенные скрыты до публикации
+                is_silent: isSilentMode,
+                start_time: fd.get('start_time'), // Для крона публикации
+                description: fd.get('desc')
+            };
+
+            tg.MainButton.showProgress();
+
+            try {
+                const res = await fetch('/api/v1/admin/auctions/create', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    let msg = 'Аукцион запущен!';
+                    if (isScheduled) msg = 'Аукцион запланирован.';
+                    else if (isSilentMode) msg = 'Тихий аукцион запущен.';
+                    
+                    showCustomAlert('Успех!', msg);
+                    
+                    form.reset(); 
+                    document.getElementById('schedule-setup').classList.add('hidden');
+                    const btn = document.getElementById('btn-schedule');
+                    btn.innerHTML = `<i class="fa-regular fa-clock"></i><span>В отложенные</span>`;
+                    btn.style.background = ""; btn.style.color = "";
+                    
+                    updatePreview(); 
+                    switchTab(isScheduled ? 'scheduled' : 'list'); 
+                } else {
+                    const err = await res.json();
+                    tg.HapticFeedback.notificationOccurred('error');
+                    showCustomAlert('Ошибка', err.detail || 'Не удалось создать аукцион');
+                }
+            } catch (error) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        }
+
+        async function loadAuctions() {
+            try {
+                const res = await fetch('/api/v1/admin/auctions/list', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({initData: tg.initData})
+                });
+                const data = await res.json();
+                renderList(data);
+            } catch(e) { 
+                console.error(e);
+                document.getElementById('list-container').innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>';
+            }
+        }
+
+        function renderList(list) {
+            const cActive = document.getElementById('list-container');
+            const cSched = document.getElementById('scheduled-container');
+            const cCompl = document.getElementById('completed-container');
+            
+            let htmlActive = '';
+            let htmlSched = '';
+            let htmlCompl = '';
+            
+            let activeCount = 0; let schedCount = 0; let complCount = 0;
+
+            list.sort((a, b) => b.id - a.id);
+
+            list.forEach(a => {
+                const isDone = !!a.ended_at;
+                const isScheduled = !a.is_active && !a.is_visible && a.start_time; // Логика отложенного
+                const isSilent = a.is_active && a.is_visible && !a.post_message_id; // Тихий (активен, но нет поста)
+                
+                const imgUrl = a.image_url;
+                const img = imgUrl ? `<img src="${imgUrl}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gavel"></i></div>`;
+                
+                const safeJson = encodeURIComponent(JSON.stringify(a).replace(/'/g, "&apos;"));
+
+                let statusBadge = '';
+                if(isDone) statusBadge = `<span class="status-badge st-done">Завершен</span>`;
+                else if(isScheduled) statusBadge = `<span class="status-badge st-scheduled"><i class="fa-regular fa-clock"></i> Отложенный</span>`;
+                else if(isSilent) statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-ghost"></i> Тихий</span>`;
+                else statusBadge = `<span class="status-badge st-active">Активен</span>`;
+
+                let html = `
+                <div class="raffle-card ${isDone ? 'completed' : ''} ${isSilent ? 'silent' : ''}">
+                    <div class="card-header">
+                        ${img}
+                        <div class="card-meta">
+                            <div class="card-title">${a.title}</div>
+                            ${statusBadge}
+                            ${!isDone && a.bid_cooldown_ends_at ? `<span style="font-size:10px; color:var(--primary); margin-left:5px;">⏳ ${new Date(a.bid_cooldown_ends_at).toLocaleString([], {hour:'2-digit', minute:'2-digit'})}</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-sec); margin-bottom:10px;">
+                        Ставка: <span style="color:var(--primary); font-weight:bold;">${a.current_highest_bid || 0} 🎟️</span> 
+                        | Вход от: ${a.min_required_tickets}
+                    </div>
+                `;
+
+                if(isDone) {
+                    if (a.current_highest_bidder_name) {
+                        html += `
+                        <div class="winner-section">
+                            <div class="winner-tag">🏆 Победитель</div>
+                            <div class="winner-name">${a.current_highest_bidder_name}</div>
+                        </div>`;
+                    } else {
+                        html += `<div class="winner-section"><div class="winner-tag" style="color:var(--danger)">❌ Нет ставок</div></div>`;
+                    }
+                    
+                    html += `
+                    <div class="card-actions">
+                        <button onclick="cloneAuction('${safeJson}')" class="action-btn btn-copy"><i class="fa-solid fa-rotate-right"></i> Перезапуск</button>
+                    </div>`;
+
+                } else {
+                    let leaderHtml = '';
+                    if (a.current_highest_bidder_name) {
+                        leaderHtml = `<div class="winner-section" style="border-top:none; padding-top:0;"><div class="winner-tag" style="color:#64b5ef;">👑 Лидер</div><div class="winner-name" style="font-size:12px;">${a.current_highest_bidder_name}</div></div>`;
+                    }
+
+                    html += `
+                    ${leaderHtml}
+                    <div class="card-actions">
+                        <button onclick="finishAuction(${a.id})" class="action-btn btn-finish"><i class="fa-solid fa-flag-checkered"></i> Финиш</button>
+                        ${isScheduled || isSilent
+                            ? `<button onclick="publishAuction(${a.id})" class="action-btn btn-publish"><i class="fa-solid fa-paper-plane"></i> В канал</button>`
+                            : `<button onclick="cloneAuction('${safeJson}')" class="action-btn btn-copy"><i class="fa-solid fa-copy"></i> Копия</button>`
+                        }
+                    </div>`;
+                }
+                
+                html += `</div>`;
+                
+                if (isDone) { htmlCompl += html; complCount++; }
+                else if (isScheduled) { htmlSched += html; schedCount++; }
+                else { htmlActive += html; activeCount++; }
+            });
+            
+            cActive.innerHTML = activeCount ? htmlActive : '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
+            cSched.innerHTML = schedCount ? htmlSched : '<div style="text-align:center; opacity:0.5; padding:40px;">Отложенных нет</div>';
+            cCompl.innerHTML = complCount ? htmlCompl : '<div style="text-align:center; opacity:0.5; padding:40px;">История пуста</div>';
+        }
+
+        window.cloneAuction = function(jsonStr) {
+            const a = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
+
+            switchTab('create');
+            
+            document.getElementById('inp-prize').value = a.title || '';
+            document.getElementById('inp-quality').value = a.wear || '';
+            document.getElementById('inp-img').value = a.image_url || '';
+            document.getElementById('inp-rarity').value = a.rarity || 'rare'; 
+            document.getElementById('inp-desc').value = a.description || '';
+            
+            document.querySelector('input[name="bid_cooldown_hours"]').value = a.bid_cooldown_hours || 24;
+            document.querySelector('input[name="snipe_guard_minutes"]').value = a.snipe_guard_minutes || 5;
+            document.querySelector('input[name="min_required_tickets"]').value = a.min_required_tickets || 1;
+            document.querySelector('input[name="max_allowed_tickets"]').value = a.max_allowed_tickets || 0;
+            
+            tg.HapticFeedback.impactOccurred('medium');
+            updatePreview();
+        };
+
+        async function finishAuction(id) {
+            showConfirm('Завершить аукцион вручную?', 'Тот, чья ставка сейчас максимальная, получит лот. Если ставок нет — аукцион отменится.', async () => {
+                try {
+                    const res = await fetch('/api/v1/admin/auctions/finish_manual', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({initData: tg.initData, id: id})
+                    });
+                    const d = await res.json();
+                    if(res.ok) { showCustomAlert('Успех', d.message || 'Аукцион завершен'); loadAuctions(); }
+                    else showCustomAlert('Ошибка', d.message);
+                } catch(e) { showCustomAlert('Ошибка', 'Сбой сети'); }
+            });
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
+        
+        function showCustomAlert(title, msg) {
+            const m = document.getElementById('modal-alert');
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            const okBtn = document.getElementById('alert-ok');
+            const cBtn = document.getElementById('alert-cancel');
+            cBtn.classList.add('hidden');
+            okBtn.onclick = () => m.classList.remove('modal-active');
+            m.classList.add('modal-active');
+        }
+
+        function showConfirm(title, msg, onYes) {
+            const m = document.getElementById('modal-alert');
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            const okBtn = document.getElementById('alert-ok');
+            const cBtn = document.getElementById('alert-cancel');
+            cBtn.classList.remove('hidden');
+            cBtn.onclick = () => m.classList.remove('modal-active');
+            okBtn.onclick = () => { onYes(); m.classList.remove('modal-active'); };
+            m.classList.add('modal-active');
+        }
+
+        updatePreview();
+        switchTab('create');
+    </script>
+</body>
+</html>
