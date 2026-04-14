@@ -447,7 +447,7 @@
             let completedCount = 0;
             let activeRendered = 0;
 
-            // 🔥 ДОБАВЛЕНО: Переворачиваем массив, чтобы свежие были сверху
+            // Свежие розыгрыши сверху
             data.reverse();
 
             data.forEach(r => {
@@ -461,11 +461,9 @@
                 if (isCancelled) return;
 
                 const s = r.settings || {};
+                
                 if(done) completedCount++;
                 else activeRendered++;
-                
-                // Проверка на отмену (завершен, но нет победителя)
-                const isCancelled = done && !r.winner;
 
                 // Приоритет картинки: card_image -> prize_image
                 const img = s.card_image || s.prize_image || '';
@@ -476,7 +474,6 @@
                 if (!done) {
                     if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Канал</div>`;
                     if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений за стрим: ${s.min_daily_messages}</div>`;
-                    // 🔥 ДОБАВЛЕНО: Мин. участники
                     if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
                 }
 
@@ -492,7 +489,6 @@
 
                 if (!done && pCount > 0) {
                     const chanceVal = (100 / pCount).toFixed(2).replace('.00', '');
-                    // 🔥 ДОБАВЛЕНО: Шанс победы
                     pTextFinal += `<span class="chance-span" onclick="showChanceInfo(event)"> 🔥 Шанс: ${chanceVal}% <i class="fa-regular fa-circle-question"></i></span>`;
                 }
                 
@@ -549,7 +545,7 @@
             list.innerHTML += '<div class="bottom-spacer"></div>';
             historyList.innerHTML += '<div class="bottom-spacer"></div>';
         }
-
+        
         // Обработка нажатия на кнопку (проверка билетов)
         function handleJoin(id, cost, isJoined) {
             if(isJoined) return;
