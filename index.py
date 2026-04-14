@@ -19007,15 +19007,35 @@ async def publish_raffle_webhook(
                 print(f"🤫 Розыгрыш {req.raffle_id} опубликован без поста (silent mode)")
                 return {"status": "published_silent"}
 
-           # Формируем текст
+            # Формируем текст
             prize_name = s.get('prize_name', 'Приз')
             quality = s.get('skin_quality', '')
             desc = s.get('description', '')
             prize_full = f"{prize_name} ({quality})" if quality else prize_name
             
-            # 🔥 ДОБАВИЛИ: Вытаскиваем цену
+            # --- 🔥 УМНЫЙ ПОИСК ЦЕНЫ ---
+            # 1. Пробуем взять цену из настроек
             price = s.get('price_rub') or s.get('price')
             
+            # 2. Бронебойный запасной вариант (Если в настройках цены нет)
+            if not price:
+                quality_map = {
+                    "FN": "(Factory New)",
+                    "MW": "(Minimal Wear)",
+                    "FT": "(Field-Tested)",
+                    "WW": "(Well-Worn)",
+                    "BS": "(Battle-Scarred)"
+                }
+                market_hash_name = prize_name
+                if quality and quality in quality_map:
+                    market_hash_name = f"{prize_name} {quality_map[quality]}"
+                    
+                # Идем в базу и ищем актуальную цену
+                market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+                if market_res.status_code == 200 and market_res.json():
+                    price = float(market_res.json()[0].get('price_rub', 0))
+            # ---------------------------
+
             min_participants = int(s.get('min_participants', 0))
             ticket_cost = int(s.get('ticket_cost', 0))
             min_refs = int(s.get('min_referrals', 0))
@@ -19028,9 +19048,9 @@ async def publish_raffle_webhook(
             if desc: txt += f"<i>{desc}</i>\n\n"
             txt += f"🏆 <b>Приз:</b> {prize_full}\n"
             
-            # 🔥 ДОБАВИЛИ: Выводим цену, если она есть
+            # 🔥 Выводим цену, если она есть (округляем до 2 знаков для красоты)
             if price:
-                txt += f"💵 <b>Стоимость:</b> {price} ₽\n"
+                txt += f"💵 <b>Стоимость:</b> {round(float(price), 2)} ₽\n"
                 
             txt += "\n📌 <b>Условия:</b>\n"
 
@@ -19076,6 +19096,9 @@ async def publish_raffle_webhook(
             if sent_msg:
                 s['post_message_id'] = sent_msg.message_id
                 s['post_channel_id'] = str(channel_id)
+                # Перезаписываем settings, заодно сохраняя найденную цену, чтобы она осталась в БД
+                if price and not s.get('price_rub'):
+                    s['price_rub'] = price
                 await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"settings": s})
 
             print(f"✅ Отложенный пост опубликован: {req.raffle_id}")
@@ -19084,7 +19107,7 @@ async def publish_raffle_webhook(
             print(f"⚠️ Ошибка публикации (Telegram): {e}")
 
     return {"status": "published"}
-
+    
 # 3. (Админ) Ручное завершение
 @app.post("/api/v1/admin/raffles/draw")
 async def draw_raffle(
