@@ -447,12 +447,20 @@
             let completedCount = 0;
             let activeRendered = 0;
 
+            // 🔥 ДОБАВЛЕНО: Переворачиваем массив, чтобы свежие были сверху
+            data.reverse();
+
             data.forEach(r => {
                 // 🔥 ВАЖНО: Скрываем отложенные посты (scheduled)
                 if (r.status === 'scheduled') return;
 
-                const s = r.settings || {};
                 const done = r.status === 'completed';
+                const isCancelled = done && !r.winner;
+
+                // 🔥 ДОБАВЛЕНО: Скрываем отмененные розыгрыши (они не попадут в историю)
+                if (isCancelled) return;
+
+                const s = r.settings || {};
                 if(done) completedCount++;
                 else activeRendered++;
                 
@@ -488,11 +496,9 @@
                     pTextFinal += `<span class="chance-span" onclick="showChanceInfo(event)"> 🔥 Шанс: ${chanceVal}% <i class="fa-regular fa-circle-question"></i></span>`;
                 }
                 
-                // 🔥 ДОБАВЛЕНО: Блок победителя или отмены
+                // Блок победителя
                 let winnerBoxContent = '';
-                if (isCancelled) {
-                    winnerBoxContent = `<div class="w-user" style="color:var(--danger)">❌ Отменен (мало участников)</div>`;
-                } else if (r.winner) {
+                if (r.winner) {
                     winnerBoxContent = `<div class="w-user">🏆 ${r.winner.full_name}</div>`;
                 } else {
                     winnerBoxContent = `<div class="w-user">⏳ Выбор победителя...</div>`;
