@@ -3988,12 +3988,25 @@ async def update_cauldron_reward_status(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Обновляем конкретную запись в таблице участников
-        await supabase.patch(
+        # 🔥 ИСПРАВЛЕНИЕ: Используем UPSERT вместо PATCH. 
+        # Если юзер делал только квесты, его нет в таблице участников. Мы его создаем на лету.
+        payload = {
+            "user_id": request_data.user_id,
+            "is_reward_sent": request_data.is_sent,
+            "total_contribution": 0  # Для новых записей нужен дефолт (реальные очки мы берем из RPC)
+        }
+        
+        response = await supabase.post(
             "/cauldron_participants",
-            params={"user_id": f"eq.{request_data.user_id}"},
-            json={"is_reward_sent": request_data.is_sent}
+            json=payload,
+            params={"on_conflict": "user_id"}, # Если user_id уже есть -> обновить
+            headers={"Prefer": "resolution=merge-duplicates"} # Требование PostgREST для Upsert
         )
+        
+        if response.status_code not in [200, 201, 204]:
+            logging.error(f"Ошибка сохранения статуса: {response.text}")
+            raise HTTPException(status_code=500, detail="Не удалось сохранить статус в БД")
+            
         return {"message": "Статус обновлен"}
 
     except Exception as e:
@@ -4040,15 +4053,16 @@ async def get_cauldron_participants(
         user_ids = [str(item.get("user_id")) for item in leaderboard_all if item.get("user_id")]
         
         # 3. Вытаскиваем "скрытые" от публики данные (трейд-ссылку и твич) из таблицы users
+        # 🔥 ИСПРАВЛЕНИЕ: Ищем по telegram_id, так как в базе ключ называется именно так
         users_resp = await supabase.get(
             "/users",
             params={
-                "id": f"in.({','.join(user_ids)})",
-                "select": "id,full_name,username,trade_link,twitch_login"
+                "telegram_id": f"in.({','.join(user_ids)})",
+                "select": "telegram_id,full_name,username,trade_link,twitch_login"
             }
         )
-        # Делаем удобный словарь { "12345": {данные юзера} }
-        users_dict = {str(u["id"]): u for u in users_resp.json()} if users_resp.status_code == 200 else {}
+        # Делаем удобный словарь { "12345": {данные юзера} } привязанный к telegram_id
+        users_dict = {str(u["telegram_id"]): u for u in users_resp.json()} if users_resp.status_code == 200 else {}
         
         # 4. Запрашиваем статус выдачи приза из старой таблицы cauldron_participants
         part_resp = await supabase.get(
@@ -4085,7 +4099,7 @@ async def get_cauldron_participants(
                 "is_reward_sent": part_dict.get(u_id_str, False),        # Статус галочки админа
                 "full_name": u_info.get("full_name") or item.get("full_name") or "Unknown",
                 "username": u_info.get("username"),
-                "trade_link": u_info.get("trade_link"),
+                "trade_link": u_info.get("trade_link"),                  # 🔥 ТЕПЕРЬ ССЫЛКА БУДЕТ ТУТ!
                 "twitch_login": u_info.get("twitch_login"),
                 "is_subscribed": is_subscribed
             })
