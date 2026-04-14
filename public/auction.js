@@ -1,38 +1,39 @@
 // auction.js
 document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
-// 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА (КЛИЕНТ)
-// ==========================================
-async function checkMaintenance() {
-    try {
-        // Проверяем статус сервера
-        const res = await fetch('/api/v1/bootstrap', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
-        });
+    // 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА (КЛИЕНТ)
+    // ==========================================
+    async function checkMaintenance() {
+        try {
+            // Проверяем статус сервера
+            const res = await fetch('/api/v1/bootstrap', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '' })
+            });
 
-        if (res.ok) {
-            const data = await res.json();
-            
-            // Если включен режим сна (maintenance: true)
-            if (data.maintenance) {
-                console.warn("⛔ Тех. режим включен. Редирект на главную.");
-                // Убираем всё содержимое, чтобы пользователь не видел интерфейс
-                document.body.innerHTML = ""; 
-                // Перекидываем на заглушку
-                window.location.href = '/'; 
-                return; // Останавливаем выполнение скрипта
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Если включен режим сна (maintenance: true)
+                if (data.maintenance) {
+                    console.warn("⛔ Тех. режим включен. Редирект на главную.");
+                    // Убираем всё содержимое, чтобы пользователь не видел интерфейс
+                    document.body.innerHTML = ""; 
+                    // Перекидываем на заглушку
+                    window.location.href = '/'; 
+                    return; // Останавливаем выполнение скрипта
+                }
             }
+        } catch (e) {
+            console.error("Ошибка проверки статуса:", e);
         }
-    } catch (e) {
-        console.error("Ошибка проверки статуса:", e);
     }
-}
 
-// Запускаем проверку ПЕРВЫМ ДЕЛОМ
-checkMaintenance();
-// ==========================================
+    // Запускаем проверку ПЕРВЫМ ДЕЛОМ
+    checkMaintenance();
+    // ==========================================
+
     const tg = window.Telegram.WebApp;
     try {
         tg.ready();
@@ -72,7 +73,7 @@ checkMaintenance();
     let countdownIntervals = {};
     let userData = {};
     let currentAuctions = [];
-    let isEditMode = false;
+    
     // === ВСТАВИТЬ СЮДА ===
     const RARITY_COLORS = {
         common: '#b0c3d9',      // Ширпотреб
@@ -113,6 +114,7 @@ checkMaintenance();
             startAutoRefresh();
         }
     });
+
     // DOM-элементы
     const dom = {
         loader: document.getElementById('loader-overlay'),
@@ -130,26 +132,6 @@ checkMaintenance();
         historyModalTitle: document.getElementById('bids-history-modal-title'),
         historyList: document.getElementById('bids-history-list'),
 
-        adminControls: document.getElementById('admin-controls'),
-        editToggle: document.getElementById('edit-mode-toggle'), 
-        
-        editModal: document.getElementById('auction-edit-modal'),
-        editModalTitle: document.getElementById('auction-edit-modal-title'),
-        editModalForm: document.getElementById('auction-edit-form'),
-        editAuctionId: document.getElementById('auction-id-input'),
-        editAuctionTitle: document.getElementById('auction-title-input'),
-        editAuctionImage: document.getElementById('auction-image-input'),
-        // === ВСТАВИТЬ СЮДА ===
-        editAuctionRarity: document.getElementById('auction-rarity-input'),
-        editAuctionWear: document.getElementById('auction-wear-input'),
-        // =====================
-        editAuctionCooldown: document.getElementById('auction-cooldown-input'),
-        editAuctionSnipeMinutes: document.getElementById('auction-snipe-minutes-input'),
-        editAuctionActive: document.getElementById('auction-active-input'),
-        editAuctionVisible: document.getElementById('auction-visible-input'),
-        
-        editAuctionMinTickets: document.getElementById('auction-min-tickets-input'), 
-        editAuctionMaxTickets: document.getElementById('auction-max-tickets-input'),
         archiveBtn: document.getElementById('archive-btn'),
         archiveModal: document.getElementById('archive-modal'),
         archiveList: document.getElementById('archive-list'),
@@ -166,7 +148,6 @@ checkMaintenance();
             .header-back-button, 
             .archive-toggle-btn, 
             .modal-close-btn,
-            .admin-toggle-switch label,
             .bid-btn,
             .action-btn
         `;
@@ -351,19 +332,9 @@ checkMaintenance();
     function renderPage(auctions) {
         dom.auctionsList.innerHTML = '';
 
-        const visibleAuctions = isEditMode 
-            ? auctions 
-            : auctions.filter(a => !a.ended_at);
+        const visibleAuctions = auctions.filter(a => !a.ended_at);
 
-        // Кнопка создания лота (первая в режиме редактирования)
-        if (isEditMode) {
-            const createCard = document.createElement('div');
-            createCard.className = 'auction-card create-auction-card';
-            createCard.innerHTML = `<i class="fa-solid fa-plus"></i><span>Создать лот</span>`;
-            dom.auctionsList.appendChild(createCard);
-        }
-
-        if ((!visibleAuctions || visibleAuctions.length === 0) && !isEditMode) {
+        if (!visibleAuctions || visibleAuctions.length === 0) {
             dom.auctionsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); margin-top: 20px;">Активных аукционов пока нет.</p>';
         }
 
@@ -377,12 +348,6 @@ checkMaintenance();
             if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
                 card.classList.add('beginner-lot');
             }
-            
-            if (isEditMode) {
-                card.classList.add('admin-card');
-                if (!auction.is_visible) card.classList.add('admin-hidden');
-                if (!auction.is_active) card.classList.add('admin-inactive');
-            }
 
             const isEnded = !!auction.ended_at;
             const timerId = `timer-${auction.id}`;
@@ -393,7 +358,6 @@ checkMaintenance();
 
             const isDisabled = isEnded ? 'disabled' : '';
 
-            let adminOverlay = '';
             // === ВСТАВИТЬ ЛОГИКУ ЦВЕТОВ ===
             const rarityKey = auction.rarity;
             const rarityColor = RARITY_COLORS[rarityKey] || 'var(--text-primary)';
@@ -402,30 +366,6 @@ checkMaintenance();
             const wearKey = auction.wear;
             const wearText = WEAR_NAMES[wearKey] || '';
             // ==============================
-            if (isEditMode) {
-                const isAlreadyFinished = !!auction.ended_at;
-                adminOverlay = `
-                    <div class="edit-overlay">
-                        <button class="card-btn card-edit-btn" data-auction-id="${auction.id}" title="Редактировать">
-                            <i class="fa-solid fa-pencil"></i>
-                        </button>
-                        <button class="card-btn card-reset-btn" data-auction-id="${auction.id}" title="Сбросить лот (клонировать)">
-                            <i class="fa-solid fa-arrow-rotate-left"></i>
-                        </button>
-                        
-                        <button class="card-btn card-finish-btn" 
-                                data-auction-id="${auction.id}" 
-                                title="${isAlreadyFinished ? 'Уже завершен' : 'Завершить вручную'}"
-                                ${isAlreadyFinished ? 'disabled' : ''}> 
-                            <i class="fa-solid fa-flag-checkered"></i>
-                        </button>
-                        
-                        <button class="card-btn card-delete-btn" data-auction-id="${auction.id}" title="Удалить">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-            }
             
             let leaderOrWinnerHtml = '';
             let displayName = 'Нет ставок';
@@ -514,8 +454,6 @@ checkMaintenance();
             }
 
             card.innerHTML = `
-                ${adminOverlay}
-                
                 <div class="card-display-area">
                     <div class="event-image-container">
                         ${restrictionsHtml} 
@@ -689,55 +627,13 @@ checkMaintenance();
         }
     }
 
-    function showEditModal(auctionId = null) {
-        if (auctionId) {
-            const auction = currentAuctions.find(a => a.id == auctionId);
-            if (!auction) return;
-            
-            dom.editModalTitle.textContent = 'Редактировать лот';
-            dom.editAuctionId.value = auction.id;
-            dom.editAuctionTitle.value = auction.title;
-            dom.editAuctionImage.value = auction.image_url;
-            // === ВСТАВИТЬ ЗАПОЛНЕНИЕ ===
-            dom.editAuctionRarity.value = auction.rarity || '';
-            dom.editAuctionWear.value = auction.wear || '';
-            // ===========================
-            dom.editAuctionCooldown.value = auction.bid_cooldown_hours;
-            dom.editAuctionSnipeMinutes.value = auction.snipe_guard_minutes || 5;
-
-            dom.editAuctionMinTickets.value = auction.min_required_tickets || 1;
-            dom.editAuctionMaxTickets.value = auction.max_allowed_tickets || 0;
-
-            dom.editAuctionActive.checked = auction.is_active;
-            dom.editAuctionVisible.checked = auction.is_visible;
-        } else {
-            dom.editModalTitle.textContent = 'Создать лот';
-            dom.editModalForm.reset(); 
-            dom.editAuctionId.value = '';
-            // === ВСТАВИТЬ СБРОС ===
-            dom.editAuctionRarity.value = '';
-            dom.editAuctionWear.value = '';
-            // ======================
-            dom.editAuctionCooldown.value = 24; 
-            dom.editAuctionSnipeMinutes.value = 5;
-            dom.editAuctionMinTickets.value = 1;
-            dom.editAuctionMaxTickets.value = 0;
-            dom.editAuctionActive.checked = false;
-            dom.editAuctionVisible.checked = false;
-        }
-        showModal(dom.editModal);
-    }
 
     function showModal(modal) {
         modal.classList.remove('hidden');
-        if (dom.adminControls) dom.adminControls.style.display = 'none';
     }
 
     function hideModal(modal) {
         modal.classList.add('hidden');
-        if (userData.is_admin && dom.adminControls) {
-            dom.adminControls.style.display = 'block';
-        }
     }
 
     // --- Обработчики событий ---
@@ -751,59 +647,6 @@ checkMaintenance();
         }
 
         const button = target.closest('button');
-        const card = target.closest('.create-auction-card');
-
-        if (isEditMode) {
-            if (button?.matches('.card-edit-btn')) {
-                e.stopPropagation();
-                showEditModal(button.dataset.auctionId);
-            }
-            
-            else if (button?.matches('.card-reset-btn')) {
-                e.stopPropagation();
-                const auctionId = button.dataset.auctionId;
-                tg.showConfirm('Вы уверены, что хотите сбросить этот лот? Старый лот и все ставки будут удалены, а вместо него появится клон (как в Розыгрышах).', async (ok) => {
-                    if (ok) {
-                        try {
-                            const result = await makeApiRequest('/api/v1/admin/auctions/clear_participants', { id: parseInt(auctionId) });
-                            tg.showAlert(result.message || 'Лот сброшен и пересоздан.');
-                            initialize(true);
-                        } catch(e) { /* Ошибка уже показана */ }
-                    }
-                });
-            }
-            
-            else if (button?.matches('.card-finish-btn')) {
-                e.stopPropagation();
-                const auctionId = button.dataset.auctionId;
-                tg.showConfirm('Вы уверены, что хотите завершить этот аукцион? Билеты будут списаны, уведомления отправлены.', async (ok) => {
-                    if (ok) {
-                        try {
-                            const result = await makeApiRequest('/api/v1/admin/auctions/finish_manual', { id: parseInt(auctionId) });
-                            tg.showAlert(result.message || 'Аукцион завершен.');
-                            initialize(true); 
-                        } catch(e) { /* Ошибка уже показана */ }
-                    }
-                });
-            }
-            else if (button?.matches('.card-delete-btn')) {
-                e.stopPropagation();
-                const auctionId = button.dataset.auctionId;
-                tg.showConfirm('Вы уверены, что хотите удалить этот лот?', async (ok) => {
-                    if (ok) {
-                        try {
-                            await makeApiRequest('/api/v1/admin/auctions/delete', { id: parseInt(auctionId) });
-                            tg.showAlert('Лот удален.');
-                            initialize(true); 
-                        } catch(e) { /* Ошибка уже показана */ }
-                    }
-                });
-            }
-            else if (card) {
-                showEditModal(null);
-            }
-            return; 
-        }
 
         // --- Логика для Пользователя ---
 
@@ -865,7 +708,6 @@ checkMaintenance();
 
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            if (modal.id === 'auction-edit-modal') return;
             if (e.target === modal) {
                 hideModal(modal);
             }
@@ -968,14 +810,6 @@ checkMaintenance();
             initialize(false);
         }
     });
-    
-    if (dom.editToggle) {
-        dom.editToggle.addEventListener('change', () => {
-            isEditMode = dom.editToggle.checked;
-            renderPage(currentAuctions);
-            initializeParallax(); 
-        });
-    }
 
     if (dom.archiveBtn) {
         dom.archiveBtn.addEventListener('click', () => {
@@ -983,67 +817,14 @@ checkMaintenance();
         });
     }
 
-   dom.editModalForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const auctionId = dom.editAuctionId.value ? parseInt(dom.editAuctionId.value) : null;
-        
-        const rawMaxTickets = dom.editAuctionMaxTickets.value;
-        let maxTicketsValue = null;
-        if (rawMaxTickets && parseInt(rawMaxTickets) > 0) {
-            maxTicketsValue = parseInt(rawMaxTickets);
-        }
-        const minTicketsValue = parseInt(dom.editAuctionMinTickets.value);
-
-        let url = '';
-        let payload = {};
-
-        if (auctionId) {
-            url = '/api/v1/admin/auctions/update';
-            payload = {
-                id: auctionId,
-                title: dom.editAuctionTitle.value,
-                image_url: dom.editAuctionImage.value,
-                // === ВСТАВИТЬ НОВЫЕ ПОЛЯ ===
-                rarity: dom.editAuctionRarity.value,
-                wear: dom.editAuctionWear.value,
-                // ===========================
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
-                snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
-                is_active: dom.editAuctionActive.checked,
-                is_visible: dom.editAuctionVisible.checked,
-                min_required_tickets: minTicketsValue,
-                max_allowed_tickets: maxTicketsValue
-            };
-        } else {
-            url = '/api/v1/admin/auctions/create';
-            payload = {
-                title: dom.editAuctionTitle.value,
-                image_url: dom.editAuctionImage.value,
-                bid_cooldown_hours: parseInt(dom.editAuctionCooldown.value),
-                snipe_guard_minutes: parseInt(dom.editAuctionSnipeMinutes.value),
-                is_active: dom.editAuctionActive.checked,
-                is_visible: dom.editAuctionVisible.checked,
-                min_required_tickets: minTicketsValue,
-                max_allowed_tickets: maxTicketsValue
-            };
-        }
-        
-        try {
-            await makeApiRequest(url, payload);
-            tg.showAlert(auctionId ? 'Лот обновлен' : 'Лот создан');
-            hideModal(dom.editModal);
-            initialize(false); 
-        } catch(e) { /* Error already shown */ }
-    });
-
     // --- УМНОЕ ОБНОВЛЕНИЕ (Smart Polling) ---
 
     function startAutoRefresh() {
         if (autoRefreshInterval) clearInterval(autoRefreshInterval);
         // Запускаем интервал каждые 3 секунды
         autoRefreshInterval = setInterval(() => {
-            // Обновляем только если вкладка открыта и мы НЕ в режиме редактирования
-            if (isPageVisible && !isEditMode) {
+            // Обновляем только если вкладка открыта
+            if (isPageVisible) {
                 updateAuctionsBackground();
             }
         }, 3000);
@@ -1052,12 +833,7 @@ checkMaintenance();
     async function updateAuctionsBackground() {
         try {
             // 1. Тихо запрашиваем данные (false = без спиннера)
-            let newData = [];
-            if (userData.is_admin) {
-                newData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', false);
-            } else {
-                newData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
-            }
+            let newData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
 
             if (!newData) return;
 
@@ -1183,8 +959,6 @@ checkMaintenance();
             }, 2000);
         }
     }
-// Запуск при загрузке
-document.addEventListener('DOMContentLoaded', initPullToRefresh);
 
     async function initialize(showMainLoader = true) {
         if (showMainLoader) {
@@ -1193,13 +967,7 @@ document.addEventListener('DOMContentLoaded', initPullToRefresh);
         try {
             userData = await makeApiRequest('/api/v1/user/me', {}, 'POST', false);
             
-            let auctionsData = [];
-            if (userData.is_admin) {
-                if (dom.adminControls) dom.adminControls.style.display = 'block';
-                auctionsData = await makeApiRequest('/api/v1/admin/auctions/list', {}, 'POST', false);
-            } else {
-                auctionsData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
-            }
+            const auctionsData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
             
             renderPage(auctionsData || []);
             initializeParallax();
@@ -1219,8 +987,8 @@ document.addEventListener('DOMContentLoaded', initPullToRefresh);
 
     initialize(true);
 });
-// === ВСТАВИТЬ В САМЫЙ КОНЕЦ ФАЙЛА, ПЕРЕД ЗАКРЫВАЮЩЕЙ СКОБКОЙ ИЛИ ПОСЛЕ НЕЕ ===
 
+// === ВСТАВИТЬ В САМЫЙ КОНЕЦ ФАЙЛА, ПЕРЕД ЗАКРЫВАЮЩЕЙ СКОБКОЙ ИЛИ ПОСЛЕ НЕЕ ===
 function initPullToRefresh() {
     const content = document.getElementById('main-content');
     const ptrContainer = document.getElementById('pull-to-refresh');
