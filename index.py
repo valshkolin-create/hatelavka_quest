@@ -18455,18 +18455,11 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/v1/admin/raffles/update-old-prices")
+@app.get("/api/v1/admin/raffles/update-old-prices")
 async def update_old_prices(
-    req: RaffleCreateRequest, # Берем твою модель для проверки админа
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Проверка на админа (как у тебя в коде)
-    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info['id'] not in ADMIN_IDS: 
-        raise HTTPException(status_code=403, detail="Доступ запрещен")
-
-    # 2. Достаем все розыгрыши из БД
-    # Делаем GET запрос, чтобы получить все записи
+    # 1. Сразу достаем все розыгрыши из БД
     res = await supabase.get("/raffles")
     if res.status_code != 200:
         raise HTTPException(status_code=500, detail="Ошибка при получении розыгрышей")
@@ -18475,7 +18468,7 @@ async def update_old_prices(
     updated_count = 0
     errors_count = 0
 
-    # 3. Идем по каждому розыгрышу
+    # 2. Идем по каждому розыгрышу
     for raffle in raffles:
         s = raffle.get('settings', {})
         msg_id = s.get('post_message_id')
@@ -18514,28 +18507,25 @@ async def update_old_prices(
         if name_tag: txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
         if min_msgs > 0: txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
 
-        # Кнопка (чтобы она не пропала при обновлении)
+        # Кнопка (оставляем просто переход, цифра обновится потом сама при первой же регистрации юзера)
         url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{raffle['id']}"
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
 
         # --- ОБНОВЛЯЕМ ПОСТ В ТЕЛЕГЕ ---
         try:
             if s.get('prize_image') or s.get('card_image'):
-                # Если пост с картинкой, обновляем caption
                 await bot.edit_message_caption(chat_id=channel_id, message_id=msg_id, caption=txt, reply_markup=kb, parse_mode="HTML")
             else:
-                # Если пост текстовый, обновляем text
                 await bot.edit_message_text(chat_id=channel_id, message_id=msg_id, text=txt, reply_markup=kb, parse_mode="HTML")
             
             updated_count += 1
-            await asyncio.sleep(1) # Защита от лимитов Телеграма (ОБЯЗАТЕЛЬНО)
+            await asyncio.sleep(1) # Защита от лимитов Телеграма
             
         except Exception as e:
             print(f"⚠️ Ошибка обновления поста {raffle['id']}: {e}")
             errors_count += 1
 
     return {"status": "success", "updated_posts": updated_count, "errors": errors_count}
-
 
 # --- ЭНДПОИНТ ДЛЯ РУЧНОГО ЗАВЕРШЕНИЯ (АДМИНКА) ---
 @app.post("/api/v1/admin/raffles/force_close")
