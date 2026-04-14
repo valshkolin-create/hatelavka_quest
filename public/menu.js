@@ -456,11 +456,15 @@ async function refreshDataSilently() {
             const giftContainer = document.getElementById('gift-container');
             const giftBtn = document.getElementById('daily-gift-btn');
             if (giftContainer && giftBtn) {
-                 const isEnabled = String(userData.bonus_gift_enabled) !== 'false' && userData.bonus_gift_enabled;
-                 if (!isEnabled) { giftContainer.style.display = 'none'; giftBtn.style.display = 'none'; }
-                 else if (!giftContainer.classList.contains('hidden')) { giftContainer.style.display = ''; }
+                 // Смотрим на глобальный тумблер, а не в профиль юзера
+                 const isEnabled = (bonusGiftEnabled === true || String(bonusGiftEnabled).toLowerCase() === 'true');
+                 
+                 if (!isEnabled) { 
+                     giftContainer.classList.add('hidden'); 
+                     giftBtn.style.display = 'none'; 
+                 }
             }
-
+            
             // 👇 ДОБАВЛЯЕМ ВОТ ЭТУ СТРОЧКУ 👇
             fetchNotificationsBadge();
         }
@@ -2979,8 +2983,13 @@ async function main() {
             }
 
             // 4. Подарки (из бутстрапа)
-            if (bootstrapData.gift_available && dom.giftContainer) {
+            // Строгая проверка: показываем ТОЛЬКО если есть подарок И тумблер включен
+            const isGiftEnabled = (bonusGiftEnabled === true || String(bonusGiftEnabled).toLowerCase() === 'true');
+            
+            if (bootstrapData.gift_available && dom.giftContainer && isGiftEnabled) {
                 dom.giftContainer.classList.remove('hidden');
+            } else if (dom.giftContainer) {
+                dom.giftContainer.classList.add('hidden'); // Жестко прячем, если отключено
             }
 
             // 5. P2P трейды (из бутстрапа)
