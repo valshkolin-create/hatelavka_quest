@@ -1548,6 +1548,16 @@ class TelegramTaskModel(BaseModel):
 # ==========================================
 # --- МОДЕЛИ ДЛЯ РОЗЫГРЫШЕЙ ---
 # ==========================================
+Всё логично! Раз ты используешь строгую валидацию через Pydantic (BaseModel), FastAPI по умолчанию просто обрезает (или игнорирует) все поля из входящего JSON, которых нет в твоей модели RaffleSettings.
+
+Чтобы цена доезжала до словаря settings, нам нужно явно объявить её в модели.
+
+Вот как нужно обновить твой класс RaffleSettings (я добавил поля price_rub и price в блок основного оформления):
+
+Python
+from pydantic import BaseModel
+from typing import Optional
+
 class RaffleSettings(BaseModel):
     # Основное оформление
     prize_name: str
@@ -1555,9 +1565,13 @@ class RaffleSettings(BaseModel):
     skin_quality: Optional[str] = None
     description: Optional[str] = None
     
+    # 🔥 ДОБАВЛЯЕМ ЦЕНУ СЮДА (Делаем float, чтобы принимал и 0.41, и 100)
+    price_rub: Optional[float] = None 
+    price: Optional[float] = None     # На всякий случай, если фронт пришлет просто price
+    
     # Старые проверки
     min_daily_messages: int = 0          # Twitch сообщения
-    requires_telegram_sub: bool = False # Подписка на канал
+    requires_telegram_sub: bool = False  # Подписка на канал
     
     # 🔥 ПРОВЕРКИ ЮЗЕРА (Под твою БД)
     ticket_cost: int = 0                 # Цена в билетах (списываем с tickets)
@@ -18446,6 +18460,88 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/v1/admin/raffles/update-old-prices")
+async def update_old_prices(
+    req: RaffleCreateRequest, # Берем твою модель для проверки админа
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверка на админа (как у тебя в коде)
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. Достаем все розыгрыши из БД
+    # Делаем GET запрос, чтобы получить все записи
+    res = await supabase.get("/raffles")
+    if res.status_code != 200:
+        raise HTTPException(status_code=500, detail="Ошибка при получении розыгрышей")
+        
+    raffles = res.json()
+    updated_count = 0
+    errors_count = 0
+
+    # 3. Идем по каждому розыгрышу
+    for raffle in raffles:
+        s = raffle.get('settings', {})
+        msg_id = s.get('post_message_id')
+        channel_id = s.get('post_channel_id')
+        price = s.get('price_rub') or s.get('price')
+
+        # Если нет поста в телеге или нет цены — пропускаем
+        if not msg_id or not channel_id or not price:
+            continue
+
+        # --- СОБИРАЕМ НОВЫЙ ТЕКСТ ПОСТА ---
+        prize_name = s.get('prize_name', 'Приз')
+        quality = s.get('skin_quality', '')
+        desc = s.get('description', '')
+        prize_full = f"{prize_name} ({quality})" if quality else prize_name
+
+        min_msgs = int(s.get('min_daily_messages', 0))
+        ticket_cost = int(s.get('ticket_cost', 0))
+        min_refs = int(s.get('min_referrals', 0))
+        min_participants = int(s.get('min_participants', 0)) 
+        min_coins = float(s.get('min_coins', 0.0))
+        name_tag = s.get('required_name_tag')
+        sub_req = s.get('requires_telegram_sub', False)
+
+        txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
+        if desc: txt += f"<i>{desc}</i>\n\n"
+        txt += f"🏆 <b>Приз:</b> {prize_full}\n"
+        txt += f"💵 <b>Стоимость:</b> {price} ₽\n" # <--- ТА САМАЯ ЦЕНА
+        txt += "\n📌 <b>Условия:</b>\n"
+        
+        if sub_req: txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
+        if ticket_cost > 0: txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
+        if min_participants > 0: txt += f"└ Минимум участников: {min_participants} 👥\n"
+        if min_refs > 0: txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
+        if min_coins > 0: txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
+        if name_tag: txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
+        if min_msgs > 0: txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
+
+        # Кнопка (чтобы она не пропала при обновлении)
+        url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{raffle['id']}"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
+
+        # --- ОБНОВЛЯЕМ ПОСТ В ТЕЛЕГЕ ---
+        try:
+            if s.get('prize_image') or s.get('card_image'):
+                # Если пост с картинкой, обновляем caption
+                await bot.edit_message_caption(chat_id=channel_id, message_id=msg_id, caption=txt, reply_markup=kb, parse_mode="HTML")
+            else:
+                # Если пост текстовый, обновляем text
+                await bot.edit_message_text(chat_id=channel_id, message_id=msg_id, text=txt, reply_markup=kb, parse_mode="HTML")
+            
+            updated_count += 1
+            await asyncio.sleep(1) # Защита от лимитов Телеграма (ОБЯЗАТЕЛЬНО)
+            
+        except Exception as e:
+            print(f"⚠️ Ошибка обновления поста {raffle['id']}: {e}")
+            errors_count += 1
+
+    return {"status": "success", "updated_posts": updated_count, "errors": errors_count}
+
+
 # --- ЭНДПОИНТ ДЛЯ РУЧНОГО ЗАВЕРШЕНИЯ (АДМИНКА) ---
 @app.post("/api/v1/admin/raffles/force_close")
 async def force_close_giveaway(
@@ -18718,6 +18814,9 @@ async def create_raffle(
                 quality = s.get('skin_quality', '')
                 desc = s.get('description', '')
                 prize_full = f"{prize_name} ({quality})" if quality else prize_name
+                
+                # 🔥 ДОБАВИЛИ: Вытаскиваем цену
+                price = s.get('price_rub') or s.get('price')
 
                 # Условия
                 min_msgs = int(s.get('min_daily_messages', 0))
@@ -18733,6 +18832,11 @@ async def create_raffle(
                 
                 if desc: txt += f"<i>{desc}</i>\n\n"
                 txt += f"🏆 <b>Приз:</b> {prize_full}\n"
+                
+                # 🔥 ДОБАВИЛИ: Выводим цену, если она есть
+                if price:
+                    txt += f"💵 <b>Стоимость:</b> {price} ₽\n"
+                    
                 txt += "\n📌 <b>Условия:</b>\n"
                 
                 if sub_req:
@@ -18887,11 +18991,14 @@ async def publish_raffle_webhook(
                 print(f"🤫 Розыгрыш {req.raffle_id} опубликован без поста (silent mode)")
                 return {"status": "published_silent"}
 
-            # Формируем текст
+           # Формируем текст
             prize_name = s.get('prize_name', 'Приз')
             quality = s.get('skin_quality', '')
             desc = s.get('description', '')
             prize_full = f"{prize_name} ({quality})" if quality else prize_name
+            
+            # 🔥 ДОБАВИЛИ: Вытаскиваем цену
+            price = s.get('price_rub') or s.get('price')
             
             min_participants = int(s.get('min_participants', 0))
             ticket_cost = int(s.get('ticket_cost', 0))
@@ -18904,6 +19011,11 @@ async def publish_raffle_webhook(
             txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
             if desc: txt += f"<i>{desc}</i>\n\n"
             txt += f"🏆 <b>Приз:</b> {prize_full}\n"
+            
+            # 🔥 ДОБАВИЛИ: Выводим цену, если она есть
+            if price:
+                txt += f"💵 <b>Стоимость:</b> {price} ₽\n"
+                
             txt += "\n📌 <b>Условия:</b>\n"
 
             if sub_req:
