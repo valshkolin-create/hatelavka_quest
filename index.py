@@ -18459,7 +18459,6 @@ async def upload_image(
 async def update_old_prices(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Сразу достаем все розыгрыши из БД
     res = await supabase.get("/raffles")
     if res.status_code != 200:
         raise HTTPException(status_code=500, detail="Ошибка при получении розыгрышей")
@@ -18468,23 +18467,48 @@ async def update_old_prices(
     updated_count = 0
     errors_count = 0
 
-    # 2. Идем по каждому розыгрышу
     for raffle in raffles:
         s = raffle.get('settings', {})
         msg_id = s.get('post_message_id')
         channel_id = s.get('post_channel_id')
-        price = s.get('price_rub') or s.get('price')
 
-        # Если нет поста в телеге или нет цены — пропускаем
-        if not msg_id or not channel_id or not price:
+        # Если нет поста в телеге — точно пропускаем
+        if not msg_id or not channel_id:
             continue
 
-        # --- СОБИРАЕМ НОВЫЙ ТЕКСТ ПОСТА ---
         prize_name = s.get('prize_name', 'Приз')
         quality = s.get('skin_quality', '')
         desc = s.get('description', '')
         prize_full = f"{prize_name} ({quality})" if quality else prize_name
 
+        # --- 🔥 УМНЫЙ ПОИСК ЦЕНЫ ---
+        # Сначала пробуем взять из настроек (вдруг для новых уже есть)
+        price = s.get('price_rub') or s.get('price')
+
+        # Если в настройках пусто (это старый розыгрыш), ищем в базе маркета
+        if not price:
+            quality_map = {
+                "FN": "(Factory New)",
+                "MW": "(Minimal Wear)",
+                "FT": "(Field-Tested)",
+                "WW": "(Well-Worn)",
+                "BS": "(Battle-Scarred)"
+            }
+            market_hash_name = prize_name
+            if quality and quality in quality_map:
+                market_hash_name = f"{prize_name} {quality_map[quality]}"
+                
+            # Запрос в market_cache
+            market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+            if market_res.status_code == 200 and market_res.json():
+                price = float(market_res.json()[0].get('price_rub', 0))
+
+        # Если цену вообще нигде не нашли — ну ок, пропускаем
+        if not price:
+            print(f"⚠️ Для {prize_full} цена не найдена. Пропускаем.")
+            continue
+
+        # --- СОБИРАЕМ НОВЫЙ ТЕКСТ ПОСТА ---
         min_msgs = int(s.get('min_daily_messages', 0))
         ticket_cost = int(s.get('ticket_cost', 0))
         min_refs = int(s.get('min_referrals', 0))
@@ -18496,7 +18520,10 @@ async def update_old_prices(
         txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
         if desc: txt += f"<i>{desc}</i>\n\n"
         txt += f"🏆 <b>Приз:</b> {prize_full}\n"
-        txt += f"💵 <b>Стоимость:</b> {price} ₽\n" # <--- ТА САМАЯ ЦЕНА
+        
+        # Наша добытая цена! Округлим до 2 знаков, если это float
+        txt += f"💵 <b>Стоимость:</b> {round(price, 2) if isinstance(price, float) else price} ₽\n" 
+        
         txt += "\n📌 <b>Условия:</b>\n"
         
         if sub_req: txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
@@ -18507,9 +18534,11 @@ async def update_old_prices(
         if name_tag: txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
         if min_msgs > 0: txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
 
-        # Кнопка (оставляем просто переход, цифра обновится потом сама при первой же регистрации юзера)
         url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{raffle['id']}"
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲", url=url_btn)]])
+        
+        # Используем participants_count из самой записи розыгрыша (если есть), иначе 0
+        current_participants = raffle.get('participants_count', 0)
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=f"Участвовать 🎲 ({current_participants})", url=url_btn)]])
 
         # --- ОБНОВЛЯЕМ ПОСТ В ТЕЛЕГЕ ---
         try:
@@ -18519,11 +18548,13 @@ async def update_old_prices(
                 await bot.edit_message_text(chat_id=channel_id, message_id=msg_id, text=txt, reply_markup=kb, parse_mode="HTML")
             
             updated_count += 1
-            await asyncio.sleep(1) # Защита от лимитов Телеграма
+            await asyncio.sleep(1.5) # Чуть увеличил задержку на всякий случай
             
         except Exception as e:
+            # Нормально, если Telegram ответит "message is not modified" (если текст не изменился)
             print(f"⚠️ Ошибка обновления поста {raffle['id']}: {e}")
-            errors_count += 1
+            if "message is not modified" not in str(e).lower():
+                errors_count += 1
 
     return {"status": "success", "updated_posts": updated_count, "errors": errors_count}
 
