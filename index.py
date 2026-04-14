@@ -4006,7 +4006,8 @@ async def get_cauldron_participants(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Возвращает список участников с живой проверкой подписки на канал из ENV.
+    Возвращает список участников с правильными баллами (включая квесты)
+    и живой проверкой подписки на канал из ENV.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
@@ -4025,49 +4026,72 @@ async def get_cauldron_participants(
         logging.warning("Переменная TG_QUEST_CHANNEL_ID не найдена в настройках Vercel!")
 
     try:
-        # 2. Запрашиваем данные из базы
-        # Используем users(*) чтобы вытянуть все данные юзера
-        response = await supabase.get(
-            "/cauldron_participants",
+        # 🔥 2. ГЛАВНЫЙ ФИКС: Берем правильные баллы из того же RPC, что и публичный лидерборд
+        rpc_response = await supabase.post("/rpc/get_cauldron_leaderboard_public")
+        rpc_data = rpc_response.json() if rpc_response.status_code == 200 else {}
+        
+        # Получаем полный список из ключа "all"
+        leaderboard_all = rpc_data.get("all", [])
+        
+        if not leaderboard_all:
+            return [] # Если никого нет, просто возвращаем пустоту
+            
+        # Собираем ID всех участников в виде списка строк
+        user_ids = [str(item.get("user_id")) for item in leaderboard_all if item.get("user_id")]
+        
+        # 3. Вытаскиваем "скрытые" от публики данные (трейд-ссылку и твич) из таблицы users
+        users_resp = await supabase.get(
+            "/users",
             params={
-                "select": "*, users(full_name, username, trade_link, twitch_login)", 
-                "order": "total_contribution.desc"
+                "id": f"in.({','.join(user_ids)})",
+                "select": "id,full_name,username,trade_link,twitch_login"
             }
         )
-        data = response.json()
+        # Делаем удобный словарь { "12345": {данные юзера} }
+        users_dict = {str(u["id"]): u for u in users_resp.json()} if users_resp.status_code == 200 else {}
+        
+        # 4. Запрашиваем статус выдачи приза из старой таблицы cauldron_participants
+        part_resp = await supabase.get(
+            "/cauldron_participants",
+            params={
+                "user_id": f"in.({','.join(user_ids)})",
+                "select": "user_id,is_reward_sent"
+            }
+        )
+        part_dict = {str(p["user_id"]): p.get("is_reward_sent", False) for p in part_resp.json()} if part_resp.status_code == 200 else {}
         
         result = []
         
-        # 3. Проверяем подписку
-        for item in data:
-            user = item.get("users", {}) or {}
-            user_tg_id = item.get("user_id")
+        # 5. Собираем финальный Франкенштейн-объект и чекаем подписку
+        for item in leaderboard_all:
+            u_id_int = item.get("user_id")
+            u_id_str = str(u_id_int)
+            u_info = users_dict.get(u_id_str, {})
             
             is_subscribed = False
             
-            # Если ID канала и ID юзера есть - проверяем
-            if target_channel_id and user_tg_id:
+            # Проверяем подписку (тихо игнорируем ошибки, если бот заблокирован)
+            if target_channel_id and u_id_int:
                 try:
-                    chat_member = await bot.get_chat_member(chat_id=target_channel_id, user_id=user_tg_id)
+                    chat_member = await bot.get_chat_member(chat_id=target_channel_id, user_id=u_id_int)
                     if chat_member.status in ["member", "administrator", "creator"]:
                         is_subscribed = True
                 except Exception:
-                    # Ошибки игнорируем (например, юзер заблокировал бота или бот не админ)
-                    # Можно раскомментировать для отладки:
-                    # logging.warning(f"Ошибка проверки подписки юзера {user_tg_id}: {e}")
                     pass
 
             result.append({
-                "user_id": user_tg_id,
-                "total_contribution": item.get("total_contribution", 0),
-                "is_reward_sent": item.get("is_reward_sent", False),
-                "full_name": user.get("full_name") or "Unknown",
-                "username": user.get("username"),
-                "trade_link": user.get("trade_link"),
-                "twitch_login": user.get("twitch_login"),
+                "user_id": u_id_int,
+                "total_contribution": item.get("total_contribution", 0), # Правильные баллы с квестами!
+                "is_reward_sent": part_dict.get(u_id_str, False),        # Статус галочки админа
+                "full_name": u_info.get("full_name") or item.get("full_name") or "Unknown",
+                "username": u_info.get("username"),
+                "trade_link": u_info.get("trade_link"),
+                "twitch_login": u_info.get("twitch_login"),
                 "is_subscribed": is_subscribed
             })
             
+        # Сортируем от большего к меньшему, чтобы топ был сверху
+        result.sort(key=lambda x: x["total_contribution"], reverse=True)
         return result
 
     except Exception as e:
