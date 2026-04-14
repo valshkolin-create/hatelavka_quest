@@ -19,10 +19,10 @@
         </div>
 
         <div class="container">
-            <div class="new-header-container">
-    <a href="#" id="header-back-btn" class="header-back-button">
-        <i class="fa-solid fa-chevron-left"></i> Назад
-    </a>
+            <div class="new-header-container" id="app-container">
+                <a href="#" id="header-back-btn" class="header-back-button">
+                    <i class="fa-solid fa-chevron-left"></i> Назад
+                </a>
                 <div class="page-header">
                     <h2 class="page-title">АУКЦИОН</h2>
                 </div>
@@ -57,8 +57,11 @@
                         <p class="info-description">Билеты списываются <b>только</b> у победителя. Если вашу ставку перебили, ваши билеты не тратятся.</p>
                     </div>
                 </div>
-            </div> </div> </main> <div id="bid-modal" class="modal-overlay hidden">
-                
+            </div> 
+        </div> 
+    </main> 
+    
+    <div id="bid-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="bid-modal-title" style="margin: 0;">Сделать ставку</h3>
@@ -87,7 +90,7 @@
             </div>
             <div class="modal-body">
                 <ul id="bids-history-list">
-                    </ul>
+                </ul>
             </div>
         </div>
     </div>
@@ -100,109 +103,33 @@
             </div>
             <div class="modal-body">
                 <div id="archive-list" class="archive-list">
-                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="auction-edit-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="auction-edit-modal-title" style="margin: 0;">Редактировать лот</h3>
-                <button type="button" class="modal-close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="auction-edit-form" class="modal-form">
-                    <input type="hidden" id="auction-id-input">
-                    
-                    <label>Название лота</label>
-                    <input type="text" id="auction-title-input" required>
-                    
-                    <label>URL картинки</label>
-                    <input type="text" id="auction-image-input" placeholder="https://...">
-
-                    <div style="display: flex; gap: 10px;">
-                        <div style="flex: 1;">
-                            <label>Редкость (Цвет)</label>
-                            <select id="auction-rarity-input" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: var(--text-primary); margin-top: 5px;">
-                                <option value="">-- Обычное --</option>
-                                <option value="common">Ширпотреб (Синий)</option>
-                                <option value="uncommon">Промышленное (Голубой)</option>
-                                <option value="rare">Армейское (Синий)</option>
-                                <option value="mythical">Запрещенное (Фиолетовый)</option>
-                                <option value="legendary">Засекреченное (Розовый)</option>
-                                <option value="ancient">Тайное (Красный)</option>
-                                <option value="immortal">Нож/Золотое (Золотой)</option>
-                            </select>
-                        </div>
-                        <div style="flex: 1;">
-                            <label>Качество</label>
-                            <select id="auction-wear-input" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--surface-secondary); color: var(--text-primary); margin-top: 5px;">
-                                <option value="">-- Нет --</option>
-                                <option value="Factory New">Прямо с завода</option>
-                                <option value="Minimal Wear">Немного поношенное</option>
-                                <option value="Field-Tested">После полевых</option>
-                                <option value="Well-Worn">Поношенное</option>
-                                <option value="Battle-Scarred">Закаленное в боях</option>
-                            </select>
-                        </div>
-                    </div>
-                    <label>Минимальный баланс (билеты)</label>
-                    <input type="number" id="auction-min-tickets-input" value="1" min="1" required>
-                    
-                    <label>Макс. баланс (0 = без лимита)</label>
-                    <input type="number" id="auction-max-tickets-input" value="0" min="0">
-                    
-                    <label>Длительность (часы)</label>
-                    <input type="number" id="auction-cooldown-input" value="24" min="1" required>
-                    
-                    <label>Доп.минуты (после ставки)</label>
-                    <input type="number" id="auction-snipe-minutes-input" value="5" min="1" required>
-                    
-                    <div class="checkbox-container">
-                        <input type="checkbox" id="auction-active-input">
-                        <label for="auction-active-input">Активен (запускает таймер)</label>
-                    </div>
-                    <div class="checkbox-container">
-                        <input type="checkbox" id="auction-visible-input">
-                        <label for="auction-visible-input">Виден пользователям</label>
-                    </div>
-
-                    <button type="submit">Сохранить</button>
-                </form>
-            </div>
-        </div>
+    <div class="floating-bottom-bar">
+        <a href="/leaderboard" class="nav-item">
+            <i class="fa-solid fa-trophy"></i>
+            <span>Лидерборд</span>
+        </a>
+        <a href="/quests" id="nav-quests" class="nav-item">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Задания</span>
+        </a>
+        <a href="/menu" class="nav-item">
+            <i class="fa-solid fa-house"></i>
+            <span>Главная</span>
+        </a>
+        <a href="/events" class="nav-item">
+            <i class="fa-solid fa-fire"></i>
+            <span>Гринд</span>
+        </a>
+        <a href="/auction" class="nav-item active">
+            <i class="fa-solid fa-gavel"></i>
+            <span>Аукцион</span>
+        </a>
     </div>
-  
-    <div id="admin-controls" class="admin-controls" style="display: none;">
-        <div class="admin-toggle-switch">
-            <input type="checkbox" id="edit-mode-toggle">
-            <label for="edit-mode-toggle">
-                <span class="toggle-icon"><i class="fa-solid fa-pencil"></i></span>
-                <span class="toggle-text">Режим ред.</span>
-            </label>
-        </div>
-    </div>
-
-     <footer class="app-footer">
-    <a href="/leaderboard" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
-        <span>Лидерборд</span>
-    </a>
-    <a href="/quests" id="nav-quests" class="footer-item"><div class="icon-wrapper"><i class="fa-solid fa-check-double"></i></div><span>Задания</span></a>
-        <a href="/menu" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-house"></i></div>
-        <span>Главная</span>
-    </a>
-    <a href="/events" class="footer-item">
-        <div class="icon-wrapper"><i class="fa-solid fa-fire"></i></div>
-        <span>Гринд</span>
-    </a>
-    <a href="/auction" class="footer-item active">
-        <div class="icon-wrapper"><i class="fa-solid fa-gavel"></i></div>
-        <span>Аукцион</span>
-    </a>
-</footer>
 
     <script src="/public/auction.js"></script>
 </body>
