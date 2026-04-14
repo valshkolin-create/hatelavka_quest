@@ -1548,16 +1548,6 @@ class TelegramTaskModel(BaseModel):
 # ==========================================
 # --- МОДЕЛИ ДЛЯ РОЗЫГРЫШЕЙ ---
 # ==========================================
-Всё логично! Раз ты используешь строгую валидацию через Pydantic (BaseModel), FastAPI по умолчанию просто обрезает (или игнорирует) все поля из входящего JSON, которых нет в твоей модели RaffleSettings.
-
-Чтобы цена доезжала до словаря settings, нам нужно явно объявить её в модели.
-
-Вот как нужно обновить твой класс RaffleSettings (я добавил поля price_rub и price в блок основного оформления):
-
-Python
-from pydantic import BaseModel
-from typing import Optional
-
 class RaffleSettings(BaseModel):
     # Основное оформление
     prize_name: str
@@ -1617,6 +1607,11 @@ class RaffleDeleteRequest(BaseModel):
     initData: str
     platform: str = "tg"  # <--- Добавлено!
     raffle_id: int
+
+# 6. ВЕБХУК ДЛЯ АВТОМАТИЧЕСКОГО ЗАВЕРШЕНИЯ (QStash)
+class FinalizeRequest(BaseModel):
+    raffle_id: int
+    secret: str
 
 # ==========================================
 # 🔫 CS:GO STYLE ROULETTE SYSTEM (NEW)
@@ -19231,10 +19226,6 @@ async def get_user_raffles(
             
     return raffles
 
-# 6. ВЕБХУК ДЛЯ АВТОМАТИЧЕСКОГО ЗАВЕРШЕНИЯ (QStash)
-class FinalizeRequest(BaseModel):
-    raffle_id: int
-    secret: str
 
 @app.post("/api/v1/webhook/finalize_raffle")
 async def finalize_raffle_webhook(
