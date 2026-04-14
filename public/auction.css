@@ -692,79 +692,34 @@ body.desktop-mode .new-header-container {
 }
 
 /* ==========================================
-   ПЛАВАЮЩИЙ ФУТЕР (Идеальная ширина + Твои оригинальные иконки)
+   ПЛАВАЮЩИЙ ФУТЕР (1в1 из menu.css)
 ========================================== */
 .floating-bottom-bar {
-    position: fixed; 
-    bottom: 15px; 
-    left: 50%; 
-    transform: translateX(-50%); 
-    width: 90%; 
-    max-width: 400px; 
-    background: rgba(40, 40, 40, 0.85); 
-    backdrop-filter: blur(20px); 
-    -webkit-backdrop-filter: blur(20px);
+    position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
+    width: 85%; max-width: 360px;
+    background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1); 
-    border-radius: 35px; 
+    border-radius: 35px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    padding: 6px 8px; 
+    display: flex; justify-content: space-around; align-items: center; 
+    padding: 6px 12px;
     z-index: 10000;
 }
-
-/* Возвращаем твои оригинальные стили кнопок (крупный размер, wrapper, отступы) */
-.footer-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px; /* Твой оригинальный отступ */
-    color: #8E8E93; 
-    text-decoration: none;
-    flex: 1; /* ЖЕЛЕЗОБЕТОННО: 5 кнопок встают идеально ровно */
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    padding: 4px 0; 
-    margin: 0;
-    font-size: 10px;
-    line-height: 1; 
-    font-weight: 500;
-    transition: all 0.2s ease;
+.nav-item { 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    color: var(--text-muted, #8e8e93); text-decoration: none; 
+    gap: 2px;
+    padding: 6px 2px; /* Уменьшили боковой отступ для 5 кнопок */
+    flex: 1; /* Чтобы все 5 кнопок делили место поровну */
+    border-radius: var(--radius-pill, 40px); transition: all 0.3s ease; 
 }
-
-.footer-item .icon-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 24px;
-    height: 24px;
-    font-size: 22px; /* Твой оригинальный КРУПНЫЙ размер иконки */
-    position: relative;
-    transition: transform 0.2s ease, color 0.2s ease;
+.nav-item i { font-size: 18px; }
+.nav-item span { 
+    font-size: 9px; 
+    font-weight: 600; 
+    white-space: nowrap; /* Запрещаем перенос текста */
 }
-
-.footer-item span {
-    white-space: nowrap; /* Запрещает тексту ломаться на 2 строки */
-}
-
-/* --- Активное состояние (Твоя зеленая подсветка + полоска сверху) --- */
-.footer-item.active {
-    color: #FFFFFF; 
-}
-
-.footer-item.active span {
-    font-weight: 600;
-}
-
-.footer-item.active .icon-wrapper {
-    color: #34c759; /* Твой зеленый акцент */
-    transform: translateY(-2px); /* Легкий подскок */
-    text-shadow: 0 0 12px rgba(52, 199, 89, 0.6); /* Свечение */
-}
-
+.nav-item.active { background: transparent; color: var(--text-primary, #ffffff); }
 /* Полоска над активной иконкой */
 .footer-item.active .icon-wrapper::before {
     content: '';
