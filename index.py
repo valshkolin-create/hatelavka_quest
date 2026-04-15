@@ -22627,64 +22627,18 @@ async def commit_tg_slider(
 # =========================================================================
 # 🏆 СИСТЕМА ТРАСТА (ФУНКЦИЯ ПЕРЕСЧЕТА И ЭНДПОИНТ ДЛЯ АДМИНА)
 # =========================================================================
-from datetime import datetime, timedelta, timezone
-
 async def sync_all_users_trust(supabase: httpx.AsyncClient):
-    """Функция для ежедневного пересчета траста всех юзеров"""
-    
-    # Достаем всех юзеров
-    resp = await supabase.get("/users", params={"select": "telegram_id, monthly_message_count, monthly_uptime_minutes, telegram_monthly_message_count, last_grind_at, streak_days, trust_level"})
-    all_users = resp.json()
-    
-    for user in all_users:
-        current_trust = user.get('trust_level', 'gray')
-        
-        # Если красный - требования режем в 2 раза для выхода
-        modifier = 0.5 if current_trust == 'red' else 1.0
-        
-        # Считаем баллы (Максимум 100)
-        tw_msg = min(40, (user.get('monthly_message_count', 0) / (1500 * modifier)) * 40)
-        tw_watch = min(40, (user.get('monthly_uptime_minutes', 0) / (2400 * modifier)) * 40)
-        tg_msg = min(80, (user.get('telegram_monthly_message_count', 0) / (3500 * modifier)) * 80)
-        
-        # Гринд (0.5 за день стрика, макс 15)
-        lavka_points = 0.0
-        if user.get('last_grind_at'):
-            try:
-                # Безопасный парсинг даты
-                dt_str = user['last_grind_at'].replace('Z', '+00:00')
-                last_grind = datetime.fromisoformat(dt_str)
-                if datetime.now(timezone.utc) - last_grind <= timedelta(hours=48):
-                    lavka_points = min(15.0, user.get('streak_days', 0) * 0.5)
-            except Exception as e:
-                pass # Если дата кривая, просто не даем баллы за лавку
-
-        total_score = min(100, tw_msg + tw_watch + tg_msg + lavka_points)
-        
-        # Логика уровней
-        new_trust = current_trust
-        if current_trust == 'red':
-            if total_score >= 80: new_trust = 'gray' # Из красного только в серый
-        else:
-            if total_score >= 80: new_trust = 'green'
-            elif total_score >= 30: new_trust = 'gray'
-            else: new_trust = 'red'
-
-        # Сохраняем в базу новые значения
-        await supabase.patch(
-            "/users",
-            params={"telegram_id": f"eq.{user['telegram_id']}"},
-            json={"trust_level": new_trust, "trust_score": round(total_score, 1)}
-        )
+    """Питон больше не считает математику. Он просто просит базу пересчитать всех."""
+    # Вызываем RPC функцию в базе данных (мы создадим ее на Шаге 4)
+    await supabase.rpc("force_recalculate_all_trust")
 
 @app.post("/api/v1/admin/force-trust-sync")
 async def force_trust_sync(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Секретная кнопка для админа: пересчитать траст всем прямо сейчас"""
     try:
         await sync_all_users_trust(supabase)
-        return {"status": "ok", "message": "Траст всех пользователей успешно пересчитан!"}
+        return {"status": "ok", "message": "База данных успешно пересчитала траст всех пользователей!"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
