@@ -890,6 +890,25 @@ class AuctionCreateRequest(BaseModel):
     is_silent: Optional[bool] = False
     # =================================
 
+class AuctionUpdateRequest(BaseModel):
+    initData: str
+    id: int  # ID аукциона, который мы обновляем
+    # Делаем все поля необязательными (Optional), чтобы можно было обновлять только часть из них
+    title: Optional[str] = None
+    image_url: Optional[str] = None
+    bid_cooldown_hours: Optional[int] = None
+    snipe_guard_minutes: Optional[int] = None
+    min_required_tickets: Optional[int] = None
+    max_allowed_tickets: Optional[int] = None
+    is_active: Optional[bool] = None
+    is_visible: Optional[bool] = None
+    is_silent: Optional[bool] = None
+    rarity: Optional[str] = None
+    wear: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    description: Optional[str] = None
+
 class AuctionDeleteRequest(BaseModel):
     initData: str
     platform: str = "tg"  # <--- Добавлено!
