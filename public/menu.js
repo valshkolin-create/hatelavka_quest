@@ -1355,11 +1355,11 @@ function renderItems(items) {
     let couponHeaderAdded = false;
     let regularHeaderAdded = false; // 🔥 Флаг для разделителя основных кейсов
 
-    // 🔥 РАСЧЕТ ТРАСТ-ФАКТОРА
-    const trustLevel = userData.trust_level || 'gray';
-    let trustMultiplier = 2;
-    if (trustLevel === 'green') trustMultiplier = 1;
-    else if (trustLevel === 'red') trustMultiplier = 3;
+    // 🔥 РАСЧЕТ ТРАСТ-ФАКТОРА (Смотрим на баллы, как в модалке)
+    const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
+    let trustMultiplier = 2; // Дефолт (Серый, 30-79.9)
+    if (score < 30) trustMultiplier = 3; // Красный (0-29.9)
+    else if (score >= 80) trustMultiplier = 1; // Зеленый (80-100)
 
     const multiplierBadgeCoins = trustMultiplier > 1 
         ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(255,255,255,0.7); color: #000; padding: 1px 3px; border-radius: 3px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(0,0,0,0.15);">x${trustMultiplier}</span>` 
@@ -1513,10 +1513,10 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     if (!isLinkValid) return; 
 
     // 🔥 РАСЧЕТ НАЦЕНКИ ДЛЯ ДИАЛОГА И ВИЗУАЛЬНОГО СПИСАНИЯ 🔥
-    const trustLevel = userData.trust_level || 'gray';
+    const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
     let trustMultiplier = 2; // Дефолт (Серый)
-    if (trustLevel === 'green') trustMultiplier = 1;
-    else if (trustLevel === 'red') trustMultiplier = 3;
+    if (score < 30) trustMultiplier = 3; // Красный
+    else if (score >= 80) trustMultiplier = 1; // Зеленый
 
     // Итоговая цена для показа пользователю
     const displayPrice = price * trustMultiplier;
