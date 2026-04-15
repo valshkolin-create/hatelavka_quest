@@ -51,7 +51,25 @@
         
         .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
         .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        
+        /* 🔥 ИДЕАЛЬНО РОВНЫЕ КОЛОНКИ 🔥 */
+        .cond-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px; 
+            align-items: flex-end; /* Выравнивание по нижнему краю инпутов */
+        }
+        .cond-grid > div { 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-end; 
+            height: 100%; 
+        }
+        .cond-grid label { 
+            margin-top: 0; 
+            margin-bottom: 6px; 
+            line-height: 1.3; 
+        }
 
         /* Toggles */
         .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid var(--card-border); }
@@ -173,6 +191,9 @@
             <div class="section-box">
                 <h3 class="sec-title"><i class="fa-solid fa-gear"></i> Механика аукциона</h3>
                 
+                <label>⏰ Время завершения (МСК)</label>
+                <input type="datetime-local" name="end_time" id="inp-end-time" required onchange="updatePreview()" style="margin-bottom: 15px;">
+
                 <div class="cond-grid">
                     <div>
                         <label>Таймер после ставки (в часах)</label>
@@ -314,9 +335,13 @@
                     </div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <input type="number" id="lib-price-min" class="form-input" placeholder="Мин. цена ₽" oninput="debounceSearch()">
-                    <input type="number" id="lib-price-max" class="form-input" placeholder="Макс. цена ₽" oninput="debounceSearch()">
+                <div class="cond-grid" style="margin-bottom: 10px;">
+                    <div>
+                        <input type="number" id="lib-price-min" class="form-input" placeholder="Мин. цена ₽" oninput="debounceSearch()">
+                    </div>
+                    <div>
+                        <input type="number" id="lib-price-max" class="form-input" placeholder="Макс. цена ₽" oninput="debounceSearch()">
+                    </div>
                 </div>
             </div>
 
@@ -374,7 +399,7 @@
             }
         }
 
-        /* --- МАГИЯ ПОИСКА ПО СКЛАДУ (ОБНОВЛЕННАЯ) --- */
+        /* --- МАГИЯ ПОИСКА ПО СКЛАДУ --- */
         let currentOffset = 0;
         let isFetching = false;
         let hasMoreItems = true;
@@ -613,9 +638,8 @@
             
             const getInpVal = (name) => { const el = document.querySelector(`input[name="${name}"]`); return el ? el.value : ''; };
 
-            const cd = getInpVal('bid_cooldown_hours') || '24';
-            const snipe = getInpVal('snipe_guard_minutes') || '5';
             const minTix = getInpVal('min_required_tickets') || '1';
+            const endVal = getInpVal('end_time'); 
             
             const prizeFull = quality ? `${prize} (${quality})` : prize;
             let html = `🔨 <b>АУКЦИОН НАЧАЛСЯ!</b>\n\n`;
@@ -625,8 +649,13 @@
             html += `\n📌 <b>Правила:</b>\n`;
             
             html += `└ Мин. ставка: ${minTix} 🎟️\n`;
-            html += `└ Таймер: ${cd} ч.\n`;
-            html += `└ Анти-снайпер: +${snipe} мин.\n`;
+
+            if (endVal) {
+                const d = new Date(endVal);
+                const dateStr = d.toLocaleDateString('ru-RU');
+                const timeStr = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                html += `└ ⏳ Итоги: ${dateStr} в ${timeStr} (МСК)\n`;
+            }
 
             html += `\n👇 <b>Жми кнопку, чтобы сделать первую ставку!</b>`;
 
@@ -702,6 +731,7 @@
                 is_visible: !isScheduled, 
                 is_silent: isSilentMode,
                 start_time: fd.get('start_time'), 
+                end_time: fd.get('end_time'), 
                 description: fd.get('desc')
             };
 
@@ -862,6 +892,9 @@
             document.querySelector('input[name="min_required_tickets"]').value = a.min_required_tickets || 1;
             document.querySelector('input[name="max_allowed_tickets"]').value = a.max_allowed_tickets || 0;
             
+            const endInput = document.querySelector('input[name="end_time"]');
+            if (endInput) endInput.value = ''; 
+
             tg.HapticFeedback.impactOccurred('medium');
             updatePreview();
         };
