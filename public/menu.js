@@ -1024,6 +1024,84 @@ if(dom.tutorialSkipBtn) dom.tutorialSkipBtn.onclick = () => { dom.tutorialOverla
 // ================================================================
 function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 215, 0'; }
 
+
+// ================================================================
+// СОЧНАЯ КАРТОЧКА АУКЦИОНА НА ГЛАВНОЙ
+// ================================================================
+const RARITY_COLORS = {
+    common: '#b0c3d9',      // Ширпотреб
+    uncommon: '#5e98d9',    // Промышленное
+    rare: '#4b69ff',        // Армейское
+    mythical: '#8847ff',    // Запрещенное
+    legendary: '#d32ce6',   // Засекреченное
+    ancient: '#eb4b4b',     // Тайное
+    immortal: '#e4ae39'     // Нож
+};
+
+function initDynamicAuction(auctionsData) {
+    const container = document.getElementById('auction-card-container');
+    if (!container) return;
+
+    // Ищем первый активный аукцион
+    let activeAuction = null;
+    if (Array.isArray(auctionsData)) {
+        // Берем первый лот, который еще не закончился
+        activeAuction = auctionsData.find(a => !a.ended_at); 
+    } else if (auctionsData && !auctionsData.ended_at) {
+        activeAuction = auctionsData;
+    }
+
+    // Если активных лотов нет — оставляем дефолтную заглушку с молотком
+    if (!activeAuction) {
+        container.innerHTML = `
+            <div class="auction-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <i class="fa-solid fa-gavel" style="font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); margin-bottom: 8px;"></i>
+                <span style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Аукционы</span>
+            </div>
+        `;
+        return;
+    }
+
+    // Достаем данные (названия ключей как в твоем auction.js)
+    const img = activeAuction.image_url || '';
+    const name = activeAuction.title || 'Секретный лот';
+    const currentBid = activeAuction.current_highest_bid || 0;
+    
+    // Определяем цвет свечения по редкости
+    const rarityKey = activeAuction.rarity || 'mythical';
+    const rarityColor = RARITY_COLORS[rarityKey] || '#ff9500';
+
+    // Конвертер HEX в RGB для прозрачности
+    const hexToRgb = (hex) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 149, 0';
+    };
+    const rgbColor = hexToRgb(rarityColor);
+
+    // Рисуем премиум-карточку
+    container.innerHTML = `
+        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 5px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
+            
+            <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: rgba(${rgbColor}, 0.5); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
+
+            <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2;">
+                <img src="${escapeHTML(img)}" style="max-height: 40px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 3; margin-top: 4px;">
+                <div style="font-size: 9px; font-weight: 900; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.9);">${escapeHTML(name)}</div>
+                
+                <div style="font-size: 11px; font-weight: 900; color: #ffd700; margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 4px; text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);">
+                    ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 9px; color: #bdecff;"></i>
+                </div>
+                
+                <div style="position: absolute; top: 6px; right: 8px; font-size: 8px; font-weight: 900; color: ${rarityColor}; letter-spacing: 1px; text-transform: uppercase; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;">Аукцион</div>
+            </div>
+        </div>
+    `;
+}
+
+
 // ================================================================
 // СОЧНЫЙ МИНИ-СЛАЙДЕР РОЗЫГРЫШЕЙ В ПРАВОЙ КНОПКЕ
 // ================================================================
@@ -2967,6 +3045,12 @@ async function main() {
             // 1. Основной интерфейс
             await renderFullInterface(bootstrapData);
             initDynamicRaffleSlider(bootstrapData.raffles || []);
+
+            // 🔥 РЕНДЕРИМ АУКЦИОН (Если бэк отдает массив аукционов в бутстрапе)
+            if (bootstrapData.auctions) {
+                initDynamicAuction(bootstrapData.auctions);
+            }
+            // ------------------
             
             // 2. Баланс (из бутстрапа)
             if (bootstrapData.user) {
