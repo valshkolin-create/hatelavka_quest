@@ -1085,7 +1085,7 @@ function initDynamicAuction(preloadedData = null) {
                     </div>
 
                     <div style="z-index: 3; width: 100%; display: flex; justify-content: center; padding-bottom: 2px;">
-                        <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #ffd700; text-transform: uppercase; display: flex; align-items: center; gap: 5px; height: 14px; position: relative;">
+                        <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #000; text-transform: uppercase; display: flex; align-items: center; gap: 5px; height: 14px; position: relative;">
                             
                             <div class="auction-anim-text" style="display: flex; align-items: center; gap: 4px;">
                                 <span id="auction-state-text"></span>
