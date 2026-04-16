@@ -1042,21 +1042,23 @@ function initDynamicAuction(preloadedData = null) {
     const container = document.getElementById('auction-card-container');
     if (!container) return;
 
-    // --- ВНУТРЕННЯЯ ФУНКЦИЯ ДЛЯ ОТРИСОВКИ (1в1 как в розыгрышах) ---
+    // --- ВНУТРЕННЯЯ ФУНКЦИЯ ДЛЯ ОТРИСОВКИ ---
     const renderAuction = (data) => {
-        // БЕЗОПАСНО ИЩЕМ МАССИВ (Броня как в розыгрышах)
         let arr = [];
         if (Array.isArray(data)) arr = data;
         else if (data && Array.isArray(data.auctions)) arr = data.auctions;
         else if (data && Array.isArray(data.active_auctions)) arr = data.active_auctions;
         else if (data && Array.isArray(data.data)) arr = data.data;
 
-        // Ищем первый активный (не завершенный) лот
         const activeAuction = arr.find(a => !a.ended_at);
 
         if (activeAuction) {
             const img = activeAuction.image_url || '';
-            const name = activeAuction.title || 'Секретный лот';
+            // 1. Сокращаем StatTrak для экономии места
+            const name = (activeAuction.title || 'Секретный лот')
+                .replace(/StatTrak™/g, 'St.')
+                .replace(/StatTrak/g, 'St.');
+
             const currentBid = activeAuction.current_highest_bid || 0;
             const rarityKey = activeAuction.rarity || 'mythical';
             const rarityColor = RARITY_COLORS[rarityKey] || '#ff9500';
@@ -1068,28 +1070,30 @@ function initDynamicAuction(preloadedData = null) {
             const rgbColor = hexToRgb(rarityColor);
 
             container.innerHTML = `
-                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 8px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
                     
-                    <div style="position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 85px; height: 85px; background: rgba(${rgbColor}, 0.3); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: rgba(${rgbColor}, 0.25); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
 
-                    <div style="z-index: 3; width: 100%; min-height: 22px; display: flex; align-items: center; justify-content: center;">
-                        <div style="font-size: 9px; font-weight: 800; color: #fff; text-align: center; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">
+                    <div style="z-index: 3; width: 100%; text-align: center;">
+                        <div style="font-size: 9px; font-weight: 800; color: #fff; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;">
                             ${escapeHTML(name)}
                         </div>
-                    </div>
-
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; padding: 4px 0;">
-                        <img src="${escapeHTML(img)}" style="max-height: 60px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 3;">
-                        <div style="font-size: 7px; color: #8e8e93; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px;">Ставка:</div>
-                        <div style="font-size: 11px; font-weight: 900; color: #ffd700; display: flex; align-items: center; justify-content: center; gap: 3px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);">
-                            ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 9px; color: #bdecff;"></i>
+                        <div style="font-size: 10px; font-weight: 900; color: #ffd700; text-transform: uppercase; letter-spacing: 0.3px; display: flex; align-items: center; justify-content: center; gap: 3px;">
+                            СТАВКА: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 8px; color: #bdecff;"></i>
                         </div>
                     </div>
+
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; padding: 5px 0;">
+                        <img src="${escapeHTML(img)}" style="max-height: 55px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.7)); animation: floatSkin 4s ease-in-out infinite;">
+                    </div>
+
+                    <div style="width: 100%; z-index: 3; padding-top: 2px;">
+                        <button style="width: 100%; height: 26px; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); border: none; border-radius: 8px; color: #000; font-size: 9px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 2px 8px rgba(255, 204, 0, 0.2); pointer-events: none;">
+                            Сделать ставку
+                        </button>
+                    </div>
                     
-                    <div style="position: absolute; top: 0; right: 0; background: ${rarityColor}20; color: ${rarityColor}; font-size: 6px; font-weight: 900; padding: 2px 5px; border-bottom-left-radius: 8px; border-left: 1px solid ${rarityColor}40; border-bottom: 1px solid ${rarityColor}40; letter-spacing: 0.5px; text-transform: uppercase;">Лот</div>
+                    <div style="position: absolute; top: 0; right: 0; background: ${rarityColor}25; color: ${rarityColor}; font-size: 6px; font-weight: 900; padding: 2px 6px; border-bottom-left-radius: 8px; letter-spacing: 0.5px; text-transform: uppercase; border-left: 1px solid ${rarityColor}40; border-bottom: 1px solid ${rarityColor}40;">Лот</div>
                 </div>
             `;
         } else {
@@ -1103,19 +1107,11 @@ function initDynamicAuction(preloadedData = null) {
         }
     };
 
-    // Если данные переданы (из бутстрапа) — рендерим сразу
-    if (preloadedData) {
-        renderAuction(preloadedData);
-        return;
-    }
-
-    // Иначе пытаемся взять из кэша (1в1 как в розыгрышах)
+    if (preloadedData) { renderAuction(preloadedData); return; }
     try {
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
         renderAuction(cachedBootstrap.auctions || cachedBootstrap.active_auctions || []);
-    } catch(e) {
-        console.warn("Ошибка кэша аукциона");
-    }
+    } catch(e) { console.warn("Ошибка кэша аукциона"); }
 }
 
 // ================================================================
