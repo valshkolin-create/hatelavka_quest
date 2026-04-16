@@ -98,23 +98,34 @@ document.addEventListener('DOMContentLoaded', () => {
     let autoRefreshInterval = null;
     let isPageVisible = true;
 
-    // Останавливаем запросы, если Telegram свернут
-    // Слушатель: останавливаем запросы, если вкладка свернута
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            isPageVisible = false;
-            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-        } else {
-            isPageVisible = true;
-            // При возвращении сразу обновляем и запускаем таймер снова
-            if (typeof initialize === 'function') {
-                 // Вызываем обновление тихо (без лоадера)
-                 updateAuctionsBackground(); 
-            }
-            startAutoRefresh();
+    // 🛡 УСИЛЕННАЯ ЗАЩИТА ОТ ФОНОВЫХ ЗАПРОСОВ (Telegram-specific)
+    
+    function pauseApp() {
+        isPageVisible = false;
+        if (smartPollTimer) clearTimeout(smartPollTimer);
+    }
+
+    function resumeApp() {
+        // Если уже активно, не запускаем дубли
+        if (isPageVisible) return; 
+        
+        isPageVisible = true;
+        if (typeof updateAuctionsBackground === 'function') {
+             updateAuctionsBackground(); 
         }
+        startAutoRefresh();
+    }
+
+    // 1. Стандартная проверка видимости (для ПК и обычных браузеров)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) pauseApp();
+        else resumeApp();
     });
 
+    // 2. Проверка потери фокуса (Специально для мобильного Telegram)
+    window.addEventListener('blur', pauseApp);
+    window.addEventListener('focus', resumeApp);
+    
     // DOM-элементы
     const dom = {
         loader: document.getElementById('loader-overlay'),
@@ -819,42 +830,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- УМНОЕ ОБНОВЛЕНИЕ (Smart Polling) ---
 
+    // Заменяем старый autoRefreshInterval на новый умный таймер
+    let smartPollTimer = null;
+
     function startAutoRefresh() {
-        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-        // Запускаем интервал каждые 3 секунды
-        autoRefreshInterval = setInterval(() => {
-            // Обновляем только если вкладка открыта
-            if (isPageVisible) {
-                updateAuctionsBackground();
-            }
-        }, 3000);
+        if (smartPollTimer) clearTimeout(smartPollTimer);
+        scheduleNextUpdate();
     }
 
-    async function updateAuctionsBackground() {
-        try {
-            // 1. Тихо запрашиваем данные (false = без спиннера)
-            let newData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
+    function scheduleNextUpdate() {
+        // Если вкладка свернута, ничего не планируем (продолжится при visibilitychange)
+        if (!isPageVisible) return;
 
-            if (!newData) return;
+        // По умолчанию мы в "Спящем режиме" (обновляем раз в 30 секунд!)
+        let nextInterval = 30000; 
+        const now = new Date().getTime();
+        let isHotPhase = false;
 
-            // 2. Обновляем глобальный массив
-            currentAuctions = newData;
-
-            // 3. Точечно обновляем цифры в HTML
-            newData.forEach(auction => {
-                updateSingleCardDOM(auction);
-                
-                // Если открыто окно ставки именно для этого лота — обновляем его инпуты
-                if (!dom.bidModal.classList.contains('hidden') && 
-                    dom.bidAuctionIdInput.value == auction.id) {
-                    updateOpenBidModal(auction);
+        // Проверяем, есть ли лоты, у которых скоро финиш
+        if (currentAuctions && currentAuctions.length > 0) {
+            currentAuctions.forEach(auction => {
+                if (!auction.ended_at && auction.bid_cooldown_ends_at) {
+                    const timeLeft = new Date(auction.bid_cooldown_ends_at).getTime() - now;
+                    
+                    // Если хотя бы одному активному лоту осталось жить меньше 10 минут (600 000 мс)
+                    if (timeLeft > 0 && timeLeft < 600000) {
+                        isHotPhase = true;
+                    }
                 }
             });
-
-        } catch (e) {
-            // Ошибки в фоне игнорируем, чтобы не спамить алертами
-            console.warn("Auto-refresh skipped:", e);
         }
+
+        // Если горячая фаза — ускоряем пульс до 10 секунд
+        if (isHotPhase) {
+            nextInterval = 10000;
+        }
+
+        // Планируем следующий запрос
+        smartPollTimer = setTimeout(async () => {
+            if (isPageVisible) {
+                await updateAuctionsBackground();
+            }
+            // Как только запрос выполнился, планируем следующий
+            scheduleNextUpdate(); 
+        }, nextInterval);
     }
 
     // Обновляет только цифры в карточке
