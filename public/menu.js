@@ -1085,7 +1085,7 @@ function initDynamicAuction(preloadedData = null) {
                     </div>
 
                     <div style="z-index: 3; width: 100%; display: flex; justify-content: center; padding-bottom: 2px;">
-                        <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #000; text-transform: uppercase; display: flex; align-items: center; gap: 5px; height: 14px; position: relative;">
+                        <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #000; background: #ffd700; padding: 0 5px; border-radius: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; height: 18px; width: 95%; box-sizing: border-box; position: relative;">
                             
                             <div class="auction-anim-text" style="display: flex; align-items: center; gap: 4px;">
                                 <span id="auction-state-text"></span>
@@ -1103,7 +1103,7 @@ function initDynamicAuction(preloadedData = null) {
                 const now = Date.now();
                 // Цикл 6 секунд: 3 сек одно, 3 сек другое
                 if ((Math.floor(now / 3000) % 2) === 0) {
-                    textEl.innerHTML = `Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #bdecff;"></i>`;
+                    textEl.innerHTML = `Актуал. Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #000;"></i>`;
                 } else {
                     textEl.innerHTML = `Сделать ставку`;
                 }
