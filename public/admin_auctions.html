@@ -194,16 +194,12 @@
                 <label>⏰ Время завершения (МСК)</label>
                 <input type="datetime-local" name="end_time" id="inp-end-time" required onchange="updatePreview()" style="margin-bottom: 15px;">
 
-                <div class="cond-grid">
-                    <div>
-                        <label>Таймер после ставки (в часах)</label>
-                        <input type="number" name="bid_cooldown_hours" value="24" required oninput="updatePreview()">
-                    </div>
-                    <div>
-                        <label>Анти-снайпер (доп. минут)</label>
-                        <input type="number" name="snipe_guard_minutes" value="5" required oninput="updatePreview()">
-                    </div>
-                </div>
+                <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-gear"></i> Механика аукциона</h3>
+                
+                <label>⏰ Время завершения (МСК)</label>
+                <input type="datetime-local" name="end_time" id="inp-end-time" required onchange="updatePreview()">
+            </div>
             </div>
 
             <div class="section-box">
