@@ -1079,8 +1079,8 @@ function initDynamicAuction(preloadedData = null) {
                         </div>
                     </div>
 
-                    <div style="flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: 6px 0;">
-                        <img src="${escapeHTML(img)}" style="max-height: 100%; max-width: 95%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
+                    <div style="flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: 6px 0; transform: scale(1.15) translateY(8px);">
+                        <img src="${escapeHTML(img)}" style="max-height: 100%; max-width: 100%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
                     <div style="z-index: 3; width: 100%; display: flex; justify-content: center; margin-top: auto;">
@@ -1150,11 +1150,16 @@ async function initDynamicRaffleSlider(preloadedData = null) {
             };
 
             activeRaffles.forEach((raffle, index) => {
-                const s = raffle.settings || {}; 
+                cconst s = raffle.settings || {}; 
                 const img = s.card_image || s.prize_image || ''; 
                 const rarityColor = s.rarity_color || '#ffd700'; 
                 const quality = s.skin_quality || 'FT';
                 const pCount = raffle.participants_count || 0;
+
+                // ДОБАВЛЕНО: Сокращаем StatTrak
+                const prizeName = (s.prize_name || 'Секретный приз')
+                    .replace(/StatTrak™/g, 'ST.')
+                    .replace(/StatTrak/g, 'ST.');
 
                 // Создаем точки
                 let dotsHTML = '<div class="mr-dots-container">';
@@ -1166,7 +1171,7 @@ async function initDynamicRaffleSlider(preloadedData = null) {
                 slidesHTML += `
                     <div class="mini-raffle-slide ${index === 0 ? 'active' : ''}" style="--rarity-rgb: ${hexToRgb(rarityColor)};">
                         <div class="mini-raffle-info" style="display: flex; flex-direction: column; justify-content: center;">
-                            <div class="mini-raffle-name">${escapeHTML(s.prize_name || 'Секретный приз')}</div>
+                            <div class="mini-raffle-name">${escapeHTML(prizeName)}</div>
                             <div class="mini-raffle-stats" style="font-size: 10px; margin-bottom: 4px;">
                                 <span style="color: ${rarityColor};">${escapeHTML(quality)}</span> • 
                                 <span style="opacity:0.8;"><i class="fa-solid fa-users"></i> ${pCount}</span>
