@@ -5295,6 +5295,24 @@ async def get_event_winners_details_for_admin(
         raise HTTPException(status_code=500, detail="Не удалось получить детали победителей.")
 # --- КОНЕЦ НОВОГО ЭНДПОИНТА ---
 
+
+async def update_auction_button(bot, channel_id, message_id, auction_id, current_bid):
+    """
+    Обновляет кнопку аукциона в Telegram-канале актуальной ставкой.
+    """
+    try:
+        text = f"Сделать ставку 🔨 ({current_bid} 🎟️)" if current_bid > 0 else "Сделать ставку 🔨"
+        url = f"https://t.me/HATElavka_bot/auctions?startapp=auction_{auction_id}"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
+        
+        await bot.edit_message_reply_markup(
+            chat_id=channel_id, 
+            message_id=message_id, 
+            reply_markup=kb
+        )
+    except Exception as e:
+        pass
+
 @app.post("/api/v1/auctions/bid")
 async def make_auction_bid(
     request_data: AuctionBidRequest,
@@ -5419,6 +5437,16 @@ async def make_auction_bid(
 
         except Exception as obs_e:
             logging.error(f"❌ Ошибка триггера OBS: {obs_e}")
+
+        # --- ОБНОВЛЯЕМ КНОПКУ В ТЕЛЕГРАМЕ В ФОНЕ ---
+        if auction_data.get('post_message_id') and auction_data.get('post_channel_id'):
+            asyncio.create_task(update_auction_button(
+                bot, 
+                auction_data['post_channel_id'], 
+                auction_data['post_message_id'], 
+                request_data.auction_id, 
+                request_data.bid_amount
+            ))
 
         return {"message": "Ваша ставка принята!"}
 
@@ -7225,7 +7253,7 @@ async def admin_finish_auction(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    (Админ) Принудительно завершает аукцион, ВЫДАЕТ СКИН В ИНВЕНТАРЬ и отправляет уведомления.
+    (Админ) Принудительно завершает аукцион, ВЫДАЕТ СКИН В ИНВЕНТАРЬ, замораживает кнопку и отправляет уведомления.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
@@ -7240,18 +7268,23 @@ async def admin_finish_auction(
             raise HTTPException(status_code=404, detail="Аукцион не найден")
         auc_data = auc_resp.json()[0]
 
+        # Достаем ID поста, чтобы потом заблокировать кнопку
+        channel_id = auc_data.get('post_channel_id') or os.getenv("TG_QUEST_CHANNEL_ID")
+        reply_to_id = auc_data.get('post_message_id')
+
         # 2. Вызываем RPC для закрытия аукциона в БД
         rpc_resp = await supabase.post("/rpc/finish_auction", json={"p_auction_id": auction_id})
         rpc_resp.raise_for_status()
         
         winner_data_list = rpc_resp.json()
         if not winner_data_list:
-            return {"message": "Аукцион завершен, ставок не было."}
+            # Даем блоку ниже отработать заморозку кнопки
+            winner_id = None
+        else:
+            winner_data = winner_data_list[0]
+            winner_id = winner_data.get('winner_id')
 
-        winner_data = winner_data_list[0]
-        
-        if winner_data.get('winner_id'):
-            winner_id = winner_data['winner_id']
+        if winner_id:
             winner_name = winner_data['winner_name']
             auction_title = winner_data.get('auction_title') or winner_data.get('title') or auc_data.get('title')
             winning_bid = winner_data['winning_bid']
@@ -7343,8 +7376,37 @@ async def admin_finish_auction(
                     f"Победитель: {html_decoration.quote(winner_name)} (ID: {winner_id})\n"
                     f"Ставка: {winning_bid}"
                 )
+
+            # --- 🔥 ОБСУЖДАЕМОЕ ДОБАВЛЕНИЕ: БЛОКИРУЕМ КНОПКУ СТАРТОВОГО ПОСТА 🔥 ---
+            if channel_id and reply_to_id:
+                try:
+                    closed_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(text="🛑 Аукцион завершен", callback_data="ignore")
+                    ]])
+                    await bot.edit_message_reply_markup(
+                        chat_id=channel_id,
+                        message_id=reply_to_id,
+                        reply_markup=closed_kb
+                    )
+                except Exception as e:
+                    logging.warning(f"Не удалось обновить кнопку стартового поста (ручной финиш): {e}")
+
             return {"message": f"Аукцион завершен. Скин выдан игроку {winner_id}."}
+        
         else:
+            # Если победителя нет (ставок не было), тоже блокируем кнопку
+            if channel_id and reply_to_id:
+                try:
+                    closed_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(text="🛑 Аукцион отменен", callback_data="ignore")
+                    ]])
+                    await bot.edit_message_reply_markup(
+                        chat_id=channel_id,
+                        message_id=reply_to_id,
+                        reply_markup=closed_kb
+                    )
+                except Exception as e:
+                    pass
             return {"message": f"Аукцион завершен, ставок не было."}
     
     except Exception as e:
@@ -10048,12 +10110,27 @@ async def admin_get_auctions(
 @app.post("/api/v1/admin/auctions/create")
 async def admin_create_auction(
     request_data: AuctionCreateRequest,
-    background_tasks: BackgroundTasks, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # --- ЛОГИКА СТАТУСА (SCHEDULED / ACTIVE) ---
+    is_active = True
+    is_visible = True
+    start_dt = None
+    
+    # Проверяем, есть ли отложенный старт
+    if request_data.start_time:
+        try:
+            start_dt = datetime.fromisoformat(request_data.start_time.replace('Z', ''))
+            # Вычитаем 3 часа для корректной проверки "будущего" (МСК -> UTC)
+            check_dt = start_dt - timedelta(hours=3)
+            if check_dt > datetime.utcnow() + timedelta(minutes=1):
+                is_active = False
+                is_visible = False
+        except: pass
 
     # 🔥 Переводим МСК время завершения из админки в UTC для базы
     try:
@@ -10063,26 +10140,21 @@ async def admin_create_auction(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Неверный формат времени завершения")
 
-    # Corrected payload using request_data
+    # 1. Создаем запись в БД
     payload = {
         "title": request_data.title,
         "image_url": request_data.image_url,
         "bid_cooldown_hours": request_data.bid_cooldown_hours,
         "snipe_guard_minutes": request_data.snipe_guard_minutes,
-        "is_active": request_data.is_active,
-        "is_visible": request_data.is_visible,
         "min_required_tickets": request_data.min_required_tickets,
         "max_allowed_tickets": request_data.max_allowed_tickets,
-
-        # New fields
         "rarity": request_data.rarity,
         "wear": request_data.wear,
         "description": request_data.description,
         "start_time": request_data.start_time,
-
-        # 🔥 Пишем ЖЕСТКУЮ дату завершения (UTC) в поле таймера
+        "is_active": is_active,
+        "is_visible": is_visible,
         "bid_cooldown_ends_at": bid_cooldown_ends_at,
-
         "current_highest_bid": 0,
         "current_highest_bidder_id": None,
         "current_highest_bidder_name": None,
@@ -10090,61 +10162,98 @@ async def admin_create_auction(
         "ended_at": None
     }
 
+    # ВАЖНО: Заголовок, чтобы Supabase вернул данные (Fix JSONDecodeError)
+    headers = {
+        "Prefer": "return=representation",
+        "Content-Type": "application/json"
+    }
+
+    # Получаем сразу ID
+    res = await supabase.post("/auctions", json=payload, headers=headers)
+    
+    if res.status_code not in (200, 201):
+        print(f"❌ DB Create Error: {res.text}")
+        raise HTTPException(status_code=500, detail="Ошибка при создании записи в БД")
+
     try:
-        # 1. Create lot in DB (добавили Prefer, чтобы получить ID нового лота)
-        response = await supabase.post("/auctions", json=payload, headers={"Prefer": "return=representation"})
-        response.raise_for_status()
-        
-        new_id = response.json()[0]['id']
-        
-        # 2. Launch mass notification (if active and visible and NOT silent)
-        if request_data.is_active and request_data.is_visible and not request_data.is_silent:
-            msg = (
-                f"📢 <b>Новый аукцион!</b>\n\n"
-                f"Лот: «{html_decoration.quote(request_data.title)}»\n"
-                f"Начальная цена: 1 🎟️\n\n" 
-                f"Делайте ваши ставки в приложении!"
-            )
-            
-            # Launch background task
-            background_tasks.add_task(broadcast_notification_task, msg, "notify_auction_start")
-
-        # 3. ЕСЛИ ОТЛОЖЕННЫЙ СТАРТ -> СТАВИМ ТАЙМЕР НА ПУБЛИКАЦИЮ (QSTASH)
-        if not request_data.is_active and request_data.start_time:
-            qstash_token = os.getenv("QSTASH_TOKEN")
-            app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
-            
-            if qstash_token and app_url:
-                try:
-                    start_dt = datetime.fromisoformat(request_data.start_time.replace('Z', ''))
-                    dt_utc_start = start_dt - timedelta(hours=3) # МСК -> UTC
-                    start_unix = int(dt_utc_start.replace(tzinfo=timezone.utc).timestamp())
-                    
-                    target_pub = f"{app_url}/api/v1/webhook/publish_auction"
-                    
-                    async with httpx.AsyncClient() as client:
-                        await client.post(
-                            f"https://qstash.upstash.io/v2/publish/{target_pub}",
-                            headers={
-                                "Authorization": f"Bearer {qstash_token}", 
-                                "Upstash-Not-Before": str(start_unix), 
-                                "Content-Type": "application/json"
-                            },
-                            json={"auction_id": new_id, "secret": get_cron_secret()} # <--- Передаем в твой вебхук
-                        )
-                    logging.info(f"⏰ Таймер публикации установлен для аукциона {new_id} на {start_unix}")
-                except Exception as e:
-                    logging.error(f"⚠️ Ошибка таймера публикации аукциона: {e}")
-            
-    except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", e.response.text)
-        logging.error(f"❌ ОШИБКА SUPABASE: {error_details}")
-        raise HTTPException(status_code=400, detail=f"Ошибка: {error_details}")
+        new_id = res.json()[0]['id']
     except Exception as e:
-        logging.error(f"❌ Ошибка создания лота: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        print(f"❌ JSON Parse Error: {e} | Body: {res.text}")
+        raise HTTPException(status_code=500, detail="Не удалось получить ID созданного аукциона")
 
-    return {"message": "Лот создан, рассылка запущена."}
+    # Переменные для QStash
+    qstash_token = os.getenv("QSTASH_TOKEN")
+    app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
+
+    # 2. ОТПРАВЛЯЕМ ПОСТ (ТОЛЬКО ЕСЛИ ACTIVE И НЕ SILENT)
+    is_silent = request_data.is_silent
+    
+    if is_active and not is_silent:
+        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+        if channel_id:
+            try:
+                title = request_data.title
+                wear = request_data.wear
+                desc = request_data.description
+                min_tix = request_data.min_required_tickets
+                prize_full = f"{title} ({wear})" if wear else title
+
+                # Текст поста
+                txt = f"🔨 <b>АУКЦИОН НАЧАЛСЯ!</b>\n\n"
+                if desc: txt += f"<i>{desc}</i>\n\n"
+                txt += f"🎁 <b>Лот:</b> {prize_full}\n"
+                
+                txt += "\n📌 <b>Правила:</b>\n"
+                txt += f"└ Минимальная ставка: {min_tix} 🎟️\n"
+
+                if request_data.end_time:
+                    try:
+                        dt_input = datetime.fromisoformat(request_data.end_time.replace('Z', ''))
+                        txt += f"└ ⏳ Итоги: {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
+                    except: pass
+                
+                txt += "\n👇 <b>Жми кнопку, чтобы сделать первую ставку!</b>"
+
+                url_btn = f"https://t.me/HATElavka_bot/auctions?startapp=auction_{new_id}"
+                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Сделать ставку 🔨", url=url_btn)]])
+
+                img_url = request_data.image_url
+                sent_msg = None 
+                
+                if img_url:
+                    sent_msg = await bot.send_photo(chat_id=channel_id, photo=img_url, caption=txt, reply_markup=kb, parse_mode="HTML")
+                else:
+                    sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+                
+                if sent_msg:
+                    await supabase.patch("/auctions", params={"id": f"eq.{new_id}"}, json={
+                        "post_message_id": sent_msg.message_id,
+                        "post_channel_id": str(channel_id)
+                    })
+                    
+            except Exception as e:
+                print(f"⚠️ Ошибка отправки поста: {e}")
+    
+    # 3. ЕСЛИ ОТЛОЖЕННЫЙ СТАРТ -> СТАВИМ ТАЙМЕР НА ПУБЛИКАЦИЮ (QSTASH)
+    elif not is_active and start_dt and qstash_token and app_url:
+        try:
+            # Вычитаем 3 часа перед отправкой в QStash (чтобы пост вышел вовремя)
+            dt_utc_start = start_dt - timedelta(hours=3)
+            start_unix = int(dt_utc_start.replace(tzinfo=timezone.utc).timestamp())
+            
+            target_pub = f"{app_url}/api/v1/webhook/publish_auction"
+            
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"https://qstash.upstash.io/v2/publish/{target_pub}",
+                    headers={"Authorization": f"Bearer {qstash_token}", "Upstash-Not-Before": str(start_unix), "Content-Type": "application/json"},
+                    json={"auction_id": new_id, "secret": get_cron_secret()}
+                )
+            print(f"⏰ Таймер публикации установлен для ID {new_id} на {start_unix}")
+        except Exception as e:
+            print(f"⚠️ Ошибка таймера публикации: {e}")
+
+    return {"message": "Аукцион создан успешно!"}
 
     # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
@@ -20000,6 +20109,13 @@ async def finalize_auction_webhook(
             try:
                 txt = f"🛑 Аукцион на <b>{auction.get('title')}</b> завершен.\n\nК сожалению, ставок не было 😔"
                 await bot.send_message(chat_id=channel_id, text=txt, reply_to_message_id=reply_to_id, parse_mode="HTML")
+                
+                # 🔥 МАГИЯ 1: ЗАМОРОЗКА КНОПКИ ЕСЛИ НЕТ СТАВОК 🔥
+                if reply_to_id:
+                    closed_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(text="🛑 Аукцион отменен", callback_data="ignore")
+                    ]])
+                    await bot.edit_message_reply_markup(chat_id=channel_id, message_id=reply_to_id, reply_markup=closed_kb)
             except: pass
         return {"status": "cancelled_no_bids"}
 
@@ -20076,11 +20192,21 @@ async def finalize_auction_webhook(
                 await bot.send_photo(chat_id=channel_id, photo=auction.get('image_url'), caption=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
             else:
                 await bot.send_message(chat_id=channel_id, text=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
+
+            # 🔥 МАГИЯ 2: ЗАМОРОЗКА КНОПКИ ЕСЛИ ЕСТЬ ПОБЕДИТЕЛЬ 🔥
+            if reply_to_id:
+                try:
+                    closed_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(text="🛑 Аукцион завершен", callback_data="ignore")
+                    ]])
+                    await bot.edit_message_reply_markup(chat_id=channel_id, message_id=reply_to_id, reply_markup=closed_kb)
+                except Exception as inner_e:
+                    print(f"⚠️ Не удалось заморозить кнопку: {inner_e}")
+
         except Exception as e:
             print(f"⚠️ Ошибка ТГ поста (Финал аукциона): {e}")
 
     return {"status": "done", "winner": winner_id}
-
 
 # ==========================================
 # 📦 INVENTORY SYSTEM (ПОЛНАЯ ИСТОРИЯ)
