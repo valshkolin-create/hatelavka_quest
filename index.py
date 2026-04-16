@@ -10208,7 +10208,8 @@ async def admin_create_auction(
         is_visible = False
         try:
             start_dt = datetime.fromisoformat(request_data.start_time.replace('Z', ''))
-        except: pass
+        except: 
+            pass
     else:
         # 🔥 Если запускаем сейчас — он ОБЯЗАТЕЛЬНО должен быть visible, 
         # иначе пользователи не увидят его в списке в приложении.
@@ -10222,7 +10223,7 @@ async def admin_create_auction(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Неверный формат времени завершения")
 
-   # 1. Создаем запись в БД
+    # 1. Создаем запись в БД
     payload = {
         "title": request_data.title,
         "image_url": request_data.image_url,
@@ -10287,7 +10288,8 @@ async def admin_create_auction(
                     try:
                         dt_input = datetime.fromisoformat(request_data.end_time.replace('Z', ''))
                         txt += f"└ ⏳ Итоги: {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
-                    except: pass
+                    except: 
+                        pass
                 
                 txt += "\n👇 <b>Жми кнопку, чтобы сделать первую ставку!</b>"
 
@@ -10314,15 +10316,18 @@ async def admin_create_auction(
                     if patch_res.status_code not in (200, 204):
                         try:
                             await bot.delete_message(chat_id=channel_id, message_id=sent_msg.message_id)
-                        except: pass
+                        except: 
+                            pass
                         print(f"⚠️ Ошибка БД: {patch_res.text}")
                         raise HTTPException(status_code=500, detail="Ошибка базы данных. Пост отменен.")
-                    
+            
+            except HTTPException:
+                # Пробрасываем нашу ошибку БД дальше, чтобы она не попала в общий Exception
+                raise
             except Exception as e:
                 print(f"⚠️ Ошибка отправки поста: {e}")
-                # Если это не HTTPException (которую мы сами кинули), а ошибка ТГ, тоже сообщаем
-                if not isinstance(e, HTTPException):
-                    raise HTTPException(status_code=500, detail=f"Ошибка Телеграма: {e}")
+                # Ошибка Телеграма
+                raise HTTPException(status_code=500, detail=f"Ошибка Телеграма: {e}")
     
     # 3. ЕСЛИ ОТЛОЖЕННЫЙ СТАРТ
     elif not is_active and start_dt and qstash_token and app_url:
@@ -10340,14 +10345,10 @@ async def admin_create_auction(
             print(f"⚠️ Ошибка таймера публикации: {e}")
 
     # 🔥 ФИНАЛЬНЫЙ СБРОС КЭША 🔥
-    # Делаем это в самом конце, чтобы при следующем запросе списка
-    # бэкенд увидел новый лот моментально.
     AUCTION_CACHE["checksum"] = None
     AUCTION_CACHE["users"].clear()
 
     return {"message": "Аукцион создан успешно!"}
-    
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
 @app.post("/api/v1/admin/auctions/update")
 async def admin_update_auction(
