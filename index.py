@@ -20141,6 +20141,7 @@ async def cron_check_auctions(
         
         res = await supabase.get("/auctions", params={
             "is_active": "eq.true",
+            "ended_at": "is.null", # 🔥 Игнорируем тех, кто уже завершен
             "bid_cooldown_ends_at": f"lte.{now_utc}",
             "select": "id"
         })
@@ -20268,8 +20269,8 @@ async def finalize_auction_webhook(
         return {"status": "not found"}
     
     auction = auc_resp.json()[0]
-    if auction.get('ended_at'): 
-        return {"status": "already_completed"}
+    if auction.get('ended_at') or not auction.get('is_active'): 
+        return {"status": "already_completed_or_inactive"}
 
     winner_id = auction.get('current_highest_bidder_id')
     channel_id = auction.get('post_channel_id') or os.getenv("TG_QUEST_CHANNEL_ID")
