@@ -1085,15 +1085,15 @@ function initDynamicAuction(preloadedData = null) {
                     </div>
 
                    <div style="z-index: 3; width: 100%; display: flex; justify-content: center; margin-bottom: 12px;">
-                        <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #000; background: #ffd700; border-radius: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 18px; width: 95%; box-sizing: border-box; position: relative; overflow: hidden;">
+                        <div class="mini-raffle-cta" style="margin-top: 6px; font-weight: bold; font-size: 11px; color: #000; background: #ffd700; border-radius: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 24px; width: 95%; box-sizing: border-box; position: relative; overflow: hidden;">
                             
                             <div class="auction-button-wrapper">
                                 <div class="anim-state-bid">
-                                    Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #000;"></i>
+                                    Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 10px; color: #000;"></i>
                                 </div>
 
                                 <div class="anim-state-action">
-                                    Сделать ставку
+                                    Сделать ставку <i class="fa-solid fa-arrow-right"></i>
                                 </div>
                             </div>
 
