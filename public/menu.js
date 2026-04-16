@@ -1080,7 +1080,7 @@ function initDynamicAuction(preloadedData = null) {
                         </div>
                     </div>
 
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: -5px 0;">
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: -2px 0;">
                         <img src="${escapeHTML(img)}" style="max-height: 70px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
