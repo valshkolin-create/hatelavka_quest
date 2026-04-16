@@ -1005,21 +1005,22 @@ body.desktop-mode .toggle-container {
     position: relative;
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-/* Строго позиционируем, убираем любые transition! */
+/* ИСПРАВЛЕНИЕ: Жестко задаем координаты, чтобы текст не уплывал вниз */
 .anim-state-bid, .anim-state-action {
     position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    text-align: center;
-    white-space: nowrap;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px; /* Аккуратный отступ между текстом и иконкой */
+    gap: 4px;
+    white-space: nowrap;
+    margin: 0;
+    padding: 0;
 }
 
 /* Запускаем циклы по 6 секунд */
@@ -1031,13 +1032,7 @@ body.desktop-mode .toggle-container {
     animation: slideAction 6s infinite;
 }
 
-/* Схема идеальной анимации:
-  0-40%   -> Текст стоит в центре
-  45-85%  -> Текст улетает наверх и пропадает
-  90-95%  -> Текст невидимым прыгает вниз
-  100%    -> Текст влетает снизу в центр
-*/
-
+/* Бесшовная анимация с использованием visibility для исключения наложения */
 @keyframes slideBid {
     0%, 40%   { opacity: 1; transform: translateY(0); visibility: visible; }
     45%, 85%  { opacity: 0; transform: translateY(-100%); visibility: hidden; }
