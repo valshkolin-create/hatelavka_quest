@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let countdownIntervals = {};
     let userData = {};
     let currentAuctions = [];
+    let isPageVisible = true;
     
     // === ВСТАВИТЬ СЮДА ===
     const RARITY_COLORS = {
@@ -792,6 +793,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Заменяем старый autoRefreshInterval на новый умный таймер
     let smartPollTimer = null;
+
+    // 🔥 НОВАЯ ФУНКЦИЯ: Фоновое обновление лотов "на лету"
+    async function updateAuctionsBackground() {
+        try {
+            const newData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
+            
+            // 2. Жесткая проверка: если изменилось количество лотов (появился новый или удален) - рендерим с нуля
+            if (!currentAuctions || newData.length !== currentAuctions.length) {
+                renderPage(newData || []);
+                return;
+            }
+
+            // Иначе обновляем только цифры в DOM
+            newData.forEach(newAuction => {
+                const oldAuction = currentAuctions.find(a => a.id === newAuction.id);
+                if (!oldAuction) return;
+
+                // Если статус завершения изменился (лот кончился) - перерисовываем полностью, чтобы скрыть таймер
+                if (!oldAuction.ended_at && newAuction.ended_at) {
+                    renderPage(newData || []);
+                    return;
+                }
+
+                // Обновляем данные в стейте
+                Object.assign(oldAuction, newAuction);
+                
+                // Вызываем функцию точечного обновления карточки
+                updateSingleCardDOM(newAuction);
+                
+                // Если открыто окно ставки именно для этого лота — обновляем и его
+                if (typeof dom !== 'undefined' && dom.bidModal && !dom.bidModal.classList.contains('hidden')) {
+                    if (dom.bidAuctionIdInput && dom.bidAuctionIdInput.value == newAuction.id) {
+                        updateOpenBidModal(newAuction);
+                    }
+                }
+            });
+
+            currentAuctions = newData;
+        } catch (e) {
+            console.error("Ошибка фонового обновления:", e);
+        }
+    }
 
     function startAutoRefresh() {
         if (smartPollTimer) clearTimeout(smartPollTimer);
