@@ -1007,7 +1007,7 @@ body.desktop-mode .toggle-container {
     height: 100%;
 }
 
-/* ИСПРАВЛЕНИЕ: Жестко задаем координаты, чтобы текст не уплывал вниз */
+/* Жестко задаем координаты, текст строго по центру */
 .anim-state-bid, .anim-state-action {
     position: absolute;
     top: 0;
@@ -1023,7 +1023,7 @@ body.desktop-mode .toggle-container {
     padding: 0;
 }
 
-/* Запускаем циклы по 6 секунд */
+/* Запускаем анимацию */
 .anim-state-bid {
     animation: slideBid 6s infinite;
 }
@@ -1032,7 +1032,7 @@ body.desktop-mode .toggle-container {
     animation: slideAction 6s infinite;
 }
 
-/* Бесшовная анимация с использованием visibility для исключения наложения */
+/* Бесшовная анимация */
 @keyframes slideBid {
     0%, 40%   { opacity: 1; transform: translateY(0); visibility: visible; }
     45%, 85%  { opacity: 0; transform: translateY(-100%); visibility: hidden; }
