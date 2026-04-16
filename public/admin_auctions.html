@@ -695,72 +695,105 @@
         }
 
         async function submitAuction(isSilentMode, isScheduled = false) {
-            const form = document.getElementById('create-form');
-            if(!form.reportValidity()) return;
+    const form = document.getElementById('create-form');
+    if(!form.reportValidity()) return;
 
-            const fd = new FormData(form);
-            
-            const schedBox = document.getElementById('schedule-setup');
-            if (isScheduled && !fd.get('start_time')) {
-                showCustomAlert('Внимание', 'Укажите время старта для отложенного аукциона!');
-                return;
-            }
-            
-            const payload = {
-                initData: tg.initData,
-                title: fd.get('prize'),
-                image_url: fd.get('image'),
-                rarity: fd.get('rarity'),
-                wear: fd.get('quality'),
-                bid_cooldown_hours: parseInt(fd.get('bid_cooldown_hours') || 24),
-                snipe_guard_minutes: parseInt(fd.get('snipe_guard_minutes') || 5),
-                min_required_tickets: parseInt(fd.get('min_required_tickets') || 1),
-                max_allowed_tickets: parseInt(fd.get('max_allowed_tickets') || 0),
-                is_active: !isScheduled && !isSilentMode, 
-                is_visible: !isScheduled, 
-                is_silent: isSilentMode,
-                start_time: fd.get('start_time'), 
-                end_time: fd.get('end_time'), 
-                description: fd.get('desc')
-            };
+    const fd = new FormData(form);
+    const now = new Date(); // Текущее время для сравнения
 
-            tg.MainButton.showProgress();
+    // ==========================================
+    // 🛡️ ЗАЩИТА: ПРОВЕРКА ВРЕМЕНИ (ЧТОБЫ НЕ СЛОМАТЬ КРОН)
+    // ==========================================
+    
+    // 1. Проверка времени завершения (End Time) — всегда должна быть в будущем
+    const endTimeStr = fd.get('end_time');
+    if (endTimeStr) {
+        const endDt = new Date(endTimeStr);
+        if (endDt <= now) {
+            showCustomAlert('Ошибка времени', 'Время ЗАВЕРШЕНИЯ не может быть в прошлом или текущим!');
+            return; 
+        }
+    }
 
-            try {
-                const res = await fetch('/api/v1/admin/auctions/create', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                    let msg = 'Аукцион запущен!';
-                    if (isScheduled) msg = 'Аукцион запланирован.';
-                    else if (isSilentMode) msg = 'Тихий аукцион запущен.';
-                    
-                    showCustomAlert('Успех!', msg);
-                    
-                    form.reset(); 
-                    document.getElementById('schedule-setup').classList.add('hidden');
-                    const btn = document.getElementById('btn-schedule');
-                    btn.innerHTML = `<i class="fa-regular fa-clock"></i><span>В отложенные</span>`;
-                    btn.style.background = ""; btn.style.color = "";
-                    
-                    updatePreview(); 
-                    switchTab(isScheduled ? 'scheduled' : 'list'); 
-                } else {
-                    const err = await res.json();
-                    tg.HapticFeedback.notificationOccurred('error');
-                    showCustomAlert('Ошибка', err.detail || 'Не удалось создать аукцион');
-                }
-            } catch (error) {
-                tg.HapticFeedback.notificationOccurred('error');
-                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
-            } finally {
-                tg.MainButton.hideProgress();
-            }
+    // 2. Проверка времени старта (Start Time) — только для отложенных
+    if (isScheduled) {
+        const startTimeStr = fd.get('start_time');
+        if (!startTimeStr) {
+            showCustomAlert('Внимание', 'Укажите время старта для отложенного аукциона!');
+            return;
+        }
+        const startDt = new Date(startTimeStr);
+        if (startDt <= now) {
+            showCustomAlert('Ошибка времени', 'Время СТАРТА не может быть в прошлом!');
+            return;
         }
 
+        // 3. Логическая проверка: финиш должен быть после старта
+        if (endTimeStr) {
+            const endDt = new Date(endTimeStr);
+            const startDt = new Date(startTimeStr);
+            if (endDt <= startDt) {
+                showCustomAlert('Ошибка времени', 'Аукцион не может закончиться раньше, чем начнется!');
+                return;
+            }
+        }
+    }
+    // ==========================================
+
+    const payload = {
+        initData: tg.initData,
+        title: fd.get('prize'),
+        image_url: fd.get('image'),
+        rarity: fd.get('rarity'),
+        wear: fd.get('quality'),
+        bid_cooldown_hours: parseInt(fd.get('bid_cooldown_hours') || 24),
+        snipe_guard_minutes: parseInt(fd.get('snipe_guard_minutes') || 5),
+        min_required_tickets: parseInt(fd.get('min_required_tickets') || 1),
+        max_allowed_tickets: parseInt(fd.get('max_allowed_tickets') || 0),
+        is_active: !isScheduled && !isSilentMode, 
+        is_visible: !isScheduled, 
+        is_silent: isSilentMode,
+        start_time: fd.get('start_time'), 
+        end_time: fd.get('end_time'), 
+        description: fd.get('desc')
+    };
+
+    tg.MainButton.showProgress();
+
+    try {
+        const res = await fetch('/api/v1/admin/auctions/create', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            tg.HapticFeedback.notificationOccurred('success');
+            let msg = 'Аукцион запущен!';
+            if (isScheduled) msg = 'Аукцион запланирован.';
+            else if (isSilentMode) msg = 'Тихий аукцион запущен.';
+            
+            showCustomAlert('Успех!', msg);
+            
+            form.reset(); 
+            document.getElementById('schedule-setup').classList.add('hidden');
+            const btn = document.getElementById('btn-schedule');
+            btn.innerHTML = `<i class="fa-regular fa-clock"></i><span>В отложенные</span>`;
+            btn.style.background = ""; btn.style.color = "";
+            
+            updatePreview(); 
+            switchTab(isScheduled ? 'scheduled' : 'list'); 
+        } else {
+            const err = await res.json();
+            tg.HapticFeedback.notificationOccurred('error');
+            showCustomAlert('Ошибка', err.detail || 'Не удалось создать аукцион');
+        }
+    } catch (error) {
+        tg.HapticFeedback.notificationOccurred('error');
+        showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+    } finally {
+        tg.MainButton.hideProgress();
+    }
+}
         async function loadAuctions() {
             try {
                 const res = await fetch('/api/v1/admin/auctions/list', {
