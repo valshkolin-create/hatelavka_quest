@@ -1000,28 +1000,41 @@ body.desktop-mode .toggle-container {
 
 }
 
-/* Анимация для первого состояния (Ставка) */
-.anim-state-bid {
-    animation: auctionSlide1 6s infinite;
-    position: absolute;
+/* Контейнер для текста внутри кнопки */
+.auction-button-wrapper {
+    position: relative;
     width: 100%;
-    left: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Анимация для второго состояния (Кнопка) */
-.anim-state-action {
-    animation: auctionSlide2 6s infinite;
+/* Общие стили для обоих состояний */
+.anim-state-bid, .anim-state-action {
     position: absolute;
     width: 100%;
-    left: 0;
+    text-align: center;
+    transition: all 0.5s ease-in-out;
+    white-space: nowrap;
+}
+
+/* Анимация первого текста (Ставка) */
+.anim-state-bid {
+    animation: auctionSlide1 6s infinite;
+}
+
+/* Анимация второго текста (Кнопка) */
+.anim-state-action {
+    animation: auctionSlide2 6s infinite;
 }
 
 @keyframes auctionSlide1 {
-    0%, 45% { opacity: 1; transform: translateY(0); }
-    50%, 95% { opacity: 0; transform: translateY(-15px); }
+    0%, 45% { opacity: 1; transform: translateY(0); } /* Виден */
+    50%, 95% { opacity: 0; transform: translateY(-20px); } /* Улетает вверх */
 }
 
 @keyframes auctionSlide2 {
-    0%, 45% { opacity: 0; transform: translateY(15px); }
-    50%, 95% { opacity: 1; transform: translateY(0); }
+    0%, 45% { opacity: 0; transform: translateY(20px); } /* Ждет внизу */
+    50%, 95% { opacity: 1; transform: translateY(0); } /* Влетает в центр */
 }
