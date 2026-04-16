@@ -7784,36 +7784,75 @@ async def get_auctions_archive(
         logging.error(f"Ошибка получения архива аукционов: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить архив.")
 
-@app.post("/api/v1/auctions/list") # <-- ИЗМЕНЕНО: GET на POST
+# ==========================================
+# 🔥 ГЛОБАЛЬНЫЙ КЭШ ДЛЯ VERCEL 🔥
+# ==========================================
+AUCTION_CACHE = {
+    "checksum": None,        # Хэш состояния базы (сумма всех ставок)
+    "last_check_time": 0,    # Когда последний раз проверяли базу
+    "users": {}              # Кэш ответов: { user_id: {"checksum": "...", "data": [...]} }
+}
+
+@app.post("/api/v1/auctions/list")
 async def get_auctions_list_for_user(
-    request_data: InitDataRequest, # <-- ИЗМЕНЕНО: Принимаем initData
+    request_data: InitDataRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    (ИСПРАВЛЕНО) Возвращает список активных аукционов,
-    включая данные о ставке и ранге ТЕКУЩЕГО пользователя.
+    Возвращает список активных аукционов.
+    Использует умное кэширование: тяжелая RPC вызывается ТОЛЬКО если
+    кто-то реально сделал ставку или появился новый лот.
     """
-    # 1. Валидация пользователя
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or "id" not in user_info:
-        # Если пользователь гость (или невалидный initData), p_user_id будет null
-        user_id = None
-    else:
-        user_id = user_info["id"]
+    user_id = user_info["id"] if user_info and "id" in user_info else None
 
     try:
-        # 2. Вызов "умной" RPC-функции
-        rpc_params = {"p_user_id": user_id}
+        current_time = time.time()
         
-        resp = await supabase.post(
-            "/rpc/get_public_auctions_for_user", # <-- ИЗМЕНЕНО: Новая RPC
-            json=rpc_params
-        )
+        # --- 1. ПРОВЕРКА: ИЗМЕНИЛОСЬ ЛИ ЧТО-ТО В БАЗЕ? (Не чаще раза в 2 сек) ---
+        if current_time - AUCTION_CACHE["last_check_time"] > 2:
+            # ОЧЕНЬ легкий запрос: берем только ID и текущие ставки активных лотов
+            checksum_res = await supabase.get(
+                "/auctions", 
+                params={"is_active": "eq.true", "select": "id,current_highest_bid"}
+            )
+            
+            if checksum_res.status_code == 200:
+                data = checksum_res.json()
+                # Генерируем "отпечаток" базы (Количество лотов + Сумма всех ставок)
+                total_bids = sum((item.get("current_highest_bid") or 0) for item in data)
+                new_checksum = f"{len(data)}_{total_bids}"
+                
+                # Если кто-то сделал ставку — хэш меняется! Сбрасываем кэш всех юзеров.
+                if new_checksum != AUCTION_CACHE["checksum"]:
+                    AUCTION_CACHE["checksum"] = new_checksum
+                    AUCTION_CACHE["users"].clear() # Очищаем старые данные
+                    
+            AUCTION_CACHE["last_check_time"] = current_time
+
+        # --- 2. ВОЗВРАТ ИЗ КЭША (0 нагрузки на БД) ---
+        # Если данные этого юзера есть в кэше и база НЕ менялась — отдаем моментально!
+        if user_id in AUCTION_CACHE["users"]:
+            cached_info = AUCTION_CACHE["users"][user_id]
+            if cached_info["checksum"] == AUCTION_CACHE["checksum"]:
+                return cached_info["data"]
+
+        # --- 3. ТЯЖЕЛЫЙ ЗАПРОС К БАЗЕ (Только если ставки реально обновились) ---
+        rpc_params = {"p_user_id": user_id}
+        resp = await supabase.post("/rpc/get_public_auctions_for_user", json=rpc_params)
         resp.raise_for_status()
         
-        # 3. RPC вернет готовый JSON-массив
-        return resp.json()
-        
+        result_data = resp.json()
+
+        # --- 4. ЗАПОМИНАЕМ ОТВЕТ В КЭШ ---
+        if AUCTION_CACHE["checksum"] is not None:
+            AUCTION_CACHE["users"][user_id] = {
+                "checksum": AUCTION_CACHE["checksum"],
+                "data": result_data
+            }
+
+        return result_data
+
     except Exception as e:
         logging.error(f"Ошибка при получении списка аукционов для user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось загрузить лоты.")
@@ -10140,19 +10179,16 @@ async def admin_create_auction(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     # --- ЛОГИКА СТАТУСА (SCHEDULED / ACTIVE) ---
-    is_active = True
-    is_visible = True
+    is_active = request_data.is_active
+    is_visible = request_data.is_visible
     start_dt = None
     
-    # Проверяем, есть ли отложенный старт
+    # 🔥 ЖЕЛЕЗНАЯ ЛОГИКА: Раз передано время старта — значит 100% отложенный!
     if request_data.start_time:
+        is_active = False
+        is_visible = False
         try:
             start_dt = datetime.fromisoformat(request_data.start_time.replace('Z', ''))
-            # Вычитаем 3 часа для корректной проверки "будущего" (МСК -> UTC)
-            check_dt = start_dt - timedelta(hours=3)
-            if check_dt > datetime.utcnow() + timedelta(minutes=1):
-                is_active = False
-                is_visible = False
         except: pass
 
     # 🔥 Переводим МСК время завершения из админки в UTC для базы
