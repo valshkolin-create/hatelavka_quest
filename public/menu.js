@@ -1054,7 +1054,7 @@ function initDynamicAuction(preloadedData = null) {
 
         if (activeAuction) {
             const img = activeAuction.image_url || '';
-            // 1. Сокращаем StatTrak до ST.
+            // 1. Сокращаем StatTrak в ST.
             const name = (activeAuction.title || 'Секретный лот')
                 .replace(/StatTrak™/g, 'ST.')
                 .replace(/StatTrak/g, 'ST.');
@@ -1070,27 +1070,25 @@ function initDynamicAuction(preloadedData = null) {
             const rgbColor = hexToRgb(rarityColor);
 
             container.innerHTML = `
-                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.12) 0%, #1c1c1e 80%); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
                     
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 70px; height: 70px; background: rgba(${rgbColor}, 0.2); filter: blur(20px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 70px; height: 70px; background: rgba(${rgbColor}, 0.15); filter: blur(20px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
 
                     <div style="z-index: 3; text-align: center; width: 100%;">
                         <div style="font-size: 8px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${escapeHTML(name)}
                         </div>
-                        <div style="font-size: 9px; font-weight: 900; color: #ffd700; text-transform: uppercase; letter-spacing: 0.2px; display: flex; align-items: center; justify-content: center; gap: 3px;">
-                            СТАВКА: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #bdecff;"></i>
+                        <div style="font-size: 9px; font-weight: 900; color: #ffd700; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 3px;">
+                            СТАВКА: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #bdecff; opacity: 0.8;"></i>
                         </div>
                     </div>
 
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; padding: 2px 0;">
-                        <img src="${escapeHTML(img)}" style="max-height: 48px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2;">
+                        <img src="${escapeHTML(img)}" style="max-height: 50px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
-                    <div style="width: 100%; z-index: 3; padding-top: 2px;">
-                        <button style="width: 100%; height: 22px; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); border: none; border-radius: 6px; color: #000; font-size: 8px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 2px 6px rgba(255, 204, 0, 0.2); pointer-events: none;">
-                            Сделать ставку
-                        </button>
+                    <div class="mini-raffle-cta" style="z-index: 3; margin-top: -4px; margin-bottom: 2px; font-weight: 900; font-size: 9px; color: #ffd700; text-transform: uppercase; display: flex; align-items: center; gap: 4px; pointer-events: none;">
+                        Сделать ставку <i class="fa-solid fa-arrow-right" style="font-size: 7px;"></i>
                     </div>
                 </div>
             `;
@@ -1098,8 +1096,8 @@ function initDynamicAuction(preloadedData = null) {
             // Заглушка, если аукционов нет
             container.innerHTML = `
                 <div class="auction-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <i class="fa-solid fa-gavel" style="font-size: 24px; color: #ff9500; opacity: 0.8; margin-bottom: 6px;"></i>
-                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase;">Аукционы</span>
+                    <i class="fa-solid fa-gavel" style="font-size: 24px; color: #ff9500; opacity: 0.6; margin-bottom: 4px;"></i>
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; opacity: 0.8;">Аукционы</span>
                 </div>
             `;
         }
