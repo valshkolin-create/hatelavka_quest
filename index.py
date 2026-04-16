@@ -20268,16 +20268,6 @@ async def admin_publish_manual(
         img_url = auc.get('image_url')
         
         sent_msg = None
-        if img_url:
-            sent_msg = await bot.send_photo(chat_id=channel_id, photo=img_url, caption=txt, reply_markup=kb, parse_mode="HTML")
-        else:
-            sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
-
-        # 3. Публикуем в Telegram
-        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-        img_url = auc.get('image_url')
-        
-        sent_msg = None
         try:
             # Пытаемся выложить пост
             if img_url:
@@ -20313,6 +20303,13 @@ async def admin_publish_manual(
         AUCTION_CACHE["users"].clear()
 
         return {"message": "Аукцион успешно опубликован в канале!"}
+
+    # Добавлен обязательный блок except для закрытия верхнего try
+    except HTTPException:
+        raise # Пропускаем уже обработанные HTTP ошибки дальше
+    except Exception as e:
+        logging.error(f"Внутренняя ошибка при публикации: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 # 3. АВТО-ЗАВЕРШЕНИЕ И ВЫДАЧА ЛОТА
 @app.post("/api/v1/webhook/finalize_auction")
