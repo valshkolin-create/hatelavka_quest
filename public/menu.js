@@ -1070,7 +1070,7 @@ function initDynamicAuction(preloadedData = null) {
             const rgbColor = hexToRgb(rarityColor);
 
             container.innerHTML = `
-                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.12) 0%, #1c1c1e 80%); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px; border: none;">
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; padding: 8px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.12) 0%, #1c1c1e 80%); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px; border: none;">
                     
                     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: rgba(${rgbColor}, 0.15); filter: blur(20px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
 
@@ -1080,20 +1080,20 @@ function initDynamicAuction(preloadedData = null) {
                         </div>
                     </div>
 
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin-top: 10px;">
-                        <img src="${escapeHTML(img)}" style="max-height: 62px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
+                    <div style="flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: 4px 0;">
+                        <img src="${escapeHTML(img)}" style="max-height: 100%; max-width: 95%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
-                   <div style="z-index: 3; width: 100%; display: flex; justify-content: center; margin-bottom: 12px;">
-                        <div class="mini-raffle-cta" style="margin-top: 6px; font-weight: bold; font-size: 11px; color: #000; background: #ffd700; border-radius: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 24px; width: 95%; box-sizing: border-box; position: relative; overflow: hidden;">
+                    <div style="z-index: 3; width: 100%; display: flex; justify-content: center; margin-top: auto;">
+                        <div class="mini-raffle-cta" style="margin-top: 6px; font-weight: bold; font-size: 11px; text-transform: uppercase; width: 100%; height: 26px; border-radius: 8px; position: relative; overflow: hidden; display: block; padding: 0;">
                             
-                            <div class="auction-button-wrapper">
+                            <div class="auction-button-wrapper" style="position: relative; width: 100%; height: 100%;">
                                 <div class="anim-state-bid">
-                                    Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 10px; color: #000;"></i>
+                                    Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 10px;"></i>
                                 </div>
 
                                 <div class="anim-state-action">
-                                    Сделать ставку <i class="fa-solid fa-arrow-right"></i>
+                                    Участвовать <i class="fa-solid fa-arrow-right"></i>
                                 </div>
                             </div>
 
