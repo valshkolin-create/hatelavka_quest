@@ -1150,7 +1150,7 @@ async function initDynamicRaffleSlider(preloadedData = null) {
             };
 
             activeRaffles.forEach((raffle, index) => {
-                cconst s = raffle.settings || {}; 
+                const s = raffle.settings || {}; 
                 const img = s.card_image || s.prize_image || ''; 
                 const rarityColor = s.rarity_color || '#ffd700'; 
                 const quality = s.skin_quality || 'FT';
