@@ -692,45 +692,29 @@ body.desktop-mode .new-header-container {
 }
 
 /* ==========================================
-   ПЛАВАЮЩИЙ ФУТЕР (1в1 из menu.css)
+   ПЛАВАЮЩИЙ ФУТЕР
 ========================================== */
 .floating-bottom-bar {
     position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
-    width: 85%; max-width: 360px;
+    width: 85%; max-width: 360px; /* Уменьшили ширину */
     background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1); 
-    border-radius: 35px;
+    border-radius: 35px; /* Более круглые края */
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     display: flex; justify-content: space-around; align-items: center; 
-    padding: 6px 12px;
-    z-index: 10000;
+    padding: 6px 12px; /* Уменьшили внутренние отступы */
+    z-index: 1000;
 }
 .nav-item { 
     display: flex; flex-direction: column; align-items: center; justify-content: center; 
-    color: var(--text-muted, #8e8e93); text-decoration: none; 
-    gap: 2px;
-    padding: 6px 2px; /* Уменьшили боковой отступ для 5 кнопок */
-    flex: 1; /* Чтобы все 5 кнопок делили место поровну */
-    border-radius: var(--radius-pill, 40px); transition: all 0.3s ease; 
+    color: var(--text-muted); text-decoration: none; 
+    gap: 2px; /* Уменьшили расстояние между иконкой и текстом */
+    padding: 6px 10px; 
+    border-radius: var(--radius-pill); transition: all 0.3s ease; 
 }
-.nav-item i { font-size: 18px; }
-.nav-item span { 
-    font-size: 9px; 
-    font-weight: 600; 
-    white-space: nowrap; /* Запрещаем перенос текста */
-}
-.nav-item.active { background: transparent; color: var(--text-primary, #ffffff); }
-/* Полоска над активной иконкой */
-.footer-item.active .icon-wrapper::before {
-    content: '';
-    position: absolute;
-    top: -8px; /* Чуть выше иконки */
-    width: 20px; /* Ширина полоски */
-    height: 2px;
-    background-color: #34c759;
-    border-radius: 2px;
-    box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
-}
+.nav-item i { font-size: 18px; } /* Иконки чуть меньше */
+.nav-item span { font-size: 9px; font-weight: 600; }
+.nav-item.active { background: transparent; color: var(--text-primary); }
 
 /* ==========================================
    ПК-ОГРАНИЧЕНИЯ ШИРИНЫ
