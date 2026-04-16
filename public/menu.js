@@ -1054,7 +1054,6 @@ function initDynamicAuction(preloadedData = null) {
 
         if (activeAuction) {
             const img = activeAuction.image_url || '';
-            // Сокращаем StatTrak в ST.
             const name = (activeAuction.title || 'Секретный лот')
                 .replace(/StatTrak™/g, 'ST.')
                 .replace(/StatTrak/g, 'ST.');
@@ -1080,20 +1079,20 @@ function initDynamicAuction(preloadedData = null) {
                         </div>
                     </div>
 
-                    <div style="flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: 4px 0;">
+                    <div style="flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: 6px 0;">
                         <img src="${escapeHTML(img)}" style="max-height: 100%; max-width: 95%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
                     <div style="z-index: 3; width: 100%; display: flex; justify-content: center; margin-top: auto;">
-                        <div class="mini-raffle-cta" style="margin-top: 6px; font-weight: bold; font-size: 11px; text-transform: uppercase; width: 100%; height: 26px; border-radius: 8px; position: relative; overflow: hidden; display: block; padding: 0;">
+                        <div class="mini-raffle-cta" style="font-weight: bold; font-size: 11px; text-transform: uppercase; width: 95%; height: 24px; border-radius: 100px; background: #ffd700; color: #000; position: relative; overflow: hidden; display: block; padding: 0;">
                             
                             <div class="auction-button-wrapper" style="position: relative; width: 100%; height: 100%;">
                                 <div class="anim-state-bid">
-                                    Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 10px;"></i>
+                                    СТАВКА: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 10px;"></i>
                                 </div>
 
                                 <div class="anim-state-action">
-                                    Участвовать <i class="fa-solid fa-arrow-right"></i>
+                                    УЧАСТВОВАТЬ <i class="fa-solid fa-arrow-right"></i>
                                 </div>
                             </div>
 
@@ -1102,7 +1101,6 @@ function initDynamicAuction(preloadedData = null) {
                 </div>
             `;
         } else {
-            // Заглушка
             container.innerHTML = `
                 <div class="auction-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                     <i class="fa-solid fa-gavel" style="font-size: 24px; color: #ff9500; opacity: 0.6; margin-bottom: 4px;"></i>
