@@ -822,25 +822,35 @@
             list.sort((a, b) => b.id - a.id);
 
             list.forEach(a => {
-                // --- ЖЕЛЕЗНАЯ ЛОГИКА СТАТУСОВ ---
-                const isDone = !!a.ended_at;
+                // ==========================================
+                // 🔥 НОВАЯ ЖЕЛЕЗНАЯ ЛОГИКА СТАТУСОВ (Из БД)
+                // ==========================================
+                // Берем статус напрямую от SQL, если его вдруг нет - фоллбэк
+                const state = a.auction_state || (a.ended_at ? 'completed' : 'active');
                 
-                // Отложенный: не завершен + (выключен вручную ИЛИ есть время старта)
-                const isScheduled = !isDone && (a.is_active === false || a.is_active === 0) && !!a.start_time; 
-                
-                // Тихий: включен, но без поста в канале
-                const isSilent = !isDone && !isScheduled && a.is_active && !a.post_message_id; 
+                const isDone = state === 'completed';
+                const isScheduled = state === 'scheduled';
+                // Тихий аукцион: база считает его активным, но поста в канале физически нет
+                const isSilent = state === 'active' && !a.post_message_id; 
+                // ==========================================
 
                 const imgUrl = a.image_url;
                 const img = imgUrl ? `<img src="${imgUrl}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gavel"></i></div>`;
                 
                 const safeJson = encodeURIComponent(JSON.stringify(a).replace(/'/g, "&apos;"));
 
+                // Формируем бейджики (Теперь с выводом минут для отложенных!)
                 let statusBadge = '';
-                if(isDone) statusBadge = `<span class="status-badge st-done">Завершен</span>`;
-                else if(isScheduled) statusBadge = `<span class="status-badge st-scheduled"><i class="fa-regular fa-clock"></i> Отложенный</span>`;
-                else if(isSilent) statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-ghost"></i> Тихий</span>`;
-                else statusBadge = `<span class="status-badge st-active">Активен</span>`;
+                if(isDone) {
+                    statusBadge = `<span class="status-badge st-done">Завершен</span>`;
+                } else if(isScheduled) {
+                    const mins = Math.round(a.minutes_until_start || 0);
+                    statusBadge = `<span class="status-badge st-scheduled"><i class="fa-regular fa-clock"></i> Через ~${mins} мин.</span>`;
+                } else if(isSilent) {
+                    statusBadge = `<span class="status-badge st-silent"><i class="fa-solid fa-ghost"></i> Тихий</span>`;
+                } else {
+                    statusBadge = `<span class="status-badge st-active">Активен</span>`;
+                }
 
                 let html = `
                 <div class="raffle-card ${isDone ? 'completed' : ''} ${isSilent ? 'silent' : ''}">
