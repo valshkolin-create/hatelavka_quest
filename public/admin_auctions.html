@@ -775,7 +775,7 @@
             }
         }
 
-        function renderList(list) {
+       function renderList(list) {
             const cActive = document.getElementById('list-container');
             const cSched = document.getElementById('scheduled-container');
             const cCompl = document.getElementById('completed-container');
@@ -789,10 +789,15 @@
             list.sort((a, b) => b.id - a.id);
 
             list.forEach(a => {
+                // --- ЖЕЛЕЗНАЯ ЛОГИКА СТАТУСОВ ---
                 const isDone = !!a.ended_at;
-                const isScheduled = !a.is_active && !a.is_visible && a.start_time; 
-                const isSilent = a.is_active && a.is_visible && !a.post_message_id; 
                 
+                // Отложенный: не завершен + (выключен вручную ИЛИ есть время старта)
+                const isScheduled = !isDone && (a.is_active === false || a.is_active === 0) && !!a.start_time; 
+                
+                // Тихий: включен, но без поста в канале
+                const isSilent = !isDone && !isScheduled && a.is_active && !a.post_message_id; 
+
                 const imgUrl = a.image_url;
                 const img = imgUrl ? `<img src="${imgUrl}" class="card-thumb">` : `<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-gavel"></i></div>`;
                 
@@ -855,9 +860,14 @@
                 
                 html += `</div>`;
                 
-                if (isDone) { htmlCompl += html; complCount++; }
-                else if (isScheduled) { htmlSched += html; schedCount++; }
-                else { htmlActive += html; activeCount++; }
+                // Распределение строго по категориям
+                if (isDone) { 
+                    htmlCompl += html; complCount++; 
+                } else if (isScheduled) { 
+                    htmlSched += html; schedCount++; 
+                } else { 
+                    htmlActive += html; activeCount++; 
+                }
             });
             
             cActive.innerHTML = activeCount ? htmlActive : '<div style="text-align:center; opacity:0.5; padding:40px;">Активных нет</div>';
@@ -867,7 +877,6 @@
 
         window.cloneAuction = function(jsonStr) {
             const a = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
-
             switchTab('create');
             
             document.getElementById('inp-prize').value = a.title || '';
@@ -896,9 +905,15 @@
                         body: JSON.stringify({initData: tg.initData, id: id})
                     });
                     const d = await res.json();
-                    if(res.ok) { showCustomAlert('Успех', d.message || 'Аукцион завершен'); loadAuctions(); }
-                    else showCustomAlert('Ошибка', d.message);
-                } catch(e) { showCustomAlert('Ошибка', 'Сбой сети'); }
+                    if(res.ok) { 
+                        showCustomAlert('Успех', d.message || 'Аукцион завершен'); 
+                        loadAuctions(); 
+                    } else {
+                        showCustomAlert('Ошибка', d.message);
+                    }
+                } catch(e) { 
+                    showCustomAlert('Ошибка', 'Сбой сети'); 
+                }
             });
         }
 
