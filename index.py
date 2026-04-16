@@ -20331,9 +20331,29 @@ async def finalize_auction_webhook(
     # --- СЛУЧАЙ 2: ЕСТЬ ПОБЕДИТЕЛЬ ---
     winner_name = auction.get('current_highest_bidder_name', 'Счастливчик')
     title = auction.get('title')
+    wear = auction.get('wear')
     
-    market_hash_name = title 
+    # --- МАГИЯ: ВОССТАНАВЛИВАЕМ ПОЛНОЕ НАЗВАНИЕ ДЛЯ МАРКЕТА ---
+    quality_map = {
+        "FN": "(Factory New)",
+        "MW": "(Minimal Wear)",
+        "FT": "(Field-Tested)",
+        "WW": "(Well-Worn)",
+        "BS": "(Battle-Scarred)"
+    }
+    
+    market_hash_name = title
+    if wear and wear in quality_map:
+        market_hash_name = f"{title} {quality_map[wear]}"
+        
+    # Ищем актуальную цену в market_cache
+    market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+    market_data = market_res.json() if market_res.status_code == 200 else []
+    
     price_rub = 0.0
+    if market_data and isinstance(market_data, list) and len(market_data) > 0:
+        price_rub = float(market_data[0].get('price_rub', 0))
+        
     item_id = None
     
     # Ищем или создаем предмет в cs_items
@@ -20345,6 +20365,7 @@ async def finalize_auction_webhook(
             "name": title,
             "market_hash_name": market_hash_name,
             "price_rub": price_rub,
+            "price": str(int(price_rub)) if price_rub else "0",
             "rarity": auction.get('rarity', 'blue'),
             "condition": auction.get('wear'),
             "image_url": auction.get('image_url'),
@@ -21779,12 +21800,6 @@ async def withdraw_inventory_item(
         target_price_base = 0.0
         target_price_rub = 0.0
         
-    # 🔥 ИСПРАВЛЕНИЕ: Даем Кладовщику безлимитный бюджет на аукционы
-    # Так как в БД они лежат с price_rub = 0.0 (куплены за билеты),
-    # разрешаем боту выкупить этот предмет по текущей рыночной цене.
-    if item_source == 'auction' and target_price_rub == 0.0:
-        target_price_rub = 99999.0
-
     item_condition = item_data.get('condition')
     market_hash_name = history_record.get('replaced_name') or item_data.get('market_hash_name')
 
@@ -21947,16 +21962,6 @@ async def withdraw_inventory_item(
     })
     
     return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
-    # ==========================================
-    # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
-    # ==========================================
-    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-        "status": "processing",
-        "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ВРЕМЯ
-    })
-    
-    return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
-
 
 # 4. Подтверждение выбора замены пользователем
 @app.post("/api/v1/user/inventory/confirm_replacement")
