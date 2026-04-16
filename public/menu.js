@@ -1181,7 +1181,7 @@ async function initDynamicRaffleSlider(preloadedData = null) {
                                 <span>00</span><div class="timer-sep">:</div>
                                 <span>00</span>
                             </div>
-                            <div class="mini-raffle-cta" style="position: absolute; bottom: 14px; font-weight: bold; font-size: 11px; text-transform: uppercase; background: #ffd700; color: #000; border-radius: 100px; height: 24px; padding: 0 16px; display: flex; align-items: center; justify-content: center; z-index: 10;">УЧАСТВОВАТЬ <i class="fa-solid fa-arrow-right" style="margin-left: 5px;"></i></div>
+                            <div class="mini-raffle-cta" style="margin-top: 6px; font-weight: bold; font-size: 11px;">Участвовать <i class="fa-solid fa-arrow-right"></i></div>
                         </div> <img src="${img}" class="mini-raffle-img">
                         ${dotsHTML} </div>
                 `;
