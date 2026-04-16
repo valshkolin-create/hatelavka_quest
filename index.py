@@ -10214,7 +10214,7 @@ async def admin_create_auction(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Неверный формат времени завершения")
 
-    # 1. Создаем запись в БД
+   # 1. Создаем запись в БД
     payload = {
         "title": request_data.title,
         "image_url": request_data.image_url,
@@ -10225,7 +10225,7 @@ async def admin_create_auction(
         "rarity": request_data.rarity,
         "wear": request_data.wear,
         "description": request_data.description,
-        "start_time": request_data.start_time,
+        "start_time": request_data.start_time if request_data.start_time else None,
         "is_active": is_active,
         "is_visible": is_visible,
         "bid_cooldown_ends_at": bid_cooldown_ends_at,
@@ -10235,7 +10235,7 @@ async def admin_create_auction(
         "created_at": "now()", 
         "ended_at": None
     }
-
+    
     headers = {
         "Prefer": "return=representation",
         "Content-Type": "application/json"
