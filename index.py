@@ -10297,19 +10297,32 @@ async def admin_create_auction(
                 img_url = request_data.image_url
                 sent_msg = None 
                 
+                # Пытаемся выложить пост
                 if img_url:
                     sent_msg = await bot.send_photo(chat_id=channel_id, photo=img_url, caption=txt, reply_markup=kb, parse_mode="HTML")
                 else:
                     sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
                 
+                # Пытаемся сохранить ID поста в БД
                 if sent_msg:
-                    await supabase.patch("/auctions", params={"id": f"eq.{new_id}"}, json={
+                    patch_res = await supabase.patch("/auctions", params={"id": f"eq.{new_id}"}, json={
                         "post_message_id": sent_msg.message_id,
                         "post_channel_id": str(channel_id)
                     })
                     
+                    # 🔥 ЖЕЛЕЗНАЯ БРОНЯ: ЕСЛИ БАЗА УПАЛА -> ОТКАТЫВАЕМ ПОСТ
+                    if patch_res.status_code not in (200, 204):
+                        try:
+                            await bot.delete_message(chat_id=channel_id, message_id=sent_msg.message_id)
+                        except: pass
+                        print(f"⚠️ Ошибка БД: {patch_res.text}")
+                        raise HTTPException(status_code=500, detail="Ошибка базы данных. Пост отменен.")
+                    
             except Exception as e:
                 print(f"⚠️ Ошибка отправки поста: {e}")
+                # Если это не HTTPException (которую мы сами кинули), а ошибка ТГ, тоже сообщаем
+                if not isinstance(e, HTTPException):
+                    raise HTTPException(status_code=500, detail=f"Ошибка Телеграма: {e}")
     
     # 3. ЕСЛИ ОТЛОЖЕННЫЙ СТАРТ
     elif not is_active and start_dt and qstash_token and app_url:
@@ -20259,6 +20272,21 @@ async def admin_publish_manual(
         else:
             sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
 
+        # 3. Публикуем в Telegram
+        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+        img_url = auc.get('image_url')
+        
+        sent_msg = None
+        try:
+            # Пытаемся выложить пост
+            if img_url:
+                sent_msg = await bot.send_photo(chat_id=channel_id, photo=img_url, caption=txt, reply_markup=kb, parse_mode="HTML")
+            else:
+                sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
+        except Exception as tg_err:
+            logging.error(f"Ошибка Телеграма: {tg_err}")
+            raise HTTPException(status_code=500, detail="Не удалось отправить пост в канал. Проверьте права бота.")
+
         # 4. Обновляем статус в базе
         update_data = {
             "is_active": True,
@@ -20266,17 +20294,24 @@ async def admin_publish_manual(
             "post_message_id": sent_msg.message_id,
             "post_channel_id": str(channel_id)
         }
-        await supabase.patch("/auctions", params={"id": f"eq.{auction_id}"}, json=update_data)
+        patch_res = await supabase.patch("/auctions", params={"id": f"eq.{auction_id}"}, json=update_data)
 
-        # 🔥 СБРОС КЭША (Чтобы лот сразу появился в приложении)
+        # 🚨 ПРОВЕРКА: БАЗА УПАЛА? 
+        if patch_res.status_code not in (200, 204):
+            # 🔥 ОТКАТ: Удаляем пост из канала, чтобы не было "призраков"
+            try:
+                await bot.delete_message(chat_id=channel_id, message_id=sent_msg.message_id)
+            except Exception as del_err:
+                logging.error(f"Не удалось удалить пост при откате: {del_err}")
+                
+            logging.error(f"⚠️ Ошибка БД: {patch_res.text}")
+            raise HTTPException(status_code=500, detail="Ошибка базы данных. Пост был автоматически удален из канала.")
+
+        # 🔥 СБРОС КЭША
         AUCTION_CACHE["checksum"] = None
         AUCTION_CACHE["users"].clear()
 
         return {"message": "Аукцион успешно опубликован в канале!"}
-
-    except Exception as e:
-        logging.error(f"Ошибка ручной публикации: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 # 3. АВТО-ЗАВЕРШЕНИЕ И ВЫДАЧА ЛОТА
 @app.post("/api/v1/webhook/finalize_auction")
