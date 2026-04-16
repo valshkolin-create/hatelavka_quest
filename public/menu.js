@@ -1054,7 +1054,7 @@ function initDynamicAuction(preloadedData = null) {
 
         if (activeAuction) {
             const img = activeAuction.image_url || '';
-            // Сокращаем StatTrak
+            // Сокращаем StatTrak в ST.
             const name = (activeAuction.title || 'Секретный лот')
                 .replace(/StatTrak™/g, 'ST.')
                 .replace(/StatTrak/g, 'ST.');
@@ -1072,59 +1072,49 @@ function initDynamicAuction(preloadedData = null) {
             container.innerHTML = `
                 <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.12) 0%, #1c1c1e 80%); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px; border: none;">
                     
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; background: rgba(${rgbColor}, 0.2); filter: blur(30px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: rgba(${rgbColor}, 0.15); filter: blur(20px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
 
                     <div style="z-index: 3; text-align: center; width: 100%;">
-                        <div style="font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 0.2px;">
+                        <div style="font-size: 8px; font-weight: 800; color: #fff; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${escapeHTML(name)}
                         </div>
                     </div>
 
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin: -2px 0;">
-                        <img src="${escapeHTML(img)}" style="max-height: 70px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin-top: 7px;">
+                        <img src="${escapeHTML(img)}" style="max-height: 65px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
                     <div style="z-index: 3; width: 100%; display: flex; justify-content: center; padding-bottom: 2px;">
-                        <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #000; background: #ffd700; padding: 0 5px; border-radius: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; height: 18px; width: 95%; box-sizing: border-box; position: relative;">
+                        <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #000; background: #ffd700; border-radius: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 18px; width: 95%; box-sizing: border-box; position: relative; overflow: hidden;">
                             
-                            <div class="auction-anim-text" style="display: flex; align-items: center; gap: 4px;">
-                                <span id="auction-state-text"></span>
+                            <div class="anim-state-bid">
+                                Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #000;"></i>
                             </div>
- 
+
+                            <div class="anim-state-action">
+                                Сделать ставку
+                            </div>
+
                         </div>
                     </div>
                 </div>
             `;
-
-            // Управляем текстом внутри анимации через JS таймер для точности (синхронно с CSS)
-            const textEl = container.querySelector('#auction-state-text');
-            const updateText = () => {
-                const now = Date.now();
-                // Цикл 6 секунд: 3 сек одно, 3 сек другое
-                if ((Math.floor(now / 3000) % 2) === 0) {
-                    textEl.innerHTML = `Актуал. Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #000;"></i>`;
-                } else {
-                    textEl.innerHTML = `Сделать ставку`;
-                }
-            };
-            
-            // Запускаем цикл обновления текста
-            if (window.auctionTextInterval) clearInterval(window.auctionTextInterval);
-            window.auctionTextInterval = setInterval(updateText, 3000);
-            updateText(); // Первый запуск
-
         } else {
             // Заглушка
             container.innerHTML = `
                 <div class="auction-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <i class="fa-solid fa-gavel" style="font-size: 24px; color: #ff9500; opacity: 0.5; margin-bottom: 4px;"></i>
-                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; opacity: 0.7;">Аукционы</span>
+                    <i class="fa-solid fa-gavel" style="font-size: 24px; color: #ff9500; opacity: 0.6; margin-bottom: 4px;"></i>
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase;">Аукционы</span>
                 </div>
             `;
         }
     };
-    
-    if (preloadedData) { renderAuction(preloadedData); return; }
+
+    // Рендер
+    if (preloadedData) {
+        renderAuction(preloadedData);
+        return;
+    }
     try {
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
         renderAuction(cachedBootstrap.auctions || cachedBootstrap.active_auctions || []);
