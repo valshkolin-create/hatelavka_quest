@@ -3492,10 +3492,12 @@ async def get_bootstrap_data(
         notifs_task = supabase.get("/in_app_notifications", params={"user_id": f"eq.{telegram_id}", "is_read": "is.false", "select": "id"})
         p2p_task = supabase.get("/p2p_trades", params={"user_id": f"eq.{telegram_id}", "order": "created_at.desc"})
         balance_task = supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, tickets, last_new_year_gift_at"})
+        # 🔥 НОВОЕ: Запрашиваем аукционы прямо тут
+        auctions_task = supabase.post("/rpc/get_public_auctions_for_user", json={"p_user_id": telegram_id})
 
         # Выполняем разом, экономя время
-        db_res, notifs_res, p2p_res, balance_res = await asyncio.gather(
-            rpc_task, notifs_task, p2p_task, balance_task, return_exceptions=True
+        db_res, notifs_res, p2p_res, balance_res, auctions_res = await asyncio.gather(
+            rpc_task, notifs_task, p2p_task, balance_task, auctions_task, return_exceptions=True
         )
         
         # Проверяем ответ основной функции
@@ -3609,6 +3611,11 @@ async def get_bootstrap_data(
             p_data = p2p_res.json()
             if isinstance(p_data, list):
                 p2p_trades = p_data
+
+        # 4. Аукционы для главной страницы
+        auctions_list = []
+        if not isinstance(auctions_res, Exception) and auctions_res.status_code == 200:
+            auctions_list = auctions_res.json()
                 
 
         # Квесты и Цели
@@ -3625,7 +3632,8 @@ async def get_bootstrap_data(
             "menu": menu_content,
             "quests": quests_list,
             "weekly_goals": goals_data,
-            "cauldron": cauldron_data,               
+            "cauldron": cauldron_data,
+            "auctions": auctions_list, # 🔥 ВОТ ЭТО МЫ ДОБАВИЛИ
             "raffles": db_data.get('raffles', []),                 
             "my_active_cases": db_data.get('active_cases', []),
             
