@@ -1054,10 +1054,10 @@ function initDynamicAuction(preloadedData = null) {
 
         if (activeAuction) {
             const img = activeAuction.image_url || '';
-            // 1. Сокращаем StatTrak для экономии места
+            // 1. Сокращаем StatTrak до ST.
             const name = (activeAuction.title || 'Секретный лот')
-                .replace(/StatTrak™/g, 'St.')
-                .replace(/StatTrak/g, 'St.');
+                .replace(/StatTrak™/g, 'ST.')
+                .replace(/StatTrak/g, 'ST.');
 
             const currentBid = activeAuction.current_highest_bid || 0;
             const rarityKey = activeAuction.rarity || 'mythical';
@@ -1070,43 +1070,41 @@ function initDynamicAuction(preloadedData = null) {
             const rgbColor = hexToRgb(rarityColor);
 
             container.innerHTML = `
-                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 8px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
                     
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: rgba(${rgbColor}, 0.25); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 70px; height: 70px; background: rgba(${rgbColor}, 0.2); filter: blur(20px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
 
-                    <div style="z-index: 3; width: 100%; text-align: center;">
-                        <div style="font-size: 9px; font-weight: 800; color: #fff; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;">
+                    <div style="z-index: 3; text-align: center; width: 100%;">
+                        <div style="font-size: 8px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${escapeHTML(name)}
                         </div>
-                        <div style="font-size: 10px; font-weight: 900; color: #ffd700; text-transform: uppercase; letter-spacing: 0.3px; display: flex; align-items: center; justify-content: center; gap: 3px;">
-                            СТАВКА: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 8px; color: #bdecff;"></i>
+                        <div style="font-size: 9px; font-weight: 900; color: #ffd700; text-transform: uppercase; letter-spacing: 0.2px; display: flex; align-items: center; justify-content: center; gap: 3px;">
+                            СТАВКА: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #bdecff;"></i>
                         </div>
                     </div>
 
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; padding: 5px 0;">
-                        <img src="${escapeHTML(img)}" style="max-height: 55px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.7)); animation: floatSkin 4s ease-in-out infinite;">
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; padding: 2px 0;">
+                        <img src="${escapeHTML(img)}" style="max-height: 48px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
                     <div style="width: 100%; z-index: 3; padding-top: 2px;">
-                        <button style="width: 100%; height: 26px; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); border: none; border-radius: 8px; color: #000; font-size: 9px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 2px 8px rgba(255, 204, 0, 0.2); pointer-events: none;">
+                        <button style="width: 100%; height: 22px; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); border: none; border-radius: 6px; color: #000; font-size: 8px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 2px 6px rgba(255, 204, 0, 0.2); pointer-events: none;">
                             Сделать ставку
                         </button>
                     </div>
-                    
-                    <div style="position: absolute; top: 0; right: 0; background: ${rarityColor}25; color: ${rarityColor}; font-size: 6px; font-weight: 900; padding: 2px 6px; border-bottom-left-radius: 8px; letter-spacing: 0.5px; text-transform: uppercase; border-left: 1px solid ${rarityColor}40; border-bottom: 1px solid ${rarityColor}40;">Лот</div>
                 </div>
             `;
         } else {
-            // Дефолтная заглушка, если аукционов нет
+            // Заглушка, если аукционов нет
             container.innerHTML = `
                 <div class="auction-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <i class="fa-solid fa-gavel" style="font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); margin-bottom: 8px;"></i>
-                    <span style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Аукционы</span>
+                    <i class="fa-solid fa-gavel" style="font-size: 24px; color: #ff9500; opacity: 0.8; margin-bottom: 6px;"></i>
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase;">Аукционы</span>
                 </div>
             `;
         }
     };
-
+    
     if (preloadedData) { renderAuction(preloadedData); return; }
     try {
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
