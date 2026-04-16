@@ -1038,69 +1038,75 @@ const RARITY_COLORS = {
     immortal: '#e4ae39'     // Нож
 };
 
-function initDynamicAuction(auctionsData) {
+function initDynamicAuction(preloadedData = null) {
     const container = document.getElementById('auction-card-container');
     if (!container) return;
 
-    // Ищем первый активный аукцион
-    let activeAuction = null;
-    if (Array.isArray(auctionsData)) {
-        // Берем первый лот, который еще не закончился
-        activeAuction = auctionsData.find(a => !a.ended_at); 
-    } else if (auctionsData && !auctionsData.ended_at) {
-        activeAuction = auctionsData;
-    }
+    // --- ВНУТРЕННЯЯ ФУНКЦИЯ ДЛЯ ОТРИСОВКИ (1в1 как в розыгрышах) ---
+    const renderAuction = (data) => {
+        // БЕЗОПАСНО ИЩЕМ МАССИВ (Броня как в розыгрышах)
+        let arr = [];
+        if (Array.isArray(data)) arr = data;
+        else if (data && Array.isArray(data.auctions)) arr = data.auctions;
+        else if (data && Array.isArray(data.active_auctions)) arr = data.active_auctions;
+        else if (data && Array.isArray(data.data)) arr = data.data;
 
-    // Если активных лотов нет — оставляем дефолтную заглушку с молотком
-    if (!activeAuction) {
-        container.innerHTML = `
-            <div class="auction-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <i class="fa-solid fa-gavel" style="font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); margin-bottom: 8px;"></i>
-                <span style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Аукционы</span>
-            </div>
-        `;
+        // Ищем первый активный (не завершенный) лот
+        const activeAuction = arr.find(a => !a.ended_at);
+
+        if (activeAuction) {
+            const img = activeAuction.image_url || '';
+            const name = activeAuction.title || 'Секретный лот';
+            const currentBid = activeAuction.current_highest_bid || 0;
+            const rarityKey = activeAuction.rarity || 'mythical';
+            const rarityColor = RARITY_COLORS[rarityKey] || '#ff9500';
+
+            const hexToRgb = (hex) => {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 149, 0';
+            };
+            const rgbColor = hexToRgb(rarityColor);
+
+            container.innerHTML = `
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 5px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
+                    <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: rgba(${rgbColor}, 0.5); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2;">
+                        <img src="${escapeHTML(img)}" style="max-height: 40px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 3; margin-top: 4px;">
+                        <div style="font-size: 9px; font-weight: 900; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.9);">${escapeHTML(name)}</div>
+                        <div style="font-size: 11px; font-weight: 900; color: #ffd700; margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 4px; text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);">
+                            ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 9px; color: #bdecff;"></i>
+                        </div>
+                        <div style="position: absolute; top: 6px; right: 8px; font-size: 8px; font-weight: 900; color: ${rarityColor}; letter-spacing: 1px; text-transform: uppercase; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;">Аукцион</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Дефолтная заглушка, если аукционов нет
+            container.innerHTML = `
+                <div class="auction-content" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-gavel" style="font-size: 26px; color: #ff9500; filter: drop-shadow(0 0 10px rgba(255, 149, 0, 0.4)); margin-bottom: 8px;"></i>
+                    <span style="font-size: 13px; font-weight: 800; text-transform: uppercase;">Аукционы</span>
+                </div>
+            `;
+        }
+    };
+
+    // Если данные переданы (из бутстрапа) — рендерим сразу
+    if (preloadedData) {
+        renderAuction(preloadedData);
         return;
     }
 
-    // Достаем данные (названия ключей как в твоем auction.js)
-    const img = activeAuction.image_url || '';
-    const name = activeAuction.title || 'Секретный лот';
-    const currentBid = activeAuction.current_highest_bid || 0;
-    
-    // Определяем цвет свечения по редкости
-    const rarityKey = activeAuction.rarity || 'mythical';
-    const rarityColor = RARITY_COLORS[rarityKey] || '#ff9500';
-
-    // Конвертер HEX в RGB для прозрачности
-    const hexToRgb = (hex) => {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255, 149, 0';
-    };
-    const rgbColor = hexToRgb(rarityColor);
-
-    // Рисуем премиум-карточку
-    container.innerHTML = `
-        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 5px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
-            
-            <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: rgba(${rgbColor}, 0.5); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
-
-            <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2;">
-                <img src="${escapeHTML(img)}" style="max-height: 40px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
-            </div>
-
-            <div style="display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 3; margin-top: 4px;">
-                <div style="font-size: 9px; font-weight: 900; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.9);">${escapeHTML(name)}</div>
-                
-                <div style="font-size: 11px; font-weight: 900; color: #ffd700; margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 4px; text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);">
-                    ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 9px; color: #bdecff;"></i>
-                </div>
-                
-                <div style="position: absolute; top: 6px; right: 8px; font-size: 8px; font-weight: 900; color: ${rarityColor}; letter-spacing: 1px; text-transform: uppercase; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;">Аукцион</div>
-            </div>
-        </div>
-    `;
+    // Иначе пытаемся взять из кэша (1в1 как в розыгрышах)
+    try {
+        const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+        renderAuction(cachedBootstrap.auctions || cachedBootstrap.active_auctions || []);
+    } catch(e) {
+        console.warn("Ошибка кэша аукциона");
+    }
 }
-
 
 // ================================================================
 // СОЧНЫЙ МИНИ-СЛАЙДЕР РОЗЫГРЫШЕЙ В ПРАВОЙ КНОПКЕ
@@ -2981,6 +2987,8 @@ async function main() {
             await renderFullInterface(cachedBootstrap);
             initDynamicRaffleSlider(cachedBootstrap.raffles || []); // 🔥 Берем из бутстрапа
             loadCategory(2716312, cachedShop);
+
+            initDynamicAuction(cachedBootstrap.auctions || cachedBootstrap.active_auctions || []);
             
             // Берем P2P из кэшированного бутстрапа, если есть
             if (cachedBootstrap.p2p_trades) checkActiveTradesBackground(cachedBootstrap.p2p_trades);
@@ -3045,13 +3053,8 @@ async function main() {
             // 1. Основной интерфейс
             await renderFullInterface(bootstrapData);
             initDynamicRaffleSlider(bootstrapData.raffles || []);
-
-            // 🔥 РЕНДЕРИМ АУКЦИОН (Если бэк отдает массив аукционов в бутстрапе)
-            if (bootstrapData.auctions) {
-                initDynamicAuction(bootstrapData.auctions);
-            }
-            // ------------------
-            
+            initDynamicAuction(bootstrapData.auctions || bootstrapData.active_auctions || []);
+          
             // 2. Баланс (из бутстрапа)
             if (bootstrapData.user) {
                 renderBalanceUI(bootstrapData.user.balance, bootstrapData.user.tickets);
