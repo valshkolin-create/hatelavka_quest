@@ -69,11 +69,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Глобальные переменные
+   // Глобальные переменные
     let countdownIntervals = {};
     let userData = {};
     let currentAuctions = [];
     let isPageVisible = true;
+    let smartPollTimer = null; // Вынесли таймер наверх для защиты от ошибок
+
+    // DOM-элементы (ТОЛЬКО КЛИЕНТ, НИКАКОЙ АДМИНКИ)
+    const dom = {
+        loader: document.getElementById('loader-overlay') || document.getElementById('loader') || { classList: { add:()=>{}, remove:()=>{} } },
+        auctionsList: document.getElementById('auctions-list'),
+        archiveBtn: document.getElementById('archive-btn'),
+        archiveModal: document.getElementById('archive-modal'),
+        archiveList: document.getElementById('archive-list'),
+        bidModal: document.getElementById('bid-modal'),
+        bidModalTitle: document.getElementById('bid-modal-title'),
+        bidModalForm: document.getElementById('bid-modal-form'),
+        userBalanceDisplay: document.getElementById('user-balance-display'),
+        bidAuctionIdInput: document.getElementById('bid-auction-id-input') || document.getElementById('bid-auction-id'),
+        bidCurrentMinInput: document.getElementById('bid-current-min-input') || document.getElementById('bid-current-min'),
+        bidAmountInput: document.getElementById('bid-amount-input') || document.getElementById('bid-amount'),
+        historyModal: document.getElementById('bids-history-modal') || document.getElementById('history-modal'),
+        historyModalTitle: document.getElementById('bids-history-modal-title') || document.getElementById('history-modal-title'),
+        historyList: document.getElementById('bids-history-list') || document.getElementById('history-list')
+    };
     
     // === ВСТАВИТЬ СЮДА ===
     const RARITY_COLORS = {
@@ -299,11 +319,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTimer();
     }
 
-    // --- Логика рендеринга ---
+   // --- Логика рендеринга ---
 
     function renderPage(auctions) {
         dom.auctionsList.innerHTML = '';
 
+        // Клиентам показываем только незавершенные лоты
         const visibleAuctions = auctions.filter(a => !a.ended_at);
 
         if (!visibleAuctions || visibleAuctions.length === 0) {
@@ -330,14 +351,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isDisabled = isEnded ? 'disabled' : '';
 
-            // === ВСТАВИТЬ ЛОГИКУ ЦВЕТОВ ===
+            // === ЛОГИКА ЦВЕТОВ ===
             const rarityKey = auction.rarity;
             const rarityColor = RARITY_COLORS[rarityKey] || 'var(--text-primary)';
             const titleStyle = rarityKey ? `style="color: ${rarityColor}; text-shadow: 0 0 10px ${rarityColor}40;"` : '';
             
             const wearKey = auction.wear;
             const wearText = WEAR_NAMES[wearKey] || '';
-            // ==============================
+            // =====================
             
             let leaderOrWinnerHtml = '';
             let displayName = 'Нет ставок';
@@ -350,14 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     displayName = auction.bidder.twitch_login;
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
                 } else {
-                    // 🔥 БЫЛО: displayName = auction.bidder.full_name || 'ㅤ';
-                    // 🔥 СТАЛО:
                     displayName = cleanName(auction.bidder.full_name); 
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
-                // 🔥 БЫЛО: displayName = auction.current_highest_bidder_name;
-                // 🔥 СТАЛО:
                 displayName = cleanName(auction.current_highest_bidder_name);
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
@@ -789,19 +806,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- УМНОЕ ОБНОВЛЕНИЕ (Smart Polling) ---
-
-    // Заменяем старый autoRefreshInterval на новый умный таймер
-    let smartPollTimer = null;
+   // --- УМНОЕ ОБНОВЛЕНИЕ (Smart Polling) ---
 
     // 🔥 НОВАЯ ФУНКЦИЯ: Фоновое обновление лотов "на лету"
     async function updateAuctionsBackground() {
         try {
+            // Тихо запрашиваем публичные данные (false = без спиннера)
             const newData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
             
+            if (!newData) return;
+
             // 2. Жесткая проверка: если изменилось количество лотов (появился новый или удален) - рендерим с нуля
             if (!currentAuctions || newData.length !== currentAuctions.length) {
-                renderPage(newData || []);
+                renderPage(newData);
                 return;
             }
 
@@ -812,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Если статус завершения изменился (лот кончился) - перерисовываем полностью, чтобы скрыть таймер
                 if (!oldAuction.ended_at && newAuction.ended_at) {
-                    renderPage(newData || []);
+                    renderPage(newData);
                     return;
                 }
 
@@ -989,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             userData = await makeApiRequest('/api/v1/user/me', {}, 'POST', false);
             
+            // Запрашиваем только публичный список
             const auctionsData = await makeApiRequest('/api/v1/auctions/list', {}, 'POST', false);
             
             renderPage(auctionsData || []);
