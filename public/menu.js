@@ -1080,19 +1080,21 @@ function initDynamicAuction(preloadedData = null) {
                         </div>
                     </div>
 
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin-top: 7px;">
-                        <img src="${escapeHTML(img)}" style="max-height: 65px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; margin-top: 10px;">
+                        <img src="${escapeHTML(img)}" style="max-height: 62px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); animation: floatSkin 4s ease-in-out infinite;">
                     </div>
 
-                    <div style="z-index: 3; width: 100%; display: flex; justify-content: center; padding-bottom: 2px;">
+                    <div style="z-index: 3; width: 100%; display: flex; justify-content: center; padding-bottom: 8px;">
                         <div class="mini-raffle-cta" style="font-weight: 900; font-size: 9px; color: #000; background: #ffd700; border-radius: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 18px; width: 95%; box-sizing: border-box; position: relative; overflow: hidden;">
                             
-                            <div class="anim-state-bid">
-                                Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #000;"></i>
-                            </div>
+                            <div class="auction-button-wrapper">
+                                <div class="anim-state-bid">
+                                    Ставка: ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 7px; color: #000;"></i>
+                                </div>
 
-                            <div class="anim-state-action">
-                                Сделать ставку
+                                <div class="anim-state-action">
+                                    Сделать ставку
+                                </div>
                             </div>
 
                         </div>
@@ -1110,7 +1112,6 @@ function initDynamicAuction(preloadedData = null) {
         }
     };
 
-    // Рендер
     if (preloadedData) {
         renderAuction(preloadedData);
         return;
@@ -1118,7 +1119,7 @@ function initDynamicAuction(preloadedData = null) {
     try {
         const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
         renderAuction(cachedBootstrap.auctions || cachedBootstrap.active_auctions || []);
-    } catch(e) { console.warn("Ошибка кэша аукциона"); }
+    } catch(e) { console.warn("Ошибка кэша"); }
 }
 
 // ================================================================
