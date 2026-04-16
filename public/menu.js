@@ -1068,18 +1068,28 @@ function initDynamicAuction(preloadedData = null) {
             const rgbColor = hexToRgb(rarityColor);
 
             container.innerHTML = `
-                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 5px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
-                    <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: rgba(${rgbColor}, 0.5); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
-                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2;">
-                        <img src="${escapeHTML(img)}" style="max-height: 40px; max-width: 90%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
+                <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 6px; background: linear-gradient(135deg, rgba(${rgbColor}, 0.15) 0%, #1c1c1e 80%); border: 1px solid rgba(${rgbColor}, 0.3); position: relative; overflow: hidden; box-sizing: border-box; border-radius: 18px;">
+                    
+                    <div style="position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); width: 85px; height: 85px; background: rgba(${rgbColor}, 0.3); filter: blur(25px); border-radius: 50%; z-index: 0; pointer-events: none;"></div>
+
+                    <div style="z-index: 3; width: 100%; min-height: 22px; display: flex; align-items: center; justify-content: center;">
+                        <div style="font-size: 9px; font-weight: 800; color: #fff; text-align: center; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">
+                            ${escapeHTML(name)}
+                        </div>
                     </div>
-                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 3; margin-top: 4px;">
-                        <div style="font-size: 9px; font-weight: 900; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 90%; text-shadow: 0 2px 4px rgba(0,0,0,0.9);">${escapeHTML(name)}</div>
-                        <div style="font-size: 11px; font-weight: 900; color: #ffd700; margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 4px; text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);">
+
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; position: relative; z-index: 2; padding: 4px 0;">
+                        <img src="${escapeHTML(img)}" style="max-height: 60px; max-width: 95%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)); animation: floatSkin 4s ease-in-out infinite;">
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 3;">
+                        <div style="font-size: 7px; color: #8e8e93; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px;">Ставка:</div>
+                        <div style="font-size: 11px; font-weight: 900; color: #ffd700; display: flex; align-items: center; justify-content: center; gap: 3px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);">
                             ${currentBid} <i class="fa-solid fa-ticket" style="font-size: 9px; color: #bdecff;"></i>
                         </div>
-                        <div style="position: absolute; top: 6px; right: 8px; font-size: 8px; font-weight: 900; color: ${rarityColor}; letter-spacing: 1px; text-transform: uppercase; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;">Аукцион</div>
                     </div>
+                    
+                    <div style="position: absolute; top: 0; right: 0; background: ${rarityColor}20; color: ${rarityColor}; font-size: 6px; font-weight: 900; padding: 2px 5px; border-bottom-left-radius: 8px; border-left: 1px solid ${rarityColor}40; border-bottom: 1px solid ${rarityColor}40; letter-spacing: 0.5px; text-transform: uppercase;">Лот</div>
                 </div>
             `;
         } else {
