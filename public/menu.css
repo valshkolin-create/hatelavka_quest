@@ -1015,8 +1015,8 @@ body.desktop-mode .toggle-container {
     position: absolute;
     width: 100%;
     text-align: center;
-    transition: all 0.5s ease-in-out;
     white-space: nowrap;
+    /* transition: all 0.5s ease-in-out; <-- УДАЛЕНО, чтобы не конфликтовать с @keyframes */
 }
 
 /* Анимация первого текста (Ставка) */
@@ -1029,12 +1029,17 @@ body.desktop-mode .toggle-container {
     animation: auctionSlide2 6s infinite;
 }
 
+/* --- ИСПРАВЛЕННЫЕ КЛЮЧЕВЫЕ КАДРЫ --- */
+
 @keyframes auctionSlide1 {
-    0%, 45% { opacity: 1; transform: translateY(0); } /* Виден */
-    50%, 95% { opacity: 0; transform: translateY(-20px); } /* Улетает вверх */
+    0%, 40%   { opacity: 1; transform: translateY(0); }      /* Виден и стоит в центре */
+    45%, 85%  { opacity: 0; transform: translateY(-20px); }  /* Улетел вверх и исчез */
+    85.1%, 90%{ opacity: 0; transform: translateY(20px); }   /* Мгновенный прыжок вниз (пока невидимый) */
+    95%, 100% { opacity: 1; transform: translateY(0); }      /* Влетел снизу в центр */
 }
 
 @keyframes auctionSlide2 {
-    0%, 45% { opacity: 0; transform: translateY(20px); } /* Ждет внизу */
-    50%, 95% { opacity: 1; transform: translateY(0); } /* Влетает в центр */
+    0%, 40%   { opacity: 0; transform: translateY(20px); }   /* Ждет внизу (невидимый) */
+    45%, 90%  { opacity: 1; transform: translateY(0); }      /* Влетел в центр и стоит */
+    95%, 100% { opacity: 0; transform: translateY(-20px); }  /* Улетел вверх и исчез */
 }
