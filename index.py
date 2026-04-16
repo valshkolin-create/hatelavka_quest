@@ -7263,7 +7263,7 @@ async def admin_finish_auction(
 ):
     """
     (Админ) Принудительно завершает аукцион, ВЫДАЕТ СКИН В ИНВЕНТАРЬ, 
-    ПИШЕТ ПОСТ В КАНАЛ, замораживает кнопку и отправляет уведомления.
+    ПИШЕТ ПОСТ В КАНАЛ (если не тихий), замораживает кнопку и отправляет уведомления.
     """
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
@@ -7384,8 +7384,8 @@ async def admin_finish_auction(
                     f"Ставка: {winning_bid}"
                 )
 
-            # 🔥 ПУБЛИКУЕМ ПОСТ В КАНАЛ 🔥
-            if channel_id:
+            # 🔥 ПУБЛИКУЕМ ПОСТ В КАНАЛ 🔥 (ТОЛЬКО ЕСЛИ НЕ ТИХИЙ)
+            if channel_id and not auc_data.get('is_silent'):
                 try:
                     text_final = (
                         f"🛑 <b>АУКЦИОН ЗАВЕРШЕН!</b>\n\n"
@@ -7419,7 +7419,8 @@ async def admin_finish_auction(
         
         # === ЕСЛИ СТАВОК НЕ БЫЛО ===
         else:
-            if channel_id:
+            # 🔥 ПУБЛИКУЕМ ПОСТ ОТМЕНЫ В КАНАЛ 🔥 (ТОЛЬКО ЕСЛИ НЕ ТИХИЙ)
+            if channel_id and not auc_data.get('is_silent'):
                 try:
                     txt = f"🛑 Аукцион на <b>{auc_data.get('title')}</b> завершен.\n\nК сожалению, ставок не было 😔"
                     await bot.send_message(chat_id=channel_id, text=txt, reply_to_message_id=reply_to_id, parse_mode="HTML")
