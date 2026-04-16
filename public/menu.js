@@ -1090,8 +1090,7 @@ function initDynamicAuction(preloadedData = null) {
                             <div class="auction-anim-text" style="display: flex; align-items: center; gap: 4px;">
                                 <span id="auction-state-text"></span>
                             </div>
-
-                            <i class="fa-solid fa-arrow-right" style="font-size: 7px; opacity: 0.8;"></i>
+ 
                         </div>
                     </div>
                 </div>
