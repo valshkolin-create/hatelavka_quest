@@ -20148,6 +20148,24 @@ async def cron_check_auctions(
     try:
         now_utc = datetime.now(timezone.utc).isoformat()
         
+        # --- НАЧАЛО НОВОГО БЛОКА: ПЛАН "Б" ДЛЯ ПРОПУЩЕННЫХ СТАРТОВ ---
+        # Проверяем, есть ли аукционы, которые должны были начаться, но QStash не сработал
+        res_start = await supabase.get("/auctions", params={
+            "is_active": "eq.false",
+            "ended_at": "is.null",
+            "start_time": f"lte.{now_utc}",
+            "select": "id"
+        })
+        
+        if res_start.status_code == 200 and res_start.json():
+            missed_auctions = res_start.json()
+            for ma in missed_auctions:
+                # Искусственно вызываем наш же вебхук публикации
+                pub_req = AuctionPublishRequest(auction_id=ma['id'], secret=req.secret)
+                await publish_auction_webhook(pub_req, supabase)
+                print(f"🔄 Крон экстренно запустил пропущенный аукцион {ma['id']}")
+        # --- КОНЕЦ НОВОГО БЛОКА ---
+
         res = await supabase.get("/auctions", params={
             "is_active": "eq.true",
             "ended_at": "is.null", # 🔥 Игнорируем тех, кто уже завершен
@@ -20179,7 +20197,6 @@ async def cron_check_auctions(
         error_trace = traceback.format_exc()
         print(f"🔴 CRON AUCTIONS Ошибка:\n{error_trace}")
         return {"status": "error", "detail": repr(e)}
-
 
 @app.post("/api/v1/admin/auctions/publish_manual")
 async def admin_publish_manual(
@@ -21762,6 +21779,12 @@ async def withdraw_inventory_item(
         target_price_base = 0.0
         target_price_rub = 0.0
         
+    # 🔥 ИСПРАВЛЕНИЕ: Даем Кладовщику безлимитный бюджет на аукционы
+    # Так как в БД они лежат с price_rub = 0.0 (куплены за билеты),
+    # разрешаем боту выкупить этот предмет по текущей рыночной цене.
+    if item_source == 'auction' and target_price_rub == 0.0:
+        target_price_rub = 99999.0
+
     item_condition = item_data.get('condition')
     market_hash_name = history_record.get('replaced_name') or item_data.get('market_hash_name')
 
