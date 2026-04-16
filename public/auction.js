@@ -94,91 +94,51 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     // =====================
 
-    // Переменные для автообновления
-    let autoRefreshInterval = null;
-    let isPageVisible = true;
-
-    // 🛡 УСИЛЕННАЯ ЗАЩИТА ОТ ФОНОВЫХ ЗАПРОСОВ (Telegram-specific)
+   // 🛡 УЛЬТИМАТИВНАЯ ЗАЩИТА: AFK-Таймер (Детектор бездействия)
     
+    let idleTimer = null;
+    const IDLE_TIMEOUT = 30000; // 30 секунд без движений = сон (можешь изменить)
+
     function pauseApp() {
+        if (!isPageVisible) return; // Уже спим
         isPageVisible = false;
         if (smartPollTimer) clearTimeout(smartPollTimer);
+        console.log("💤 Аппка уснула (AFK)"); // Можешь удалить console.log потом
     }
 
     function resumeApp() {
-        // Если уже активно, не запускаем дубли
-        if (isPageVisible) return; 
-        
+        if (isPageVisible) return; // Уже работаем
         isPageVisible = true;
         if (typeof updateAuctionsBackground === 'function') {
              updateAuctionsBackground(); 
         }
         startAutoRefresh();
+        console.log("☀️ Аппка проснулась!");
     }
 
-    // 1. Стандартная проверка видимости (для ПК и обычных браузеров)
+    function resetIdleTimer() {
+        // Если спали — просыпаемся от любого движения
+        if (!isPageVisible) resumeApp();
+        
+        // Сбрасываем таймер засыпания
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(pauseApp, IDLE_TIMEOUT);
+    }
+
+    // Отслеживаем любую активность пользователя (мышь, тапы, скролл, клавиатура)
+    const activeEvents = ['mousemove', 'touchstart', 'scroll', 'keydown', 'click'];
+    activeEvents.forEach(event => {
+        document.addEventListener(event, resetIdleTimer, { passive: true });
+    });
+
+    // Запускаем AFK-таймер при загрузке
+    resetIdleTimer();
+
+    // Оставляем стандартную защиту от полного сворачивания (для мобилок)
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) pauseApp();
-        else resumeApp();
+        else resetIdleTimer();
     });
-
-    // 2. Проверка потери фокуса (Специально для мобильного Telegram)
-    window.addEventListener('blur', pauseApp);
-    window.addEventListener('focus', resumeApp);
-    
-    // DOM-элементы
-    const dom = {
-        loader: document.getElementById('loader-overlay'),
-        auctionsList: document.getElementById('auctions-list'),
-        
-        bidModal: document.getElementById('bid-modal'),
-        bidModalTitle: document.getElementById('bid-modal-title'),
-        bidModalForm: document.getElementById('bid-modal-form'),
-        userBalanceDisplay: document.getElementById('user-balance-display'),
-        bidAuctionIdInput: document.getElementById('bid-auction-id-input'),
-        bidCurrentMinInput: document.getElementById('bid-current-min-input'),
-        bidAmountInput: document.getElementById('bid-amount-input'),
-        
-        historyModal: document.getElementById('bids-history-modal'),
-        historyModalTitle: document.getElementById('bids-history-modal-title'),
-        historyList: document.getElementById('bids-history-list'),
-
-        archiveBtn: document.getElementById('archive-btn'),
-        archiveModal: document.getElementById('archive-modal'),
-        archiveList: document.getElementById('archive-list'),
-    };
-
-    // --- Вспомогательные функции ---
-    // --- 📳 ВИБРАЦИЯ (HAPTIC FEEDBACK) 📳 ---
-    document.body.addEventListener('click', (e) => {
-        // Селекторы для всех кликабельных элементов аукциона
-        const selector = `
-            button, 
-            a, 
-            .footer-item, 
-            .header-back-button, 
-            .archive-toggle-btn, 
-            .modal-close-btn,
-            .bid-btn,
-            .action-btn
-        `;
-        
-        const target = e.target.closest(selector);
-        
-        if (target) {
-            // Проверяем, не отключена ли кнопка (чтобы не вибрировать на disabled)
-            if (target.tagName === 'BUTTON' && target.disabled) return;
-
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
-                try {
-                    window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-                } catch (err) {
-                    console.warn("Haptic error:", err);
-                }
-            }
-        }
-    });
-    // --- 👆 КОНЕЦ БЛОКА 👆 ---
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
