@@ -998,22 +998,4 @@ body.desktop-mode .toggle-container {
     transform: translateY(0); 
 }
 
-/* Анимация переключения текста в аукционе */
-@keyframes auctionContentSwitcher {
-    0%, 45% { opacity: 1; content: "СТАВКА"; }
-    50%, 95% { opacity: 1; content: "СДЕЛАТЬ СТАВКУ"; }
-    47%, 97% { opacity: 0; } /* Плавное исчезновение в момент смены */
-}
-
-.auction-anim-text {
-    animation: auctionPulseText 6s infinite;
-}
-
-@keyframes auctionPulseText {
-    0%, 45% { transform: translateY(0); opacity: 1; }
-    48% { transform: translateY(-5px); opacity: 0; }
-    50% { transform: translateY(5px); opacity: 0; }
-    53%, 95% { transform: translateY(0); opacity: 1; }
-    98% { transform: translateY(-5px); opacity: 0; }
-    100% { transform: translateY(5px); opacity: 0; }
 }
