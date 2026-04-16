@@ -1010,36 +1010,43 @@ body.desktop-mode .toggle-container {
     justify-content: center;
 }
 
-/* Общие стили для обоих состояний */
+/* Строго позиционируем, убираем любые transition! */
 .anim-state-bid, .anim-state-action {
     position: absolute;
     width: 100%;
     text-align: center;
     white-space: nowrap;
-    /* transition: all 0.5s ease-in-out; <-- УДАЛЕНО, чтобы не конфликтовать с @keyframes */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px; /* Аккуратный отступ между текстом и иконкой */
 }
 
-/* Анимация первого текста (Ставка) */
+/* Запускаем циклы по 6 секунд */
 .anim-state-bid {
-    animation: auctionSlide1 6s infinite;
+    animation: slideBid 6s infinite;
 }
 
-/* Анимация второго текста (Кнопка) */
 .anim-state-action {
-    animation: auctionSlide2 6s infinite;
+    animation: slideAction 6s infinite;
 }
 
-/* --- ИСПРАВЛЕННЫЕ КЛЮЧЕВЫЕ КАДРЫ --- */
+/* Схема идеальной анимации:
+  0-40%   -> Текст стоит в центре
+  45-85%  -> Текст улетает наверх и пропадает
+  90-95%  -> Текст невидимым прыгает вниз
+  100%    -> Текст влетает снизу в центр
+*/
 
-@keyframes auctionSlide1 {
-    0%, 40%   { opacity: 1; transform: translateY(0); }      /* Виден и стоит в центре */
-    45%, 85%  { opacity: 0; transform: translateY(-20px); }  /* Улетел вверх и исчез */
-    85.1%, 90%{ opacity: 0; transform: translateY(20px); }   /* Мгновенный прыжок вниз (пока невидимый) */
-    95%, 100% { opacity: 1; transform: translateY(0); }      /* Влетел снизу в центр */
+@keyframes slideBid {
+    0%, 40%   { opacity: 1; transform: translateY(0); visibility: visible; }
+    45%, 85%  { opacity: 0; transform: translateY(-100%); visibility: hidden; }
+    90%, 95%  { opacity: 0; transform: translateY(100%); visibility: hidden; }
+    100%      { opacity: 1; transform: translateY(0); visibility: visible; }
 }
 
-@keyframes auctionSlide2 {
-    0%, 40%   { opacity: 0; transform: translateY(20px); }   /* Ждет внизу (невидимый) */
-    45%, 90%  { opacity: 1; transform: translateY(0); }      /* Влетел в центр и стоит */
-    95%, 100% { opacity: 0; transform: translateY(-20px); }  /* Улетел вверх и исчез */
+@keyframes slideAction {
+    0%, 40%   { opacity: 0; transform: translateY(100%); visibility: hidden; }
+    45%, 85%  { opacity: 1; transform: translateY(0); visibility: visible; }
+    90%, 100% { opacity: 0; transform: translateY(-100%); visibility: hidden; }
 }
