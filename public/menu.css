@@ -999,3 +999,29 @@ body.desktop-mode .toggle-container {
 }
 
 }
+
+/* Анимация для первого состояния (Ставка) */
+.anim-state-bid {
+    animation: auctionSlide1 6s infinite;
+    position: absolute;
+    width: 100%;
+    left: 0;
+}
+
+/* Анимация для второго состояния (Кнопка) */
+.anim-state-action {
+    animation: auctionSlide2 6s infinite;
+    position: absolute;
+    width: 100%;
+    left: 0;
+}
+
+@keyframes auctionSlide1 {
+    0%, 45% { opacity: 1; transform: translateY(0); }
+    50%, 95% { opacity: 0; transform: translateY(-15px); }
+}
+
+@keyframes auctionSlide2 {
+    0%, 45% { opacity: 0; transform: translateY(15px); }
+    50%, 95% { opacity: 1; transform: translateY(0); }
+}
