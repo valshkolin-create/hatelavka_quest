@@ -1617,7 +1617,7 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
     let trustMultiplier = 2; // Дефолт (Серый)
     if (score < 30) trustMultiplier = 3; // Красный
-    else if (score >= 80) trustMultiplier = 1; // Зеленый
+    else if (score >= 70) trustMultiplier = 1; // Зеленый
 
     // Итоговая цена для показа пользователю
     const displayPrice = price * trustMultiplier;
