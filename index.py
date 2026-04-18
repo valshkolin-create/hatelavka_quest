@@ -21851,19 +21851,40 @@ async def withdraw_inventory_item(
     
     item_name = history_record.get('replaced_name') or item_data.get('name', 'Неизвестный предмет')
     
+    # ==========================================
+    # 💰 ПОЛУЧЕНИЕ ЦЕНЫ И ЗАЩИТА ОТ НУЛЕВОГО БЮДЖЕТА (ФИКС ДЛЯ RAFFLE)
+    # ==========================================
     try:
-        if history_record.get('replaced_price'):
+        if history_record.get('replaced_price') is not None:
             target_price_base = float(history_record.get('replaced_price'))
             target_price_rub = float(history_record.get('replaced_price'))
         else:
-            target_price_base = float(item_data.get('price', 0)) 
-            target_price_rub = float(item_data.get('price_rub', 0)) 
-    except:
+            target_price_base = float(item_data.get('price') or 0.0)
+            target_price_rub = float(item_data.get('price_rub') or 0.0)
+    except Exception as e:
+        logging.error(f"[PRICE ERROR] Ошибка парсинга цены для {req.history_id}: {e}")
         target_price_base = 0.0
         target_price_rub = 0.0
-        
+
     item_condition = item_data.get('condition')
     market_hash_name = history_record.get('replaced_name') or item_data.get('market_hash_name')
+
+    # 🔥 СПАСАТЕЛЬНЫЙ КРУГ: Если в БД цена 0 (розыгрыш), тянем её из кэша
+    if target_price_rub <= 0.0 and market_hash_name:
+        logging.info(f"[WITHDRAW] Бюджет 0.0 руб. Тянем актуальную цену из кэша для '{market_hash_name}'...")
+        try:
+            cache_res = await supabase.get("/steam_inventory_cache", params={
+                "market_hash_name": f"eq.{market_hash_name}",
+                "select": "price_rub, price",
+                "limit": 1
+            })
+            cache_data = cache_res.json()
+            if cache_data and len(cache_data) > 0 and cache_data[0].get('price_rub'):
+                target_price_rub = float(cache_data[0]['price_rub'])
+                target_price_base = float(cache_data[0].get('price', target_price_rub))
+                logging.info(f"[WITHDRAW] ✅ Цена успешно подтянута из кэша: {target_price_rub} руб.")
+        except Exception as e:
+            logging.error(f"[WITHDRAW] Ошибка при запросе кэша: {e}")
 
     has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
     now_iso = datetime.now(timezone.utc).isoformat()
