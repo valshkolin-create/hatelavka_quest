@@ -19600,18 +19600,31 @@ async def finalize_raffle_webhook(
 
     raffle_id = req.raffle_id
     
-    # 2. Получаем данные розыгрыша
-    raffle_resp = await supabase.get("/raffles", params={"id": f"eq.{raffle_id}"})
-    raffle_data = raffle_resp.json()
+    # ==========================================
+    # 2. АТОМАРНАЯ БЛОКИРОВКА (Optimistic Locking)
+    # ==========================================
+    # Мы просим БД: "Обнови статус на processing, ТОЛЬКО ЕСЛИ он сейчас active, и верни мне данные".
+    # Если второй запрос прилетит в это же время, статус уже не будет active, 
+    # БД ничего не обновит и вернет пустой список.
     
-    if not raffle_data: 
-        return {"status": "not found"}
+    lock_resp = await supabase.patch(
+        "/raffles", 
+        params={
+            "id": f"eq.{raffle_id}", 
+            "status": "eq.active"  # <- КРИТИЧЕСКИ ВАЖНОЕ УСЛОВИЕ
+        },
+        json={"status": "processing"},
+        headers={"Prefer": "return=representation"} # Просим БД вернуть обновленную строку
+    )
     
+    # Если статус код не 20x или вернулся пустой массив, значит розыгрыш 
+    # уже обрабатывается другим потоком или завершен. Просто выходим!
+    if lock_resp.status_code not in (200, 204) or not lock_resp.json():
+        print(f"⚠️ Розыгрыш {raffle_id} не найден, уже завершен или находится в обработке.")
+        return {"status": "already_processing_or_completed"}
+    
+    raffle_data = lock_resp.json()
     raffle = raffle_data[0]
-
-    # Если уже завершен - выходим
-    if raffle['status'] == 'completed': 
-        return {"status": "already_completed"}
 
     # 3. ПОЛУЧАЕМ УЧАСТНИКОВ И НАСТРОЙКИ
     parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
@@ -19905,7 +19918,7 @@ async def cron_check_raffles(
         now_utc = datetime.now(timezone.utc).isoformat()
         
         # ==========================================
-        # БЛОК 1: РОЗЫГРЫШИ
+        # БЛОК 1: РОЗЫГРЫШИ (Диспетчер)
         # ==========================================
         res_raffles = await supabase.get("/raffles", params={
             "status": "eq.active",
@@ -19920,10 +19933,19 @@ async def cron_check_raffles(
                 print(f"🤖 CRON: Найдено {len(ripe_raffles)} розыгрышей для завершения!")
                 for r in ripe_raffles:
                     raffle_id = r['id']
-                    print(f"🤖 CRON: Завершаю розыгрыш {raffle_id}...")
+                    print(f"🤖 CRON: Отправляю розыгрыш {raffle_id} в обработчик...")
+                    
                     fin_req = FinalizeRequest(raffle_id=raffle_id, secret=req.secret)
-                    await finalize_raffle_webhook(fin_req, supabase)
-                    processed_raffles += 1
+                    
+                    # Ждем ответа от нашего обновленного безопасного вебхука
+                    result = await finalize_raffle_webhook(fin_req, supabase)
+                    
+                    # Проверяем, не перехватил ли этот розыгрыш другой параллельный процесс
+                    status = result.get("status")
+                    if status in ["already_processing_or_completed", "already_completed"]:
+                        print(f"⏩ Пропуск: Розыгрыш {raffle_id} уже обрабатывается другим потоком.")
+                    else:
+                        processed_raffles += 1
         else:
             print(f"⚠️ CRON DB Error (Raffles): {res_raffles.text}")
 
@@ -19944,7 +19966,8 @@ async def cron_check_raffles(
                 print(f"🤖 CRON: Найдено {len(ripe_auctions)} аукционов для завершения!")
                 for a in ripe_auctions:
                     auction_id = a['id']
-                    print(f"🤖 CRON: Завершаю аукцион {auction_id}...")
+                    print(f"🤖 CRON: Отправляю аукцион {auction_id} в обработчик...")
+                    
                     # Передаем запрос в вебхук аукционов
                     fin_req_auc = AuctionFinalizeRequest(auction_id=auction_id, secret=req.secret)
                     await finalize_auction_webhook(fin_req_auc, supabase)
@@ -20322,28 +20345,40 @@ async def finalize_auction_webhook(
     if req.secret != get_cron_secret():
         raise HTTPException(status_code=403, detail="Bad secret")
 
-    # Получаем данные
-    auc_resp = await supabase.get("/auctions", params={"id": f"eq.{req.auction_id}"})
-    if not auc_resp.json(): 
-        return {"status": "not found"}
+    now_utc = datetime.now(timezone.utc).isoformat()
+
+    # ==========================================
+    # 1. АТОМАРНАЯ БЛОКИРОВКА (Optimistic Locking)
+    # ==========================================
+    # Сразу выключаем аукцион (is_active: False) и ставим время завершения.
+    # Если второй крон попытается зайти сюда, условие "is_active": "eq.true" не сработает.
+    lock_resp = await supabase.patch(
+        "/auctions", 
+        params={
+            "id": f"eq.{req.auction_id}", 
+            "is_active": "eq.true"  # <- КРИТИЧЕСКИ ВАЖНОЕ УСЛОВИЕ
+        },
+        json={
+            "is_active": False,
+            "ended_at": now_utc
+        },
+        headers={"Prefer": "return=representation"}
+    )
     
-    auction = auc_resp.json()[0]
-    if auction.get('ended_at') or not auction.get('is_active'): 
+    # Если БД ничего не обновила, значит аукцион уже закрыт другим потоком
+    if lock_resp.status_code not in (200, 204) or not lock_resp.json():
+        print(f"⚠️ Аукцион {req.auction_id} не найден или уже обрабатывается/завершен.")
         return {"status": "already_completed_or_inactive"}
+    
+    # Забираем актуальные данные из ответа базы
+    auction = lock_resp.json()[0]
 
     winner_id = auction.get('current_highest_bidder_id')
     channel_id = auction.get('post_channel_id') or os.getenv("TG_QUEST_CHANNEL_ID")
     reply_to_id = auction.get('post_message_id')
     
-    now_utc = datetime.now(timezone.utc).isoformat()
-
     # --- СЛУЧАЙ 1: СТАВОК НЕ БЫЛО ---
     if not winner_id:
-        await supabase.patch("/auctions", params={"id": f"eq.{req.auction_id}"}, json={
-            "ended_at": now_utc,
-            "is_active": False
-        })
-
         # 🔥 СБРОС КЭША (Аукцион отменен)
         AUCTION_CACHE["checksum"] = None
         AUCTION_CACHE["users"].clear()
@@ -20430,12 +20465,6 @@ async def finalize_auction_webhook(
         )
     except Exception as e:
         print(f"⚠️ Не удалось отправить in-app уведомление: {e}")
-
-    # ОБНОВЛЯЕМ БД
-    await supabase.patch("/auctions", params={"id": f"eq.{req.auction_id}"}, json={
-        "ended_at": now_utc,
-        "is_active": False
-    })
 
     # 🔥 СБРОС КЭША (Аукцион завершен успешно)
     AUCTION_CACHE["checksum"] = None
