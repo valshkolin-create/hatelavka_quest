@@ -3410,7 +3410,7 @@ function checkMatrixEvent(matrixData) {
     if (!['android', 'android_x', 'ios'].includes(tgPlatform)) {
         // Если это не мобилка, жестко перебиваем стили
         overlay.querySelector('#matrix-close-btn').style.setProperty('top', '10px', 'important');
-        overlay.querySelector('.mx-text-wrapper').style.setProperty('margin-top', '-50px', 'important');
+        overlay.querySelector('.mx-text-wrapper').style.setProperty('margin-top', '10px', 'important');
     }
     // --- КОНЕЦ ВСТАВКИ ---
 
