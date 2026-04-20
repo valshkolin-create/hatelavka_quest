@@ -3248,41 +3248,42 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    // Максимальный Z-index для полного перекрытия экрана
-    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden; box-sizing: border-box;";
+    // Твой оригинальный стиль (z-index: 2147483646 - на 1 меньше максимума, чтобы оставить место для алерта)
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
+    // Твой ИДЕАЛЬНЫЙ HTML (заменил только onclick на id для кнопок)
     overlay.innerHTML = `
-        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 0px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
-            <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 0px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-xmark"></i>
         </button>
 
-        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 20px; text-align: center; z-index: 5; margin-top: 20px;">
-            <h3 style="color: #FFD700; font-size: 20px; margin: 0 0 12px 0; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; text-shadow: 0 2px 10px rgba(0,0,0,0.8);">Дружище, удели внимание!</h3>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 30px; text-align: center; z-index: 5;">
+            <h3 style="color: #FFD700; font-size: 20px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Дружище, удели внимание!</h3>
             
-            <p style="font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 10px 0; opacity: 0.95; text-shadow: 0 2px 8px rgba(0,0,0,0.8); font-weight: 500;">
+            <p style="font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 10px 0; opacity: 0.9;">
                 То, что ты видишь — это старания одного человека, который делает всё для своей аудитории. Он ценит её и прислушивается.
             </p>
             
-            <p style="font-size: 12px; color: #ddd; line-height: 1.4; margin: 0 0 20px 0; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,0.8);">
-                Выбери свой путь. Помоги улучшить проект, в котором ты важен либо просто забери то, зачем пришел
+            <p style="font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 20px 0; font-weight: 600;">
+                Выбери свой путь. Помоги улучшить проект, в котором ты важен.
             </p>
             
-            <div style="font-size: 15px; color: #FFD700; font-weight: 900; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.8);">Что выберешь?</div>
+            <div style="font-size: 15px; color: #FFD700; font-weight: 900; text-transform: uppercase;">Что выберешь?</div>
         </div>
 
-        <div style="position: relative; width: 100%; height: 340px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 30px;">
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 80px; background: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%); z-index: 2;"></div>
+        <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0;">
+            <img src="https://i.ibb.co/Lzk8tsby/MATRIX.png" style="width: 100%; height: 80%; object-fit: contain; object-position: center bottom; transform: scale(1.0); z-index: 1;">
             
-            <img src="https://i.ibb.co/GvR1NCVL/MATRIX.png" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; opacity: 0.95; z-index: 1; mask-image: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);">
-            
-            <div style="position: relative; width: 100%; display: flex; justify-content: center; gap: 15px; padding: 0 20px; box-sizing: border-box; z-index: 10;">
+            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10;">
                 
-                <button id="btn-path-red" style="flex: 1; background: linear-gradient(135deg, rgba(255,59,48,0.95) 0%, rgba(200,30,20,0.95) 100%); border: 1px solid rgba(255, 59, 48, 1); padding: 14px 5px; border-radius: 16px; cursor: pointer; box-shadow: 0 8px 25px rgba(255, 59, 48, 0.4), inset 0 2px 4px rgba(255,255,255,0.4); display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
-                    <span style="font-size: 13px; font-weight: 900; color: #000; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
+                <button id="btn-path-red" style="flex: 1; background: rgba(255, 59, 48, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(255, 59, 48, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.2;">Красный Траст<br>+ Кейс Лентяй</span>
                 </button>
 
-                <button id="btn-path-blue" style="flex: 1; background: linear-gradient(135deg, rgba(42,171,238,0.95) 0%, rgba(0,100,200,0.95) 100%); border: 1px solid rgba(42, 171, 238, 1); padding: 14px 5px; border-radius: 16px; cursor: pointer; box-shadow: 0 8px 25px rgba(42, 171, 238, 0.4), inset 0 2px 4px rgba(255,255,255,0.4); display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
-                    <span style="font-size: 13px; font-weight: 900; color: #000; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
+                <button id="btn-path-blue" style="flex: 1; background: rgba(0, 122, 255, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(0, 122, 255, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.2;">Кейс NUT-NUT<br>+ 10 🎟️</span>
                 </button>
 
             </div>
@@ -3299,7 +3300,7 @@ function checkMatrixEvent(matrixData) {
     };
 
     // ==========================================
-    // ЛОГИКА ДИАЛОГОВЫХ ОКОН (Через твой showShopModal)
+    // ЛОГИКА ДИАЛОГОВЫХ ОКОН
     // ==========================================
 
     overlay.querySelector('#btn-path-red').onclick = () => {
@@ -3314,6 +3315,10 @@ function checkMatrixEvent(matrixData) {
                 submitMatrixChoice('red');
             }
         });
+        
+        // ФИКС: Вытаскиваем диалог поверх Морфеуса
+        const confirmModal = document.querySelector('.custom-confirm-overlay');
+        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 
     overlay.querySelector('#btn-path-blue').onclick = () => {
@@ -3328,6 +3333,10 @@ function checkMatrixEvent(matrixData) {
                 submitMatrixChoice('blue');
             }
         });
+        
+        // ФИКС: Вытаскиваем диалог поверх Морфеуса
+        const confirmModal = document.querySelector('.custom-confirm-overlay');
+        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 }
 // Отправка выбора на бэкенд
