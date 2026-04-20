@@ -3348,6 +3348,9 @@ window.submitMatrixChoice = async function(pill) {
 
     try {
         await makeApiRequest('/api/v1/matrix/choose', { choice: pill }, 'POST');
+
+        // 🔥 ДОБАВЬ ЭТУ СТРОКУ ТУТ
+        sessionStorage.setItem('matrix_dismissed', 'true');
         
         if (pill === 'red') {
             customAlert("Ты выбрал путь ленивца. Траст снижен, кейс выдан.");
