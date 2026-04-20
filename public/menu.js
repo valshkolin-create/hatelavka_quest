@@ -3334,10 +3334,10 @@ function checkMatrixEvent(matrixData) {
             @media (min-width: 768px) {
                 .mx-title { font-size: 16px !important; }
                 .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 450px; margin-left: auto; margin-right: auto; }
-                .mx-text-wrapper { margin-top: -100px; } 
+                .mx-text-wrapper { margin-top: -140px; } 
                 
                 /* КРЕСТИК НА КОМПЬЮТЕРЕ (Приподнят) */
-                #matrix-close-btn { top: 20px !important; right: 20px !important; } 
+                #matrix-close-btn { top: 10px !important; right: 20px !important; } 
             }
 
             @keyframes floatMatrix {
@@ -3387,7 +3387,7 @@ function checkMatrixEvent(matrixData) {
             <div class="mx-btn-container">
                 <button id="btn-path-red" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(100,0,0,0.8) 100%); border-color: rgba(255, 59, 48, 0.3); color: #fff;">
                     <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
-                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.6); line-height: 1.1;">Красный Траст<br>+ Кейс Лентяй</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Быстрое получение скина<br>+ Кейс Лентяй</span>
                 </button>
 
                 <button id="btn-path-blue" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,70,180,0.8) 100%); border-color: rgba(0, 122, 255, 0.6); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.2);">
@@ -3453,7 +3453,7 @@ function checkMatrixEvent(matrixData) {
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою преданность проекту.\n\nНапиши 50 сообщений в TG и 200 на Twitch.\n\nНаграда: Кейс NUT-NUT + 10 🎟️.\n\nПринимаешь вызов?',
+            subtitle: 'Тебе предстоит доказать заинтересованность к проекту.\n\nНапиши 50 сообщений в TG и 200 на Twitch.\n\nНаграда: Кейс NUT-NUT + 10 🎟️.\n\nПринимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
