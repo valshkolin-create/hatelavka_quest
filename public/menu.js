@@ -3241,10 +3241,13 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    // Твой оригинальный стиль (z-index: 2147483646 - на 1 меньше максимума, чтобы оставить место для алерта)
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
     overlay.innerHTML = `
+        <style>
+            .custom-confirm-overlay { z-index: 2147483647 !important; }
+        </style>
+
         <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 20px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center;">
             <i class="fa-solid fa-xmark"></i>
         </button>
@@ -3307,10 +3310,6 @@ function checkMatrixEvent(matrixData) {
                 submitMatrixChoice('red');
             }
         });
-        
-        // Вытаскиваем диалог поверх Морфеуса
-        const confirmModal = document.querySelector('.custom-confirm-overlay');
-        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 
     overlay.querySelector('#btn-path-blue').onclick = () => {
@@ -3325,13 +3324,8 @@ function checkMatrixEvent(matrixData) {
                 submitMatrixChoice('blue');
             }
         });
-        
-        // Вытаскиваем диалог поверх Морфеуса
-        const confirmModal = document.querySelector('.custom-confirm-overlay');
-        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
-
-} // <--- ЕДИНСТВЕННАЯ ЗАКРЫВАЮЩАЯ СКОБКА ФУНКЦИИ ДОЛЖНА БЫТЬ ТОЛЬКО ЗДЕСЬ!
+}
 
 
 // ================================================================
