@@ -3325,6 +3325,7 @@ function checkMatrixEvent(matrixData) {
                 margin-top: calc(env(safe-area-inset-top, 20px) + 60px);
             }
             
+            /* КРЕСТИК НА МОБИЛКЕ */
             #matrix-close-btn {
                 position: absolute; right: 15px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;
                 top: calc(env(safe-area-inset-top, 20px) + 50px);
@@ -3333,8 +3334,10 @@ function checkMatrixEvent(matrixData) {
             @media (min-width: 768px) {
                 .mx-title { font-size: 16px !important; }
                 .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 450px; margin-left: auto; margin-right: auto; }
-                .mx-text-wrapper { margin-top: -80px; } /* Ещё выше на десктопе */
-                #matrix-close-btn { top: 10px; right: 15px; } /* Крест в самый верх */
+                .mx-text-wrapper { margin-top: -100px; } 
+                
+                /* КРЕСТИК НА КОМПЬЮТЕРЕ (Приподнят) */
+                #matrix-close-btn { top: 20px !important; right: 20px !important; } 
             }
 
             @keyframes floatMatrix {
@@ -3355,12 +3358,6 @@ function checkMatrixEvent(matrixData) {
 
             .mx-btn-container {
                 position: absolute; bottom: 160px; left: 0; width: 100%; display: flex; justify-content: center; gap: 15px; padding: 0 20px; box-sizing: border-box; z-index: 20;
-            }
-
-            /* Затемняющая подложка за кнопками */
-            .mx-button-shadow {
-                position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%); width: 100%; height: 120px; 
-                background: radial-gradient(circle, rgba(0,0,0,0.8) 0%, transparent 80%); z-index: 15; pointer-events: none;
             }
 
             .mx-btn {
@@ -3386,16 +3383,14 @@ function checkMatrixEvent(matrixData) {
             <div id="morpheus-wrapper">
                 <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
             </div>
-            
-            <div class="mx-button-shadow"></div>
 
             <div class="mx-btn-container">
-                <button id="btn-path-red" class="mx-btn" style="background: rgba(40, 0, 0, 0.8); border-color: rgba(255, 59, 48, 0.3); color: #efeff4;">
+                <button id="btn-path-red" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(100,0,0,0.8) 100%); border-color: rgba(255, 59, 48, 0.3); color: #fff;">
                     <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
                     <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.6); line-height: 1.1;">Красный Траст<br>+ Кейс Лентяй</span>
                 </button>
 
-                <button id="btn-path-blue" class="mx-btn" style="background: rgba(0, 80, 180, 0.6); border-color: rgba(0, 122, 255, 0.6); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.3);">
+                <button id="btn-path-blue" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,70,180,0.8) 100%); border-color: rgba(0, 122, 255, 0.6); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.2);">
                     <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
                     <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Кейс NUT-NUT<br>+ 10 🎟️</span>
                 </button>
@@ -3442,7 +3437,7 @@ function checkMatrixEvent(matrixData) {
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
         showShopModal({
             title: '<span style="color: #ff3b30; font-weight: 900;">ПУТЬ ЛЕНИВЦА</span>',
-            subtitle: 'Выбрав этот путь, твой траст упадет, а цены в магазине вырастут в <b>3 раза</b>.<br><br>Но ты сразу получишь <b>Кейс Лентяй</b>.<br><br>Уверен в своем выборе?',
+            subtitle: 'Выбрав этот путь, твой траст упадет, а цены в магазине вырастут в 3 раза.\n\nНо ты сразу получишь Кейс Лентяй.\n\nУверен в своем выборе?',
             confirmText: 'ДА, Я УВЕРЕН',
             confirmClass: 'btn-buy', 
             showCancel: true,
@@ -3458,7 +3453,7 @@ function checkMatrixEvent(matrixData) {
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span style="color:#0088cc; font-weight:800;">50 сообщений в TG</span> и <span style="color:#9146FF; font-weight:800;">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
+            subtitle: 'Тебе предстоит доказать свою преданность проекту.\n\nНапиши 50 сообщений в TG и 200 на Twitch.\n\nНаграда: Кейс NUT-NUT + 10 🎟️.\n\nПринимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
