@@ -3320,10 +3320,24 @@ function checkMatrixEvent(matrixData) {
             .mx-p2 { font-size: 11px; color: #fff; line-height: 1.45; margin: 0 0 15px 0; font-weight: 600; }
             .mx-q { font-size: 14px; color: #FFD700; font-weight: 900; text-transform: uppercase; margin-bottom: -15px; position: relative; }
             
+            /* Управление позиционированием (Разделение Телефон / ПК) */
+            .mx-text-wrapper {
+                flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 25px; text-align: center; z-index: 5; pointer-events: none;
+                margin-top: calc(env(safe-area-inset-top, 20px) + 60px); /* Текст на мобилке чуть ниже из-за крестика */
+            }
+            
+            #matrix-close-btn {
+                position: absolute; right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;
+                top: calc(env(safe-area-inset-top, 20px) + 50px); /* Крестик опущен на телефоне */
+            }
+
             @media (min-width: 768px) {
                 .mx-title { font-size: 15px !important; margin: 0 0 8px 0 !important; }
                 .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 420px; margin-left: auto; margin-right: auto; }
                 .mx-q { font-size: 12px !important; }
+                
+                .mx-text-wrapper { margin-top: 10px; } /* На ПК поднимаем текст высоко */
+                #matrix-close-btn { top: 20px; } /* На ПК возвращаем крестик в самый верх */
             }
 
             /* Базовое "Дыхание" Морфеуса для случаев, когда гироскоп заблокирован (iOS) */
@@ -3341,15 +3355,15 @@ function checkMatrixEvent(matrixData) {
             #morpheus-img {
                 width: 100%; height: 85%; object-fit: contain; object-position: center bottom; 
                 transform: scale(1.05) translate(0px, 0px); 
-                will-change: transform; /* Подсказка браузеру для аппаратного ускорения */
+                will-change: transform; 
             }
         </style>
 
-        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 20px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+        <button id="matrix-close-btn">
             <i class="fa-solid fa-xmark"></i>
         </button>
 
-        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 25px; text-align: center; z-index: 5; margin-top: calc(env(safe-area-inset-top, 20px) + 40px); pointer-events: none;">
+        <div class="mx-text-wrapper">
             <h3 class="mx-title">Дружище, удели внимание!</h3>
             
             <p class="mx-p1">То, что ты видишь — это старания одного человека, который делает всё для своей аудитории. Он ценит её и прислушивается.</p>
@@ -3367,16 +3381,16 @@ function checkMatrixEvent(matrixData) {
                 <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
             </div>
             
-            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 20;">
+            <div style="position: absolute; bottom: 90px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 20;">
                 
-                <button id="btn-path-red" style="flex: 1; background: rgba(255, 59, 48, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(255, 59, 48, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: transform 0.1s;">
-                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
-                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.2;">Красный Траст<br>+ Кейс Лентяй</span>
+                <button id="btn-path-red" style="flex: 1; background: rgba(90, 20, 20, 0.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(120, 30, 30, 0.4); color: #aaa; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); transition: transform 0.1s;">
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999;">Путь Ленивца</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.4); line-height: 1.2;">Красный Траст<br>+ Кейс Лентяй</span>
                 </button>
 
                 <button id="btn-path-blue" style="flex: 1; background: rgba(0, 122, 255, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(0, 122, 255, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: transform 0.1s;">
                     <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
-                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.2;">Кейс NUT-NUT<br>+ 10 🎟️</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.2;">Кейс NUT-NUT<br>+ 10 🎟️</span>
                 </button>
 
             </div>
@@ -3401,14 +3415,12 @@ function checkMatrixEvent(matrixData) {
     let currentX = 0, currentY = 0;
     let isAnimating = true;
 
-    // Плавный цикл анимации (Lerp - Linear Interpolation)
     function animateParallax() {
         if (!document.getElementById('matrix-event-modal')) {
             isAnimating = false;
             return;
         }
         
-        // Смягчение движения (чем меньше цифра 0.08, тем плавнее)
         currentX += (targetX - currentX) * 0.08;
         currentY += (targetY - currentY) * 0.08;
 
@@ -3418,13 +3430,11 @@ function checkMatrixEvent(matrixData) {
     }
     animateParallax();
 
-    // 1. Для ПК (собираем координаты мыши, но не двигаем сразу)
     overlay.addEventListener('mousemove', (e) => {
         targetX = (e.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
         targetY = (e.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
     });
 
-    // 2. Для мобильных (Гироскоп - наклон)
     if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', (e) => {
             if (e.gamma !== null && e.beta !== null) {
@@ -3464,7 +3474,7 @@ function checkMatrixEvent(matrixData) {
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою заинтересованность к проекту.<br><br>Напиши <span style="color:#0088cc; font-weight:800;">50 сообщений в TG</span> и <span style="color:#9146FF; font-weight:800;">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
+            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span style="color:#0088cc; font-weight:800;">50 сообщений в TG</span> и <span style="color:#9146FF; font-weight:800;">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
