@@ -3308,7 +3308,7 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.88); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
     overlay.innerHTML = `
         <style>
@@ -3326,15 +3326,15 @@ function checkMatrixEvent(matrixData) {
             }
             
             #matrix-close-btn {
-                position: absolute; right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;
+                position: absolute; right: 15px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;
                 top: calc(env(safe-area-inset-top, 20px) + 50px);
             }
 
             @media (min-width: 768px) {
                 .mx-title { font-size: 16px !important; }
                 .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 450px; margin-left: auto; margin-right: auto; }
-                .mx-text-wrapper { margin-top: -40px; } /* Задираем текст выше на ПК */
-                #matrix-close-btn { top: 15px; right: 15px; } /* Крест в самый угол */
+                .mx-text-wrapper { margin-top: -80px; } /* Ещё выше на десктопе */
+                #matrix-close-btn { top: 10px; right: 15px; } /* Крест в самый верх */
             }
 
             @keyframes floatMatrix {
@@ -3353,8 +3353,18 @@ function checkMatrixEvent(matrixData) {
                 transform: scale(1.05); will-change: transform; 
             }
 
+            .mx-btn-container {
+                position: absolute; bottom: 160px; left: 0; width: 100%; display: flex; justify-content: center; gap: 15px; padding: 0 20px; box-sizing: border-box; z-index: 20;
+            }
+
+            /* Затемняющая подложка за кнопками */
+            .mx-button-shadow {
+                position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%); width: 100%; height: 120px; 
+                background: radial-gradient(circle, rgba(0,0,0,0.8) 0%, transparent 80%); z-index: 15; pointer-events: none;
+            }
+
             .mx-btn {
-                flex: 1; max-width: 140px; padding: 12px 5px; border-radius: 16px; cursor: pointer; 
+                flex: 1; max-width: 135px; padding: 12px 5px; border-radius: 16px; cursor: pointer; 
                 display: flex; flex-direction: column; align-items: center; gap: 4px; 
                 transition: transform 0.1s, background 0.2s; border: 0.5px solid;
             }
@@ -3377,18 +3387,18 @@ function checkMatrixEvent(matrixData) {
                 <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
             </div>
             
-            <div style="position: absolute; bottom: 120px; left: 0; width: 100%; display: flex; justify-content: center; gap: 15px; padding: 0 20px; box-sizing: border-box; z-index: 20;">
-                
-                <button id="btn-path-red" class="mx-btn" style="background: rgba(60, 0, 0, 0.6); border-color: rgba(255, 59, 48, 0.3); color: #efeff4;">
+            <div class="mx-button-shadow"></div>
+
+            <div class="mx-btn-container">
+                <button id="btn-path-red" class="mx-btn" style="background: rgba(40, 0, 0, 0.8); border-color: rgba(255, 59, 48, 0.3); color: #efeff4;">
                     <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
                     <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.6); line-height: 1.1;">Красный Траст<br>+ Кейс Лентяй</span>
                 </button>
 
-                <button id="btn-path-blue" class="mx-btn" style="background: rgba(0, 122, 255, 0.3); border-color: rgba(0, 122, 255, 0.5); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.2);">
+                <button id="btn-path-blue" class="mx-btn" style="background: rgba(0, 80, 180, 0.6); border-color: rgba(0, 122, 255, 0.6); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.3);">
                     <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
                     <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Кейс NUT-NUT<br>+ 10 🎟️</span>
                 </button>
-
             </div>
         </div>
     `;
@@ -3403,16 +3413,10 @@ function checkMatrixEvent(matrixData) {
     };
 
     const img = overlay.querySelector('#morpheus-img');
-    const moveFactor = 15; 
-    let targetX = 0, targetY = 0;
-    let currentX = 0, currentY = 0;
-    let isAnimating = true;
+    let targetX = 0, targetY = 0, currentX = 0, currentY = 0, isAnimating = true;
 
     function animateParallax() {
-        if (!document.getElementById('matrix-event-modal')) {
-            isAnimating = false;
-            return;
-        }
+        if (!document.getElementById('matrix-event-modal')) { isAnimating = false; return; }
         currentX += (targetX - currentX) * 0.08;
         currentY += (targetY - currentY) * 0.08;
         img.style.transform = `scale(1.05) translate(${currentX}px, ${currentY}px)`;
@@ -3421,15 +3425,15 @@ function checkMatrixEvent(matrixData) {
     animateParallax();
 
     overlay.addEventListener('mousemove', (e) => {
-        targetX = (e.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
-        targetY = (e.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
+        targetX = (e.clientX / window.innerWidth - 0.5) * 30;
+        targetY = (e.clientY / window.innerHeight - 0.5) * 30;
     });
 
     if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', (e) => {
             if (e.gamma !== null && e.beta !== null) {
-                targetX = (Math.min(Math.max(e.gamma, -45), 45) / 45) * moveFactor * 2;
-                targetY = (Math.min(Math.max(e.beta - 45, -45), 45) / 45) * moveFactor * 2;
+                targetX = (Math.min(Math.max(e.gamma, -45), 45) / 45) * 30;
+                targetY = (Math.min(Math.max(e.beta - 45, -45), 45) / 45) * 30;
             }
         });
     }
