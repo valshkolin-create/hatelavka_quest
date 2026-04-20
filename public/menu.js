@@ -3332,24 +3332,18 @@ function checkMatrixEvent(matrixData) {
             }
 
             /* --- НАСТРОЙКИ ДЛЯ ПК ВЕРСИИ --- */
-            @media (min-width: 768px) {
-                .mx-title { font-size: 20px !important; margin-bottom: 16px; }
-                .mx-p1, .mx-p-dim, .mx-p2 { font-size: 13px !important; max-width: 550px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+            @media (min-width: 600px) { /* Снизили ширину с 768px до 600px для боковых панелей TG */
+                .mx-title { font-size: 16px !important; }
+                .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 450px; margin-left: auto; margin-right: auto; }
                 
-                /* Центрируем текст нормально, убрали отрицательный margin */
-                .mx-text-wrapper { 
-                    margin-top: 0 !important; 
-                    padding-top: 40px; /* Небольшой отступ от верха экрана */
-                    justify-content: center;
-                } 
+                /* ПРИПОДНИМАЕМ ТЕКСТ НА ПК */
+                .mx-text-wrapper { margin-top: -150px !important; } 
                 
-                /* КРЕСТИК НА КОМПЬЮТЕРЕ (Увеличен и расположен в самом углу, подальше от текста) */
-                #matrix-close-btn { 
-                    top: 5px !important; 
-                    right: 40px !important; 
-                    width: 44px; 
-                    height: 44px; 
-                    font-size: 18px; 
+                /* ЖЕЛЕЗОБЕТОННО ПРИПОДНИМАЕМ КРЕСТИК НА ПК */
+                div#matrix-event-modal button#matrix-close-btn { 
+                    top: 10px !important; 
+                    right: 20px !important; 
+                    margin: 0 !important;
                 } 
             }
 
