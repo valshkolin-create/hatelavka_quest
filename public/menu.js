@@ -3276,7 +3276,7 @@ function checkMatrixEvent(matrixData) {
             
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 80px; background: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%); z-index: 2;"></div>
             
-            <img src="https://i.postimg.cc/tRL4MJ1y/MATRIX.png" referrerpolicy="no-referrer" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; opacity: 0.95; z-index: 1; mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%); -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%);">
+            <img src="https://i.ibb.co/HfWT54vt/MATRIX.png" referrerpolicy="no-referrer" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; opacity: 0.95; z-index: 1; mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%); -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%);">
 
             <div style="position: relative; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 15px; box-sizing: border-box; z-index: 10;">
                 
