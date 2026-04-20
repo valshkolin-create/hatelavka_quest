@@ -3662,7 +3662,7 @@ window.executeSwap = async () => {
 // ================================================================
 window.openTrustModal = () => {
     // Получаем баллы пользователя (если нет - ставим дефолт 30)
-    const score = userData.trust_score ? parseFloat(userData.trust_score) : 30.0;
+    const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
     const percent = Math.max(0, Math.min(100, score)); 
     
     // Статусы
