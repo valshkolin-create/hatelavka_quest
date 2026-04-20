@@ -3316,7 +3316,7 @@ function checkMatrixEvent(matrixData) {
     overlay.querySelector('#btn-path-blue').onclick = () => {
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою вовлеченность в проекте.<br><br>Напиши <b>50 сообщений</b> в ТГ и <b>200 сообщений</b> на Twitch.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
+            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <b>50 сообщений</b> в Telegram и <b>200 сообщений</b> на Twitch.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
@@ -3330,66 +3330,8 @@ function checkMatrixEvent(matrixData) {
         const confirmModal = document.querySelector('.custom-confirm-overlay');
         if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
-}
-    // ==========================================
-    // ЛОГИКА ДИАЛОГОВЫХ ОКОН
-    // ==========================================
 
-    overlay.querySelector('#btn-path-red').onclick = () => {
-        showShopModal({
-            title: '<span style="color: #ff3b30; font-weight: 900;">ПУТЬ ЛЕНИВЦА</span>',
-            subtitle: 'Выбрав этот путь, твой траст упадет, а цены в магазине вырастут в <b>3 раза</b>.<br><br>Но ты сразу получишь <b>Кейс Лентяй</b>.<br><br>Уверен в своем выборе?',
-            confirmText: 'ДА, Я УВЕРЕН',
-            confirmClass: 'btn-buy', 
-            showCancel: true,
-            onConfirm: (close) => {
-                close();
-                submitMatrixChoice('red');
-            }
-        });
-        
-        // ФИКС: Вытаскиваем диалог поверх Морфеуса
-        const confirmModal = document.querySelector('.custom-confirm-overlay');
-        if (confirmModal) confirmModal.style.zIndex = '2147483647';
-    };
-
-// Отправка выбора на бэкенд
-window.submitMatrixChoice = async function(pill) {
-    const modal = document.getElementById('matrix-event-modal');
-    if (modal) {
-        modal.style.opacity = '0';
-        setTimeout(() => modal.remove(), 400);
-    }
-    
-    const loader = document.getElementById('purchase-loader');
-    if (loader) {
-        loader.querySelector('.loader-text').innerText = "Выбор сделан..."; 
-        loader.classList.add('active'); 
-    }
-
-    try {
-        await makeApiRequest('/api/v1/matrix/choose', { choice: pill }, 'POST');
-
-        // 🔥 ДОБАВЬ ЭТУ СТРОКУ ТУТ
-        sessionStorage.setItem('matrix_dismissed', 'true');
-        
-        if (pill === 'red') {
-            customAlert("Ты выбрал путь ленивца. Траст снижен, кейс выдан.");
-        } else {
-            customAlert("Отличный выбор! Твое испытание началось.");
-        }
-        
-        // Железобетонно обновляем страницу, чтобы подтянулись новые данные (купоны, тресты, счетчики)
-        setTimeout(() => {
-            window.location.reload();
-        }, 2000);
-        
-    } catch (e) {
-        sessionStorage.removeItem('matrix_dismissed');
-    } finally {
-        if (loader) loader.classList.remove('active'); 
-    }
-};
+} // <--- ЕДИНСТВЕННАЯ ЗАКРЫВАЮЩАЯ СКОБКА ФУНКЦИИ ДОЛЖНА БЫТЬ ТОЛЬКО ЗДЕСЬ!
 
 
 // ================================================================
