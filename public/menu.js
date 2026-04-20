@@ -3353,24 +3353,6 @@ function checkMatrixEvent(matrixData) {
         if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 
-    overlay.querySelector('#btn-path-blue').onclick = () => {
-        showShopModal({
-            title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <b>50 сообщений</b> в Telegram и <b>200 сообщений</b> на Twitch.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
-            confirmText: 'ПРИНЯТЬ',
-            confirmClass: 'btn-buy',
-            showCancel: true,
-            onConfirm: (close) => {
-                close();
-                submitMatrixChoice('blue');
-            }
-        });
-        
-        // ФИКС: Вытаскиваем диалог поверх Морфеуса
-        const confirmModal = document.querySelector('.custom-confirm-overlay');
-        if (confirmModal) confirmModal.style.zIndex = '2147483647';
-    };
-}
 // Отправка выбора на бэкенд
 window.submitMatrixChoice = async function(pill) {
     const modal = document.getElementById('matrix-event-modal');
