@@ -3204,29 +3204,33 @@ function renderMatrixTracker(matrixData, userData) {
     // Если нет данных, или выбрал красную, или уже выполнил - прячем
     if (!matrixData || matrixData.selected_pill !== 'blue' || matrixData.is_completed) {
         container.innerHTML = '';
+        container.style.display = 'none'; // Убираем пустой блок, чтобы не ломал отступы
         return;
     }
 
-    // БЕРЕМ ГОТОВЫЕ ЦИФРЫ ПРЯМО ИЗ БАЗЫ
+    container.style.display = 'block'; // Показываем блок
+
     const tgDone = matrixData.tg_msg_current || 0;
     const twitchDone = matrixData.twitch_msg_current || 0;
     
     const twitchAlert = userData.twitch_id ? '' : '<div style="color:#ff3b30; font-size:10px; text-align: right; margin-top: 4px; padding-right: 16px;"><i class="fa-solid fa-triangle-exclamation"></i> Привяжи Twitch!</div>';
 
+    // Черный фон (rgba(0,0,0,0.6)), без обводки (border: none), желтые элементы (#FFD700)
+    // margin: 15px 16px; — задает РОВНО одинаковый отступ сверху и снизу
     container.innerHTML = `
-        <div style="margin: 10px 16px 0; padding: 12px 16px; background: rgba(0, 136, 204, 0.08); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);">
+        <div style="margin: 15px 16px; padding: 12px 16px; background: rgba(0, 0, 0, 0.6); border: none; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);">
             <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase;">
-                <i class="fa-solid fa-bolt" style="color: #2AABEE; margin-right: 5px;"></i> Испытание
+                <i class="fa-solid fa-bolt" style="color: #FFD700; margin-right: 5px;"></i> Испытание
             </div>
             <div style="display: flex; gap: 15px; align-items: center;">
                 <div style="display: flex; flex-direction: column; align-items: flex-end;">
                     <span style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700;">Telegram</span>
-                    <span style="font-size: 13px; font-weight: 900; color: ${tgDone >= 50 ? '#34c759' : '#fff'};">${tgDone >= 50 ? 50 : tgDone} / 50</span>
+                    <span style="font-size: 13px; font-weight: 900; color: ${tgDone >= 50 ? '#34c759' : '#FFD700'};">${tgDone >= 50 ? 50 : tgDone} / 50</span>
                 </div>
                 <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1);"></div>
                 <div style="display: flex; flex-direction: column; align-items: flex-end;">
                     <span style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700;">Twitch</span>
-                    <span style="font-size: 13px; font-weight: 900; color: ${twitchDone >= 200 ? '#34c759' : '#fff'};">${twitchDone >= 200 ? 200 : twitchDone} / 200</span>
+                    <span style="font-size: 13px; font-weight: 900; color: ${twitchDone >= 200 ? '#34c759' : '#FFD700'};">${twitchDone >= 200 ? 200 : twitchDone} / 200</span>
                 </div>
             </div>
         </div>
