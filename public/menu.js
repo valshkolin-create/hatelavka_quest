@@ -3331,13 +3331,26 @@ function checkMatrixEvent(matrixData) {
                 top: calc(env(safe-area-inset-top, 20px) + 50px);
             }
 
+            /* --- НАСТРОЙКИ ДЛЯ ПК ВЕРСИИ --- */
             @media (min-width: 768px) {
-                .mx-title { font-size: 16px !important; }
-                .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 450px; margin-left: auto; margin-right: auto; }
-                .mx-text-wrapper { margin-top: -140px; } 
+                .mx-title { font-size: 20px !important; margin-bottom: 16px; }
+                .mx-p1, .mx-p-dim, .mx-p2 { font-size: 13px !important; max-width: 550px; margin-left: auto; margin-right: auto; line-height: 1.5; }
                 
-                /* КРЕСТИК НА КОМПЬЮТЕРЕ (Приподнят) */
-                #matrix-close-btn { top: 10px !important; right: 20px !important; } 
+                /* Центрируем текст нормально, убрали отрицательный margin */
+                .mx-text-wrapper { 
+                    margin-top: 0 !important; 
+                    padding-top: 40px; /* Небольшой отступ от верха экрана */
+                    justify-content: center;
+                } 
+                
+                /* КРЕСТИК НА КОМПЬЮТЕРЕ (Увеличен и расположен в самом углу, подальше от текста) */
+                #matrix-close-btn { 
+                    top: 30px !important; 
+                    right: 40px !important; 
+                    width: 44px; 
+                    height: 44px; 
+                    font-size: 18px; 
+                } 
             }
 
             @keyframes floatMatrix {
@@ -3387,7 +3400,7 @@ function checkMatrixEvent(matrixData) {
             <div class="mx-btn-container">
                 <button id="btn-path-red" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(100,0,0,0.8) 100%); border-color: rgba(255, 59, 48, 0.3); color: #fff;">
                     <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
-                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Быстрое получение скина<br>+ Кейс Лентяй</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Быстрое получение скина<br>, но будет понижен траст</span>
                 </button>
 
                 <button id="btn-path-blue" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,70,180,0.8) 100%); border-color: rgba(0, 122, 255, 0.6); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.2);">
