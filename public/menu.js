@@ -3286,11 +3286,11 @@ function checkMatrixEvent(matrixData) {
             <div class="mx-q">Что выберешь?</div>
         </div>
 
-        <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0; pointer-events: none;">
+        <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0;">
             
-            <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
+            <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png" style="pointer-events: none;">
             
-            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10; pointer-events: auto;">
+            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10;">
                 
                 <button id="btn-path-red" style="flex: 1; background: rgba(255, 59, 48, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(255, 59, 48, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
                     <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
@@ -3321,28 +3321,24 @@ function checkMatrixEvent(matrixData) {
     const img = overlay.querySelector('#morpheus-img');
     const moveFactor = 12; // На сколько пикселей максимум двигать картинку
 
-    // Для ПК (движение мыши)
+    // 1. Для ПК (движение мыши)
     overlay.addEventListener('mousemove', (e) => {
         const x = (e.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
         const y = (e.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
         img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
     });
 
-    // Для мобильных (гироскоп)
-    if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', (e) => {
-            // Ограничиваем угол наклона от -45 до 45 градусов
-            let tiltX = Math.min(Math.max(e.gamma || 0, -45), 45); // Влево-вправо
-            let tiltY = Math.min(Math.max((e.beta || 0) - 45, -45), 45); // Вверх-вниз (центр наклона ~45 град)
-            
-            const x = (tiltX / 45) * moveFactor;
-            const y = (tiltY / 45) * moveFactor;
-            img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
-        });
-    }
+    // 2. Для мобильных (Движение пальцем по экрану - 100% работает)
+    overlay.addEventListener('touchmove', (e) => {
+        if (!e.touches.length) return;
+        const touch = e.touches[0];
+        const x = (touch.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
+        const y = (touch.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
+        img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
+    });
 
     // ==========================================
-    // ЛОГИКА ДИАЛОГОВЫХ ОКОН (С фиксом JS-ошибки)
+    // ЛОГИКА ДИАЛОГОВЫХ ОКОН (С ФИКСОМ ОШИБКИ)
     // ==========================================
 
     overlay.querySelector('#btn-path-red').onclick = () => {
@@ -3352,42 +3348,49 @@ function checkMatrixEvent(matrixData) {
             confirmText: 'ДА, Я УВЕРЕН',
             confirmClass: 'btn-buy', 
             showCancel: true,
-            // Убрали close из аргументов, чтобы не крашился код
-            onConfirm: () => {
-                // Закрываем системное окно (если оно само не закрылось)
-                const cm = document.querySelector('.custom-confirm-overlay');
-                if(cm) cm.remove();
+            // ЖЕЛЕЗОБЕТОННЫЙ ВЫЗОВ
+            onConfirm: (closeFunc) => {
+                // Безопасное закрытие окна
+                if (typeof closeFunc === 'function') {
+                    try { closeFunc(); } catch(e) {}
+                } else {
+                    const cm = document.querySelector('.custom-confirm-overlay');
+                    if(cm) cm.remove();
+                }
                 
-                // Вызываем сервер
-                submitMatrixChoice('red');
+                // Вызываем сервер с микро-задержкой, чтобы код не обрывался
+                setTimeout(() => {
+                    if (typeof window.submitMatrixChoice === 'function') window.submitMatrixChoice('red');
+                    else submitMatrixChoice('red');
+                }, 100);
             }
         });
-        
-        const confirmModal = document.querySelector('.custom-confirm-overlay');
-        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 
     overlay.querySelector('#btn-path-blue').onclick = () => {
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            // 🔥 Красивые бейджи Telegram и Twitch
             subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span class="badge-tg">50 сообщений в TG</span> и <span class="badge-tw">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
-            // Убрали close из аргументов, чтобы не крашился код
-            onConfirm: () => {
-                // Закрываем системное окно
-                const cm = document.querySelector('.custom-confirm-overlay');
-                if(cm) cm.remove();
+            // ЖЕЛЕЗОБЕТОННЫЙ ВЫЗОВ
+            onConfirm: (closeFunc) => {
+                // Безопасное закрытие окна
+                if (typeof closeFunc === 'function') {
+                    try { closeFunc(); } catch(e) {}
+                } else {
+                    const cm = document.querySelector('.custom-confirm-overlay');
+                    if(cm) cm.remove();
+                }
                 
-                // Вызываем сервер
-                submitMatrixChoice('blue');
+                // Вызываем сервер с микро-задержкой, чтобы код не обрывался
+                setTimeout(() => {
+                    if (typeof window.submitMatrixChoice === 'function') window.submitMatrixChoice('blue');
+                    else submitMatrixChoice('blue');
+                }, 100);
             }
         });
-        
-        const confirmModal = document.querySelector('.custom-confirm-overlay');
-        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 }
 
