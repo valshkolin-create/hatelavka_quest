@@ -3241,7 +3241,7 @@ function renderMatrixTracker(matrixData, userData) {
     const tgDone = matrixData.tg_msg_current || 0;
     const twitchDone = matrixData.twitch_msg_current || 0;
     
-    const twitchAlert = userData.twitch_id ? '' : '<div style="color:#ff3b30; font-size:10px; text-align: right; margin-top: 4px; padding-right: 16px;"><i class="fa-solid fa-triangle-exclamation"></i> Привяжи Twitch!</div>';
+    const twitchAlert = userData.twitch_id ? '' : '<div style="color:#ff3b30; font-size:10px; text-align: right; margin-top: -15px; padding-right: 16px;"><i class="fa-solid fa-triangle-exclamation"></i> Привяжи Twitch!</div>';
 
     // Проверяем, выполнил ли юзер условия
     const isReadyToClaim = tgDone >= 50 && twitchDone >= 200;
