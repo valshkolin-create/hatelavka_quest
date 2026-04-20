@@ -18752,27 +18752,17 @@ async def choose_matrix_pill(
     if choice not in ['red', 'blue']:
         raise HTTPException(status_code=400, detail="Неверный выбор")
 
-    # 1. ЗАЩИТА от двойного выбора
+    # 1. ЗАЩИТА: Проверяем, не делал ли юзер выбор ранее
     check_res = await supabase.get("/event_matrix_quest", params={"user_id": f"eq.{telegram_id}"})
     if check_res.status_code == 200 and len(check_res.json()) > 0:
         raise HTTPException(status_code=400, detail="Вы уже сделали свой выбор")
 
-    # 2. ПОЛУЧАЕМ ТЕКУЩИЕ СЧЕТЧИКИ ИЗ ТАБЛИЦЫ USERS
-    start_tg = 0
-    start_twitch = 0
-    
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "monthly_message_count, telegram_monthly_message_count"})
-    if user_res.status_code == 200 and len(user_res.json()) > 0:
-        u_data = user_res.json()[0]
-        start_twitch = u_data.get("monthly_message_count", 0)
-        start_tg = u_data.get("telegram_monthly_message_count", 0)
-
-    # 3. СОХРАНЯЕМ ВЫБОР И СТАРТОВУЮ ТОЧКУ
+    # 2. ИНИЦИАЛИЗАЦИЯ: Создаем запись в твоей таблице
     insert_data = {
         "user_id": telegram_id,
         "selected_pill": choice,
-        "start_tg_msg": start_tg,
-        "start_twitch_msg": start_twitch,
+        "tg_msg_current": 0,          # ТВОИ ПРАВИЛЬНЫЕ КОЛОНКИ
+        "twitch_msg_current": 0,      # ТВОИ ПРАВИЛЬНЫЕ КОЛОНКИ
         "is_completed": False
     }
     
@@ -18781,7 +18771,7 @@ async def choose_matrix_pill(
         logging.error(f"Matrix Quest Insert Error: {insert_res.text}")
         raise HTTPException(status_code=500, detail="Ошибка сохранения выбора")
 
-    # 4. РАЗВИЛКА ПУТЕЙ
+    # 3. РАЗВИЛКА ПУТЕЙ
     if choice == 'red':
         # 🔴 ПУТЬ ЛЕНИВЦА: Режем траст (штраф x3 цены)
         await supabase.patch("/users", 
@@ -18807,7 +18797,7 @@ async def choose_matrix_pill(
             "target_case_name": "Кейс | Лентяй",  
             "used_by_ids": [],
             "activated_by_ids": [],
-            "campaign_id": 999 # 🔥 СТАВИМ 999 КАК ТЫ И ПРОСИЛ
+            "campaign_id": 999
         }
         
         coupon_res = await supabase.post("/cs_codes", json=coupon_data) 
@@ -18815,8 +18805,7 @@ async def choose_matrix_pill(
             logging.error(f"Ошибка выдачи авто-купона Матрицы для {telegram_id}: {coupon_res.text}")
 
     elif choice == 'blue':
-        # 🔵 ПУТЬ ИСПЫТАНИЯ
-        # Всё сохранено, делать больше ничего не нужно. 
+        # 🔵 ПУТЬ РАЗВИТИЯ
         pass
 
     return {"success": True, "choice": choice}
