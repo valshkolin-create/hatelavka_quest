@@ -18810,6 +18810,78 @@ async def choose_matrix_pill(
 
     return {"success": True, "choice": choice}
 
+@app.post("/api/v1/matrix/claim")
+async def claim_matrix_reward(
+    user_info: dict = Depends(multi_acc_protection),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    telegram_id = user_info.get("id")
+
+    # 1. ПРОВЕРКА: Ищем активный квест юзера
+    check_res = await supabase.get("/event_matrix_quest", params={"user_id": f"eq.{telegram_id}"})
+    if check_res.status_code != 200 or len(check_res.json()) == 0:
+        raise HTTPException(status_code=400, detail="Квест не найден")
+
+    quest_data = check_res.json()[0]
+
+    # Проверяем, та ли таблетка и не забрал ли он уже награду
+    if quest_data.get("selected_pill") != "blue":
+        raise HTTPException(status_code=400, detail="Вы не выбирали синюю таблетку")
+        
+    if quest_data.get("is_completed"):
+        raise HTTPException(status_code=400, detail="Награда уже получена")
+
+    # Проверяем счетчики сообщений
+    tg_done = quest_data.get("tg_msg_current", 0)
+    twitch_done = quest_data.get("twitch_msg_current", 0)
+
+    if tg_done < 50 or twitch_done < 200:
+        raise HTTPException(status_code=400, detail="Условия квеста еще не выполнены")
+
+    # 2. ЗАКРЫВАЕМ КВЕСТ
+    patch_res = await supabase.patch(
+        "/event_matrix_quest",
+        params={"user_id": f"eq.{telegram_id}"},
+        json={"is_completed": True}
+    )
+    if patch_res.status_code not in [200, 204]:
+        logging.error(f"Matrix Quest Complete Error: {patch_res.text}")
+        raise HTTPException(status_code=500, detail="Ошибка обновления статуса квеста")
+
+    # 3. ВЫДАЕМ НАГРАДУ: БИЛЕТЫ (Узнаем текущие и прибавляем 10)
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "tickets"})
+    if user_res.status_code == 200 and len(user_res.json()) > 0:
+        current_tickets = user_res.json()[0].get("tickets", 0)
+        await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}"},
+            json={"tickets": current_tickets + 10}
+        )
+
+    # 4. ВЫДАЕМ НАГРАДУ: КЕЙС "The Noot-Noot" (Генерируем авто-купон)
+    unique_code = f"MB-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+    
+    coupon_data = {
+        "code": unique_code,
+        "max_uses": 1,
+        "current_uses": 0,
+        "is_active": True,
+        "description": "Авто-код: Матрица (Синяя)",
+        "is_copied": False,
+        "assigned_to": telegram_id,
+        "assigned_at": datetime.now(timezone.utc).isoformat(),
+        "target_case_name": "Кейс | The Noot-Noot",
+        "used_by_ids": [],
+        "activated_by_ids": [telegram_id], # Добавляем в активированные, чтобы фронт увидел его как бесплатный
+        "campaign_id": 999
+    }
+    
+    coupon_res = await supabase.post("/cs_codes", json=coupon_data) 
+    if coupon_res.status_code not in [200, 201]:
+        logging.error(f"Ошибка выдачи авто-купона Матрицы (Синяя) для {telegram_id}: {coupon_res.text}")
+
+    return {"success": True, "message": "Награда успешно получена!"}
+
 # ==========================================
 # 📸 UPLOAD SYSTEM (ЗАГРУЗКА ФОТО)
 # ==========================================
