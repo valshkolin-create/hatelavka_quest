@@ -3246,6 +3246,26 @@ function renderMatrixTracker(matrixData, userData) {
     // Проверяем, выполнил ли юзер условия
     const isReadyToClaim = tgDone >= 50 && twitchDone >= 200;
 
+    // Считаем общий процент выполнения (от 0 до 1)
+    const tgPercent = Math.min(tgDone / 50, 1);
+    const twitchPercent = Math.min(twitchDone / 200, 1);
+    const totalProgress = (tgPercent + twitchPercent) / 2;
+
+    // ДИНАМИЧЕСКИЙ ЗАГОЛОВОК (Тематика: Доверие)
+    let questTitle = "ПРОВЕРКА ДОВЕРИЕМ";
+    let questIcon = '<i class="fa-solid fa-shield-halved" style="color: #2AABEE; margin-right: 5px;"></i>';
+
+    if (isReadyToClaim) {
+        questTitle = "ДОВЕРИЕ ОПРАВДАНО";
+        questIcon = '<i class="fa-solid fa-check-double" style="color: #34c759; margin-right: 5px;"></i>';
+    } else if (totalProgress >= 0.8) {
+        questTitle = "АБСОЛЮТНАЯ ВЕРНОСТЬ";
+        questIcon = '<i class="fa-solid fa-bolt" style="color: #FFD700; margin-right: 5px;"></i>';
+    } else if (totalProgress >= 0.5) {
+        questTitle = "ДОВЕРИЕ РАСТЕТ";
+        questIcon = '<i class="fa-solid fa-fire" style="color: #ff9500; margin-right: 5px;"></i>';
+    }
+
     let rightSideHtml = '';
 
     if (isReadyToClaim) {
@@ -3273,7 +3293,7 @@ function renderMatrixTracker(matrixData, userData) {
     container.innerHTML = `
         <div style="margin: 10px 16px 5px 16px; padding: 12px 0; background: transparent; border: none; display: flex; justify-content: space-between; align-items: center;">
             <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
-                <i class="fa-solid fa-bolt" style="color: #FFD700; margin-right: 5px;"></i> Испытание
+                ${questIcon} ${questTitle}
             </div>
             ${rightSideHtml}
         </div>
@@ -3288,68 +3308,73 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
     overlay.innerHTML = `
         <style>
             .custom-confirm-overlay { z-index: 2147483647 !important; }
             
-            .mx-title { color: #FFD700; font-size: 20px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
-            .mx-p1 { font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 10px 0; opacity: 0.9; }
-            .mx-p2 { font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 20px 0; font-weight: 600; }
-            .mx-q { font-size: 15px; color: #FFD700; font-weight: 900; text-transform: uppercase; }
+            .mx-title { color: #FFD700; font-size: 18px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 10px rgba(255, 215, 0, 0.3); }
+            .mx-p1 { font-size: 11px; color: #fff; line-height: 1.45; margin: 0 0 10px 0; opacity: 0.95; }
+            .mx-p-dim { font-size: 11px; color: #bbb; line-height: 1.45; margin: 0 0 10px 0; }
+            .mx-p2 { font-size: 11px; color: #fff; line-height: 1.45; margin: 0 0 15px 0; font-weight: 600; }
+            .mx-q { font-size: 14px; color: #FFD700; font-weight: 900; text-transform: uppercase; margin-bottom: -15px; position: relative; }
             
             @media (min-width: 768px) {
-                .mx-title { font-size: 16px !important; margin: 0 0 8px 0 !important; }
-                .mx-p1 { font-size: 11px !important; margin: 0 0 8px 0 !important; max-width: 400px; margin-left: auto; margin-right: auto; }
-                .mx-p2 { font-size: 11px !important; margin: 0 0 15px 0 !important; max-width: 400px; margin-left: auto; margin-right: auto; }
-                .mx-q { font-size: 13px !important; }
+                .mx-title { font-size: 15px !important; margin: 0 0 8px 0 !important; }
+                .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 420px; margin-left: auto; margin-right: auto; }
+                .mx-q { font-size: 12px !important; }
             }
 
             /* Базовое "Дыхание" Морфеуса для случаев, когда гироскоп заблокирован (iOS) */
             @keyframes floatMatrix {
                 0% { transform: translateY(0px); }
-                50% { transform: translateY(-10px); }
+                50% { transform: translateY(-12px); }
                 100% { transform: translateY(0px); }
             }
 
             #morpheus-wrapper {
-                position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;
+                position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;
                 animation: floatMatrix 6s ease-in-out infinite; 
             }
 
             #morpheus-img {
-                width: 100%; height: 80%; object-fit: contain; object-position: center bottom; 
+                width: 100%; height: 85%; object-fit: contain; object-position: center bottom; 
                 transform: scale(1.05) translate(0px, 0px); 
                 will-change: transform; /* Подсказка браузеру для аппаратного ускорения */
             }
         </style>
 
-        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 20px) + 40px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 20px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
             <i class="fa-solid fa-xmark"></i>
         </button>
 
-        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 30px; text-align: center; z-index: 5; margin-top: calc(env(safe-area-inset-top, 20px) + 60px); pointer-events: none;">
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 25px; text-align: center; z-index: 5; margin-top: calc(env(safe-area-inset-top, 20px) + 40px); pointer-events: none;">
             <h3 class="mx-title">Дружище, удели внимание!</h3>
+            
             <p class="mx-p1">То, что ты видишь — это старания одного человека, который делает всё для своей аудитории. Он ценит её и прислушивается.</p>
-            <p class="mx-p2">Выбери свой путь. Помоги улучшить проект, в котором ты важен.</p>
+            
+            <p class="mx-p-dim">Я честно хочу вас радовать, мне это безумно нравится. Но бывает обидно, когда вложенную душу расценивают лишь как способ по-быстрому что-то «залутать». Если у тебя есть сомнения — уверяю, бот абсолютно безопасен, для вывода нужна только Trade-ссылка.</p>
+            
+            <p class="mx-p2">Поэтому, мой друг, я даю тебе выбор здесь и сейчас.<br>Помоги улучшить проект, в котором ты важен, либо просто забери то, что тебе нужно.</p>
+            
             <div class="mx-q">Что выберешь?</div>
         </div>
 
-        <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0;">
+        <div style="position: relative; width: 100%; height: 400px; flex-shrink: 0;">
             
             <div id="morpheus-wrapper">
                 <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
             </div>
             
-            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10;">
+            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 20;">
                 
-                <button id="btn-path-red" style="flex: 1; background: rgba(255, 59, 48, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(255, 59, 48, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
+                <button id="btn-path-red" style="flex: 1; background: rgba(255, 59, 48, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(255, 59, 48, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: transform 0.1s;">
                     <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
                     <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.2;">Красный Траст<br>+ Кейс Лентяй</span>
                 </button>
 
-                <button id="btn-path-blue" style="flex: 1; background: rgba(0, 122, 255, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(0, 122, 255, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
+                <button id="btn-path-blue" style="flex: 1; background: rgba(0, 122, 255, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(0, 122, 255, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: transform 0.1s;">
                     <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
                     <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.2;">Кейс NUT-NUT<br>+ 10 🎟️</span>
                 </button>
@@ -3403,10 +3428,8 @@ function checkMatrixEvent(matrixData) {
     if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', (e) => {
             if (e.gamma !== null && e.beta !== null) {
-                // e.gamma - влево/вправо (-90 до 90)
-                // e.beta - вперед/назад (-180 до 180)
                 let tiltX = Math.min(Math.max(e.gamma, -45), 45); 
-                let tiltY = Math.min(Math.max(e.beta - 45, -45), 45); // Вычитаем 45 град, так как телефон обычно держат под углом
+                let tiltY = Math.min(Math.max(e.beta - 45, -45), 45); 
                 
                 targetX = (tiltX / 45) * moveFactor * 2;
                 targetY = (tiltY / 45) * moveFactor * 2;
@@ -3418,7 +3441,8 @@ function checkMatrixEvent(matrixData) {
     // ЛОГИКА ДИАЛОГОВЫХ ОКОН 
     // ==========================================
 
-    overlay.querySelector('#btn-path-red').onclick = () => {
+    overlay.querySelector('#btn-path-red').onclick = function() {
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
         showShopModal({
             title: '<span style="color: #ff3b30; font-weight: 900;">ПУТЬ ЛЕНИВЦА</span>',
             subtitle: 'Выбрав этот путь, твой траст упадет, а цены в магазине вырастут в <b>3 раза</b>.<br><br>Но ты сразу получишь <b>Кейс Лентяй</b>.<br><br>Уверен в своем выборе?',
@@ -3436,10 +3460,11 @@ function checkMatrixEvent(matrixData) {
         });
     };
 
-    overlay.querySelector('#btn-path-blue').onclick = () => {
+    overlay.querySelector('#btn-path-blue').onclick = function() {
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span style="color:#0088cc; font-weight:800;">50 сообщений в TG</span> и <span style="color:#9146FF; font-weight:800;">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
+            subtitle: 'Тебе предстоит доказать свою заинтересованность к проекту.<br><br>Напиши <span style="color:#0088cc; font-weight:800;">50 сообщений в TG</span> и <span style="color:#9146FF; font-weight:800;">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
