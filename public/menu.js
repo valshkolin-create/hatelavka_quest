@@ -3271,7 +3271,7 @@ function checkMatrixEvent(matrixData) {
         </div>
 
         <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0;">
-            <img src="https://i.ibb.co/GvR1NCVL/MATRIX.png" style="width: 100%; height: 100%; object-fit: contain; object-position: center bottom; transform: scale(1.2); z-index: 1;">
+            <img src="https://i.ibb.co/Lzk8tsby/MATRIX.png" style="width: 100%; height: 80%; object-fit: contain; object-position: center bottom; transform: scale(1.0); z-index: 1;">
             
             <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10;">
                 
