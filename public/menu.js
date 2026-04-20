@@ -3249,38 +3249,49 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    // Блюр на весь экран, окно прижато к низу (над футером)
-    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 999; display: flex; align-items: flex-end; justify-content: center; backdrop-filter: blur(8px); opacity: 0; transition: opacity 0.4s; padding-bottom: 80px; box-sizing: border-box;";
+    // 🔥 МАКСИМАЛЬНЫЙ Z-INDEX И ПОЛНОЕ ПЕРЕКРЫТИЕ ЭКРАНА 🔥
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(12px); opacity: 0; transition: opacity 0.4s; box-sizing: border-box;";
 
-    // ВАЖНО: Замени URL_ТВОЕЙ_КАРТИНКИ
+    // Вёрстка: текст по центру, картинка и кнопки прижаты к низу
     overlay.innerHTML = `
-        <div style="width: 95%; max-width: 400px; background: #1c1c1e; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.8); position: relative;">
+        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; position: relative;">
             
-            <button id="matrix-close-btn" style="position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.5); border: none; color: #fff; width: 30px; height: 30px; border-radius: 50%; z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+            <button id="matrix-close-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
                 <i class="fa-solid fa-xmark"></i>
             </button>
 
-            <div style="padding: 20px 20px 10px 20px; text-align: center;">
-                <h3 style="color: #FFD700; font-size: 18px; margin: 0 0 10px 0; font-weight: 900; text-transform: uppercase;">Дружище, удели внимание!</h3>
-                <p style="font-size: 11px; color: #aaa; line-height: 1.4; margin: 0 0 10px 0;">
+            <div style="padding: 20px; text-align: center; z-index: 5; margin-bottom: 60px;">
+                <h3 style="color: #FFD700; font-size: 22px; margin: 0 0 15px 0; font-weight: 900; text-transform: uppercase; text-shadow: 0 4px 15px rgba(0,0,0,0.8);">Дружище, удели внимание!</h3>
+                <p style="font-size: 13px; color: #fff; line-height: 1.5; margin: 0 0 15px 0; text-shadow: 0 2px 10px rgba(0,0,0,0.8); font-weight: 500;">
                     То, что ты видишь — это старания и труд одного человека, который максимально безопасно старается для своей аудитории. Он ценит и уважает ее, а самое главное — прислушивается.
                 </p>
-                <p style="font-size: 11px; color: #ddd; line-height: 1.4; margin: 0 0 15px 0; font-weight: 600;">
+                <p style="font-size: 13px; color: #fff; line-height: 1.5; margin: 0 0 25px 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.8);">
                     Сейчас ты можешь выбрать для себя путь, тот который тебе по душе больше. Здесь и сейчас либо своим присутствием помочь и улучшить проект, в котором ты будешь важен.
                 </p>
-                <div style="font-size: 14px; color: #fff; font-weight: 800; margin-bottom: 15px;">Что выберешь?</div>
+                <div style="font-size: 16px; color: #FFD700; font-weight: 900; margin-bottom: 0; text-transform: uppercase; text-shadow: 0 2px 15px rgba(0,0,0,0.8);">Что выберешь?</div>
             </div>
 
-            <div style="position: relative; width: 100%; height: 200px; background: #000;">
-                <img src="https://i.postimg.cc/jjXTqddn/MATRIX.png" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.8;">
+            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 320px; pointer-events: none;">
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 50px; background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%); z-index: 1;"></div>
+                <img src="https://i.postimg.cc/tRL4MJ1y/MATRIX.png" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.9; mask-image: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);">
+            </div>
+
+            <div style="position: absolute; bottom: 40px; left: 0; width: 100%; display: flex; justify-content: center; gap: 15px; padding: 0 15px; box-sizing: border-box; z-index: 5;">
                 
-                <button onclick="submitMatrixChoice('red')" style="position: absolute; bottom: 15px; left: 10px; width: 45%; background: rgba(255, 59, 48, 0.9); border: 1px solid #ff3b30; color: #fff; padding: 10px 5px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 15px rgba(255, 59, 48, 0.6); backdrop-filter: blur(4px);">
-                    Красный Траст<br><span style="font-size: 8px; font-weight: normal; color: #ffd700;">+ Кейс Новичок</span>
+                <button onclick="submitMatrixChoice('red')" style="flex: 1; background: rgba(255, 59, 48, 0.95); border: 1px solid rgba(255, 59, 48, 1); color: #000; padding: 12px 5px; border-radius: 14px; font-size: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 25px rgba(255, 59, 48, 0.5); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    Путь Ленивца
+                    <span style="font-size: 9px; font-weight: 800; color: #222; text-transform: none; line-height: 1.2;">
+                        Красный Траст<br>+ Кейс Лентяй
+                    </span>
                 </button>
 
-                <button onclick="submitMatrixChoice('blue')" style="position: absolute; bottom: 15px; right: 10px; width: 45%; background: rgba(42, 171, 238, 0.9); border: 1px solid #2AABEE; color: #fff; padding: 10px 5px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 15px rgba(42, 171, 238, 0.6); backdrop-filter: blur(4px);">
-                    Испытание<br><span style="font-size: 8px; font-weight: normal; color: #ffd700;">Кейс NUT-NUT + 10 🎟️</span>
+                <button onclick="submitMatrixChoice('blue')" style="flex: 1; background: rgba(42, 171, 238, 0.95); border: 1px solid rgba(42, 171, 238, 1); color: #000; padding: 12px 5px; border-radius: 14px; font-size: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 25px rgba(42, 171, 238, 0.5); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    Путь Развития
+                    <span style="font-size: 9px; font-weight: 800; color: #222; text-transform: none; line-height: 1.2;">
+                        Кейс NUT-NUT<br>+ 10 🎟️
+                    </span>
                 </button>
+
             </div>
         </div>
     `;
