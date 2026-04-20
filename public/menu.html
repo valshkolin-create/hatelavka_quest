@@ -4,8 +4,8 @@
     <title>HateLavka</title>
     
     <style id="anti-flash-style">
-        /* Прячем ВЕСЬ интерфейс по умолчанию, пока не проверим кэш */
-        body > *:not(#maintenance-screen-hardcore) {
+        /* Прячем ВЕСЬ интерфейс, КРОМЕ экрана техработ и лоадера загрузки */
+        body > *:not(#maintenance-screen-hardcore):not(#loader-overlay) {
             display: none !important;
         }
         body {
@@ -15,23 +15,17 @@
     </style>
     
     <script>
-        // Этот скрипт срабатывает за 0.001 секунды, до отрисовки сайта
         (function() {
             try {
                 const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
                 if (cached && cached.maintenance) {
-                    // Если техработы включены — оставляем стили блокировки
-                    // И показываем наше зеленое окно
+                    // Если в кэше техработы — сразу показываем зеленое окно
                     document.addEventListener("DOMContentLoaded", function() {
                         document.getElementById('maintenance-screen-hardcore').style.display = 'flex';
                     });
-                } else {
-                    // Если техработ нет — МОМЕНТАЛЬНО сносим блокировку, сайт грузится как обычно
-                    document.getElementById('anti-flash-style').remove();
                 }
-            } catch(e) {
-                document.getElementById('anti-flash-style')?.remove();
-            }
+                // ВАЖНО: Мы больше не удаляем стиль здесь! Его удалит main(), когда убедится, что всё ок.
+            } catch(e) {}
         })();
     </script>
 
