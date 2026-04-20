@@ -3249,45 +3249,47 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    // 🔥 МАКСИМАЛЬНЫЙ Z-INDEX И ПОЛНОЕ ПЕРЕКРЫТИЕ ЭКРАНА 🔥
-    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(12px); opacity: 0; transition: opacity 0.4s; box-sizing: border-box;";
+    // 🔥 МАКСИМАЛЬНЫЙ Z-INDEX И ПОЛНОЕ ПЕРЕКРЫТИЕ ЭКРАНА БЕЗ РАМОК 🔥
+    // overflow: hidden не даст экрану дергаться
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(12px); opacity: 0; transition: opacity 0.4s; box-sizing: border-box; overflow: hidden;";
 
-    // Вёрстка: текст по центру, картинка и кнопки прижаты к низу
     overlay.innerHTML = `
-        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; position: relative;">
+        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 0px) + 15px); right: 15px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+            <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+        </button>
+
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 20px; text-align: center; z-index: 5; margin-top: 30px;">
+            <h3 style="color: #FFD700; font-size: 18px; margin: 0 0 10px 0; font-weight: 900; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.9); letter-spacing: 0.5px;">Дружище, удели внимание!</h3>
             
-            <button id="matrix-close-btn" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <p style="font-size: 11px; color: #fff; line-height: 1.35; margin: 0 0 8px 0; text-shadow: 0 2px 8px rgba(0,0,0,0.9); font-weight: 500; padding: 0 10px;">
+                То, что ты видишь — это старания одного человека, который делает всё для своей аудитории. Он ценит её и прислушивается.
+            </p>
+            
+            <p style="font-size: 11px; color: #ddd; line-height: 1.35; margin: 0 0 15px 0; font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,0.9); padding: 0 10px;">
+                Выбери свой путь. Помоги улучшить проект, в котором ты важен.
+            </p>
+            
+            <div style="font-size: 14px; color: #FFD700; font-weight: 900; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.9);">Что выберешь?</div>
+        </div>
 
-            <div style="padding: 20px; text-align: center; z-index: 5; margin-bottom: 60px;">
-                <h3 style="color: #FFD700; font-size: 22px; margin: 0 0 15px 0; font-weight: 900; text-transform: uppercase; text-shadow: 0 4px 15px rgba(0,0,0,0.8);">Дружище, удели внимание!</h3>
-                <p style="font-size: 13px; color: #fff; line-height: 1.5; margin: 0 0 15px 0; text-shadow: 0 2px 10px rgba(0,0,0,0.8); font-weight: 500;">
-                    То, что ты видишь — это старания и труд одного человека, который максимально безопасно старается для своей аудитории. Он ценит и уважает ее, а самое главное — прислушивается.
-                </p>
-                <p style="font-size: 13px; color: #fff; line-height: 1.5; margin: 0 0 25px 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.8);">
-                    Сейчас ты можешь выбрать для себя путь, тот который тебе по душе больше. Здесь и сейчас либо своим присутствием помочь и улучшить проект, в котором ты будешь важен.
-                </p>
-                <div style="font-size: 16px; color: #FFD700; font-weight: 900; margin-bottom: 0; text-transform: uppercase; text-shadow: 0 2px 15px rgba(0,0,0,0.8);">Что выберешь?</div>
-            </div>
+        <div style="position: relative; width: 100%; height: 300px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 25px;">
+            
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 80px; background: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%); z-index: 2;"></div>
+            
+            <img src="https://i.postimg.cc/tRL4MJ1y/MATRIX.png" referrerpolicy="no-referrer" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; opacity: 0.95; z-index: 1; mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%); -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%);">
 
-            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 320px; pointer-events: none;">
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 50px; background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%); z-index: 1;"></div>
-                <img src="https://i.postimg.cc/tRL4MJ1y/MATRIX.png" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.9; mask-image: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%); -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);">
-            </div>
-
-            <div style="position: absolute; bottom: 40px; left: 0; width: 100%; display: flex; justify-content: center; gap: 15px; padding: 0 15px; box-sizing: border-box; z-index: 5;">
+            <div style="position: relative; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 15px; box-sizing: border-box; z-index: 10;">
                 
-                <button onclick="submitMatrixChoice('red')" style="flex: 1; background: rgba(255, 59, 48, 0.95); border: 1px solid rgba(255, 59, 48, 1); color: #000; padding: 12px 5px; border-radius: 14px; font-size: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 25px rgba(255, 59, 48, 0.5); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <button onclick="submitMatrixChoice('red')" style="flex: 1; background: linear-gradient(135deg, #ff3b30 0%, #b30000 100%); border: 1px solid #ff4d40; color: #111; padding: 12px 6px; border-radius: 14px; font-size: 11px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 8px 20px rgba(255, 59, 48, 0.4), inset 0 2px 4px rgba(255,255,255,0.4); display: flex; flex-direction: column; align-items: center; gap: 3px;">
                     Путь Ленивца
-                    <span style="font-size: 9px; font-weight: 800; color: #222; text-transform: none; line-height: 1.2;">
+                    <span style="font-size: 9px; font-weight: 800; color: #000; text-transform: none; line-height: 1.1; opacity: 0.8;">
                         Красный Траст<br>+ Кейс Лентяй
                     </span>
                 </button>
 
-                <button onclick="submitMatrixChoice('blue')" style="flex: 1; background: rgba(42, 171, 238, 0.95); border: 1px solid rgba(42, 171, 238, 1); color: #000; padding: 12px 5px; border-radius: 14px; font-size: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 25px rgba(42, 171, 238, 0.5); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <button onclick="submitMatrixChoice('blue')" style="flex: 1; background: linear-gradient(135deg, #2AABEE 0%, #0066b3 100%); border: 1px solid #4bc0ff; color: #111; padding: 12px 6px; border-radius: 14px; font-size: 11px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 8px 20px rgba(42, 171, 238, 0.4), inset 0 2px 4px rgba(255,255,255,0.4); display: flex; flex-direction: column; align-items: center; gap: 3px;">
                     Путь Развития
-                    <span style="font-size: 9px; font-weight: 800; color: #222; text-transform: none; line-height: 1.2;">
+                    <span style="font-size: 9px; font-weight: 800; color: #000; text-transform: none; line-height: 1.1; opacity: 0.8;">
                         Кейс NUT-NUT<br>+ 10 🎟️
                     </span>
                 </button>
