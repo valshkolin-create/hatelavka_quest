@@ -3071,11 +3071,11 @@ async function main() {
             
             // Окно уже есть в HTML, просто показываем его
             if (maintScreen) maintScreen.style.display = 'flex';
-            if (maintText) maintText.innerText = 'Валька уже исправляет...';
+            if (maintText) maintText.innerText = 'Валька уже исправляет (или ломает)...';
             
             // Резервный вариант, если окна по какой-то причине нет
             if (!maintScreen) {
-                document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#141414; align-items:center; justify-content:center; flex-direction:column; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:60px; color:#34c759; margin-bottom:20px; filter: drop-shadow(0 0 15px rgba(52,199,89,0.5));"></i><span style="font-weight:900; font-size:26px; color:#fff; text-transform:uppercase; letter-spacing:1px;">Обновление</span><span style="color:#34c759; font-size:14px; margin-top:10px; font-weight:bold;">Валька устанавливает апдейт...</span></div>';
+                document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#141414; align-items:center; justify-content:center; flex-direction:column; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:60px; color:#34c759; margin-bottom:20px; filter: drop-shadow(0 0 15px rgba(52,199,89,0.5));"></i><span style="font-weight:900; font-size:26px; color:#fff; text-transform:uppercase; letter-spacing:1px;">Тех. работы</span><span style="color:#34c759; font-size:14px; margin-top:10px; font-weight:bold;">Валька устанавливает апдейт...</span></div>';
             }
             return; // Тормозим остальной рендер
         } else {
