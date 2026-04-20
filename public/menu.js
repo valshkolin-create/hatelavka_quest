@@ -3241,35 +3241,56 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
+    // Основной фон
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
     overlay.innerHTML = `
         <style>
+            /* Железобетонный фикс диалогов поверх матрицы */
             .custom-confirm-overlay { z-index: 2147483647 !important; }
+            
+            /* Классы для адаптивного текста */
+            .mx-title { color: #FFD700; font-size: 20px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+            .mx-p1 { font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 10px 0; opacity: 0.9; }
+            .mx-p2 { font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 20px 0; font-weight: 600; }
+            .mx-q { font-size: 15px; color: #FFD700; font-weight: 900; text-transform: uppercase; }
+            
+            /* На ПК (экраны шире 768px) текст становится компактнее */
+            @media (min-width: 768px) {
+                .mx-title { font-size: 16px !important; margin: 0 0 8px 0 !important; }
+                .mx-p1 { font-size: 11px !important; margin: 0 0 8px 0 !important; max-width: 400px; margin-left: auto; margin-right: auto; }
+                .mx-p2 { font-size: 11px !important; margin: 0 0 15px 0 !important; max-width: 400px; margin-left: auto; margin-right: auto; }
+                .mx-q { font-size: 13px !important; }
+            }
+
+            /* Стили для красивых плашек в диалогах */
+            .badge-tg { background: #0088cc; color: #fff; padding: 2px 6px; border-radius: 6px; font-weight: 800; text-shadow: none; display: inline-block; }
+            .badge-tw { background: #9146FF; color: #fff; padding: 2px 6px; border-radius: 6px; font-weight: 800; text-shadow: none; display: inline-block; }
+            
+            /* Настройки картинки для параллакса */
+            #morpheus-img {
+                width: 100%; height: 80%; object-fit: contain; object-position: center bottom; 
+                transform: scale(1.05); /* Чуть увеличен, чтобы края не светились при движении */
+                z-index: 1; transition: transform 0.1s ease-out; will-change: transform;
+            }
         </style>
 
-        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 20px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 20px) + 40px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center;">
             <i class="fa-solid fa-xmark"></i>
         </button>
 
-        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 30px; text-align: center; z-index: 5; margin-top: calc(env(safe-area-inset-top, 20px) + 50px);">
-            <h3 style="color: #FFD700; font-size: 20px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Дружище, удели внимание!</h3>
-            
-            <p style="font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 10px 0; opacity: 0.9;">
-                То, что ты видишь — это старания одного человека, который делает всё для своей аудитории. Он ценит её и прислушивается.
-            </p>
-            
-            <p style="font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 20px 0; font-weight: 600;">
-                Выбери свой путь. Помоги улучшить проект, в котором ты важен.
-            </p>
-            
-            <div style="font-size: 15px; color: #FFD700; font-weight: 900; text-transform: uppercase;">Что выберешь?</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 30px; text-align: center; z-index: 5; margin-top: calc(env(safe-area-inset-top, 20px) + 60px); pointer-events: none;">
+            <h3 class="mx-title">Дружище, удели внимание!</h3>
+            <p class="mx-p1">То, что ты видишь — это старания одного человека, который делает всё для своей аудитории. Он ценит её и прислушивается.</p>
+            <p class="mx-p2">Выбери свой путь. Помоги улучшить проект, в котором ты важен.</p>
+            <div class="mx-q">Что выберешь?</div>
         </div>
 
-        <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0;">
-            <img src="https://i.ibb.co/Lzk8tsby/MATRIX.png" style="width: 100%; height: 80%; object-fit: contain; object-position: center bottom; transform: scale(1.0); z-index: 1;">
+        <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0; pointer-events: none;">
             
-            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10;">
+            <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
+            
+            <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10; pointer-events: auto;">
                 
                 <button id="btn-path-red" style="flex: 1; background: rgba(255, 59, 48, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(255, 59, 48, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
                     <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
@@ -3295,7 +3316,33 @@ function checkMatrixEvent(matrixData) {
     };
 
     // ==========================================
-    // ЛОГИКА ДИАЛОГОВЫХ ОКОН
+    // ЛОГИКА ПАРАЛЛАКСА (Движение Морфеуса)
+    // ==========================================
+    const img = overlay.querySelector('#morpheus-img');
+    const moveFactor = 12; // На сколько пикселей максимум двигать картинку
+
+    // Для ПК (движение мыши)
+    overlay.addEventListener('mousemove', (e) => {
+        const x = (e.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
+        const y = (e.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
+        img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
+    });
+
+    // Для мобильных (гироскоп)
+    if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', (e) => {
+            // Ограничиваем угол наклона от -45 до 45 градусов
+            let tiltX = Math.min(Math.max(e.gamma || 0, -45), 45); // Влево-вправо
+            let tiltY = Math.min(Math.max((e.beta || 0) - 45, -45), 45); // Вверх-вниз (центр наклона ~45 град)
+            
+            const x = (tiltX / 45) * moveFactor;
+            const y = (tiltY / 45) * moveFactor;
+            img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
+        });
+    }
+
+    // ==========================================
+    // ЛОГИКА ДИАЛОГОВЫХ ОКОН (С фиксом JS-ошибки)
     // ==========================================
 
     overlay.querySelector('#btn-path-red').onclick = () => {
@@ -3305,28 +3352,44 @@ function checkMatrixEvent(matrixData) {
             confirmText: 'ДА, Я УВЕРЕН',
             confirmClass: 'btn-buy', 
             showCancel: true,
-            onConfirm: (close) => {
-                close();
+            // Убрали close из аргументов, чтобы не крашился код
+            onConfirm: () => {
+                // Закрываем системное окно (если оно само не закрылось)
+                const cm = document.querySelector('.custom-confirm-overlay');
+                if(cm) cm.remove();
+                
+                // Вызываем сервер
                 submitMatrixChoice('red');
             }
         });
+        
+        const confirmModal = document.querySelector('.custom-confirm-overlay');
+        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 
     overlay.querySelector('#btn-path-blue').onclick = () => {
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <b>50 сообщений</b> в Telegram и <b>200 сообщений</b> на Twitch.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
+            // 🔥 Красивые бейджи Telegram и Twitch
+            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span class="badge-tg">50 сообщений в TG</span> и <span class="badge-tw">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
-            onConfirm: (close) => {
-                close();
+            // Убрали close из аргументов, чтобы не крашился код
+            onConfirm: () => {
+                // Закрываем системное окно
+                const cm = document.querySelector('.custom-confirm-overlay');
+                if(cm) cm.remove();
+                
+                // Вызываем сервер
                 submitMatrixChoice('blue');
             }
         });
+        
+        const confirmModal = document.querySelector('.custom-confirm-overlay');
+        if (confirmModal) confirmModal.style.zIndex = '2147483647';
     };
 }
-
 
 // ================================================================
 // SWAP (TRADE-UP КОНТРАКТ) 3 ЭТАПА
