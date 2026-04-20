@@ -1,19 +1,38 @@
-<!DOCTYPE html> 
-<html lang="ru">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>HateLavka</title>
     
+    <style id="anti-flash-style">
+        /* Прячем ВЕСЬ интерфейс по умолчанию, пока не проверим кэш */
+        body > *:not(#maintenance-screen-hardcore) {
+            display: none !important;
+        }
+        body {
+            background-color: #141414 !important;
+            overflow: hidden !important;
+        }
+    </style>
+    
     <script>
-    // ЗАПЛАТКА: Игнорируем ошибку querySelector от внешних библиотек
-    (function() {
-        const originalQS = Document.prototype.querySelector;
-        Document.prototype.querySelector = function(selector) {
-            if (selector === document || typeof selector !== 'string') return null;
-            return originalQS.call(this, selector);
-        };
-    })();
+        // Этот скрипт срабатывает за 0.001 секунды, до отрисовки сайта
+        (function() {
+            try {
+                const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+                if (cached && cached.maintenance) {
+                    // Если техработы включены — оставляем стили блокировки
+                    // И показываем наше зеленое окно
+                    document.addEventListener("DOMContentLoaded", function() {
+                        document.getElementById('maintenance-screen-hardcore').style.display = 'flex';
+                    });
+                } else {
+                    // Если техработ нет — МОМЕНТАЛЬНО сносим блокировку, сайт грузится как обычно
+                    document.getElementById('anti-flash-style').remove();
+                }
+            } catch(e) {
+                document.getElementById('anti-flash-style')?.remove();
+            }
+        })();
     </script>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -22,6 +41,11 @@
     <link rel="stylesheet" href="menu.css">
 </head>
 <body>
+    <div id="maintenance-screen-hardcore" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #141414; z-index: 2147483647; align-items: center; justify-content: center; flex-direction: column; font-family: -apple-system, system-ui, sans-serif;">
+        <i class="fa-solid fa-gear fa-spin" style="font-size: 60px; color: #34c759; margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(52, 199, 89, 0.5));"></i>
+        <span style="font-weight: 900; font-size: 26px; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Обновление</span>
+        <span id="maintenance-hardcore-text" style="color: #34c759; font-size: 14px; margin-top: 10px; font-weight: bold;">Валька устанавливает апдейт...</span>
+    </div>
     <div id="loader-overlay" class="global-loader-overlay hidden">
         <div class="spinner-container"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
         <div id="loading-text" style="color: #ffffff; margin-top: 10px; font-weight: 800; font-size: 12px;">Загрузка...</div>
