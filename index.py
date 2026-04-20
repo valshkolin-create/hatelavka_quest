@@ -18782,7 +18782,7 @@ async def choose_matrix_pill(
             }
         )
         
-        # 🔴 ВЫДАЧА НАГРАДЫ: Генерируем купон (campaign_id = 999)
+        # 🔴 ВЫДАЧА НАГРАДЫ: Генерируем персональный купон
         unique_code = f"MR-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
         
         coupon_data = {
@@ -18796,7 +18796,7 @@ async def choose_matrix_pill(
             "assigned_at": datetime.now(timezone.utc).isoformat(),
             "target_case_name": "Кейс | Лентяй",  
             "used_by_ids": [],
-            "activated_by_ids": [],
+            "activated_by_ids": [telegram_id], # 🔥 ДОБАВЛЯЕМ СЮДА ID, чтобы он считался активированным
             "campaign_id": 999
         }
         
