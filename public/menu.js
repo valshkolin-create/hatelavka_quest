@@ -3259,7 +3259,7 @@ function checkMatrixEvent(matrixData) {
                 .mx-q { font-size: 13px !important; }
             }
 
-            /* ЖЕЛЕЗОБЕТОННОЕ ДВИЖЕНИЕ НА СМАРТФОНЕ: Анимация "Дыхания" */
+            /* Базовое "Дыхание" Морфеуса для случаев, когда гироскоп заблокирован (iOS) */
             @keyframes floatMatrix {
                 0% { transform: translateY(0px); }
                 50% { transform: translateY(-10px); }
@@ -3273,8 +3273,8 @@ function checkMatrixEvent(matrixData) {
 
             #morpheus-img {
                 width: 100%; height: 80%; object-fit: contain; object-position: center bottom; 
-                transform: scale(1.05); 
-                transition: transform 0.1s ease-out; will-change: transform;
+                transform: scale(1.05) translate(0px, 0px); 
+                will-change: transform; /* Подсказка браузеру для аппаратного ускорения */
             }
         </style>
 
@@ -3320,16 +3320,52 @@ function checkMatrixEvent(matrixData) {
         setTimeout(() => overlay.remove(), 400);
     };
 
-    // Параллакс курсора
+    // ==========================================
+    // ЛОГИКА ПАРАЛЛАКСА (ПЛАВНЫЙ LERP + ГИРОСКОП)
+    // ==========================================
     const img = overlay.querySelector('#morpheus-img');
-    const moveFactor = 12; 
+    const moveFactor = 15; 
+    let targetX = 0, targetY = 0;
+    let currentX = 0, currentY = 0;
+    let isAnimating = true;
 
-    document.addEventListener('mousemove', (e) => {
-        if(!document.getElementById('matrix-event-modal')) return;
-        const x = (e.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
-        const y = (e.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
-        img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
+    // Плавный цикл анимации (Lerp - Linear Interpolation)
+    function animateParallax() {
+        if (!document.getElementById('matrix-event-modal')) {
+            isAnimating = false;
+            return;
+        }
+        
+        // Смягчение движения (чем меньше цифра 0.08, тем плавнее)
+        currentX += (targetX - currentX) * 0.08;
+        currentY += (targetY - currentY) * 0.08;
+
+        img.style.transform = `scale(1.05) translate(${currentX}px, ${currentY}px)`;
+        
+        if (isAnimating) requestAnimationFrame(animateParallax);
+    }
+    animateParallax();
+
+    // 1. Для ПК (собираем координаты мыши, но не двигаем сразу)
+    overlay.addEventListener('mousemove', (e) => {
+        targetX = (e.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
+        targetY = (e.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
     });
+
+    // 2. Для мобильных (Гироскоп - наклон)
+    if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', (e) => {
+            if (e.gamma !== null && e.beta !== null) {
+                // e.gamma - влево/вправо (-90 до 90)
+                // e.beta - вперед/назад (-180 до 180)
+                let tiltX = Math.min(Math.max(e.gamma, -45), 45); 
+                let tiltY = Math.min(Math.max(e.beta - 45, -45), 45); // Вычитаем 45 град, так как телефон обычно держат под углом
+                
+                targetX = (tiltX / 45) * moveFactor * 2;
+                targetY = (tiltY / 45) * moveFactor * 2;
+            }
+        });
+    }
 
     // ==========================================
     // ЛОГИКА ДИАЛОГОВЫХ ОКОН 
@@ -3347,12 +3383,7 @@ function checkMatrixEvent(matrixData) {
                 if(cm) cm.remove();
                 
                 setTimeout(() => {
-                    try {
-                        submitMatrixChoice('red');
-                    } catch (e) {
-                        console.error(e);
-                        alert("ОШИБКА: Функция submitMatrixChoice не найдена в коде!");
-                    }
+                    if (typeof submitMatrixChoice === 'function') submitMatrixChoice('red');
                 }, 100);
             }
         });
@@ -3361,7 +3392,6 @@ function checkMatrixEvent(matrixData) {
     overlay.querySelector('#btn-path-blue').onclick = () => {
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            // Красивый текст без огромных обводок
             subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span style="color:#0088cc; font-weight:800;">50 сообщений в TG</span> и <span style="color:#9146FF; font-weight:800;">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
@@ -3371,12 +3401,7 @@ function checkMatrixEvent(matrixData) {
                 if(cm) cm.remove();
                 
                 setTimeout(() => {
-                    try {
-                        submitMatrixChoice('blue');
-                    } catch (e) {
-                        console.error(e);
-                        alert("ОШИБКА: Функция submitMatrixChoice не найдена в коде!");
-                    }
+                    if (typeof submitMatrixChoice === 'function') submitMatrixChoice('blue');
                 }, 100);
             }
         });
