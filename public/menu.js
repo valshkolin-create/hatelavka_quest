@@ -3405,6 +3405,15 @@ function checkMatrixEvent(matrixData) {
         </div>
     `;
 
+    // --- НАЧАЛО ВСТАВКИ: ПРОВЕРКА НА ПК И ПРИНУДИТЕЛЬНЫЙ СДВИГ ---
+    const tgPlatform = window.Telegram?.WebApp?.platform || '';
+    if (!['android', 'android_x', 'ios'].includes(tgPlatform)) {
+        // Если это не мобилка, жестко перебиваем стили
+        overlay.querySelector('#matrix-close-btn').style.setProperty('top', '10px', 'important');
+        overlay.querySelector('.mx-text-wrapper').style.setProperty('margin-top', '-120px', 'important');
+    }
+    // --- КОНЕЦ ВСТАВКИ ---
+
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.style.opacity = '1');
 
