@@ -3197,6 +3197,35 @@ async function main() {
 // THE MATRIX EVENT (СИНЯЯ / КРАСНАЯ ПИЛЮЛЯ)
 // ================================================================
 
+window.claimMatrixReward = async function() {
+    const btn = document.getElementById('matrix-claim-btn');
+    if (!btn) return;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    
+    try {
+        // Дергаем бэкенд, чтобы он выдал призы
+        await makeApiRequest('/api/v1/matrix/claim', {}, 'POST');
+        
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        customAlert("Поздравляем! Кейс NUT-NUT и 10 🎟️ зачислены на твой аккаунт!");
+        
+        // Прячем баннер квеста
+        const container = document.getElementById('matrix-quest-tracker');
+        if (container) container.style.display = 'none';
+        
+        // Синхронизируем баланс билетов
+        checkBalance(true);
+        
+    } catch (e) {
+        btn.disabled = false;
+        btn.innerText = 'ЗАБРАТЬ ПРИЗ';
+        // Ошибка (если вдруг юзер еще не выполнил) покажется сама через makeApiRequest
+    }
+}
+
 function renderMatrixTracker(matrixData, userData) {
     const container = document.getElementById('matrix-quest-tracker');
     if (!container) return;
@@ -3214,23 +3243,39 @@ function renderMatrixTracker(matrixData, userData) {
     
     const twitchAlert = userData.twitch_id ? '' : '<div style="color:#ff3b30; font-size:10px; text-align: right; margin-top: 4px; padding-right: 16px;"><i class="fa-solid fa-triangle-exclamation"></i> Привяжи Twitch!</div>';
 
-    // Убрал лишние отступы, чтобы он смотрелся как заголовок над баннером
+    // Проверяем, выполнил ли юзер условия
+    const isReadyToClaim = tgDone >= 50 && twitchDone >= 200;
+
+    let rightSideHtml = '';
+
+    if (isReadyToClaim) {
+        rightSideHtml = `
+            <button onclick="claimMatrixReward()" id="matrix-claim-btn" style="background: #34c759; color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 900; font-size: 11px; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 15px rgba(52, 199, 89, 0.4); transition: transform 0.1s;">
+                ЗАБРАТЬ ПРИЗ
+            </button>
+        `;
+    } else {
+        rightSideHtml = `
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                    <a href="https://t.me/hatelove_ttv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); return false; }" style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700; text-decoration: none;">Telegram</a>
+                    <span style="font-size: 13px; font-weight: 900; color: ${tgDone >= 50 ? '#34c759' : '#FFD700'}; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">${tgDone >= 50 ? 50 : tgDone} / 50</span>
+                </div>
+                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1);"></div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                    <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700; text-decoration: none;">Twitch</a>
+                    <span style="font-size: 13px; font-weight: 900; color: ${twitchDone >= 200 ? '#34c759' : '#FFD700'}; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">${twitchDone >= 200 ? 200 : twitchDone} / 200</span>
+                </div>
+            </div>
+        `;
+    }
+
     container.innerHTML = `
         <div style="margin: 10px 16px 5px 16px; padding: 12px 0; background: transparent; border: none; display: flex; justify-content: space-between; align-items: center;">
             <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
                 <i class="fa-solid fa-bolt" style="color: #FFD700; margin-right: 5px;"></i> Испытание
             </div>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <div style="display: flex; flex-direction: column; align-items: flex-end;">
-                    <span style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700;">Telegram</span>
-                    <span style="font-size: 13px; font-weight: 900; color: ${tgDone >= 50 ? '#34c759' : '#FFD700'}; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">${tgDone >= 50 ? 50 : tgDone} / 50</span>
-                </div>
-                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1);"></div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end;">
-                    <span style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700;">Twitch</span>
-                    <span style="font-size: 13px; font-weight: 900; color: ${twitchDone >= 200 ? '#34c759' : '#FFD700'}; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">${twitchDone >= 200 ? 200 : twitchDone} / 200</span>
-                </div>
-            </div>
+            ${rightSideHtml}
         </div>
         ${twitchAlert}
     `;
