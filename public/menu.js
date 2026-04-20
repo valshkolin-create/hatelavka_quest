@@ -3207,16 +3207,9 @@ function renderMatrixTracker(matrixData, userData) {
         return;
     }
 
-    // Вычисляем прогресс: Текущее значение минус Стартовое
-    const startTg = matrixData.start_tg_msg || 0;
-    const startTwitch = matrixData.start_twitch_msg || 0;
-    
-    const currentTg = userData.telegram_monthly_message_count || 0;
-    const currentTwitch = userData.monthly_message_count || 0;
-    
-    // Защита от отрицательных чисел
-    const tgDone = Math.max(0, currentTg - startTg);
-    const twitchDone = Math.max(0, currentTwitch - startTwitch);
+    // БЕРЕМ ГОТОВЫЕ ЦИФРЫ ПРЯМО ИЗ БАЗЫ
+    const tgDone = matrixData.tg_msg_current || 0;
+    const twitchDone = matrixData.twitch_msg_current || 0;
     
     const twitchAlert = userData.twitch_id ? '' : '<div style="color:#ff3b30; font-size:10px; text-align: right; margin-top: 4px; padding-right: 16px;"><i class="fa-solid fa-triangle-exclamation"></i> Привяжи Twitch!</div>';
 
