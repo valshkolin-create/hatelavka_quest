@@ -1361,6 +1361,11 @@ async function renderFullInterface(data) {
 
     updateShortcutStatuses(userData, allQuests);
     updateShopTile(userData.active_trade_status || 'none');
+    // 🔥 МАГИЯ МАТРИЦЫ
+    if (data.matrix_quest !== undefined) {
+        renderMatrixTracker(data.matrix_quest, userData);
+        checkMatrixEvent(data.matrix_quest);
+    }
     }
     
 // ================================================================
@@ -2975,6 +2980,7 @@ window.showFaq = function() {
     });
 };
 
+
 // ================================================================
 // ГЛАВНЫЙ ЗАПУСК (СИНХРОННАЯ ЗАГРУЗКА ВСЕГО ЭКРАНА)
 // ================================================================
@@ -3186,6 +3192,143 @@ async function main() {
         }
     }
 } // 🔥 <--- ДОБАВЬ ВОТ ЭТУ СКОБКУ СЮДА! ОНА ЗАКРЫВАЕТ ФУНКЦИЮ main()
+
+// ================================================================
+// THE MATRIX EVENT (СИНЯЯ / КРАСНАЯ ПИЛЮЛЯ)
+// ================================================================
+
+function renderMatrixTracker(matrixData, userData) {
+    const container = document.getElementById('matrix-quest-tracker');
+    if (!container) return;
+
+    // Если нет данных, или выбрал красную, или уже выполнил - прячем
+    if (!matrixData || matrixData.selected_pill !== 'blue' || matrixData.is_completed) {
+        container.innerHTML = '';
+        return;
+    }
+
+    // Вычисляем прогресс: Текущее значение минус Стартовое
+    const startTg = matrixData.start_tg_msg || 0;
+    const startTwitch = matrixData.start_twitch_msg || 0;
+    
+    const currentTg = userData.telegram_monthly_message_count || 0;
+    const currentTwitch = userData.monthly_message_count || 0;
+    
+    // Защита от отрицательных чисел
+    const tgDone = Math.max(0, currentTg - startTg);
+    const twitchDone = Math.max(0, currentTwitch - startTwitch);
+    
+    const twitchAlert = userData.twitch_id ? '' : '<div style="color:#ff3b30; font-size:10px; text-align: right; margin-top: 4px; padding-right: 16px;"><i class="fa-solid fa-triangle-exclamation"></i> Привяжи Twitch!</div>';
+
+    container.innerHTML = `
+        <div style="margin: 10px 16px 0; padding: 12px 16px; background: rgba(0, 136, 204, 0.08); border: 1px solid rgba(0, 136, 204, 0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);">
+            <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase;">
+                <i class="fa-solid fa-bolt" style="color: #2AABEE; margin-right: 5px;"></i> Испытание
+            </div>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                    <span style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700;">Telegram</span>
+                    <span style="font-size: 13px; font-weight: 900; color: ${tgDone >= 50 ? '#34c759' : '#fff'};">${tgDone >= 50 ? 50 : tgDone} / 50</span>
+                </div>
+                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1);"></div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                    <span style="font-size: 9px; color: #8e8e93; text-transform: uppercase; font-weight: 700;">Twitch</span>
+                    <span style="font-size: 13px; font-weight: 900; color: ${twitchDone >= 200 ? '#34c759' : '#fff'};">${twitchDone >= 200 ? 200 : twitchDone} / 200</span>
+                </div>
+            </div>
+        </div>
+        ${twitchAlert}
+    `;
+}
+
+function checkMatrixEvent(matrixData) {
+    // Если юзер уже делал выбор ИЛИ закрывал окно в этой сессии - отбой
+    if (matrixData?.selected_pill || sessionStorage.getItem('matrix_dismissed')) return;
+    if (document.getElementById('matrix-event-modal')) return; // Защита от дублей
+
+    const overlay = document.createElement('div');
+    overlay.id = 'matrix-event-modal';
+    
+    // Блюр на весь экран, окно прижато к низу (над футером)
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 999; display: flex; align-items: flex-end; justify-content: center; backdrop-filter: blur(8px); opacity: 0; transition: opacity 0.4s; padding-bottom: 80px; box-sizing: border-box;";
+
+    // ВАЖНО: Замени URL_ТВОЕЙ_КАРТИНКИ
+    overlay.innerHTML = `
+        <div style="width: 95%; max-width: 400px; background: #1c1c1e; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.8); position: relative;">
+            
+            <button id="matrix-close-btn" style="position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.5); border: none; color: #fff; width: 30px; height: 30px; border-radius: 50%; z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div style="padding: 20px 20px 10px 20px; text-align: center;">
+                <h3 style="color: #FFD700; font-size: 18px; margin: 0 0 10px 0; font-weight: 900; text-transform: uppercase;">Дружище, удели внимание!</h3>
+                <p style="font-size: 11px; color: #aaa; line-height: 1.4; margin: 0 0 10px 0;">
+                    То, что ты видишь — это старания и труд одного человека, который максимально безопасно старается для своей аудитории. Он ценит и уважает ее, а самое главное — прислушивается.
+                </p>
+                <p style="font-size: 11px; color: #ddd; line-height: 1.4; margin: 0 0 15px 0; font-weight: 600;">
+                    Сейчас ты можешь выбрать для себя путь, тот который тебе по душе больше. Здесь и сейчас либо своим присутствием помочь и улучшить проект, в котором ты будешь важен.
+                </p>
+                <div style="font-size: 14px; color: #fff; font-weight: 800; margin-bottom: 15px;">Что выберешь?</div>
+            </div>
+
+            <div style="position: relative; width: 100%; height: 200px; background: #000;">
+                <img src="https://i.postimg.cc/jjXTqddn/MATRIX.png" style="width: 100%; height: 100%; object-fit: cover; opacity: 0.8;">
+                
+                <button onclick="submitMatrixChoice('red')" style="position: absolute; bottom: 15px; left: 10px; width: 45%; background: rgba(255, 59, 48, 0.9); border: 1px solid #ff3b30; color: #fff; padding: 10px 5px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 15px rgba(255, 59, 48, 0.6); backdrop-filter: blur(4px);">
+                    Красный Траст<br><span style="font-size: 8px; font-weight: normal; color: #ffd700;">+ Кейс Новичок</span>
+                </button>
+
+                <button onclick="submitMatrixChoice('blue')" style="position: absolute; bottom: 15px; right: 10px; width: 45%; background: rgba(42, 171, 238, 0.9); border: 1px solid #2AABEE; color: #fff; padding: 10px 5px; border-radius: 12px; font-size: 10px; font-weight: 800; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 15px rgba(42, 171, 238, 0.6); backdrop-filter: blur(4px);">
+                    Испытание<br><span style="font-size: 8px; font-weight: normal; color: #ffd700;">Кейс NUT-NUT + 10 🎟️</span>
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.style.opacity = '1');
+
+    overlay.querySelector('#matrix-close-btn').onclick = () => {
+        sessionStorage.setItem('matrix_dismissed', 'true');
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 400);
+    };
+}
+
+// Отправка выбора на бэкенд
+window.submitMatrixChoice = async function(pill) {
+    const modal = document.getElementById('matrix-event-modal');
+    if (modal) {
+        modal.style.opacity = '0';
+        setTimeout(() => modal.remove(), 400);
+    }
+    
+    const loader = document.getElementById('purchase-loader');
+    if (loader) {
+        loader.querySelector('.loader-text').innerText = "Выбор сделан..."; 
+        loader.classList.add('active'); 
+    }
+
+    try {
+        await makeApiRequest('/api/v1/matrix/choose', { choice: pill }, 'POST');
+        
+        if (pill === 'red') {
+            customAlert("Ты выбрал путь ленивца. Траст снижен, кейс выдан.");
+        } else {
+            customAlert("Отличный выбор! Твое испытание началось.");
+        }
+        
+        // Железобетонно обновляем страницу, чтобы подтянулись новые данные (купоны, тресты, счетчики)
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+        
+    } catch (e) {
+        sessionStorage.removeItem('matrix_dismissed');
+    } finally {
+        if (loader) loader.classList.remove('active'); 
+    }
+};
 
 
 // ================================================================
