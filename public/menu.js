@@ -3400,7 +3400,7 @@ function checkMatrixEvent(matrixData) {
             <div class="mx-btn-container">
                 <button id="btn-path-red" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(100,0,0,0.8) 100%); border-color: rgba(255, 59, 48, 0.3); color: #fff;">
                     <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
-                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Быстрое получение скина<br>, но будет понижен траст</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Быстрое получение скина<br>но будет понижен траст</span>
                 </button>
 
                 <button id="btn-path-blue" class="mx-btn" style="background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,70,180,0.8) 100%); border-color: rgba(0, 122, 255, 0.6); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.2);">
