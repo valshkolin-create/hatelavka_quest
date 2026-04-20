@@ -1452,6 +1452,9 @@ window.showCouponCaseInfo = function(caseName) {
 };
 
 function renderItems(items) {
+    // 🔥 Защита от краша: если передали не массив, делаем его пустым массивом
+    if (!Array.isArray(items)) items = []; 
+
     const container = document.getElementById('shop-grid');
     container.innerHTML = '';
 
@@ -3061,13 +3064,12 @@ async function main() {
 
         if (!isCached) updateLoading(60);
 
-        // Обработка техработ
-        // Мгновенный блок техработ
+       // Обработка техработ
         if (bootstrapData && bootstrapData.maintenance) {
             const maintScreen = document.getElementById('maintenance-screen-hardcore');
             const maintText = document.getElementById('maintenance-hardcore-text');
             
-            // Окно уже есть в HTML, просто показываем его (если юзер сидел в приложении и техработы только начались)
+            // Окно уже есть в HTML, просто показываем его
             if (maintScreen) maintScreen.style.display = 'flex';
             if (maintText) maintText.innerText = 'Валька уже исправляет...';
             
@@ -3077,14 +3079,16 @@ async function main() {
             }
             return; // Тормозим остальной рендер
         } else {
-            // ТЕХРАБОТЫ ОТКЛЮЧИЛИСЬ
-            // Если зеленое окно все еще висит, значит нам нужно перезагрузить страницу, чтобы снять блокировку CSS
-            if (document.getElementById('maintenance-screen-hardcore') && document.getElementById('maintenance-screen-hardcore').style.display === 'flex') {
-                window.location.reload();
-                return;
-            }
+            // 🔥 ТЕХРАБОТ НЕТ! Снимаем броню, чтобы браузер нарисовал интерфейс
+            const antiFlash = document.getElementById('anti-flash-style');
+            if (antiFlash) antiFlash.remove(); // Удаляем стиль блокировки
+            
+            const maintScreen = document.getElementById('maintenance-screen-hardcore');
+            if (maintScreen) maintScreen.style.display = 'none'; // Прячем зеленый экран
+            
+            document.body.style.overflow = ''; // Восстанавливаем скролл
         }
-
+        
         // === 🔥 ПРЕДЗАГРУЗКА КАРТИНОК 🔥 ===
         if (!isCached) {
             let imagesToLoad = [];
