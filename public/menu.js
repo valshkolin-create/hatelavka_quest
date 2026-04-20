@@ -3241,21 +3241,17 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    // Основной фон
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
     overlay.innerHTML = `
         <style>
-            /* Железобетонный фикс диалогов поверх матрицы */
             .custom-confirm-overlay { z-index: 2147483647 !important; }
             
-            /* Классы для адаптивного текста */
             .mx-title { color: #FFD700; font-size: 20px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
             .mx-p1 { font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 10px 0; opacity: 0.9; }
             .mx-p2 { font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 20px 0; font-weight: 600; }
             .mx-q { font-size: 15px; color: #FFD700; font-weight: 900; text-transform: uppercase; }
             
-            /* На ПК (экраны шире 768px) текст становится компактнее */
             @media (min-width: 768px) {
                 .mx-title { font-size: 16px !important; margin: 0 0 8px 0 !important; }
                 .mx-p1 { font-size: 11px !important; margin: 0 0 8px 0 !important; max-width: 400px; margin-left: auto; margin-right: auto; }
@@ -3263,15 +3259,22 @@ function checkMatrixEvent(matrixData) {
                 .mx-q { font-size: 13px !important; }
             }
 
-            /* Стили для красивых плашек в диалогах */
-            .badge-tg { background: #0088cc; color: #fff; padding: 2px 6px; border-radius: 6px; font-weight: 800; text-shadow: none; display: inline-block; }
-            .badge-tw { background: #9146FF; color: #fff; padding: 2px 6px; border-radius: 6px; font-weight: 800; text-shadow: none; display: inline-block; }
-            
-            /* Настройки картинки для параллакса */
+            /* ЖЕЛЕЗОБЕТОННОЕ ДВИЖЕНИЕ НА СМАРТФОНЕ: Анимация "Дыхания" */
+            @keyframes floatMatrix {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+                100% { transform: translateY(0px); }
+            }
+
+            #morpheus-wrapper {
+                position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;
+                animation: floatMatrix 6s ease-in-out infinite; 
+            }
+
             #morpheus-img {
                 width: 100%; height: 80%; object-fit: contain; object-position: center bottom; 
-                transform: scale(1.05); /* Чуть увеличен, чтобы края не светились при движении */
-                z-index: 1; transition: transform 0.1s ease-out; will-change: transform;
+                transform: scale(1.05); 
+                transition: transform 0.1s ease-out; will-change: transform;
             }
         </style>
 
@@ -3288,7 +3291,9 @@ function checkMatrixEvent(matrixData) {
 
         <div style="position: relative; width: 100%; height: 380px; flex-shrink: 0;">
             
-            <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png" style="pointer-events: none;">
+            <div id="morpheus-wrapper">
+                <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
+            </div>
             
             <div style="position: absolute; bottom: 50px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 10;">
                 
@@ -3315,30 +3320,19 @@ function checkMatrixEvent(matrixData) {
         setTimeout(() => overlay.remove(), 400);
     };
 
-    // ==========================================
-    // ЛОГИКА ПАРАЛЛАКСА (Движение Морфеуса)
-    // ==========================================
+    // Параллакс курсора
     const img = overlay.querySelector('#morpheus-img');
-    const moveFactor = 12; // На сколько пикселей максимум двигать картинку
+    const moveFactor = 12; 
 
-    // 1. Для ПК (движение мыши)
-    overlay.addEventListener('mousemove', (e) => {
+    document.addEventListener('mousemove', (e) => {
+        if(!document.getElementById('matrix-event-modal')) return;
         const x = (e.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
         const y = (e.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
         img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
     });
 
-    // 2. Для мобильных (Движение пальцем по экрану - 100% работает)
-    overlay.addEventListener('touchmove', (e) => {
-        if (!e.touches.length) return;
-        const touch = e.touches[0];
-        const x = (touch.clientX / window.innerWidth - 0.5) * (moveFactor * 2);
-        const y = (touch.clientY / window.innerHeight - 0.5) * (moveFactor * 2);
-        img.style.transform = `scale(1.05) translate(${x}px, ${y}px)`;
-    });
-
     // ==========================================
-    // ЛОГИКА ДИАЛОГОВЫХ ОКОН (С ФИКСОМ ОШИБКИ)
+    // ЛОГИКА ДИАЛОГОВЫХ ОКОН 
     // ==========================================
 
     overlay.querySelector('#btn-path-red').onclick = () => {
@@ -3348,20 +3342,17 @@ function checkMatrixEvent(matrixData) {
             confirmText: 'ДА, Я УВЕРЕН',
             confirmClass: 'btn-buy', 
             showCancel: true,
-            // ЖЕЛЕЗОБЕТОННЫЙ ВЫЗОВ
-            onConfirm: (closeFunc) => {
-                // Безопасное закрытие окна
-                if (typeof closeFunc === 'function') {
-                    try { closeFunc(); } catch(e) {}
-                } else {
-                    const cm = document.querySelector('.custom-confirm-overlay');
-                    if(cm) cm.remove();
-                }
+            onConfirm: () => {
+                const cm = document.querySelector('.custom-confirm-overlay');
+                if(cm) cm.remove();
                 
-                // Вызываем сервер с микро-задержкой, чтобы код не обрывался
                 setTimeout(() => {
-                    if (typeof window.submitMatrixChoice === 'function') window.submitMatrixChoice('red');
-                    else submitMatrixChoice('red');
+                    try {
+                        submitMatrixChoice('red');
+                    } catch (e) {
+                        console.error(e);
+                        alert("ОШИБКА: Функция submitMatrixChoice не найдена в коде!");
+                    }
                 }, 100);
             }
         });
@@ -3370,28 +3361,52 @@ function checkMatrixEvent(matrixData) {
     overlay.querySelector('#btn-path-blue').onclick = () => {
         showShopModal({
             title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
-            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span class="badge-tg">50 сообщений в TG</span> и <span class="badge-tw">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
+            // Красивый текст без огромных обводок
+            subtitle: 'Тебе предстоит доказать свою преданность проекту.<br><br>Напиши <span style="color:#0088cc; font-weight:800;">50 сообщений в TG</span> и <span style="color:#9146FF; font-weight:800;">200 на Twitch</span>.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
             confirmText: 'ПРИНЯТЬ',
             confirmClass: 'btn-buy',
             showCancel: true,
-            // ЖЕЛЕЗОБЕТОННЫЙ ВЫЗОВ
-            onConfirm: (closeFunc) => {
-                // Безопасное закрытие окна
-                if (typeof closeFunc === 'function') {
-                    try { closeFunc(); } catch(e) {}
-                } else {
-                    const cm = document.querySelector('.custom-confirm-overlay');
-                    if(cm) cm.remove();
-                }
+            onConfirm: () => {
+                const cm = document.querySelector('.custom-confirm-overlay');
+                if(cm) cm.remove();
                 
-                // Вызываем сервер с микро-задержкой, чтобы код не обрывался
                 setTimeout(() => {
-                    if (typeof window.submitMatrixChoice === 'function') window.submitMatrixChoice('blue');
-                    else submitMatrixChoice('blue');
+                    try {
+                        submitMatrixChoice('blue');
+                    } catch (e) {
+                        console.error(e);
+                        alert("ОШИБКА: Функция submitMatrixChoice не найдена в коде!");
+                    }
                 }, 100);
             }
         });
     };
+}
+
+async function submitMatrixChoice(pill) {
+    try {
+        await makeApiRequest('/api/v1/matrix/choose', { choice: pill }, 'POST');
+        sessionStorage.setItem('matrix_dismissed', 'true'); 
+
+        if (pill === 'red') {
+            customAlert("Ты выбрал путь ленивца. Траст снижен, кейс выдан.");
+        } else {
+            customAlert("Путь развития принят! Выполняй задания для награды.");
+        }
+
+        const modal = document.getElementById('matrix-event-modal');
+        if (modal) {
+            modal.style.opacity = '0';
+            setTimeout(() => modal.remove(), 400);
+        }
+        
+        // Перезагружаем интерфейс, чтобы показать трекер или обновить магазин
+        setTimeout(() => window.location.reload(), 1500);
+        
+    } catch (err) {
+        console.error("Matrix choice error:", err);
+        customAlert("Произошла ошибка при выборе пути.");
+    }
 }
 
 // ================================================================
