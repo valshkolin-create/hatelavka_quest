@@ -3308,7 +3308,7 @@ function checkMatrixEvent(matrixData) {
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
     
-    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.88); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
     overlay.innerHTML = `
         <style>
@@ -3316,31 +3316,27 @@ function checkMatrixEvent(matrixData) {
             
             .mx-title { color: #FFD700; font-size: 18px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 10px rgba(255, 215, 0, 0.3); }
             .mx-p1 { font-size: 11px; color: #fff; line-height: 1.45; margin: 0 0 10px 0; opacity: 0.95; }
-            .mx-p-dim { font-size: 11px; color: #bbb; line-height: 1.45; margin: 0 0 10px 0; }
+            .mx-p-dim { font-size: 11px; color: #ccc; line-height: 1.45; margin: 0 0 10px 0; }
             .mx-p2 { font-size: 11px; color: #fff; line-height: 1.45; margin: 0 0 15px 0; font-weight: 600; }
-            .mx-q { font-size: 14px; color: #FFD700; font-weight: 900; text-transform: uppercase; margin-bottom: -15px; position: relative; }
+            .mx-q { font-size: 14px; color: #FFD700; font-weight: 900; text-transform: uppercase; margin-bottom: -15px; position: relative; z-index: 5; }
             
-            /* Управление позиционированием (Разделение Телефон / ПК) */
             .mx-text-wrapper {
                 flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 25px; text-align: center; z-index: 5; pointer-events: none;
-                margin-top: calc(env(safe-area-inset-top, 20px) + 60px); /* Текст на мобилке чуть ниже из-за крестика */
+                margin-top: calc(env(safe-area-inset-top, 20px) + 60px);
             }
             
             #matrix-close-btn {
                 position: absolute; right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;
-                top: calc(env(safe-area-inset-top, 20px) + 50px); /* Крестик опущен на телефоне */
+                top: calc(env(safe-area-inset-top, 20px) + 50px);
             }
 
             @media (min-width: 768px) {
-                .mx-title { font-size: 15px !important; margin: 0 0 8px 0 !important; }
-                .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 420px; margin-left: auto; margin-right: auto; }
-                .mx-q { font-size: 12px !important; }
-                
-                .mx-text-wrapper { margin-top: 10px; } /* На ПК поднимаем текст высоко */
-                #matrix-close-btn { top: 20px; } /* На ПК возвращаем крестик в самый верх */
+                .mx-title { font-size: 16px !important; }
+                .mx-p1, .mx-p-dim, .mx-p2 { font-size: 10px !important; max-width: 450px; margin-left: auto; margin-right: auto; }
+                .mx-text-wrapper { margin-top: -40px; } /* Задираем текст выше на ПК */
+                #matrix-close-btn { top: 15px; right: 15px; } /* Крест в самый угол */
             }
 
-            /* Базовое "Дыхание" Морфеуса для случаев, когда гироскоп заблокирован (iOS) */
             @keyframes floatMatrix {
                 0% { transform: translateY(0px); }
                 50% { transform: translateY(-12px); }
@@ -3354,8 +3350,13 @@ function checkMatrixEvent(matrixData) {
 
             #morpheus-img {
                 width: 100%; height: 85%; object-fit: contain; object-position: center bottom; 
-                transform: scale(1.05) translate(0px, 0px); 
-                will-change: transform; 
+                transform: scale(1.05); will-change: transform; 
+            }
+
+            .mx-btn {
+                flex: 1; max-width: 140px; padding: 12px 5px; border-radius: 16px; cursor: pointer; 
+                display: flex; flex-direction: column; align-items: center; gap: 4px; 
+                transition: transform 0.1s, background 0.2s; border: 0.5px solid;
             }
         </style>
 
@@ -3365,32 +3366,27 @@ function checkMatrixEvent(matrixData) {
 
         <div class="mx-text-wrapper">
             <h3 class="mx-title">Дружище, удели внимание!</h3>
-            
             <p class="mx-p1">То, что ты видишь — это старания одного человека, который делает всё для своей аудитории. Он ценит её и прислушивается.</p>
-            
             <p class="mx-p-dim">Я честно хочу вас радовать, мне это безумно нравится. Но бывает обидно, когда вложенную душу расценивают лишь как способ по-быстрому что-то «залутать». Если у тебя есть сомнения — уверяю, бот абсолютно безопасен, для вывода нужна только Trade-ссылка.</p>
-            
             <p class="mx-p2">Поэтому, мой друг, я даю тебе выбор здесь и сейчас.<br>Помоги улучшить проект, в котором ты важен, либо просто забери то, что тебе нужно.</p>
-            
             <div class="mx-q">Что выберешь?</div>
         </div>
 
-        <div style="position: relative; width: 100%; height: 400px; flex-shrink: 0;">
-            
+        <div style="position: relative; width: 100%; height: 420px; flex-shrink: 0;">
             <div id="morpheus-wrapper">
                 <img id="morpheus-img" src="https://i.ibb.co/Lzk8tsby/MATRIX.png">
             </div>
             
-            <div style="position: absolute; bottom: 90px; left: 0; width: 100%; display: flex; justify-content: center; gap: 12px; padding: 0 20px; box-sizing: border-box; z-index: 20;">
+            <div style="position: absolute; bottom: 120px; left: 0; width: 100%; display: flex; justify-content: center; gap: 15px; padding: 0 20px; box-sizing: border-box; z-index: 20;">
                 
-                <button id="btn-path-red" style="flex: 1; background: rgba(90, 20, 20, 0.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(120, 30, 30, 0.4); color: #aaa; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); transition: transform 0.1s;">
-                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999;">Путь Ленивца</span>
-                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.4); line-height: 1.2;">Красный Траст<br>+ Кейс Лентяй</span>
+                <button id="btn-path-red" class="mx-btn" style="background: rgba(60, 0, 0, 0.6); border-color: rgba(255, 59, 48, 0.3); color: #efeff4;">
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Ленивца</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.6); line-height: 1.1;">Красный Траст<br>+ Кейс Лентяй</span>
                 </button>
 
-                <button id="btn-path-blue" style="flex: 1; background: rgba(0, 122, 255, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 0.5px solid rgba(0, 122, 255, 0.5); color: #fff; padding: 14px 5px; border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: transform 0.1s;">
-                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
-                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.8); line-height: 1.2;">Кейс NUT-NUT<br>+ 10 🎟️</span>
+                <button id="btn-path-blue" class="mx-btn" style="background: rgba(0, 122, 255, 0.3); border-color: rgba(0, 122, 255, 0.5); color: #fff; box-shadow: 0 8px 32px rgba(0, 122, 255, 0.2);">
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Путь Развития</span>
+                    <span style="font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.9); line-height: 1.1;">Кейс NUT-NUT<br>+ 10 🎟️</span>
                 </button>
 
             </div>
@@ -3406,9 +3402,6 @@ function checkMatrixEvent(matrixData) {
         setTimeout(() => overlay.remove(), 400);
     };
 
-    // ==========================================
-    // ЛОГИКА ПАРАЛЛАКСА (ПЛАВНЫЙ LERP + ГИРОСКОП)
-    // ==========================================
     const img = overlay.querySelector('#morpheus-img');
     const moveFactor = 15; 
     let targetX = 0, targetY = 0;
@@ -3420,12 +3413,9 @@ function checkMatrixEvent(matrixData) {
             isAnimating = false;
             return;
         }
-        
         currentX += (targetX - currentX) * 0.08;
         currentY += (targetY - currentY) * 0.08;
-
         img.style.transform = `scale(1.05) translate(${currentX}px, ${currentY}px)`;
-        
         if (isAnimating) requestAnimationFrame(animateParallax);
     }
     animateParallax();
@@ -3438,18 +3428,11 @@ function checkMatrixEvent(matrixData) {
     if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', (e) => {
             if (e.gamma !== null && e.beta !== null) {
-                let tiltX = Math.min(Math.max(e.gamma, -45), 45); 
-                let tiltY = Math.min(Math.max(e.beta - 45, -45), 45); 
-                
-                targetX = (tiltX / 45) * moveFactor * 2;
-                targetY = (tiltY / 45) * moveFactor * 2;
+                targetX = (Math.min(Math.max(e.gamma, -45), 45) / 45) * moveFactor * 2;
+                targetY = (Math.min(Math.max(e.beta - 45, -45), 45) / 45) * moveFactor * 2;
             }
         });
     }
-
-    // ==========================================
-    // ЛОГИКА ДИАЛОГОВЫХ ОКОН 
-    // ==========================================
 
     overlay.querySelector('#btn-path-red').onclick = function() {
         if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
@@ -3462,10 +3445,7 @@ function checkMatrixEvent(matrixData) {
             onConfirm: () => {
                 const cm = document.querySelector('.custom-confirm-overlay');
                 if(cm) cm.remove();
-                
-                setTimeout(() => {
-                    if (typeof submitMatrixChoice === 'function') submitMatrixChoice('red');
-                }, 100);
+                setTimeout(() => { if (typeof submitMatrixChoice === 'function') submitMatrixChoice('red'); }, 100);
             }
         });
     };
@@ -3481,10 +3461,7 @@ function checkMatrixEvent(matrixData) {
             onConfirm: () => {
                 const cm = document.querySelector('.custom-confirm-overlay');
                 if(cm) cm.remove();
-                
-                setTimeout(() => {
-                    if (typeof submitMatrixChoice === 'function') submitMatrixChoice('blue');
-                }, 100);
+                setTimeout(() => { if (typeof submitMatrixChoice === 'function') submitMatrixChoice('blue'); }, 100);
             }
         });
     };
