@@ -3492,13 +3492,22 @@ async def get_bootstrap_data(
         notifs_task = supabase.get("/in_app_notifications", params={"user_id": f"eq.{telegram_id}", "is_read": "is.false", "select": "id"})
         p2p_task = supabase.get("/p2p_trades", params={"user_id": f"eq.{telegram_id}", "order": "created_at.desc"})
         balance_task = supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "bot_t_coins, tickets, last_new_year_gift_at"})
-        # 🔥 НОВОЕ: Запрашиваем аукционы прямо тут
         auctions_task = supabase.post("/rpc/get_public_auctions_for_user", json={"p_user_id": telegram_id})
+        
+        # 🔥 НОВОЕ: Проверяем Матрицу
+        matrix_task = supabase.get("/event_matrix_quest", params={"user_id": f"eq.{telegram_id}"})
 
         # Выполняем разом, экономя время
-        db_res, notifs_res, p2p_res, balance_res, auctions_res = await asyncio.gather(
-            rpc_task, notifs_task, p2p_task, balance_task, auctions_task, return_exceptions=True
+        db_res, notifs_res, p2p_res, balance_res, auctions_res, matrix_res = await asyncio.gather(
+            rpc_task, notifs_task, p2p_task, balance_task, auctions_task, matrix_task, return_exceptions=True
         )
+        
+        # Распаковываем Матрицу
+        matrix_state = None
+        if not isinstance(matrix_res, Exception) and matrix_res.status_code == 200:
+            m_data = matrix_res.json()
+            if isinstance(m_data, list) and len(m_data) > 0:
+                matrix_state = m_data[0]
         
         # Проверяем ответ основной функции
         if isinstance(db_res, Exception) or db_res.status_code != 200:
@@ -3640,7 +3649,8 @@ async def get_bootstrap_data(
             # 👇 ЭТИ ДАННЫЕ УЙДУТ НА ФРОНТ ИЗБАВИВ ОТ 4 ЛИШНИХ ЗАПРОСОВ 👇
             "unread_notifications": unread_count,
             "gift_available": gift_available,
-            "p2p_trades": p2p_trades
+            "p2p_trades": p2p_trades,
+            "matrix_quest": matrix_state # 🔥 ДОБАВЛЕНО
         }
 
     except HTTPException:
@@ -8350,6 +8360,10 @@ class QuestUpdateRequest(BaseModel):
     action_url: Optional[str] = None
     category_id: Optional[int] = None
     is_repeatable: bool = False
+
+class MatrixChoiceRequest(BaseModel):
+    initData: str
+    choice: str  # 'red' или 'blue'
 
 class SubmissionUpdateRequest(BaseModel): initData: str; submission_id: int; action: str
 class QuestDeleteRequest(BaseModel): initData: str; quest_id: int
@@ -18723,6 +18737,89 @@ async def fix_webhook_settings():
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+
+# Замени @app.post на твой роутер, если используешь APIRouter
+@app.post("/api/v1/matrix/choose")
+async def choose_matrix_pill(
+    req: MatrixChoiceRequest,
+    user_info: dict = Depends(multi_acc_protection),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    telegram_id = user_info.get("id")
+    choice = req.choice
+
+    if choice not in ['red', 'blue']:
+        raise HTTPException(status_code=400, detail="Неверный выбор")
+
+    # 1. ЗАЩИТА от двойного выбора
+    check_res = await supabase.get("/event_matrix_quest", params={"user_id": f"eq.{telegram_id}"})
+    if check_res.status_code == 200 and len(check_res.json()) > 0:
+        raise HTTPException(status_code=400, detail="Вы уже сделали свой выбор")
+
+    # 2. ПОЛУЧАЕМ ТЕКУЩИЕ СЧЕТЧИКИ ИЗ ТАБЛИЦЫ USERS
+    start_tg = 0
+    start_twitch = 0
+    
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "monthly_message_count, telegram_monthly_message_count"})
+    if user_res.status_code == 200 and len(user_res.json()) > 0:
+        u_data = user_res.json()[0]
+        start_twitch = u_data.get("monthly_message_count", 0)
+        start_tg = u_data.get("telegram_monthly_message_count", 0)
+
+    # 3. СОХРАНЯЕМ ВЫБОР И СТАРТОВУЮ ТОЧКУ
+    insert_data = {
+        "user_id": telegram_id,
+        "selected_pill": choice,
+        "start_tg_msg": start_tg,
+        "start_twitch_msg": start_twitch,
+        "is_completed": False
+    }
+    
+    insert_res = await supabase.post("/event_matrix_quest", json=insert_data)
+    if insert_res.status_code not in [200, 201, 204]:
+        logging.error(f"Matrix Quest Insert Error: {insert_res.text}")
+        raise HTTPException(status_code=500, detail="Ошибка сохранения выбора")
+
+    # 4. РАЗВИЛКА ПУТЕЙ
+    if choice == 'red':
+        # 🔴 ПУТЬ ЛЕНИВЦА: Режем траст (штраф x3 цены)
+        await supabase.patch("/users", 
+            params={"telegram_id": f"eq.{telegram_id}"}, 
+            json={
+                "trust_level": "red", 
+                "trust_score": 10.0  
+            }
+        )
+        
+        # 🔴 ВЫДАЧА НАГРАДЫ: Генерируем купон (campaign_id = 999)
+        unique_code = f"MR-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+        
+        coupon_data = {
+            "code": unique_code,
+            "max_uses": 1,
+            "current_uses": 0,
+            "is_active": True,
+            "description": "Авто-код: Матрица (Красная)",
+            "is_copied": False,
+            "assigned_to": telegram_id,
+            "assigned_at": datetime.now(timezone.utc).isoformat(),
+            "target_case_name": "Кейс | Лентяй",  
+            "used_by_ids": [],
+            "activated_by_ids": [],
+            "campaign_id": 999 # 🔥 СТАВИМ 999 КАК ТЫ И ПРОСИЛ
+        }
+        
+        coupon_res = await supabase.post("/cs_codes", json=coupon_data) 
+        if coupon_res.status_code not in [200, 201]:
+            logging.error(f"Ошибка выдачи авто-купона Матрицы для {telegram_id}: {coupon_res.text}")
+
+    elif choice == 'blue':
+        # 🔵 ПУТЬ ИСПЫТАНИЯ
+        # Всё сохранено, делать больше ничего не нужно. 
+        pass
+
+    return {"success": True, "choice": choice}
 
 # ==========================================
 # 📸 UPLOAD SYSTEM (ЗАГРУЗКА ФОТО)
