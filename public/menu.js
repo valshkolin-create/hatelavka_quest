@@ -3244,13 +3244,12 @@ function checkMatrixEvent(matrixData) {
     // Твой оригинальный стиль (z-index: 2147483646 - на 1 меньше максимума, чтобы оставить место для алерта)
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483646; display: flex; flex-direction: column; justify-content: space-between; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.4s; overflow: hidden;";
 
-    // Твой ИДЕАЛЬНЫЙ HTML (заменил только onclick на id для кнопок)
     overlay.innerHTML = `
-        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 0px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <button id="matrix-close-btn" style="position: absolute; top: calc(env(safe-area-inset-top, 20px) + 20px); right: 20px; background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; z-index: 100; cursor: pointer; display: flex; align-items: center; justify-content: center;">
             <i class="fa-solid fa-xmark"></i>
         </button>
 
-        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 30px; text-align: center; z-index: 5;">
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 30px; text-align: center; z-index: 5; margin-top: calc(env(safe-area-inset-top, 20px) + 50px);">
             <h3 style="color: #FFD700; font-size: 20px; margin: 0 0 12px 0; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Дружище, удели внимание!</h3>
             
             <p style="font-size: 12px; color: #fff; line-height: 1.4; margin: 0 0 10px 0; opacity: 0.9;">
@@ -3292,6 +3291,46 @@ function checkMatrixEvent(matrixData) {
         setTimeout(() => overlay.remove(), 400);
     };
 
+    // ==========================================
+    // ЛОГИКА ДИАЛОГОВЫХ ОКОН
+    // ==========================================
+
+    overlay.querySelector('#btn-path-red').onclick = () => {
+        showShopModal({
+            title: '<span style="color: #ff3b30; font-weight: 900;">ПУТЬ ЛЕНИВЦА</span>',
+            subtitle: 'Выбрав этот путь, твой траст упадет, а цены в магазине вырастут в <b>3 раза</b>.<br><br>Но ты сразу получишь <b>Кейс Лентяй</b>.<br><br>Уверен в своем выборе?',
+            confirmText: 'ДА, Я УВЕРЕН',
+            confirmClass: 'btn-buy', 
+            showCancel: true,
+            onConfirm: (close) => {
+                close();
+                submitMatrixChoice('red');
+            }
+        });
+        
+        // Вытаскиваем диалог поверх Морфеуса
+        const confirmModal = document.querySelector('.custom-confirm-overlay');
+        if (confirmModal) confirmModal.style.zIndex = '2147483647';
+    };
+
+    overlay.querySelector('#btn-path-blue').onclick = () => {
+        showShopModal({
+            title: '<span style="color: #2AABEE; font-weight: 900;">ПУТЬ РАЗВИТИЯ</span>',
+            subtitle: 'Тебе предстоит доказать свою вовлеченность в проекте.<br><br>Напиши <b>50 сообщений</b> в ТГ и <b>200 сообщений</b> на Twitch.<br><br>Награда: <b>Кейс NUT-NUT + 10 🎟️</b>.<br><br>Принимаешь вызов?',
+            confirmText: 'ПРИНЯТЬ',
+            confirmClass: 'btn-buy',
+            showCancel: true,
+            onConfirm: (close) => {
+                close();
+                submitMatrixChoice('blue');
+            }
+        });
+        
+        // Вытаскиваем диалог поверх Морфеуса
+        const confirmModal = document.querySelector('.custom-confirm-overlay');
+        if (confirmModal) confirmModal.style.zIndex = '2147483647';
+    };
+}
     // ==========================================
     // ЛОГИКА ДИАЛОГОВЫХ ОКОН
     // ==========================================
