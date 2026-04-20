@@ -1,4 +1,29 @@
 // ================================================================
+// 0. ЭКСТРЕННАЯ БЛОКИРОВКА (ТЕХРАБОТЫ ДО ЗАГРУЗКИ СТРАНИЦЫ)
+// ================================================================
+(function emergencyMaintenanceCheck() {
+    try {
+        const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+        if (cached && cached.maintenance) {
+            // Внедряем стили, которые жестко прячут всё остальное
+            const style = document.createElement('style');
+            style.innerHTML = 'body > *:not(#emergency-maintenance-screen) { display: none !important; } body { background: #141414 !important; overflow: hidden !important; }';
+            document.documentElement.appendChild(style);
+
+            // Создаем экран техработ поверх всего мира
+            const screen = document.createElement('div');
+            screen.id = 'emergency-maintenance-screen';
+            screen.style.cssText = 'position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#141414; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-family:-apple-system, system-ui, sans-serif; z-index:2147483647;';
+            screen.innerHTML = `
+                <i class="fa-solid fa-gear fa-spin" style="font-size:55px; margin-bottom:20px; filter: drop-shadow(0 0 15px rgba(255,215,0,0.4));"></i>
+                <span style="font-weight:900; font-size:24px; text-transform:uppercase; letter-spacing:1px;">Технические работы</span>
+                <span style="color:#888; font-size:13px; margin-top:10px;">Проверка серверов...</span>
+            `;
+            document.documentElement.appendChild(screen);
+        }
+    } catch(e) {}
+})();
+// ================================================================
 // 1. ИНИЦИАЛИЗАЦИЯ (Флаги уже установлены в HTML) 
 // ================================================================
 console.log("📡 [DETECTOR] Текущий режим:", window.isVk ? "ВКонтакте" : "Telegram/Web");
@@ -3036,10 +3061,28 @@ async function main() {
 
         if (!isCached) updateLoading(60);
 
-        // Мгновенный блок техработ
+        // Обработка техработ
         if (bootstrapData && bootstrapData.maintenance) {
-            document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#121212; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-weight:900; font-size:18px; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:50px; margin-bottom:15px;"></i><span>Технические работы</span><span style="color:#888; font-size:12px; margin-top:5px; font-weight:normal;">Валька уже исправляет...</span></div>';
-            return; 
+            // Если экран уже висит с шага 0 - просто меняем текст
+            const emergencyScreen = document.getElementById('emergency-maintenance-screen');
+            if (emergencyScreen) {
+                emergencyScreen.innerHTML = `
+                    <i class="fa-solid fa-gear fa-spin" style="font-size:55px; margin-bottom:20px; filter: drop-shadow(0 0 15px rgba(255,215,0,0.4));"></i>
+                    <span style="font-weight:900; font-size:24px; text-transform:uppercase; letter-spacing:1px;">Технические работы</span>
+                    <span style="color:#888; font-size:13px; margin-top:10px;">Валька уже исправляет (или ломает)...</span>
+                `;
+            } else {
+                // Если юзер сидел в приложении и техработы включили прямо сейчас
+                document.body.innerHTML = '<div style="position:fixed; top:0; left:0; display:flex; height:100vh; width:100vw; background:#141414; align-items:center; justify-content:center; flex-direction:column; color:#FFD700; font-family:-apple-system, system-ui, sans-serif; z-index:2147483647;"><i class="fa-solid fa-gear fa-spin" style="font-size:55px; margin-bottom:20px; filter: drop-shadow(0 0 15px rgba(255,215,0,0.4));"></i><span style="font-weight:900; font-size:24px; text-transform:uppercase; letter-spacing:1px;">Технические работы</span><span style="color:#888; font-size:13px; margin-top:10px;">Валька уже исправляет...</span></div>';
+            }
+            return; // ОСТАНАВЛИВАЕМ РЕНДЕР
+        } else {
+            // ТЕХРАБОТЫ ЗАКОНЧИЛИСЬ! 
+            // Если висит блокировочный экран, перезагружаем страницу, чтобы чисто отрендерить UI
+            if (document.getElementById('emergency-maintenance-screen')) {
+                window.location.reload();
+                return;
+            }
         }
 
         // === 🔥 ПРЕДЗАГРУЗКА КАРТИНОК 🔥 ===
