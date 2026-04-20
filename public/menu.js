@@ -3345,7 +3345,7 @@ function checkMatrixEvent(matrixData) {
                 
                 /* КРЕСТИК НА КОМПЬЮТЕРЕ (Увеличен и расположен в самом углу, подальше от текста) */
                 #matrix-close-btn { 
-                    top: 30px !important; 
+                    top: 5px !important; 
                     right: 40px !important; 
                     width: 44px; 
                     height: 44px; 
