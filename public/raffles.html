@@ -439,34 +439,46 @@
             } catch(e) { document.getElementById('list').innerHTML = '<p style="text-align:center">Ошибка сети</p>'; }
         }
 
-        function render(data) {
-            const list = document.getElementById('list');
-            const historyList = document.getElementById('history-list');
-            list.innerHTML = ''; historyList.innerHTML = '';
-            
-            let completedCount = 0;
-            let activeRendered = 0;
+function render(data) {
+    const list = document.getElementById('list');
+    const historyList = document.getElementById('history-list');
+    list.innerHTML = ''; historyList.innerHTML = '';
+    
+    let completedCount = 0;
+    let activeRendered = 0;
 
-            // Свежие розыгрыши сверху
-            data.reverse();
+    // 🔥 1. ЖЕЛЕЗОБЕТОННЫЙ ФИЛЬТР (Выкидываем всё, что не должно быть видно)
+    const validData = data.filter(r => {
+        if (r.status === 'scheduled') return false; // Скрываем отложенные
+        if (r.status === 'completed' && !r.winner) return false; // Скрываем отмененные
+        // Если у тебя есть флаг видимости в БД (например is_hidden), раскомментируй строку ниже:
+        // if (r.is_hidden === true || r.is_visible === false) return false;
+        
+        return true; // Остальные пропускаем дальше
+    });
 
-            data.forEach(r => {
-                // 🔥 ВАЖНО: Скрываем отложенные посты (scheduled)
-                if (r.status === 'scheduled') return;
+    // 🔥 2. РАЗДЕЛЯЕМ МАССИВ (Активные и Завершенные)
+    let activeRaffles = validData.filter(r => r.status !== 'completed');
+    let completedRaffles = validData.filter(r => r.status === 'completed');
 
-                const done = r.status === 'completed';
-                const isCancelled = done && !r.winner;
+    // 🔥 3. СОРТИРОВКА АКТИВНЫХ (Те, что заканчиваются раньше - наверх)
+    activeRaffles.sort((a, b) => new Date(a.end_time) - new Date(b.end_time));
 
-                // 🔥 ДОБАВЛЕНО: Скрываем отмененные розыгрыши (они не попадут в историю)
-                if (isCancelled) return;
+    // 🔥 4. СОРТИРОВКА ЗАВЕРШЕННЫХ (Самые свежие прошедшие - наверх)
+    completedRaffles.sort((a, b) => new Date(b.end_time) - new Date(a.end_time));
 
-                const s = r.settings || {};
-                
-                if(done) completedCount++;
-                else activeRendered++;
+    // 🔥 5. ОБЪЕДИНЯЕМ И ЗАПУСКАЕМ ЦИКЛ
+    const sortedData = [...activeRaffles, ...completedRaffles];
 
-                // Приоритет картинки: card_image -> prize_image
-                const img = s.card_image || s.prize_image || '';
+    sortedData.forEach(r => {
+        const done = r.status === 'completed';
+        const s = r.settings || {};
+        
+        if(done) completedCount++;
+        else activeRendered++;
+
+        // Приоритет картинки: card_image -> prize_image
+        const img = s.card_image || s.prize_image || '';
                 const rarityColor = s.rarity_color || '#2481cc'; 
                 const fullPrizeName = `${s.prize_name} ${s.skin_quality ? `(${s.skin_quality})` : ''}`;
 
