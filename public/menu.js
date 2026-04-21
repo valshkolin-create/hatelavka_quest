@@ -3302,8 +3302,19 @@ const twitchAlert = userData.twitch_id ? '' : '<div style="color:#ff3b30; font-s
 }
 
 function checkMatrixEvent(matrixData) {
-    if (matrixData?.selected_pill || sessionStorage.getItem('matrix_dismissed')) return;
-    if (document.getElementById('matrix-event-modal')) return;
+    const existingModal = document.getElementById('matrix-event-modal');
+
+    // Если у юзера уже есть выбор в БД (или он нажал крестик в этой сессии)
+    if (matrixData?.selected_pill || sessionStorage.getItem('matrix_dismissed')) {
+        // Если окно успело отрисоваться из старого кэша — жестко сносим его
+        if (existingModal) {
+            existingModal.remove();
+        }
+        return;
+    }
+
+    // Если окна еще нет и выбора нет — создаем (защита от двойного рендера)
+    if (existingModal) return;
 
     const overlay = document.createElement('div');
     overlay.id = 'matrix-event-modal';
