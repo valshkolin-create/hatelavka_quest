@@ -2741,16 +2741,25 @@ window.renderSchedule = () => {
     const container = document.getElementById('schedule-container');
     container.innerHTML = '';
 
+    // Определяем текущий день недели (0 - воскресенье, 1 - понедельник и т.д.)
+    const daysMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const todayKey = daysMap[new Date().getDay()];
+
     Object.keys(dayNames).forEach(dayKey => {
         const dayText = dayNames[dayKey];
         const timeText = currentSchedule[dayKey] || "Выходной";
+        
+        // Проверяем, является ли этот день сегодняшним
+        const isToday = dayKey === todayKey;
+        const highlightStyle = isToday ? 'color: #FFD700; font-weight: 900; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);' : '';
 
         const row = document.createElement('div');
         row.className = 'schedule-row';
+        if (isToday) row.style.background = 'rgba(255, 215, 0, 0.05)'; // Легкий фон для строки
         
         row.innerHTML = `
-            <div class="schedule-day">${dayText}</div>
-            <div class="schedule-time" id="text-${dayKey}">${escapeHTML(timeText)}</div>
+            <div class="schedule-day" style="${highlightStyle}">${dayText}</div>
+            <div class="schedule-time" id="text-${dayKey}" style="${highlightStyle}">${escapeHTML(timeText)}</div>
             <input type="text" class="schedule-input" id="input-${dayKey}" value="${escapeHTML(timeText)}">
         `;
         container.appendChild(row);
