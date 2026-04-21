@@ -716,6 +716,17 @@ body.desktop-mode .new-header-container {
 .nav-item span { font-size: 9px; font-weight: 600; }
 .nav-item.active { background: transparent; color: var(--text-primary); }
 
+/* Делаем все неактивные иконки серыми/полупрозрачными */
+.floating-bottom-bar .nav-item {
+    color: #8E8E93; /* Твой стандартный серый цвет из других меню */
+    /* opacity: 0.7; - можно добавить полупрозрачность, если нужно */
+}
+
+/* Оставляем белой (активной) только ту, у которой есть класс active */
+.floating-bottom-bar .nav-item.active {
+    color: #FFFFFF; 
+}
+
 /* ==========================================
    ПК-ОГРАНИЧЕНИЯ ШИРИНЫ
 ========================================== */
