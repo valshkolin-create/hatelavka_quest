@@ -19758,6 +19758,10 @@ async def finalize_raffle_webhook(
 
     raffle_id = req.raffle_id
     
+    # === НАЧИНАЕМ ОТСЧЕТ ВРЕМЕНИ ===
+    start_time = time.time()
+    print(f"⏱ [0.00s] Начало обработки розыгрыша {raffle_id}")
+    
     # ==========================================
     # 2. АТОМАРНАЯ БЛОКИРОВКА (Optimistic Locking)
     # ==========================================
@@ -19794,6 +19798,8 @@ async def finalize_raffle_webhook(
     channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     reply_to_id = s.get('post_message_id') # Для реплая
 
+    print(f"⏱ [{time.time() - start_time:.2f}s] Участники ({count} шт.) и настройки получены")
+
     # === 🔥 ПРОВЕРКА НА МИН. КОЛИЧЕСТВО ===
     if count < min_parts:
         print(f"⚠️ Розыгрыш {raffle_id}: мало участников ({count} < {min_parts}). Отмена.")
@@ -19804,21 +19810,27 @@ async def finalize_raffle_webhook(
         # Получаем стоимость билета для проверок
         ticket_cost = int(s.get('ticket_cost', 0))
         
-        # 2. ВОЗВРАТ БИЛЕТОВ (Refund Logic)
+        # 2. ВОЗВРАТ БИЛЕТОВ (Refund Logic) - ТЕПЕРЬ ПАРАЛЛЕЛЬНЫЙ
         if s.get('is_refund_enabled') and ticket_cost > 0:
             refund_pct = int(s.get('refund_percent', 100))
             amount = int(ticket_cost * (refund_pct / 100))
             
             if amount > 0:
-                for p in participants:
+                async def refund_user(user_id, amt, client):
                     try:
-                        # Возвращаем билеты каждому участнику
-                        u_res = await supabase.get("/users", params={"telegram_id": f"eq.{p['user_id']}"})
+                        u_res = await client.get("/users", params={"telegram_id": f"eq.{user_id}"})
                         if u_res.json():
                             curr = u_res.json()[0].get('tickets', 0)
-                            await supabase.patch("/users", params={"telegram_id": f"eq.{p['user_id']}"}, json={"tickets": curr + amount})
+                            await client.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": curr + amt})
                     except Exception as e:
                         print(f"Err refund: {e}")
+                
+                # Запускаем возврат всем одновременно
+                refund_tasks = [refund_user(p['user_id'], amount, supabase) for p in participants]
+                if refund_tasks:
+                    await asyncio.gather(*refund_tasks)
+                    
+                print(f"⏱ [{time.time() - start_time:.2f}s] Билеты успешно возвращены участникам (Параллельно)")
         
         # 3. ПИШЕМ В КАНАЛ ОБ ОТМЕНЕ
         if channel_id:
@@ -19837,6 +19849,7 @@ async def finalize_raffle_webhook(
                     await bot.send_message(chat_id=channel_id, text=txt, parse_mode="HTML")
             except: pass
             
+        print(f"⏱ [{time.time() - start_time:.2f}s] Завершено (отмена розыгрыша)")
         return {"status": "cancelled_low_participants"}
         
     # 4. ЕСЛИ ЛЮДЕЙ ХВАТАЕТ -> ВЫБОР ПОБЕДИТЕЛЯ
@@ -19890,6 +19903,8 @@ async def finalize_raffle_webhook(
 
     except Exception as e:
         print(f"🔴 Ошибка при выборе победителя: {e}")
+
+    print(f"⏱ [{time.time() - start_time:.2f}s] Победитель выбран")
 
     # 5. ОБНОВЛЕНИЕ БД И ОТПРАВКА ПОСТА О ПОБЕДЕ (С АВТОВЫДАЧЕЙ В ИНВЕНТАРЬ!)
     if winner_id:
@@ -20006,6 +20021,8 @@ async def finalize_raffle_webhook(
                     notif_type="system"  # Если на фронте есть отдельная иконка под победы, можешь поменять на "win"
                 )
 
+                print(f"⏱ [{time.time() - start_time:.2f}s] Предмет выдан в БД, кэш маркета проверен")
+
                 # ==========================================
                 # ФОРМИРУЕМ И ОТПРАВЛЯЕМ ПОСТ О ПОБЕДЕ
                 # ==========================================
@@ -20019,7 +20036,6 @@ async def finalize_raffle_webhook(
                 
                 # Берем картинку для поста из настроек, или оригинальную стимовскую
                 prize_img = s.get('prize_image') or s.get('card_image') or final_image_url
-
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(text="🎒 Открыть инвентарь", url="https://t.me/HATElavka_bot/profile")
@@ -20037,6 +20053,8 @@ async def finalize_raffle_webhook(
                     else:
                         await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML", reply_markup=kb)
                         
+                print(f"⏱ [{time.time() - start_time:.2f}s] Пост в Telegram отправлен")
+                        
             except Exception as e:
                 print(f"⚠️ Ошибка отправки сообщения в ТГ: {e}")
     else:
@@ -20050,12 +20068,14 @@ async def finalize_raffle_webhook(
                 else:
                     await bot.send_message(chat_id=channel_id, text=msg_txt)
             except: pass
+            
+        print(f"⏱ [{time.time() - start_time:.2f}s] Завершено (нет участников)")
 
     return {"status": "done", "winner": winner_id}
 
 class CronCheckRequest(BaseModel):
     secret: str
-
+    
 @app.post("/api/v1/webhook/cron_check_raffles")
 async def cron_check_raffles(
     req: CronCheckRequest,
