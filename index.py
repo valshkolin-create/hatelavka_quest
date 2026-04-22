@@ -20063,6 +20063,7 @@ async def cron_check_raffles(
 ):
     # Добавляем локальные импорты, чтобы 100% работало в любом файле
     import traceback
+    import asyncio  # Добавлено для параллельного выполнения задач
     from datetime import datetime, timezone
 
     # 1. Защита: проверяем, что дергает именно наш QStash
@@ -20089,21 +20090,32 @@ async def cron_check_raffles(
             ripe_raffles = res_raffles.json()
             if ripe_raffles:
                 print(f"🤖 CRON: Найдено {len(ripe_raffles)} розыгрышей для завершения!")
+                
+                # Собираем все задачи для розыгрышей в один список
+                raffle_tasks = []
                 for r in ripe_raffles:
                     raffle_id = r['id']
-                    print(f"🤖 CRON: Отправляю розыгрыш {raffle_id} в обработчик...")
-                    
+                    print(f"🤖 CRON: Готовлю розыгрыш {raffle_id} к параллельной отправке...")
                     fin_req = FinalizeRequest(raffle_id=raffle_id, secret=req.secret)
+                    raffle_tasks.append(finalize_raffle_webhook(fin_req, supabase))
+                
+                # Запускаем все задачи одновременно! 
+                # return_exceptions=True гарантирует, что если один розыгрыш упадет, остальные продолжат работу
+                raffle_results = await asyncio.gather(*raffle_tasks, return_exceptions=True)
+                
+                # Обрабатываем результаты после параллельного выполнения
+                for i, result in enumerate(raffle_results):
+                    raffle_id = ripe_raffles[i]['id']
                     
-                    # Ждем ответа от нашего обновленного безопасного вебхука
-                    result = await finalize_raffle_webhook(fin_req, supabase)
-                    
-                    # Проверяем, не перехватил ли этот розыгрыш другой параллельный процесс
-                    status = result.get("status")
-                    if status in ["already_processing_or_completed", "already_completed"]:
-                        print(f"⏩ Пропуск: Розыгрыш {raffle_id} уже обрабатывается другим потоком.")
+                    if isinstance(result, Exception):
+                        print(f"🔴 Ошибка при обработке розыгрыша {raffle_id}: {repr(result)}")
                     else:
-                        processed_raffles += 1
+                        # Проверяем, не перехватил ли этот розыгрыш другой параллельный процесс
+                        status = result.get("status")
+                        if status in ["already_processing_or_completed", "already_completed"]:
+                            print(f"⏩ Пропуск: Розыгрыш {raffle_id} уже обрабатывается другим потоком.")
+                        else:
+                            processed_raffles += 1
         else:
             print(f"⚠️ CRON DB Error (Raffles): {res_raffles.text}")
 
@@ -20122,14 +20134,26 @@ async def cron_check_raffles(
             ripe_auctions = res_auctions.json()
             if ripe_auctions:
                 print(f"🤖 CRON: Найдено {len(ripe_auctions)} аукционов для завершения!")
+                
+                # Собираем все задачи для аукционов в один список
+                auction_tasks = []
                 for a in ripe_auctions:
                     auction_id = a['id']
-                    print(f"🤖 CRON: Отправляю аукцион {auction_id} в обработчик...")
-                    
-                    # Передаем запрос в вебхук аукционов
+                    print(f"🤖 CRON: Готовлю аукцион {auction_id} к параллельной отправке...")
                     fin_req_auc = AuctionFinalizeRequest(auction_id=auction_id, secret=req.secret)
-                    await finalize_auction_webhook(fin_req_auc, supabase)
-                    processed_auctions += 1
+                    auction_tasks.append(finalize_auction_webhook(fin_req_auc, supabase))
+                
+                # Запускаем все задачи по аукционам одновременно
+                auction_results = await asyncio.gather(*auction_tasks, return_exceptions=True)
+                
+                # Обрабатываем результаты
+                for i, result in enumerate(auction_results):
+                    auction_id = ripe_auctions[i]['id']
+                    
+                    if isinstance(result, Exception):
+                        print(f"🔴 Ошибка при обработке аукциона {auction_id}: {repr(result)}")
+                    else:
+                        processed_auctions += 1
         else:
             print(f"⚠️ CRON DB Error (Auctions): {res_auctions.text}")
             
