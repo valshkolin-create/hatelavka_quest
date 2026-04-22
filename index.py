@@ -19260,13 +19260,43 @@ async def create_raffle(
                 status = "scheduled"
         except: pass
 
-    # 1. Создаем запись в БД
+    # ========================================================
+    # 🔥 УМНАЯ ПРЕДЗАГРУЗКА ЦЕНЫ (Ускоряем будущие вебхуки!)
+    # ========================================================
+    s_dict = req.settings.dict()
+    price = s_dict.get('price_rub') or s_dict.get('price')
+
+    if not price:
+        prize_name = s_dict.get('prize_name', '')
+        quality = s_dict.get('skin_quality', '')
+        quality_map = {
+            "FN": "(Factory New)", "MW": "(Minimal Wear)", "FT": "(Field-Tested)",
+            "WW": "(Well-Worn)", "BS": "(Battle-Scarred)"
+        }
+        market_hash_name = prize_name
+        if quality and quality in quality_map:
+            market_hash_name = f"{prize_name} {quality_map[quality]}"
+
+        if market_hash_name:
+            try:
+                # Идем в базу и ищем актуальную цену прямо при создании
+                market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+                if market_res.status_code == 200 and market_res.json():
+                    fetched_price = float(market_res.json()[0].get('price_rub', 0))
+                    if fetched_price > 0:
+                        s_dict['price_rub'] = fetched_price
+                        print(f"✅ Цена предзагружена из кэша для '{market_hash_name}': {fetched_price} руб.")
+            except Exception as e:
+                print(f"⚠️ Ошибка предзагрузки цены при создании: {e}")
+    # ========================================================
+
+    # 1. Создаем запись в БД (УЖЕ СО ВШИТОЙ ЦЕНОЙ!)
     payload = {
         "title": req.title,
         "type": req.type,
         "status": status,
         "end_time": req.end_time,
-        "settings": req.settings.dict()
+        "settings": s_dict  # Используем наш обновленный словарь
     }
     
     # ВАЖНО: Заголовок, чтобы Supabase вернул данные (Fix JSONDecodeError)
@@ -19293,13 +19323,13 @@ async def create_raffle(
     app_url = os.getenv("WEB_APP_URL") or os.getenv("APP_URL")
 
     # 2. ОТПРАВЛЯЕМ ПОСТ (ТОЛЬКО ЕСЛИ ACTIVE И НЕ SILENT)
-    is_silent = req.settings.is_silent
+    is_silent = s_dict.get('is_silent', False)
     
     if status == "active" and not is_silent:
         channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
         if channel_id:
             try:
-                s = req.settings.dict()
+                s = s_dict # Берем уже готовый словарь с ценой
                 
                 # Данные для поста
                 prize_name = s.get('prize_name', 'Приз')
@@ -19307,8 +19337,8 @@ async def create_raffle(
                 desc = s.get('description', '')
                 prize_full = f"{prize_name} ({quality})" if quality else prize_name
                 
-                # 🔥 ДОБАВИЛИ: Вытаскиваем цену
-                price = s.get('price_rub') or s.get('price')
+                # Вытаскиваем цену (Она уже 100% есть, если сработала предзагрузка)
+                price = s.get('price_rub')
 
                 # Условия
                 min_msgs = int(s.get('min_daily_messages', 0))
@@ -19325,9 +19355,8 @@ async def create_raffle(
                 if desc: txt += f"<i>{desc}</i>\n\n"
                 txt += f"🏆 <b>Приз:</b> {prize_full}\n"
                 
-                # 🔥 ДОБАВИЛИ: Выводим цену, если она есть
                 if price:
-                    txt += f"💵 <b>Стоимость:</b> {price} ₽\n"
+                    txt += f"💵 <b>Стоимость:</b> {round(float(price), 2)} ₽\n"
                     
                 txt += "\n📌 <b>Условия:</b>\n"
                 
@@ -19392,8 +19421,8 @@ async def create_raffle(
         except Exception as e:
             print(f"⚠️ Ошибка таймера публикации: {e}")
 
+    return {"status": "created", "id": new_id}
 
-    
 # 2. (Админ) Список
 @app.post("/api/v1/admin/raffles/list")
 async def get_admin_raffles(
@@ -19444,143 +19473,135 @@ async def get_raffle_participants(
 
 @app.post("/api/v1/webhook/publish_raffle")
 async def publish_raffle_webhook(
-    req: FinalizeRequest, # Использует ту же модель {raffle_id, secret}
+    req: FinalizeRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Проверка секретного ключа (защита от посторонних вызовов)
     if req.secret != get_cron_secret():
         print(f"⛔ Publish Webhook: Неверный секрет! (Получен: {req.secret})")
         return {"status": "bad secret"}
 
-    print(f"🚀 Публикация отложенного розыгрыша ID: {req.raffle_id}")
+    start_time = time.time()
+    print(f"🚀 [0.00s] СТАРТ публикации отложенного розыгрыша ID: {req.raffle_id}")
 
-    # 2. МЕНЯЕМ СТАТУС НА ACTIVE
-    # Сначала активируем, чтобы он стал виден
-    await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"status": "active"})
+    try:
+        # 🔥 ШАГ 1: Активируем и сразу получаем данные (1 запрос вместо 2)
+        r_resp = await supabase.patch(
+            "/raffles", 
+            params={"id": f"eq.{req.raffle_id}"}, 
+            json={"status": "active"},
+            headers={"Prefer": "return=representation"} 
+        )
 
-    # 3. ПОЛУЧАЕМ ДАННЫЕ ДЛЯ ПОСТА
-    r_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}"})
-    
-    # Проверка на ошибки БД
-    if r_resp.status_code != 200:
-        print(f"⚠️ Ошибка получения розыгрыша: {r_resp.text}")
-        return {"status": "db_error"}
+        if r_resp.status_code not in (200, 204):
+            print(f"⚠️ Ошибка БД: {r_resp.text}")
+            return {"status": "db_error"}
+            
+        data = r_resp.json()
+        if not data:
+            return {"status": "not found"}
+            
+        raffle = data[0]
+        s = raffle.get('settings', {})
+        print(f"⏱ [{time.time() - start_time:.2f}s] Розыгрыш активирован и данные получены")
         
-    data = r_resp.json()
-    if not data:
-        return {"status": "not found"}
+        if s.get('is_silent'):
+            print(f"🤫 Розыгрыш {req.raffle_id} опубликован без поста (silent mode)")
+            return {"status": "published_silent"}
+
+        # 🔥 ШАГ 2: Собираем текст 
+        prize_name = s.get('prize_name', 'Приз')
+        quality = s.get('skin_quality', '')
+        desc = s.get('description', '')
+        prize_full = f"{prize_name} ({quality})" if quality else prize_name
         
-    raffle = data[0]
-    
-    # Отправляем пост (Логика отображения)
-    channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
-    if channel_id:
-        try:
-            s = raffle.get('settings', {})
+        price = s.get('price_rub') or s.get('price')
+        
+        # Оставляем поиск цены, но в идеале перенеси это в админку!
+        if not price:
+            quality_map = {
+                "FN": "(Factory New)", "MW": "(Minimal Wear)", "FT": "(Field-Tested)",
+                "WW": "(Well-Worn)", "BS": "(Battle-Scarred)"
+            }
+            market_hash_name = prize_name
+            if quality and quality in quality_map:
+                market_hash_name = f"{prize_name} {quality_map[quality]}"
             
-            # Если "Тихий режим" (silent), то пост не делаем
-            if s.get('is_silent'):
-                print(f"🤫 Розыгрыш {req.raffle_id} опубликован без поста (silent mode)")
-                return {"status": "published_silent"}
+            market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+            if market_res.status_code == 200 and market_res.json():
+                price = float(market_res.json()[0].get('price_rub', 0))
+            print(f"⏱ [{time.time() - start_time:.2f}s] Запрос к кэшу маркета завершен")
 
-            # Формируем текст
-            prize_name = s.get('prize_name', 'Приз')
-            quality = s.get('skin_quality', '')
-            desc = s.get('description', '')
-            prize_full = f"{prize_name} ({quality})" if quality else prize_name
+        min_participants = int(s.get('min_participants', 0))
+        ticket_cost = int(s.get('ticket_cost', 0))
+        min_refs = int(s.get('min_referrals', 0))
+        min_coins = float(s.get('min_coins', 0.0))
+        name_tag = s.get('required_name_tag')
+        min_msgs = int(s.get('min_daily_messages', 0))
+        sub_req = s.get('requires_telegram_sub', False)
+
+        txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
+        if desc: txt += f"<i>{desc}</i>\n\n"
+        txt += f"🏆 <b>Приз:</b> {prize_full}\n"
+        
+        if price:
+            txt += f"💵 <b>Стоимость:</b> {round(float(price), 2)} ₽\n"
             
-            # --- 🔥 УМНЫЙ ПОИСК ЦЕНЫ ---
-            # 1. Пробуем взять цену из настроек
-            price = s.get('price_rub') or s.get('price')
-            
-            # 2. Бронебойный запасной вариант (Если в настройках цены нет)
-            if not price:
-                quality_map = {
-                    "FN": "(Factory New)",
-                    "MW": "(Minimal Wear)",
-                    "FT": "(Field-Tested)",
-                    "WW": "(Well-Worn)",
-                    "BS": "(Battle-Scarred)"
-                }
-                market_hash_name = prize_name
-                if quality and quality in quality_map:
-                    market_hash_name = f"{prize_name} {quality_map[quality]}"
-                    
-                # Идем в базу и ищем актуальную цену
-                market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
-                if market_res.status_code == 200 and market_res.json():
-                    price = float(market_res.json()[0].get('price_rub', 0))
-            # ---------------------------
+        txt += "\n📌 <b>Условия:</b>\n"
 
-            min_participants = int(s.get('min_participants', 0))
-            ticket_cost = int(s.get('ticket_cost', 0))
-            min_refs = int(s.get('min_referrals', 0))
-            min_coins = float(s.get('min_coins', 0.0))
-            name_tag = s.get('required_name_tag')
-            min_msgs = int(s.get('min_daily_messages', 0))
-            sub_req = s.get('requires_telegram_sub', False)
+        if sub_req:
+            txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
+        if ticket_cost > 0:
+            txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
+        if min_participants > 0:
+            txt += f"└ Минимум участников: {min_participants} 👥\n"
+        if min_refs > 0:
+            txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
+        if min_coins > 0:
+            txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
+        if name_tag:
+            txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
+        if min_msgs > 0:
+            txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
 
-            txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
-            if desc: txt += f"<i>{desc}</i>\n\n"
-            txt += f"🏆 <b>Приз:</b> {prize_full}\n"
-            
-            # 🔥 Выводим цену, если она есть (округляем до 2 знаков для красоты)
-            if price:
-                txt += f"💵 <b>Стоимость:</b> {round(float(price), 2)} ₽\n"
-                
-            txt += "\n📌 <b>Условия:</b>\n"
+        if raffle.get('end_time'):
+            try:
+                dt_input = datetime.fromisoformat(raffle['end_time'].replace('Z', ''))
+                txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
+            except: pass
 
-            if sub_req:
-                txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
-            if ticket_cost > 0:
-                txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
-            if min_participants > 0:
-                txt += f"└ Минимум участников: {min_participants} 👥\n"
-            if min_refs > 0:
-                txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
-            
-            if min_coins > 0:
-                txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
-            if name_tag:
-                txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
-            if min_msgs > 0:
-                txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
+        txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
 
-            # Время итогов
-            if raffle.get('end_time'):
-                try:
-                    dt_input = datetime.fromisoformat(raffle['end_time'].replace('Z', ''))
-                    txt += f"\n⏳ <b>Итоги:</b> {dt_input.strftime('%d.%m.%Y %H:%M')} (МСК)\n" 
-                except: pass
-
-            txt += "\n👇 <b>Жми кнопку, чтобы поучаствовать!</b>"
-
-            url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
-            
-            # Кнопка (изначально 0 участников)
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲 (0)", url=url_btn)]])
-            
-            post_img = s.get('prize_image') or s.get('card_image')
-            sent_msg = None
-
+        url_btn = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Участвовать 🎲 (0)", url=url_btn)]])
+        
+        post_img = s.get('prize_image') or s.get('card_image')
+        
+        # 🔥 ШАГ 3: Отправка в Telegram
+        channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
+        if channel_id:
+            print(f"⏱ [{time.time() - start_time:.2f}s] Начинаю отправку в Telegram...")
             if post_img:
                 sent_msg = await bot.send_photo(chat_id=channel_id, photo=post_img, caption=txt, reply_markup=kb, parse_mode="HTML")
             else:
                 sent_msg = await bot.send_message(chat_id=channel_id, text=txt, reply_markup=kb, parse_mode="HTML")
             
-            # 🔥 СОХРАНЯЕМ ID СООБЩЕНИЯ В БАЗУ (ВАЖНО для обновления кнопок)
+            print(f"⏱ [{time.time() - start_time:.2f}s] Telegram принял сообщение!")
+
             if sent_msg:
                 s['post_message_id'] = sent_msg.message_id
                 s['post_channel_id'] = str(channel_id)
-                # Перезаписываем settings, заодно сохраняя найденную цену, чтобы она осталась в БД
                 if price and not s.get('price_rub'):
                     s['price_rub'] = price
+                
                 await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"settings": s})
+                print(f"⏱ [{time.time() - start_time:.2f}s] ID сообщения записан в БД")
 
-            print(f"✅ Отложенный пост опубликован: {req.raffle_id}")
-            
-        except Exception as e:
-            print(f"⚠️ Ошибка публикации (Telegram): {e}")
+        print(f"✅ [{time.time() - start_time:.2f}s] Розыгрыш {req.raffle_id} полностью опубликован!")
+        
+    except Exception as e:
+        print(f"⚠️ Ошибка публикации (Общая): {e}")
+        import traceback
+        print(traceback.format_exc())
 
     return {"status": "published"}
     
