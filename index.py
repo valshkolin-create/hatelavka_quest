@@ -19486,22 +19486,23 @@ async def publish_raffle_webhook(
     print(f"🚀 [0.00s] СТАРТ публикации отложенного розыгрыша ID: {req.raffle_id}")
 
     try:
-        # 🔥 ШАГ 1: Активируем и сразу получаем данные (1 запрос вместо 2)
+        # 🔥 ШАГ 1: Активируем (АТОМАРНАЯ БЛОКИРОВКА - Защита от дублей)
         r_resp = await supabase.patch(
             "/raffles", 
-            params={"id": f"eq.{req.raffle_id}"}, 
+            params={
+                "id": f"eq.{req.raffle_id}",
+                "status": "eq.scheduled"  # <- КРИТИЧЕСКИ ВАЖНО: Только если он еще ждет публикации!
+            }, 
             json={"status": "active"},
             headers={"Prefer": "return=representation"} 
         )
 
-        if r_resp.status_code not in (200, 204):
-            print(f"⚠️ Ошибка БД: {r_resp.text}")
-            return {"status": "db_error"}
+        # Если вернулся пустой массив, значит кто-то (Крон или QStash) уже опубликовал его до нас
+        if r_resp.status_code not in (200, 204) or not r_resp.json():
+            print(f"⏩ Пропуск: Розыгрыш {req.raffle_id} уже опубликован или не найден.")
+            return {"status": "already_published_or_not_found"}
             
         data = r_resp.json()
-        if not data:
-            return {"status": "not found"}
-            
         raffle = data[0]
         s = raffle.get('settings', {})
         print(f"⏱ [{time.time() - start_time:.2f}s] Розыгрыш активирован и данные получены")
@@ -19509,7 +19510,7 @@ async def publish_raffle_webhook(
         if s.get('is_silent'):
             print(f"🤫 Розыгрыш {req.raffle_id} опубликован без поста (silent mode)")
             return {"status": "published_silent"}
-
+            
         # 🔥 ШАГ 2: Собираем текст 
         prize_name = s.get('prize_name', 'Приз')
         quality = s.get('skin_quality', '')
