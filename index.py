@@ -19237,6 +19237,7 @@ async def update_raffle_button(bot, channel_id, message_id, raffle_id, count):
 
 
 # 1. (Админ) Создать розыгрыш + Пост + Таймер
+# 1. (Админ) Создать розыгрыш + Пост + Таймер
 @app.post("/api/v1/admin/raffles/create")
 async def create_raffle(
     req: RaffleCreateRequest, 
@@ -19296,6 +19297,7 @@ async def create_raffle(
         "type": req.type,
         "status": status,
         "end_time": req.end_time,
+        "start_time": req.settings.start_time, # Добавлено для страховки крона
         "settings": s_dict  # Используем наш обновленный словарь
     }
     
@@ -19422,7 +19424,7 @@ async def create_raffle(
             print(f"⚠️ Ошибка таймера публикации: {e}")
 
     return {"status": "created", "id": new_id}
-
+    
 # 2. (Админ) Список
 @app.post("/api/v1/admin/raffles/list")
 async def get_admin_raffles(
@@ -19815,6 +19817,16 @@ async def finalize_raffle_webhook(
     count = len(participants)
 
     s = raffle.get('settings', {})
+    
+    # Подстраховка: если Supabase вернул JSON как строку
+    if isinstance(s, str):
+        import json
+        try:
+            s = json.loads(s)
+        except:
+            s = {}
+            
+    is_silent = s.get('is_silent', False)
     min_parts = int(s.get('min_participants', 0))
     channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
     reply_to_id = s.get('post_message_id') # Для реплая
@@ -19853,8 +19865,8 @@ async def finalize_raffle_webhook(
                     
                 print(f"⏱ [{time.time() - start_time:.2f}s] Билеты успешно возвращены участникам (Параллельно)")
         
-        # 3. ПИШЕМ В КАНАЛ ОБ ОТМЕНЕ
-        if channel_id:
+        # 3. ПИШЕМ В КАНАЛ ОБ ОТМЕНЕ (Только если не тихий режим)
+        if channel_id and not is_silent:
             try:
                 prize = s.get('prize_name', 'Приз')
                 txt = f"⚠️ <b>Розыгрыш «{prize}» отменен.</b>\n\nНе набрано участников ({count}/{min_parts})."
@@ -19933,7 +19945,7 @@ async def finalize_raffle_webhook(
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed", "winner_id": winner_id})
         await supabase.patch("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}", "user_id": f"eq.{winner_id}"}, json={"is_winner": True})
         
-        if channel_id and winner_data:
+        if winner_data:
             try:
                 prize_name = s.get('prize_name', 'Приз')
                 quality = s.get('skin_quality', '')
@@ -20045,43 +20057,44 @@ async def finalize_raffle_webhook(
                 print(f"⏱ [{time.time() - start_time:.2f}s] Предмет выдан в БД, кэш маркета проверен")
 
                 # ==========================================
-                # ФОРМИРУЕМ И ОТПРАВЛЯЕМ ПОСТ О ПОБЕДЕ
+                # ФОРМИРУЕМ И ОТПРАВЛЯЕМ ПОСТ О ПОБЕДЕ (Только если не тихий режим)
                 # ==========================================
-                text = (
-                    f"🛑 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
-                    f"🎁 Приз: <b>{prize_full}</b>\n"
-                    f"🏆 Победитель: <b>{winner_name}</b> {winner_username}\n\n"
-                    f"Поздравляем! 🍀"
-                )
-                text += delivery_status_text
-                
-                # Берем картинку для поста из настроек, или оригинальную стимовскую
-                prize_img = s.get('prize_image') or s.get('card_image') or final_image_url
+                if channel_id and not is_silent:
+                    text = (
+                        f"🛑 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
+                        f"🎁 Приз: <b>{prize_full}</b>\n"
+                        f"🏆 Победитель: <b>{winner_name}</b> {winner_username}\n\n"
+                        f"Поздравляем! 🍀"
+                    )
+                    text += delivery_status_text
+                    
+                    # Берем картинку для поста из настроек, или оригинальную стимовскую
+                    prize_img = s.get('prize_image') or s.get('card_image') or final_image_url
 
-                kb = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text="🎒 Открыть инвентарь", url="https://t.me/HATElavka_bot/profile")
-                ]])
-                
-                # Отправляем результат (Реплай на пост розыгрыша, если есть ID)
-                if prize_img:
-                    if reply_to_id:
-                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
+                    kb = InlineKeyboardMarkup(inline_keyboard=[[
+                        InlineKeyboardButton(text="🎒 Открыть инвентарь", url="https://t.me/HATElavka_bot/profile")
+                    ]])
+                    
+                    # Отправляем результат (Реплай на пост розыгрыша, если есть ID)
+                    if prize_img:
+                        if reply_to_id:
+                            await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
+                        else:
+                            await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, parse_mode="HTML", reply_markup=kb)
                     else:
-                        await bot.send_photo(chat_id=channel_id, photo=prize_img, caption=text, parse_mode="HTML", reply_markup=kb)
-                else:
-                    if reply_to_id:
-                        await bot.send_message(chat_id=channel_id, text=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
-                    else:
-                        await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML", reply_markup=kb)
-                        
-                print(f"⏱ [{time.time() - start_time:.2f}s] Пост в Telegram отправлен")
+                        if reply_to_id:
+                            await bot.send_message(chat_id=channel_id, text=text, reply_to_message_id=reply_to_id, parse_mode="HTML", reply_markup=kb)
+                        else:
+                            await bot.send_message(chat_id=channel_id, text=text, parse_mode="HTML", reply_markup=kb)
+                            
+                    print(f"⏱ [{time.time() - start_time:.2f}s] Пост в Telegram отправлен")
                         
             except Exception as e:
                 print(f"⚠️ Ошибка отправки сообщения в ТГ: {e}")
     else:
         # Если участников НЕ БЫЛО вообще (пустой список и не отменилось выше, или ошибка выбора)
         await supabase.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "completed"})
-        if channel_id:
+        if channel_id and not is_silent:
             try:
                 msg_txt = f"⚠️ Розыгрыш завершен, но участников не было 😔"
                 if reply_to_id:
@@ -20111,14 +20124,44 @@ async def cron_check_raffles(
     if req.secret != get_cron_secret():
         raise HTTPException(status_code=403, detail="Bad secret")
 
-    print("🤖 CRON: Ищу розыгрыши и аукционы, которые пора завершить...")
+    print("🤖 CRON: Ищу розыгрыши и аукционы, которые пора опубликовать или завершить...")
     
     try:
         # 2. Берем текущее время UTC
         now_utc = datetime.now(timezone.utc).isoformat()
         
+        processed_raffles = 0
+        processed_auctions = 0
+
         # ==========================================
-        # БЛОК 1: РОЗЫГРЫШИ (Диспетчер)
+        # 🔥 НОВЫЙ БЛОК: ПУБЛИКАЦИЯ ОТЛОЖЕННЫХ РОЗЫГРЫШЕЙ
+        # ==========================================
+        res_publish = await supabase.get("/raffles", params={
+            "status": "eq.scheduled",
+            "start_time": f"lte.{now_utc}",
+            "select": "id"
+        })
+        
+        if res_publish.status_code == 200:
+            to_publish = res_publish.json()
+            if to_publish:
+                print(f"🤖 CRON: Найдено {len(to_publish)} розыгрышей для ПУБЛИКАЦИИ!")
+                pub_tasks = []
+                for p in to_publish:
+                    raffle_id = p['id']
+                    print(f"🤖 CRON: Готовлю розыгрыш {raffle_id} к публикации...")
+                    # Используем твой реквест для публикации
+                    req_pub = FinalizeRequest(raffle_id=raffle_id, secret=req.secret)
+                    pub_tasks.append(publish_raffle_webhook(req_pub, supabase))
+                
+                # Запускаем все публикации одновременно
+                await asyncio.gather(*pub_tasks, return_exceptions=True)
+                processed_raffles += len(to_publish)
+        else:
+            print(f"⚠️ CRON DB Error (Publish Raffles): {res_publish.text}")
+
+        # ==========================================
+        # БЛОК 1: РОЗЫГРЫШИ (Завершение)
         # ==========================================
         res_raffles = await supabase.get("/raffles", params={
             "status": "eq.active",
@@ -20126,7 +20169,6 @@ async def cron_check_raffles(
             "select": "id"
         })
         
-        processed_raffles = 0
         if res_raffles.status_code == 200:
             ripe_raffles = res_raffles.json()
             if ripe_raffles:
@@ -20161,7 +20203,7 @@ async def cron_check_raffles(
             print(f"⚠️ CRON DB Error (Raffles): {res_raffles.text}")
 
         # ==========================================
-        # БЛОК 2: АУКЦИОНЫ
+        # БЛОК 2: АУКЦИОНЫ (Завершение)
         # ==========================================
         # Ищем аукционы: активны И время (которое мы задали жестко в админке) уже наступило
         res_auctions = await supabase.get("/auctions", params={
@@ -20170,7 +20212,6 @@ async def cron_check_raffles(
             "select": "id"
         })
         
-        processed_auctions = 0
         if res_auctions.status_code == 200:
             ripe_auctions = res_auctions.json()
             if ripe_auctions:
