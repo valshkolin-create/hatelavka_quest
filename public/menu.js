@@ -811,6 +811,42 @@ async function checkReferralAndWelcome(userData) {
     } else { if (bonusBtn) bonusBtn.classList.add('hidden'); }
 }
 
+// ================================================================
+// УТИЛИТЫ ДЛЯ ПРИВЕТСТВЕННОГО БОНУСА (ОТРИСОВКА ШАГОВ)
+// ================================================================
+function markStepDone(stepEl, iconEl) {
+    if (stepEl) {
+        stepEl.style.border = '1px solid rgba(52, 199, 89, 0.4)';
+        stepEl.style.background = 'rgba(52, 199, 89, 0.1)';
+    }
+    if (iconEl) {
+        iconEl.className = 'fa-solid fa-circle-check';
+        iconEl.style.color = '#34c759';
+    }
+}
+
+function markStepError(stepEl, iconEl) {
+    if (stepEl) {
+        stepEl.style.border = '1px solid rgba(255, 59, 48, 0.4)';
+        stepEl.style.background = 'rgba(255, 59, 48, 0.1)';
+    }
+    if (iconEl) {
+        iconEl.className = 'fa-solid fa-circle-xmark';
+        iconEl.style.color = '#ff3b30';
+    }
+}
+
+function markStepPending(stepEl, iconEl) {
+    if (stepEl) {
+        stepEl.style.border = '1px solid rgba(255, 215, 0, 0.4)';
+        stepEl.style.background = 'rgba(255, 215, 0, 0.1)';
+    }
+    if (iconEl) {
+        iconEl.className = 'fa-solid fa-spinner fa-spin';
+        iconEl.style.color = '#ffd700';
+    }
+}
+
 async function openWelcomePopup(currentUserData, referralCode = null) {
     const popup = document.getElementById('welcome-popup');
     const successModal = document.getElementById('subscription-success-modal');
