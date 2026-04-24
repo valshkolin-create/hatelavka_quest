@@ -117,66 +117,66 @@
 
     
 
-    <div id="pull-to-refresh">
+<div id="pull-to-refresh">
         <i class="fa-solid fa-rotate-right"></i>
     </div>
 
-            <div class="toggle-container">
-            <div class="toggle-wrapper" id="mode-toggle">
-                <div class="toggle-slider"></div>
-                <div class="toggle-option active" data-target="view-dashboard">ГЛАВНАЯ</div>
-                <div class="toggle-option" data-target="view-shop">КЕЙСЫ</div>
-            </div>
+    <div class="toggle-container">
+        <div class="toggle-wrapper" id="mode-toggle">
+            <div class="toggle-slider"></div>
+            <div class="toggle-option active" data-target="view-dashboard">ГЛАВНАЯ</div>
+            <div class="toggle-option" data-target="view-shop">КЕЙСЫ</div>
         </div>
+    </div>
 
 
     <main id="main-content" class="main-content-scrollable">
         
         <div class="content-wrapper">
             
-<div id="open-bonus-btn" class="hidden" style="margin: 0 16px 15px 16px; background: rgba(28, 28, 30, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2); position: relative; overflow: hidden; transition: transform 0.1s ease;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
-    
-    <div style="position: absolute; top: -20px; left: -20px; width: 60px; height: 60px; background: rgba(145, 70, 255, 0.2); filter: blur(20px); border-radius: 50%; pointer-events: none;"></div>
+            <div id="view-dashboard" class="view-section active">
+            
+                <div id="open-bonus-btn" class="hidden" style="margin: 0 16px 15px 16px; background: rgba(28, 28, 30, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2); position: relative; overflow: hidden; transition: transform 0.1s ease;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+                    
+                    <div style="position: absolute; top: -20px; left: -20px; width: 60px; height: 60px; background: rgba(145, 70, 255, 0.2); filter: blur(20px); border-radius: 50%; pointer-events: none;"></div>
 
-    <div style="display: flex; align-items: center; gap: 12px; z-index: 1;">
-        <div style="width: 32px; height: 32px; border-radius: 10px; background: rgba(145, 70, 255, 0.1); border: 1px solid rgba(145, 70, 255, 0.2); display: flex; align-items: center; justify-content: center;">
-            <i class="fa-solid fa-gift" style="color: #9146ff; font-size: 16px;"></i>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-            <span style="font-size: 12px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Приветственный бонус</span>
-            <span style="font-size: 10px; color: #8e8e93; font-weight: 500;">Доступна награда за привязку</span>
-        </div>
-    </div>
-    
-    <div style="z-index: 1;">
-        <i class="fa-solid fa-chevron-right" style="color: #666; font-size: 12px;"></i>
-    </div>
-</div>
+                    <div style="display: flex; align-items: center; gap: 12px; z-index: 1;">
+                        <div style="width: 32px; height: 32px; border-radius: 10px; background: rgba(145, 70, 255, 0.1); border: 1px solid rgba(145, 70, 255, 0.2); display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-gift" style="color: #9146ff; font-size: 16px;"></i>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 12px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Приветственный бонус</span>
+                            <span style="font-size: 10px; color: #8e8e93; font-weight: 500;">Доступна награда за привязку</span>
+                        </div>
+                    </div>
+                    
+                    <div style="z-index: 1;">
+                        <i class="fa-solid fa-chevron-right" style="color: #666; font-size: 12px;"></i>
+                    </div>
+                </div>
 
-        <div id="matrix-quest-tracker"></div>
-                
+                <div id="matrix-quest-tracker"></div>
+                        
                 <div id="main-slider-container" class="slider-container fullscreen-slider" style="display:none;">
-    <div class="slider-wrapper">
-        
-        <!-- Дефолтный баннер (Заглушка - не кликабельная, без кнопки) -->
-        <div class="slide" id="default-banner-slide" style="display:none; position: relative;">
-            <img src="https://i.postimg.cc/FK6Xm2R5/zagluska.png" alt="HATElavka">
-        </div>
+                    <div class="slider-wrapper">
+                        
+                        <div class="slide" id="default-banner-slide" style="display:none; position: relative;">
+                            <img src="https://i.postimg.cc/FK6Xm2R5/zagluska.png" alt="HATElavka">
+                        </div>
 
-       <!-- Ивентовый баннер (Хэллоуин и т.д. - С КНОПКОЙ ПЕРЕЙТИ) -->
-<a href="/halloween" class="slide" data-event="cauldron" style="display:none; position: relative;">
-    <img src="" id="cauldron-banner-img" alt="Ивент">
-    
-    <div style="position: absolute; top: 50%; transform: translateY(-50%); right: 15px; background: rgba(0,0,0,0.3); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 800; text-transform: uppercase; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);">
-        Перейти
-    </div>
-</a>
-        
-    </div> 
-    <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
-    <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
-    <div class="slider-dots"></div>
-</div>
+                       <a href="/halloween" class="slide" data-event="cauldron" style="display:none; position: relative;">
+                            <img src="" id="cauldron-banner-img" alt="Ивент">
+                            
+                            <div style="position: absolute; top: 50%; transform: translateY(-50%); right: 15px; background: rgba(0,0,0,0.3); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 800; text-transform: uppercase; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);">
+                                Перейти
+                            </div>
+                        </a>
+                        
+                    </div> 
+                    <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
+                    <div class="slider-dots"></div>
+                </div>
 
                 <div id="weekly-goals-trigger" class="weekly-banner-wrapper hidden">
                     <img id="weekly-goals-banner-img" src="" class="weekly-banner-img" alt="Недельные испытания">
