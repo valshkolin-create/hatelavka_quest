@@ -436,10 +436,12 @@ html, body {
 .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
 
 /* Модалки */
-.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; display: flex; align-items: center; justify-content: center; }
-.modal:not(.hidden) { opacity: 1; pointer-events: auto; }
-.modal-content { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.7); padding: 24px; display: flex; flex-direction: column; gap: 16px; transform: scale(0.95); transition: transform 0.2s; max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
+.modal:not(.hidden) { opacity: 1; visibility: visible; }
+.modal.visible { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; }
+.modal-content { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.7); padding: 24px; display: flex; flex-direction: column; gap: 16px; transform: scale(0.95); transition: transform 0.2s; max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch; pointer-events: auto; z-index: 10000; }
 .modal:not(.hidden) .modal-content { transform: scale(1); }
+.modal.visible .modal-content { transform: scale(1) !important; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
 .close-modal { background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
@@ -1054,8 +1056,19 @@ body.desktop-mode .toggle-container {
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: auto !important;
+    z-index: 999999 !important; /* Гарантированно поверх всего */
 }
 
 #welcome-popup.visible .modal-content {
     transform: scale(1) !important;
+}
+
+/* Пробиваем блокировку кликов */
+#welcome-popup.visible button,
+#welcome-popup.visible a,
+#welcome-popup.visible #step-tg,
+#welcome-popup.visible #step-twitch {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 10;
 }
