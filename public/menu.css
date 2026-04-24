@@ -1046,3 +1046,16 @@ body.desktop-mode .toggle-container {
     90%, 100% { opacity: 0; transform: translateY(-100%); visibility: hidden; }
 }
 
+/* ==========================================
+   🔥 ФИКС ТОЛЬКО ДЛЯ РЕФЕРАЛЬНОГО ОКНА (WELCOME POPUP)
+========================================== */
+#welcome-popup.visible {
+    display: flex !important; /* Пробивает жесткий .hidden */
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+#welcome-popup.visible .modal-content {
+    transform: scale(1) !important;
+}
