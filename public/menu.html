@@ -134,20 +134,24 @@
         
         <div class="content-wrapper">
             
-           <div id="view-dashboard" class="view-section active">
+<div id="open-bonus-btn" class="hidden" style="margin: 0 16px 15px 16px; background: rgba(28, 28, 30, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2); position: relative; overflow: hidden; transition: transform 0.1s ease;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+    
+    <div style="position: absolute; top: -20px; left: -20px; width: 60px; height: 60px; background: rgba(145, 70, 255, 0.2); filter: blur(20px); border-radius: 50%; pointer-events: none;"></div>
 
-                <div id="open-bonus-btn" class="hidden" style="margin: 0 16px 15px 16px; background: linear-gradient(135deg, #9146ff 0%, #6a11cb 100%); padding: 12px 16px; border-radius: 16px; color: #fff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(145, 70, 255, 0.4); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 38px; height: 38px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1);">
-                            🎁
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 2px;">
-                            <span style="font-size: 13px; font-weight: 800; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0,0,0,0.5); letter-spacing: 0.5px;">Забери свой бонус</span>
-                            <span style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.8);">Привяжи Twitch и TG</span>
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right" style="color: rgba(255,255,255,0.6); font-size: 14px;"></i>
-                </div>
+    <div style="display: flex; align-items: center; gap: 12px; z-index: 1;">
+        <div style="width: 32px; height: 32px; border-radius: 10px; background: rgba(145, 70, 255, 0.1); border: 1px solid rgba(145, 70, 255, 0.2); display: flex; align-items: center; justify-content: center;">
+            <i class="fa-solid fa-gift" style="color: #9146ff; font-size: 16px;"></i>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 12px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Приветственный бонус</span>
+            <span style="font-size: 10px; color: #8e8e93; font-weight: 500;">Доступна награда за привязку</span>
+        </div>
+    </div>
+    
+    <div style="z-index: 1;">
+        <i class="fa-solid fa-chevron-right" style="color: #666; font-size: 12px;"></i>
+    </div>
+</div>
 
         <div id="matrix-quest-tracker"></div>
                 
