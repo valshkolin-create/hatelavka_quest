@@ -847,247 +847,324 @@ function markStepPending(stepEl, iconEl) {
     }
 }
 
+// ================================================================
+// БРОНЕБОЙНАЯ ФУНКЦИЯ ПРИВЕТСТВЕННОГО БОНУСА (С ЛОГАМИ)
+// ================================================================
 async function openWelcomePopup(currentUserData, referralCode = null) {
-    const popup = document.getElementById('welcome-popup');
-    const successModal = document.getElementById('subscription-success-modal');
-    const sosOverlay = document.getElementById('sos-modal-overlay');
-    const sosCloseBtn = document.getElementById('sos-close-btn');
-    const sosAdminBtn = document.getElementById('sos-admin-btn');
-    const laterBtn = document.getElementById('later-btn');
-    const actionBtn = document.getElementById('action-btn');
-
-    if (!popup) return;
-    let userData = currentUserData || {};
-
-    // 🔥 БРОНЯ ОТ ПЕРЕКРЫТИЯ (Чтобы кнопка "Позже" 100% нажималась)
-    popup.style.zIndex = '999999';
-    popup.style.pointerEvents = 'auto';
-
-    popup.classList.remove('hidden');
-    popup.classList.add('visible');
-
-    const stepTwitch = document.getElementById('step-twitch');
-    const stepTg = document.getElementById('step-tg');
-
-    if (actionBtn) {
-        actionBtn.disabled = false;
-        actionBtn.textContent = "Проверка..."; 
-        actionBtn.style.background = ""; 
-    }
-
-    // 🔥 Логика кнопки "Позже"
-    if (laterBtn) {
-        laterBtn.onclick = (e) => {
-            e.preventDefault();
-            popup.classList.remove('visible');
-            setTimeout(() => popup.classList.add('hidden'), 300);
-            localStorage.setItem('bonusPopupDeferred', 'true');
-            localStorage.removeItem('openRefPopupOnLoad');
-            const mainTriggerBtn = document.getElementById('open-bonus-btn');
-            if (mainTriggerBtn) mainTriggerBtn.classList.remove('hidden');
-        };
-    }
-
-    function renderTwitchSection() {
-        if (!stepTwitch) return;
-        
-        if (!userData.twitch_id) {
-            stepTwitch.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 12px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fa-brands fa-twitch" style="font-size: 20px; color: #9146ff; width: 24px; text-align: center;"></i>
-                        <div style="text-align: left;">
-                            <div style="font-weight: 500; font-size: 14px; color: #fff;">Привязка Twitch</div>
-                            <div style="font-size: 11px; color: #aaa;">Обязательно для бонуса</div>
-                        </div>
-                    </div>
-                    <i id="icon-twitch" class="fa-regular fa-circle" style="color: #aaa; font-size: 16px;"></i>
-                </div>
-                <div style="display: flex; gap: 8px; width: 100%;">
-                    <button id="twitch-help-btn-popup" style="background-color: rgba(145, 70, 255, 0.2); color: #9146ff; border: 1px solid rgba(145, 70, 255, 0.4); border-radius: 8px; width: 42px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;"><i class="fa-solid fa-question" style="font-size: 16px;"></i></button>
-                    <button id="connect-twitch-btn-popup" style="background-color: #9146ff; color: white; border: none; border-radius: 8px; height: 36px; flex-grow: 1; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px;"><i class="fa-brands fa-twitch"></i> Привязать</button>
-                </div>`;
-            stepTwitch.onclick = null;
-            stepTwitch.style.cursor = 'default';
-            
-            const btnConnect = document.getElementById('connect-twitch-btn-popup');
-            const btnHelp = document.getElementById('twitch-help-btn-popup');
-
-            if (btnConnect) {
-                btnConnect.onclick = async (e) => {
-                    e.preventDefault(); e.stopPropagation();
-                    const originalText = btnConnect.innerHTML;
-                    if (referralCode) localStorage.setItem('pending_ref_code', referralCode);
-                    else {
-                        const cached = localStorage.getItem('cached_referral_code');
-                        if (cached) localStorage.setItem('pending_ref_code', cached);
-                    }
-                    btnConnect.style.opacity = '0.7';
-                    btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; 
-                    try {
-                        if (!window.Telegram?.WebApp?.initData) return;
-                        localStorage.setItem('auth_source', 'menu');
-                        const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(window.Telegram.WebApp.initData)}&redirect=/`);
-                        if (!response.ok) throw new Error("Ошибка сервера");
-                        const data = await response.json();
-                        if (data.url) {
-                            localStorage.setItem('openRefPopupOnLoad', 'true');
-                            window.Telegram.WebApp.openLink(data.url);
-                            window.Telegram.WebApp.close(); 
-                        }
-                    } catch (err) {
-                        if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка: " + err.message);
-                        btnConnect.style.opacity = '1';
-                        btnConnect.innerHTML = originalText;
-                    }
-                };
-            }
-            if (btnHelp) {
-                btnHelp.onclick = (e) => { 
-                    e.stopPropagation(); 
-                    popup.classList.remove('visible'); 
-                    if (sosOverlay) sosOverlay.classList.remove('hidden'); 
-                };
-            }
-        } else {
-            stepTwitch.innerHTML = `
-                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fa-brands fa-twitch" style="font-size: 20px; color: #9146ff; width: 24px; text-align: center;"></i>
-                        <div style="text-align: left;">
-                            <div style="font-weight: 500; font-size: 14px; color: #fff;">Twitch привязан</div>
-                            <div style="font-size: 11px; color: #aaa;">Аккаунт подключен</div>
-                        </div>
-                    </div>
-                    <i id="icon-twitch" class="fa-solid fa-circle-check" style="color: #34c759; font-size: 16px;"></i>
-                </div>`;
-            stepTwitch.style.cursor = 'pointer';
-            stepTwitch.onclick = () => { if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success'); };
-            markStepDone(stepTwitch, document.getElementById('icon-twitch'));
+    console.log('[BONUS] 🚀 Инициализация окна приветственного бонуса');
+    
+    try {
+        const popup = document.getElementById('welcome-popup');
+        if (!popup) {
+            console.error('[BONUS] ❌ Элемент #welcome-popup не найден в DOM!');
+            return;
         }
-    }
 
-    renderTwitchSection();
+        // 🔥 ЖЕСТКАЯ БРОНЯ ОТ ПЕРЕКРЫТИЯ СЛОЯМИ (z-index)
+        popup.style.zIndex = '999999';
+        popup.style.pointerEvents = 'auto';
 
-    if (stepTg) {
-        stepTg.onclick = () => { if(window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); };
-    }
+        const laterBtn = document.getElementById('later-btn');
+        const actionBtn = document.getElementById('action-btn');
+        const stepTwitch = document.getElementById('step-twitch');
+        const stepTg = document.getElementById('step-tg');
+        
+        let userData = currentUserData || {};
+        console.log('[BONUS] Данные юзера на старте:', userData);
 
-    if (sosCloseBtn) sosCloseBtn.onclick = () => { if(sosOverlay) sosOverlay.classList.add('hidden'); popup.classList.add('visible'); };
-    if (sosAdminBtn) sosAdminBtn.onclick = () => { if(window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink('https://t.me/hatelove_twitch'); };
+        popup.classList.remove('hidden');
+        popup.classList.add('visible');
 
-    async function runCheck(isManualClick = false) {
-        try {
-            if (!popup.classList.contains('visible') || !actionBtn) return; 
-            if (actionBtn.textContent.includes("ЗАБРАТЬ") && !isManualClick) return;
+        if (actionBtn) {
+            actionBtn.disabled = false;
+            actionBtn.textContent = "Проверка..."; 
+            actionBtn.style.background = ""; 
+        }
 
-            actionBtn.disabled = true;
-            actionBtn.textContent = "Проверка...";
-            actionBtn.style.background = "#3a3a3c"; 
-            
-            const curIconTg = document.getElementById('icon-tg');
-            const curIconTwitch = document.getElementById('icon-twitch');
+        // 🔥 Логика кнопки "Позже"
+        if (laterBtn) {
+            laterBtn.onclick = (e) => {
+                console.log('[BONUS] 🛑 Нажата кнопка "Позже", закрываем окно');
+                e.preventDefault(); // Защита от всплытия
+                popup.classList.remove('visible');
+                setTimeout(() => popup.classList.add('hidden'), 300);
+                
+                localStorage.setItem('bonusPopupDeferred', 'true');
+                localStorage.removeItem('openRefPopupOnLoad');
+                
+                const mainTriggerBtn = document.getElementById('open-bonus-btn');
+                if (mainTriggerBtn) mainTriggerBtn.classList.remove('hidden');
+            };
+        } else {
+            console.warn('[BONUS] ⚠️ Кнопка #later-btn не найдена!');
+        }
 
-            if (curIconTg && !curIconTg.classList.contains('fa-circle-check')) curIconTg.className = "fa-solid fa-spinner fa-spin";
-            if (curIconTwitch && !curIconTwitch.classList.contains('fa-circle-check')) curIconTwitch.className = "fa-solid fa-spinner fa-spin";
-
-            let tgOk = false;
-            let checkFailed = false;
-
-            // 1. Безопасная проверка Telegram
-            try {
-                const initData = window.Telegram?.WebApp?.initData || '';
-                const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: initData }, 'POST', true);
-                if (tgRes && tgRes.is_subscribed) tgOk = true;
-            } catch(e) { checkFailed = true; }
-
-            // 2. Безопасная проверка Twitch
-            try {
-                const fresh = await makeApiRequest('/api/v1/bootstrap', {}, 'POST', true);
-                if (fresh && fresh.user) {
-                    userData = fresh.user; 
-                    if (window.userData) window.userData = fresh.user;
-                    renderTwitchSection();
-                }
-            } catch (e) {}
-
-            const twitchOk = !!userData.twitch_id;
-            if (!popup.classList.contains('visible')) return;
-
-            // Визуал проверки TG
-            if (!checkFailed) {
-                if (tgOk) markStepDone(stepTg, document.getElementById('icon-tg')); 
-                else markStepError(stepTg, document.getElementById('icon-tg'));
-            } else {
-                markStepPending(stepTg, document.getElementById('icon-tg'));
+        function renderTwitchSection() {
+            if (!stepTwitch) {
+                console.warn('[BONUS] ⚠️ Элемент #step-twitch не найден, пропускаем рендер');
+                return;
             }
+            
+            console.log('[BONUS] Отрисовка секции Twitch. Привязан:', !!userData.twitch_id);
+            
+            if (!userData.twitch_id) {
+                stepTwitch.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-brands fa-twitch" style="font-size: 20px; color: #9146ff; width: 24px; text-align: center;"></i>
+                            <div style="text-align: left;">
+                                <div style="font-weight: 500; font-size: 14px; color: #fff;">Привязка Twitch</div>
+                                <div style="font-size: 11px; color: #aaa;">Обязательно для бонуса</div>
+                            </div>
+                        </div>
+                        <i id="icon-twitch" class="fa-regular fa-circle" style="color: #aaa; font-size: 16px;"></i>
+                    </div>
+                    <div style="display: flex; gap: 8px; width: 100%;">
+                        <button id="twitch-help-btn-popup" style="background-color: rgba(145, 70, 255, 0.2); color: #9146ff; border: 1px solid rgba(145, 70, 255, 0.4); border-radius: 8px; width: 42px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;"><i class="fa-solid fa-question" style="font-size: 16px;"></i></button>
+                        <button id="connect-twitch-btn-popup" style="background-color: #9146ff; color: white; border: none; border-radius: 8px; height: 36px; flex-grow: 1; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px;"><i class="fa-brands fa-twitch"></i> Привязать</button>
+                    </div>`;
+                stepTwitch.onclick = null;
+                stepTwitch.style.cursor = 'default';
+                stepTwitch.style.display = 'block';
+                stepTwitch.style.padding = '12px';
 
-            // Визуал проверки Twitch
-            if (twitchOk) markStepDone(stepTwitch, document.getElementById('icon-twitch')); 
-            else markStepError(stepTwitch, document.getElementById('icon-twitch'));
+                const btnConnect = document.getElementById('connect-twitch-btn-popup');
+                const btnHelp = document.getElementById('twitch-help-btn-popup');
 
-            // Итог
-            if (tgOk && twitchOk) {
-                if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                actionBtn.disabled = false;
-                actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁";
-                actionBtn.style.background = "#FFD700";
-                actionBtn.style.color = "#000";
-                actionBtn.style.fontWeight = "800";
-                actionBtn.onclick = async () => {
-                    actionBtn.disabled = true;
-                    actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
-                    const finalRefCode = referralCode || localStorage.getItem('pending_ref_code') || localStorage.getItem('cached_referral_code');
-                    try {
-                        const response = await fetch('/api/v1/user/referral/activate', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '', referral_code: finalRefCode })
-                        });
-                        const res = await response.json();
-                        if (response.ok) {
-                            if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                            actionBtn.textContent = "Готово!";
-                            document.getElementById('open-bonus-btn')?.classList.add('hidden');
-                            localStorage.removeItem('openRefPopupOnLoad');
-                            localStorage.removeItem('bonusPopupDeferred');
-                            localStorage.removeItem('pending_ref_code');
-                            localStorage.removeItem('cached_referral_code');
-                            setTimeout(() => {
-                                popup.classList.remove('visible');
-                                popup.classList.add('hidden');
-                                if (successModal) { successModal.classList.remove('hidden'); successModal.classList.add('visible'); }
-                                refreshDataSilently(); 
-                            }, 500);
-                        } else {
-                            if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert(res.detail || "Ошибка");
+                if (btnConnect) {
+                    btnConnect.onclick = async (e) => {
+                        console.log('[BONUS] 🔗 Запуск процесса привязки Twitch');
+                        e.preventDefault(); e.stopPropagation();
+                        const originalText = btnConnect.innerHTML;
+                        
+                        if (referralCode) localStorage.setItem('pending_ref_code', referralCode);
+                        else {
+                            const cached = localStorage.getItem('cached_referral_code');
+                            if (cached) localStorage.setItem('pending_ref_code', cached);
+                        }
+
+                        btnConnect.style.opacity = '0.7';
+                        btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; 
+                        try {
+                            if (!window.Telegram?.WebApp?.initData) {
+                                console.error('[BONUS] ❌ Нет initData для привязки Twitch');
+                                return;
+                            }
+                            localStorage.setItem('auth_source', 'menu');
+                            
+                            console.log('[BONUS] Отправка запроса на получение URL OAuth...');
+                            const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(window.Telegram.WebApp.initData)}&redirect=/`);
+                            
+                            if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+                            const data = await response.json();
+                            
+                            console.log('[BONUS] Получен URL OAuth:', data.url);
+                            if (data.url) {
+                                localStorage.setItem('openRefPopupOnLoad', 'true');
+                                window.Telegram.WebApp.openLink(data.url);
+                                window.Telegram.WebApp.close(); 
+                            }
+                        } catch (err) {
+                            console.error('[BONUS] ❌ Ошибка при получении ссылки Twitch:', err);
+                            if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка: " + err.message);
+                            btnConnect.style.opacity = '1';
+                            btnConnect.innerHTML = originalText;
+                        }
+                    };
+                }
+                if (btnHelp) {
+                    btnHelp.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        popup.classList.remove('visible'); 
+                        const sosOverlay = document.getElementById('sos-modal-overlay');
+                        if (sosOverlay) sosOverlay.classList.remove('hidden'); 
+                    };
+                }
+            } else {
+                stepTwitch.innerHTML = `
+                     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-brands fa-twitch" style="font-size: 20px; color: #9146ff; width: 24px; text-align: center;"></i>
+                            <div style="text-align: left;">
+                                <div style="font-weight: 500; font-size: 14px; color: #fff;">Twitch привязан</div>
+                                <div style="font-size: 11px; color: #aaa;">Аккаунт подключен</div>
+                            </div>
+                        </div>
+                        <i id="icon-twitch" class="fa-solid fa-circle-check" style="color: #34c759; font-size: 16px;"></i>
+                    </div>`;
+                stepTwitch.style.cursor = 'pointer';
+                stepTwitch.style.display = 'flex'; 
+                stepTwitch.style.padding = '16px';
+                stepTwitch.onclick = () => { if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success'); };
+                
+                const iconTwitch = document.getElementById('icon-twitch'); 
+                markStepDone(stepTwitch, iconTwitch);
+            }
+        }
+
+        renderTwitchSection();
+
+        if (stepTg) {
+            stepTg.onclick = () => { 
+                console.log('[BONUS] Переход в TG канал');
+                if(window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); 
+            };
+        }
+
+        const sosCloseBtn = document.getElementById('sos-close-btn');
+        const sosAdminBtn = document.getElementById('sos-admin-btn');
+        if (sosCloseBtn) sosCloseBtn.onclick = () => { 
+            const sosOverlay = document.getElementById('sos-modal-overlay');
+            if(sosOverlay) sosOverlay.classList.add('hidden'); 
+            popup.classList.add('visible'); 
+        };
+        if (sosAdminBtn) sosAdminBtn.onclick = () => { 
+            if(window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink('https://t.me/hatelove_twitch'); 
+        };
+
+        // 🔥 Выделяем логику проверки в защищенный блок
+        async function runCheck(isManualClick = false) {
+            console.log(`[BONUS] 🔄 Запуск проверки условий (Ручной клик: ${isManualClick})`);
+            try {
+                if (!popup.classList.contains('visible') || !actionBtn) {
+                    console.log('[BONUS] Окно скрыто или нет кнопки, отмена проверки.');
+                    return; 
+                }
+                if (actionBtn.textContent.includes("ЗАБРАТЬ") && !isManualClick) return;
+
+                actionBtn.disabled = true;
+                actionBtn.textContent = "Проверка...";
+                actionBtn.style.background = "#3a3a3c"; 
+                
+                const curIconTg = document.getElementById('icon-tg');
+                const curIconTwitch = document.getElementById('icon-twitch');
+
+                if (curIconTg && !curIconTg.classList.contains('fa-circle-check')) curIconTg.className = "fa-solid fa-spinner fa-spin";
+                if (curIconTwitch && !curIconTwitch.classList.contains('fa-circle-check')) curIconTwitch.className = "fa-solid fa-spinner fa-spin";
+
+                let tgOk = false;
+                let checkFailed = false;
+
+                // 1. Безопасная проверка Telegram
+                try {
+                    const initData = window.Telegram?.WebApp?.initData || '';
+                    console.log('[BONUS] Отправка запроса проверки TG подписки...');
+                    const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: initData }, 'POST', true);
+                    console.log('[BONUS] Ответ проверки TG подписки:', tgRes);
+                    if (tgRes && tgRes.is_subscribed) tgOk = true;
+                } catch(e) { 
+                    checkFailed = true; 
+                    console.warn("[BONUS] ⚠️ Ошибка при проверке подписки TG:", e);
+                }
+
+                // 2. Безопасная проверка Twitch (обновляем бутстрап)
+                try {
+                    console.log('[BONUS] Отправка запроса bootstrap для проверки Twitch...');
+                    const fresh = await makeApiRequest('/api/v1/bootstrap', {}, 'POST', true);
+                    if (fresh && fresh.user) {
+                        userData = fresh.user; 
+                        if (window.userData) window.userData = fresh.user;
+                        console.log('[BONUS] Получен свежий юзер:', userData.twitch_id ? 'Twitch привязан' : 'Twitch НЕТ');
+                        renderTwitchSection(); // Перерисовываем актуальные данные
+                    }
+                } catch (e) { 
+                    console.warn("[BONUS] ⚠️ Ошибка при обновлении бутстрапа:", e); 
+                }
+
+                const twitchOk = !!userData.twitch_id;
+                console.log(`[BONUS] Итоги проверок -> TG_OK: ${tgOk}, TWITCH_OK: ${twitchOk}, FAILED: ${checkFailed}`);
+
+                if (!popup.classList.contains('visible')) return;
+
+                // Визуал проверки TG
+                if (!checkFailed) {
+                    if (tgOk) markStepDone(stepTg, document.getElementById('icon-tg')); 
+                    else markStepError(stepTg, document.getElementById('icon-tg'));
+                } else {
+                    markStepPending(stepTg, document.getElementById('icon-tg'));
+                }
+
+                // Визуал проверки Twitch
+                if (twitchOk) markStepDone(stepTwitch, document.getElementById('icon-twitch')); 
+                else markStepError(stepTwitch, document.getElementById('icon-twitch'));
+
+                // Итоговое решение по кнопке
+                if (tgOk && twitchOk) {
+                    console.log('[BONUS] ✅ Все условия выполнены, активируем кнопку получения!');
+                    if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    actionBtn.disabled = false;
+                    actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁";
+                    actionBtn.style.background = "#FFD700";
+                    actionBtn.style.color = "#000";
+                    actionBtn.style.fontWeight = "800";
+                    actionBtn.onclick = async () => {
+                        console.log('[BONUS] 🎁 Отправка запроса на получение бонуса');
+                        actionBtn.disabled = true;
+                        actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
+                        const finalRefCode = referralCode || localStorage.getItem('pending_ref_code') || localStorage.getItem('cached_referral_code');
+                        
+                        try {
+                            const response = await fetch('/api/v1/user/referral/activate', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '', referral_code: finalRefCode })
+                            });
+                            const res = await response.json();
+                            console.log('[BONUS] Ответ активации:', res);
+
+                            if (response.ok) {
+                                if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                                actionBtn.textContent = "Готово!";
+                                document.getElementById('open-bonus-btn')?.classList.add('hidden');
+                                localStorage.removeItem('openRefPopupOnLoad');
+                                localStorage.removeItem('bonusPopupDeferred');
+                                localStorage.removeItem('pending_ref_code');
+                                localStorage.removeItem('cached_referral_code');
+                                setTimeout(() => {
+                                    popup.classList.remove('visible');
+                                    popup.classList.add('hidden');
+                                    const successModal = document.getElementById('subscription-success-modal');
+                                    if (successModal) { successModal.classList.remove('hidden'); successModal.classList.add('visible'); }
+                                    refreshDataSilently(); 
+                                }, 500);
+                            } else {
+                                console.warn('[BONUS] ❌ Сервер отказал в выдаче бонуса:', res);
+                                if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert(res.detail || "Ошибка");
+                                actionBtn.disabled = false;
+                                actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
+                            }
+                        } catch(e) {
+                            console.error('[BONUS] ❌ Критическая ошибка сети при получении бонуса:', e);
+                            if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка сети");
                             actionBtn.disabled = false;
                             actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
                         }
-                    } catch(e) {
-                        if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка сети");
-                        actionBtn.disabled = false;
-                        actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
-                    }
-                };
-            } else {
-                if(!checkFailed && window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                actionBtn.disabled = false;
-                actionBtn.textContent = "Проверить снова";
-                actionBtn.onclick = () => runCheck(true); 
-            }
-        } catch (globalErr) {
-            if (actionBtn) {
-                actionBtn.disabled = false;
-                actionBtn.textContent = "Ошибка проверки";
-                actionBtn.onclick = () => runCheck(true);
+                    };
+                } else {
+                    console.log('[BONUS] ❌ Условия не выполнены, возвращаем кнопку в статус проверки.');
+                    if(!checkFailed && window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                    actionBtn.disabled = false;
+                    actionBtn.textContent = "Проверить снова";
+                    actionBtn.onclick = () => runCheck(true); 
+                }
+
+            } catch (e) {
+                console.error("[BONUS] ❌ Непредвиденная ошибка в runCheck:", e);
+                if (actionBtn) {
+                    actionBtn.disabled = false;
+                    actionBtn.textContent = "Ошибка проверки";
+                    actionBtn.onclick = () => runCheck(true);
+                }
             }
         }
+
+        // Запускаем первую проверку с задержкой
+        setTimeout(() => { runCheck(false); }, 400);
+
+    } catch (globalErr) {
+        console.error("[BONUS] ❌ Глобальная критическая ошибка в openWelcomePopup:", globalErr);
     }
-
-    setTimeout(() => { runCheck(false); }, 400);
 }
-
 // Подарки
 async function checkGift() {
     if (!bonusGiftEnabled) {
