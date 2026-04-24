@@ -786,66 +786,101 @@ function updateShopTile(status) {
 
 // Рефералка
 async function checkReferralAndWelcome(userData) {
-    const rawParam = (Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param) || null;
-    const bonusBtn = document.getElementById('open-bonus-btn');
-    let validRefCode = null;
-    if (rawParam && rawParam.startsWith('r_')) { validRefCode = rawParam; localStorage.setItem('cached_referral_code', validRefCode); }
+    console.log('[BONUS INIT] 🔍 Начинаем проверку приветственного бонуса. userData:', userData);
+    const rawParam = (Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.start_param) || null;
+    const bonusBtn = document.getElementById('open-bonus-btn');
+    let validRefCode = null;
+    
+    console.log('[BONUS INIT] 🔑 start_param из Telegram:', rawParam);
 
-    if (userData.referral_activated_at) {
-        if (bonusBtn) bonusBtn.classList.add('hidden');
-        localStorage.removeItem('openRefPopupOnLoad'); localStorage.removeItem('cached_referral_code'); localStorage.removeItem('pending_ref_code');
-        return; 
+    if (rawParam && rawParam.startsWith('r_')) { 
+        validRefCode = rawParam; 
+        localStorage.setItem('cached_referral_code', validRefCode); 
+        console.log('[BONUS INIT] 💾 Сохранили новый реф-код в кэш:', validRefCode);
     }
 
-    const codeToPass = validRefCode || localStorage.getItem('cached_referral_code');
-    const shouldShowBonus = userData.referrer_id || codeToPass;
+    if (userData.referral_activated_at) {
+        console.log('[BONUS INIT] ✅ Рефералка уже была активирована ранее. Скрываем бонус.');
+        if (bonusBtn) bonusBtn.classList.add('hidden');
+        localStorage.removeItem('openRefPopupOnLoad'); localStorage.removeItem('cached_referral_code'); localStorage.removeItem('pending_ref_code');
+        return; 
+    }
 
-    if (shouldShowBonus) {
-        if (bonusBtn) { bonusBtn.classList.remove('hidden'); bonusBtn.onclick = () => openWelcomePopup(userData, codeToPass); }
-        if (localStorage.getItem('openRefPopupOnLoad')) {
-            openWelcomePopup(userData, localStorage.getItem('pending_ref_code') || codeToPass);
-            localStorage.removeItem('openRefPopupOnLoad');
-        } else if (!localStorage.getItem('bonusPopupDeferred')) {
-            openWelcomePopup(userData, codeToPass);
-        } 
-    } else { if (bonusBtn) bonusBtn.classList.add('hidden'); }
+    const codeToPass = validRefCode || localStorage.getItem('cached_referral_code');
+    const shouldShowBonus = userData.referrer_id || codeToPass;
+
+    console.log('[BONUS INIT] 📊 Итог проверок: shouldShowBonus=', !!shouldShowBonus, '| codeToPass=', codeToPass);
+
+    if (shouldShowBonus) {
+        if (bonusBtn) { 
+            bonusBtn.classList.remove('hidden'); 
+            bonusBtn.onclick = () => {
+                console.log('[BONUS INIT] 🖱 Клик по кнопке "Открыть бонус" в интерфейсе');
+                openWelcomePopup(userData, codeToPass);
+            }; 
+        }
+        
+        const openOnLoad = localStorage.getItem('openRefPopupOnLoad');
+        const isDeferred = localStorage.getItem('bonusPopupDeferred');
+        
+        console.log(`[BONUS INIT] 🚦 Флаги: openOnLoad=${openOnLoad}, isDeferred=${isDeferred}`);
+
+        if (openOnLoad) {
+            console.log('[BONUS INIT] 🚀 Принудительное открытие окна после возврата из OAuth (Twitch)');
+            openWelcomePopup(userData, localStorage.getItem('pending_ref_code') || codeToPass);
+            localStorage.removeItem('openRefPopupOnLoad');
+        } else if (!isDeferred) {
+            console.log('[BONUS INIT] 🚀 Автоматическое открытие окна (пользователь еще не нажимал "Позже")');
+            openWelcomePopup(userData, codeToPass);
+        } else {
+            console.log('[BONUS INIT] ⏳ Пользователь ранее нажал "Позже". Окно ждет ручного клика.');
+        }
+    } else { 
+        console.log('[BONUS INIT] 🚫 Нет реферала или кода. Бонус не положен.');
+        if (bonusBtn) bonusBtn.classList.add('hidden'); 
+    }
 }
 
 // ================================================================
 // УТИЛИТЫ ДЛЯ ПРИВЕТСТВЕННОГО БОНУСА (ОТРИСОВКА ШАГОВ)
 // ================================================================
 function markStepDone(stepEl, iconEl) {
-    if (stepEl) {
-        stepEl.style.border = '1px solid rgba(52, 199, 89, 0.4)';
-        stepEl.style.background = 'rgba(52, 199, 89, 0.1)';
-    }
-    if (iconEl) {
-        iconEl.className = 'fa-solid fa-circle-check';
-        iconEl.style.color = '#34c759';
-    }
+    if (stepEl) {
+        stepEl.style.border = '1px solid rgba(52, 199, 89, 0.4)';
+        stepEl.style.background = 'rgba(52, 199, 89, 0.1)';
+    }
+    if (iconEl) {
+        iconEl.className = 'fa-solid fa-circle-check';
+        iconEl.style.color = '#34c759';
+    }
 }
 
 function markStepError(stepEl, iconEl) {
-    if (stepEl) {
-        stepEl.style.border = '1px solid rgba(255, 59, 48, 0.4)';
-        stepEl.style.background = 'rgba(255, 59, 48, 0.1)';
-    }
-    if (iconEl) {
-        iconEl.className = 'fa-solid fa-circle-xmark';
-        iconEl.style.color = '#ff3b30';
-    }
+    if (stepEl) {
+        stepEl.style.border = '1px solid rgba(255, 59, 48, 0.4)';
+        stepEl.style.background = 'rgba(255, 59, 48, 0.1)';
+    }
+    if (iconEl) {
+        iconEl.className = 'fa-solid fa-circle-xmark';
+        iconEl.style.color = '#ff3b30';
+    }
 }
 
 function markStepPending(stepEl, iconEl) {
-    if (stepEl) {
-        stepEl.style.border = '1px solid rgba(255, 215, 0, 0.4)';
-        stepEl.style.background = 'rgba(255, 215, 0, 0.1)';
-    }
-    if (iconEl) {
-        iconEl.className = 'fa-solid fa-spinner fa-spin';
-        iconEl.style.color = '#ffd700';
-    }
+    if (stepEl) {
+        stepEl.style.border = '1px solid rgba(255, 215, 0, 0.4)';
+        stepEl.style.background = 'rgba(255, 215, 0, 0.1)';
+    }
+    if (iconEl) {
+        iconEl.className = 'fa-solid fa-spinner fa-spin';
+        iconEl.style.color = '#ffd700';
+    }
 }
+
+// 🔥 ШПИОН ЗА КЛИКАМИ 🔥
+document.addEventListener('click', (e) => {
+    console.log('[DEBUG CLICK] Вы кликнули на элемент:', e.target);
+}, true);
 
 // ================================================================
 // БРОНЕБОЙНАЯ ФУНКЦИЯ ПРИВЕТСТВЕННОГО БОНУСА (С ЛОГАМИ)
