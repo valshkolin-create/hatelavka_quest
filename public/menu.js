@@ -857,37 +857,40 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
     const actionBtn = document.getElementById('action-btn');
 
     if (!popup) return;
-    let userData = currentUserData;
+    let userData = currentUserData || {};
 
-    // 🔥 ФИКС 1: Снимаем жесткую броню hidden, чтобы окно точно появилось
+    // 🔥 БРОНЯ ОТ ПЕРЕКРЫТИЯ (Чтобы кнопка "Позже" 100% нажималась)
+    popup.style.zIndex = '999999';
+    popup.style.pointerEvents = 'auto';
+
     popup.classList.remove('hidden');
     popup.classList.add('visible');
 
     const stepTwitch = document.getElementById('step-twitch');
     const stepTg = document.getElementById('step-tg');
-    const iconTg = document.getElementById('icon-tg');
-    let iconTwitch = document.getElementById('icon-twitch'); 
 
-    actionBtn.disabled = false;
-    actionBtn.textContent = "Проверка..."; 
-    actionBtn.style.background = ""; 
+    if (actionBtn) {
+        actionBtn.disabled = false;
+        actionBtn.textContent = "Проверка..."; 
+        actionBtn.style.background = ""; 
+    }
 
-    // 🔥 ФИКС 2: Чиним кнопку "Позже" (без клонирования)
+    // 🔥 Логика кнопки "Позже"
     if (laterBtn) {
-        laterBtn.onclick = () => {
+        laterBtn.onclick = (e) => {
+            e.preventDefault();
             popup.classList.remove('visible');
-            setTimeout(() => popup.classList.add('hidden'), 300); // Плавно прячем
-            
+            setTimeout(() => popup.classList.add('hidden'), 300);
             localStorage.setItem('bonusPopupDeferred', 'true');
             localStorage.removeItem('openRefPopupOnLoad');
-            
-            // Если нажали позже, показываем маленькую кнопку бонуса на экране, чтобы юзер мог вернуться
             const mainTriggerBtn = document.getElementById('open-bonus-btn');
             if (mainTriggerBtn) mainTriggerBtn.classList.remove('hidden');
         };
     }
 
     function renderTwitchSection() {
+        if (!stepTwitch) return;
+        
         if (!userData.twitch_id) {
             stepTwitch.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 12px;">
@@ -906,9 +909,7 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
                 </div>`;
             stepTwitch.onclick = null;
             stepTwitch.style.cursor = 'default';
-            stepTwitch.style.display = 'block';
-            stepTwitch.style.padding = '12px';
-
+            
             const btnConnect = document.getElementById('connect-twitch-btn-popup');
             const btnHelp = document.getElementById('twitch-help-btn-popup');
 
@@ -916,35 +917,37 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
                 btnConnect.onclick = async (e) => {
                     e.preventDefault(); e.stopPropagation();
                     const originalText = btnConnect.innerHTML;
-                    
                     if (referralCode) localStorage.setItem('pending_ref_code', referralCode);
                     else {
                         const cached = localStorage.getItem('cached_referral_code');
                         if (cached) localStorage.setItem('pending_ref_code', cached);
                     }
-
                     btnConnect.style.opacity = '0.7';
                     btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; 
                     try {
-                        if (!Telegram.WebApp.initData) return;
+                        if (!window.Telegram?.WebApp?.initData) return;
                         localStorage.setItem('auth_source', 'menu');
-                        const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(Telegram.WebApp.initData)}&redirect=/`);
+                        const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(window.Telegram.WebApp.initData)}&redirect=/`);
                         if (!response.ok) throw new Error("Ошибка сервера");
                         const data = await response.json();
                         if (data.url) {
                             localStorage.setItem('openRefPopupOnLoad', 'true');
-                            Telegram.WebApp.openLink(data.url);
-                            Telegram.WebApp.close(); 
+                            window.Telegram.WebApp.openLink(data.url);
+                            window.Telegram.WebApp.close(); 
                         }
                     } catch (err) {
-                        Telegram.WebApp.showAlert("Ошибка: " + err.message);
+                        if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка: " + err.message);
                         btnConnect.style.opacity = '1';
                         btnConnect.innerHTML = originalText;
                     }
                 };
             }
             if (btnHelp) {
-                btnHelp.onclick = (e) => { e.stopPropagation(); popup.classList.remove('visible'); if (sosOverlay) sosOverlay.classList.remove('hidden'); };
+                btnHelp.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    popup.classList.remove('visible'); 
+                    if (sosOverlay) sosOverlay.classList.remove('hidden'); 
+                };
             }
         } else {
             stepTwitch.innerHTML = `
@@ -959,98 +962,54 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
                     <i id="icon-twitch" class="fa-solid fa-circle-check" style="color: #34c759; font-size: 16px;"></i>
                 </div>`;
             stepTwitch.style.cursor = 'pointer';
-            stepTwitch.style.display = 'flex'; 
-            stepTwitch.style.padding = '16px';
-            stepTwitch.onclick = () => { if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success'); };
-            
-            iconTwitch = document.getElementById('icon-twitch'); 
-            markStepDone(stepTwitch, iconTwitch);
+            stepTwitch.onclick = () => { if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success'); };
+            markStepDone(stepTwitch, document.getElementById('icon-twitch'));
         }
     }
 
     renderTwitchSection();
-    stepTg.onclick = () => { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); };
-    
-    if (sosCloseBtn) sosCloseBtn.onclick = () => { sosOverlay.classList.add('hidden'); popup.classList.add('visible'); };
-    if (sosAdminBtn) sosAdminBtn.onclick = () => { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_twitch'); };
 
-    async function claimReward() {
-        actionBtn.disabled = true;
-        actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
-        
-        const finalRefCode = referralCode || localStorage.getItem('pending_ref_code') || localStorage.getItem('cached_referral_code');
-
-        try {
-            const response = await fetch('/api/v1/user/referral/activate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    initData: Telegram.WebApp.initData,
-                    referral_code: finalRefCode 
-                })
-            });
-            const res = await response.json();
-            
-            if (response.ok) {
-                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                actionBtn.textContent = "Готово!";
-                document.getElementById('open-bonus-btn')?.classList.add('hidden');
-                
-                localStorage.removeItem('openRefPopupOnLoad');
-                localStorage.removeItem('bonusPopupDeferred');
-                localStorage.removeItem('pending_ref_code');
-                localStorage.removeItem('cached_referral_code');
-                
-                setTimeout(() => {
-                    popup.classList.remove('visible');
-                    popup.classList.add('hidden');
-                    if (successModal) { successModal.classList.remove('hidden'); successModal.classList.add('visible'); }
-                    refreshDataSilently(); 
-                }, 500);
-            } else {
-                Telegram.WebApp.showAlert(res.detail || "Ошибка");
-                actionBtn.disabled = false;
-                actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
-            }
-        } catch(e) {
-            Telegram.WebApp.showAlert("Ошибка сети");
-            actionBtn.disabled = false;
-            actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
-        }
+    if (stepTg) {
+        stepTg.onclick = () => { if(window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); };
     }
 
+    if (sosCloseBtn) sosCloseBtn.onclick = () => { if(sosOverlay) sosOverlay.classList.add('hidden'); popup.classList.add('visible'); };
+    if (sosAdminBtn) sosAdminBtn.onclick = () => { if(window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink('https://t.me/hatelove_twitch'); };
+
     async function runCheck(isManualClick = false) {
-        if (!popup.classList.contains('visible')) return; 
-        if (actionBtn.textContent.includes("ЗАБРАТЬ") && !isManualClick) return;
-
-        actionBtn.disabled = true;
-        actionBtn.textContent = "Проверка...";
-        actionBtn.style.background = "#3a3a3c"; 
-        
-        const curIconTg = document.getElementById('icon-tg');
-        const curIconTwitch = document.getElementById('icon-twitch');
-
-        if (curIconTg && !curIconTg.classList.contains('fa-circle-check')) curIconTg.className = "fa-solid fa-spinner fa-spin";
-        if (curIconTwitch && !curIconTwitch.classList.contains('fa-circle-check')) curIconTwitch.className = "fa-solid fa-spinner fa-spin";
-
         try {
-            // Запрашиваем свежие данные из базы (чтобы увидеть Twitch)
+            if (!popup.classList.contains('visible') || !actionBtn) return; 
+            if (actionBtn.textContent.includes("ЗАБРАТЬ") && !isManualClick) return;
+
+            actionBtn.disabled = true;
+            actionBtn.textContent = "Проверка...";
+            actionBtn.style.background = "#3a3a3c"; 
+            
+            const curIconTg = document.getElementById('icon-tg');
+            const curIconTwitch = document.getElementById('icon-twitch');
+
+            if (curIconTg && !curIconTg.classList.contains('fa-circle-check')) curIconTg.className = "fa-solid fa-spinner fa-spin";
+            if (curIconTwitch && !curIconTwitch.classList.contains('fa-circle-check')) curIconTwitch.className = "fa-solid fa-spinner fa-spin";
+
+            let tgOk = false;
+            let checkFailed = false;
+
+            // 1. Безопасная проверка Telegram
+            try {
+                const initData = window.Telegram?.WebApp?.initData || '';
+                const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: initData }, 'POST', true);
+                if (tgRes && tgRes.is_subscribed) tgOk = true;
+            } catch(e) { checkFailed = true; }
+
+            // 2. Безопасная проверка Twitch
             try {
                 const fresh = await makeApiRequest('/api/v1/bootstrap', {}, 'POST', true);
                 if (fresh && fresh.user) {
                     userData = fresh.user; 
                     if (window.userData) window.userData = fresh.user;
-                    // Если Twitch найден - перерисовываем блок
-                    if (userData.twitch_id) renderTwitchSection();
+                    renderTwitchSection();
                 }
-            } catch (e) { console.warn("Bootstrap refresh failed", e); }
-
-            let tgOk = false;
-            let checkFailed = false;
-            try {
-                const tgRes = await makeApiRequest('/api/v1/user/check_subscription', { initData: Telegram.WebApp.initData }, 'POST', true);
-                if (tgRes && tgRes.is_subscribed) tgOk = true;
-            } catch(e) { checkFailed = true; }
+            } catch (e) {}
 
             const twitchOk = !!userData.twitch_id;
             if (!popup.classList.contains('visible')) return;
@@ -1067,30 +1026,65 @@ async function openWelcomePopup(currentUserData, referralCode = null) {
             if (twitchOk) markStepDone(stepTwitch, document.getElementById('icon-twitch')); 
             else markStepError(stepTwitch, document.getElementById('icon-twitch'));
 
+            // Итог
             if (tgOk && twitchOk) {
-                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 actionBtn.disabled = false;
                 actionBtn.innerHTML = "ЗАБРАТЬ БОНУС 🎁";
                 actionBtn.style.background = "#FFD700";
                 actionBtn.style.color = "#000";
                 actionBtn.style.fontWeight = "800";
-                actionBtn.onclick = claimReward; // Вешаем функцию успешного клэйма
+                actionBtn.onclick = async () => {
+                    actionBtn.disabled = true;
+                    actionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Забираем...';
+                    const finalRefCode = referralCode || localStorage.getItem('pending_ref_code') || localStorage.getItem('cached_referral_code');
+                    try {
+                        const response = await fetch('/api/v1/user/referral/activate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ initData: window.Telegram?.WebApp?.initData || '', referral_code: finalRefCode })
+                        });
+                        const res = await response.json();
+                        if (response.ok) {
+                            if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                            actionBtn.textContent = "Готово!";
+                            document.getElementById('open-bonus-btn')?.classList.add('hidden');
+                            localStorage.removeItem('openRefPopupOnLoad');
+                            localStorage.removeItem('bonusPopupDeferred');
+                            localStorage.removeItem('pending_ref_code');
+                            localStorage.removeItem('cached_referral_code');
+                            setTimeout(() => {
+                                popup.classList.remove('visible');
+                                popup.classList.add('hidden');
+                                if (successModal) { successModal.classList.remove('hidden'); successModal.classList.add('visible'); }
+                                refreshDataSilently(); 
+                            }, 500);
+                        } else {
+                            if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert(res.detail || "Ошибка");
+                            actionBtn.disabled = false;
+                            actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
+                        }
+                    } catch(e) {
+                        if(window.Telegram?.WebApp) window.Telegram.WebApp.showAlert("Ошибка сети");
+                        actionBtn.disabled = false;
+                        actionBtn.textContent = "ЗАБРАТЬ БОНУС 🎁";
+                    }
+                };
             } else {
-                if(!checkFailed && window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                if(!checkFailed && window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
                 actionBtn.disabled = false;
                 actionBtn.textContent = "Проверить снова";
-                
-                // 🔥 ФИКС 3: ВОТ ТУТ МЫ ВОЗВРАЩАЕМ КОМАНДУ НА КНОПКУ! 🔥
                 actionBtn.onclick = () => runCheck(true); 
             }
-        } catch (e) {
-            actionBtn.disabled = false;
-            actionBtn.textContent = "Ошибка проверки";
-            actionBtn.onclick = () => runCheck(true);
+        } catch (globalErr) {
+            if (actionBtn) {
+                actionBtn.disabled = false;
+                actionBtn.textContent = "Ошибка проверки";
+                actionBtn.onclick = () => runCheck(true);
+            }
         }
     }
 
-    // Запускаем первую проверку с задержкой для красоты анимации
     setTimeout(() => { runCheck(false); }, 400);
 }
 
