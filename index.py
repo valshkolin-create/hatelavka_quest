@@ -3022,6 +3022,54 @@ async def run_mass_twitch_update():
     except Exception as e:
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}", exc_info=True)
 
+@app.get("/api/cron/fill_dict_colors")
+async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    if token != CRON_SECRET:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403)
+
+    def map_color_to_rarity(hex_color: str, name: str) -> str:
+        color = hex_color.upper().replace("#", "")
+        n = name.lower()
+        if any(k in n for k in ['knife', 'нож', 'karambit', 'bayonet', 'shadow daggers', 'gloves', 'перчатки', 'wraps', 'bloodhound', 'talon', 'butterfly']):
+            return 'gold'
+        if color in ["EB4B4B", "E4AE39"]: return "red"
+        if color in ["D32CE6"]: return "pink"
+        if color in ["8847FF"]: return "purple"
+        if color in ["4B69FF"]: return "blue"
+        return "common"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://market.csgo.com/api/v2/prices/class_instance/RUB.json", timeout=60.0)
+            if resp.status_code != 200:
+                return {"error": "Market API failed"}
+            
+            data = resp.json().get("items", {})
+            payload = []
+            
+            for key, item in data.items():
+                m_name = item.get("market_hash_name")
+                if not m_name: continue
+                
+                # Мы не трогаем icon_url, обновляем ТОЛЬКО цвет!
+                payload.append({
+                    "market_hash_name": m_name,
+                    "rarity": map_color_to_rarity(item.get("text_color", "B0C3D9"), m_name)
+                })
+
+                if len(payload) >= 500:
+                    # Обновляем твой словарь
+                    await supabase.post("/skin_images_dict", json=payload, headers={"Prefer": "resolution=merge-duplicates"})
+                    payload = []
+            
+            if payload:
+                await supabase.post("/skin_images_dict", json=payload, headers={"Prefer": "resolution=merge-duplicates"})
+
+        return {"success": True, "message": "Словарь успешно наполнен редкостями!"}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/api/cron/sync-shop")
 async def cron_sync_shop_categories(secret: str = Query(None)):
     # 1. Проверка секрета
@@ -3137,6 +3185,7 @@ RARITY_COLOR_MAP = {
     "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
 
+# 🔥 ВОТ ЭТА СТРОЧКА БЫЛА ПОТЕРЯНА 🔥
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
     token: str,
@@ -3152,22 +3201,16 @@ async def sync_steam_inventory(
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 🔥 НОВЫЙ БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ ПО HEX-ЦВЕТУ С МАРКЕТА
-    def map_color_to_rarity(hex_color: str, name: str) -> str:
-        color = hex_color.upper().replace("#", "")
-        
+    # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ (Для предметов, которых нет на ботах)
+    def guess_backend_rarity(name: str, price: float) -> str:
         n = name.lower()
-        # Страховка для ножей и перчаток
         if any(k in n for k in ['knife', 'нож', 'karambit', 'bayonet', 'shadow daggers', 'gloves', 'перчатки', 'wraps', 'bloodhound', 'talon', 'butterfly']):
             return 'gold'
-            
-        if color in ["EB4B4B", "E4AE39"]: return "red"
-        if color in ["D32CE6"]: return "pink"
-        if color in ["8847FF"]: return "purple"
-        if color in ["4B69FF"]: return "blue"
-        if color in ["5E98D9", "B0C3D9", "D2D2D2"]: return "common"
-        
-        return "common"
+        if price >= 1500: return 'red'
+        if price >= 500: return 'pink'
+        if price >= 150: return 'purple'
+        if price >= 20: return 'blue'
+        return 'common'
 
     try:
         # 1. Получаем ВСЕХ активных ботов из базы
@@ -3277,33 +3320,30 @@ async def sync_steam_inventory(
                 if m_name:
                     known_rarities[m_name] = item.get("rarity", "blue")
 
-        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (Новый эндпоинт с цветами)
+        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
         market_prices_rub = {}
-        market_parsed_rarities = {} # Сохраняем редкости для шага 3.5
-        popular_market_items = [] 
+        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ МАССОВКУ (ТЕПЕРЬ С МУСОРОМ) 🔥
         
         try:
             async with httpx.AsyncClient() as client:
-                price_resp = await client.get("https://market.csgo.com/api/v2/prices/class_instance/RUB.json", timeout=30.0)
+                price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=30.0)
                 if price_resp.status_code == 200:
                     market_data = price_resp.json()
-                    items_dict = market_data.get("items", {})
-                    
-                    for class_instance, item in items_dict.items():
-                        m_name = item.get("market_hash_name")
-                        if not m_name:
-                            continue
-                            
-                        price = float(item.get("price", 0))
+                    for item in market_data.get("items", []):
+                        m_name = item["market_hash_name"]
+                        price = float(item["price"])
+                        # volume = int(item.get("volume", 0)) # Раньше использовали объем, теперь убираем
+
                         market_prices_rub[m_name] = price
-                        
-                        # Достаем HEX и мапим цвет
-                        hex_color = item.get("text_color", "B0C3D9")
-                        final_rarity = known_rarities.get(m_name) or map_color_to_rarity(hex_color, m_name)
-                        market_parsed_rarities[m_name] = final_rarity
                         
                         # 🔥 НОВАЯ ЛОГИКА: Берем всё от 0 до 3000 рублей 🔥
                         if 0 <= price <= 3000:
+                            # Мы УБРАЛИ проверку на Sticker, Graffiti и Capsule.
+                            # Теперь этот копеечный мусор влетит в базу!
+                            
+                            # Определяем редкость для Маркета (визуализация на складе)
+                            final_rarity = known_rarities.get(m_name) or guess_backend_rarity(m_name, price)
+                            
                             popular_market_items.append({
                                 "market_hash_name": m_name,
                                 "price_rub": price,
@@ -3355,8 +3395,8 @@ async def sync_steam_inventory(
                     # Ищем цену по ПОЛНОМУ имени
                     m_price = market_prices_rub.get(full_name, 0.0)
                     
-                    # 🔥 Берем редкость из нового словаря, который мы заполнили в шаге 3 🔥
-                    final_rarity = item.get("rarity") or known_rarities.get(full_name) or market_parsed_rarities.get(full_name, "common")
+                    # 🔥 Сохраняем редкость из базы витрины, ботов или угадываем
+                    final_rarity = item.get("rarity") or known_rarities.get(full_name) or guess_backend_rarity(full_name, m_price)
 
                     market_cache_payload.append({
                         "market_hash_name": full_name,
