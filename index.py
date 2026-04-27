@@ -3029,6 +3029,10 @@ async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get
         raise HTTPException(status_code=403)
 
     def map_color_to_rarity(hex_color: str, name: str) -> str:
+        # 🔥 ФИКС: Если Маркет прислал null (None), ставим дефолтный серый цвет
+        if not hex_color:
+            hex_color = "B0C3D9"
+            
         color = hex_color.upper().replace("#", "")
         n = name.lower()
         if any(k in n for k in ['knife', 'нож', 'karambit', 'bayonet', 'shadow daggers', 'gloves', 'перчатки', 'wraps', 'bloodhound', 'talon', 'butterfly']):
@@ -3055,7 +3059,7 @@ async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get
                 # Мы не трогаем icon_url, обновляем ТОЛЬКО цвет!
                 payload.append({
                     "market_hash_name": m_name,
-                    "rarity": map_color_to_rarity(item.get("text_color", "B0C3D9"), m_name)
+                    "rarity": map_color_to_rarity(item.get("text_color"), m_name)
                 })
 
                 if len(payload) >= 500:
