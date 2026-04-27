@@ -3029,7 +3029,6 @@ async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get
         raise HTTPException(status_code=403)
 
     def map_color_to_rarity(hex_color: str, name: str) -> str:
-        # 🔥 ФИКС: Если Маркет прислал null (None), ставим дефолтный серый цвет
         if not hex_color:
             hex_color = "B0C3D9"
             
@@ -3056,19 +3055,22 @@ async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get
                 m_name = item.get("market_hash_name")
                 if not m_name: continue
                 
-                # Мы не трогаем icon_url, обновляем ТОЛЬКО цвет!
                 payload.append({
                     "market_hash_name": m_name,
                     "rarity": map_color_to_rarity(item.get("text_color"), m_name)
                 })
 
-                if len(payload) >= 500:
-                    # Обновляем твой словарь
-                    await supabase.post("/skin_images_dict", json=payload, headers={"Prefer": "resolution=merge-duplicates"})
+                if len(payload) >= 1000:
+                    # 🔥 Отправляем данные в нашу новую SQL-функцию
+                    res = await supabase.post("/rpc/bulk_update_skin_rarity", json={"payload": payload})
+                    if res.status_code >= 400:
+                        print(f"Ошибка БД: {res.text}")
                     payload = []
             
             if payload:
-                await supabase.post("/skin_images_dict", json=payload, headers={"Prefer": "resolution=merge-duplicates"})
+                res = await supabase.post("/rpc/bulk_update_skin_rarity", json={"payload": payload})
+                if res.status_code >= 400:
+                    print(f"Ошибка БД: {res.text}")
 
         return {"success": True, "message": "Словарь успешно наполнен редкостями!"}
     except Exception as e:
