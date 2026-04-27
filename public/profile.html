@@ -1806,7 +1806,6 @@ function renderRewards(rewards) {
     }
     // --- MAIN FUNCTION ---
 
-// --- КАРТА РЕДКОСТЕЙ ---
     
 // --- УМНАЯ ЛОГИКА РЕДКОСТЕЙ ---
 function getRarityData(rarity) {
@@ -1814,6 +1813,9 @@ function getRarityData(rarity) {
     
     if (r.includes('gold') || r.includes('крайне') || r.includes('knife')) 
         return { color: '#ffd700', name: 'Крайне редкий' };
+        
+    if (r.includes('contraband') || r.includes('контрабандное')) 
+        return { color: '#e4ae39', name: 'Контрабандное' };
         
     if (r.includes('red') || r.includes('covert') || r.includes('ancient') || r.includes('тайное')) 
         return { color: '#eb4b4b', name: 'Тайное' };
@@ -1824,16 +1826,15 @@ function getRarityData(rarity) {
     if (r.includes('purple') || r.includes('restricted') || r.includes('mythical') || r.includes('запрещенное')) 
         return { color: '#8847ff', name: 'Запрещённое' };
         
-    if (r.includes('blue') || r.includes('mil-spec') || r.includes('rare') || r.includes('армейское')) 
-        return { color: '#4b69ff', name: 'Армейское качество' };
-        
+    // 🔥 ИСПРАВЛЕНИЕ: Промышленное (light_blue) ДОЛЖНО стоять ДО Армейского (blue)
     if (r.includes('industrial') || r.includes('light_blue') || r.includes('промышленное')) 
         return { color: '#5e98d9', name: 'Промышленное качество' };
         
-    if (r.includes('contraband') || r.includes('контрабандное')) 
-        return { color: '#e4ae39', name: 'Контрабандное' };
+    // Теперь 'light_blue' не будет ошибочно залетать сюда
+    if (r.includes('blue') || r.includes('mil-spec') || r.includes('rare') || r.includes('армейское')) 
+        return { color: '#4b69ff', name: 'Армейское качество' };
 
-    // Если ничего не совпало
+    // Если ничего не совпало (consumer, grey, base_grade и т.д.)
     return { color: '#b0c3d9', name: 'Ширпотреб' };
 }
 
