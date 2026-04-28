@@ -491,7 +491,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
    # ==========================================
     # 🛒 ЛАВКА: ТОЛЬКО МАРКЕТ (PURE MARKET)
     # ==========================================
-    if source in ["shop", "raffle"]:
+    if source in ["shop", "raffle", "auction"]:
         if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
             logging.info(f"[STOREKEEPER] Лавка: Пробуем купить на Маркете: {market_search_name}")
             
