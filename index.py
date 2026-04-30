@@ -19346,12 +19346,17 @@ async def create_raffle(
     # ========================================================
 
     # 1. Создаем запись в БД (УЖЕ СО ВШИТОЙ ЦЕНОЙ!)
+    
+    # Очищаем пустые строки для timestamp-полей
+    safe_end_time = None if not req.end_time else req.end_time
+    safe_start_time = None if not req.settings.start_time else req.settings.start_time
+
     payload = {
         "title": req.title,
         "type": req.type,
         "status": status,
-        "end_time": req.end_time,
-        "start_time": req.settings.start_time, # Добавлено для страховки крона
+        "end_time": safe_end_time,
+        "start_time": safe_start_time, 
         "settings": s_dict  # Используем наш обновленный словарь
     }
     
