@@ -4316,10 +4316,10 @@ window.executeSwap = async () => {
 };
 
 // ================================================================
-// ОКНО ТРАСТ-ФАКТОРА (ПРЕМИУМ ВЕРСИЯ - ИДЕАЛЬНАЯ ИЕРАРХИЯ)
+// ОКНО ТРАСТ-ФАКТОРА (С ПОДРОБНОЙ СТАТИСТИКОЙ И АМНИСТИЕЙ)
 // ================================================================
 window.openTrustModal = () => {
-    // Получаем баллы пользователя (если нет - ставим дефолт 30)
+    // Получаем баллы пользователя
     const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
     const percent = Math.max(0, Math.min(100, score)); 
     
@@ -4338,11 +4338,39 @@ window.openTrustModal = () => {
         multiplierText = 'Цены x1 💎';
     }
 
+    // Вытаскиваем стату для калькулятора (если бэк шлет нули, покажем 0)
+    const twMsgs = userData.monthly_message_count || 0;
+    const twMins = userData.monthly_uptime_minutes || 0;
+    const tgMsgs = userData.telegram_monthly_message_count || 0;
+    const streak = userData.streak_days || 0;
+    const penalties = userData.penalty_points || 0;
+    
+    // Проверка на Матрицу (если выбрал красную таблетку, амнистия недоступна)
+    const tookRedPill = userData.took_red_pill === true;
+
+    // Логика кнопки амнистии
+    let amnestyBtnHtml = '';
+    if (score < 35 && !tookRedPill) {
+        amnestyBtnHtml = `
+            <button onclick="claimTrustAmnesty()" id="amnesty-trust-btn" style="margin-top: 15px; width: 100%; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-life-ring" style="color: #8e8e93; font-size: 16px;"></i> Сбросить штрафы до 35
+            </button>
+        `;
+    } else if (score < 35 && tookRedPill) {
+        amnestyBtnHtml = `
+            <div style="margin-top: 15px; width: 100%; padding: 12px; border-radius: 12px; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); text-align: center;">
+                <div style="font-size: 10px; color: #ff3b30; font-weight: 800; text-transform: uppercase;"><i class="fa-solid fa-ban"></i> Амнистия недоступна</div>
+                <div style="font-size: 9px; color: #888; margin-top: 4px;">Ты выбрал путь ленивца. Выбирайся сам.</div>
+            </div>
+        `;
+    }
+
+    // Увеличили max-height до 75vh и добавили padding-top/bottom
     const html = `
-        <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; box-sizing: border-box;">
+        <div style="max-height: 75vh; overflow-y: auto; overflow-x: hidden; padding: 10px 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; box-sizing: border-box;">
             
-            <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center;">
-Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
+            <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center; margin-bottom: 10px;">
+                Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены.
             </div>
 
             <div style="display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 10px; line-height: 1; width: 100%;">
@@ -4352,20 +4380,19 @@ window.openTrustModal = () => {
                 <span style="color: #aaa; font-weight: 600;">${multiplierText}</span>
             </div>
 
-            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8;">
-                <span style="font-size: 34px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 12px ${levelColor}40; letter-spacing: -1px; margin: 0;">${score.toFixed(1)}</span>
-                <span style="font-size: 11px; color: #666; font-weight: 700; margin-left: 3px; margin-bottom: 3px;">/ 100</span>
+            <div style="display: flex; align-items: flex-end; justify-content: center; line-height: 0.8; margin: 15px 0;">
+                <span style="font-size: 40px; font-weight: 900; color: ${levelColor}; font-family: 'SF Mono', Consolas, monospace; text-shadow: 0 0 15px ${levelColor}50; letter-spacing: -1px; margin: 0;">${score.toFixed(1)}</span>
+                <span style="font-size: 12px; color: #666; font-weight: 700; margin-left: 4px; margin-bottom: 5px;">/ 100</span>
             </div>
 
-            <div style="position: relative; width: 85%; margin-top: -20px; margin-bottom: 0;">
+            <div style="position: relative; width: 85%; margin-bottom: 25px;">
+                <div style="position: absolute; top: 15px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 18px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; line-height: 1;">
+                    <i class="fa-solid fa-caret-down"></i>
+                </div>
                 
-            <div style="position: absolute; top: 45px; left: ${percent}%; transform: translateX(-50%); color: #fff; font-size: 16px; z-index: 2; transition: left 0.4s ease; display: flex; justify-content: center; align-items: center; line-height: 1;">
-                <i class="fa-solid fa-caret-down"></i>
-            </div>
+                <div style="width: 100%; height: 8px; border-radius: 4px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 70%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40; margin-top: 30px;"></div>
                 
-                <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ff3b30 0%, #3a3a3c 30%, #3a3a3c 70%, #34c759 100%); box-shadow: 0 0 10px ${levelColor}40;"></div>
-                
-                <div style="position: relative; width: 100%; height: 10px; margin-top: -35px;">
+                <div style="position: relative; width: 100%; height: 10px; margin-top: 6px;">
                     <span style="position: absolute; top: 0; left: 0%; transform: translateX(-50%); color: #666; font-size: 10px; font-weight: 800; line-height: 1;">0</span>
                     <span style="position: absolute; top: 0; left: 30%; transform: translateX(-50%); color: #8e8e93; font-size: 10px; font-weight: 800; line-height: 1;">30</span>
                     <span style="position: absolute; top: 0; left: 70%; transform: translateX(-50%); color: #34c759; font-size: 10px; font-weight: 800; line-height: 1;">80</span>
@@ -4373,27 +4400,108 @@ window.openTrustModal = () => {
                 </div>
             </div>
 
-           <details class="trust-faq-accordion" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block;"><summary style="padding: 10px 12px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; background: rgba(255,215,0,0.05); line-height: 1; border-radius: 8px; margin: 0;"><span style="display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fa-solid fa-circle-info" style="color: #FFD700; font-size: 14px;"></i> Как работает система?</span><i class="fa-solid fa-chevron-down accordion-arrow" style="font-size: 12px; color: #888; transition: transform 0.2s;"></i></summary><div style="padding: 10px 12px; font-size: 10px; color: #aaa; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; margin: 0; display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0;"><span>Twitch (Сообщения + Просмотр)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b></div><div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0;"><span>Telegram (Общение в чате)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">Макс. 80 баллов</b></div><div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0;"><span>Ежедневный Гринд (Стрик)</span> <b style="color: #34c759; font-family: 'SF Mono', monospace;">+0.5 балла/день</b></div><div style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); color: #ff3b30; font-weight: 600; line-height: 1.3; margin-top: 2px;">* Механика выхода: Для «Пониженных» нормы активности снижены в 2 раза, чтобы быстрее вернуться в «Базовый» статус.</div></div></details>            
-            <style>
-                .trust-faq-accordion > summary::-webkit-details-marker { display: none; }
-                .trust-faq-accordion[open] .accordion-arrow { transform: rotate(180deg); }
-                .trust-faq-accordion[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-            </style>
+            <!-- ДЕТАЛЬНАЯ СТАТИСТИКА -->
+            <div style="width: 100%; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;">
+                <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Ваша статистика</div>
+                
+                <!-- Сообщения Twitch -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #ccc;">
+                        <i class="fa-brands fa-twitch" style="color: #9146ff; width: 14px; text-align: center;"></i> Сообщения
+                        <i class="fa-solid fa-circle-question" style="color: #888; font-size: 12px; cursor: pointer;" onclick="customAlert('<b>Сообщения на Twitch</b><br><br>Считаются за текущий или прошлый месяц (выбирается лучший результат).<br><br>Формула: (Твои сообщения / 1500) * 40 баллов.<br><br><b>Максимум:</b> 40 баллов.')"></i>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${twMsgs} <span style="color:#666; font-size:9px;">/ 1500</span></div>
+                </div>
+
+                <!-- Время Twitch -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #ccc;">
+                        <i class="fa-solid fa-clock" style="color: #9146ff; width: 14px; text-align: center;"></i> Просмотр
+                        <i class="fa-solid fa-circle-question" style="color: #888; font-size: 12px; cursor: pointer;" onclick="customAlert('<b>Время просмотра Twitch</b><br><br>Считаются минуты, проведенные на стриме фоном или активно.<br><br>Формула: (Твои минуты / 2400) * 40 баллов.<br>2400 минут = 40 часов.<br><br><b>Максимум:</b> 40 баллов.')"></i>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${twMins}м <span style="color:#666; font-size:9px;">/ 2400м</span></div>
+                </div>
+
+                <!-- Сообщения Telegram -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #ccc;">
+                        <i class="fa-brands fa-telegram" style="color: #2AABEE; width: 14px; text-align: center;"></i> Чат TG
+                        <i class="fa-solid fa-circle-question" style="color: #888; font-size: 12px; cursor: pointer;" onclick="customAlert('<b>Сообщения в Telegram</b><br><br>Общение в нашем TG-чате тоже поощряется!<br><br>Формула: (Твои сообщения / 3500) * 80 баллов.<br><br><b>Максимум:</b> 80 баллов.')"></i>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${tgMsgs} <span style="color:#666; font-size:9px;">/ 3500</span></div>
+                </div>
+
+                <!-- Ежедневный Гринд -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #ccc;">
+                        <i class="fa-solid fa-fire" style="color: #ff9500; width: 14px; text-align: center;"></i> Стрик
+                        <i class="fa-solid fa-circle-question" style="color: #888; font-size: 12px; cursor: pointer;" onclick="customAlert('<b>Ежедневный гринд</b><br><br>Бонус за стабильное посещение бота каждый день без пропусков.<br><br>За каждый день стрика ты получаешь <b>+0.5 балла</b> к общему рейтингу сверху!')"></i>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${streak} <span style="color:#666; font-size:9px;">дней</span></div>
+                </div>
+
+                <!-- Штрафы -->
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #ff3b30;">
+                        <i class="fa-solid fa-gavel" style="width: 14px; text-align: center;"></i> Штрафы
+                        <i class="fa-solid fa-circle-question" style="color: #ff3b30; font-size: 12px; cursor: pointer;" onclick="customAlert('<b>Штрафы</b><br><br>Начисляются за пропуски стримов или отсутствие актива.<br><br><b>Как снять?</b> Просто начни проявлять активность (писать в чат, смотреть стрим). При активном фарме старые штрафы сгорают <b>в 2 раза быстрее</b>!')"></i>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #ff3b30;">-${penalties.toFixed(1)}</div>
+                </div>
+            </div>
+            
+            ${amnestyBtnHtml}
+
         </div>
     `;
     
     showShopModal({
         title: `
-            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:15px; font-weight: 900; color: #fff; line-height: 1; letter-spacing: 0.5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:16px; font-weight: 900; color: #fff; line-height: 1; letter-spacing: 0.5px;">
                 ТРАСТ-ФАКТОР
-                <i class="fa-solid fa-xmark" style="color:#8e8e93; font-size:16px; cursor:pointer; padding: 0 5px; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#8e8e93'" onclick="document.querySelector('.custom-confirm-overlay').remove();"></i>
+                <i class="fa-solid fa-xmark" style="color:#8e8e93; font-size:18px; cursor:pointer; padding: 0 5px; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#8e8e93'" onclick="document.querySelector('.custom-confirm-overlay').remove();"></i>
             </div>
         `,
         subtitle: html,
-        confirmText: "ПОНЯТНО",
-        confirmClass: "btn-yellow-modal", 
+        confirmText: "ЗАКРЫТЬ",
+        confirmClass: "btn-cancel-modal", // Сделали кнопку серенькой, чтобы не отвлекала от амнистии
         showCancel: false,
         onConfirm: (close) => close()
+    });
+};
+
+// Функция вызова Амнистии
+window.claimTrustAmnesty = async function() {
+    customConfirm("Использовать Амнистию?\n\nТвои штрафы сгорят, а траст станет равен 35 (Базовый).\n\nЭту кнопку можно использовать только 1 раз в месяц!", async (ok) => {
+        if (!ok) return;
+        
+        const btn = document.getElementById('amnesty-trust-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сбрасываем...';
+        }
+
+        try {
+            // Эндпоинт, который нужно будет добавить на бэкенд
+            const res = await makeApiRequest('/api/v1/user/trust/amnesty', {}, 'POST');
+            
+            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            
+            // Закрываем модалку траста
+            const cm = document.querySelector('.custom-confirm-overlay');
+            if (cm) cm.remove();
+            
+            customAlert("✅ Амнистия применена! Твой траст-фактор восстановлен до 35. Постарайся больше не падать в красную зону!");
+            
+            // Тихо обновляем данные интерфейса
+            refreshDataSilently();
+            
+        } catch (e) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-life-ring"></i> Вернуть траст до 35';
+            }
+        }
     });
 };
 // ================================================================
