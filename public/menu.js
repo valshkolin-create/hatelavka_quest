@@ -4363,6 +4363,10 @@ window.openTrustModal = () => {
     const streak = userData.streak_days || 0;
     const penalties = userData.penalty_points || 0;
     
+    // Переменные для проверки Амнистии
+    const dailyTwitchMsgs = userData.daily_message_count || 0;
+    const messagesNeeded = 100;
+    
     // 🔥 СЧИТАЕМ РЕАЛЬНО ЗАРАБОТАННЫЕ БАЛЛЫ (с учетом потолка) 🔥
     const twMsgsPoints = Math.min((twMsgs / 1500) * 40, 40).toFixed(1);
     const twMinsPoints = Math.min((twMins / 2400) * 40, 40).toFixed(1);
@@ -4380,10 +4384,17 @@ window.openTrustModal = () => {
             <div style="font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; text-align: center; margin-bottom: 5px; letter-spacing: 0.5px;">
                 ПРАВИЛА
             </div>
-            <div style="font-size: 11px; color: #aaa; text-align: center; margin-bottom: 10px; line-height: 1.4;">
-                Система поощряет активных зрителей.<br>
-                Ваш уровень Траста напрямую влияет на цены в магазине.<br><br>
-                <span style="color:#ff3b30; font-weight:600;">* Для «Пониженного» статуса нормы активности снижены в 2 раза.</span>
+            <div style="font-size: 11px; color: #aaa; text-align: left; margin-bottom: 10px; line-height: 1.4;">
+                Система поощряет активных зрителей. Ваш уровень Траста напрямую влияет на цены в магазине.<br><br>
+                <b>Как заработать баллы:</b><br>
+                • Twitch (сообщения + просмотр) — макс. 80 баллов.<br>
+                • Telegram (общение в чате) — макс. 80 баллов.<br>
+                • Ежедневный Гринд (стрик) — +0.5 балла/день.<br><br>
+                <span style="color:#ff3b30; font-weight:600;">* Для «Пониженного» статуса нормы активности снижены в 2 раза, чтобы быстрее вернуться в Базовый.</span><br><br>
+                <b style="color:#fff;">АМНИСТИЯ:</b><br>
+                Если ваш траст упал ниже 35, вы можете сбросить штрафы 1 раз в месяц.<br>
+                <span style="color:#ff9500; font-weight:600;">Условие:</span> Нужно написать 100 сообщений на Твиче за сегодня. Данные сбрасываются каждый день, пишите во время активного стрима.<br>
+                <span style="color:#ff3b30; font-weight:600;">Внимание:</span> Те, кто выбрал Красную Таблетку, не могут запрашивать амнистию!
             </div>
 
             <div style="font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; text-align: center; margin-top: 10px; margin-bottom: 5px; letter-spacing: 0.5px;">
@@ -4474,15 +4485,25 @@ window.openTrustModal = () => {
     // 2. Логика для второй кнопки (Амнистия) - Значок изменен на fa-handshake-angle
     let amnestyBtn = '';
     if (score < 35 && !tookRedPill) {
-        amnestyBtn = `
-            <div onclick="claimTrustAmnesty()" id="amnesty-trust-btn" style="flex: 1; background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 149, 0, 0.15) 100%); border: 1px solid rgba(255, 149, 0, 0.4); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: 0.2s;">
-                <i class="fa-solid fa-handshake-angle" style="color: #ff9500; font-size: 20px;"></i>
-                <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
-            </div>
-        `;
+        if (dailyTwitchMsgs >= messagesNeeded) {
+            amnestyBtn = `
+                <div onclick="claimTrustAmnesty()" id="amnesty-trust-btn" style="flex: 1; background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 149, 0, 0.15) 100%); border: 1px solid rgba(255, 149, 0, 0.4); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: 0.2s;">
+                    <i class="fa-solid fa-handshake-angle" style="color: #ff9500; font-size: 20px;"></i>
+                    <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
+                </div>
+            `;
+        } else {
+            const msgsLeft = messagesNeeded - dailyTwitchMsgs;
+            amnestyBtn = `
+                <div onclick="customAlert('Для амнистии нужно написать 100 сообщений на Твиче за сегодня!\\n\\nОсталось: ${msgsLeft} шт.\\n\\n(Данные сбрасываются каждый день, сделайте это за один стрим)', () => { setTimeout(openTrustModal, 100); })" style="flex: 1; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0.7;">
+                    <i class="fa-solid fa-lock" style="color: #ff9500; font-size: 20px;"></i>
+                    <div style="font-size: 10px; font-weight: 800; color: #ff9500; text-transform: uppercase;">Нужен актив</div>
+                </div>
+            `;
+        }
     } else if (score < 35 && tookRedPill) {
         amnestyBtn = `
-            <div style="flex: 1; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); border-radius: 12px; padding: 12px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0.8;">
+            <div onclick="customAlert('Ты выбрал путь ленивца (Красная таблетка).\\n\\nАмнистия недоступна навсегда!', () => { setTimeout(openTrustModal, 100); })" style="flex: 1; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); border-radius: 12px; padding: 12px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0.8; cursor: pointer;">
                 <i class="fa-solid fa-ban" style="color: #ff3b30; font-size: 20px;"></i>
                 <div style="font-size: 10px; font-weight: 800; color: #ff3b30; text-transform: uppercase;">Недоступно</div>
             </div>
@@ -4555,7 +4576,11 @@ window.openTrustModal = () => {
 // Функция вызова Амнистии
 window.claimTrustAmnesty = async function() {
     customConfirm("Использовать Амнистию?\n\nТвои штрафы сгорят, а траст станет равен 35 (Базовый).\n\nЭту кнопку можно использовать только 1 раз в месяц!", async (ok) => {
-        if (!ok) return; // Убрали отсюда удаление модалки. Окно отмены закрывается само, Траст остается!
+        if (!ok) {
+            // ФИКС БАГА: если окно закрылось при отмене, переоткрываем окно траста
+            setTimeout(openTrustModal, 100);
+            return;
+        }
         
         const btn = document.getElementById('amnesty-trust-btn');
         if (btn) {
@@ -4571,16 +4596,10 @@ window.claimTrustAmnesty = async function() {
             
             if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             
-            customAlert("✅ Амнистия применена! Твой траст-фактор восстановлен до 35. Постарайся больше не падать в красную зону!");
-            
-            refreshDataSilently();
-            
-            if (btn) {
-                btn.innerHTML = `
-                    <i class="fa-solid fa-check" style="color: #34c759; font-size: 20px;"></i>
-                    <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Готово</div>
-                `;
-            }
+            // ФИКС БАГА: после успешной амнистии жестко обновляем страницу для применения траста
+            customAlert("✅ Амнистия применена! Твой траст-фактор восстановлен до 35. Постарайся больше не падать в красную зону!", () => {
+                window.location.reload();
+            });
             
         } catch (e) {
             if (btn) {
@@ -4590,6 +4609,8 @@ window.claimTrustAmnesty = async function() {
                     <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
                 `;
             }
+            // ФИКС БАГА: в случае ошибки с сервера тоже переоткрываем окно после закрытия алерта
+            setTimeout(openTrustModal, 100);
         }
     });
 };
