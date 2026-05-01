@@ -4325,7 +4325,6 @@ window.showTrustTooltip = function(title, htmlContent) {
     
     overlay.innerHTML = `
         <div class="custom-confirm-box" style="padding: 20px; width: 85%; max-width: 340px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 215, 0, 0.3); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
-            <h3 style="color: #fff; font-size: 15px; margin-bottom: 12px; font-weight: 800; text-transform: uppercase;">${title}</h3>
             <div style="font-size: 12px; color: #ddd; line-height: 1.4; text-align: left; margin-bottom: 20px;">${htmlContent}</div>
             <button onclick="this.closest('.trust-tooltip-overlay').style.opacity='0'; setTimeout(() => this.closest('.trust-tooltip-overlay').remove(), 200);" style="width: 100%; padding: 12px; font-size: 13px; background: #ffcc00; color: #000; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; text-transform: uppercase;">ПОНЯТНО</button>
         </div>
@@ -4370,15 +4369,25 @@ window.openTrustModal = () => {
     const tgMsgsPoints = Math.min((tgMsgs / 3500) * 80, 80).toFixed(1);
     const streakPoints = (streak * 0.5).toFixed(1);
 
-    // Проверка на Матрицу
-    const tookRedPill = userData.took_red_pill === true;
+    // Берем данные матрицы из кэша бутстрапа (железобетонно работает везде)
+    const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+    const tookRedPill = cachedBootstrap?.matrix_quest?.selected_pill === 'red';
 
-    // 🔥 Собираем контент для всплывающего окна статистики с ЗАРАБОТАННЫМИ БАЛЛАМИ
+    // 🔥 Собираем контент для всплывающего окна (ПРАВИЛА И СТАТИСТИКА)
     window.trustTooltipContent = `
-        <div style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+        <div style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 8px; max-height: 65vh; overflow-y: auto; padding-right: 5px;">
             
-            <div style="font-size: 10px; color: #aaa; margin-bottom: 5px; text-align: center;">
-                Как ваша активность конвертируется в Траст:
+            <div style="font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; text-align: center; margin-bottom: 5px; letter-spacing: 0.5px;">
+                ПРАВИЛА
+            </div>
+            <div style="font-size: 11px; color: #aaa; text-align: center; margin-bottom: 10px; line-height: 1.4;">
+                Система поощряет активных зрителей.<br>
+                Ваш уровень Траста напрямую влияет на цены в магазине.<br><br>
+                <span style="color:#ff3b30; font-weight:600;">* Для «Пониженного» статуса нормы активности снижены в 2 раза.</span>
+            </div>
+
+            <div style="font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; text-align: center; margin-top: 10px; margin-bottom: 5px; letter-spacing: 0.5px;">
+                СТАТИСТИКА
             </div>
 
             <!-- Сообщения Twitch -->
@@ -4448,10 +4457,6 @@ window.openTrustModal = () => {
                     </div>
                 </div>
             </div>
-
-            <div style="font-size: 10px; color: #ff3b30; font-weight: 600; line-height: 1.3; text-align: center; margin-top: 5px;">
-                * Для «Пониженного» статуса нормы активности снижены в 2 раза.
-            </div>
         </div>
     `;
 
@@ -4466,12 +4471,12 @@ window.openTrustModal = () => {
         </div>
     `;
 
-    // 2. Логика для второй кнопки (Амнистия)
+    // 2. Логика для второй кнопки (Амнистия) - Значок изменен на fa-handshake-angle
     let amnestyBtn = '';
     if (score < 35 && !tookRedPill) {
         amnestyBtn = `
             <div onclick="claimTrustAmnesty()" id="amnesty-trust-btn" style="flex: 1; background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 149, 0, 0.15) 100%); border: 1px solid rgba(255, 149, 0, 0.4); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: 0.2s;">
-                <i class="fa-solid fa-life-ring" style="color: #ff9500; font-size: 20px;"></i>
+                <i class="fa-solid fa-handshake-angle" style="color: #ff9500; font-size: 20px;"></i>
                 <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
             </div>
         `;
@@ -4484,7 +4489,7 @@ window.openTrustModal = () => {
         `;
     }
 
-    // Собираем сетку (flex-контейнер). Если амнистии нет, кнопка правил просто растянется на 100% или останется одна.
+    // Собираем сетку (flex-контейнер)
     buttonsGridHtml = `
         <div style="display: flex; gap: 10px; width: 100%; margin-top: 15px; margin-bottom: 5px;">
             ${rulesBtn}
@@ -4492,7 +4497,7 @@ window.openTrustModal = () => {
         </div>
     `;
 
-    // Возвращаем твои оригинальные отступы и компактность
+    // Возвращаем твои оригинальные отступы и компактность (60vh)
     const html = `
         <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; box-sizing: border-box;">
             
@@ -4550,7 +4555,7 @@ window.openTrustModal = () => {
 // Функция вызова Амнистии
 window.claimTrustAmnesty = async function() {
     customConfirm("Использовать Амнистию?\n\nТвои штрафы сгорят, а траст станет равен 35 (Базовый).\n\nЭту кнопку можно использовать только 1 раз в месяц!", async (ok) => {
-        if (!ok) return;
+        if (!ok) return; // Убрали отсюда удаление модалки. Окно отмены закрывается само, Траст остается!
         
         const btn = document.getElementById('amnesty-trust-btn');
         if (btn) {
@@ -4566,19 +4571,22 @@ window.claimTrustAmnesty = async function() {
             
             if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             
-            // Закрываем модалку траста
-            const cm = document.querySelector('.custom-confirm-overlay');
-            if (cm) cm.remove();
-            
             customAlert("✅ Амнистия применена! Твой траст-фактор восстановлен до 35. Постарайся больше не падать в красную зону!");
             
             refreshDataSilently();
+            
+            if (btn) {
+                btn.innerHTML = `
+                    <i class="fa-solid fa-check" style="color: #34c759; font-size: 20px;"></i>
+                    <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Готово</div>
+                `;
+            }
             
         } catch (e) {
             if (btn) {
                 btn.style.pointerEvents = 'auto';
                 btn.innerHTML = `
-                    <i class="fa-solid fa-life-ring" style="color: #ff9500; font-size: 20px;"></i>
+                    <i class="fa-solid fa-handshake-angle" style="color: #ff9500; font-size: 20px;"></i>
                     <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
                 `;
             }
