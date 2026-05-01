@@ -1555,6 +1555,14 @@ class TelegramTaskModel(BaseModel):
     reward_amount: int
     action_url: Optional[str] = None
     is_active: bool
+
+# ==========================================
+# --- Амнистия траста ---
+# ==========================================
+
+class AmnestyRequest(BaseModel):
+    initData: str
+    platform: str = "tg"
     
 # ==========================================
 # --- МОДЕЛИ ДЛЯ РОЗЫГРЫШЕЙ ---
