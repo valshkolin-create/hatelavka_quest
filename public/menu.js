@@ -4336,18 +4336,99 @@ window.showTrustTooltip = function(title, htmlContent) {
 // ================================================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-АЛЕРТЫ ДЛЯ АМНИСТИИ
 // ================================================================
+// ================================================================
+// КРАСИВОЕ ОКНО: НУЖЕН АКТИВ ДЛЯ АМНИСТИИ
+// ================================================================
 window.showAmnestyLockAlert = function(msgsLeft) {
-    customAlert(`⚠️ НУЖЕН АКТИВ ⚠️\n\nДля запроса амнистии необходимо написать 100 сообщений на Твиче за сегодня.\n\nОсталось написать: ${msgsLeft} шт.\n\n(Данные сбрасываются каждый день, поэтому актив нужно проявить за один стрим)`, () => {
-        // Возвращаем окно траста после закрытия алерта
-        setTimeout(openTrustModal, 100);
-    });
+    const msgsDone = Math.max(0, 100 - msgsLeft);
+    const progressPercent = Math.min(100, msgsDone);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-confirm-overlay'; 
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.2s;";
+
+    overlay.innerHTML = `
+        <div style="padding: 24px 20px; width: 85%; max-width: 340px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 149, 0, 0.4); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 16px;">
+            
+            <div style="font-size: 44px; color: #ff9500; line-height: 1; text-shadow: 0 0 15px rgba(255, 149, 0, 0.4);">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            
+            <div style="font-size: 18px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+                Нужен актив
+            </div>
+            
+            <div style="font-size: 12px; color: #ccc; line-height: 1.4;">
+                Для запроса амнистии необходимо написать <b style="color: #fff;">100 сообщений</b> на Твиче за сегодня.
+            </div>
+
+            <!-- Прогресс-бар -->
+            <div style="width: 100%; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 12px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; color: #fff; margin-bottom: 8px; font-family: 'SF Mono', monospace;">
+                    <span style="color: #aaa;">${msgsDone}</span>
+                    <span style="color: #ff9500; font-size: 10px; text-transform: uppercase;">Осталось: ${msgsLeft}</span>
+                    <span style="color: #aaa;">100</span>
+                </div>
+                <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.6); position: relative; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+                    <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${progressPercent}%; background: linear-gradient(90deg, #ff3b30, #ff9500); border-radius: 4px; box-shadow: 0 0 10px rgba(255, 149, 0, 0.5);"></div>
+                </div>
+            </div>
+
+            <div style="font-size: 10px; color: #666; line-height: 1.3;">
+                Данные сбрасываются каждый день, поэтому актив нужно проявить за один стрим.
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                <button onclick="window.open('https://www.twitch.tv/hatelove_ttv', '_blank')" style="width: 100%; padding: 14px; font-size: 13px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(145, 70, 255, 0.3);">
+                    <i class="fa-brands fa-twitch" style="font-size: 16px;"></i> Перейти на Twitch
+                </button>
+                <button onclick="this.closest('.custom-confirm-overlay').style.opacity='0'; setTimeout(() => { this.closest('.custom-confirm-overlay').remove(); openTrustModal(); }, 200);" style="width: 100%; padding: 14px; font-size: 13px; background: rgba(255,255,255,0.05); color: #aaa; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; text-transform: uppercase;">
+                    Назад
+                </button>
+            </div>
+            
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.style.opacity = '1');
 };
 
+// ================================================================
+// КРАСИВОЕ ОКНО: КРАСНАЯ ТАБЛЕТКА (ПУТЬ ЛЕНИВЦА)
+// ================================================================
 window.showAmnestyRedPillAlert = function() {
-    customAlert("💊 ПУТЬ ЛЕНИВЦА\n\nТы выбрал Красную таблетку.\n\nАмнистия недоступна навсегда!", () => {
-        // Возвращаем окно траста после закрытия алерта
-        setTimeout(openTrustModal, 100);
-    });
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-confirm-overlay'; 
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.2s;";
+
+    overlay.innerHTML = `
+        <div style="padding: 24px 20px; width: 85%; max-width: 340px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 59, 48, 0.3); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 16px;">
+            
+            <div style="font-size: 44px; color: #ff3b30; line-height: 1; text-shadow: 0 0 20px rgba(255, 59, 48, 0.5);">
+                <i class="fa-solid fa-capsules"></i>
+            </div>
+            
+            <div style="font-size: 18px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+                Путь ленивца
+            </div>
+            
+            <div style="font-size: 13px; color: #ccc; line-height: 1.5;">
+                Ты выбрал <b style="color: #ff3b30;">Красную таблетку</b>.<br><br>
+                Функция амнистии для твоего аккаунта <b style="color: #fff;">недоступна навсегда</b>.
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                <button onclick="this.closest('.custom-confirm-overlay').style.opacity='0'; setTimeout(() => { this.closest('.custom-confirm-overlay').remove(); openTrustModal(); }, 200);" style="width: 100%; padding: 14px; font-size: 13px; background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4); color: #ff3b30; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.15); transition: background 0.2s;">
+                    ПОНЯТНО
+                </button>
+            </div>
+            
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.style.opacity = '1');
 };
 
 // Единый обработчик клика по кнопке Амнистии
@@ -4423,7 +4504,7 @@ window.openTrustModal = () => {
                 • Ежедневный Гринд (стрик) — +0.5 балла/день.<br><br>
                 <span style="color:#ff3b30; font-weight:600;">* Для «Пониженного» статуса нормы активности снижены в 2 раза, чтобы быстрее вернуться в Базовый.</span><br><br>
                 <b style="color:#fff;">АМНИСТИЯ:</b><br>
-                Если ваш траст упал ниже 35, вы можете сбросить штрафы 1 раз в месяц.<br>
+                Если ваш Траст упал в красную зону (ниже 35), вы можете восстановить его до 35 баллов (Базовый статус). Доступно 1 раз в месяц.<br>
                 <span style="color:#ff9500; font-weight:600;">Условие:</span> Нужно написать 100 сообщений на Твиче за сегодня. Данные сбрасываются каждый день, пишите во время активного стрима.<br>
                 <span style="color:#ff3b30; font-weight:600;">Внимание:</span> Те, кто выбрал Красную Таблетку, не могут запрашивать амнистию!
             </div>
@@ -4537,7 +4618,7 @@ window.openTrustModal = () => {
         <div style="max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 0 5px; text-align: center; color: #ddd; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; box-sizing: border-box;">
             
             <div style="font-size: 11px; color: #888; line-height: 1.3; width: 100%; text-align: center;">
-                Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
+Система поощряет активных зрителей.<br>Ваш уровень траста напрямую влияет на цены в магазине.
             </div>
 
             <div style="display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 10px; line-height: 1; width: 100%;">
