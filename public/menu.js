@@ -4334,9 +4334,6 @@ window.showTrustTooltip = function(title, htmlContent) {
 };
 
 // ================================================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-АЛЕРТЫ ДЛЯ АМНИСТИИ
-// ================================================================
-// ================================================================
 // КРАСИВОЕ ОКНО: НУЖЕН АКТИВ ДЛЯ АМНИСТИИ
 // ================================================================
 window.showAmnestyLockAlert = function(msgsLeft) {
@@ -4344,7 +4341,7 @@ window.showAmnestyLockAlert = function(msgsLeft) {
     const progressPercent = Math.min(100, msgsDone);
 
     const overlay = document.createElement('div');
-    overlay.className = 'custom-confirm-overlay'; 
+    overlay.className = 'amnesty-special-overlay'; // Изменили класс, чтобы не было конфликтов!
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.2s;";
 
     overlay.innerHTML = `
@@ -4382,7 +4379,7 @@ window.showAmnestyLockAlert = function(msgsLeft) {
                 <button onclick="window.open('https://www.twitch.tv/hatelove_ttv', '_blank')" style="width: 100%; padding: 14px; font-size: 13px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(145, 70, 255, 0.3);">
                     <i class="fa-brands fa-twitch" style="font-size: 16px;"></i> Перейти на Twitch
                 </button>
-                <button onclick="this.closest('.custom-confirm-overlay').style.opacity='0'; setTimeout(() => { this.closest('.custom-confirm-overlay').remove(); openTrustModal(); }, 200);" style="width: 100%; padding: 14px; font-size: 13px; background: rgba(255,255,255,0.05); color: #aaa; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; text-transform: uppercase;">
+                <button onclick="this.closest('.amnesty-special-overlay').style.opacity='0'; setTimeout(() => { this.closest('.amnesty-special-overlay').remove(); openTrustModal(); }, 200);" style="width: 100%; padding: 14px; font-size: 13px; background: rgba(255,255,255,0.05); color: #aaa; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; text-transform: uppercase;">
                     Назад
                 </button>
             </div>
@@ -4399,7 +4396,7 @@ window.showAmnestyLockAlert = function(msgsLeft) {
 // ================================================================
 window.showAmnestyRedPillAlert = function() {
     const overlay = document.createElement('div');
-    overlay.className = 'custom-confirm-overlay'; 
+    overlay.className = 'amnesty-special-overlay'; // Изменили класс
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.2s;";
 
     overlay.innerHTML = `
@@ -4419,7 +4416,7 @@ window.showAmnestyRedPillAlert = function() {
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
-                <button onclick="this.closest('.custom-confirm-overlay').style.opacity='0'; setTimeout(() => { this.closest('.custom-confirm-overlay').remove(); openTrustModal(); }, 200);" style="width: 100%; padding: 14px; font-size: 13px; background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4); color: #ff3b30; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.15); transition: background 0.2s;">
+                <button onclick="this.closest('.amnesty-special-overlay').style.opacity='0'; setTimeout(() => { this.closest('.amnesty-special-overlay').remove(); openTrustModal(); }, 200);" style="width: 100%; padding: 14px; font-size: 13px; background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.4); color: #ff3b30; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.15); transition: background 0.2s;">
                     ПОНЯТНО
                 </button>
             </div>
@@ -4433,16 +4430,20 @@ window.showAmnestyRedPillAlert = function() {
 
 // Единый обработчик клика по кнопке Амнистии
 window.handleAmnestyClick = function(dailyMsgs, needed, tookRedPill) {
-    if (tookRedPill) {
-        document.querySelector('.custom-confirm-overlay')?.remove();
-        showAmnestyRedPillAlert();
-    } else if (dailyMsgs < needed) {
-        document.querySelector('.custom-confirm-overlay')?.remove();
-        showAmnestyLockAlert(needed - dailyMsgs);
-    } else {
-        // Если всё окей - запускаем подтверждение амнистии
-        claimTrustAmnesty();
-    }
+    // Сначала жестко сносим старое окно
+    const oldModal = document.querySelector('.custom-confirm-overlay');
+    if (oldModal) oldModal.remove();
+
+    // Ждем 50мс, чтобы DOM успел отрендерить удаление и избежать конфликтов
+    setTimeout(() => {
+        if (tookRedPill) {
+            showAmnestyRedPillAlert();
+        } else if (dailyMsgs < needed) {
+            showAmnestyLockAlert(needed - dailyMsgs);
+        } else {
+            claimTrustAmnesty();
+        }
+    }, 50);
 };
 
 // ================================================================
