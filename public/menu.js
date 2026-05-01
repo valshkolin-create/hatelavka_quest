@@ -4321,7 +4321,6 @@ window.executeSwap = async () => {
 window.showTrustTooltip = function(title, htmlContent) {
     const overlay = document.createElement('div');
     overlay.className = 'trust-tooltip-overlay';
-    // z-index выше чем у custom-confirm-overlay, чтобы быть поверх него
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.2s;";
     
     overlay.innerHTML = `
@@ -4336,7 +4335,7 @@ window.showTrustTooltip = function(title, htmlContent) {
 };
 
 // ================================================================
-// ОКНО ТРАСТ-ФАКТОРА (ОРИГИНАЛЬНЫЙ ДИЗАЙН + АМНИСТИЯ В POPUP)
+// ОКНО ТРАСТ-ФАКТОРА (КОМПАКТНЫЕ КНОПКИ + СТАТИСТИКА БАЛЛОВ)
 // ================================================================
 window.openTrustModal = () => {
     // Получаем баллы пользователя
@@ -4358,22 +4357,28 @@ window.openTrustModal = () => {
         multiplierText = 'Цены x1 💎';
     }
 
-    // Вытаскиваем стату
+    // Вытаскиваем стату для калькулятора
     const twMsgs = userData.monthly_message_count || 0;
     const twMins = userData.monthly_uptime_minutes || 0;
     const tgMsgs = userData.telegram_monthly_message_count || 0;
     const streak = userData.streak_days || 0;
     const penalties = userData.penalty_points || 0;
     
+    // 🔥 СЧИТАЕМ РЕАЛЬНО ЗАРАБОТАННЫЕ БАЛЛЫ (с учетом потолка) 🔥
+    const twMsgsPoints = Math.min((twMsgs / 1500) * 40, 40).toFixed(1);
+    const twMinsPoints = Math.min((twMins / 2400) * 40, 40).toFixed(1);
+    const tgMsgsPoints = Math.min((tgMsgs / 3500) * 80, 80).toFixed(1);
+    const streakPoints = (streak * 0.5).toFixed(1);
+
     // Проверка на Матрицу
     const tookRedPill = userData.took_red_pill === true;
 
-    // 🔥 Собираем контент для всплывающего окна статистики
+    // 🔥 Собираем контент для всплывающего окна статистики с ЗАРАБОТАННЫМИ БАЛЛАМИ
     window.trustTooltipContent = `
-        <div style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; padding-right: 5px;">
+        <div style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
             
             <div style="font-size: 10px; color: #aaa; margin-bottom: 5px; text-align: center;">
-                Ваши текущие показатели и правила начисления:
+                Как ваша активность конвертируется в Траст:
             </div>
 
             <!-- Сообщения Twitch -->
@@ -4385,9 +4390,11 @@ window.openTrustModal = () => {
                     <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${twMsgs} <span style="color:#666; font-size:9px;">/ 1500</span></div>
                 </div>
                 <div style="font-size: 10px; color: #aaa; line-height: 1.3;">
-                    Считаются за лучший результат (текущий или прошлый месяц).<br>
-                    <span style="color:#888;">Формула: (Твои сообщения / 1500) * 40.</span><br>
-                    <b style="color:#34c759;">Максимум: 40 баллов.</b>
+                    <span style="color:#888;">Формула: (Твои сообщения / 1500) * 40.</span>
+                    <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between;">
+                        <span style="color:#FFD700; font-weight: 700;">Заработано: ${twMsgsPoints}</span>
+                        <span style="color:#666; font-weight: 600;">Макс: 40</span>
+                    </div>
                 </div>
             </div>
 
@@ -4400,9 +4407,11 @@ window.openTrustModal = () => {
                     <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${twMins}м <span style="color:#666; font-size:9px;">/ 2400м</span></div>
                 </div>
                 <div style="font-size: 10px; color: #aaa; line-height: 1.3;">
-                    Минуты, проведенные на трансляции (2400 мин = 40 часов).<br>
-                    <span style="color:#888;">Формула: (Минуты / 2400) * 40.</span><br>
-                    <b style="color:#34c759;">Максимум: 40 баллов.</b>
+                    <span style="color:#888;">Формула: (Твои минуты / 2400) * 40.</span>
+                    <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between;">
+                        <span style="color:#FFD700; font-weight: 700;">Заработано: ${twMinsPoints}</span>
+                        <span style="color:#666; font-weight: 600;">Макс: 40</span>
+                    </div>
                 </div>
             </div>
 
@@ -4415,9 +4424,11 @@ window.openTrustModal = () => {
                     <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${tgMsgs} <span style="color:#666; font-size:9px;">/ 3500</span></div>
                 </div>
                 <div style="font-size: 10px; color: #aaa; line-height: 1.3;">
-                    Общение в нашем TG-чате! Считаются за лучший результат (текущий или прошлый месяц).<br>
-                    <span style="color:#888;">Формула: (Твои сообщения / 3500) * 80.</span><br>
-                    <b style="color:#34c759;">Максимум: 80 баллов.</b>
+                    <span style="color:#888;">Формула: (Твои сообщения / 3500) * 80.</span>
+                    <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between;">
+                        <span style="color:#FFD700; font-weight: 700;">Заработано: ${tgMsgsPoints}</span>
+                        <span style="color:#666; font-weight: 600;">Макс: 80</span>
+                    </div>
                 </div>
             </div>
 
@@ -4430,52 +4441,56 @@ window.openTrustModal = () => {
                     <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #fff;">${streak} <span style="color:#666; font-size:9px;">дней</span></div>
                 </div>
                 <div style="font-size: 10px; color: #aaa; line-height: 1.3;">
-                    За стабильное посещение бота каждый день без пропусков.<br>
-                    <b style="color:#ff9500;">+0.5 балла</b> к рейтингу за каждый день!
+                    За ежедневное посещение бота без пропусков.
+                    <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between;">
+                        <span style="color:#FFD700; font-weight: 700;">Заработано: ${streakPoints}</span>
+                        <span style="color:#666; font-weight: 600;">Без лимита</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Штрафы -->
-            <div style="background: rgba(255,59,48,0.1); border-radius: 8px; border: 1px dashed rgba(255,59,48,0.3); padding: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <div style="font-size: 12px; font-weight: 800; color: #ff3b30; display: flex; align-items: center;">
-                        <i class="fa-solid fa-gavel" style="width: 16px; text-align: center; margin-right: 6px;"></i> Штрафы
-                    </div>
-                    <div style="font-size: 12px; font-weight: 800; font-family: 'SF Mono', monospace; color: #ff3b30;">-${penalties.toFixed(1)}</div>
-                </div>
-                <div style="font-size: 10px; color: #ccc; line-height: 1.3;">
-                    За пропуски стримов или отсутствие актива. <b>Как снять?</b> Просто начни активничать. При фарме старые штрафы сгорают <b>в 2 раза быстрее</b>!
-                </div>
-            </div>
-            
             <div style="font-size: 10px; color: #ff3b30; font-weight: 600; line-height: 1.3; text-align: center; margin-top: 5px;">
-                * Для «Пониженного» статуса нормы активности снижены в 2 раза, чтобы вы быстрее вернули базовый траст.
+                * Для «Пониженного» статуса нормы активности снижены в 2 раза.
             </div>
         </div>
     `;
 
-    // Информативная кнопка амнистии
-    let amnestyBtnHtml = '';
+    // 🔥 СЕТКА ИЗ ДВУХ КОМПАКТНЫХ КНОПОК 🔥
+    let buttonsGridHtml = '';
+
+    // 1. Кнопка Правил (всегда есть)
+    const rulesBtn = `
+        <div onclick="showTrustTooltip('Статистика и Правила', window.trustTooltipContent)" style="flex: 1; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s;">
+            <i class="fa-solid fa-circle-question" style="color: #FFD700; font-size: 20px;"></i>
+            <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Правила</div>
+        </div>
+    `;
+
+    // 2. Логика для второй кнопки (Амнистия)
+    let amnestyBtn = '';
     if (score < 35 && !tookRedPill) {
-        amnestyBtnHtml = `
-            <div onclick="claimTrustAmnesty()" id="amnesty-trust-btn" style="margin-top: 15px; width: 100%; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 149, 0, 0.15) 100%); border: 1px solid rgba(255, 149, 0, 0.4); cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; text-align: left; box-sizing: border-box;">
-                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 149, 0, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i class="fa-solid fa-life-ring" style="color: #ff9500; font-size: 16px;"></i>
-                </div>
-                <div>
-                    <div style="color: #fff; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Амнистия Траста</div>
-                    <div style="color: #ccc; font-size: 9px; margin-top: 3px; line-height: 1.2;">Сбросить штрафы и вернуть базовые 35 баллов.<br><span style="color:#ff9500; font-weight:700;">Доступно только 1 раз в месяц!</span></div>
-                </div>
+        amnestyBtn = `
+            <div onclick="claimTrustAmnesty()" id="amnesty-trust-btn" style="flex: 1; background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 149, 0, 0.15) 100%); border: 1px solid rgba(255, 149, 0, 0.4); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: 0.2s;">
+                <i class="fa-solid fa-life-ring" style="color: #ff9500; font-size: 20px;"></i>
+                <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
             </div>
         `;
     } else if (score < 35 && tookRedPill) {
-        amnestyBtnHtml = `
-            <div style="margin-top: 15px; width: 100%; padding: 10px; border-radius: 12px; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); text-align: center;">
-                <div style="font-size: 10px; color: #ff3b30; font-weight: 800; text-transform: uppercase;"><i class="fa-solid fa-ban"></i> Амнистия недоступна</div>
-                <div style="font-size: 9px; color: #888; margin-top: 4px;">Ты выбрал путь ленивца. Выбирайся сам.</div>
+        amnestyBtn = `
+            <div style="flex: 1; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); border-radius: 12px; padding: 12px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0.8;">
+                <i class="fa-solid fa-ban" style="color: #ff3b30; font-size: 20px;"></i>
+                <div style="font-size: 10px; font-weight: 800; color: #ff3b30; text-transform: uppercase;">Недоступно</div>
             </div>
         `;
     }
+
+    // Собираем сетку (flex-контейнер). Если амнистии нет, кнопка правил просто растянется на 100% или останется одна.
+    buttonsGridHtml = `
+        <div style="display: flex; gap: 10px; width: 100%; margin-top: 15px; margin-bottom: 5px;">
+            ${rulesBtn}
+            ${amnestyBtn}
+        </div>
+    `;
 
     // Возвращаем твои оригинальные отступы и компактность
     const html = `
@@ -4512,17 +4527,7 @@ window.openTrustModal = () => {
                 </div>
             </div>
 
-            <!-- "Как работает система" вызывает тултип со всей подробной статистикой -->
-            <div onclick="showTrustTooltip('Статистика и Правила', window.trustTooltipContent)" style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 100%; box-sizing: border-box; display: block; padding: 12px 14px; font-weight: 700; font-size: 11px; color: #ccc; cursor: pointer; user-select: none; margin-top: 15px; margin-bottom: 5px; transition: background 0.2s;">
-                <div style="display: flex; justify-content: space-between; align-items: center; background: transparent; line-height: 1; margin: 0;">
-                    <span style="display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-circle-question" style="color: #FFD700; font-size: 16px;"></i> Как работает система?
-                    </span>
-                    <i class="fa-solid fa-chevron-right" style="font-size: 12px; color: #888;"></i>
-                </div>
-            </div>
-            
-            ${amnestyBtnHtml}
+            ${buttonsGridHtml}
 
         </div>
     `;
@@ -4551,13 +4556,8 @@ window.claimTrustAmnesty = async function() {
         if (btn) {
             btn.style.pointerEvents = 'none';
             btn.innerHTML = `
-                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 149, 0, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i class="fa-solid fa-spinner fa-spin" style="color: #ff9500; font-size: 16px;"></i>
-                </div>
-                <div>
-                    <div style="color: #fff; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Сбрасываем...</div>
-                    <div style="color: #ccc; font-size: 9px; margin-top: 3px; line-height: 1.2;">Пожалуйста, подождите</div>
-                </div>
+                <i class="fa-solid fa-spinner fa-spin" style="color: #ff9500; font-size: 20px;"></i>
+                <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Сбрасываем</div>
             `;
         }
 
@@ -4578,13 +4578,8 @@ window.claimTrustAmnesty = async function() {
             if (btn) {
                 btn.style.pointerEvents = 'auto';
                 btn.innerHTML = `
-                    <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 149, 0, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fa-solid fa-life-ring" style="color: #ff9500; font-size: 16px;"></i>
-                    </div>
-                    <div>
-                        <div style="color: #fff; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Амнистия Траста</div>
-                        <div style="color: #ccc; font-size: 9px; margin-top: 3px; line-height: 1.2;">Сбросить штрафы и вернуть базовые 35 баллов.<br><span style="color:#ff9500; font-weight:700;">Доступно только 1 раз в месяц!</span></div>
-                    </div>
+                    <i class="fa-solid fa-life-ring" style="color: #ff9500; font-size: 20px;"></i>
+                    <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
                 `;
             }
         }
