@@ -4334,6 +4334,37 @@ window.showTrustTooltip = function(title, htmlContent) {
 };
 
 // ================================================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ-АЛЕРТЫ ДЛЯ АМНИСТИИ
+// ================================================================
+window.showAmnestyLockAlert = function(msgsLeft) {
+    customAlert(`⚠️ НУЖЕН АКТИВ ⚠️\n\nДля запроса амнистии необходимо написать 100 сообщений на Твиче за сегодня.\n\nОсталось написать: ${msgsLeft} шт.\n\n(Данные сбрасываются каждый день, поэтому актив нужно проявить за один стрим)`, () => {
+        // Возвращаем окно траста после закрытия алерта
+        setTimeout(openTrustModal, 100);
+    });
+};
+
+window.showAmnestyRedPillAlert = function() {
+    customAlert("💊 ПУТЬ ЛЕНИВЦА\n\nТы выбрал Красную таблетку.\n\nАмнистия недоступна навсегда!", () => {
+        // Возвращаем окно траста после закрытия алерта
+        setTimeout(openTrustModal, 100);
+    });
+};
+
+// Единый обработчик клика по кнопке Амнистии
+window.handleAmnestyClick = function(dailyMsgs, needed, tookRedPill) {
+    if (tookRedPill) {
+        document.querySelector('.custom-confirm-overlay')?.remove();
+        showAmnestyRedPillAlert();
+    } else if (dailyMsgs < needed) {
+        document.querySelector('.custom-confirm-overlay')?.remove();
+        showAmnestyLockAlert(needed - dailyMsgs);
+    } else {
+        // Если всё окей - запускаем подтверждение амнистии
+        claimTrustAmnesty();
+    }
+};
+
+// ================================================================
 // ОКНО ТРАСТ-ФАКТОРА (КОМПАКТНЫЕ КНОПКИ + СТАТИСТИКА БАЛЛОВ)
 // ================================================================
 window.openTrustModal = () => {
@@ -4482,30 +4513,13 @@ window.openTrustModal = () => {
         </div>
     `;
 
-    // 2. Логика для второй кнопки (Амнистия) - Значок изменен на fa-handshake-angle
+    // 2. Логика для второй кнопки (Амнистия) - Теперь кнопка ВСЕГДА выглядит одинаково красиво!
     let amnestyBtn = '';
-    if (score < 35 && !tookRedPill) {
-        if (dailyTwitchMsgs >= messagesNeeded) {
-            amnestyBtn = `
-                <div onclick="claimTrustAmnesty()" id="amnesty-trust-btn" style="flex: 1; background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 149, 0, 0.15) 100%); border: 1px solid rgba(255, 149, 0, 0.4); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: 0.2s;">
-                    <i class="fa-solid fa-handshake-angle" style="color: #ff9500; font-size: 20px;"></i>
-                    <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
-                </div>
-            `;
-        } else {
-            const msgsLeft = messagesNeeded - dailyTwitchMsgs;
-            amnestyBtn = `
-                <div onclick="customAlert('Для амнистии нужно написать 100 сообщений на Твиче за сегодня!\\n\\nОсталось: ${msgsLeft} шт.\\n\\n(Данные сбрасываются каждый день, сделайте это за один стрим)', () => { setTimeout(openTrustModal, 100); })" style="flex: 1; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0.7;">
-                    <i class="fa-solid fa-lock" style="color: #ff9500; font-size: 20px;"></i>
-                    <div style="font-size: 10px; font-weight: 800; color: #ff9500; text-transform: uppercase;">Нужен актив</div>
-                </div>
-            `;
-        }
-    } else if (score < 35 && tookRedPill) {
+    if (score < 35) {
         amnestyBtn = `
-            <div onclick="customAlert('Ты выбрал путь ленивца (Красная таблетка).\\n\\nАмнистия недоступна навсегда!', () => { setTimeout(openTrustModal, 100); })" style="flex: 1; background: rgba(255,59,48,0.05); border: 1px dashed rgba(255,59,48,0.3); border-radius: 12px; padding: 12px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; opacity: 0.8; cursor: pointer;">
-                <i class="fa-solid fa-ban" style="color: #ff3b30; font-size: 20px;"></i>
-                <div style="font-size: 10px; font-weight: 800; color: #ff3b30; text-transform: uppercase;">Недоступно</div>
+            <div onclick="handleAmnestyClick(${dailyTwitchMsgs}, ${messagesNeeded}, ${tookRedPill})" id="amnesty-trust-btn" style="flex: 1; background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 149, 0, 0.15) 100%); border: 1px solid rgba(255, 149, 0, 0.4); border-radius: 12px; padding: 12px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: 0.2s;">
+                <i class="fa-solid fa-handshake-angle" style="color: #ff9500; font-size: 20px;"></i>
+                <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
             </div>
         `;
     }
@@ -4609,8 +4623,10 @@ window.claimTrustAmnesty = async function() {
                     <div style="font-size: 10px; font-weight: 800; color: #fff; text-transform: uppercase;">Амнистия</div>
                 `;
             }
-            // ФИКС БАГА: в случае ошибки с сервера тоже переоткрываем окно после закрытия алерта
-            setTimeout(openTrustModal, 100);
+            // Вывод ошибки от бэкенда и возвращение окна траста
+            customAlert("❌ " + (e.message || "Ошибка применения амнистии"), () => {
+                setTimeout(openTrustModal, 100);
+            });
         }
     });
 };
