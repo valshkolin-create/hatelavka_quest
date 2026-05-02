@@ -28,7 +28,6 @@
             position: relative;
         }
         
-        /* Стили контейнера только в режиме OBS */
         body.obs-mode #obs-view {
             width: 1920px;
             height: 1080px;
@@ -38,6 +37,14 @@
             align-items: center;
             padding-bottom: 80px; 
             box-sizing: border-box;
+        }
+
+        body.obs-mode #obs-custom-text {
+            font-size: 3rem; font-weight: 900; color: #fff;
+            text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(145, 70, 255, 0.8), 0 5px 5px rgba(0,0,0,0.8);
+            margin-bottom: 20px;
+            display: none; /* Скрыт по умолчанию, пока нет текста */
         }
 
         body.obs-mode .letter-tile {
@@ -86,6 +93,7 @@
         .btn-custom:disabled { opacity: 0.6; }
         
         .btn-purple { background: #9146FF; color: #fff; box-shadow: 0 4px 15px rgba(145, 70, 255, 0.3); }
+        .btn-purple-outline { background: transparent; border: 2px solid #9146FF; color: #fff; }
         .btn-green { background: #28a745; color: #fff; }
         .btn-yellow { background: #FFB800; color: #fff; }
         .btn-red { background: #ff4d4d; color: #fff; }
@@ -101,8 +109,8 @@
 
         .list-item {
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 10px 12px; border-radius: 8px; margin-bottom: 6px;
-            display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+            border-radius: 8px; margin-bottom: 6px;
+            display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;
         }
 
         .twitch-logo { font-size: 40px; color: #9146FF; margin-bottom: 10px; filter: drop-shadow(0 0 15px rgba(145, 70, 255, 0.4)); }
@@ -111,12 +119,18 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
         ::-webkit-scrollbar-thumb { background: rgba(145,70,255,0.3); border-radius: 4px; }
+        
+        /* Стили модалок */
+        .modal-overlay {
+            backdrop-filter: blur(5px);
+        }
     </style>
 </head>
 <body>
 
     <!-- ================= OBS ОВЕРЛЕЙ ================= -->
     <div id="obs-view" class="hidden">
+        <div id="obs-custom-text"></div>
         <div id="word-container" class="flex flex-wrap justify-center mb-6"></div>
         <div class="timer-container"><div id="timer-progress" class="timer-bar"></div></div>
     </div>
@@ -129,7 +143,7 @@
     </div>
 
     <!-- ================= АДМИНКА ================= -->
-    <div id="admin-view" class="hidden max-w-4xl mx-auto p-4 md:p-6 pb-20">
+    <div id="admin-view" class="hidden max-w-2xl mx-auto p-4 md:p-6 pb-20">
         
         <!-- Шапка -->
         <div class="flex justify-between items-center mb-4 bg-[rgba(255,255,255,0.02)] p-3 rounded-xl border border-[rgba(255,255,255,0.05)]">
@@ -140,80 +154,123 @@
                     <span class="text-[10px] font-bold text-[#28a745] uppercase tracking-wider"><i class="fa-solid fa-circle text-[6px] animate-pulse relative -top-[1px]"></i> Online</span>
                 </div>
             </div>
-            <!-- ВОЗВРАТ НАЗАД -->
             <button onclick="window.history.back()" class="text-gray-400 hover:text-white transition text-[10px] font-bold uppercase tracking-wider">
                 <i class="fa-solid fa-arrow-left mr-1"></i> Назад
             </button>
         </div>
 
-        <!-- ТЕКУЩЕЕ СЛОВО (Жирный блок для админа) -->
-        <div class="glass-card mb-6" style="background: rgba(145, 70, 255, 0.15); border-color: #9146FF; text-align: center;">
+        <!-- ТЕКУЩЕЕ СЛОВО -->
+        <div class="glass-card mb-4" style="background: rgba(145, 70, 255, 0.15); border-color: #9146FF; text-align: center;">
             <div class="text-[10px] text-purple-300 uppercase font-bold mb-1 tracking-widest">Сейчас на стриме:</div>
             <div id="admin-current-word" class="text-3xl font-black text-white uppercase tracking-[5px] drop-shadow-md">...</div>
             <div id="admin-current-mode-label" class="text-[11px] text-gray-300 mt-2 font-bold">Ожидание...</div>
         </div>
+
+        <!-- КНОПКИ МОДАЛОК -->
+        <div class="grid grid-cols-3 gap-2 mb-6">
+            <button onclick="openModal('modal-leaderboard')" class="btn-custom btn-purple-outline flex-col !py-3 text-[10px]">
+                <i class="fa-solid fa-trophy text-lg mb-1"></i> Топ
+            </button>
+            <button onclick="openModal('modal-dictionary')" class="btn-custom btn-purple-outline flex-col !py-3 text-[10px]">
+                <i class="fa-solid fa-book text-lg mb-1"></i> Слова
+            </button>
+            <button onclick="openModal('modal-rewards')" class="btn-custom btn-purple-outline flex-col !py-3 text-[10px]">
+                <i class="fa-solid fa-gift text-lg mb-1"></i> Призы
+            </button>
+        </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- ЛЕВАЯ КОЛОНКА -->
-            <div class="space-y-6">
-                <div class="glass-card">
-                    <h2>Управление Игрой</h2>
-                    <div class="mb-4">
-                        <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Игровой режим:</label>
-                        <select id="game-mode-select" class="input-custom" onchange="changeGameMode()">
-                            <option value="classic">🟦 Классика (Постепенное открытие)</option>
-                            <option value="anagram">🔀 Анаграмма (Буквы перемешаны)</option>
-                            <option value="edges">↔️ Края (Первая и последняя буква)</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <button onclick="apiCall('/api/v1/admin/guess/start')" class="btn-custom btn-green"><i class="fa-solid fa-play"></i> Выдать слово</button>
-                        <button onclick="apiCall('/api/v1/admin/guess/skip')" class="btn-custom btn-yellow"><i class="fa-solid fa-forward-step"></i> Скип</button>
-                    </div>
-                    <button onclick="stopAndReward()" class="btn-custom btn-red w-full"><i class="fa-solid fa-stop"></i> Завершить и наградить</button>
-                </div>
+        <!-- УПРАВЛЕНИЕ ИГРОЙ -->
+        <div class="glass-card mb-6">
+            <h2>Управление Игрой</h2>
+            
+            <div class="mb-4">
+                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Игровой режим:</label>
+                <select id="game-mode-select" class="input-custom" onchange="changeGameMode()">
+                    <option value="classic">🟦 Классика (Постепенное открытие)</option>
+                    <option value="anagram">🔀 Анаграмма (Буквы перемешаны)</option>
+                    <option value="edges">↔️ Края (Первая и последняя буква)</option>
+                </select>
+            </div>
 
-                <div class="glass-card">
-                    <h2 class="mb-3">Лидерборд</h2>
-                    <div id="admin-leaderboard" class="min-h-[150px] max-h-[250px] overflow-y-auto pr-2">
-                        <div class="text-gray-500 text-center mt-6 text-xs">Загрузка...</div>
-                    </div>
+            <!-- КАСТОМНЫЙ ТЕКСТ -->
+            <div class="mb-4 bg-[rgba(0,0,0,0.3)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)]">
+                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Текст над буквами в OBS:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="custom-text-input" class="input-custom" placeholder="Например: УГАДАЙ СЛОВО И ПОЛУЧИ КЕЙС">
+                    <button onclick="setCustomText()" class="btn-custom btn-purple px-4"><i class="fa-solid fa-check"></i></button>
                 </div>
             </div>
 
-            <!-- ПРАВАЯ КОЛОНКА -->
-            <div class="space-y-6">
-                
-                <!-- Словарь -->
-                <div class="glass-card">
-                    <h2>Словарь игры</h2>
-                    <p class="text-[10px] text-gray-400 mb-2">Вставь слова столбиком. Бот будет выбирать их случайно.</p>
-                    <textarea id="words-list-input" class="input-custom mb-2 h-24" placeholder="КЕЙС&#10;СТРИМЕР&#10;ПОДАРОК"></textarea>
-                    <button onclick="saveDictionary()" class="btn-custom btn-blue w-full"><i class="fa-solid fa-save"></i> Сохранить словарь</button>
-                </div>
-
-                <!-- Настройки наград -->
-                <div class="glass-card">
-                    <h2>Настройки наград</h2>
-                    <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-xl border border-[rgba(255,255,255,0.05)] mb-3">
-                        <div class="grid grid-cols-2 gap-2 mb-2">
-                            <input type="number" id="rew-place" placeholder="Место" class="input-custom text-center">
-                            <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center">
-                                <option value="coins">🪙 Монеты Bot-t</option>
-                                <option value="tickets">🎟 Билеты HATElavka</option>
-                                <option value="case">🎁 Бесплатный Кейс</option>
-                            </select>
-                        </div>
-                        <div class="flex gap-2 mb-2">
-                            <input type="number" id="rew-amount" placeholder="Сколько?" class="input-custom text-center w-full">
-                            <input type="text" id="rew-case-name" placeholder="Название кейса" class="input-custom text-center hidden w-full">
-                        </div>
-                        <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить</button>
-                    </div>
-                    <div id="rewards-list" class="space-y-1 max-h-[150px] overflow-y-auto pr-1"></div>
-                </div>
-
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <button onclick="apiCall('/api/v1/admin/guess/start')" class="btn-custom btn-green"><i class="fa-solid fa-play"></i> Выдать слово</button>
+                <button onclick="apiCall('/api/v1/admin/guess/skip')" class="btn-custom btn-yellow"><i class="fa-solid fa-forward-step"></i> Скип</button>
             </div>
+            <button onclick="stopAndReward()" class="btn-custom btn-red w-full"><i class="fa-solid fa-stop"></i> Завершить и наградить</button>
+        </div>
+    </div>
+
+    <!-- ================= МОДАЛЬНЫЕ ОКНА ================= -->
+    
+    <!-- МОДАЛКА: ЛИДЕРБОРД -->
+    <div id="modal-leaderboard" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-lg max-h-[90vh] flex flex-col bg-[#0f0f13]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-trophy text-[#ffd700] mr-2"></i> Лидерборд</h2>
+                <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                    <span>Размер шрифта таблицы:</span>
+                    <span id="lb-size-val">12px</span>
+                </label>
+                <input type="range" id="lb-size-slider" min="10" max="24" value="12" step="1" oninput="changeLbSize(this.value)" class="w-full accent-[#9146FF]">
+            </div>
+
+            <div id="admin-leaderboard" class="flex-1 overflow-y-auto pr-2 space-y-1">
+                <div class="text-gray-500 text-center mt-6 text-xs">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: СЛОВАРЬ -->
+    <div id="modal-dictionary" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-lg bg-[#0f0f13]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-book text-[#007bff] mr-2"></i> Словарь игры</h2>
+                <button onclick="closeModal('modal-dictionary')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <p class="text-[10px] text-gray-400 mb-2">Вставь слова столбиком. Бот будет выбирать их случайно.</p>
+            <textarea id="words-list-input" class="input-custom mb-3 h-48 resize-none" placeholder="КЕЙС&#10;СТРИМЕР&#10;ПОДАРОК"></textarea>
+            <button onclick="saveDictionary()" class="btn-custom btn-blue w-full py-3"><i class="fa-solid fa-save"></i> Сохранить словарь</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: НАГРАДЫ -->
+    <div id="modal-rewards" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-lg max-h-[90vh] flex flex-col bg-[#0f0f13]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-gift text-[#ff4d4d] mr-2"></i> Настройки наград</h2>
+                <button onclick="closeModal('modal-rewards')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-xl border border-[rgba(255,255,255,0.05)] mb-4">
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <input type="number" id="rew-place" placeholder="Место" class="input-custom text-center">
+                    <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center">
+                        <option value="coins">🪙 Монеты Bot-t</option>
+                        <option value="tickets">🎟 Билеты</option>
+                        <option value="case">🎁 Бесплатный Кейс</option>
+                    </select>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <input type="number" id="rew-amount" placeholder="Сколько?" class="input-custom text-center w-full">
+                    <input type="text" id="rew-case-name" placeholder="Название кейса" class="input-custom text-center hidden w-full">
+                </div>
+                <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить</button>
+            </div>
+            
+            <div id="rewards-list" class="flex-1 overflow-y-auto pr-1 space-y-1"></div>
         </div>
     </div>
 
@@ -221,7 +278,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // КОНСТАНТЫ SUPABASE (Твои данные)
+        // КОНСТАНТЫ SUPABASE
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -235,6 +292,8 @@
         let timerSeconds = 30;
         let scrambledWord = ""; 
         let rewardsConfig = [];
+        
+        let currentLbSize = 12; // Глобальный размер шрифта для лидерборда
 
         async function apiCall(endpoint, additionalBody = {}) {
             const bodyData = { ...additionalBody, initData: tg.initData };
@@ -253,11 +312,36 @@
         }
 
         // ==========================================
-        // ЛОГИКА REALTIME (ОБЩАЯ ДЛЯ OBS И АДМИНКИ)
+        // УПРАВЛЕНИЕ МОДАЛКАМИ
+        // ==========================================
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // ==========================================
+        // ЛОГИКА REALTIME (ОБЩАЯ)
         // ==========================================
         function handleStateChange(state) {
+            // Кастомный текст над буквами (если добавишь колонку custom_text)
+            const obsTextEl = document.getElementById('obs-custom-text');
+            if (obsTextEl) {
+                if (state.custom_text) {
+                    obsTextEl.style.display = 'block';
+                    obsTextEl.innerText = state.custom_text;
+                } else {
+                    obsTextEl.style.display = 'none';
+                }
+            }
+            // Обновляем инпут в админке, если он пуст
+            if (!isObs && document.getElementById('custom-text-input').value === '' && state.custom_text) {
+                document.getElementById('custom-text-input').value = state.custom_text;
+            }
+
             if (state.is_active && state.current_word) {
-                // Если пришло новое слово или режим
                 if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
                     currentWord = state.current_word.toUpperCase();
                     currentMode = state.current_mode || "classic";
@@ -266,18 +350,15 @@
                     
                     if (currentMode === 'anagram') scrambledWord = shuffleString(currentWord);
                     
-                    // Визуал таймера (скрываем в анаграмме)
                     const timerEl = document.querySelector('.timer-container');
                     if (timerEl) timerEl.style.display = (currentMode === 'anagram') ? 'none' : 'block';
                     
                     renderWord();
                 } else {
-                    // Если просто обновились открытые буквы (для classic)
                     revealedIndices = state.revealed_indices || [];
                     renderWord();
                 }
 
-                // Обновляем текст в админке, если она открыта
                 const wordEl = document.getElementById('admin-current-word');
                 if (wordEl) {
                     wordEl.innerText = currentWord;
@@ -285,7 +366,6 @@
                     document.getElementById('admin-current-mode-label').innerText = `Режим: ${currentMode}`;
                 }
             } else {
-                // Игра остановлена
                 currentWord = "";
                 if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
                 const wordEl = document.getElementById('admin-current-word');
@@ -303,13 +383,68 @@
                 (payload) => handleStateChange(payload.new)
             ).subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
-                    // Первичная загрузка
                     const { data } = await supabaseClient.from('guess_state').select('*').eq('id', 1).single();
                     if (data) handleStateChange(data);
                 }
             });
         }
 
+        // ==========================================
+        // ЛОГИКА REALTIME ДЛЯ ЛИДЕРБОРДА
+        // ==========================================
+        function initLeaderboardRealtime() {
+            supabaseClient
+                .channel('leaderboard-changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'guess_leaderboard' }, 
+                    () => fetchLeaderboard()
+                )
+                .subscribe();
+            
+            fetchLeaderboard();
+        }
+
+        function changeLbSize(val) {
+            currentLbSize = val;
+            document.getElementById('lb-size-val').innerText = val + 'px';
+            fetchLeaderboard(); // Перерисовываем с новым размером
+        }
+
+        async function fetchLeaderboard() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('guess_leaderboard')
+                    .select('twitch_login, score')
+                    .order('score', { ascending: false })
+                    .limit(50);
+
+                if (error) throw error;
+
+                const container = document.getElementById('admin-leaderboard');
+                if (!container) return;
+
+                // Используем текущий размер шрифта
+                const paddingSize = Math.max(6, currentLbSize / 1.5);
+                
+                const html = data.map((u, i) => `
+                    <div class="list-item" style="font-size: ${currentLbSize}px; padding: ${paddingSize}px 12px;">
+                        <div class="font-bold text-gray-200">
+                            <span class="text-gray-500 mr-2">#${i+1}</span> ${u.twitch_login}
+                        </div>
+                        <div class="text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 rounded flex items-center gap-1">
+                            <i class="fa-solid fa-star text-[0.8em]"></i> ${u.score}
+                        </div>
+                    </div>`).join('');
+
+                container.innerHTML = html || '<div class="text-gray-500 text-center text-xs mt-4">Список пуст</div>';
+            } catch (e) {
+                console.error("Ошибка загрузки лидерборда:", e);
+            }
+        }
+
+        // ==========================================
+        // УТИЛИТЫ И РЕНДЕР
+        // ==========================================
         function shuffleString(str) {
             const arr = str.split('');
             for (let i = arr.length - 1; i > 0; i--) {
@@ -342,14 +477,13 @@
         }
 
         // ==========================================
-        // ИНИЦИАЛИЗАЦИЯ И ТАЙМЕРЫ
+        // ИНИЦИАЛИЗАЦИЯ И ДОСТУП
         // ==========================================
         if (isObs) {
             document.body.classList.add('obs-mode');
             document.getElementById('obs-view').classList.remove('hidden');
             initRealtime();
 
-            // Локальный таймер для OBS
             setInterval(() => {
                 if (!currentWord || currentMode !== 'classic') return;
                 timerSeconds--;
@@ -368,7 +502,6 @@
                 }
             }, 1000);
         } else {
-            // Режим админки
             document.getElementById('auth-view').style.display = 'flex';
             checkAccess();
         }
@@ -376,20 +509,20 @@
         async function checkAccess() {
             try {
                 const userData = await apiCall('/api/v1/user/me');
-                if (userData && userData.is_admin) {
+                if (userData?.is_admin) {
                     document.getElementById('auth-view').style.display = 'none';
                     document.getElementById('admin-view').style.display = 'block';
-                    initRealtime();
+                    
+                    initRealtime(); 
+                    initLeaderboardRealtime(); 
+                    
                     loadDictionary();
                     loadRewards();
-                    fetchLeaderboard();
-                    // Лидерборд опрашиваем реже (раз в 8 сек)
-                    setInterval(() => { if (!document.hidden) fetchLeaderboard(); }, 8000);
                 } else {
                     document.getElementById('auth-status').innerText = "Доступ запрещен";
                 }
-            } catch (e) {
-                document.getElementById('auth-status').innerText = "Ошибка сети";
+            } catch (e) { 
+                document.getElementById('auth-status').innerText = "Ошибка сети"; 
             }
         }
 
@@ -400,6 +533,13 @@
             const newMode = document.getElementById('game-mode-select').value;
             await apiCall('/api/v1/admin/guess/mode/set', { mode: newMode });
         }
+        
+        async function setCustomText() {
+            const text = document.getElementById('custom-text-input').value;
+            // Вызов твоего нового API эндпоинта для установки текста
+            await apiCall('/api/v1/admin/guess/text/set', { custom_text: text });
+            tg.showAlert("Текст обновлен!");
+        }
 
         async function saveDictionary() {
             const text = document.getElementById('words-list-input').value;
@@ -407,24 +547,13 @@
             if(words.length === 0) return tg.showAlert("Словарь пуст!");
             await apiCall('/api/v1/admin/guess/words/set', { words: words });
             tg.showAlert("Сохранено!");
+            closeModal('modal-dictionary');
         }
 
         async function loadDictionary() {
             try {
                 const res = await apiCall('/api/v1/admin/guess/words/get');
                 if (res.words) document.getElementById('words-list-input').value = res.words.join('\n');
-            } catch(e) {}
-        }
-
-        async function fetchLeaderboard() {
-            try {
-                const data = await apiCall('/api/v1/admin/guess/leaderboard');
-                const html = data.map((u, i) => `
-                    <div class="list-item">
-                        <div class="font-bold text-gray-200 text-xs"><span class="text-gray-500 mr-2">#${i+1}</span> ${u.twitch_login}</div>
-                        <div class="text-[#ffd700] font-bold text-xs bg-[#ffd700]/10 px-2 py-1 rounded"><i class="fa-solid fa-star"></i> ${u.score}</div>
-                    </div>`).join('');
-                document.getElementById('admin-leaderboard').innerHTML = html || '<div class="text-gray-500 text-center text-xs mt-4">Список пуст</div>';
             } catch(e) {}
         }
 
@@ -441,12 +570,12 @@
                 const container = document.getElementById('rewards-list');
                 rewardsConfig = rewards.sort((a, b) => a.place - b.place);
                 container.innerHTML = rewardsConfig.map(r => `
-                    <div class="list-item py-1">
+                    <div class="list-item px-3 py-2">
                         <div class="flex items-center gap-2">
-                            <span class="font-bold text-[#9146FF] text-[10px]">#${r.place}</span>
-                            <span class="text-gray-300 text-[10px]">${r.reward_type === 'case' ? '🎁 '+r.target_case_name : r.amount + ' ед.'}</span>
+                            <span class="font-bold text-[#9146FF] text-[12px]">#${r.place}</span>
+                            <span class="text-gray-300 text-[12px]">${r.reward_type === 'case' ? '🎁 '+r.target_case_name : r.amount + ' ед.'}</span>
                         </div>
-                        <button onclick="deleteReward(${r.place})" class="text-gray-500 hover:text-red-500 transition px-2"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                        <button onclick="deleteReward(${r.place})" class="text-gray-500 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i></button>
                     </div>`).join('');
             } catch(e) {}
         }
@@ -472,7 +601,6 @@
                     try {
                         const res = await apiCall('/api/v1/admin/guess/finish_and_reward');
                         tg.showAlert("Раздача завершена!\n\n" + (res.log ? res.log.join("\n") : "Ок"));
-                        fetchLeaderboard();
                     } catch(e) { tg.showAlert("Ошибка!"); }
                 }
             });
