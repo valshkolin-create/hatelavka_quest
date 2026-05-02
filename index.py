@@ -21986,21 +21986,6 @@ async def admin_guess_set_mode(req: GuessModeRequest, supabase: httpx.AsyncClien
     await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"current_mode": req.mode})
     return {"status": "ok"}
 
-# Измените эти функции, чтобы они дергали RPC в Supabase
-@app.post("/api/v1/admin/guess/start")
-async def admin_guess_start(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    verify_guess_admin(req.initData)
-    # Используем RPC функцию, которая сама выбирает слово и сбрасывает revealed_indices
-    await supabase.post("/rpc/start_guess_game")
-    return {"status": "started"}
-
-@app.post("/api/v1/admin/guess/skip")
-async def admin_guess_skip(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    verify_guess_admin(req.initData)
-    # Используем RPC функцию для пропуска
-    await supabase.post("/rpc/skip_guess_word")
-    return {"status": "skipped"}
-
 @app.post("/api/v1/admin/guess/text/set")
 async def admin_guess_text_set(
     req: GuessAdminTextRequest, 
