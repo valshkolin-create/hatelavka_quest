@@ -339,31 +339,45 @@
                             revealedIndices = [];
                             timerSeconds = 30;
                             
+                            // СКРЫВАЕМ ТАЙМЕР ДЛЯ АНАГРАММЫ
+                            const timerEl = document.querySelector('.timer-container');
+                            if (timerEl) {
+                                timerEl.style.display = (currentMode === 'anagram') ? 'none' : 'block';
+                            }
+                            
                             if (currentMode === 'anagram') scrambledWord = shuffleString(currentWord);
                             renderWord();
                         }
                     } else if (!state.is_active) {
                         currentWord = "";
                         document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
+                        
+                        // Скрываем таймер, когда игра остановлена
+                        const timerEl = document.querySelector('.timer-container');
+                        if (timerEl) timerEl.style.display = 'none';
                     }
                 } catch(e) {}
             }, 4000);
 
-            // Локальный таймер и открытие букв (БЕЗ API-ЗАПРОСОВ)
+            // Локальный таймер и открытие букв
             setInterval(() => {
                 if (!currentWord) return;
-                timerSeconds--;
-                document.getElementById('timer-progress').style.width = `${(timerSeconds / 30) * 100}%`;
                 
-                if (timerSeconds <= 0) {
-                    timerSeconds = 30; 
-                    if (currentMode === 'classic') {
-                        if (currentWord.length - revealedIndices.length > 2) {
-                            const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
-                            if (unrevealed.length > 0) {
-                                const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
-                                revealedIndices.push(randomIndex);
-                                renderWord();
+                // Таймер тикает только если режим НЕ анаграмма
+                if (currentMode !== 'anagram') {
+                    timerSeconds--;
+                    document.getElementById('timer-progress').style.width = `${(timerSeconds / 30) * 100}%`;
+                    
+                    if (timerSeconds <= 0) {
+                        timerSeconds = 30; 
+                        if (currentMode === 'classic') {
+                            if (currentWord.length - revealedIndices.length > 2) {
+                                const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
+                                if (unrevealed.length > 0) {
+                                    const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+                                    revealedIndices.push(randomIndex);
+                                    renderWord();
+                                }
                             }
                         }
                     }
