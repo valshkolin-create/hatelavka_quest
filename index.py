@@ -1724,6 +1724,22 @@ class ReplacementConfirmRequest(BaseModel):
     history_id: int
     assetid: str
     initData: str
+
+# Базовая схема с токеном Telegram для проверки прав админа
+class GuessAdminBaseRequest(BaseModel):
+    initData: str
+
+class GuessAddRewardRequest(GuessAdminBaseRequest):
+    place: int
+    reward_type: str
+    amount: int = 0
+    target_case_name: Optional[str] = None
+
+class GuessDeleteRewardRequest(GuessAdminBaseRequest):
+    place: int
+
+class RevealLetterRequest(BaseModel):
+    index: int
     
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -21872,8 +21888,10 @@ async def get_market_items(
     return resp.json()
 
 # ==========================================
-# ОБРАБОТКА ОТВЕТОВ ИЗ ЧАТА (FOSSABOT)
+# 🎮 ИГРА "УГАДАЙ СЛОВО" (FOSSABOT + OBS + ADMIN)
 # ==========================================
+
+# --- 1. ОБРАБОТКА ОТВЕТОВ ИЗ ЧАТА (FOSSABOT) ---
 @app.get("/api/v1/twitch/fossabot_guess", response_class=PlainTextResponse)
 async def handle_fossabot_guess(
     request: Request,
@@ -21883,7 +21901,7 @@ async def handle_fossabot_guess(
     if not token: return ""
 
     try:
-        # 1. Запрашиваем контекст (как в дропах)
+        # Запрашиваем контекст Fossabot
         async with httpx.AsyncClient() as client:
             fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         if fb_res.status_code != 200: return ""
@@ -21895,29 +21913,27 @@ async def handle_fossabot_guess(
         twitch_display = message_data["user"]["display_name"]
         guess_word = message_data["content"].strip().upper()
 
-        # 2. Получаем состояние игры
+        # Получаем состояние игры
         state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
-        state = state_res.json()[0]
+        if state_res.status_code != 200 or not state_res.json(): return ""
         
+        state = state_res.json()[0]
         if not state.get("is_active") or not state.get("current_word"):
             return "" # Игра не идет
 
         target_word = state["current_word"].upper()
 
-        # 3. Проверяем ответ
+        # Проверяем ответ
         if guess_word == target_word:
-            # Начисляем балл в лидерборд
-            await supabase.post(
-                "/rpc/increment_guess_score", # Простая RPC функция (создадим ниже)
-                json={"p_twitch_login": twitch_login}
-            )
+            # Начисляем балл (Вызов RPC функции, которую мы создали в SQL Editor)
+            await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
 
             # Выбираем новое случайное слово
             words_res = await supabase.get("/guess_words")
             all_words = [w["word"] for w in words_res.json() if w["word"].upper() != target_word]
             next_word = random.choice(all_words) if all_words else "КОНЕЦ"
 
-            # Обновляем состояние (сбрасываем открытые буквы)
+            # Сбрасываем открытые буквы и ставим новое слово
             await supabase.patch(
                 "/guess_state", 
                 params={"id": "eq.1"}, 
@@ -21926,35 +21942,127 @@ async def handle_fossabot_guess(
 
             return f"🎉 @{twitch_display} угадал слово «{target_word}»! Следующее слово уже на экране!"
 
-        return "" # Слово не угадано, молчим
-
+        return "" # Слово не угадано
     except Exception as e:
         print(f"Guess Game Error: {e}")
         return ""
 
+
+# --- 2. ПУБЛИЧНЫЕ ЭНДПОЙНТЫ (ДЛЯ OBS) ---
+@app.get("/api/v1/guess/state")
+async def get_guess_state(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """OBS каждую секунду дергает этот роут, чтобы знать, какое слово рисовать"""
+    res = await supabase.get("/guess_state", params={"id": "eq.1"})
+    return res.json()[0] if res.status_code == 200 and res.json() else {}
+
+@app.post("/api/v1/guess/reveal_letter")
+async def reveal_guess_letter(req: RevealLetterRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """OBS сам решает, когда открыть букву (по таймеру), и шлет сюда индекс"""
+    state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+    if state_res.status_code == 200 and state_res.json():
+        state = state_res.json()[0]
+        indices = state.get("revealed_indices", [])
+        if req.index not in indices:
+            indices.append(req.index)
+            await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"revealed_indices": indices})
+    return {"status": "ok"}
+
+
+# --- 3. ЗАЩИЩЕННЫЕ ЭНДПОЙНТЫ (АДМИНКА) ---
+# Общая функция проверки (использует твою существующую is_valid_init_data)
+def verify_guess_admin(init_data: str):
+    user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Вы не администратор.")
+    return user_info
+
+@app.post("/api/v1/admin/guess/ping")
+async def admin_guess_ping(req: GuessAdminBaseRequest):
+    """Проверка прав при входе в админку"""
+    verify_guess_admin(req.initData)
+    return {"status": "ok"}
+
+@app.post("/api/v1/admin/guess/start")
+async def admin_guess_start(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    words_res = await supabase.get("/guess_words")
+    all_words = [w["word"] for w in words_res.json()]
+    first_word = random.choice(all_words) if all_words else "СЛОВАРЬ_ПУСТ"
+    
+    await supabase.patch("/guess_state", params={"id": "eq.1"}, json={
+        "is_active": True, "current_word": first_word, "revealed_indices": []
+    })
+    return {"status": "started"}
+
+@app.post("/api/v1/admin/guess/skip")
+async def admin_guess_skip(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+    current_word = state_res.json()[0].get("current_word") if state_res.json() else ""
+    
+    words_res = await supabase.get("/guess_words")
+    all_words = [w["word"] for w in words_res.json() if w["word"].upper() != current_word.upper()]
+    next_word = random.choice(all_words) if all_words else "КОНЕЦ"
+    
+    await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"current_word": next_word, "revealed_indices": []})
+    return {"status": "skipped"}
+
+@app.post("/api/v1/admin/guess/leaderboard")
+async def admin_guess_leaderboard(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    res = await supabase.get("/guess_leaderboard", params={"order": "score.desc", "limit": "100"})
+    return res.json() if res.status_code == 200 else []
+
+@app.post("/api/v1/admin/guess/rewards_config/get")
+async def admin_guess_rewards_get(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    res = await supabase.get("/guess_rewards_config")
+    return res.json() if res.status_code == 200 else []
+
+@app.post("/api/v1/admin/guess/rewards_config/add")
+async def admin_guess_rewards_add(req: GuessAddRewardRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    data = {
+        "place": req.place, "reward_type": req.reward_type, 
+        "amount": req.amount, "target_case_name": req.target_case_name
+    }
+    # upsert: если правило для этого места есть — обновляем
+    await supabase.post("/guess_rewards_config", json=data, headers={"Prefer": "resolution=merge-duplicates"})
+    return {"status": "ok"}
+
+@app.post("/api/v1/admin/guess/rewards_config/delete")
+async def admin_guess_rewards_del(req: GuessDeleteRewardRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    await supabase.delete("/guess_rewards_config", params={"place": f"eq.{req.place}"})
+    return {"status": "ok"}
+
+# ТВОЯ ФУНКЦИЯ ЗАВЕРШЕНИЯ (Теперь защищена initData)
 @app.post("/api/v1/admin/guess/finish_and_reward")
-async def finish_guess_game(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def finish_guess_game(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData) # Защита от взлома
+    
     # Останавливаем игру
     await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"is_active": False})
 
-    # Достаем топ игроков (сортировка по убыванию очков)
+    # Достаем топ игроков и конфиг наград
     lb_res = await supabase.get("/guess_leaderboard", params={"order": "score.desc", "limit": "100"})
-    leaders = lb_res.json()
+    leaders = lb_res.json() if lb_res.status_code == 200 else []
 
-    # Достаем конфиг наград
     config_res = await supabase.get("/guess_rewards_config")
-    rewards_config = {item["place"]: item for item in config_res.json()}
+    rewards_config = {item["place"]: item for item in config_res.json()} if config_res.status_code == 200 else {}
 
     results_log = []
 
     for index, player in enumerate(leaders):
         place = index + 1
         reward = rewards_config.get(place)
-        if not reward: continue # Если для этого места нет награды
+        if not reward: continue 
 
         # Ищем юзера в базе по twitch_login
         user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{player['twitch_login']}"})
-        if not user_res.json(): continue # Юзер не привязан
+        if not user_res.json(): 
+            results_log.append(f"⚠️ {place}. {player['twitch_login']} - Twitch не привязан к боту!")
+            continue 
         
         user_data = user_res.json()[0]
         tg_id = user_data["telegram_id"]
@@ -21964,17 +22072,18 @@ async def finish_guess_game(supabase: httpx.AsyncClient = Depends(get_supabase_c
             bott_id = user_data.get("bott_internal_id")
             if bott_id:
                 success = await add_balance_to_bott(bott_id, reward["amount"], f"Приз за {place} место в Guess Word")
-                results_log.append(f"{place}. {player['twitch_login']} - {reward['amount']} монет: {'Успех' if success else 'Ошибка'}")
+                results_log.append(f"✅ {place}. {player['twitch_login']} - Выдано {reward['amount']} монет.")
+            else:
+                results_log.append(f"❌ {place}. {player['twitch_login']} - Нет bott_id для монет.")
 
         # Выдаем БИЛЕТЫ
         elif reward["reward_type"] == "tickets":
             new_tickets = user_data.get("tickets", 0) + reward["amount"]
             await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"tickets": new_tickets})
-            results_log.append(f"{place}. {player['twitch_login']} - {reward['amount']} билетов выдано.")
+            results_log.append(f"✅ {place}. {player['twitch_login']} - Выдано {reward['amount']} билетов.")
 
         # Выдаем КУПОН (КЕЙС)
         elif reward["reward_type"] == "case":
-            # Используем твою логику создания индивидуальной мини-кампании
             camp_data = {
                 "title": f"Приз за {place} место",
                 "winners_limit": 1,
@@ -21993,10 +22102,8 @@ async def finish_guess_game(supabase: httpx.AsyncClient = Depends(get_supabase_c
                 "target_case_name": reward["target_case_name"]
             }
             await supabase.post("/cs_codes", json=code_data)
-            
-            # Назначаем кейс напрямую юзеру
             await supabase.post("/rpc/add_twitch_winner", json={"p_code": code_data["code"], "p_user_id": tg_id})
-            results_log.append(f"{place}. {player['twitch_login']} - Кейс «{reward['target_case_name']}» выдан.")
+            results_log.append(f"🎁 {place}. {player['twitch_login']} - Кейс «{reward['target_case_name']}» выдан.")
 
     # Очищаем лидерборд для следующей игры
     await supabase.delete("/guess_leaderboard", params={"score": "gte.0"})
