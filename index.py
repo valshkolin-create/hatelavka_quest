@@ -1740,6 +1740,10 @@ class GuessDeleteRewardRequest(GuessAdminBaseRequest):
 
 class RevealLetterRequest(BaseModel):
     index: int
+
+class GuessAdminTextRequest(BaseModel):
+    initData: str
+    custom_text: str = "" # Если нужно передавать пустое значение (чтобы скрыть текст)
     
 # ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА (НАЧАЛО БЛОКА) ⬇️⬇️⬇️
 
@@ -21997,32 +22001,26 @@ async def admin_guess_skip(req: GuessAdminBaseRequest, supabase: httpx.AsyncClie
     await supabase.post("/rpc/skip_guess_word")
     return {"status": "skipped"}
 
-# Создаем глобальное хранилище в памяти сервера
-GUESS_STATE_CACHE = {
-    "data": None,
-    "expires_at": 0
-}
-
-@app.get("/api/v1/guess/state")
-async def get_guess_state(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """OBS каждую секунду дергает этот роут. Теперь он защищен кэшем."""
-    current_time = time.time()
+@app.post("/api/v1/admin/guess/text/set")
+async def admin_guess_text_set(
+    req: GuessAdminTextRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверяем, что запрос делает админ
+    verify_guess_admin(req.initData)
     
-    # Если данные есть в кэше и он еще не протух — отдаем из памяти (0 нагрузки на БД)
-    if GUESS_STATE_CACHE["data"] and current_time < GUESS_STATE_CACHE["expires_at"]:
-        return GUESS_STATE_CACHE["data"]
-
-    # Если кэш пуст или протух, идем в базу
-    res = await supabase.get("/guess_state", params={"id": "eq.1"})
+    # 2. Обновляем колонку custom_text в таблице guess_state (запись с id=1)
+    # Используем метод PATCH для частичного обновления
+    res = await supabase.patch(
+        "/guess_state?id=eq.1", 
+        json={"custom_text": req.custom_text}
+    )
     
-    if res.status_code == 200 and res.json():
-        state_data = res.json()[0]
-        # Сохраняем в кэш на 2.5 секунды
-        GUESS_STATE_CACHE["data"] = state_data
-        GUESS_STATE_CACHE["expires_at"] = current_time + 2.5
-        return state_data
+    # 3. Проверка на ошибки (на случай проблем с Supabase)
+    if res.status_code not in (200, 204):
+        return {"status": "error", "message": f"Ошибка обновления БД: {res.text}"}
         
-    return {}
+    return {"status": "success", "custom_text": req.custom_text}
 
 # --- 3. ЗАЩИЩЕННЫЕ ЭНДПОЙНТЫ (АДМИНКА) ---
 # Общая функция проверки (использует твою существующую is_valid_init_data)
