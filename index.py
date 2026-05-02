@@ -21601,9 +21601,13 @@ async def redirect_to_twitch(
     else:
         # 💻 ПК: Сразу на Twitch, без лишних окон
         return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
-# ==========================================
-# 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
-# ==========================================
+import re
+from datetime import datetime, timedelta
+import asyncio
+import httpx
+from fastapi import Request, Depends
+from fastapi.responses import PlainTextResponse
+
 # ==========================================
 # 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
 # ==========================================
@@ -21612,7 +21616,6 @@ async def handle_fossabot_claim(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Достаем токен Fossabot для авторизации
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
         return ""
@@ -21632,18 +21635,15 @@ async def handle_fossabot_claim(
         twitch_user = message_data["user"]["login"].lower()
         twitch_display_name = message_data["user"]["display_name"]
         full_message = message_data["content"]
-        
-        print(f"DEBUG: [1] Юзер: {twitch_user}, Сообщение: {full_message}")
 
-        # 2. Поиск DROP-кода (регулярка)
+        # 2. Поиск DROP-кода
         match = re.search(r'\b(DROP-[A-Z0-9_]+)\b', full_message.upper())
         if not match: 
             return ""
         
         extracted_code = match.group(1)
 
-        # --- ШАГ 3: АНТИ-ФЛУД СИСТЕМА (3 попытки за 5 минут) ---
-        # Считаем, сколько раз юзер «тыкал» код за последние 5 минут
+        # 3. АНТИ-ФЛУД СИСТЕМА
         five_min_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
         spam_res = await supabase.get("/twitch_clicks", params={
             "twitch_name": f"eq.{twitch_display_name}",
@@ -21652,18 +21652,13 @@ async def handle_fossabot_claim(
             "count": "exact"
         })
         
-        # Получаем количество попыток (в Supabase count возвращается в заголовках или через len)
         attempts_count = len(spam_res.json()) if spam_res.status_code == 200 else 0
-
         if attempts_count >= 3:
-            # Если 3 и более попыток — отправляем команду мута для Fossabot
-            print(f"DEBUG: МУТ за флуд: {twitch_display_name}")
-            return f"/timeout {twitch_user} 300 | @{twitch_display_name}, ты исчерпал 3 попытки за 5 минут! Отдохни 5 минут. ⛔"
+            return f"/timeout {twitch_user} 300 | @{twitch_display_name}, ты исчерпал 3 попытки за 5 минут! Отдохни. ⛔"
         
         # 4. Поиск кода в БД
         code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
         if code_res.status_code != 200 or not code_res.json():
-            # Если кода нет, уведомляем о попытке (чтобы юзер видел счетчик)
             return f"@{twitch_display_name}, код «{extracted_code}» не найден или не активен! (Попытка {attempts_count + 1}/3) 🔍"
 
         cs_code = code_res.json()[0]
@@ -21679,11 +21674,11 @@ async def handle_fossabot_claim(
         # 6. Проверка привязки юзера
         user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
         if user_res.status_code != 200 or not user_res.json():
-            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в ТГ бота @HATElavka_bot и привяжи его в профиле."
+            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в ТГ бота и привяжи его."
         
         tg_id_int = int(user_res.json()[0]["telegram_id"])
 
-        # 7. Вызов RPC (обработка клика)
+        # 7. Вызов RPC
         rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
             "p_campaign_id": campaign_id,
             "p_telegram_id": tg_id_int,
@@ -21692,54 +21687,54 @@ async def handle_fossabot_claim(
         })
         
         rpc_data_raw = rpc_res.json()
-        # Ответ может прийти как список [{}], выравниваем
         res_data = rpc_data_raw[0] if isinstance(rpc_data_raw, list) and rpc_data_raw else rpc_data_raw
 
         # --- ОБРАБОТКА ДУБЛИКАТА ---
         if res_data.get('is_duplicate'):
-            return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Зайди в лавку чтобы его там найти!."
+            return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Зайди в лавку."
 
         is_winner = res_data.get('is_winner')
         is_leader = res_data.get('is_leader')
-        batch_time = res_data.get('batch_time')
+        batch_time = res_data.get('batch_time') # Время, когда лидер открыл "окно"
 
-        # 8. Награда победителя (Пуш в ТГ)
+        # 8. Награда победителя
         if is_winner:
             await supabase.post("/rpc/add_twitch_winner", json={
                 "p_code": extracted_code, 
-                "p_user_id": tg_id_int  # <-- Передаем как чистое число
+                "p_user_id": tg_id_int
             })
             
-            # Фоновое уведомление
             await create_in_app_notification(
                 supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
-                message=f"Бесплатное открытие для «{campaign['target_case_name']}» уже ждет тебя!", notif_type="system" 
+                message=f"Бесплатное открытие для «{campaign['target_case_name']}» ждет тебя!", notif_type="system" 
             )
 
-        # 9. Только ЛИДЕР отвечает в чат за всю группу
+        # 9. ТОЛЬКО ЛИДЕР ОТВЕЧАЕТ ЗА ГРУППУ
         if not is_leader:
-            # Если не лидер, можно написать короткое подтверждение (по желанию), 
-            # но лучше молчать, чтобы не засорять чат.
             return ""
 
-        # Ждем сборку «пачки» (те, кто нажал в эту же секунду)
+        # УМЕНЬШАЕМ SLEEP: 1.5 секунды спасут нас от таймаута Fossabot, 
+        # но этого хватит, чтобы собрать тех, кто нажал кнопку вместе с лидером.
         print(f"DEBUG: Лидер {twitch_display_name} собирает пачку...")
-        await asyncio.sleep(2.6)
+        await asyncio.sleep(1.5)
 
-        # Получаем всех участников пачки
-        # Используем фильтр по campaign_id и сортировку (надежнее, чем время)
-        batch_clicks_res = await supabase.get("/twitch_clicks", params={
+        # 10. ФИЛЬТРУЕМ ПО ВРЕМЕНИ ЛИДЕРА (Главный фикс гонки на стороне Python)
+        params = {
             "campaign_id": f"eq.{campaign_id}",
             "order": "created_at.desc",
             "limit": "30"
-        })
+        }
+        if batch_time:
+            # Забираем только тех участников гонки, кто успел кликнуть после создания окна лидером
+            params["created_at"] = f"gte.{batch_time}"
+
+        batch_clicks_res = await supabase.get("/twitch_clicks", params=params)
         clicks_data = batch_clicks_res.json() if batch_clicks_res.status_code == 200 else []
         
         if not clicks_data:
-            # Если БД не успела выдать список, берем текущего лидера как единственного участника
             clicks_data = [{"twitch_name": twitch_display_name, "is_winner": is_winner}]
 
-        # Группируем ники
+        # Группировка
         winners_list = list(set([c['twitch_name'] for c in clicks_data if c.get('is_winner')]))
         losers_list = list(set([c['twitch_name'] for c in clicks_data if not c.get('is_winner')]))
 
@@ -21753,13 +21748,19 @@ async def handle_fossabot_claim(
             msg_parts.append(campaign["fail_msg"].replace("{users}", l_names))
 
         final_msg = " | ".join(msg_parts)
+        
+        # 11. ЗАЩИТА ОТ ЛИМИТОВ TWITCH (Критично для списков)
+        # Twitch дропает сообщения длиннее 500 символов. Если пачка большая - режем строку.
+        if len(final_msg) > 490:
+            final_msg = final_msg[:485] + "... 📢"
+
         print(f"DEBUG: Финальный ответ: {final_msg}")
         return final_msg
 
     except Exception as e:
         print(f"DEBUG: КРИТИЧЕСКАЯ ОШИБКА: {str(e)}")
         return f"⚠️ Ошибка системы: {str(e)}"
-    
+        
 # ==========================================
 # 7. СТАТИСТИКА (АДМИНКА)
 # ==========================================
@@ -21869,6 +21870,138 @@ async def get_market_items(
         return []
 
     return resp.json()
+
+# ==========================================
+# ОБРАБОТКА ОТВЕТОВ ИЗ ЧАТА (FOSSABOT)
+# ==========================================
+@app.get("/api/v1/twitch/fossabot_guess", response_class=PlainTextResponse)
+async def handle_fossabot_guess(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: return ""
+
+    try:
+        # 1. Запрашиваем контекст (как в дропах)
+        async with httpx.AsyncClient() as client:
+            fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
+        if fb_res.status_code != 200: return ""
+
+        message_data = fb_res.json().get("message")
+        if not message_data: return ""
+
+        twitch_login = message_data["user"]["login"].lower()
+        twitch_display = message_data["user"]["display_name"]
+        guess_word = message_data["content"].strip().upper()
+
+        # 2. Получаем состояние игры
+        state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+        state = state_res.json()[0]
+        
+        if not state.get("is_active") or not state.get("current_word"):
+            return "" # Игра не идет
+
+        target_word = state["current_word"].upper()
+
+        # 3. Проверяем ответ
+        if guess_word == target_word:
+            # Начисляем балл в лидерборд
+            await supabase.post(
+                "/rpc/increment_guess_score", # Простая RPC функция (создадим ниже)
+                json={"p_twitch_login": twitch_login}
+            )
+
+            # Выбираем новое случайное слово
+            words_res = await supabase.get("/guess_words")
+            all_words = [w["word"] for w in words_res.json() if w["word"].upper() != target_word]
+            next_word = random.choice(all_words) if all_words else "КОНЕЦ"
+
+            # Обновляем состояние (сбрасываем открытые буквы)
+            await supabase.patch(
+                "/guess_state", 
+                params={"id": "eq.1"}, 
+                json={"current_word": next_word, "revealed_indices": []}
+            )
+
+            return f"🎉 @{twitch_display} угадал слово «{target_word}»! Следующее слово уже на экране!"
+
+        return "" # Слово не угадано, молчим
+
+    except Exception as e:
+        print(f"Guess Game Error: {e}")
+        return ""
+
+@app.post("/api/v1/admin/guess/finish_and_reward")
+async def finish_guess_game(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Останавливаем игру
+    await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"is_active": False})
+
+    # Достаем топ игроков (сортировка по убыванию очков)
+    lb_res = await supabase.get("/guess_leaderboard", params={"order": "score.desc", "limit": "100"})
+    leaders = lb_res.json()
+
+    # Достаем конфиг наград
+    config_res = await supabase.get("/guess_rewards_config")
+    rewards_config = {item["place"]: item for item in config_res.json()}
+
+    results_log = []
+
+    for index, player in enumerate(leaders):
+        place = index + 1
+        reward = rewards_config.get(place)
+        if not reward: continue # Если для этого места нет награды
+
+        # Ищем юзера в базе по twitch_login
+        user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{player['twitch_login']}"})
+        if not user_res.json(): continue # Юзер не привязан
+        
+        user_data = user_res.json()[0]
+        tg_id = user_data["telegram_id"]
+
+        # Выдаем МОНЕТЫ
+        if reward["reward_type"] == "coins":
+            bott_id = user_data.get("bott_internal_id")
+            if bott_id:
+                success = await add_balance_to_bott(bott_id, reward["amount"], f"Приз за {place} место в Guess Word")
+                results_log.append(f"{place}. {player['twitch_login']} - {reward['amount']} монет: {'Успех' if success else 'Ошибка'}")
+
+        # Выдаем БИЛЕТЫ
+        elif reward["reward_type"] == "tickets":
+            new_tickets = user_data.get("tickets", 0) + reward["amount"]
+            await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"tickets": new_tickets})
+            results_log.append(f"{place}. {player['twitch_login']} - {reward['amount']} билетов выдано.")
+
+        # Выдаем КУПОН (КЕЙС)
+        elif reward["reward_type"] == "case":
+            # Используем твою логику создания индивидуальной мини-кампании
+            camp_data = {
+                "title": f"Приз за {place} место",
+                "winners_limit": 1,
+                "is_active": True,
+                "target_case_name": reward["target_case_name"]
+            }
+            camp_res = await supabase.post("/twitch_campaigns", json=camp_data, headers={"Prefer": "return=representation"})
+            camp_id = camp_res.json()[0]["id"]
+
+            code_data = {
+                "code": f"WINNER-{player['twitch_login'].upper()}-{random.randint(100,999)}",
+                "campaign_id": camp_id,  
+                "max_uses": 1,
+                "current_uses": 0,
+                "is_active": True,
+                "target_case_name": reward["target_case_name"]
+            }
+            await supabase.post("/cs_codes", json=code_data)
+            
+            # Назначаем кейс напрямую юзеру
+            await supabase.post("/rpc/add_twitch_winner", json={"p_code": code_data["code"], "p_user_id": tg_id})
+            results_log.append(f"{place}. {player['twitch_login']} - Кейс «{reward['target_case_name']}» выдан.")
+
+    # Очищаем лидерборд для следующей игры
+    await supabase.delete("/guess_leaderboard", params={"score": "gte.0"})
+
+    return {"status": "success", "log": results_log}
     
 @app.post("/api/v1/user/inventory/sell")
 async def sell_inventory_item(
