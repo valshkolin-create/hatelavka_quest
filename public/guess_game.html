@@ -16,6 +16,7 @@
             /* Динамические переменные для изменения размера в OBS */
             --tile-size: 8rem;
             --tile-font: 5.5rem;
+            --custom-text-font: 3rem;
         }
 
         body {
@@ -41,12 +42,12 @@
             flex-direction: column;
             justify-content: flex-end; 
             align-items: center;
-            padding-bottom: 80px; 
+            padding-bottom: 20px; /* Прижали в самый низ */
             box-sizing: border-box;
         }
 
         body.obs-mode #obs-custom-text {
-            font-size: 3rem; font-weight: 900; color: #fff;
+            font-size: var(--custom-text-font); font-weight: 900; color: #fff;
             text-transform: uppercase; letter-spacing: 2px;
             text-shadow: 0 0 20px rgba(145, 70, 255, 0.8), 0 5px 5px rgba(0,0,0,0.8);
             margin-bottom: 20px;
@@ -60,7 +61,6 @@
             display: flex; align-items: center; justify-content: center;
             border-radius: 16px; box-shadow: 0 10px 30px rgba(145, 70, 255, 0.5);
             text-shadow: 0 0 15px rgba(255,255,255,0.4); margin: 0 8px;
-            /* Привязка к переменным CSS */
             width: var(--tile-size); 
             height: var(--tile-size); 
             font-size: var(--tile-font);
@@ -209,14 +209,20 @@
                         <span>Размер букв (OBS):</span>
                         <span id="letter-size-val" class="text-[#9146FF]">8</span>
                     </label>
-                    <input type="range" id="letter-size-slider" min="4" max="14" value="8" step="0.5" oninput="changeLetterSize(this.value)" class="w-full accent-[#9146FF] mt-1">
+                    <input type="range" id="letter-size-slider" min="1.5" max="15" value="8" step="0.5" oninput="changeLetterSize(this.value)" class="w-full accent-[#9146FF] mt-1">
                 </div>
             </div>
 
             <!-- КАСТОМНЫЙ ТЕКСТ -->
             <div class="mb-3 bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
-                <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Текст над буквами (OBS):</label>
-                <div class="flex gap-2">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold">Текст над буквами (OBS):</label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[8px] text-gray-500 font-bold">РАЗМЕР: <span id="text-size-val" class="text-[#9146FF]">3</span></span>
+                        <input type="range" id="text-size-slider" min="1" max="8" value="3" step="0.1" oninput="changeTextSize(this.value)" class="w-16 accent-[#9146FF]">
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-1">
                     <input type="text" id="custom-text-input" class="input-custom" placeholder="УГАДАЙ СЛОВО И ПОЛУЧИ КЕЙС">
                     <button onclick="setCustomText()" class="btn-custom btn-purple px-4"><i class="fa-solid fa-check"></i></button>
                 </div>
@@ -272,12 +278,12 @@
                     <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center col-span-2">
                         <option value="coins">🪙 Монеты</option>
                         <option value="tickets">🎟 Билеты</option>
-                        <option value="case">🎁 Кейс</option>
+                        <option value="case">🎁 Кейс (Drops)</option>
                     </select>
                 </div>
                 <div class="flex gap-2 mb-2">
-                    <input type="number" id="rew-amount" placeholder="Сколько?" class="input-custom text-center w-full">
-                    <input type="text" id="rew-case-name" placeholder="Название кейса" class="input-custom text-center hidden w-full">
+                    <input type="number" id="rew-amount" placeholder="Количество" class="input-custom text-center w-full">
+                    <input type="text" id="rew-case-name" placeholder="Название (например: Кейс | Тестовый)" class="input-custom text-center hidden w-full">
                 </div>
                 <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить приз</button>
             </div>
@@ -348,6 +354,17 @@
             }
             if (!isObs && document.getElementById('custom-text-input').value === '' && state.custom_text) {
                 document.getElementById('custom-text-input').value = state.custom_text;
+            }
+
+            // Обработка размера текста
+            if (state.text_size) {
+                document.documentElement.style.setProperty('--custom-text-font', state.text_size + 'rem');
+                if (!isObs) {
+                    const slider = document.getElementById('text-size-slider');
+                    if (slider) slider.value = state.text_size;
+                    const valEl = document.getElementById('text-size-val');
+                    if (valEl) valEl.innerText = state.text_size;
+                }
             }
 
             // Обработка размера букв в OBS
@@ -549,7 +566,17 @@
             tg.showAlert("Текст обновлен!");
         }
 
-        // Задержка отправки размера на сервер (чтобы не спамить при каждом сдвиге ползунка)
+        // Задержка отправки размера текста
+        let textSizeTimeout;
+        function changeTextSize(val) {
+            document.getElementById('text-size-val').innerText = val;
+            clearTimeout(textSizeTimeout);
+            textSizeTimeout = setTimeout(async () => {
+                await apiCall('/api/v1/admin/guess/text_size/set', { text_size: parseFloat(val) });
+            }, 300);
+        }
+
+        // Задержка отправки размера букв
         let sizeTimeout;
         function changeLetterSize(val) {
             document.getElementById('letter-size-val').innerText = val;
