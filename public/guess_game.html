@@ -42,7 +42,7 @@
             flex-direction: column;
             justify-content: flex-end; 
             align-items: center;
-            padding-bottom: 20px; /* Прижали в самый низ */
+            padding-bottom: 20px; 
             box-sizing: border-box;
         }
 
@@ -61,6 +61,7 @@
             display: flex; align-items: center; justify-content: center;
             border-radius: 16px; box-shadow: 0 10px 30px rgba(145, 70, 255, 0.5);
             text-shadow: 0 0 15px rgba(255,255,255,0.4); margin: 0 8px;
+            /* Привязка к переменным CSS */
             width: var(--tile-size); 
             height: var(--tile-size); 
             font-size: var(--tile-font);
@@ -283,7 +284,10 @@
                 </div>
                 <div class="flex gap-2 mb-2">
                     <input type="number" id="rew-amount" placeholder="Количество" class="input-custom text-center w-full">
-                    <input type="text" id="rew-case-name" placeholder="Название (например: Кейс | Тестовый)" class="input-custom text-center hidden w-full">
+                    <!-- ИЗМЕНИЛИ INPUT НА SELECT ДЛЯ ВЫБОРА КЕЙСОВ -->
+                    <select id="rew-case-name" class="input-custom text-center hidden w-full">
+                        <option value="">Загрузка кейсов...</option>
+                    </select>
                 </div>
                 <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить приз</button>
             </div>
@@ -336,6 +340,36 @@
         }
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
+        }
+
+        // ==========================================
+        // ЗАГРУЗКА КЕЙСОВ ИЗ БАЗЫ
+        // ==========================================
+        async function loadCases() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('shop_cache')
+                    .select('data')
+                    .eq('category_id', 2716312)
+                    .single();
+
+                if (error) throw error;
+
+                const caseSelect = document.getElementById('rew-case-name');
+                if (!data || !data.data) {
+                    caseSelect.innerHTML = '<option value="">Нет кейсов</option>';
+                    return;
+                }
+
+                // Парсим JSON, если он пришел как строка
+                let casesList = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+
+                // Заполняем select
+                caseSelect.innerHTML = casesList.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            } catch (e) {
+                console.error("Ошибка загрузки кейсов:", e);
+                document.getElementById('rew-case-name').innerHTML = '<option value="">Ошибка загрузки</option>';
+            }
         }
 
         // ==========================================
@@ -542,6 +576,7 @@
                     initRealtime(); 
                     initLeaderboardRealtime(); 
                     
+                    loadCases(); // Загружаем список кейсов из базы
                     loadDictionary();
                     loadRewards();
                 } else {
@@ -647,12 +682,15 @@
             const amount = parseInt(document.getElementById('rew-amount').value) || 0;
             const caseName = document.getElementById('rew-case-name').value;
             if (!place) return tg.showAlert("Укажите место");
+            
+            // Если выбран кейс, но не выбран конкретный кейс из выпадающего списка
+            if (type === 'case' && !caseName) return tg.showAlert("Выберите кейс из списка");
+
             await apiCall('/api/v1/admin/guess/rewards_config/add', { place, reward_type: type, amount, target_case_name: caseName });
             
             // Очищаем инпуты после добавления
             document.getElementById('rew-place').value = '';
             document.getElementById('rew-amount').value = '';
-            document.getElementById('rew-case-name').value = '';
             
             loadRewards();
         }
