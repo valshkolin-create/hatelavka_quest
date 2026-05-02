@@ -12,6 +12,12 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
         
+        :root {
+            /* Динамические переменные для изменения размера в OBS */
+            --tile-size: 8rem;
+            --tile-font: 5.5rem;
+        }
+
         body {
             background-color: #0a0a0c; color: #fff; font-family: 'Montserrat', sans-serif;
             margin: 0; min-height: 100vh; overflow-x: hidden;
@@ -44,21 +50,26 @@
             text-transform: uppercase; letter-spacing: 2px;
             text-shadow: 0 0 20px rgba(145, 70, 255, 0.8), 0 5px 5px rgba(0,0,0,0.8);
             margin-bottom: 20px;
-            display: none; /* Скрыт по умолчанию, пока нет текста */
+            display: none;
         }
 
         body.obs-mode .letter-tile {
             background: linear-gradient(135deg, #9146FF 0%, #6b21b6 100%);
             border: 4px solid rgba(255, 255, 255, 0.2);
-            color: white; font-size: 5.5rem; font-weight: 900; text-transform: uppercase;
-            width: 8rem; height: 8rem; display: flex; align-items: center; justify-content: center;
-            border-radius: 20px; box-shadow: 0 10px 30px rgba(145, 70, 255, 0.5);
-            text-shadow: 0 0 15px rgba(255,255,255,0.4); margin: 0 10px;
+            color: white; font-weight: 900; text-transform: uppercase;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 16px; box-shadow: 0 10px 30px rgba(145, 70, 255, 0.5);
+            text-shadow: 0 0 15px rgba(255,255,255,0.4); margin: 0 8px;
+            /* Привязка к переменным CSS */
+            width: var(--tile-size); 
+            height: var(--tile-size); 
+            font-size: var(--tile-font);
+            transition: all 0.3s ease;
         }
         
         body.obs-mode .timer-container { 
             width: 100%; max-width: 1000px; background: rgba(0,0,0,0.6); 
-            height: 16px; border-radius: 8px; overflow: hidden; margin-top: 30px;
+            height: 12px; border-radius: 6px; overflow: hidden; margin-top: 30px;
             box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.05);
         }
         
@@ -72,20 +83,20 @@
             text-shadow: 0 0 30px rgba(145, 70, 255, 0.6); letter-spacing: 4px;
         }
 
-        /* --- СТИЛИ АДМИНКИ --- */
-        h1 { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; line-height: 1.2; margin-bottom: 15px;}
+        /* --- СТИЛИ АДМИНКИ (Сжатые и аккуратные) --- */
+        h1 { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; line-height: 1.2; margin-bottom: 0;}
         h1 span { color: #9146FF; }
-        h2 { font-size: 14px; color: #aaa; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; }
+        h2 { font-size: 12px; color: #aaa; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; }
 
         .glass-card {
-            background: linear-gradient(135deg, rgba(145, 70, 255, 0.1) 0%, rgba(145, 70, 255, 0.02) 100%);
-            border: 1px solid rgba(145, 70, 255, 0.2); border-radius: 12px; padding: 16px; position: relative; overflow: hidden;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); animation: fadeIn 0.4s ease;
+            background: linear-gradient(135deg, rgba(145, 70, 255, 0.08) 0%, rgba(145, 70, 255, 0.02) 100%);
+            border: 1px solid rgba(145, 70, 255, 0.2); border-radius: 10px; padding: 12px; position: relative; overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); animation: fadeIn 0.3s ease;
         }
         .glass-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: #9146FF; }
 
         .btn-custom {
-            border: none; border-radius: 8px; font-size: 12px; font-weight: 900; padding: 10px 14px;
+            border: none; border-radius: 6px; font-size: 10px; font-weight: 900; padding: 8px 12px;
             text-transform: uppercase; cursor: pointer; transition: 0.2s;
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
         }
@@ -93,7 +104,7 @@
         .btn-custom:disabled { opacity: 0.6; }
         
         .btn-purple { background: #9146FF; color: #fff; box-shadow: 0 4px 15px rgba(145, 70, 255, 0.3); }
-        .btn-purple-outline { background: transparent; border: 2px solid #9146FF; color: #fff; }
+        .btn-purple-outline { background: rgba(145, 70, 255, 0.05); border: 1px solid #9146FF; color: #fff; }
         .btn-green { background: #28a745; color: #fff; }
         .btn-yellow { background: #FFB800; color: #fff; }
         .btn-red { background: #ff4d4d; color: #fff; }
@@ -101,15 +112,15 @@
 
         .input-custom {
             background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #fff; border-radius: 8px; padding: 10px 12px; font-family: 'Montserrat', sans-serif;
-            font-weight: 700; font-size: 12px; outline: none; transition: border-color 0.2s; width: 100%; box-sizing: border-box;
+            color: #fff; border-radius: 6px; padding: 8px 10px; font-family: 'Montserrat', sans-serif;
+            font-weight: 700; font-size: 11px; outline: none; transition: border-color 0.2s; width: 100%; box-sizing: border-box;
         }
         .input-custom:focus { border-color: #9146FF; background: rgba(145, 70, 255, 0.05);}
         select.input-custom option { background-color: #1a1a2e; color: #ffffff; font-weight: 700; }
 
         .list-item {
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px; margin-bottom: 6px;
+            border-radius: 6px; margin-bottom: 6px;
             display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;
         }
 
@@ -120,7 +131,6 @@
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
         ::-webkit-scrollbar-thumb { background: rgba(145,70,255,0.3); border-radius: 4px; }
         
-        /* Стили модалок */
         .modal-overlay {
             backdrop-filter: blur(5px);
         }
@@ -139,64 +149,75 @@
     <div id="auth-view" class="hidden flex-col items-center justify-center min-h-screen p-4 text-center">
         <i class="fa-brands fa-twitch twitch-logo animate-pulse"></i>
         <h1>Загрузка<br><span>Guess Word</span></h1>
-        <div id="auth-status" class="text-xs font-bold text-gray-400 mt-3"><i class="fa-solid fa-spinner fa-spin"></i> Проверка прав...</div>
+        <div id="auth-status" class="text-[10px] font-bold text-gray-400 mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Проверка прав...</div>
     </div>
 
     <!-- ================= АДМИНКА ================= -->
-    <div id="admin-view" class="hidden max-w-2xl mx-auto p-4 md:p-6 pb-20">
+    <div id="admin-view" class="hidden max-w-lg mx-auto p-3 pb-20">
         
         <!-- Шапка -->
-        <div class="flex justify-between items-center mb-4 bg-[rgba(255,255,255,0.02)] p-3 rounded-xl border border-[rgba(255,255,255,0.05)]">
-            <div class="flex items-center gap-3">
-                <i class="fa-brands fa-twitch text-2xl text-[#9146FF]"></i>
+        <div class="flex justify-between items-center mb-3 bg-[rgba(255,255,255,0.02)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
+            <div class="flex items-center gap-2">
+                <i class="fa-brands fa-twitch text-xl text-[#9146FF]"></i>
                 <div>
-                    <h1 class="!mb-0 !text-[16px]">Guess Word <span>Panel</span></h1>
-                    <span class="text-[10px] font-bold text-[#28a745] uppercase tracking-wider"><i class="fa-solid fa-circle text-[6px] animate-pulse relative -top-[1px]"></i> Online</span>
+                    <h1>Guess Word <span>Panel</span></h1>
+                    <span class="text-[8px] font-bold text-[#28a745] uppercase tracking-wider"><i class="fa-solid fa-circle text-[5px] animate-pulse relative -top-[1px]"></i> Online</span>
                 </div>
             </div>
-            <button onclick="window.history.back()" class="text-gray-400 hover:text-white transition text-[10px] font-bold uppercase tracking-wider">
+            <button onclick="window.history.back()" class="text-gray-400 hover:text-white transition text-[9px] font-bold uppercase tracking-wider">
                 <i class="fa-solid fa-arrow-left mr-1"></i> Назад
             </button>
         </div>
 
         <!-- ТЕКУЩЕЕ СЛОВО -->
-        <div class="glass-card mb-4" style="background: rgba(145, 70, 255, 0.15); border-color: #9146FF; text-align: center;">
-            <div class="text-[10px] text-purple-300 uppercase font-bold mb-1 tracking-widest">Сейчас на стриме:</div>
-            <div id="admin-current-word" class="text-3xl font-black text-white uppercase tracking-[5px] drop-shadow-md">...</div>
-            <div id="admin-current-mode-label" class="text-[11px] text-gray-300 mt-2 font-bold">Ожидание...</div>
+        <div class="glass-card mb-3" style="background: rgba(145, 70, 255, 0.12); border-color: #9146FF; text-align: center;">
+            <div class="text-[9px] text-purple-300 uppercase font-bold mb-1 tracking-widest">Сейчас на стриме:</div>
+            <div id="admin-current-word" class="text-2xl font-black text-white uppercase tracking-[4px] drop-shadow-md">...</div>
+            <div id="admin-current-mode-label" class="text-[9px] text-gray-300 mt-1 font-bold">Ожидание...</div>
         </div>
 
         <!-- КНОПКИ МОДАЛОК -->
-        <div class="grid grid-cols-3 gap-2 mb-6">
-            <button onclick="openModal('modal-leaderboard')" class="btn-custom btn-purple-outline flex-col !py-3 text-[10px]">
-                <i class="fa-solid fa-trophy text-lg mb-1"></i> Топ
+        <div class="grid grid-cols-3 gap-2 mb-4">
+            <button onclick="openModal('modal-leaderboard')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
+                <i class="fa-solid fa-trophy text-[14px] mb-1"></i> Топ
             </button>
-            <button onclick="openModal('modal-dictionary')" class="btn-custom btn-purple-outline flex-col !py-3 text-[10px]">
-                <i class="fa-solid fa-book text-lg mb-1"></i> Слова
+            <button onclick="openModal('modal-dictionary')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
+                <i class="fa-solid fa-book text-[14px] mb-1"></i> Слова
             </button>
-            <button onclick="openModal('modal-rewards')" class="btn-custom btn-purple-outline flex-col !py-3 text-[10px]">
-                <i class="fa-solid fa-gift text-lg mb-1"></i> Призы
+            <button onclick="openModal('modal-rewards')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
+                <i class="fa-solid fa-gift text-[14px] mb-1"></i> Призы
             </button>
         </div>
         
         <!-- УПРАВЛЕНИЕ ИГРОЙ -->
-        <div class="glass-card mb-6">
+        <div class="glass-card mb-4">
             <h2>Управление Игрой</h2>
             
-            <div class="mb-4">
-                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Игровой режим:</label>
-                <select id="game-mode-select" class="input-custom" onchange="changeGameMode()">
-                    <option value="classic">🟦 Классика (Постепенное открытие)</option>
-                    <option value="anagram">🔀 Анаграмма (Буквы перемешаны)</option>
-                    <option value="edges">↔️ Края (Первая и последняя буква)</option>
-                </select>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <!-- ВЫБОР РЕЖИМА -->
+                <div>
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Режим:</label>
+                    <select id="game-mode-select" class="input-custom" onchange="changeGameMode()">
+                        <option value="classic">🟦 Классика</option>
+                        <option value="anagram">🔀 Анаграмма</option>
+                        <option value="edges">↔️ Края</option>
+                    </select>
+                </div>
+                <!-- ПОЛЗУНОК РАЗМЕРА БУКВ В OBS -->
+                <div>
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                        <span>Размер букв (OBS):</span>
+                        <span id="letter-size-val" class="text-[#9146FF]">8</span>
+                    </label>
+                    <input type="range" id="letter-size-slider" min="4" max="14" value="8" step="0.5" oninput="changeLetterSize(this.value)" class="w-full accent-[#9146FF] mt-1">
+                </div>
             </div>
 
             <!-- КАСТОМНЫЙ ТЕКСТ -->
-            <div class="mb-4 bg-[rgba(0,0,0,0.3)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)]">
-                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Текст над буквами в OBS:</label>
+            <div class="mb-3 bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
+                <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Текст над буквами (OBS):</label>
                 <div class="flex gap-2">
-                    <input type="text" id="custom-text-input" class="input-custom" placeholder="Например: УГАДАЙ СЛОВО И ПОЛУЧИ КЕЙС">
+                    <input type="text" id="custom-text-input" class="input-custom" placeholder="УГАДАЙ СЛОВО И ПОЛУЧИ КЕЙС">
                     <button onclick="setCustomText()" class="btn-custom btn-purple px-4"><i class="fa-solid fa-check"></i></button>
                 </div>
             </div>
@@ -212,62 +233,53 @@
     <!-- ================= МОДАЛЬНЫЕ ОКНА ================= -->
     
     <!-- МОДАЛКА: ЛИДЕРБОРД -->
-    <div id="modal-leaderboard" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-lg max-h-[90vh] flex flex-col bg-[#0f0f13]">
-            <div class="flex justify-between items-center mb-4">
+    <div id="modal-leaderboard" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
+        <div class="glass-card w-full max-w-md max-h-[85vh] flex flex-col bg-[#0f0f13] m-0">
+            <div class="flex justify-between items-center mb-3">
                 <h2 class="!mb-0 text-white"><i class="fa-solid fa-trophy text-[#ffd700] mr-2"></i> Лидерборд</h2>
-                <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+                <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
-            
-            <div class="mb-4">
-                <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
-                    <span>Размер шрифта таблицы:</span>
-                    <span id="lb-size-val">12px</span>
-                </label>
-                <input type="range" id="lb-size-slider" min="10" max="24" value="12" step="1" oninput="changeLbSize(this.value)" class="w-full accent-[#9146FF]">
-            </div>
-
-            <div id="admin-leaderboard" class="flex-1 overflow-y-auto pr-2 space-y-1">
-                <div class="text-gray-500 text-center mt-6 text-xs">Загрузка...</div>
+            <div id="admin-leaderboard" class="flex-1 overflow-y-auto pr-1 space-y-1">
+                <div class="text-gray-500 text-center mt-6 text-[10px]">Загрузка...</div>
             </div>
         </div>
     </div>
 
     <!-- МОДАЛКА: СЛОВАРЬ -->
-    <div id="modal-dictionary" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-lg bg-[#0f0f13]">
-            <div class="flex justify-between items-center mb-4">
+    <div id="modal-dictionary" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
+        <div class="glass-card w-full max-w-md bg-[#0f0f13] m-0">
+            <div class="flex justify-between items-center mb-3">
                 <h2 class="!mb-0 text-white"><i class="fa-solid fa-book text-[#007bff] mr-2"></i> Словарь игры</h2>
-                <button onclick="closeModal('modal-dictionary')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+                <button onclick="closeModal('modal-dictionary')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
-            <p class="text-[10px] text-gray-400 mb-2">Вставь слова столбиком. Бот будет выбирать их случайно.</p>
-            <textarea id="words-list-input" class="input-custom mb-3 h-48 resize-none" placeholder="КЕЙС&#10;СТРИМЕР&#10;ПОДАРОК"></textarea>
-            <button onclick="saveDictionary()" class="btn-custom btn-blue w-full py-3"><i class="fa-solid fa-save"></i> Сохранить словарь</button>
+            <p class="text-[9px] text-gray-400 mb-2">Вставь слова столбиком. Бот выберет случайно.</p>
+            <textarea id="words-list-input" class="input-custom mb-3 h-40 resize-none text-[10px]" placeholder="КЕЙС&#10;СТРИМЕР&#10;ПОДАРОК"></textarea>
+            <button onclick="saveDictionary()" class="btn-custom btn-blue w-full py-2"><i class="fa-solid fa-save"></i> Сохранить</button>
         </div>
     </div>
 
     <!-- МОДАЛКА: НАГРАДЫ -->
-    <div id="modal-rewards" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-lg max-h-[90vh] flex flex-col bg-[#0f0f13]">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="!mb-0 text-white"><i class="fa-solid fa-gift text-[#ff4d4d] mr-2"></i> Настройки наград</h2>
-                <button onclick="closeModal('modal-rewards')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-xl"></i></button>
+    <div id="modal-rewards" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
+        <div class="glass-card w-full max-w-md max-h-[90vh] flex flex-col bg-[#0f0f13] m-0">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-gift text-[#ff4d4d] mr-2"></i> Настройки призов</h2>
+                <button onclick="closeModal('modal-rewards')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
             
-            <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-xl border border-[rgba(255,255,255,0.05)] mb-4">
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <input type="number" id="rew-place" placeholder="Место" class="input-custom text-center">
-                    <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center">
-                        <option value="coins">🪙 Монеты Bot-t</option>
+            <div class="bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3">
+                <div class="grid grid-cols-3 gap-2 mb-2">
+                    <input type="number" id="rew-place" placeholder="Место" class="input-custom text-center col-span-1">
+                    <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center col-span-2">
+                        <option value="coins">🪙 Монеты</option>
                         <option value="tickets">🎟 Билеты</option>
-                        <option value="case">🎁 Бесплатный Кейс</option>
+                        <option value="case">🎁 Кейс</option>
                     </select>
                 </div>
                 <div class="flex gap-2 mb-2">
                     <input type="number" id="rew-amount" placeholder="Сколько?" class="input-custom text-center w-full">
                     <input type="text" id="rew-case-name" placeholder="Название кейса" class="input-custom text-center hidden w-full">
                 </div>
-                <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить</button>
+                <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить приз</button>
             </div>
             
             <div id="rewards-list" class="flex-1 overflow-y-auto pr-1 space-y-1"></div>
@@ -292,8 +304,6 @@
         let timerSeconds = 30;
         let scrambledWord = ""; 
         let rewardsConfig = [];
-        
-        let currentLbSize = 12; // Глобальный размер шрифта для лидерборда
 
         async function apiCall(endpoint, additionalBody = {}) {
             const bodyData = { ...additionalBody, initData: tg.initData };
@@ -326,7 +336,7 @@
         // ЛОГИКА REALTIME (ОБЩАЯ)
         // ==========================================
         function handleStateChange(state) {
-            // Кастомный текст над буквами (если добавишь колонку custom_text)
+            // Кастомный текст над буквами
             const obsTextEl = document.getElementById('obs-custom-text');
             if (obsTextEl) {
                 if (state.custom_text) {
@@ -336,9 +346,18 @@
                     obsTextEl.style.display = 'none';
                 }
             }
-            // Обновляем инпут в админке, если он пуст
             if (!isObs && document.getElementById('custom-text-input').value === '' && state.custom_text) {
                 document.getElementById('custom-text-input').value = state.custom_text;
+            }
+
+            // Обработка размера букв в OBS
+            if (state.letter_size) {
+                document.documentElement.style.setProperty('--tile-size', state.letter_size + 'rem');
+                document.documentElement.style.setProperty('--tile-font', (state.letter_size * 0.7) + 'rem');
+                if (!isObs) {
+                    document.getElementById('letter-size-slider').value = state.letter_size;
+                    document.getElementById('letter-size-val').innerText = state.letter_size;
+                }
             }
 
             if (state.is_active && state.current_word) {
@@ -362,7 +381,6 @@
                 const wordEl = document.getElementById('admin-current-word');
                 if (wordEl) {
                     wordEl.innerText = currentWord;
-                    wordEl.style.color = '#fff';
                     document.getElementById('admin-current-mode-label').innerText = `Режим: ${currentMode}`;
                 }
             } else {
@@ -404,12 +422,6 @@
             fetchLeaderboard();
         }
 
-        function changeLbSize(val) {
-            currentLbSize = val;
-            document.getElementById('lb-size-val').innerText = val + 'px';
-            fetchLeaderboard(); // Перерисовываем с новым размером
-        }
-
         async function fetchLeaderboard() {
             try {
                 const { data, error } = await supabaseClient
@@ -422,12 +434,9 @@
 
                 const container = document.getElementById('admin-leaderboard');
                 if (!container) return;
-
-                // Используем текущий размер шрифта
-                const paddingSize = Math.max(6, currentLbSize / 1.5);
                 
                 const html = data.map((u, i) => `
-                    <div class="list-item" style="font-size: ${currentLbSize}px; padding: ${paddingSize}px 12px;">
+                    <div class="list-item px-3 py-2 text-[11px]">
                         <div class="font-bold text-gray-200">
                             <span class="text-gray-500 mr-2">#${i+1}</span> ${u.twitch_login}
                         </div>
@@ -536,9 +545,18 @@
         
         async function setCustomText() {
             const text = document.getElementById('custom-text-input').value;
-            // Вызов твоего нового API эндпоинта для установки текста
             await apiCall('/api/v1/admin/guess/text/set', { custom_text: text });
             tg.showAlert("Текст обновлен!");
+        }
+
+        // Задержка отправки размера на сервер (чтобы не спамить при каждом сдвиге ползунка)
+        let sizeTimeout;
+        function changeLetterSize(val) {
+            document.getElementById('letter-size-val').innerText = val;
+            clearTimeout(sizeTimeout);
+            sizeTimeout = setTimeout(async () => {
+                await apiCall('/api/v1/admin/guess/size/set', { letter_size: parseFloat(val) });
+            }, 300);
         }
 
         async function saveDictionary() {
@@ -564,19 +582,35 @@
             document.getElementById('rew-case-name').classList.toggle('hidden', !isCase);
         }
 
+        // --- КРАСИВЫЙ РЕНДЕР СПИСКА НАГРАД ---
         async function loadRewards() {
             try {
                 const rewards = await apiCall('/api/v1/admin/guess/rewards_config/get');
                 const container = document.getElementById('rewards-list');
                 rewardsConfig = rewards.sort((a, b) => a.place - b.place);
-                container.innerHTML = rewardsConfig.map(r => `
-                    <div class="list-item px-3 py-2">
-                        <div class="flex items-center gap-2">
-                            <span class="font-bold text-[#9146FF] text-[12px]">#${r.place}</span>
-                            <span class="text-gray-300 text-[12px]">${r.reward_type === 'case' ? '🎁 '+r.target_case_name : r.amount + ' ед.'}</span>
+                
+                container.innerHTML = rewardsConfig.map(r => {
+                    let icon, title, desc;
+                    if(r.reward_type === 'case') { icon = '🎁'; title = 'Кейс'; desc = `«${r.target_case_name}»`; }
+                    else if(r.reward_type === 'tickets') { icon = '🎟'; title = 'Билеты'; desc = `${r.amount} шт.`; }
+                    else { icon = '🪙'; title = 'Монеты'; desc = `${r.amount} шт.`; }
+
+                    return `
+                    <div class="list-item" style="padding: 8px 12px; margin-bottom: 6px;">
+                        <div class="flex items-center gap-3 w-full justify-between">
+                            <div class="flex items-center gap-3">
+                                <div style="background: #9146FF; color: #fff; font-weight: 900; font-size: 11px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; box-shadow: 0 0 10px rgba(145,70,255,0.4)">
+                                    ${r.place}
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[8px] text-gray-400 uppercase font-bold tracking-wide">Победитель забирает:</span>
+                                    <span class="text-[11px] font-bold text-white mt-[2px]">${icon} ${title} <span class="text-[#9146FF]">${desc}</span></span>
+                                </div>
+                            </div>
+                            <button onclick="deleteReward(${r.place})" class="text-gray-500 hover:text-red-500 p-1 transition"><i class="fa-solid fa-trash text-[10px]"></i></button>
                         </div>
-                        <button onclick="deleteReward(${r.place})" class="text-gray-500 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i></button>
-                    </div>`).join('');
+                    </div>`;
+                }).join('');
             } catch(e) {}
         }
 
@@ -587,6 +621,12 @@
             const caseName = document.getElementById('rew-case-name').value;
             if (!place) return tg.showAlert("Укажите место");
             await apiCall('/api/v1/admin/guess/rewards_config/add', { place, reward_type: type, amount, target_case_name: caseName });
+            
+            // Очищаем инпуты после добавления
+            document.getElementById('rew-place').value = '';
+            document.getElementById('rew-amount').value = '';
+            document.getElementById('rew-case-name').value = '';
+            
             loadRewards();
         }
 
