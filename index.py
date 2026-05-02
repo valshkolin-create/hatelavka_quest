@@ -22075,6 +22075,18 @@ async def admin_guess_rewards_del(req: GuessDeleteRewardRequest, supabase: httpx
     await supabase.delete("/guess_rewards_config", params={"place": f"eq.{req.place}"})
     return {"status": "ok"}
 
+class GuessLetterSizeRequest(GuessAdminBaseRequest):
+    letter_size: float
+
+@app.post("/api/v1/admin/guess/size/set")
+async def admin_guess_size_set(
+    req: GuessLetterSizeRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    verify_guess_admin(req.initData)
+    await supabase.patch("/guess_state?id=eq.1", json={"letter_size": req.letter_size})
+    return {"status": "success"}
+
 # ТВОЯ ФУНКЦИЯ ЗАВЕРШЕНИЯ (Теперь защищена initData)
 @app.post("/api/v1/admin/guess/finish_and_reward")
 async def finish_guess_game(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
