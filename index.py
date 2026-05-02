@@ -21966,13 +21966,12 @@ async def admin_guess_words_get(req: GuessAdminBaseRequest, supabase: httpx.Asyn
 @app.post("/api/v1/admin/guess/words/set")
 async def admin_guess_words_set(req: GuessWordsRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     verify_guess_admin(req.initData)
-    # Удаляем старые слова
+    # Очищаем старый словарь
     await supabase.delete("/guess_words", params={"id": "gt.0"})
-    
-    # Записываем новые пачкой
+    # Записываем новый
     if req.words:
-        insert_data = [{"word": w.upper()} for w in req.words]
-        await supabase.post("/guess_words", json=insert_data)
+        data = [{"word": w.upper()} for w in req.words]
+        await supabase.post("/guess_words", json=data)
     return {"status": "ok"}
 
 # --- 2. УПРАВЛЕНИЕ РЕЖИМАМИ ---
@@ -21983,18 +21982,18 @@ async def admin_guess_set_mode(req: GuessModeRequest, supabase: httpx.AsyncClien
     await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"current_mode": req.mode})
     return {"status": "ok"}
 
-# --- 3. ЗАПУСК И СКИП (Используем новые SQL функции) ---
+# Измените эти функции, чтобы они дергали RPC в Supabase
 @app.post("/api/v1/admin/guess/start")
 async def admin_guess_start(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     verify_guess_admin(req.initData)
-    # База данных сама выберет слово и сбросит статус
+    # Используем RPC функцию, которая сама выбирает слово и сбрасывает revealed_indices
     await supabase.post("/rpc/start_guess_game")
     return {"status": "started"}
 
 @app.post("/api/v1/admin/guess/skip")
 async def admin_guess_skip(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     verify_guess_admin(req.initData)
-    # База данных сама пропустит слово
+    # Используем RPC функцию для пропуска
     await supabase.post("/rpc/skip_guess_word")
     return {"status": "skipped"}
 
