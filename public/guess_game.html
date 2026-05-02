@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HATElove | Guess The Word</title>
+    <!-- ПОДКЛЮЧАЕМ TELEGRAM WEB APP -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,9 +16,7 @@
             margin: 0; min-height: 100vh; overflow-x: hidden;
         }
 
-        /* ========================================================= */
-        /* --- OBS СТИЛИ (СТРОГО 1920x1080, ПРИЖАТО К НИЗУ) --- */
-        /* ========================================================= */
+        /* --- OBS СТИЛИ (ОГРОМНЫЕ ДЛЯ 1080p) --- */
         body.obs-mode { 
             background: transparent !important; 
             overflow: hidden; 
@@ -26,14 +25,15 @@
             position: relative;
         }
         
-        #obs-view {
+        /* ИСПРАВЛЕННЫЙ БАГ: Стили применяются только в режиме OBS */
+        body.obs-mode #obs-view {
             width: 1920px;
             height: 1080px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end; /* Прижимает к низу */
+            justify-content: flex-end; 
             align-items: center;
-            padding-bottom: 80px; /* Отступ от нижнего края экрана */
+            padding-bottom: 80px; 
             box-sizing: border-box;
         }
 
@@ -43,11 +43,11 @@
             color: white; font-size: 5.5rem; font-weight: 900; text-transform: uppercase;
             width: 8rem; height: 8rem; display: flex; align-items: center; justify-content: center;
             border-radius: 20px; box-shadow: 0 10px 30px rgba(145, 70, 255, 0.5);
-            text-shadow: 0 0 15px rgba(255,255,255,0.4); margin: 0 10px;
+            text-shadow: 0 0 15px rgba(255,255,255,0.4); margin: 0 8px;
         }
         
         body.obs-mode .timer-container { 
-            width: 100%; max-width: 1000px; background: rgba(0,0,0,0.6); 
+            width: 100%; max-width: 900px; background: rgba(0,0,0,0.6); 
             height: 16px; border-radius: 8px; overflow: hidden; margin-top: 30px;
             box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.05);
         }
@@ -62,11 +62,12 @@
             text-shadow: 0 0 30px rgba(145, 70, 255, 0.6); letter-spacing: 4px;
         }
 
-        /* --- СТИЛИ АДМИНКИ --- */
+        /* --- ТИПОГРАФИКА АДМИНКИ --- */
         h1 { font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; line-height: 1.2; margin-bottom: 15px;}
         h1 span { color: #9146FF; }
         h2 { font-size: 14px; color: #aaa; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; }
 
+        /* --- КАРТОЧКИ --- */
         .glass-card {
             background: linear-gradient(135deg, rgba(145, 70, 255, 0.1) 0%, rgba(145, 70, 255, 0.02) 100%);
             border: 1px solid rgba(145, 70, 255, 0.2); border-radius: 12px; padding: 16px; position: relative; overflow: hidden;
@@ -74,6 +75,7 @@
         }
         .glass-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: #9146FF; }
 
+        /* --- КНОПКИ --- */
         .btn-custom {
             border: none; border-radius: 8px; font-size: 12px; font-weight: 900; padding: 10px 14px;
             text-transform: uppercase; cursor: pointer; transition: 0.2s;
@@ -87,8 +89,8 @@
         .btn-green { background: #28a745; color: #fff; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2); }
         .btn-yellow { background: #FFB800; color: #fff; box-shadow: 0 4px 15px rgba(255, 184, 0, 0.2); }
         .btn-red { background: #ff4d4d; color: #fff; box-shadow: 0 4px 15px rgba(255, 77, 77, 0.2); }
-        .btn-blue { background: #007bff; color: #fff; box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3); }
 
+        /* --- ИНПУТЫ --- */
         .input-custom {
             background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
             color: #fff; border-radius: 8px; padding: 10px 12px; font-family: 'Montserrat', sans-serif;
@@ -130,7 +132,6 @@
     <!-- ================= АДМИНКА ================= -->
     <div id="admin-view" class="hidden max-w-4xl mx-auto p-4 md:p-6 pb-20">
         
-        <!-- Шапка -->
         <div class="flex justify-between items-center mb-4 bg-[rgba(255,255,255,0.02)] p-3 rounded-xl border border-[rgba(255,255,255,0.05)]">
             <div class="flex items-center gap-3">
                 <i class="fa-brands fa-twitch text-2xl text-[#9146FF]"></i>
@@ -139,13 +140,13 @@
                     <span class="text-[10px] font-bold text-[#28a745] uppercase tracking-wider"><i class="fa-solid fa-circle text-[6px] animate-pulse relative -top-[1px]"></i> Online</span>
                 </div>
             </div>
-            <!-- ВОЗВРАТ НАЗАД, А НЕ ЗАКРЫТИЕ -->
+            <!-- ВОЗВРАТ НАЗАД -->
             <button onclick="window.history.back()" class="text-gray-400 hover:text-white transition text-[10px] font-bold uppercase tracking-wider">
                 <i class="fa-solid fa-arrow-left mr-1"></i> Назад
             </button>
         </div>
 
-        <!-- ТЕКУЩЕЕ СЛОВО (Жирный блок) -->
+        <!-- ТЕКУЩЕЕ СЛОВО НА ЭКРАНЕ -->
         <div class="glass-card mb-6" style="background: rgba(145, 70, 255, 0.15); border-color: #9146FF; text-align: center;">
             <div class="text-[10px] text-purple-300 uppercase font-bold mb-1 tracking-widest">Сейчас на стриме:</div>
             <div id="admin-current-word" class="text-3xl font-black text-white uppercase tracking-[5px] drop-shadow-md">...</div>
@@ -153,12 +154,10 @@
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- ЛЕВАЯ КОЛОНКА (Управление и Лидерборд) -->
+            <!-- ЛЕВАЯ КОЛОНКА -->
             <div class="space-y-6">
                 <div class="glass-card">
                     <h2>Управление Игрой</h2>
-                    
-                    <!-- Выбор режима -->
                     <div class="mb-4">
                         <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">Игровой режим:</label>
                         <select id="game-mode-select" class="input-custom" onchange="changeGameMode()">
@@ -186,18 +185,16 @@
                 </div>
             </div>
 
-            <!-- ПРАВАЯ КОЛОНКА (Словарь и Награды) -->
+            <!-- ПРАВАЯ КОЛОНКА -->
             <div class="space-y-6">
                 
-                <!-- Словарь -->
                 <div class="glass-card">
                     <h2>Словарь игры</h2>
                     <p class="text-[10px] text-gray-400 mb-2">Вставь слова столбиком. Бот будет выбирать их случайно.</p>
-                    <textarea id="words-list-input" class="input-custom mb-2 h-24" placeholder="АКАУНТ&#10;КЛАВИАТУРА&#10;СТРИМЕР"></textarea>
+                    <textarea id="words-list-input" class="input-custom mb-2 h-24" placeholder="КЕЙС&#10;СТРИМЕР&#10;ПОДАРОК"></textarea>
                     <button onclick="saveDictionary()" class="btn-custom btn-blue w-full"><i class="fa-solid fa-save"></i> Сохранить словарь</button>
                 </div>
 
-                <!-- Награды -->
                 <div class="glass-card">
                     <h2>Настройки наград</h2>
                     <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-xl border border-[rgba(255,255,255,0.05)] mb-3">
@@ -217,7 +214,6 @@
                     </div>
                     <div id="rewards-list" class="space-y-1 max-h-[150px] overflow-y-auto pr-1"></div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -266,62 +262,38 @@
                     document.getElementById('auth-status').innerHTML = `<div class="text-[#ff4d4d] font-bold">Доступ запрещен</div>`;
                 }
             } catch (e) {
-                document.getElementById('auth-status').innerHTML = `<div class="text-[#ff4d4d] font-bold">Ошибка: ${e.message}</div>`;
+                document.getElementById('auth-status').innerHTML = `<div class="text-[#ff4d4d] font-bold">Ошибка сети</div>`;
             }
         }
 
+        // ==========================================
+        // ЛОГИКА АДМИНКИ (ОПТИМИЗИРОВАННАЯ)
+        // ==========================================
         function showAdminPanel() {
             document.getElementById('admin-view').style.display = 'block';
-            
-            // Интервалы админки
-            setInterval(fetchLeaderboard, 5000);
-            setInterval(fetchCurrentAdminState, 2000); // Опрос текущего слова раз в 2 сек
             
             fetchLeaderboard();
             loadRewards();
             loadDictionary();
             fetchCurrentAdminState();
+
+            // Опрашиваем сервер ТОЛЬКО если вкладка открыта
+            setInterval(() => { if (!document.hidden) fetchLeaderboard(); }, 8000);
+            setInterval(() => { if (!document.hidden) fetchCurrentAdminState(); }, 4000);
         }
 
-        document.body.addEventListener('click', (e) => {
-            if (e.target.closest(`button, select, input`)) {
-                if (tg.HapticFeedback && !isObs) try { tg.HapticFeedback.impactOccurred('light'); } catch (err) {}
-            }
-        });
-
-        // ==========================================
-        // ЛОГИКА ИГРЫ (Рендер, Режимы, Анаграммы)
-        // ==========================================
-        let currentWord = "";
-        let currentMode = "classic";
-        let revealedIndices = [];
-        let timerSeconds = 30;
-        let scrambledWord = ""; 
-
-        // Функция перемешивания букв (генератор анаграмм)
-        function shuffleString(str) {
-            const arr = str.split('');
-            for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-            return arr.join('');
-        }
-
-        // Вывод текущего слова в админке
         async function fetchCurrentAdminState() {
             try {
                 const state = await fetch('/api/v1/guess/state').then(r => r.json());
                 const wordEl = document.getElementById('admin-current-word');
                 const modeEl = document.getElementById('admin-current-mode-label');
+                const selectEl = document.getElementById('game-mode-select');
                 
                 if (state.is_active && state.current_word) {
                     wordEl.innerText = state.current_word;
                     wordEl.style.color = '#fff';
                     
-                    // Обновляем селект, если он не совпадает с сервером
-                    const selectEl = document.getElementById('game-mode-select');
-                    if (selectEl.value !== state.current_mode) {
+                    if (selectEl.value !== (state.current_mode || 'classic')) {
                         selectEl.value = state.current_mode || 'classic';
                     }
 
@@ -335,59 +307,64 @@
             } catch (e) {}
         }
 
-        // Основной цикл OBS
+        // ==========================================
+        // ЛОГИКА OBS (РАБОТАЕТ ПОЛНОСТЬЮ ЛОКАЛЬНО)
+        // ==========================================
+        let currentWord = "";
+        let currentMode = "classic";
+        let revealedIndices = [];
+        let timerSeconds = 30;
+        let scrambledWord = ""; 
+
+        // Функция перемешивания букв
+        function shuffleString(str) {
+            const arr = str.split('');
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr.join('');
+        }
+
         async function startObsLoop() {
-            // Опрос состояния
+            // Опрашиваем состояние раз в 4 секунды
             setInterval(async () => {
                 try {
-                    const res = await fetch('/api/v1/guess/state'); 
-                    const state = await res.json();
+                    const state = await fetch('/api/v1/guess/state').then(r => r.json());
                     
                     if (state.is_active && state.current_word) {
-                        // Если сменилось слово или режим
                         if (state.current_word !== currentWord || state.current_mode !== currentMode) {
-                            currentWord = state.current_word;
+                            currentWord = state.current_word.toUpperCase();
                             currentMode = state.current_mode || "classic";
-                            revealedIndices = state.revealed_indices || [];
+                            revealedIndices = [];
                             timerSeconds = 30;
                             
-                            if (currentMode === 'anagram') {
-                                scrambledWord = shuffleString(currentWord);
-                            }
-                            renderWord();
-                        } else {
-                            // Если слово то же, просто обновляем открытые буквы (для classic)
-                            revealedIndices = state.revealed_indices || [];
+                            if (currentMode === 'anagram') scrambledWord = shuffleString(currentWord);
                             renderWord();
                         }
                     } else if (!state.is_active) {
+                        currentWord = "";
                         document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
                     }
                 } catch(e) {}
-            }, 2000);
+            }, 4000);
 
-            // Таймер (тикает каждую секунду)
-            setInterval(async () => {
+            // Локальный таймер и открытие букв (БЕЗ API-ЗАПРОСОВ)
+            setInterval(() => {
                 if (!currentWord) return;
                 timerSeconds--;
                 document.getElementById('timer-progress').style.width = `${(timerSeconds / 30) * 100}%`;
                 
                 if (timerSeconds <= 0) {
-                    timerSeconds = 30; // Рестарт визуала таймера
-                    
-                    // Открываем букву ТОЛЬКО в классическом режиме
+                    timerSeconds = 30; 
                     if (currentMode === 'classic') {
                         if (currentWord.length - revealedIndices.length > 2) {
                             const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
-                            const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
-                            revealedIndices.push(randomIndex);
-                            
-                            await fetch('/api/v1/guess/reveal_letter', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ index: randomIndex })
-                            });
-                            renderWord();
+                            if (unrevealed.length > 0) {
+                                const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+                                revealedIndices.push(randomIndex);
+                                renderWord();
+                            }
                         }
                     }
                 }
@@ -396,6 +373,7 @@
 
         function renderWord() {
             const container = document.getElementById('word-container');
+            if (!container) return;
             container.innerHTML = '';
             
             for (let i = 0; i < currentWord.length; i++) {
@@ -403,15 +381,12 @@
                 div.className = 'letter-tile';
                 
                 if (currentMode === 'classic') {
-                    // Пустые квадраты, буквы появляются по индексам
                     div.innerText = revealedIndices.includes(i) ? currentWord[i] : '';
                 } 
                 else if (currentMode === 'anagram') {
-                    // Все буквы сразу на экране, но перепутаны
-                    div.innerText = scrambledWord[i];
+                    div.innerText = scrambledWord[i] || '';
                 } 
                 else if (currentMode === 'edges') {
-                    // Только первая и последняя буква
                     div.innerText = (i === 0 || i === currentWord.length - 1) ? currentWord[i] : '';
                 }
                 
@@ -420,23 +395,17 @@
         }
 
         // ==========================================
-        // ЛОГИКА АДМИНКИ (УПРАВЛЕНИЕ)
+        // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ АДМИНКИ
         // ==========================================
-        
         async function changeGameMode() {
             const newMode = document.getElementById('game-mode-select').value;
-            try {
-                await apiCall('/api/v1/admin/guess/mode/set', { mode: newMode });
-                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            } catch(e) { tg.showAlert("Ошибка смены режима"); }
+            try { await apiCall('/api/v1/admin/guess/mode/set', { mode: newMode }); } catch(e) {}
         }
 
         async function saveDictionary() {
             const text = document.getElementById('words-list-input').value;
-            // Разбиваем по переносам строки или запятым, убираем пробелы и пустые
             const words = text.split(/[\n,]+/).map(w => w.trim().toUpperCase()).filter(w => w.length > 2);
             if(words.length === 0) return tg.showAlert("Словарь пуст! Добавьте слова.");
-            
             try {
                 await apiCall('/api/v1/admin/guess/words/set', { words: words });
                 tg.showAlert(`Сохранено ${words.length} слов!`);
@@ -446,9 +415,7 @@
         async function loadDictionary() {
             try {
                 const res = await apiCall('/api/v1/admin/guess/words/get');
-                if (res.words) {
-                    document.getElementById('words-list-input').value = res.words.join('\n');
-                }
+                if (res.words) document.getElementById('words-list-input').value = res.words.join('\n');
             } catch(e) {}
         }
 
@@ -476,9 +443,6 @@
             } catch(e) {}
         }
 
-        // ==========================================
-        // НАСТРОЙКА НАГРАД
-        // ==========================================
         function toggleCaseInput() {
             const type = document.getElementById('rew-type').value;
             if (type === 'case') {
@@ -500,7 +464,6 @@
         function renderRewardsConfig() {
             const container = document.getElementById('rewards-list');
             rewardsConfig.sort((a, b) => a.place - b.place);
-            
             container.innerHTML = rewardsConfig.map(r => {
                 let icon, text, color;
                 if(r.reward_type === 'coins') { icon = 'fa-coins'; text = `${r.amount} Монет`; color = 'text-yellow-400'; }
@@ -529,13 +492,11 @@
             if (type === 'case' && !caseName) return tg.showAlert("Укажите название кейса");
 
             const newRule = { place, reward_type: type, amount, target_case_name: caseName };
-            
             try {
                 await apiCall('/api/v1/admin/guess/rewards_config/add', newRule);
                 rewardsConfig = rewardsConfig.filter(r => r.place !== place);
                 rewardsConfig.push(newRule);
                 renderRewardsConfig();
-                
                 document.getElementById('rew-place').value = '';
                 document.getElementById('rew-amount').value = '';
                 document.getElementById('rew-case-name').value = '';
