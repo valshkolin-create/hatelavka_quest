@@ -22015,6 +22015,16 @@ def verify_guess_admin(init_data: str):
         raise HTTPException(status_code=403, detail="Доступ запрещен. Вы не администратор.")
     return user_info
 
+class GuessTextSizeRequest(BaseModel):
+    initData: str
+    text_size: float
+
+@app.post("/api/v1/admin/guess/text_size/set")
+async def admin_guess_text_size_set(req: GuessTextSizeRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    await supabase.patch("/guess_state?id=eq.1", json={"text_size": req.text_size})
+    return {"status": "success"}
+
 @app.post("/api/v1/admin/guess/ping")
 async def admin_guess_ping(req: GuessAdminBaseRequest):
     """Проверка прав при входе в админку"""
