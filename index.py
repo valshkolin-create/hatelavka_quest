@@ -21948,6 +21948,56 @@ async def handle_fossabot_guess(
         return ""
 
 
+# --- Pydantic Схемы ---
+class GuessModeRequest(GuessAdminBaseRequest):
+    mode: str
+
+class GuessWordsRequest(GuessAdminBaseRequest):
+    words: list[str]
+
+# --- 1. УПРАВЛЕНИЕ СЛОВАРЕМ ---
+@app.post("/api/v1/admin/guess/words/get")
+async def admin_guess_words_get(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    res = await supabase.get("/guess_words")
+    words = [w["word"] for w in res.json()] if res.status_code == 200 else []
+    return {"words": words}
+
+@app.post("/api/v1/admin/guess/words/set")
+async def admin_guess_words_set(req: GuessWordsRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    # Удаляем старые слова
+    await supabase.delete("/guess_words", params={"id": "gt.0"})
+    
+    # Записываем новые пачкой
+    if req.words:
+        insert_data = [{"word": w.upper()} for w in req.words]
+        await supabase.post("/guess_words", json=insert_data)
+    return {"status": "ok"}
+
+# --- 2. УПРАВЛЕНИЕ РЕЖИМАМИ ---
+@app.post("/api/v1/admin/guess/mode/set")
+async def admin_guess_set_mode(req: GuessModeRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    # Меняем мод в базе
+    await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"current_mode": req.mode})
+    return {"status": "ok"}
+
+# --- 3. ЗАПУСК И СКИП (Используем новые SQL функции) ---
+@app.post("/api/v1/admin/guess/start")
+async def admin_guess_start(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    # База данных сама выберет слово и сбросит статус
+    await supabase.post("/rpc/start_guess_game")
+    return {"status": "started"}
+
+@app.post("/api/v1/admin/guess/skip")
+async def admin_guess_skip(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_guess_admin(req.initData)
+    # База данных сама пропустит слово
+    await supabase.post("/rpc/skip_guess_word")
+    return {"status": "skipped"}
+
 # --- 2. ПУБЛИЧНЫЕ ЭНДПОЙНТЫ (ДЛЯ OBS) ---
 @app.get("/api/v1/guess/state")
 async def get_guess_state(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
