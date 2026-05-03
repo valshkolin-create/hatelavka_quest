@@ -120,9 +120,18 @@
         select.input-custom option { background-color: #1a1a2e; color: #ffffff; font-weight: 700; }
 
         .list-item {
-            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 6px; margin-bottom: 6px; transition: all 0.2s;
-        }
+    background: rgba(255, 255, 255, 0.03); 
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px; 
+    margin-bottom: 6px; 
+    transition: all 0.2s;
+    /* --- ДОБАВЛЕНО ДЛЯ ФИКСАЦИИ В ОДИН РЯД --- */
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+}
 
         .twitch-logo { font-size: 40px; color: #9146FF; margin-bottom: 10px; filter: drop-shadow(0 0 15px rgba(145, 70, 255, 0.4)); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -512,29 +521,29 @@
 
                 // Строки (Жесткая Flexbox структура, запрещающая перенос элементов)
                 html += boardData.map((u, i) => {
-                    const authIcon = u.is_auth 
-                        ? '<i class="fa-solid fa-check text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]"></i>' 
-                        : '<i class="fa-solid fa-xmark text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]"></i>';
+                    const authIcon = u.is_auth 
+                        ? '<i class="fa-solid fa-check text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]"></i>' 
+                        : '<i class="fa-solid fa-xmark text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]"></i>';
 
-                    return `
-                    <div class="list-item flex flex-row flex-nowrap justify-between items-center px-3 py-2 text-[11px] w-full box-border">
-                        <!-- Блок с ником (занимает всё доступное место, ужимает текст) -->
-                        <div class="flex flex-row flex-nowrap items-center min-w-0 flex-1 pr-2">
-                            <span class="text-gray-500 mr-2 shrink-0">#${i+1}</span> 
-                            <span class="font-bold text-gray-200 truncate leading-none">${u.twitch_login}</span>
-                        </div>
-                        
-                        <!-- Блок с иконкой (Фиксированный, не сжимается) -->
-                        <div class="w-16 flex justify-center items-center shrink-0 text-[13px]">
-                            ${authIcon}
-                        </div>
-                        
-                        <!-- Блок с очками (Фиксированный, не сжимается) -->
-                        <div class="w-12 text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex flex-row justify-end items-center gap-1 shrink-0 leading-none">
-                            ${u.score} <i class="fa-solid fa-star text-[0.7em]"></i>
-                        </div>
-                    </div>`;
-                }).join('');
+                    return `
+                    <div class="list-item flex flex-row flex-nowrap justify-between items-center px-3 py-2 text-[11px] w-full box-border">
+                        <!-- Блок с ником (растягивается) -->
+                        <div class="flex flex-row flex-nowrap items-center min-w-0 pr-2" style="flex: 1 1 0%;">
+                            <span class="text-gray-500 mr-2 shrink-0">#${i+1}</span> 
+                            <span class="font-bold text-gray-200 truncate leading-none">${u.twitch_login}</span>
+                        </div>
+                        
+                        <!-- Блок с иконкой (жесткая ширина 64px) -->
+                        <div class="flex justify-center items-center shrink-0 text-[13px]" style="width: 4rem;">
+                            ${authIcon}
+                        </div>
+                        
+                        <!-- Блок с очками (жесткая ширина 48px) -->
+                        <div class="text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex flex-row justify-end items-center gap-1 shrink-0 leading-none" style="width: 3rem;">
+                            ${u.score} <i class="fa-solid fa-star text-[0.7em]"></i>
+                        </div>
+                    </div>`;
+                }).join('');
 
                 container.innerHTML = html;
             } catch (e) {
