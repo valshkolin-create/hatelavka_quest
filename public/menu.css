@@ -1087,3 +1087,20 @@ body.desktop-mode .toggle-container {
     width: 100% !important;
     z-index: 10 !important;
 }
+
+/* ==========================================
+   ФИКС ДЛЯ ДЕСКТОПА (ПК) - ПРИЖИМАЕМ К ВЕРХУ
+========================================== */
+@media (min-width: 768px) {
+    /* Жестко перебиваем мобильную формулу отступа для шапки */
+    .top-header {
+        padding-top: 15px !important; /* Аккуратный отступ от самого края монитора */
+        margin-bottom: 10px !important;
+    }
+    
+    /* Дополнительная страховка для контента */
+    .content-wrapper {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+}
