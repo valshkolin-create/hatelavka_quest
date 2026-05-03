@@ -3806,6 +3806,11 @@ async function submitMatrixChoice(pill) {
         }
         
     } catch (err) {
+        // ВОТ ЭТИ СКОБКИ СКОРЕЕ ВСЕГО ПОТЕРЯЛИСЬ В ПРОШЛЫЙ РАЗ!
+        console.error("Matrix choice error:", err);
+        customAlert("Произошла ошибка при выборе пути.");
+    }
+}
 
 // ================================================================
 // SWAP (TRADE-UP КОНТРАКТ) 3 ЭТАПА
