@@ -292,7 +292,7 @@
                 <div class="grid grid-cols-3 gap-2 mb-2">
                     <input type="number" id="rew-place" placeholder="Место" class="input-custom text-center col-span-1">
                     <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center col-span-2">
-                        <option value="coins">🪙 Монеты</option>
+                        <option value="coins">💰 Монеты</option>
                         <option value="tickets">🎟 Билеты</option>
                         <option value="case">🎁 Кейс (Drops)</option>
                     </select>
@@ -697,7 +697,7 @@
                     let icon, title, desc;
                     if(r.reward_type === 'case') { icon = '🎁'; title = 'Кейс'; desc = `«${r.target_case_name}»`; }
                     else if(r.reward_type === 'tickets') { icon = '🎟'; title = 'Билеты'; desc = `${r.amount} шт.`; }
-                    else { icon = '🪙'; title = 'Монеты'; desc = `${r.amount} шт.`; }
+                    else { icon = '<i class="fa-solid fa-coins text-[#ffd700]"></i>'; title = 'Монеты'; desc = `${r.amount} шт.`; }
 
                     return `
                     <div class="list-item" style="padding: 8px 12px; margin-bottom: 6px;">
