@@ -21912,7 +21912,30 @@ async def handle_fossabot_guess(
         return ""
 
     try:
-        # 1. Забираем сообщение из чата
+        # ==========================================
+        # 🛡️ ШАГ 1: БЫСТРЫЙ ФИЛЬТР (КЭШ СТАТУСА ИГРЫ)
+        # Делаем это ДО похода к Fossabot, чтобы сэкономить время и ресурсы
+        # ==========================================
+        global guess_cache
+        now = time.time()
+
+        # Раз в 10 секунд обновляем статус и слово из базы
+        if now - guess_cache["updated_at"] > 10:
+            state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+            if state_res.status_code == 200 and state_res.json():
+                state = state_res.json()[0]
+                guess_cache["word"] = state.get("current_word", "").upper()
+                guess_cache["is_active"] = state.get("is_active", False)
+                guess_cache["updated_at"] = now
+
+        # Если игра ВЫКЛЮЧЕНА или кэш пуст - моментальный отбой!
+        # Мы сэкономили целый HTTP-запрос к API Fossabot.
+        if not guess_cache["is_active"] or not guess_cache["word"]:
+            return ""
+
+        # ==========================================
+        # 📨 ШАГ 2: ИГРА ИДЕТ! Забираем сообщение из чата
+        # ==========================================
         async with httpx.AsyncClient() as client:
             fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         
@@ -21924,31 +21947,12 @@ async def handle_fossabot_guess(
         twitch_display = message_data["user"]["display_name"]
         guess_word = message_data["content"].strip().upper()
 
-        # ==========================================
-        # 🛡️ БЫСТРЫЙ ФИЛЬТР (КЭШ)
-        # ==========================================
-        global guess_cache
-        now = time.time()
-
-        # Раз в 10 секунд обновляем загаданное слово из базы
-        if now - guess_cache["updated_at"] > 10:
-            state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
-            if state_res.status_code == 200 and state_res.json():
-                state = state_res.json()[0]
-                guess_cache["word"] = state.get("current_word", "").upper()
-                guess_cache["is_active"] = state.get("is_active", False)
-                guess_cache["updated_at"] = now
-
-        # Если игра выключена или кэш пуст - отбой (0 запросов к БД)
-        if not guess_cache["is_active"] or not guess_cache["word"]:
-            return ""
-
-        # Если слово из чата НЕ совпало с загаданным - отбой (0 запросов к БД)
+        # Если слово из чата НЕ совпало с загаданным - отбой (0 записей в БД)
         if guess_word != guess_cache["word"]:
             return ""
 
         # ==========================================
-        # 🎉 СЛОВО УГАДАНО! Идем в базу
+        # 🎉 ШАГ 3: СЛОВО УГАДАНО! Идем в базу
         # ==========================================
         target_word = guess_cache["word"]
         
@@ -21966,7 +21970,7 @@ async def handle_fossabot_guess(
             headers={"Prefer": "return=representation"} 
         )
         
-        # Если кто-то успел раньше
+        # Если кто-то успел раньше (состояние не обновилось)
         if not patch_res.json():
             return "" 
 
