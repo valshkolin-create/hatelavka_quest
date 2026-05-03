@@ -1840,10 +1840,13 @@ function renderItems(items) {
             let showFreeButton = window.activeFreeCases.includes(item.name);
             
             if (showFreeButton) {
-                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
-                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: transparent; color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 0 0 20px rgba(52, 199, 89, 0.4); width: 100%; height: 100%; border: none; border-radius: 12px; font-weight: 900; font-size: 13px; display: flex; align-items: center; justify-content: center; text-transform: uppercase; cursor: pointer; outline: none; transition: transform 0.2s ease;">БЕСПЛАТНО</button>
-                </div>`;
-            } else if (originalPrice === 9999) {
+                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
+                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: transparent; color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 0 0 20px rgba(52, 199, 89, 0.4); width: 100%; height: 100%; border: none; border-radius: 12px; font-weight: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; text-transform: uppercase; cursor: pointer; outline: none; transition: transform 0.2s ease;">
+                        <span style="font-size: 9px; opacity: 0.9;">ОТКРЫТЬ</span>
+                        <span style="font-size: 13px;">БЕСПЛАТНО</span>
+                    </button>
+                </div>`;
+            } else if (originalPrice === 9999) {
                 buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
                     <button class="action-btn" onclick="showCouponCaseInfo('${safeName}')" style="background: rgba(145, 70, 255, 0.1); color: #9146FF; border: 1px solid rgba(145, 70, 255, 0.4); width: 100%; height: 100%; border-radius: 12px; font-weight: 900; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-transform: uppercase; cursor: pointer; transition: 0.2s ease;"><i class="fa-solid fa-lock" style="font-size: 14px; margin-bottom: 2px;"></i>КУПОННЫЙ</button>
                 </div>`;
@@ -3774,30 +3777,35 @@ function checkMatrixEvent(matrixData) {
 }
 
 async function submitMatrixChoice(pill) {
-    try {
-        await makeApiRequest('/api/v1/matrix/choose', { choice: pill }, 'POST');
-        sessionStorage.setItem('matrix_dismissed', 'true'); 
+    try {
+        await makeApiRequest('/api/v1/matrix/choose', { choice: pill }, 'POST');
+        sessionStorage.setItem('matrix_dismissed', 'true'); 
 
-        if (pill === 'red') {
-            customAlert("Ты выбрал путь ленивца. Траст снижен, кейс выдан.");
-        } else {
-            customAlert("Путь развития принят! Выполняй задания для награды.");
-        }
+        if (pill === 'red') {
+            customAlert("Ты выбрал путь ленивца. Траст снижен, кейс выдан.");
+            // СРАЗУ ПЕРЕКЛЮЧАЕМ НА ВКЛАДКУ МАГАЗИНА
+            const shopTab = document.querySelector('.toggle-option[data-target="view-shop"]');
+            if (shopTab) shopTab.click();
+            
+            // Фоново обновляем витрину, чтобы появился выданный кейс
+            if (typeof loadCategory === 'function') loadCategory(window.currentCategoryId || 2716312);
+        } else {
+            customAlert("Путь развития принят! Выполняй задания для награды.");
+        }
 
-        const modal = document.getElementById('matrix-event-modal');
-        if (modal) {
-            modal.style.opacity = '0';
-            setTimeout(() => modal.remove(), 400);
+        const modal = document.getElementById('matrix-event-modal');
+        if (modal) {
+            modal.style.opacity = '0';
+            setTimeout(() => modal.remove(), 400);
+        }
+        
+        // Перезагружаем интерфейс ТОЛЬКО для синей таблетки, 
+        // чтобы не сбросить открытую вкладку кейсов у красной
+        if (pill !== 'red') {
+            setTimeout(() => window.location.reload(), 1500);
         }
-        
-        // Перезагружаем интерфейс, чтобы показать трекер или обновить магазин
-        setTimeout(() => window.location.reload(), 1500);
-        
-    } catch (err) {
-        console.error("Matrix choice error:", err);
-        customAlert("Произошла ошибка при выборе пути.");
-    }
-}
+        
+    } catch (err) {
 
 // ================================================================
 // SWAP (TRADE-UP КОНТРАКТ) 3 ЭТАПА
