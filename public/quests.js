@@ -805,120 +805,119 @@ function injectProfilePopup(type) {
 
 // === КРАСИВОЕ ОКНО НАГРАДЫ (С ПЕРЕЗАГРУЗКОЙ) ===
 function injectRewardPopup(amount, text = "Задание выполнено!", reloadOnClose = false) {
-    const existing = document.getElementById('rewardPopup');
-    if (existing) existing.remove();
+    const existing = document.getElementById('rewardPopup');
+    if (existing) existing.remove();
 
-    let topIcon = '<i class="fa-solid fa-ticket"></i>';
-    let rewardBlock = '';
-    let headerContent = '';
+    let topIcon = '<i class="fa-solid fa-ticket"></i>';
+    let rewardBlock = '';
+    let headerContent = '';
 
-    // 🔥 ИНДИВИДУАЛЬНЫЙ ДИЗАЙН ДЛЯ ТЕЛЕГРАМ-КЕЙСА 🔥
-    if (text.includes("Успешная серия!")) {
-        headerContent = `
-            <div style="font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Успешная серия!</div>
-            <div style="font-size: 15px; font-weight: 700; color: #FFD700; line-height: 1.4;">Вам выдан бесплатный<br>Кейс | TELEGRAM</div>
-            <div style="height: 20px;"></div> <!-- Пару энтеров -->
-            <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">Он уже ждёт в разделе Кейсы!</div>
-        `;
-    } else {
-        // Стандартный заголовок
-        headerContent = `<h3 style="margin: 0 0 8px; font-size: 22px; font-weight: 800; color: #fff; letter-spacing: 0.5px; line-height: 1.3;">${text}</h3>`;
-    }
+    // 🔥 ИНДИВИДУАЛЬНЫЙ ДИЗАЙН ДЛЯ ТЕЛЕГРАМ-КЕЙСА (с уменьшенным межстрочным интервалом) 🔥
+    if (text.includes("Успешная серия!")) {
+        headerContent = `
+            <div style="font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Успешная серия!</div>
+            <div style="font-size: 15px; font-weight: 700; color: #FFD700; line-height: 1.15;">Вам выдан бесплатный<br>Кейс | TELEGRAM</div>
+            <div style="height: 8px;"></div> <!-- Уменьшенный отступ вместо 20px -->
+            <div style="font-size: 11px; color: #8e8e93; font-weight: 500;">Он уже ждёт в разделе Кейсы!</div>
+        `;
+    } else {
+        // Стандартный заголовок
+        headerContent = `<h3 style="margin: 0 0 8px; font-size: 22px; font-weight: 800; color: #fff; letter-spacing: 0.5px; line-height: 1.2;">${text}</h3>`;
+    }
 
-    // УМНАЯ ЛОГИКА: Рисуем блок с билетами ТОЛЬКО если их больше нуля
-    if (amount > 0) {
-        rewardBlock = `
-            <p style="margin: 0 0 24px; color: #8e8e93; font-size: 14px; font-weight: 500;">Награда зачислена на баланс</p>
-            <div style="
-                background: rgba(255, 215, 0, 0.1); 
-                border: 1px solid rgba(255, 215, 0, 0.2); 
-                border-radius: 16px; 
-                padding: 12px; 
-                margin-bottom: 28px;
-                display: inline-block;
-                min-width: 120px;
-            ">
-                <span style="font-size: 36px; font-weight: 900; color: #FFD700; text-shadow: 0 2px 10px rgba(255, 215, 0, 0.2);">+${amount}</span>
-            </div>
-        `;
-    } else {
-        topIcon = '<i class="fa-solid fa-gift"></i>'; // Меняем билетик на подарок
-        // Оставляем аккуратный отступ вместо нулей, учитывая кастомный текст
-        const botMargin = text.includes("Успешная серия!") ? 16 : 24;
-        rewardBlock = `<div style="margin-bottom: ${botMargin}px;"></div>`; 
-    }
+    // УМНАЯ ЛОГИКА: Рисуем блок с билетами ТОЛЬКО если их больше нуля
+    if (amount > 0) {
+        rewardBlock = `
+            <p style="margin: 0 0 24px; color: #8e8e93; font-size: 14px; font-weight: 500;">Награда зачислена на баланс</p>
+            <div style="
+                background: rgba(255, 215, 0, 0.1); 
+                border: 1px solid rgba(255, 215, 0, 0.2); 
+                border-radius: 16px; 
+                padding: 12px; 
+                margin-bottom: 28px;
+                display: inline-block;
+                min-width: 120px;
+            ">
+                <span style="font-size: 36px; font-weight: 900; color: #FFD700; text-shadow: 0 2px 10px rgba(255, 215, 0, 0.2);">+${amount}</span>
+            </div>
+        `;
+    } else {
+        topIcon = '<i class="fa-solid fa-gift"></i>'; // Меняем билетик на подарок
+        // Оставляем аккуратный отступ из старого кода
+        rewardBlock = `<div style="margin-bottom: 24px;"></div>`; 
+    }
 
-    const popupHtml = `
-    <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(10px); animation: fadeIn 0.3s;">
-      
-      <div class="popup-content" style="
-          background: #1c1c1e; 
-          color: #fff; 
-          padding: 32px 24px; 
-          border-radius: 24px; 
-          text-align: center; 
-          width: 85%; 
-          max-width: 320px; 
-          border: 1px solid rgba(255, 255, 255, 0.08); 
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); 
-          transform: scale(0.9); 
-          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-      ">
-        
-        <div style="font-size: 54px; margin-bottom: 16px; color: #FFD700; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.3)); animation: float 3s ease-in-out infinite;">
-            ${topIcon}
-        </div>
-        
-        ${headerContent}
-        
-        ${rewardBlock}
-        
-        <button id="closeRewardBtn" style="
-            width: 100%; 
-            background: linear-gradient(135deg, #0088cc 0%, #005f8f 100%); 
-            color: #fff; 
-            border: none; 
-            padding: 16px; 
-            border-radius: 16px; 
-            font-weight: 700; 
-            font-size: 16px; 
-            cursor: pointer; 
-            box-shadow: 0 8px 20px rgba(0, 136, 204, 0.3); 
-            transition: transform 0.1s, box-shadow 0.1s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        ">
-            ЗАКРЫТЬ
-        </button>
+    const popupHtml = `
+    <div id="rewardPopup" class="popup-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(10px); animation: fadeIn 0.3s;">
+      
+      <div class="popup-content" style="
+          background: #1c1c1e; 
+          color: #fff; 
+          padding: 32px 24px; 
+          border-radius: 24px; 
+          text-align: center; 
+          width: 85%; 
+          max-width: 320px; 
+          border: 1px solid rgba(255, 255, 255, 0.08); 
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); 
+          transform: scale(0.9); 
+          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      ">
+        
+        <div style="font-size: 54px; margin-bottom: 16px; color: #FFD700; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.3)); animation: float 3s ease-in-out infinite;">
+            ${topIcon}
+        </div>
+        
+        ${headerContent}
+        
+        ${rewardBlock}
+        
+        <button id="closeRewardBtn" style="
+            width: 100%; 
+            background: linear-gradient(135deg, #0088cc 0%, #005f8f 100%); 
+            color: #fff; 
+            border: none; 
+            padding: 16px; 
+            border-radius: 16px; 
+            font-weight: 700; 
+            font-size: 16px; 
+            cursor: pointer; 
+            box-shadow: 0 8px 20px rgba(0, 136, 204, 0.3); 
+            transition: transform 0.1s, box-shadow 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        ">
+            ЗАКРЫТЬ
+        </button>
 
-      </div>
-    </div>
-    <style>
-      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      @keyframes float { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-8px) rotate(5deg); } 100% { transform: translateY(0px) rotate(0deg); } }
-      #closeRewardBtn:active { transform: scale(0.96); box-shadow: 0 4px 10px rgba(0, 136, 204, 0.2); }
-    </style>
-    `;
+      </div>
+    </div>
+    <style>
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes float { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-8px) rotate(5deg); } 100% { transform: translateY(0px) rotate(0deg); } }
+      #closeRewardBtn:active { transform: scale(0.96); box-shadow: 0 4px 10px rgba(0, 136, 204, 0.2); }
+    </style>
+    `;
 
-    document.body.insertAdjacentHTML('beforeend', popupHtml);
+    document.body.insertAdjacentHTML('beforeend', popupHtml);
 
-    if(window.Telegram && Telegram.WebApp.HapticFeedback) {
-        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-    }
+    if(window.Telegram && Telegram.WebApp.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
 
-    document.getElementById('closeRewardBtn').addEventListener('click', () => {
-        const popup = document.getElementById('rewardPopup');
-        popup.style.opacity = '0';
-        setTimeout(() => {
-            popup.remove();
-            if (reloadOnClose) {
-                window.location.reload();
-            } else if (typeof main === 'function') {
-                main(); 
-            }
-        }, 200);
-    });
+    document.getElementById('closeRewardBtn').addEventListener('click', () => {
+        const popup = document.getElementById('rewardPopup');
+        popup.style.opacity = '0';
+        setTimeout(() => {
+            popup.remove();
+            if (reloadOnClose) {
+                window.location.reload();
+            } else if (typeof main === 'function') {
+                main(); 
+            }
+        }, 200);
+    });
 }
 // ==========================================
 // 5. РЕНДЕРИНГ
