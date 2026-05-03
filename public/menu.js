@@ -1739,9 +1739,11 @@ function renderItems(items) {
         return;
     }
 
-    // 🔥 ДОБАВЛЕНА СОРТИРОВКА
-    // Проверяем, есть ли сейчас бесплатные купонные кейсы
-    items.sort((a, b) => {
+    // 🔥 ВОТ ЭТУ СТРОЧКУ НУЖНО БЫЛО ОСТАВИТЬ:
+const hasFreeCoupon = items.some(i => parseFloat(i.price) === 9999 && window.activeFreeCases.includes(i.name));
+
+// 🔥 УЛУЧШЕННАЯ СОРТИРОВКА: БЕСПЛАТНЫЕ ВСЕГДА ПЕРВЫЕ 🔥
+items.sort((a, b) => {
     // 1. Папки всегда на самом верху
     if (a.is_folder && !b.is_folder) return -1;
     if (!a.is_folder && b.is_folder) return 1;
