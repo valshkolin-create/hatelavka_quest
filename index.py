@@ -21970,12 +21970,28 @@ async def admin_guess_words_get(req: GuessAdminBaseRequest, supabase: httpx.Asyn
 @app.post("/api/v1/admin/guess/words/set")
 async def admin_guess_words_set(req: GuessWordsRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     verify_guess_admin(req.initData)
-    # Очищаем старый словарь
-    await supabase.delete("/guess_words", params={"id": "gt.0"})
-    # Записываем новый
+    
+    # 1. Очищаем старый словарь (используем фильтр по слову, это надежнее, чем id=gt.0)
+    del_res = await supabase.delete("/guess_words", params={"word": "not.is.null"})
+    if del_res.status_code not in (200, 204):
+        print(f"Ошибка очистки БД: {del_res.text}")
+        return {"status": "error", "message": "Не удалось очистить старый словарь"}
+
+    # 2. Записываем новый словарь ЧАНКАМИ (кусочками по 200 слов)
     if req.words:
         data = [{"word": w.upper()} for w in req.words]
-        await supabase.post("/guess_words", json=data)
+        chunk_size = 200  # Безопасный размер пачки для Supabase
+        
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i:i + chunk_size]
+            
+            post_res = await supabase.post("/guess_words", json=chunk)
+            
+            # Если хоть один кусок не записался — прерываем и выдаем ошибку
+            if post_res.status_code not in (200, 201, 204):
+                print(f"Ошибка вставки в БД: {post_res.text}")
+                return {"status": "error", "message": f"Ошибка при записи слов: {post_res.text}"}
+
     return {"status": "ok"}
 
 # --- 2. УПРАВЛЕНИЕ РЕЖИМАМИ ---
