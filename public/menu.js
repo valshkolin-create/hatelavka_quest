@@ -1769,8 +1769,11 @@ items.sort((a, b) => {
 });
 
     const fragment = document.createDocumentFragment();
+    
+    // 🔥 НОВЫЕ ФЛАГИ ДЛЯ ТРЕХ КАТЕГОРИЙ 🔥
+    let freeHeaderAdded = false;
+    let regularHeaderAdded = false; 
     let couponHeaderAdded = false;
-    let regularHeaderAdded = false; // 🔥 Флаг для разделителя основных кейсов
 
     // 🔥 РАСЧЕТ ТРАСТ-ФАКТОРА (Смотрим на баллы, как в модалке)
     const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
@@ -1811,24 +1814,26 @@ items.sort((a, b) => {
         const displayPrice = originalPrice * trustMultiplier;
         const displayPriceTickets = (originalPrice * 2) * trustMultiplier;
 
-        // ЗАГОЛОВОК КУПОННЫХ КЕЙСОВ
-        if (originalPrice === 9999 && !couponHeaderAdded && !item.is_folder) {
+        // Определяем, бесплатный ли этот конкретный кейс сейчас
+        const isFreeItem = window.activeFreeCases.includes(item.name);
+
+        // 1. ЗАГОЛОВОК: БЕСПЛАТНОЕ ОТКРЫТИЕ (Строгий стиль)
+        if (isFreeItem && !freeHeaderAdded && !item.is_folder) {
             const headerEl = document.createElement('div');
-            // 👇 Здесь поменяли 25px на 10px
-            headerEl.style.cssText = "grid-column: 1 / -1; margin: 10px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            headerEl.style.cssText = "grid-column: 1 / -1; margin: 15px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
             headerEl.innerHTML = `
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
-                <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Купонные кейсы</span>
+                <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Бесплатное открытие</span>
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, rgba(255, 255, 255, 0.15));"></div>
             `;
             fragment.appendChild(headerEl);
-            couponHeaderAdded = true;
+            freeHeaderAdded = true;
         }
 
-        // 🔥 СТЕНА-РАЗДЕЛИТЕЛЬ ДЛЯ ОСНОВНЫХ КЕЙСОВ (без коробки)
-        if (hasFreeCoupon && originalPrice !== 9999 && !item.is_folder && !regularHeaderAdded) {
+        // 2. ЗАГОЛОВОК: ОСНОВНЫЕ КЕЙСЫ (Строгий стиль)
+        if (!isFreeItem && originalPrice !== 9999 && !regularHeaderAdded && !item.is_folder) {
             const sepEl = document.createElement('div');
-            sepEl.style.cssText = "grid-column: 1 / -1; margin: 30px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            sepEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
             sepEl.innerHTML = `
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
                 <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Основные кейсы</span>
@@ -1836,6 +1841,19 @@ items.sort((a, b) => {
             `;
             fragment.appendChild(sepEl);
             regularHeaderAdded = true;
+        }
+
+        // 3. ЗАГОЛОВОК: КУПОННЫЕ КЕЙСЫ (Строгий стиль)
+        if (!isFreeItem && originalPrice === 9999 && !couponHeaderAdded && !item.is_folder) {
+            const headerEl = document.createElement('div');
+            headerEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            headerEl.innerHTML = `
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
+                <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Купонные кейсы</span>
+                <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, rgba(255, 255, 255, 0.15));"></div>
+            `;
+            fragment.appendChild(headerEl);
+            couponHeaderAdded = true;
         }
 
         if (item.is_folder) {
@@ -1852,13 +1870,13 @@ items.sort((a, b) => {
             let showFreeButton = window.activeFreeCases.includes(item.name);
             
             if (showFreeButton) {
-                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
-                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: transparent; color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 0 0 20px rgba(52, 199, 89, 0.4); width: 100%; height: 100%; border: none; border-radius: 12px; font-weight: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; text-transform: uppercase; cursor: pointer; outline: none; transition: transform 0.2s ease;">
+                buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
+                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: transparent; color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 0 0 20px rgba(52, 199, 89, 0.4); width: 100%; height: 100%; border: none; border-radius: 12px; font-weight: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; text-transform: uppercase; cursor: pointer; outline: none; transition: transform 0.2s ease;">
                         <span style="font-size: 9px; opacity: 0.9; margin-top: 12px;">ОТКРЫТЬ</span>
                         <span style="font-size: 13px;">БЕСПЛАТНО</span>
                     </button>
-                </div>`;
-            } else if (originalPrice === 9999) {
+                </div>`;
+            } else if (originalPrice === 9999) {
                 buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
                     <button class="action-btn" onclick="showCouponCaseInfo('${safeName}')" style="background: transparent; color: #9146FF; border: none; width: 100%; height: 100%; border-radius: 12px; font-weight: 900; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-transform: uppercase; cursor: pointer; transition: 0.2s ease;"><i class="fa-solid fa-lock" style="font-size: 14px; margin-bottom: 2px;"></i>КУПОННЫЙ</button>
                 </div>`;
