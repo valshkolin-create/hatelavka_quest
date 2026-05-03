@@ -5586,15 +5586,17 @@ async def keep_alive_ping():
 @app.get("/api/v1/stats/general")
 async def get_general_stats(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     try:
-        # 1. Считаем ВСЕ записи в истории (это и есть открытые кейсы)
-        # Отправляем HEAD запрос (без скачивания самих данных), просим Supabase просто вернуть точное число
+        # 1. Открытые кейсы (считаем абсолютно все записи в истории)
+        # Используем HEAD запрос, чтобы не грузить сервер данными, а получить только число
         req_cases = await supabase.head("/cs_history", headers={"Prefer": "count=exact"})
-        # Supabase возвращает заголовок вида Content-Range: 0-0/1250, где 1250 - это общее число
         total_cases = int(req_cases.headers.get("Content-Range", "0-0/0").split("/")[-1])
 
-        # 2. Считаем реально выведенные в Steam скины
-        # Замени 'completed' на тот статус, который у тебя означает успешный вывод!
-        req_skins = await supabase.head("/cs_history?status=eq.completed", headers={"Prefer": "count=exact"})
+        # 2. Обработанные скины (Считаем все успешные действия)
+        # Статусы: completed (вывел), exchanged (продал за билеты), exchanged_swap (использовал в обмене)
+        req_skins = await supabase.head(
+            "/cs_history?status=in.(completed,exchanged,exchanged_swap)", 
+            headers={"Prefer": "count=exact"}
+        )
         total_skins = int(req_skins.headers.get("Content-Range", "0-0/0").split("/")[-1])
 
         return {
@@ -5602,8 +5604,8 @@ async def get_general_stats(supabase: httpx.AsyncClient = Depends(get_supabase_c
             "total_withdrawn": total_skins
         }
     except Exception as e:
-        print("Ошибка загрузки статистики:", e)
-        # Если что-то пойдет не так, вернем нули, чтобы фронт не упал
+        # Логируем ошибку в консоль, чтобы если что-то упало, ты видел причину
+        print(f"Ошибка загрузки статистики: {e}")
         return {"total_cases": 0, "total_withdrawn": 0}
 
 @app.get("/api/v1/shop/case_contents")
