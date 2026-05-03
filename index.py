@@ -21895,6 +21895,7 @@ async def get_market_items(
 # 🎮 ИГРА "УГАДАЙ СЛОВО" (FOSSABOT + OBS + ADMIN)
 # ==========================================
 
+# ГЛОБАЛЬНЫЙ КЭШ (защищает базу данных)
 guess_cache = {
     "word": None,
     "is_active": False,
@@ -21906,108 +21907,68 @@ async def handle_fossabot_guess(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Получаем слово прямо из URL (МГНОВЕННО!)
-    raw_word = request.query_params.get("word")
-    
-    # ЛОГ ДЛЯ ПРОВЕРКИ: Зайди в Vercel Logs, чтобы увидеть это
-    print(f"DEBUG: Пришло слово из чата: '{raw_word}'")
+    # Достаем токен авторизации Fossabot
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: return ""
 
-    if not raw_word:
-        return ""
+    try:
+        # 1. Спрашиваем контекст у Fossabot (здесь мы узнаем и ник, и само слово)
+        async with httpx.AsyncClient() as client:
+            fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=5.0)
         
-    # Очищаем от лишних пробелов и в верхний регистр
-    guess_word = raw_word.strip().upper()
-    
-    # ==========================================
-    # ⚡ СУПЕР-БЫСТРЫЙ ФИЛЬТР (1-5 миллисекунд)
-    # ==========================================
-    global guess_cache
-    now = time.time()
+        if fb_res.status_code != 200: return ""
+        message_data = fb_res.json().get("message")
+        if not message_data: return ""
 
-    # Обновляем кэш из базы раз в 10 секунд
-    if now - guess_cache["updated_at"] > 10:
-        try:
+        twitch_login = message_data["user"]["login"].lower()
+        twitch_display = message_data["user"]["display_name"]
+        # Вот здесь мы получаем слово, которое написал юзер
+        guess_word = message_data["content"].strip().upper()
+
+        # 2. Проверка кэша (чтобы не дергать Supabase лишний раз)
+        global guess_cache
+        now = time.time()
+
+        if now - guess_cache["updated_at"] > 10:
             state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
                 state = state_res.json()[0]
                 guess_cache["word"] = state.get("current_word", "").upper()
                 guess_cache["is_active"] = state.get("is_active", False)
                 guess_cache["updated_at"] = now
-                print(f"DEBUG: Кэш обновлен. Загаданное слово: {guess_cache['word']}")
-        except Exception as e:
-            print(f"DEBUG: Ошибка обновления кэша: {e}")
 
-    # Если игра выключена — молчим
-    if not guess_cache["is_active"] or not guess_cache["word"]:
-        return ""
-
-    # Если слово НЕ совпало — выходим мгновенно (экономим CPU)
-    if guess_word != guess_cache["word"]:
-        return ""
-
-    # ==========================================
-    # 🎉 СЛОВО СОВПАЛО! Теперь проверяем автора через API
-    # ==========================================
-    print(f"DEBUG: !!! СЛОВО СОВПАЛО ({guess_word}) !!!")
-    
-    # Достаем токен (пробуем заголовки, потом URL параметры)
-    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
-    
-    if not token: 
-        print("DEBUG: Токен не найден в запросе!")
-        return ""
-
-    try:
-        # Делаем долгий запрос к Fossabot ТОЛЬКО для победителя
-        async with httpx.AsyncClient() as client:
-            fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=5.0)
-        
-        if fb_res.status_code != 200: 
-            print(f"DEBUG: Fossabot API вернул ошибку {fb_res.status_code}")
+        # Если игра выключена или слово не совпало — тихо выходим
+        if not guess_cache["is_active"] or guess_word != guess_cache["word"]:
             return ""
 
-        fb_data = fb_res.json()
-        message_data = fb_data.get("message")
-        if not message_data: 
-            print("DEBUG: Данные сообщения отсутствуют в контексте")
-            return ""
-
-        twitch_login = message_data["user"]["login"].lower()
-        twitch_display = message_data["user"]["display_name"]
-        
+        # 3. ПОБЕДА! Обновляем базу
         target_word = guess_cache["word"]
         
-        # 1. Выбираем следующее слово (~150 мс)
+        # Выбираем некст слово
         words_res = await supabase.get("/guess_words")
         words_data = words_res.json() if words_res.status_code == 200 else []
         all_words = [w["word"] for w in words_data if w["word"].upper() != target_word]
-        
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
 
-        # 2. Пытаемся поменять слово в базе (Защита от гонки)
+        # Меняем статус (защита от race condition)
         patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_word}"}, 
-            json={"current_word": next_word, "revealed_indices": []},
-            headers={"Prefer": "return=representation"} 
+            json={"current_word": next_word, "revealed_indices": []}
         )
         
-        # Если база вернула пустоту — значит, кто-то другой уже угадал и сменил слово
-        if not patch_res.json():
-            print(f"DEBUG: {twitch_display} опоздал, слово уже сменилось.")
-            return "" 
+        if not patch_res.json(): return "" 
 
-        # 3. Начисляем очки
+        # Начисляем очки
         await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
         
-        # Сбрасываем кэш, чтобы следующий запрос обновил его из БД
+        # Сбрасываем кэш для мгновенного обновления
         guess_cache["updated_at"] = 0 
 
-        print(f"DEBUG: Победитель записан: {twitch_display}")
-        return f"🎉 @{twitch_display} угадал слово «{target_word}»! Следующее слово уже на экране! Очки начислены."
+        return f"🎉 @{twitch_display} угадал слово «{target_word}»! Следующее уже на экране."
 
     except Exception as e:
-        print(f"DEBUG: КРИТИЧЕСКАЯ ОШИБКА: {str(e)}")
+        print(f"DEBUG Error: {e}")
         return ""
 
 # --- Pydantic Схемы ---
