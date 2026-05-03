@@ -121,17 +121,12 @@ html, body {
    ПЕРЕКЛЮЧАТЕЛЬ МЕНЮ (ИДЕАЛЬНО ПО ЦЕНТРУ, НИЖЕ КНОПОК)
 ========================================== */
 .toggle-container {
-    position: fixed;
-    
-    /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛОК: Учитывает челку + 105px */
-    top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 105px) !important;
-    
-    left: 50%;
-    transform: translateX(-50%); 
-    z-index: 1000;
+    position: relative; /* Возвращаем в нормальный поток */
     display: flex;
     justify-content: center;
-    margin: 0;
+    width: 100%;
+    margin: 10px auto 15px auto; /* 10px сверху, 15px снизу (минимальные отступы) */
+    z-index: 10;
 }
 
 .toggle-wrapper {
@@ -164,8 +159,7 @@ html, body {
 .content-wrapper { 
     position: relative; 
     margin: 0 15px; 
-    /* Добавляем отступ сверху, чтобы слайдер и кейсы не прятались под переключатель! */
-    padding-top: 35px; 
+    /* padding-top: 35px; - ЭТУ СТРОКУ УДАЛЯЕМ */
 }
 .view-section { display: none; animation: fadeInScale 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
 .view-section.active { display: block; }
@@ -788,17 +782,17 @@ html, body {
 body.android-mode .top-header {
     padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 68px) !important;
 }
-body.android-mode .toggle-container {
+/*body.android-mode .toggle-container {
     top: calc(var(--tg-content-safe-area-inset-top, 0px) + 118px) !important;
 }
 
-/* 3. ПК-ВЕРСИЯ (DESKTOP / WEB - нет никаких шторок) */
+/* 3. ПК-ВЕРСИЯ (DESKTOP / WEB - нет никаких шторок) 
 body.desktop-mode .top-header {
     padding-top: 15px !important;
-}
+
 body.desktop-mode .toggle-container {
     top: 65px !important;
-}
+}}*/
 
 
 /* ==========================================
