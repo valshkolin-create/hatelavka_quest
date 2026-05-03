@@ -21895,8 +21895,6 @@ async def get_market_items(
 # 🎮 ИГРА "УГАДАЙ СЛОВО" (FOSSABOT + OBS + ADMIN)
 # ==========================================
 
-# --- 1. ОБРАБОТКА ОТВЕТОВ ИЗ ЧАТА (FOSSABOT) ---
-# ГЛОБАЛЬНЫЙ КЭШ: живет в памяти "прогретых" функций Vercel
 guess_cache = {
     "word": None,
     "is_active": False,
@@ -21908,12 +21906,44 @@ async def handle_fossabot_guess(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # 1. Получаем слово прямо из URL (МГНОВЕННО!)
+    raw_word = request.query_params.get("word")
+    if not raw_word:
+        return ""
+        
+    guess_word = raw_word.strip().upper()
+    
+    # ==========================================
+    # ⚡ СУПЕР-БЫСТРЫЙ ФИЛЬТР (1-5 миллисекунд)
+    # ==========================================
+    global guess_cache
+    now = time.time()
+
+    if now - guess_cache["updated_at"] > 10:
+        state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+        if state_res.status_code == 200 and state_res.json():
+            state = state_res.json()[0]
+            guess_cache["word"] = state.get("current_word", "").upper()
+            guess_cache["is_active"] = state.get("is_active", False)
+            guess_cache["updated_at"] = now
+
+    if not guess_cache["is_active"] or not guess_cache["word"]:
+        return ""
+
+    if guess_word != guess_cache["word"]:
+        # 🚀 ВОТ ОНО! Если слово не совпало, код завершается здесь. 
+        # Никаких запросов к API, никаких ожиданий! Время работы: ~2 мс.
+        return ""
+
+    # ==========================================
+    # 🎉 СЛОВО СОВПАЛО! Теперь тратим время на проверки
+    # ==========================================
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
         return ""
 
     try:
-        # 1. Забираем сообщение из чата
+        # Делаем долгий запрос к Fossabot ТОЛЬКО для победителя (~600 мс)
         async with httpx.AsyncClient() as client:
             fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         
@@ -21923,43 +21953,17 @@ async def handle_fossabot_guess(
 
         twitch_login = message_data["user"]["login"].lower()
         twitch_display = message_data["user"]["display_name"]
-        guess_word = message_data["content"].strip().upper()
-
-        # ==========================================
-        # 🛡️ БЫСТРЫЙ ФИЛЬТР (КЭШ)
-        # ==========================================
-        global guess_cache
-        now = time.time()
-
-        # Раз в 10 секунд обновляем загаданное слово из базы
-        if now - guess_cache["updated_at"] > 10:
-            state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
-            if state_res.status_code == 200 and state_res.json():
-                state = state_res.json()[0]
-                guess_cache["word"] = state.get("current_word", "").upper()
-                guess_cache["is_active"] = state.get("is_active", False)
-                guess_cache["updated_at"] = now
-
-        # Если игра выключена или кэш пуст - отбой (0 запросов к БД)
-        if not guess_cache["is_active"] or not guess_cache["word"]:
-            return ""
-
-        # Если слово из чата НЕ совпало с загаданным - отбой (0 запросов к БД)
-        if guess_word != guess_cache["word"]:
-            return ""
-
-        # ==========================================
-        # 🎉 СЛОВО УГАДАНО! Идем в базу
-        # ==========================================
+        
         target_word = guess_cache["word"]
         
+        # Получаем слова для некст раунда (~150 мс)
         words_res = await supabase.get("/guess_words")
         words_data = words_res.json() if words_res.status_code == 200 else []
         all_words = [w["word"] for w in words_data if w["word"].upper() != target_word]
         
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
 
-        # Пытаемся поменять слово в базе
+        # Пытаемся поменять слово в базе (~150 мс)
         patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_word}"}, 
@@ -21967,14 +21971,12 @@ async def handle_fossabot_guess(
             headers={"Prefer": "return=representation"} 
         )
         
-        # Если кто-то успел раньше
         if not patch_res.json():
             return "" 
 
-        # Начисляем очки
+        # Начисляем очки (~150 мс)
         await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
         
-        # Сбрасываем кэш, чтобы сервер сразу пошел за новым словом
         guess_cache["updated_at"] = 0 
 
         return f"🎉 @{twitch_display} угадал слово «{target_word}»! Следующее слово уже на экране! Очки начислены."
