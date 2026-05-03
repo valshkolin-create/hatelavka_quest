@@ -121,8 +121,7 @@
 
         .list-item {
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 6px; margin-bottom: 6px;
-            display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;
+            border-radius: 6px; margin-bottom: 6px; transition: all 0.2s;
         }
 
         .twitch-logo { font-size: 40px; color: #9146FF; margin-bottom: 10px; filter: drop-shadow(0 0 15px rgba(145, 70, 255, 0.4)); }
@@ -134,6 +133,17 @@
         
         .modal-overlay {
             backdrop-filter: blur(5px);
+            /* Запрещаем браузеру передавать свайпы на фон */
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+
+        /* Класс для прокручиваемых списков внутри модалок (надежный скролл на мобилках) */
+        .tg-scrollable {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: none; 
+            touch-action: pan-y;
         }
     </style>
 </head>
@@ -242,11 +252,12 @@
     <!-- МОДАЛКА: ЛИДЕРБОРД -->
     <div id="modal-leaderboard" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
         <div class="glass-card w-full max-w-md max-h-[85vh] flex flex-col bg-[#0f0f13] m-0">
-            <div class="flex justify-between items-center mb-3">
+            <div class="flex justify-between items-center mb-3 shrink-0">
                 <h2 class="!mb-0 text-white"><i class="fa-solid fa-trophy text-[#ffd700] mr-2"></i> Лидерборд</h2>
                 <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
-            <div id="admin-leaderboard" class="flex-1 overflow-y-auto overscroll-contain pr-1 space-y-1">
+            <!-- Добавлен класс tg-scrollable для надежного скролла -->
+            <div id="admin-leaderboard" class="flex-1 tg-scrollable pr-1 space-y-1 w-full">
                 <div class="text-gray-500 text-center mt-6 text-[10px]">Загрузка...</div>
             </div>
         </div>
@@ -268,12 +279,12 @@
     <!-- МОДАЛКА: НАГРАДЫ -->
     <div id="modal-rewards" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
         <div class="glass-card w-full max-w-md max-h-[90vh] flex flex-col bg-[#0f0f13] m-0">
-            <div class="flex justify-between items-center mb-3">
+            <div class="flex justify-between items-center mb-3 shrink-0">
                 <h2 class="!mb-0 text-white"><i class="fa-solid fa-gift text-[#ff4d4d] mr-2"></i> Настройки призов</h2>
                 <button onclick="closeModal('modal-rewards')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
             
-            <div class="bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3">
+            <div class="bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3 shrink-0">
                 <div class="grid grid-cols-3 gap-2 mb-2">
                     <input type="number" id="rew-place" placeholder="Место" class="input-custom text-center col-span-1">
                     <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center col-span-2">
@@ -284,7 +295,6 @@
                 </div>
                 <div class="flex gap-2 mb-2">
                     <input type="number" id="rew-amount" placeholder="Количество" class="input-custom text-center w-full">
-                    <!-- ИЗМЕНИЛИ INPUT НА SELECT ДЛЯ ВЫБОРА КЕЙСОВ -->
                     <select id="rew-case-name" class="input-custom text-center hidden w-full">
                         <option value="">Загрузка кейсов...</option>
                     </select>
@@ -292,7 +302,8 @@
                 <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить приз</button>
             </div>
             
-            <div id="rewards-list" class="flex-1 overflow-y-auto pr-1 space-y-1"></div>
+            <!-- Добавлен класс tg-scrollable для надежного скролла -->
+            <div id="rewards-list" class="flex-1 tg-scrollable pr-1 space-y-1"></div>
         </div>
     </div>
 
@@ -300,7 +311,6 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // КОНСТАНТЫ SUPABASE
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -332,17 +342,28 @@
         }
 
         // ==========================================
-        // УПРАВЛЕНИЕ МОДАЛКАМИ
+        // УПРАВЛЕНИЕ МОДАЛКАМИ И СКРОЛЛОМ
         // ==========================================
         function openModal(id) {
             document.getElementById(id).classList.remove('hidden');
-            document.body.style.overflow = 'hidden'; // Блокируем скролл фона
+            document.body.style.overflow = 'hidden'; 
+            
+            // Нативная блокировка свайпа (закрытия/прокрутки) в Telegram WebApp
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.disableVerticalSwipes) {
+                window.Telegram.WebApp.disableVerticalSwipes();
+            }
+
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
         
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
-            document.body.style.overflow = ''; // Возвращаем скролл
+            document.body.style.overflow = ''; 
+            
+            // Возвращаем нативные свайпы
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.enableVerticalSwipes) {
+                window.Telegram.WebApp.enableVerticalSwipes();
+            }
         }
 
         // ==========================================
@@ -364,10 +385,7 @@
                     return;
                 }
 
-                // Парсим JSON, если он пришел как строка
                 let casesList = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
-
-                // Заполняем select
                 caseSelect.innerHTML = casesList.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
             } catch (e) {
                 console.error("Ошибка загрузки кейсов:", e);
@@ -379,7 +397,6 @@
         // ЛОГИКА REALTIME (ОБЩАЯ)
         // ==========================================
         function handleStateChange(state) {
-            // Кастомный текст над буквами
             const obsTextEl = document.getElementById('obs-custom-text');
             if (obsTextEl) {
                 if (state.custom_text) {
@@ -393,7 +410,6 @@
                 document.getElementById('custom-text-input').value = state.custom_text;
             }
 
-            // Обработка размера текста
             if (state.text_size) {
                 document.documentElement.style.setProperty('--custom-text-font', state.text_size + 'rem');
                 if (!isObs) {
@@ -404,7 +420,6 @@
                 }
             }
 
-            // Обработка размера букв в OBS
             if (state.letter_size) {
                 document.documentElement.style.setProperty('--tile-size', state.letter_size + 'rem');
                 document.documentElement.style.setProperty('--tile-font', (state.letter_size * 0.7) + 'rem');
@@ -477,57 +492,56 @@
         }
 
         async function fetchLeaderboard() {
-    try {
-        // Вызываем твой защищенный API вместо прямого запроса к Supabase
-        const boardData = await apiCall('/api/v1/admin/guess/leaderboard');
+            try {
+                const boardData = await apiCall('/api/v1/admin/guess/leaderboard');
+                const container = document.getElementById('admin-leaderboard');
+                
+                if (!boardData || boardData.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 text-center text-xs mt-4">Список пуст</div>';
+                    return;
+                }
 
-        const container = document.getElementById('admin-leaderboard');
-        if (!boardData || boardData.length === 0) {
-            container.innerHTML = '<div class="text-gray-500 text-center text-xs mt-4">Список пуст</div>';
-            return;
+                // Заголовок (Жесткая Flexbox структура)
+                let html = `
+                    <div class="flex flex-row flex-nowrap justify-between items-center px-3 py-1 text-[9px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.05)] mb-2 w-full box-border shrink-0">
+                        <div class="flex-1 text-left">Ник</div>
+                        <div class="w-16 text-center shrink-0">Авторизация</div>
+                        <div class="w-12 text-right shrink-0">Очки</div>
+                    </div>
+                `;
+
+                // Строки (Жесткая Flexbox структура, запрещающая перенос элементов)
+                html += boardData.map((u, i) => {
+                    const authIcon = u.is_auth 
+                        ? '<i class="fa-solid fa-check text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]"></i>' 
+                        : '<i class="fa-solid fa-xmark text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]"></i>';
+
+                    return `
+                    <div class="list-item flex flex-row flex-nowrap justify-between items-center px-3 py-2 text-[11px] w-full box-border">
+                        <!-- Блок с ником (занимает всё доступное место, ужимает текст) -->
+                        <div class="flex flex-row flex-nowrap items-center min-w-0 flex-1 pr-2">
+                            <span class="text-gray-500 mr-2 shrink-0">#${i+1}</span> 
+                            <span class="font-bold text-gray-200 truncate leading-none">${u.twitch_login}</span>
+                        </div>
+                        
+                        <!-- Блок с иконкой (Фиксированный, не сжимается) -->
+                        <div class="w-16 flex justify-center items-center shrink-0 text-[13px]">
+                            ${authIcon}
+                        </div>
+                        
+                        <!-- Блок с очками (Фиксированный, не сжимается) -->
+                        <div class="w-12 text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex flex-row justify-end items-center gap-1 shrink-0 leading-none">
+                            ${u.score} <i class="fa-solid fa-star text-[0.7em]"></i>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                container.innerHTML = html;
+            } catch (e) {
+                console.error("Ошибка загрузки лидерборда:", e);
+                document.getElementById('admin-leaderboard').innerHTML = '<div class="text-red-500 text-center text-xs mt-4">Ошибка загрузки</div>';
+            }
         }
-
-        // Формируем HTML с заголовками
-        let html = `
-            <div class="flex items-center px-3 py-1 text-[9px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.05)] mb-2 w-full">
-                <div class="flex-1">Ник</div>
-                <div class="w-16 text-center">Авторизация</div>
-                <div class="w-12 text-right">Очки</div>
-            </div>
-        `;
-
-        // Рендерим строки
-        html += boardData.map((u, i) => {
-            const authIcon = u.is_auth 
-                ? '<i class="fa-solid fa-check text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]"></i>' 
-                : '<i class="fa-solid fa-xmark text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]"></i>';
-
-            return `
-            <div class="list-item flex items-center px-3 py-2 text-[11px] w-full">
-                <!-- Блок с ником (занимает всё свободное место, обрезается при нехватке) -->
-                <div class="flex-1 flex items-center min-w-0 pr-2">
-                    <span class="text-gray-500 mr-2 flex-shrink-0">#${i+1}</span> 
-                    <span class="font-bold text-gray-200 truncate">${u.twitch_login}</span>
-                </div>
-                
-                <!-- Блок с иконкой (фиксированная ширина, не сжимается) -->
-                <div class="w-16 text-center text-[13px] flex-shrink-0">
-                    ${authIcon}
-                </div>
-                
-                <!-- Блок с очками (фиксированная ширина, не сжимается) -->
-                <div class="w-12 text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex items-center justify-end gap-1 flex-shrink-0">
-                    ${u.score} <i class="fa-solid fa-star text-[0.7em]"></i>
-                </div>
-            </div>`;
-        }).join('');
-
-        container.innerHTML = html;
-    } catch (e) {
-        console.error("Ошибка загрузки лидерборда:", e);
-        document.getElementById('admin-leaderboard').innerHTML = '<div class="text-red-500 text-center text-xs mt-4">Ошибка загрузки</div>';
-    }
-}
 
         // ==========================================
         // УТИЛИТЫ И РЕНДЕР
@@ -603,7 +617,7 @@
                     initRealtime(); 
                     initLeaderboardRealtime(); 
                     
-                    loadCases(); // Загружаем список кейсов из базы
+                    loadCases();
                     loadDictionary();
                     loadRewards();
                 } else {
@@ -628,7 +642,6 @@
             tg.showAlert("Текст обновлен!");
         }
 
-        // Задержка отправки размера текста
         let textSizeTimeout;
         function changeTextSize(val) {
             document.getElementById('text-size-val').innerText = val;
@@ -638,7 +651,6 @@
             }, 300);
         }
 
-        // Задержка отправки размера букв
         let sizeTimeout;
         function changeLetterSize(val) {
             document.getElementById('letter-size-val').innerText = val;
@@ -671,7 +683,6 @@
             document.getElementById('rew-case-name').classList.toggle('hidden', !isCase);
         }
 
-        // --- КРАСИВЫЙ РЕНДЕР СПИСКА НАГРАД ---
         async function loadRewards() {
             try {
                 const rewards = await apiCall('/api/v1/admin/guess/rewards_config/get');
@@ -710,12 +721,10 @@
             const caseName = document.getElementById('rew-case-name').value;
             if (!place) return tg.showAlert("Укажите место");
             
-            // Если выбран кейс, но не выбран конкретный кейс из выпадающего списка
             if (type === 'case' && !caseName) return tg.showAlert("Выберите кейс из списка");
 
             await apiCall('/api/v1/admin/guess/rewards_config/add', { place, reward_type: type, amount, target_case_name: caseName });
             
-            // Очищаем инпуты после добавления
             document.getElementById('rew-place').value = '';
             document.getElementById('rew-amount').value = '';
             
