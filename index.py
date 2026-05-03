@@ -22111,8 +22111,27 @@ async def admin_guess_skip(req: GuessAdminBaseRequest, supabase: httpx.AsyncClie
 @app.post("/api/v1/admin/guess/leaderboard")
 async def admin_guess_leaderboard(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     verify_guess_admin(req.initData)
-    res = await supabase.get("/guess_leaderboard", params={"order": "score.desc", "limit": "100"})
-    return res.json() if res.status_code == 200 else []
+    
+    # 1. Получаем топ 50 игроков
+    lb_res = await supabase.get("/guess_leaderboard", params={"order": "score.desc", "limit": "50"})
+    leaders = lb_res.json() if lb_res.status_code == 200 else []
+    
+    if not leaders:
+        return []
+
+    # 2. Собираем логины для проверки
+    logins = [u["twitch_login"] for u in leaders]
+    logins_str = ",".join(logins)
+    
+    # 3. Ищем эти логины в таблице users (запрашиваем ТОЛЬКО поле twitch_login для скорости)
+    users_res = await supabase.get("/users", params={"twitch_login": f"in.({logins_str})", "select": "twitch_login"})
+    auth_users = set(u["twitch_login"] for u in users_res.json()) if users_res.status_code == 200 else set()
+    
+    # 4. Добавляем флаг is_auth каждому игроку
+    for user in leaders:
+        user["is_auth"] = user["twitch_login"] in auth_users
+        
+    return leaders
 
 @app.post("/api/v1/admin/guess/rewards_config/get")
 async def admin_guess_rewards_get(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
