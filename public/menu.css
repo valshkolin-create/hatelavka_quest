@@ -1089,18 +1089,14 @@ body.desktop-mode .toggle-container {
 }
 
 /* ==========================================
-   ФИКС ДЛЯ ДЕСКТОПА (ПК) - ПРИЖИМАЕМ К ВЕРХУ
+   ЖЕЛЕЗОБЕТОННЫЙ ФИКС ДЛЯ ДЕСКТОПА (Telegram ПК)
 ========================================== */
-@media (min-width: 768px) {
-    /* Жестко перебиваем мобильную формулу отступа для шапки */
-    .top-header {
-        padding-top: 15px !important; /* Аккуратный отступ от самого края монитора */
-        margin-bottom: 10px !important;
-    }
-    
-    /* Дополнительная страховка для контента */
-    .content-wrapper {
-        padding-top: 0 !important;
-        margin-top: 0 !important;
-    }
+body.desktop-platform .top-header {
+    padding-top: 15px !important; /* Убиваем те самые лишние 55px */
+    margin-bottom: 5px !important;
+}
+
+body.desktop-platform .content-wrapper {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
 }
