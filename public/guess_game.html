@@ -474,33 +474,72 @@
         }
 
         async function fetchLeaderboard() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('guess_leaderboard')
-                    .select('twitch_login, score')
-                    .order('score', { ascending: false })
-                    .limit(50);
+    try {
+        // 1. Получаем сам лидерборд
+        const { data: boardData, error: boardError } = await supabaseClient
+            .from('guess_leaderboard')
+            .select('twitch_login, score')
+            .order('score', { ascending: false })
+            .limit(50);
 
-                if (error) throw error;
+        if (boardError) throw boardError;
 
-                const container = document.getElementById('admin-leaderboard');
-                if (!container) return;
-                
-                const html = data.map((u, i) => `
-                    <div class="list-item px-3 py-2 text-[11px]">
-                        <div class="font-bold text-gray-200">
-                            <span class="text-gray-500 mr-2">#${i+1}</span> ${u.twitch_login}
-                        </div>
-                        <div class="text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 rounded flex items-center gap-1">
-                            <i class="fa-solid fa-star text-[0.8em]"></i> ${u.score}
-                        </div>
-                    </div>`).join('');
-
-                container.innerHTML = html || '<div class="text-gray-500 text-center text-xs mt-4">Список пуст</div>';
-            } catch (e) {
-                console.error("Ошибка загрузки лидерборда:", e);
-            }
+        const container = document.getElementById('admin-leaderboard');
+        if (!boardData || boardData.length === 0) {
+            container.innerHTML = '<div class="text-gray-500 text-center text-xs mt-4">Список пуст</div>';
+            return;
         }
+
+        // 2. Достаем логины для проверки в таблице users
+        const logins = boardData.map(u => u.twitch_login);
+        
+        // 3. Ищем этих пользователей в таблице users
+        const { data: usersData, error: usersError } = await supabaseClient
+            .from('users')
+            .select('twitch_login')
+            .in('twitch_login', logins);
+
+        if (usersError) console.error("Ошибка проверки пользователей:", usersError);
+
+        // Создаем Set для быстрого поиска авторизованных ников
+        const authorizedLogins = new Set((usersData || []).map(u => u.twitch_login));
+
+        // 4. Формируем HTML с заголовками
+        let html = `
+            <div class="flex justify-between items-center px-3 py-1 text-[9px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.05)] mb-2">
+                <div class="flex-1">Ник</div>
+                <div class="w-24 text-center">Авторизация</div>
+                <div class="w-12 text-right">Очки</div>
+            </div>
+        `;
+
+        // 5. Рендерим строки
+        html += boardData.map((u, i) => {
+            const isAuth = authorizedLogins.has(u.twitch_login);
+            // Если есть в таблице users — галочка, если нет — крестик
+            const authIcon = isAuth 
+                ? '<i class="fa-solid fa-check text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]"></i>' 
+                : '<i class="fa-solid fa-xmark text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]"></i>';
+
+            return `
+            <div class="list-item px-3 py-2 text-[11px]">
+                <div class="flex-1 font-bold text-gray-200 truncate">
+                    <span class="text-gray-500 mr-2">#${i+1}</span> ${u.twitch_login}
+                </div>
+                <div class="w-24 text-center text-[13px]">
+                    ${authIcon}
+                </div>
+                <div class="w-12 text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex items-center justify-end gap-1">
+                    ${u.score} <i class="fa-solid fa-star text-[0.7em]"></i>
+                </div>
+            </div>`;
+        }).join('');
+
+        container.innerHTML = html;
+    } catch (e) {
+        console.error("Ошибка загрузки лидерборда:", e);
+    }
+}
 
         // ==========================================
         // УТИЛИТЫ И РЕНДЕР
