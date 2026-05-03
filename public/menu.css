@@ -1066,3 +1066,24 @@ body.desktop-mode .toggle-container {
     position: relative;
     z-index: 10;
 }
+/* --- ФИКС ПУСТОТЫ СВЕРХУ --- */
+.top-header {
+    margin-bottom: 5px !important; 
+}
+.content-wrapper { 
+    padding-top: 0px !important; /* Убиваем старый отступ, который создавал дыру */
+}
+
+/* --- ФИКС ТУМБЛЕРА (ЧТОБЫ НЕ ПАДАЛ ВНИЗ И НЕ ВИСЕЛ) --- */
+.toggle-container {
+    position: relative !important; 
+    top: auto !important; 
+    bottom: auto !important; 
+    left: auto !important; 
+    transform: none !important; 
+    margin: 5px auto 20px auto !important; /* Отступы сверху и снизу от тумблера */
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+    z-index: 10 !important;
+}
