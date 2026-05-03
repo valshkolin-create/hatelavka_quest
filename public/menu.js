@@ -1728,7 +1728,7 @@ window.showCouponCaseInfo = function(caseName) {
 };
 
 function renderItems(items) {
-    // 🔥 Защита от краша: если передали не массив, делаем его пустым массивом
+    // 🔥 Защита от краша
     if (!Array.isArray(items)) items = []; 
 
     const container = document.getElementById('shop-grid');
@@ -1736,6 +1736,47 @@ function renderItems(items) {
 
     if (!items || items.length === 0) {
         container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding: 20px;">Пусто</div>';
+        return;
+    }
+
+    // 1. РАСЧЕТ ТРАСТ-ФАКТОРА (Подняли наверх, чтобы фильтр понимал реальные цены!)
+    const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
+    let trustMultiplier = 2; // Дефолт
+    if (score < 30) trustMultiplier = 3; 
+    else if (score >= 70) trustMultiplier = 1; 
+
+    // 2. 🔥 УМНАЯ ФИЛЬТРАЦИЯ ПО БАЛАНСУ 🔥
+    if (window.isSmartFilterActive) {
+        // Считываем то, что сейчас написано у юзера на экране
+        const currentCoins = parseInt(document.getElementById('user-balance')?.textContent.replace(/\s/g, '') || 0);
+        const currentTickets = parseInt(document.getElementById('ticketStats')?.textContent.replace(/\s/g, '') || 0);
+
+        items = items.filter(item => {
+            if (item.is_folder) return true; // Папки не трогаем
+            
+            const isFreeItem = window.activeFreeCases.includes(item.name);
+            if (isFreeItem) return true; // Бесплатные купоны показываем всегда
+
+            const originalPrice = parseFloat(item.price) || 0;
+            if (originalPrice === 9999) return false; // Обычные купонные (за 9999) прячем, если нет купона
+
+            // Учитываем текущую наценку
+            const displayPriceCoins = originalPrice * trustMultiplier;
+            const displayPriceTickets = (originalPrice * 2) * trustMultiplier;
+
+            // Оставляем только если хватает хотя бы монет ИЛИ билетов
+            return currentCoins >= displayPriceCoins || currentTickets >= displayPriceTickets;
+        });
+    }
+
+    // 3. Заглушка, если баланс совсем пустой и всё скрылось
+    if (items.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column:1/-1; text-align:center; color:#8e8e93; padding: 40px 10px;">
+                <i class="fa-solid fa-wallet" style="font-size:32px; margin-bottom:12px; opacity:0.3;"></i><br>
+                <span style="font-size:14px; font-weight:800; color:#fff;">Не хватает баланса</span><br>
+                <span style="font-size:11px; opacity:0.7;">Пока что вы не можете позволить себе ни один кейс. Подкопите монет или билетов!</span>
+            </div>`;
         return;
     }
 
@@ -4867,3 +4908,44 @@ try {
         customAlert("Критическая ошибка при запуске. Попробуйте перезагрузить приложение.");
     }
 }
+// ================================================================
+// УМНЫЙ ФИЛЬТР КЕЙСОВ
+// ================================================================
+window.isSmartFilterActive = false;
+
+window.toggleSmartFilter = () => {
+    window.isSmartFilterActive = !window.isSmartFilterActive;
+    
+    const btn = document.getElementById('smart-filter-btn');
+    const icon = document.getElementById('smart-filter-icon');
+    const text = document.getElementById('smart-filter-text');
+    const sw = document.getElementById('smart-filter-switch');
+    const circle = sw.querySelector('.switch-circle');
+
+    if (window.isSmartFilterActive) {
+        // Включено (Зеленое)
+        btn.style.background = 'rgba(52, 199, 89, 0.1)';
+        btn.style.borderColor = 'rgba(52, 199, 89, 0.3)';
+        icon.style.color = '#34c759';
+        text.style.color = '#fff';
+        sw.style.background = '#34c759';
+        circle.style.left = '18px';
+        circle.style.background = '#fff';
+    } else {
+        // Выключено (Серое)
+        btn.style.background = 'rgba(255,255,255,0.03)';
+        btn.style.borderColor = 'rgba(255,255,255,0.06)';
+        icon.style.color = '#8e8e93';
+        text.style.color = '#8e8e93';
+        sw.style.background = 'rgba(255,255,255,0.1)';
+        circle.style.left = '2px';
+        circle.style.background = '#8e8e93';
+    }
+
+    if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+
+    // Мгновенно перерисовываем кейсы
+    if (typeof window.currentCategoryId !== 'undefined' && itemsCache[window.currentCategoryId]) {
+        renderItems(itemsCache[window.currentCategoryId]);
+    }
+};
