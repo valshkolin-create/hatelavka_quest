@@ -21971,29 +21971,35 @@ async def admin_guess_words_get(req: GuessAdminBaseRequest, supabase: httpx.Asyn
 async def admin_guess_words_set(req: GuessWordsRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     verify_guess_admin(req.initData)
     
-    # 1. Очищаем старый словарь (используем фильтр по слову, это надежнее, чем id=gt.0)
+    # 1. Очищаем старый словарь
     del_res = await supabase.delete("/guess_words", params={"word": "not.is.null"})
     if del_res.status_code not in (200, 204):
-        print(f"Ошибка очистки БД: {del_res.text}")
-        return {"status": "error", "message": "Не удалось очистить старый словарь"}
+        return {"status": "error", "message": "Не удалось очистить словарь"}
 
-    # 2. Записываем новый словарь ЧАНКАМИ (кусочками по 200 слов)
     if req.words:
-        data = [{"word": w.upper()} for w in req.words]
-        chunk_size = 200  # Безопасный размер пачки для Supabase
+        # 2. ЖЕСТКАЯ ФИЛЬТРАЦИЯ ДУБЛИКАТОВ:
+        # Убираем пробелы, переводим в ВЕРХНИЙ РЕГИСТР и оставляем только уникальные слова через set()
+        unique_words = list(set(w.strip().upper() for w in req.words if len(w.strip()) > 2))
+        
+        data = [{"word": w} for w in unique_words]
+        chunk_size = 200
         
         for i in range(0, len(data), chunk_size):
             chunk = data[i:i + chunk_size]
             
-            post_res = await supabase.post("/guess_words", json=chunk)
+            # 3. Отправляем с заголовком resolution=ignore-duplicates (чтобы БД молча игнорила конфликты, а не крашилась)
+            post_res = await supabase.post(
+                "/guess_words", 
+                json=chunk,
+                headers={"Prefer": "resolution=ignore-duplicates"}
+            )
             
-            # Если хоть один кусок не записался — прерываем и выдаем ошибку
             if post_res.status_code not in (200, 201, 204):
-                print(f"Ошибка вставки в БД: {post_res.text}")
-                return {"status": "error", "message": f"Ошибка при записи слов: {post_res.text}"}
+                print(f"Ошибка БД: {post_res.text}")
+                return {"status": "error", "message": "Ошибка записи куска слов"}
 
     return {"status": "ok"}
-
+    
 # --- 2. УПРАВЛЕНИЕ РЕЖИМАМИ ---
 @app.post("/api/v1/admin/guess/mode/set")
 async def admin_guess_set_mode(req: GuessModeRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
