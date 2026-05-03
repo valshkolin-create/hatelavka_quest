@@ -18518,6 +18518,7 @@ async def claim_daily_task(
         streak_reset = False 
         reward = task.get("reward_amount", 0)
         secret_code = None
+        custom_message = None # Ввели переменную для кастомного текста уведомления
 
         # Проверка на сгорание серии
         if last_claimed_str and not is_golden_claim:
@@ -18535,16 +18536,33 @@ async def claim_daily_task(
 
         # 🔥 СЦЕНАРИЙ 1: ЭТО НАЖАТИЕ НА 7-Й ДЕНЬ (ЗОЛОТАЯ КНОПКА) 🔥
         if is_golden_claim and not streak_reset:
-            # Ищем и выдаем код
-            code_resp = await supabase.get("/cs_codes", params={"is_copied": "eq.false", "limit": 1})
-            codes = code_resp.json()
+            import uuid # Импортируем здесь на всякий случай
             
-            if codes:
-                code_obj = codes[0]
-                secret_code = code_obj["code"]
-                await supabase.patch("/cs_codes", params={"code": f"eq.{secret_code}"}, json={"is_copied": True, "assigned_to": user_id, "assigned_at": datetime.now(timezone.utc).isoformat()})
+            # 1. Генерируем уникальный код
+            unique_code = f"DAY7-{user_id}-{uuid.uuid4().hex[:4].upper()}"
             
-            reward = 0 if secret_code else 10
+            # 2. Создаем купон прямо для юзера
+            coupon_data = {
+                "code": unique_code,
+                "max_uses": 1,
+                "current_uses": 0,
+                "is_active": True,
+                "description": "Авто-код: Награда за 7 дней (Telegram Серия)",
+                "is_copied": False,
+                "assigned_to": user_id,
+                "assigned_at": datetime.now(timezone.utc).isoformat(),
+                "target_case_name": "Кейс | TELEGRAM", 
+                "used_by_ids": [],
+                "activated_by_ids": [str(user_id)], # Фронт видит этот ID и ставит "ОТКРЫТЬ БЕСПЛАТНО"
+                "campaign_id": 777
+            }
+            
+            await supabase.post("/cs_codes", json=coupon_data)
+            
+            reward = 0 
+            secret_code = None # Оставляем None, чтобы СЕКРЕТНОЕ ОКНО НЕ ВЫЛЕЗАЛО!
+            # ОБНОВЛЕННЫЙ ПОНЯТНЫЙ ТЕКСТ:
+            custom_message = "Успешная серия! Вам выдан бесплатный Кейс | TELEGRAM. Он уже ждёт в разделе Кейсы!"
             
             # СБРАСЫВАЕМ НА 1 ДЕНЬ (КРУГ ЗАМКНУЛСЯ)
             next_day = 1 
@@ -18594,7 +18612,8 @@ async def claim_daily_task(
             "tickets": new_balance, 
             "streak_reset": streak_reset, 
             "secret_code": secret_code, 
-            "message": f"Секретный код получен!" if secret_code else f"Задание выполнено! +{reward} билетов"
+            # Добавили вывод нашего нового текста, если он есть
+            "message": custom_message if custom_message else (f"Секретный код получен!" if secret_code else f"Задание выполнено! +{reward} билетов")
         })
 
     except Exception as e:
@@ -18909,7 +18928,7 @@ async def fix_webhook_settings():
         return {"status": "error", "detail": str(e)}
 
 
-# Замени @app.post на твой роутер, если используешь APIRouter
+
 @app.post("/api/v1/matrix/choose")
 async def choose_matrix_pill(
     req: MatrixChoiceRequest,
@@ -21328,9 +21347,6 @@ class TwitchCampaignEditRequest(BaseModel):
 class CaseInfo(BaseModel):
     name: str
 
-# ==========================================
-# 2. ПОЛУЧЕНИЕ НАЗВАНИЙ КЕЙСОВ (ИЗ КЭША)
-# ==========================================
 @app.get("/api/v1/admin/twitch_campaigns/cases", response_model=List[CaseInfo])
 async def get_available_cases(
     initData: str = Query(..., description="Авторизация админа"),
