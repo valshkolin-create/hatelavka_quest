@@ -5583,6 +5583,29 @@ async def keep_alive_ping():
     """
     return {"status": "ok", "message": "Backend is warm and ready, bro!"}
 
+@app.get("/api/v1/stats/general")
+async def get_general_stats(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    try:
+        # 1. Считаем ВСЕ записи в истории (это и есть открытые кейсы)
+        # Отправляем HEAD запрос (без скачивания самих данных), просим Supabase просто вернуть точное число
+        req_cases = await supabase.head("/cs_history", headers={"Prefer": "count=exact"})
+        # Supabase возвращает заголовок вида Content-Range: 0-0/1250, где 1250 - это общее число
+        total_cases = int(req_cases.headers.get("Content-Range", "0-0/0").split("/")[-1])
+
+        # 2. Считаем реально выведенные в Steam скины
+        # Замени 'completed' на тот статус, который у тебя означает успешный вывод!
+        req_skins = await supabase.head("/cs_history?status=eq.completed", headers={"Prefer": "count=exact"})
+        total_skins = int(req_skins.headers.get("Content-Range", "0-0/0").split("/")[-1])
+
+        return {
+            "total_cases": total_cases, 
+            "total_withdrawn": total_skins
+        }
+    except Exception as e:
+        print("Ошибка загрузки статистики:", e)
+        # Если что-то пойдет не так, вернем нули, чтобы фронт не упал
+        return {"total_cases": 0, "total_withdrawn": 0}
+
 @app.get("/api/v1/shop/case_contents")
 async def get_case_contents(
     response: Response, # 🔥 ДОБАВЛЕНО: объект response для управления заголовками
