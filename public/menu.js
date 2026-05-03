@@ -1741,20 +1741,30 @@ function renderItems(items) {
 
     // 🔥 ДОБАВЛЕНА СОРТИРОВКА
     // Проверяем, есть ли сейчас бесплатные купонные кейсы
-    const hasFreeCoupon = items.some(i => parseFloat(i.price) === 9999 && window.activeFreeCases.includes(i.name));
-
     items.sort((a, b) => {
-        if (a.is_folder && !b.is_folder) return -1;
-        if (!a.is_folder && b.is_folder) return 1;
-        const priceA = parseFloat(a.price) || 0;
-        const priceB = parseFloat(b.price) || 0;
-        
-        // Если есть халява — кидаем 9999 наверх (-1), иначе вниз (1) как было раньше
-        if (priceA === 9999 && priceB !== 9999) return hasFreeCoupon ? -1 : 1;
-        if (priceA !== 9999 && priceB === 9999) return hasFreeCoupon ? 1 : -1;
-        
-        return priceA - priceB;
-    });
+    // 1. Папки всегда на самом верху
+    if (a.is_folder && !b.is_folder) return -1;
+    if (!a.is_folder && b.is_folder) return 1;
+
+    // 2. Проверяем, доступны ли кейсы БЕСПЛАТНО прямо сейчас
+    const isFreeA = window.activeFreeCases.includes(a.name);
+    const isFreeB = window.activeFreeCases.includes(b.name);
+
+    // Если один бесплатный, а второй нет — бесплатный летит наверх
+    if (isFreeA && !isFreeB) return -1;
+    if (!isFreeA && isFreeB) return 1;
+
+    // 3. Остальная сортировка для платных кейсов
+    const priceA = parseFloat(a.price) || 0;
+    const priceB = parseFloat(b.price) || 0;
+    
+    // Закрытые купонные кейсы (цена 9999), на которые сейчас НЕТ купона, убираем в самый низ списка
+    if (priceA === 9999 && priceB !== 9999) return 1;
+    if (priceA !== 9999 && priceB === 9999) return -1;
+    
+    // Обычные платные кейсы сортируем по возрастанию цены
+    return priceA - priceB;
+});
 
     const fragment = document.createDocumentFragment();
     let couponHeaderAdded = false;
