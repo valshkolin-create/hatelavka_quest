@@ -155,6 +155,23 @@
                     </div>
                 </div>
 
+                <!-- СТАТИСТИКА ПРОЕКТА -->
+<div id="global-stats-block" style="display: flex; gap: 10px; margin: 0 16px 15px 16px;">
+    <!-- Открыто кейсов -->
+    <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 12px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
+        <i class="fa-solid fa-box-open" style="color: #2AABEE; font-size: 20px; margin-bottom: 8px; filter: drop-shadow(0 0 8px rgba(42, 171, 238, 0.4));"></i>
+        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 2px;">Кейсов открыто</div>
+        <div id="stat-cases-opened" style="font-size: 18px; font-weight: 900; color: #fff; font-family: 'SF Mono', monospace; letter-spacing: -0.5px;">0</div>
+    </div>
+    
+    <!-- Выдано скинов -->
+    <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 12px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
+        <i class="fa-solid fa-gun" style="color: #ffd700; font-size: 20px; margin-bottom: 8px; filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.4)); transform: scaleX(-1);"></i>
+        <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 2px;">Скинов выдано</div>
+        <div id="stat-skins-issued" style="font-size: 18px; font-weight: 900; color: #fff; font-family: 'SF Mono', monospace; letter-spacing: -0.5px;">0</div>
+    </div>
+</div>
+
                 <div id="matrix-quest-tracker"></div>
                         
                 <div id="main-slider-container" class="slider-container fullscreen-slider" style="display:none;">
