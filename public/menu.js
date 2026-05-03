@@ -1816,12 +1816,6 @@ items.sort((a, b) => {
     let regularHeaderAdded = false; 
     let couponHeaderAdded = false;
 
-    // 🔥 РАСЧЕТ ТРАСТ-ФАКТОРА (Смотрим на баллы, как в модалке)
-    const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
-    let trustMultiplier = 2; // Дефолт (Серый, 30-79.9)
-    if (score < 30) trustMultiplier = 3; // Красный (0-29.9)
-    else if (score >= 70) trustMultiplier = 1; // Зеленый (70-100)
-
     const multiplierBadgeCoins = trustMultiplier > 1 
         ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(255,255,255,0.7); color: #000; padding: 1px 3px; border-radius: 3px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(0,0,0,0.15);">x${trustMultiplier}</span>` 
         : '';
