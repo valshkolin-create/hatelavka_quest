@@ -21901,13 +21901,11 @@ async def handle_fossabot_guess(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Получаем токен авторизации (либо из заголовка, либо из URL если передаешь параметром)
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
         return ""
 
     try:
-        # 1. Получаем контекст сообщения от Fossabot
         async with httpx.AsyncClient() as client:
             fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
         
@@ -21922,63 +21920,54 @@ async def handle_fossabot_guess(
         twitch_login = message_data["user"]["login"].lower()
         twitch_display = message_data["user"]["display_name"]
         
-        # Очищаем сообщение от лишних пробелов и переводим в капс
+        # Игрок пишет просто слово в чат (например: "ЯБЛОКО")
         guess_word = message_data["content"].strip().upper()
 
-        # 2. Получаем текущее состояние игры из базы
         state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
         if state_res.status_code != 200 or not state_res.json(): 
             return ""
         
         state = state_res.json()[0]
         
-        # Если игра выключена или слова нет — просто игнорим (молчим)
         if not state.get("is_active") or not state.get("current_word"):
             return ""
 
         target_word = state["current_word"].upper()
 
-        # 3. ПРОВЕРКА СЛОВА
+        # Так как команд нет, оставляем строгое совпадение
         if guess_word == target_word:
             
-            # --- ЗАЩИТА ОТ ГОНКИ (RACE CONDITION) ---
-            # Пока мы обрабатываем, кто-то другой мог уже угадать миллисекундой раньше.
-            # Мы обновляем слово ТОЛЬКО если оно всё еще равно target_word.
-            
-            # Достаем все слова
             words_res = await supabase.get("/guess_words")
             words_data = words_res.json() if words_res.status_code == 200 else []
             all_words = [w["word"] for w in words_data if w["word"].upper() != target_word]
             
             next_word = random.choice(all_words) if all_words else "КОНЕЦ"
 
-            # Пытаемся обновить статус, где current_word всё ещё старое
+            # 🔴 ИСПРАВЛЕНИЕ: Добавлен headers, чтобы код не падал с ошибкой JSON!
             patch_res = await supabase.patch(
                 "/guess_state", 
                 params={"id": "eq.1", "current_word": f"eq.{state['current_word']}"}, 
-                json={"current_word": next_word, "revealed_indices": []}
+                json={"current_word": next_word, "revealed_indices": []},
+                headers={"Prefer": "return=representation"} 
             )
             
-            # Если база вернула пустой массив, значит кто-то успел угадать раньше (слово уже поменялось)
+            # Теперь база корректно вернет обновленные данные, и код пойдет дальше
             if not patch_res.json():
-                return "" # Молчим, игрок опоздал
+                return "" # Защита от гонки: кто-то другой успел раньше
 
-            # Если мы тут, значит юзер официально первый!
-            # Начисляем балл (вызов твоей RPC)
+            # Начисляем очки
             await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
 
             print(f"DEBUG: Победитель {twitch_display} угадал слово {target_word}!")
             
-            # Возвращаем текст победы в чат
+            # Отвечаем Fossabot'у, чтобы он написал это в чат Twitch
             return f"🎉 @{twitch_display} угадал слово «{target_word}»! Следующее слово уже на экране! Очки начислены."
 
-        # Если слово не подошло - ничего не отвечаем, чтобы не спамить в чат
         return "" 
         
     except Exception as e:
         print(f"DEBUG: Ошибка в Guess Word: {str(e)}")
         return ""
-
 
 # --- Pydantic Схемы ---
 class GuessModeRequest(GuessAdminBaseRequest):
