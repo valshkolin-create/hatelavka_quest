@@ -3155,8 +3155,8 @@ window.pasteCoupon = async () => {
 };
 
 window.activateCouponSubmit = async () => {
-    const input = document.getElementById('coupon-input');
-    const code = input.value.trim().toUpperCase();
+    const input = document.getElementById('coupon-input');
+    const code = input.value.trim(); // <--- Теперь фронт отправляет ровно то, что ввел юзер
     if (!code) return customAlert("Введите промокод!");
 
     const btn = document.getElementById('activate-coupon-btn');
