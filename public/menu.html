@@ -121,19 +121,26 @@
         <i class="fa-solid fa-rotate-right"></i>
     </div>
 
-<!-- УЛЬТРА-МИНИМАЛИСТИЧНАЯ СТАТИСТИКА (теперь она будет фиксированной через CSS) -->
-<div id="global-stats-block">
+    <!-- УЛЬТРА-МИНИМАЛИСТИЧНАЯ СТАТИСТИКА -->
+<div id="global-stats-block" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin: 0 16px 4px 16px; opacity: 0.7;">
+    
+    <!-- Кейсы -->
     <div style="display: flex; align-items: center; gap: 6px; font-size: 10px;">
         <i class="fa-solid fa-box-open" style="color: #2AABEE;"></i>
-        <span style="color: #8e8e93; font-weight: 700; text-transform: uppercase;">Открыто кейсов:</span>
+        <span style="color: #8e8e93; font-weight: 700; text-transform: uppercase;">Открыто:</span>
         <span id="stat-cases-opened" style="color: #fff; font-weight: 900; font-family: 'SF Mono', monospace;">0</span>
     </div>
+
+    <!-- Точка-разделитель -->
     <div style="width: 3px; height: 3px; background: rgba(255,255,255,0.3); border-radius: 50%;"></div>
+
+    <!-- Скины -->
     <div style="display: flex; align-items: center; gap: 6px; font-size: 10px;">
         <i class="fa-solid fa-gun" style="color: #ffd700; transform: scaleX(-1);"></i>
-        <span style="color: #8e8e93; font-weight: 700; text-transform: uppercase;">Успешных сделок:</span>
+        <span style="color: #8e8e93; font-weight: 700; text-transform: uppercase;">Выдано:</span>
         <span id="stat-skins-issued" style="color: #fff; font-weight: 900; font-family: 'SF Mono', monospace;">0</span>
     </div>
+
 </div>
 
     <div class="toggle-container">
