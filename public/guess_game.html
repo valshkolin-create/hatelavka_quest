@@ -246,7 +246,7 @@
                 <h2 class="!mb-0 text-white"><i class="fa-solid fa-trophy text-[#ffd700] mr-2"></i> Лидерборд</h2>
                 <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
-            <div id="admin-leaderboard" class="flex-1 overflow-y-auto pr-1 space-y-1">
+            <div id="admin-leaderboard" class="flex-1 overflow-y-auto overscroll-contain pr-1 space-y-1">
                 <div class="text-gray-500 text-center mt-6 text-[10px]">Загрузка...</div>
             </div>
         </div>
@@ -336,10 +336,13 @@
         // ==========================================
         function openModal(id) {
             document.getElementById(id).classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Блокируем скролл фона
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
+        
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
+            document.body.style.overflow = ''; // Возвращаем скролл
         }
 
         // ==========================================
@@ -486,29 +489,34 @@
 
         // Формируем HTML с заголовками
         let html = `
-            <div class="flex justify-between items-center px-3 py-1 text-[9px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.05)] mb-2">
+            <div class="flex items-center px-3 py-1 text-[9px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.05)] mb-2 w-full">
                 <div class="flex-1">Ник</div>
-                <div class="w-24 text-center">Авторизация</div>
+                <div class="w-16 text-center">Авторизация</div>
                 <div class="w-12 text-right">Очки</div>
             </div>
         `;
 
         // Рендерим строки
         html += boardData.map((u, i) => {
-            // Флаг is_auth теперь приходит прямо с бэкенда
             const authIcon = u.is_auth 
                 ? '<i class="fa-solid fa-check text-green-500 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]"></i>' 
                 : '<i class="fa-solid fa-xmark text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]"></i>';
 
             return `
-            <div class="list-item px-3 py-2 text-[11px]">
-                <div class="flex-1 font-bold text-gray-200 truncate">
-                    <span class="text-gray-500 mr-2">#${i+1}</span> ${u.twitch_login}
+            <div class="list-item flex items-center px-3 py-2 text-[11px] w-full">
+                <!-- Блок с ником (занимает всё свободное место, обрезается при нехватке) -->
+                <div class="flex-1 flex items-center min-w-0 pr-2">
+                    <span class="text-gray-500 mr-2 flex-shrink-0">#${i+1}</span> 
+                    <span class="font-bold text-gray-200 truncate">${u.twitch_login}</span>
                 </div>
-                <div class="w-24 text-center text-[13px]">
+                
+                <!-- Блок с иконкой (фиксированная ширина, не сжимается) -->
+                <div class="w-16 text-center text-[13px] flex-shrink-0">
                     ${authIcon}
                 </div>
-                <div class="w-12 text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex items-center justify-end gap-1">
+                
+                <!-- Блок с очками (фиксированная ширина, не сжимается) -->
+                <div class="w-12 text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex items-center justify-end gap-1 flex-shrink-0">
                     ${u.score} <i class="fa-solid fa-star text-[0.7em]"></i>
                 </div>
             </div>`;
