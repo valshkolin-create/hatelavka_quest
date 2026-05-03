@@ -1842,7 +1842,7 @@ function renderItems(items) {
             if (showFreeButton) {
                 buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
                     <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="background: transparent; color: #34c759; text-shadow: 0 0 10px rgba(52, 199, 89, 0.9), 0 0 20px rgba(52, 199, 89, 0.4); width: 100%; height: 100%; border: none; border-radius: 12px; font-weight: 900; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; text-transform: uppercase; cursor: pointer; outline: none; transition: transform 0.2s ease;">
-                        <span style="font-size: 9px; opacity: 0.9;">ОТКРЫТЬ</span>
+                        <span style="font-size: 9px; opacity: 0.9; margin-top: 12px;">ОТКРЫТЬ</span>
                         <span style="font-size: 13px;">БЕСПЛАТНО</span>
                     </button>
                 </div>`;
