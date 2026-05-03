@@ -3473,6 +3473,10 @@ async function main() {
 
         // УБРАНО: fetchNotificationsBadge(); — теперь бейджик ставится из бутстрапа выше
 
+        // 👇 ДОБАВЛЯЕШЬ ЗАПУСК СТАТИСТИКИ СЮДА 👇
+        loadGlobalStats(); 
+        // 👆 --------------------------------- 👆
+
         if (!isCached) updateLoading(100);
 
         if (!isCached && dom.loaderOverlay) {
@@ -3505,6 +3509,55 @@ async function main() {
         }
     }
 } // 🔥 <--- ДОБАВЬ ВОТ ЭТУ СКОБКУ СЮДА! ОНА ЗАКРЫВАЕТ ФУНКЦИЮ main()
+
+// ================================================================
+// ГЛОБАЛЬНАЯ СТАТИСТИКА ПРОЕКТА
+// ================================================================
+async function loadGlobalStats() {
+    try {
+        // Делаем тихий запрос, чтобы не перекрывать экран лоадерами
+        const stats = await makeApiRequest('/api/v1/stats/general', {}, 'GET', true);
+        if (stats) {
+            animateCounter('stat-cases-opened', stats.total_cases || 0);
+            animateCounter('stat-skins-issued', stats.total_withdrawn || 0);
+        }
+    } catch (e) {
+        console.warn("Не удалось загрузить статистику проекта:", e);
+    }
+}
+
+// Красивая плавная анимация бегущих цифр
+function animateCounter(elementId, endValue) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    
+    // Убираем пробелы, если они там были, и парсим текущее значение
+    let startValue = parseInt(el.textContent.replace(/\s/g, '')) || 0;
+    if (startValue === endValue) return; // Если не изменилось — не крутим
+    
+    const duration = 1500; // Анимация длится 1.5 секунды
+    let startTimestamp = null;
+    
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        
+        // easing (замедление к концу анимации)
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+        const current = Math.floor(easeOutQuart * (endValue - startValue) + startValue);
+        
+        // Форматируем красиво: 1 250 вместо 1250
+        el.textContent = current.toLocaleString('ru-RU');
+        
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            el.textContent = endValue.toLocaleString('ru-RU');
+        }
+    };
+    
+    window.requestAnimationFrame(step);
+}
 
 // ================================================================
 // THE MATRIX EVENT (СИНЯЯ / КРАСНАЯ ПИЛЮЛЯ)
