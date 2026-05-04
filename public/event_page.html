@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HATElove | Общий Сбор</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+        
+        body {
+            background-color: #050505; color: #fff; font-family: 'Montserrat', sans-serif;
+            margin: 0; min-height: 100vh; overflow: hidden; overscroll-behavior: none;
+        }
+
+        /* --- Анимация обложки (Дыхание) --- */
+        @keyframes breathe {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        #event-cover {
+            position: absolute; top: 0; left: 0; width: 100%; height: 65vh;
+            background-size: cover; background-position: center;
+            animation: breathe 15s infinite ease-in-out;
+            z-index: 0;
+        }
+
+        /* Градиент поверх картинки, чтобы текст читался идеально */
+        .cover-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 65vh;
+            background: linear-gradient(to bottom, rgba(5,5,5,0.2) 0%, rgba(5,5,5,0.8) 70%, #050505 100%);
+            z-index: 1;
+        }
+
+        /* --- Glass-Card для интерфейса --- */
+        .glass-panel {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 50vh;
+            background: linear-gradient(180deg, rgba(20, 20, 22, 0.4) 0%, rgba(10, 10, 12, 0.9) 100%);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(145, 70, 255, 0.3);
+            border-radius: 30px 30px 0 0;
+            padding: 24px 20px calc(env(safe-area-inset-bottom, 20px) + 24px);
+            box-sizing: border-box;
+            display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* --- Неоновый Прогресс-бар --- */
+        .progress-bg {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px; width: 100%; height: 24px;
+            position: relative; overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .progress-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #9146FF 0%, #ff4d4d 100%);
+            border-radius: 100px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 20px rgba(145, 70, 255, 0.8), inset 0 0 10px rgba(255,255,255,0.5);
+            position: relative;
+        }
+
+        /* Блик, бегущий по полосе */
+        .progress-fill::after {
+            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite linear;
+        }
+        @keyframes shimmer { 100% { left: 200%; } }
+
+        /* --- Кнопки --- */
+        .action-btn {
+            border: none; border-radius: 12px; font-weight: 900; text-transform: uppercase;
+            padding: 12px; font-size: 13px; cursor: pointer; transition: all 0.2s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; overflow: hidden; flex: 1;
+        }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
+        
+        .btn-coins { background: linear-gradient(135deg, #FFD700, #F5A623); color: #000; box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3); }
+        .btn-tickets { background: linear-gradient(135deg, #007aff, #0056b3); color: #fff; box-shadow: 0 5px 15px rgba(0, 122, 255, 0.3); }
+        
+        .input-donate {
+            background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+            color: white; border-radius: 12px; padding: 12px; text-align: center;
+            font-size: 18px; font-weight: 900; width: 100%; box-sizing: border-box; outline: none;
+        }
+        .input-donate:focus { border-color: #9146FF; }
+
+        /* Кнопка админа */
+        .admin-btn-floating {
+            position: absolute; top: calc(env(safe-area-inset-top, 20px) + 10px); right: 20px;
+            background: rgba(0,0,0,0.6); border: 1px solid rgba(145,70,255,0.5);
+            color: white; padding: 8px 12px; border-radius: 100px; font-size: 10px; font-weight: 900;
+            text-transform: uppercase; z-index: 50; display: flex; align-items: center; gap: 6px;
+            backdrop-filter: blur(5px); transition: 0.2s;
+        }
+        .admin-btn-floating:active { transform: scale(0.9); }
+
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #9146FF;
+            border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- КНОПКА АДМИНА (Скрыта по умолчанию) -->
+    <a href="guess.html" id="admin-btn" class="admin-btn-floating hidden">
+        <i class="fa-solid fa-screwdriver-wrench text-[#9146FF]"></i> Админка
+    </a>
+
+    <!-- ОБЛОЖКА -->
+    <div id="event-cover" style="background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2000&auto=format&fit=crop');"></div>
+    <div class="cover-overlay"></div>
+
+    <!-- КОНТЕНТ (Glass Panel) -->
+    <div class="glass-panel" id="content-panel">
+        
+        <div id="loading-state" class="flex-1 flex flex-col items-center justify-center">
+            <div class="loader mb-4"></div>
+            <p class="text-gray-400 text-[11px] uppercase font-bold tracking-widest">Загрузка ивента...</p>
+        </div>
+
+        <div id="empty-state" class="hidden flex-1 flex flex-col items-center justify-center">
+            <i class="fa-solid fa-bed text-5xl text-gray-600 mb-4"></i>
+            <h2 class="text-xl font-black text-gray-400 uppercase">Сборов пока нет</h2>
+            <p class="text-[11px] text-gray-500 mt-2 text-center">Стример отдыхает или готовит что-то грандиозное.</p>
+        </div>
+
+        <div id="active-state" class="hidden flex-col h-full justify-between">
+            <!-- Заголовок и Проценты -->
+            <div class="text-center shrink-0">
+                <h1 id="ev-title" class="text-2xl font-black uppercase tracking-wide drop-shadow-lg leading-tight mb-1">...</h1>
+                <div class="flex items-center justify-center gap-3">
+                    <span id="ev-percent" class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#9146FF] to-[#ff4d4d] drop-shadow-[0_0_15px_rgba(145,70,255,0.6)]">0%</span>
+                </div>
+                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"><span id="ev-current">0</span> / <span id="ev-target">0</span> ОЧКОВ</p>
+            </div>
+
+            <!-- Шкала -->
+            <div class="w-full my-4 shrink-0">
+                <div class="progress-bg">
+                    <div id="ev-bar" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Управление -->
+            <div id="controls-section" class="w-full shrink-0">
+                <input type="number" id="donate-amount" class="input-donate mb-3" placeholder="Введите сумму..." value="10">
+                
+                <div class="flex gap-2">
+                    <button onclick="donate('coins')" id="btn-coins" class="action-btn btn-coins">
+                        <span class="flex items-center gap-1 text-[14px]"><i class="fa-solid fa-coins"></i> Монеты</span>
+                        <span class="text-[8px] opacity-70 mt-1 uppercase font-bold text-black tracking-wide">1 шт = 10 очков</span>
+                    </button>
+                    
+                    <button onclick="donate('tickets')" id="btn-tickets" class="action-btn btn-tickets">
+                        <span class="flex items-center gap-1 text-[14px]"><i class="fa-solid fa-ticket"></i> Билеты</span>
+                        <span class="text-[8px] opacity-70 mt-1 uppercase font-bold text-white tracking-wide">1 шт = 5 очков</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Плашка завершения -->
+            <div id="finished-section" class="hidden w-full bg-[rgba(52,199,89,0.15)] border border-[#34c759] rounded-xl p-4 text-center shrink-0">
+                <i class="fa-solid fa-circle-check text-3xl text-[#34c759] mb-2 animate-bounce"></i>
+                <h3 class="text-[14px] font-black uppercase text-white mb-1">Сбор Успешно Завершен!</h3>
+                <p class="text-[10px] text-gray-300 font-bold">Награда в Twitch активирована.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+
+        let isEventFinished = false;
+
+        async function apiCall(endpoint, body = {}, method = 'POST') {
+            const options = { method, headers: { 'Content-Type': 'application/json' } };
+            if (method !== 'GET') {
+                options.body = JSON.stringify({ ...body, initData: tg.initData });
+            }
+            const res = await fetch(endpoint, options);
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "API Error");
+            }
+            return await res.json();
+        }
+
+        async function checkAdmin() {
+            try {
+                const userData = await apiCall('/api/v1/user/me', {}, 'POST');
+                if (userData?.is_admin) {
+                    document.getElementById('admin-btn').classList.remove('hidden');
+                }
+            } catch(e) { console.error("Not admin"); }
+        }
+
+        function updateUI(eventData) {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('active-state').classList.remove('hidden');
+
+            document.getElementById('ev-title').innerText = eventData.title;
+            document.getElementById('ev-target').innerText = eventData.target_points;
+            document.getElementById('ev-current').innerText = eventData.current_points;
+            
+            if (eventData.cover_url) {
+                document.getElementById('event-cover').style.backgroundImage = `url('${eventData.cover_url}')`;
+            }
+
+            let percent = Math.floor((eventData.current_points / eventData.target_points) * 100);
+            if (percent > 100) percent = 100;
+
+            document.getElementById('ev-percent').innerText = `${percent}%`;
+            document.getElementById('ev-bar').style.width = `${percent}%`;
+
+            if (percent >= 100 || !eventData.is_active) {
+                isEventFinished = true;
+                document.getElementById('controls-section').classList.add('hidden');
+                document.getElementById('finished-section').classList.remove('hidden');
+            }
+        }
+
+        async function loadEvent(silent = false) {
+            if(isEventFinished) return; // Не спамим запросами, если уже собрали
+            try {
+                const res = await fetch('/api/v1/events/current'); // Наш GET эндпоинт без авторизации
+                const data = await res.json();
+
+                if (data.status === 'empty' || !data.event) {
+                    document.getElementById('loading-state').classList.add('hidden');
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    document.getElementById('active-state').classList.add('hidden');
+                    return;
+                }
+                updateUI(data.event);
+            } catch (e) {
+                if(!silent) tg.showAlert("Ошибка загрузки: " + e.message);
+            }
+        }
+
+        async function donate(type) {
+            const amountInput = document.getElementById('donate-amount');
+            const amount = parseInt(amountInput.value);
+            
+            if (!amount || amount <= 0) {
+                tg.HapticFeedback.notificationOccurred('error');
+                return tg.showAlert("Введите корректную сумму!");
+            }
+
+            const btn = type === 'coins' ? document.getElementById('btn-coins') : document.getElementById('btn-tickets');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i>';
+            btn.disabled = true;
+
+            try {
+                const res = await apiCall('/api/v1/events/donate', {
+                    currency_type: type,
+                    amount: amount
+                });
+
+                tg.HapticFeedback.notificationOccurred('success');
+                
+                // Моментально обновляем интерфейс локально
+                const target = parseInt(document.getElementById('ev-target').innerText);
+                updateUI({
+                    title: document.getElementById('ev-title').innerText,
+                    cover_url: document.getElementById('event-cover').style.backgroundImage.slice(5, -2),
+                    target_points: target,
+                    current_points: res.new_total,
+                    is_active: !res.is_finished
+                });
+                
+                if (res.is_finished) {
+                    tg.showPopup({ title: "УРА!", message: "Сбор успешно завершен! Награда на Твиче скрыта." });
+                }
+
+            } catch (e) {
+                tg.HapticFeedback.notificationOccurred('error');
+                tg.showAlert(e.message);
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        // Запуск
+        checkAdmin();
+        loadEvent();
+        
+        // Автообновление каждые 5 секунд
+        setInterval(() => loadEvent(true), 5000);
+    </script>
+</body>
+</html>
