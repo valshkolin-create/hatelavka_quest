@@ -101,7 +101,7 @@
             background: rgba(0,0,0,0.6); border: 1px solid rgba(145,70,255,0.5);
             color: white; padding: 8px 12px; border-radius: 100px; font-size: 10px; font-weight: 900;
             text-transform: uppercase; z-index: 50; display: flex; align-items: center; gap: 6px;
-            backdrop-filter: blur(5px); transition: 0.2s;
+            backdrop-filter: blur(5px); transition: 0.2s; cursor: pointer;
         }
         .admin-btn-floating:active { transform: scale(0.9); }
 
@@ -114,10 +114,10 @@
 </head>
 <body>
 
-    <!-- КНОПКА АДМИНА (Скрыта по умолчанию) -->
-    <a href="guess_gamme.html" id="admin-btn" class="admin-btn-floating hidden">
+    <!-- КНОПКА АДМИНА (Скрыта по умолчанию, роутинг внутри WebApp) -->
+    <button onclick="window.location.href='guess_gamme.html'" id="admin-btn" class="admin-btn-floating hidden">
         <i class="fa-solid fa-screwdriver-wrench text-[#9146FF]"></i> Админка
-    </a>
+    </button>
 
     <!-- ОБЛОЖКА -->
     <div id="event-cover" style="background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2000&auto=format&fit=crop');"></div>
