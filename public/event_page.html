@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HATElove | Общий Сбор</title>
+    <title>HATElove | Общий Сбор & Игра</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -15,7 +16,7 @@
             margin: 0; min-height: 100vh; overflow: hidden; overscroll-behavior: none;
         }
 
-        /* --- Анимация обложки (Дыхание) --- */
+        /* --- Анимация обложки --- */
         @keyframes breathe {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
@@ -27,9 +28,9 @@
             background-size: cover; background-position: center;
             animation: breathe 15s infinite ease-in-out;
             z-index: 0;
+            transition: background-image 0.5s ease;
         }
 
-        /* Градиент поверх картинки, чтобы текст читался идеально */
         .cover-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 65vh;
             background: linear-gradient(to bottom, rgba(5,5,5,0.2) 0%, rgba(5,5,5,0.8) 70%, #050505 100%);
@@ -47,27 +48,24 @@
             box-sizing: border-box;
             display: flex; flex-direction: column; z-index: 10;
             box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+            transition: height 0.3s ease;
         }
 
         /* --- Неоновый Прогресс-бар --- */
         .progress-bg {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 100px; width: 100%; height: 24px;
-            position: relative; overflow: hidden;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            position: relative; overflow: hidden; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
         }
 
         .progress-fill {
             height: 100%; width: 0%;
             background: linear-gradient(90deg, #9146FF 0%, #ff4d4d 100%);
-            border-radius: 100px;
-            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 100px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 0 20px rgba(145, 70, 255, 0.8), inset 0 0 10px rgba(255,255,255,0.5);
             position: relative;
         }
 
-        /* Блик, бегущий по полосе */
         .progress-fill::after {
             content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
@@ -87,6 +85,9 @@
         
         .btn-coins { background: linear-gradient(135deg, #FFD700, #F5A623); color: #000; box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3); }
         .btn-tickets { background: linear-gradient(135deg, #007aff, #0056b3); color: #fff; box-shadow: 0 5px 15px rgba(0, 122, 255, 0.3); }
+        
+        .btn-purple { background: linear-gradient(135deg, #9146FF, #6b21b6); color: #fff; box-shadow: 0 5px 15px rgba(145, 70, 255, 0.3); }
+        .btn-outline { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
         
         .input-donate {
             background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
@@ -110,12 +111,28 @@
             border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- Стили для модалок --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center; z-index: 100; padding: 15px;
+            overscroll-behavior: none; touch-action: none;
+        }
+        .glass-card {
+            background: linear-gradient(135deg, #13131a 0%, #0a0a0c 100%);
+            border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 16px; padding: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); width: 100%; max-width: 400px;
+            display: flex; flex-direction: column; max-height: 85vh;
+        }
+        .tg-scrollable {
+            overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: none; touch-action: pan-y;
+        }
     </style>
 </head>
 <body>
 
-    <!-- КНОПКА АДМИНА (Скрыта по умолчанию, роутинг внутри WebApp) -->
-    <button onclick="window.location.href='guess_game.html'" id="admin-btn" class="admin-btn-floating hidden">
+    <!-- КНОПКА АДМИНА -->
+    <button onclick="window.location.href='guess_gamme.html'" id="admin-btn" class="admin-btn-floating hidden">
         <i class="fa-solid fa-screwdriver-wrench text-[#9146FF]"></i> Админка
     </button>
 
@@ -123,22 +140,24 @@
     <div id="event-cover" style="background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2000&auto=format&fit=crop');"></div>
     <div class="cover-overlay"></div>
 
-    <!-- КОНТЕНТ (Glass Panel) -->
+    <!-- КОНТЕНТ -->
     <div class="glass-panel" id="content-panel">
         
+        <!-- СОСТОЯНИЕ 1: ЗАГРУЗКА -->
         <div id="loading-state" class="flex-1 flex flex-col items-center justify-center">
             <div class="loader mb-4"></div>
-            <p class="text-gray-400 text-[11px] uppercase font-bold tracking-widest">Загрузка ивента...</p>
+            <p class="text-gray-400 text-[11px] uppercase font-bold tracking-widest">Загрузка...</p>
         </div>
 
+        <!-- СОСТОЯНИЕ 2: ПУСТО (Нет сбора и игры) -->
         <div id="empty-state" class="hidden flex-1 flex flex-col items-center justify-center">
             <i class="fa-solid fa-bed text-5xl text-gray-600 mb-4"></i>
-            <h2 class="text-xl font-black text-gray-400 uppercase">Сборов пока нет</h2>
+            <h2 class="text-xl font-black text-gray-400 uppercase">Пока тихо</h2>
             <p class="text-[11px] text-gray-500 mt-2 text-center">Стример отдыхает или готовит что-то грандиозное.</p>
         </div>
 
-        <div id="active-state" class="hidden flex-col h-full justify-between">
-            <!-- Заголовок и Проценты -->
+        <!-- СОСТОЯНИЕ 3: ИДЕТ СБОР -->
+        <div id="event-state" class="hidden flex-col h-full justify-between">
             <div class="text-center shrink-0">
                 <h1 id="ev-title" class="text-2xl font-black uppercase tracking-wide drop-shadow-lg leading-tight mb-1">...</h1>
                 <div class="flex items-center justify-center gap-3">
@@ -147,35 +166,88 @@
                 <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"><span id="ev-current">0</span> / <span id="ev-target">0</span> ОЧКОВ</p>
             </div>
 
-            <!-- Шкала -->
             <div class="w-full my-4 shrink-0">
-                <div class="progress-bg">
-                    <div id="ev-bar" class="progress-fill"></div>
-                </div>
+                <div class="progress-bg"><div id="ev-bar" class="progress-fill"></div></div>
             </div>
 
-            <!-- Управление -->
             <div id="controls-section" class="w-full shrink-0">
                 <input type="number" id="donate-amount" class="input-donate mb-3" placeholder="Введите сумму..." value="10">
-                
                 <div class="flex gap-2">
                     <button onclick="donate('coins')" id="btn-coins" class="action-btn btn-coins">
                         <span class="flex items-center gap-1 text-[14px]"><i class="fa-solid fa-coins"></i> Монеты</span>
-                        <span class="text-[8px] opacity-70 mt-1 uppercase font-bold text-black tracking-wide">1 шт = 10 очков</span>
                     </button>
-                    
                     <button onclick="donate('tickets')" id="btn-tickets" class="action-btn btn-tickets">
                         <span class="flex items-center gap-1 text-[14px]"><i class="fa-solid fa-ticket"></i> Билеты</span>
-                        <span class="text-[8px] opacity-70 mt-1 uppercase font-bold text-white tracking-wide">1 шт = 5 очков</span>
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Плашка завершения -->
-            <div id="finished-section" class="hidden w-full bg-[rgba(52,199,89,0.15)] border border-[#34c759] rounded-xl p-4 text-center shrink-0">
-                <i class="fa-solid fa-circle-check text-3xl text-[#34c759] mb-2 animate-bounce"></i>
-                <h3 class="text-[14px] font-black uppercase text-white mb-1">Сбор Успешно Завершен!</h3>
-                <p class="text-[10px] text-gray-300 font-bold">Награда в Twitch активирована.</p>
+        <!-- СОСТОЯНИЕ 4: ИДЕТ ИГРА НА ТВИЧЕ -->
+        <div id="game-state" class="hidden flex-col h-full justify-between">
+            <div class="text-center shrink-0 flex flex-col items-center justify-center flex-1">
+                <div class="inline-flex items-center justify-center bg-[rgba(255,77,77,0.2)] text-[#ff4d4d] px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-widest mb-4 animate-pulse border border-[rgba(255,77,77,0.3)]">
+                    <i class="fa-solid fa-circle text-[6px] mr-2"></i> Игра началась
+                </div>
+                
+                <!-- Иконка твича вместо букв -->
+                <i class="fa-brands fa-twitch text-[60px] text-[#9146FF] mb-4 drop-shadow-[0_0_15px_rgba(145,70,255,0.6)]"></i>
+                
+                <h2 class="text-xl font-black text-white uppercase tracking-wider mb-2 leading-tight">Угадывай на стриме</h2>
+                <p class="text-[12px] text-gray-400 font-bold px-4">Смотри на экран трансляции и пиши правильный ответ первым прямо в чат Twitch!</p>
+            </div>
+
+            <!-- Кнопки управления для зрителя -->
+            <div class="grid grid-cols-2 gap-2 mt-4 shrink-0">
+                <button onclick="openModal('modal-leaderboard')" class="action-btn btn-purple">
+                    <span class="text-[12px]"><i class="fa-solid fa-trophy mr-1"></i> Топ Игроков</span>
+                </button>
+                <button onclick="openModal('modal-rules')" class="action-btn btn-outline">
+                    <span class="text-[12px]"><i class="fa-solid fa-circle-info mr-1"></i> Правила & Призы</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: ЛИДЕРБОРД -->
+    <div id="modal-leaderboard" class="hidden modal-overlay">
+        <div class="glass-card">
+            <div class="flex justify-between items-center mb-3 shrink-0">
+                <h2 class="!mb-0 text-white font-black uppercase"><i class="fa-solid fa-trophy text-[#ffd700] mr-2"></i> Лидерборд</h2>
+                <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="flex flex-row flex-nowrap justify-between items-center px-3 py-1 text-[9px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.1)] mb-2 shrink-0">
+                <div class="flex-1">Стрит-Ник</div>
+                <div class="w-16 text-right">Очки</div>
+            </div>
+
+            <div id="public-leaderboard" class="flex-1 tg-scrollable space-y-1 w-full">
+                <div class="text-gray-500 text-center mt-6 text-[11px]">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: ПРАВИЛА И ПРИЗЫ -->
+    <div id="modal-rules" class="hidden modal-overlay">
+        <div class="glass-card">
+            <div class="flex justify-between items-center mb-3 shrink-0">
+                <h2 class="!mb-0 text-white font-black uppercase"><i class="fa-solid fa-book-open text-[#007bff] mr-2"></i> Правила Игры</h2>
+                <button onclick="closeModal('modal-rules')" class="text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="tg-scrollable pr-1 text-[12px] text-gray-300 space-y-4">
+                <div class="bg-[rgba(255,255,255,0.05)] p-3 rounded-lg border border-[rgba(255,255,255,0.1)]">
+                    <p class="font-bold text-white mb-2"><i class="fa-solid fa-gamepad text-[#9146FF]"></i> Как играть?</p>
+                    <p class="text-[11px] leading-relaxed">Смотри на экран трансляции и отгадывай зашифрованное слово. Пиши ответ первым прямо в <b>чат Twitch</b>! За каждое угаданное слово бот автоматически начислит тебе <i class="fa-solid fa-star text-[#ffd700]"></i> очки.</p>
+                </div>
+                
+                <div>
+                    <h3 class="font-black text-white uppercase text-[11px] mb-2"><i class="fa-solid fa-gift text-[#ff4d4d]"></i> Призы Победителям:</h3>
+                    <div id="public-rewards-list" class="space-y-1">
+                        <div class="text-center text-[10px] text-gray-500 py-2">Загрузка призов...</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -185,18 +257,28 @@
         tg.expand();
         if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 
-        let isEventFinished = false;
+        // Настройки Supabase
+        const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // Глобальные стейты
+        let isGameActive = false;
+        let isEventActive = false;
+
+        // --- УТИЛИТЫ ---
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            if(id === 'modal-leaderboard') loadPublicLeaderboard();
+            if(id === 'modal-rules') loadPublicRewards();
+        }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        
         async function apiCall(endpoint, body = {}, method = 'POST') {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
-            if (method !== 'GET') {
-                options.body = JSON.stringify({ ...body, initData: tg.initData });
-            }
+            if (method !== 'GET') options.body = JSON.stringify({ ...body, initData: tg.initData });
             const res = await fetch(endpoint, options);
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || "API Error");
-            }
+            if (!res.ok) throw new Error((await res.json()).detail || "API Error");
             return await res.json();
         }
 
@@ -206,103 +288,179 @@
                 if (userData?.is_admin) {
                     document.getElementById('admin-btn').classList.remove('hidden');
                 }
-            } catch(e) { console.error("Not admin"); }
+            } catch(e) {}
         }
 
-        function updateUI(eventData) {
+        // --- ЛОГИКА ОТОБРАЖЕНИЯ (МЕНЕДЖЕР СОСТОЯНИЙ) ---
+        function updateMainView() {
             document.getElementById('loading-state').classList.add('hidden');
-            document.getElementById('active-state').classList.remove('hidden');
+            
+            if (isGameActive) {
+                // ИГРА ИДЕТ НА ТВИЧЕ!
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('event-state').classList.add('hidden');
+                document.getElementById('game-state').classList.remove('hidden');
+                document.getElementById('content-panel').style.height = '40vh'; // Плашка поменьше
+                document.getElementById('event-cover').style.backgroundImage = "url('https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?q=80&w=2000&auto=format&fit=crop')"; // Геймерский фон
+            } else if (isEventActive) {
+                // ИДЕТ СБОР
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('game-state').classList.add('hidden');
+                document.getElementById('event-state').classList.remove('hidden');
+                document.getElementById('content-panel').style.height = '50vh';
+            } else {
+                // ТИШИНА
+                document.getElementById('event-state').classList.add('hidden');
+                document.getElementById('game-state').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('content-panel').style.height = '50vh';
+            }
+        }
+
+        // --- ЛОГИКА СБОРА ---
+        function updateEventUI(eventData) {
+            isEventActive = eventData.is_active;
+            if (!isEventActive) return updateMainView();
 
             document.getElementById('ev-title').innerText = eventData.title;
             document.getElementById('ev-target').innerText = eventData.target_points;
             document.getElementById('ev-current').innerText = eventData.current_points;
-            
-            if (eventData.cover_url) {
+            if (eventData.cover_url && !isGameActive) {
                 document.getElementById('event-cover').style.backgroundImage = `url('${eventData.cover_url}')`;
             }
 
             let percent = Math.floor((eventData.current_points / eventData.target_points) * 100);
             if (percent > 100) percent = 100;
-
             document.getElementById('ev-percent').innerText = `${percent}%`;
             document.getElementById('ev-bar').style.width = `${percent}%`;
 
-            if (percent >= 100 || !eventData.is_active) {
-                isEventFinished = true;
-                document.getElementById('controls-section').classList.add('hidden');
-                document.getElementById('finished-section').classList.remove('hidden');
-            }
+            if (percent >= 100) isEventActive = false; // Авто-отключение
+            updateMainView();
         }
 
-        async function loadEvent(silent = false) {
-            if(isEventFinished) return; // Не спамим запросами, если уже собрали
+        async function fetchEventState() {
+            if (isGameActive) return; // Экономим запросы, если игра уже началась
             try {
-                const res = await fetch('/api/v1/events/current'); // Наш GET эндпоинт без авторизации
-                const data = await res.json();
-
+                const data = await (await fetch('/api/v1/events/current')).json();
                 if (data.status === 'empty' || !data.event) {
-                    document.getElementById('loading-state').classList.add('hidden');
-                    document.getElementById('empty-state').classList.remove('hidden');
-                    document.getElementById('active-state').classList.add('hidden');
-                    return;
+                    isEventActive = false;
+                } else {
+                    updateEventUI(data.event);
                 }
-                updateUI(data.event);
-            } catch (e) {
-                if(!silent) tg.showAlert("Ошибка загрузки: " + e.message);
-            }
+                updateMainView();
+            } catch (e) {}
         }
 
         async function donate(type) {
             const amountInput = document.getElementById('donate-amount');
             const amount = parseInt(amountInput.value);
-            
-            if (!amount || amount <= 0) {
-                tg.HapticFeedback.notificationOccurred('error');
-                return tg.showAlert("Введите корректную сумму!");
-            }
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму!");
 
             const btn = type === 'coins' ? document.getElementById('btn-coins') : document.getElementById('btn-tickets');
             const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i>';
-            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i>'; btn.disabled = true;
 
             try {
-                const res = await apiCall('/api/v1/events/donate', {
-                    currency_type: type,
-                    amount: amount
-                });
-
+                const res = await apiCall('/api/v1/events/donate', { currency_type: type, amount: amount });
                 tg.HapticFeedback.notificationOccurred('success');
                 
-                // Моментально обновляем интерфейс локально
-                const target = parseInt(document.getElementById('ev-target').innerText);
-                updateUI({
+                updateEventUI({
                     title: document.getElementById('ev-title').innerText,
-                    cover_url: document.getElementById('event-cover').style.backgroundImage.slice(5, -2),
-                    target_points: target,
+                    target_points: parseInt(document.getElementById('ev-target').innerText),
                     current_points: res.new_total,
                     is_active: !res.is_finished
                 });
-                
-                if (res.is_finished) {
-                    tg.showPopup({ title: "УРА!", message: "Сбор успешно завершен! Награда на Твиче скрыта." });
-                }
-
             } catch (e) {
                 tg.HapticFeedback.notificationOccurred('error');
                 tg.showAlert(e.message);
             } finally {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
+                btn.innerHTML = originalHtml; btn.disabled = false;
             }
         }
 
-        // Запуск
+        // --- ЛОГИКА СИНХРОНИЗАЦИИ ИГРЫ ---
+        function handleGameStateChange(state) {
+            isGameActive = state.is_active && !!state.current_word;
+            updateMainView();
+        }
+
+        function initSupabaseRealtime() {
+            // Подписка на состояние игры (чтобы моментально сменить хаб)
+            supabaseClient.channel('guess-state-changes')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'guess_state', filter: 'id=eq.1' }, 
+                    (payload) => handleGameStateChange(payload.new))
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        const { data } = await supabaseClient.from('guess_state').select('*').eq('id', 1).single();
+                        if (data) handleGameStateChange(data);
+                    }
+                });
+        }
+
+        // --- ПУБЛИЧНЫЕ ДАННЫЕ ДЛЯ МОДАЛОК ---
+        async function loadPublicLeaderboard() {
+            const container = document.getElementById('public-leaderboard');
+            try {
+                const { data, error } = await supabaseClient.from('guess_leaderboard').select('twitch_login, score').order('score', { ascending: false }).limit(50);
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 text-center py-4 text-[11px]">Пока никто не угадал слова. Будь первым!</div>';
+                    return;
+                }
+                
+                container.innerHTML = data.map((u, i) => `
+                    <div class="flex items-center justify-between px-3 py-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px]">
+                        <div class="flex items-center min-w-0 pr-2">
+                            <span class="text-gray-500 mr-2 font-bold shrink-0">#${i+1}</span>
+                            <span class="font-bold text-gray-200 truncate">${u.twitch_login}</span>
+                        </div>
+                        <div class="text-[#ffd700] font-bold bg-[#ffd700]/10 px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
+                            ${u.score} <i class="fa-solid fa-star text-[0.8em]"></i>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="text-red-500 text-center text-xs mt-4">Ошибка загрузки</div>';
+            }
+        }
+
+        async function loadPublicRewards() {
+            const container = document.getElementById('public-rewards-list');
+            try {
+                const { data, error } = await supabaseClient.from('guess_rewards_config').select('*').order('place', { ascending: true });
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 text-center py-2 text-[10px]">Призы пока не настроены.</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(r => {
+                    let icon, title, desc;
+                    if(r.reward_type === 'case') { icon = '🎁'; title = 'Кейс'; desc = r.target_case_name; }
+                    else if(r.reward_type === 'tickets') { icon = '🎟'; title = 'Билеты'; desc = `${r.amount} шт.`; }
+                    else { icon = '<i class="fa-solid fa-coins text-[#ffd700]"></i>'; title = 'Монеты'; desc = `${r.amount} шт.`; }
+
+                    return `
+                    <div class="flex items-center gap-3 p-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-lg">
+                        <div class="w-[24px] h-[24px] rounded bg-[#9146FF] text-white flex items-center justify-center font-black text-[11px] shadow-[0_0_10px_rgba(145,70,255,0.4)] shrink-0">
+                            ${r.place}
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="text-[9px] text-gray-400 uppercase font-bold tracking-wide">Место</span>
+                            <span class="text-[11px] font-bold text-white truncate">${icon} ${title} <span class="text-[#9146FF] ml-1">${desc}</span></span>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="text-red-500 text-center text-xs mt-2">Ошибка загрузки</div>';
+            }
+        }
+
+        // --- ИНИЦИАЛИЗАЦИЯ ---
         checkAdmin();
-        loadEvent();
-        
-        // Автообновление каждые 5 секунд
-        setInterval(() => loadEvent(true), 5000);
+        initSupabaseRealtime();
+        fetchEventState();
+        setInterval(fetchEventState, 5000);
     </script>
 </body>
 </html>
