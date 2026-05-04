@@ -22010,10 +22010,8 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
 
     # 3. Обрабатываем валюту
     if req.currency_type == "coins":
-        # Списываем монеты через Bot-t
-        # Достаем bott_internal_id юзера из нашей БД
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id"})
-        bott_id = u_res.json()[0].get("bott_internal_id")
+        bott_id = u_res.json()[0].get("bott_internal_id") if u_res.json() else None
         if not bott_id:
             raise HTTPException(status_code=400, detail="ID бота не найден")
         
@@ -22021,9 +22019,8 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
         added_points = req.amount * 10  # 1 монетка = 10 очков
 
     elif req.currency_type == "tickets":
-        # Списываем билеты локально
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "tickets"})
-        current_tickets = u_res.json()[0].get("tickets", 0)
+        current_tickets = u_res.json()[0].get("tickets", 0) if u_res.json() else 0
         
         if current_tickets < req.amount:
             raise HTTPException(status_code=400, detail="Недостаточно билетов")
@@ -22045,15 +22042,33 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
 
     await supabase.patch("/community_events", params={"id": f"eq.{event['id']}"}, json=update_payload)
 
-    # 5. Если сбор достиг 100% -> Скрываем награду на Твиче
-    if is_finished and event.get("twitch_reward_id"):
+    # 5. ЕСЛИ СБОР ДОСТИГ 100% -> ЗАПУСКАЕМ ИГРУ И СКРЫВАЕМ НАГРАДУ
+    if is_finished:
+        # --- АВТОЗАПУСК ОТГАДАЙКИ ---
         try:
-            token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-            broadcaster_token = token_res.json()[0].get("twitch_access_token")
-            # Отправляем False в is_enabled, чтобы награда пропала из списка
-            await toggle_twitch_reward(broadcaster_token, event["twitch_reward_id"], is_enabled=False)
+            words_res = await supabase.get("/guess_words")
+            all_words = [w["word"] for w in words_res.json()] if words_res.status_code == 200 else []
+            first_word = random.choice(all_words) if all_words else "СЛОВАРЬ_ПУСТ"
+
+            await supabase.patch("/guess_state", params={"id": "eq.1"}, json={
+                "is_active": True, 
+                "current_word": first_word, 
+                "revealed_indices": []
+            })
+            # Сбрасываем кэш, чтобы вебхуки Fossabot сразу подхватили новое слово
+            global guess_cache
+            guess_cache["updated_at"] = 0
         except Exception as e:
-            logging.error(f"Сбор завершен, но не удалось скрыть награду Твича: {e}")
+            logging.error(f"Ошибка автозапуска отгадайки при завершении сбора: {e}")
+
+        # --- СКРЫТИЕ НАГРАДЫ TWITCH ---
+        if event.get("twitch_reward_id"):
+            try:
+                token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
+                broadcaster_token = token_res.json()[0].get("twitch_access_token")
+                await toggle_twitch_reward(broadcaster_token, event["twitch_reward_id"], is_enabled=False)
+            except Exception as e:
+                logging.error(f"Сбор завершен, но не удалось скрыть награду Твича: {e}")
 
     return {
         "status": "success", 
@@ -22061,6 +22076,53 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
         "new_total": new_points,
         "is_finished": is_finished
     }
+
+# --- 4. ФРОНТЕНД/FOSSABOT: Мгновенно закрыть сбор через награду Твича ---
+@app.get("/api/v1/events/force_finish", response_class=PlainTextResponse)
+async def force_finish_event(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Защита вебхука токеном (как в отгадайке)
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: 
+        return "Ошибка: нет токена"
+
+    # Проверяем активный сбор
+    ev_res = await supabase.get("/community_events", params={"is_active": "eq.true"})
+    if not ev_res.json():
+        return "Нет активного сбора"
+    event = ev_res.json()[0]
+
+    # Закрываем сбор
+    await supabase.patch("/community_events", params={"id": f"eq.{event['id']}"}, json={"is_active": False, "current_points": event["target_points"]})
+
+    # Запускаем игру
+    try:
+        words_res = await supabase.get("/guess_words")
+        all_words = [w["word"] for w in words_res.json()] if words_res.status_code == 200 else []
+        first_word = random.choice(all_words) if all_words else "СЛОВАРЬ_ПУСТ"
+
+        await supabase.patch("/guess_state", params={"id": "eq.1"}, json={
+            "is_active": True, 
+            "current_word": first_word, 
+            "revealed_indices": []
+        })
+        global guess_cache
+        guess_cache["updated_at"] = 0
+    except Exception as e:
+        logging.error(f"Ошибка автозапуска: {e}")
+
+    # Скрываем награду Твича
+    if event.get("twitch_reward_id"):
+        try:
+            token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
+            broadcaster_token = token_res.json()[0].get("twitch_access_token")
+            await toggle_twitch_reward(broadcaster_token, event["twitch_reward_id"], is_enabled=False)
+        except Exception as e:
+            logging.error(f"Сбор завершен, но не удалось скрыть награду Твича: {e}")
+
+    return f"Сбор закрыт! Игра 'Угадай слово' запущена."
 
 # ГЛОБАЛЬНЫЙ КЭШ: живет в памяти "прогретых" функций Vercel
 guess_cache = {
