@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HATElove | Общий Сбор & Игра</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -39,23 +38,24 @@
 
         /* --- Glass-Card для интерфейса --- */
         .glass-panel {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: calc(50vh + 80px);
+            position: absolute; bottom: 0; left: 0; width: 100%; 
+            /* Резиновая высота, чтобы не ломалась на телефонах */
+            height: auto; min-height: 30vh;
             background: linear-gradient(180deg, rgba(20, 20, 22, 0.4) 0%, rgba(10, 10, 12, 0.9) 100%);
             backdrop-filter: blur(15px);
             border-top: 1px solid rgba(145, 70, 255, 0.3);
             border-radius: 30px 30px 0 0;
-            /* УВЕЛИЧЕННЫЙ PADDING СНИЗУ ПОД НАВИГАЦИЮ */
-            padding: 24px 20px calc(env(safe-area-inset-bottom, 20px) + 85px);
+            /* ЖЕСТКИЙ ОТСТУП СНИЗУ ПОД НАВИГАЦИЮ (95px) */
+            padding: 20px 15px 95px 15px;
             box-sizing: border-box;
             display: flex; flex-direction: column; z-index: 10;
             box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-            transition: height 0.3s ease;
         }
 
         /* --- Неоновый Прогресс-бар --- */
         .progress-bg {
             background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 100px; width: 100%; height: 24px;
+            border-radius: 100px; width: 100%; height: 12px; /* Уменьшили высоту шкалы */
             position: relative; overflow: hidden; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
         }
 
@@ -63,7 +63,7 @@
             height: 100%; width: 0%;
             background: linear-gradient(90deg, #9146FF 0%, #ff4d4d 100%);
             border-radius: 100px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 20px rgba(145, 70, 255, 0.8), inset 0 0 10px rgba(255,255,255,0.5);
+            box-shadow: 0 0 15px rgba(145, 70, 255, 0.8), inset 0 0 10px rgba(255,255,255,0.5);
             position: relative;
         }
 
@@ -76,8 +76,8 @@
 
         /* --- Кнопки --- */
         .action-btn {
-            border: none; border-radius: 12px; font-weight: 900; text-transform: uppercase;
-            padding: 12px; font-size: 13px; cursor: pointer; transition: all 0.2s;
+            border: none; border-radius: 8px; font-weight: 900; text-transform: uppercase;
+            padding: 6px; font-size: 10px; cursor: pointer; transition: all 0.2s;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             position: relative; overflow: hidden; flex: 1;
         }
@@ -86,14 +86,13 @@
         
         .btn-coins { background: linear-gradient(135deg, #FFD700, #F5A623); color: #000; box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3); }
         .btn-tickets { background: linear-gradient(135deg, #007aff, #0056b3); color: #fff; box-shadow: 0 5px 15px rgba(0, 122, 255, 0.3); }
-        
         .btn-purple { background: linear-gradient(135deg, #9146FF, #6b21b6); color: #fff; box-shadow: 0 5px 15px rgba(145, 70, 255, 0.3); }
         .btn-outline { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; }
         
         .input-donate {
             background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
-            color: white; border-radius: 12px; padding: 12px; text-align: center;
-            font-size: 18px; font-weight: 900; width: 100%; box-sizing: border-box; outline: none;
+            color: white; border-radius: 8px; padding: 6px; text-align: center;
+            font-size: 14px; font-weight: 900; width: 100%; box-sizing: border-box; outline: none;
         }
         .input-donate:focus { border-color: #9146FF; }
 
@@ -101,15 +100,15 @@
         .admin-btn-floating {
             position: absolute; top: calc(env(safe-area-inset-top, 20px) + 10px); right: 20px;
             background: rgba(0,0,0,0.6); border: 1px solid rgba(145,70,255,0.5);
-            color: white; padding: 8px 12px; border-radius: 100px; font-size: 10px; font-weight: 900;
+            color: white; padding: 6px 10px; border-radius: 100px; font-size: 9px; font-weight: 900;
             text-transform: uppercase; z-index: 50; display: flex; align-items: center; gap: 6px;
             backdrop-filter: blur(5px); transition: 0.2s; cursor: pointer;
         }
         .admin-btn-floating:active { transform: scale(0.9); }
 
         .loader {
-            border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #9146FF;
-            border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto;
+            border: 2px solid rgba(255,255,255,0.1); border-top: 2px solid #9146FF;
+            border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; margin: 0 auto;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -118,21 +117,21 @@
             position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
             display: flex; align-items: center; justify-content: center; z-index: 100; 
             /* СДВИНУЛИ МОДАЛКИ ВВЕРХ, ЧТОБЫ БАР НЕ МЕШАЛ */
-            padding: 15px 15px calc(env(safe-area-inset-bottom, 20px) + 85px);
+            padding: 15px 15px 95px 15px;
             overscroll-behavior: none; touch-action: none;
         }
         .glass-card {
             background: linear-gradient(135deg, #13131a 0%, #0a0a0c 100%);
-            border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 16px; padding: 16px;
+            border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 16px; padding: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); width: 100%; max-width: 400px;
-            display: flex; flex-direction: column; max-height: 85vh;
+            display: flex; flex-direction: column; max-height: 80vh;
         }
         .tg-scrollable {
             overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: none; touch-action: pan-y;
         }
 
         /* ==========================================
-           ПЛАВАЮЩИЙ ФУТЕР (ТВОЙ КОД)
+           ПЛАВАЮЩИЙ ФУТЕР
         ========================================== */
         .floating-bottom-bar {
             position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
@@ -167,7 +166,7 @@
 <body>
 
     <!-- КНОПКА АДМИНА -->
-    <button onclick="window.location.href='guess_gamme.html'" id="admin-btn" class="admin-btn-floating hidden">
+    <button onclick="window.location.href='guess_game.html'" id="admin-btn" class="admin-btn-floating hidden">
         <i class="fa-solid fa-screwdriver-wrench text-[#9146FF]"></i> Админка
     </button>
 
@@ -175,68 +174,68 @@
     <div id="event-cover" style="background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2000&auto=format&fit=crop');"></div>
     <div class="cover-overlay"></div>
 
-    <!-- КОНТЕНТ -->
+    <!-- КОНТЕНТ (Glass Panel) -->
     <div class="glass-panel" id="content-panel">
         
         <!-- СОСТОЯНИЕ 1: ЗАГРУЗКА -->
-        <div id="loading-state" class="flex-1 flex flex-col items-center justify-center">
-            <div class="loader mb-4"></div>
-            <p class="text-gray-400 text-[11px] uppercase font-bold tracking-widest">Загрузка...</p>
+        <div id="loading-state" class="flex flex-col items-center justify-center py-2">
+            <div class="loader mb-2"></div>
+            <p class="text-gray-400 text-[8px] uppercase font-bold tracking-widest">Загрузка...</p>
         </div>
 
         <!-- СОСТОЯНИЕ 2: ПУСТО (Нет сбора и игры) -->
-        <div id="empty-state" class="hidden flex-1 flex flex-col items-center justify-center">
-            <i class="fa-solid fa-bed text-5xl text-gray-600 mb-4"></i>
-            <h2 class="text-xl font-black text-gray-400 uppercase">Пока тихо</h2>
-            <p class="text-[11px] text-gray-500 mt-2 text-center">Стример отдыхает или готовит что-то грандиозное.</p>
+        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-4">
+            <i class="fa-solid fa-bed text-2xl text-gray-600 mb-2"></i>
+            <h2 class="text-[12px] font-black text-gray-400 uppercase">Пока тихо</h2>
+            <p class="text-[8px] text-gray-500 mt-1 text-center">Стример отдыхает или готовит что-то грандиозное.</p>
         </div>
 
         <!-- СОСТОЯНИЕ 3: ИДЕТ СБОР -->
-        <div id="event-state" class="hidden flex-col h-full justify-between">
+        <div id="event-state" class="hidden flex-col">
             <div class="text-center shrink-0">
-                <h1 id="ev-title" class="text-2xl font-black uppercase tracking-wide drop-shadow-lg leading-tight mb-1">...</h1>
-                <div class="flex items-center justify-center gap-3">
-                    <span id="ev-percent" class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#9146FF] to-[#ff4d4d] drop-shadow-[0_0_15px_rgba(145,70,255,0.6)]">0%</span>
+                <h1 id="ev-title" class="text-[14px] font-black uppercase tracking-wide drop-shadow-lg leading-tight mb-1">...</h1>
+                <div class="flex items-center justify-center">
+                    <span id="ev-percent" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#9146FF] to-[#ff4d4d] drop-shadow-[0_0_10px_rgba(145,70,255,0.6)]">0%</span>
                 </div>
-                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1"><span id="ev-current">0</span> / <span id="ev-target">0</span> ОЧКОВ</p>
+                <p class="text-[8px] text-gray-400 font-bold uppercase tracking-widest mt-1"><span id="ev-current">0</span> / <span id="ev-target">0</span> ОЧКОВ</p>
             </div>
 
-            <div class="w-full my-4 shrink-0">
+            <div class="w-full my-3 shrink-0">
                 <div class="progress-bg"><div id="ev-bar" class="progress-fill"></div></div>
             </div>
 
             <div id="controls-section" class="w-full shrink-0">
-                <input type="number" id="donate-amount" class="input-donate mb-3" placeholder="Введите сумму..." value="10">
+                <input type="number" id="donate-amount" class="input-donate mb-2" placeholder="Сумма..." value="10">
                 <div class="flex gap-2">
                     <button onclick="donate('coins')" id="btn-coins" class="action-btn btn-coins">
-                        <span class="flex items-center gap-1 text-[14px]"><i class="fa-solid fa-coins"></i> Монеты</span>
+                        <span class="flex items-center gap-1 text-[10px]"><i class="fa-solid fa-coins"></i> Монеты</span>
                     </button>
                     <button onclick="donate('tickets')" id="btn-tickets" class="action-btn btn-tickets">
-                        <span class="flex items-center gap-1 text-[14px]"><i class="fa-solid fa-ticket"></i> Билеты</span>
+                        <span class="flex items-center gap-1 text-[10px]"><i class="fa-solid fa-ticket"></i> Билеты</span>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- СОСТОЯНИЕ 4: ИДЕТ ИГРА (Сбор завершен) -->
-        <div id="game-state" class="hidden flex-col h-full justify-between">
-            <div class="text-center shrink-0 flex flex-col items-center justify-center flex-1">
-                <div class="inline-flex items-center justify-center bg-[rgba(255,77,77,0.2)] text-[#ff4d4d] px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-widest mb-4 animate-pulse border border-[rgba(255,77,77,0.3)]">
-                    <i class="fa-solid fa-circle text-[6px] mr-2"></i> Игра началась
+        <!-- СОСТОЯНИЕ 4: ИДЕТ ИГРА НА ТВИЧЕ -->
+        <div id="game-state" class="hidden flex-col">
+            <div class="text-center shrink-0 flex flex-col items-center py-2">
+                <div class="inline-flex items-center justify-center bg-[rgba(255,77,77,0.2)] text-[#ff4d4d] px-2 py-0.5 rounded-full font-bold text-[8px] uppercase tracking-widest mb-2 border border-[rgba(255,77,77,0.3)] animate-pulse">
+                    <i class="fa-solid fa-circle text-[4px] mr-1"></i> Игра началась
                 </div>
                 
-                <i class="fa-brands fa-twitch text-[60px] text-[#9146FF] mb-4 drop-shadow-[0_0_15px_rgba(145,70,255,0.6)]"></i>
+                <i class="fa-brands fa-twitch text-[28px] text-[#9146FF] mb-2 drop-shadow-[0_0_10px_rgba(145,70,255,0.6)]"></i>
                 
-                <h2 class="text-xl font-black text-white uppercase tracking-wider mb-2 leading-tight">Угадывай на стриме</h2>
-                <p class="text-[12px] text-gray-400 font-bold px-4">Смотри на экран трансляции и пиши правильный ответ первым прямо в чат Twitch!</p>
+                <h2 class="text-[12px] font-black text-white uppercase tracking-wider mb-1 leading-tight">Угадывай на стриме</h2>
+                <p class="text-[8px] text-gray-400 font-bold px-2">Пиши правильный ответ первым прямо в чат Twitch!</p>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 mt-4 shrink-0">
+            <div class="grid grid-cols-2 gap-2 mt-2 shrink-0">
                 <button onclick="openModal('modal-leaderboard')" class="action-btn btn-purple">
-                    <span class="text-[12px]"><i class="fa-solid fa-trophy mr-1"></i> Топ Игроков</span>
+                    <span class="text-[9px]"><i class="fa-solid fa-trophy mr-1"></i> Топ Игроков</span>
                 </button>
                 <button onclick="openModal('modal-rules')" class="action-btn btn-outline">
-                    <span class="text-[12px]"><i class="fa-solid fa-circle-info mr-1"></i> Правила & Призы</span>
+                    <span class="text-[9px]"><i class="fa-solid fa-circle-info mr-1"></i> Правила & Призы</span>
                 </button>
             </div>
         </div>
@@ -245,18 +244,18 @@
     <!-- МОДАЛКА: ЛИДЕРБОРД -->
     <div id="modal-leaderboard" class="hidden modal-overlay">
         <div class="glass-card">
-            <div class="flex justify-between items-center mb-3 shrink-0">
-                <h2 class="!mb-0 text-white font-black uppercase"><i class="fa-solid fa-trophy text-[#ffd700] mr-2"></i> Лидерборд</h2>
-                <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-times"></i></button>
+            <div class="flex justify-between items-center mb-2 shrink-0">
+                <h2 class="!mb-0 text-white font-black text-[12px] uppercase"><i class="fa-solid fa-trophy text-[#ffd700] mr-1"></i> Лидерборд</h2>
+                <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-times"></i></button>
             </div>
             
-            <div class="flex flex-row justify-between items-center px-3 py-1 text-[10px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.1)] mb-2 shrink-0">
-                <div class="flex-1">Стрит-Ник</div>
-                <div class="w-16 text-right">Очки</div>
+            <div class="flex flex-row justify-between items-center px-2 py-1 text-[8px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.1)] mb-1 shrink-0">
+                <div class="flex-1">Twitch-Ник</div>
+                <div class="w-10 text-right">Очки</div>
             </div>
 
             <div id="public-leaderboard" class="flex-1 tg-scrollable space-y-1 w-full">
-                <div class="text-gray-500 text-center mt-6 text-[11px]">Загрузка...</div>
+                <div class="text-gray-500 text-center mt-2 text-[9px]">Загрузка...</div>
             </div>
         </div>
     </div>
@@ -264,21 +263,21 @@
     <!-- МОДАЛКА: ПРАВИЛА И ПРИЗЫ -->
     <div id="modal-rules" class="hidden modal-overlay">
         <div class="glass-card">
-            <div class="flex justify-between items-center mb-3 shrink-0">
-                <h2 class="!mb-0 text-white font-black uppercase"><i class="fa-solid fa-book-open text-[#007bff] mr-2"></i> Правила Игры</h2>
-                <button onclick="closeModal('modal-rules')" class="text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-times"></i></button>
+            <div class="flex justify-between items-center mb-2 shrink-0">
+                <h2 class="!mb-0 text-white font-black text-[12px] uppercase"><i class="fa-solid fa-book-open text-[#007bff] mr-1"></i> Правила</h2>
+                <button onclick="closeModal('modal-rules')" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-times"></i></button>
             </div>
             
-            <div class="tg-scrollable pr-1 text-[12px] text-gray-300 space-y-3">
-                <div class="bg-[rgba(255,255,255,0.05)] p-3 rounded-lg border border-[rgba(255,255,255,0.1)]">
+            <div class="tg-scrollable pr-1 text-[9px] text-gray-300 space-y-2">
+                <div class="bg-[rgba(255,255,255,0.05)] p-2 rounded-lg border border-[rgba(255,255,255,0.1)]">
                     <p class="font-bold text-white mb-1"><i class="fa-solid fa-keyboard text-[#9146FF]"></i> Как играть?</p>
-                    <p>Смотри на экран и угадывай зашифрованное слово. Пиши ответ первым прямо в <b>чат Twitch</b>! За каждое угаданное слово бот автоматически начислит тебе <i class="fa-solid fa-star text-[#ffd700]"></i> очки.</p>
+                    <p class="leading-relaxed">Смотри на экран трансляции и отгадывай зашифрованное слово. Пиши ответ первым прямо в <b>чат Twitch</b>! За каждое слово бот начислит тебе <i class="fa-solid fa-star text-[#ffd700]"></i> очки.</p>
                 </div>
                 
                 <div>
-                    <h3 class="font-black text-white uppercase text-[11px] mb-2"><i class="fa-solid fa-gift text-[#ff4d4d]"></i> Призы Победителям:</h3>
+                    <h3 class="font-black text-white uppercase text-[9px] mb-1"><i class="fa-solid fa-gift text-[#ff4d4d]"></i> Призы Победителям:</h3>
                     <div id="public-rewards-list" class="space-y-1">
-                        <div class="text-center text-[10px] text-gray-500 py-2">Загрузка призов...</div>
+                        <div class="text-center text-[8px] text-gray-500 py-1">Загрузка призов...</div>
                     </div>
                 </div>
             </div>
@@ -296,7 +295,6 @@
         <a href="/" class="nav-item" id="nav-dashboard">
             <i class="fa-solid fa-house"></i><span>Главная</span>
         </a>
-        <!-- Класс active перенес сюда, так как это страница ивентов -->
         <a href="/events" class="nav-item active">
             <i class="fa-solid fa-fire"></i><span>Гринд</span>
         </a>
@@ -310,16 +308,13 @@
         tg.expand();
         if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 
+        // Настройки Supabase
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let isGameActive = false;
         let isEventActive = false;
-        let currentWord = "";
-        let currentMode = "classic";
-        let revealedIndices = [];
-        let scrambledWord = ""; 
 
         // --- УТИЛИТЫ ---
         function openModal(id) {
@@ -329,15 +324,6 @@
         }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         
-        function shuffleString(str) {
-            const arr = str.split('');
-            for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-            return arr.join('');
-        }
-
         async function apiCall(endpoint, body = {}, method = 'POST') {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
             if (method !== 'GET') options.body = JSON.stringify({ ...body, initData: tg.initData });
@@ -346,27 +332,33 @@
             return await res.json();
         }
 
-        // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
+        async function checkAdmin() {
+            try {
+                const userData = await apiCall('/api/v1/user/me', {}, 'POST');
+                if (userData?.is_admin) {
+                    document.getElementById('admin-btn').classList.remove('hidden');
+                }
+            } catch(e) {}
+        }
+
+        // --- ЛОГИКА ОТОБРАЖЕНИЯ (МЕНЕДЖЕР СОСТОЯНИЙ) ---
         function updateMainView() {
             document.getElementById('loading-state').classList.add('hidden');
             
+            // Убрали жесткое изменение высоты через JS. Пусть CSS сам регулирует!
             if (isGameActive) {
                 document.getElementById('empty-state').classList.add('hidden');
                 document.getElementById('event-state').classList.add('hidden');
                 document.getElementById('game-state').classList.remove('hidden');
-                // Учитываем размер бара (40vh + 80px)
-                document.getElementById('content-panel').style.height = 'calc(40vh + 80px)'; 
                 document.getElementById('event-cover').style.backgroundImage = "url('https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?q=80&w=2000&auto=format&fit=crop')"; 
             } else if (isEventActive) {
                 document.getElementById('empty-state').classList.add('hidden');
                 document.getElementById('game-state').classList.add('hidden');
                 document.getElementById('event-state').classList.remove('hidden');
-                document.getElementById('content-panel').style.height = 'calc(50vh + 80px)';
             } else {
                 document.getElementById('event-state').classList.add('hidden');
                 document.getElementById('game-state').classList.add('hidden');
                 document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('content-panel').style.height = 'calc(50vh + 80px)';
             }
         }
 
@@ -401,7 +393,7 @@
                     updateEventUI(data.event);
                 }
                 updateMainView();
-            } catch (e) { console.error(e); }
+            } catch (e) {}
         }
 
         async function donate(type) {
@@ -411,7 +403,7 @@
 
             const btn = type === 'coins' ? document.getElementById('btn-coins') : document.getElementById('btn-tickets');
             const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i>'; btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-lg"></i>'; btn.disabled = true;
 
             try {
                 const res = await apiCall('/api/v1/events/donate', { currency_type: type, amount: amount });
@@ -434,19 +426,6 @@
         // --- ЛОГИКА СИНХРОНИЗАЦИИ ИГРЫ ---
         function handleGameStateChange(state) {
             isGameActive = state.is_active && !!state.current_word;
-            
-            if (isGameActive) {
-                if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
-                    currentWord = state.current_word.toUpperCase();
-                    currentMode = state.current_mode || "classic";
-                    revealedIndices = state.revealed_indices || [];
-                    if (currentMode === 'anagram') scrambledWord = shuffleString(currentWord);
-                } else {
-                    revealedIndices = state.revealed_indices || [];
-                }
-            } else {
-                currentWord = "";
-            }
             updateMainView();
         }
 
@@ -462,18 +441,19 @@
                 });
         }
 
-        // --- ПУБЛИЧНЫЕ ДАННЫЕ (Лидерборд и Призы) ---
+        // --- ПУБЛИЧНЫЕ ДАННЫЕ ДЛЯ МОДАЛОК ---
         async function loadPublicLeaderboard() {
             const container = document.getElementById('public-leaderboard');
             try {
                 const { data, error } = await supabaseClient.from('guess_leaderboard').select('twitch_login, score').order('score', { ascending: false }).limit(50);
                 if (error) throw error;
                 if (!data || data.length === 0) {
-                    container.innerHTML = '<div class="text-gray-500 text-center py-4 text-[11px]">Пока никто не угадал слова. Будь первым!</div>';
+                    container.innerHTML = '<div class="text-gray-500 text-center py-4 text-[9px]">Пока никто не угадал слова. Будь первым!</div>';
                     return;
                 }
+                
                 container.innerHTML = data.map((u, i) => `
-                    <div class="flex items-center justify-between px-3 py-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-lg text-[11px]">
+                    <div class="flex items-center justify-between px-2 py-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-lg text-[9px]">
                         <div class="flex items-center min-w-0 pr-2">
                             <span class="text-gray-500 mr-2 font-bold shrink-0">#${i+1}</span>
                             <span class="font-bold text-gray-200 truncate">${u.twitch_login}</span>
@@ -494,24 +474,26 @@
                 const { data, error } = await supabaseClient.from('guess_rewards_config').select('*').order('place', { ascending: true });
                 if (error) throw error;
                 if (!data || data.length === 0) {
-                    container.innerHTML = '<div class="text-gray-500 text-center py-2 text-[10px]">Призы пока не настроены.</div>';
+                    container.innerHTML = '<div class="text-gray-500 text-center py-2 text-[9px]">Призы пока не настроены.</div>';
                     return;
                 }
 
                 container.innerHTML = data.map(r => {
                     let icon, title, desc;
-                    if(r.reward_type === 'case') { icon = '🎁'; title = 'Кейс'; desc = r.target_case_name; }
+                    const caseName = r.target_case_name || ''; 
+                    
+                    if(r.reward_type === 'case') { icon = '🎁'; title = 'Кейс'; desc = caseName; }
                     else if(r.reward_type === 'tickets') { icon = '🎟'; title = 'Билеты'; desc = `${r.amount} шт.`; }
                     else { icon = '<i class="fa-solid fa-coins text-[#ffd700]"></i>'; title = 'Монеты'; desc = `${r.amount} шт.`; }
 
                     return `
-                    <div class="flex items-center gap-3 p-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-lg">
-                        <div class="w-[24px] h-[24px] rounded bg-[#9146FF] text-white flex items-center justify-center font-black text-[11px] shadow-[0_0_10px_rgba(145,70,255,0.4)] shrink-0">
+                    <div class="flex items-center gap-2 p-2 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded-lg">
+                        <div class="w-[20px] h-[20px] rounded bg-[#9146FF] text-white flex items-center justify-center font-black text-[9px] shadow-[0_0_10px_rgba(145,70,255,0.4)] shrink-0">
                             ${r.place}
                         </div>
                         <div class="flex flex-col min-w-0">
-                            <span class="text-[9px] text-gray-400 uppercase font-bold tracking-wide">Место</span>
-                            <span class="text-[11px] font-bold text-white truncate">${icon} ${title} <span class="text-[#9146FF] ml-1">${desc}</span></span>
+                            <span class="text-[8px] text-gray-400 uppercase font-bold tracking-wide">Место</span>
+                            <span class="text-[9px] font-bold text-white truncate">${icon} ${title} <span class="text-[#9146FF] ml-1">${desc}</span></span>
                         </div>
                     </div>`;
                 }).join('');
@@ -521,15 +503,6 @@
         }
 
         // --- ИНИЦИАЛИЗАЦИЯ ---
-        async function checkAdmin() {
-            try {
-                const userData = await apiCall('/api/v1/user/me', {}, 'POST');
-                if (userData?.is_admin) {
-                    document.getElementById('admin-btn').classList.remove('hidden');
-                }
-            } catch(e) {}
-        }
-
         checkAdmin();
         initSupabaseRealtime();
         fetchEventState();
