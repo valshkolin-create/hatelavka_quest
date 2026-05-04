@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HATElove | Guess The Word</title>
+    <title>HATElove | Guess The Word Admin</title>
     <!-- ПОДКЛЮЧАЕМ TELEGRAM И SUPABASE -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -181,14 +181,14 @@
             </button>
         </div>
 
-        <!-- ТЕКУЩЕЕ СЛОВО -->
+        <!-- ТЕКУЩЕЕ СЛОВО ИЛИ СТАТУС СБОРА -->
         <div class="glass-card mb-3" style="background: rgba(145, 70, 255, 0.12); border-color: #9146FF; text-align: center;">
-            <div class="text-[9px] text-purple-300 uppercase font-bold mb-1 tracking-widest">Сейчас на стриме:</div>
+            <div class="text-[9px] text-purple-300 uppercase font-bold mb-1 tracking-widest" id="admin-status-label">Сейчас на стриме:</div>
             <div id="admin-current-word" class="text-2xl font-black text-white uppercase tracking-[4px] drop-shadow-md">...</div>
             <div id="admin-current-mode-label" class="text-[9px] text-gray-300 mt-1 font-bold">Ожидание...</div>
         </div>
 
-        <!-- КНОПКИ МОДАЛОК (Сделали сетку 2x2) -->
+        <!-- КНОПКИ МОДАЛОК -->
         <div class="grid grid-cols-2 gap-2 mb-4">
             <button onclick="openModal('modal-leaderboard')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
                 <i class="fa-solid fa-trophy text-[14px] mb-1"></i> Топ
@@ -199,9 +199,9 @@
             <button onclick="openModal('modal-rewards')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
                 <i class="fa-solid fa-gift text-[14px] mb-1"></i> Призы
             </button>
-            <!-- НОВАЯ КНОПКА СБОРОВ -->
+            <!-- КНОПКА СБОРОВ -->
             <button onclick="openModal('modal-events')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
-                <i class="fa-solid fa-bullseye text-[14px] mb-1"></i> Сбор
+                <i class="fa-solid fa-bullseye text-[14px] mb-1"></i> Сбор на старт
             </button>
         </div>
         
@@ -254,17 +254,17 @@
 
     <!-- ================= МОДАЛЬНЫЕ ОКНА ================= -->
     
-    <!-- МОДАЛКА: СБОРЫ (НОВАЯ) -->
+    <!-- МОДАЛКА: СБОР НА ЗАПУСК -->
     <div id="modal-events" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
         <div class="glass-card w-full max-w-md bg-[#0f0f13] m-0">
             <div class="flex justify-between items-center mb-3 shrink-0">
-                <h2 class="!mb-0 text-white"><i class="fa-solid fa-bullseye text-[#007bff] mr-2"></i> Управление Сбором</h2>
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-bullseye text-[#007bff] mr-2"></i> Сбор на старт игры</h2>
                 <button onclick="closeModal('modal-events')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
             </div>
             
             <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3 shrink-0">
                 <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Название сбора:</label>
-                <input type="text" id="ev-title" class="input-custom mb-2" placeholder="Например: Стрим в бассейне">
+                <input type="text" id="ev-title" class="input-custom mb-2" value="Начинаем отгадайку!">
                 
                 <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Обложка (URL картинки или GIF):</label>
                 <input type="text" id="ev-cover" class="input-custom mb-3" placeholder="https://...">
@@ -272,26 +272,35 @@
                 <div class="grid grid-cols-2 gap-2 mb-3">
                     <div>
                         <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Цель (Очки):</label>
-                        <input type="number" id="ev-target" class="input-custom" placeholder="10000">
+                        <input type="number" id="ev-target" class="input-custom" value="10000">
                     </div>
                     <div>
                         <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Цена (Баллы Твича):</label>
-                        <input type="number" id="ev-twitch" class="input-custom" placeholder="50000">
+                        <input type="number" id="ev-twitch" class="input-custom" value="50000">
                     </div>
                 </div>
 
-                <div class="bg-[rgba(145,70,255,0.1)] p-2 rounded border border-[rgba(145,70,255,0.2)] text-[9px] text-gray-300 font-bold flex flex-col gap-1 mb-3">
-                    <div class="flex justify-between"><span><i class="fa-solid fa-coins text-[#ffd700]"></i> 1 монета</span> <span class="text-white">= 10 очков</span></div>
-                    <div class="flex justify-between"><span>🎟 1 билет</span> <span class="text-white">= 5 очков</span></div>
-                    <div class="flex justify-between text-[#9146FF]"><span><i class="fa-brands fa-twitch"></i> Награда Твича</span> <span>Моментально закроет сбор</span></div>
+                <!-- НАСТРОЙКИ НАЧИСЛЕНИЙ -->
+                <div class="bg-[rgba(255,255,255,0.02)] p-2 rounded border border-[rgba(255,255,255,0.1)] mb-3">
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-2 text-center">Настройки начислений (Очков за 1 шт)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-coins text-[#ffd700] text-[14px]"></i>
+                            <input type="number" id="ev-coin-val" class="input-custom text-center" value="10">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-ticket text-[#007bff] text-[14px]"></i>
+                            <input type="number" id="ev-ticket-val" class="input-custom text-center" value="5">
+                        </div>
+                    </div>
                 </div>
 
                 <button onclick="startEvent()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-rocket"></i> Запустить Сбор</button>
             </div>
             
             <button onclick="window.location.href='event_page.html'" class="btn-custom btn-blue w-full py-2" style="background: rgba(0, 123, 255, 0.15); border: 1px solid rgba(0, 123, 255, 0.5); color: #fff;">
-    <i class="fa-solid fa-desktop"></i> Открыть страницу экрана
-</button>
+                <i class="fa-solid fa-desktop"></i> Открыть страницу экрана
+            </button>
         </div>
     </div>
 
@@ -385,37 +394,35 @@
             }
         }
 
-        // ==========================================
-        // УПРАВЛЕНИЕ МОДАЛКАМИ И СКРОЛЛОМ
-        // ==========================================
         function openModal(id) {
             document.getElementById(id).classList.remove('hidden');
             document.body.style.overflow = 'hidden'; 
-            
             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.disableVerticalSwipes) {
                 window.Telegram.WebApp.disableVerticalSwipes();
             }
-
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
         
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
             document.body.style.overflow = ''; 
-            
             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.enableVerticalSwipes) {
                 window.Telegram.WebApp.enableVerticalSwipes();
             }
         }
 
         // ==========================================
-        // НОВАЯ ФУНКЦИЯ ДЛЯ СБОРОВ
+        // ЗАПУСК СБОРА
         // ==========================================
         async function startEvent() {
             const title = document.getElementById('ev-title').value;
             const coverUrl = document.getElementById('ev-cover').value;
             const target = parseInt(document.getElementById('ev-target').value);
             const twitchCost = parseInt(document.getElementById('ev-twitch').value);
+            
+            // Забираем настройки очков
+            const coinVal = parseInt(document.getElementById('ev-coin-val').value) || 10;
+            const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
 
             if (!title || !target || !twitchCost) {
                 return tg.showAlert("Укажите название, цель и цену награды Твича!");
@@ -428,9 +435,11 @@
                             title: title,
                             cover_url: coverUrl || "",
                             target_points: target,
-                            twitch_reward_cost: twitchCost
+                            twitch_reward_cost: twitchCost,
+                            coin_multiplier: coinVal,
+                            ticket_multiplier: ticketVal
                         });
-                        tg.showAlert("Сбор успешно запущен! Награда на Твиче создана.");
+                        tg.showAlert("Сбор на старт игры успешно запущен!");
                         closeModal('modal-events');
                     } catch (e) {
                         tg.showAlert("Ошибка при создании: " + e.message);
@@ -444,24 +453,16 @@
         // ==========================================
         async function loadCases() {
             try {
-                const { data, error } = await supabaseClient
-                    .from('shop_cache')
-                    .select('data')
-                    .eq('category_id', 2716312)
-                    .single();
-
+                const { data, error } = await supabaseClient.from('shop_cache').select('data').eq('category_id', 2716312).single();
                 if (error) throw error;
-
                 const caseSelect = document.getElementById('rew-case-name');
                 if (!data || !data.data) {
                     caseSelect.innerHTML = '<option value="">Нет кейсов</option>';
                     return;
                 }
-
                 let casesList = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
                 caseSelect.innerHTML = casesList.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
             } catch (e) {
-                console.error("Ошибка загрузки кейсов:", e);
                 document.getElementById('rew-case-name').innerHTML = '<option value="">Ошибка загрузки</option>';
             }
         }
@@ -523,18 +524,40 @@
                 const wordEl = document.getElementById('admin-current-word');
                 if (wordEl) {
                     wordEl.innerText = currentWord;
+                    wordEl.style.color = '#fff';
+                    document.getElementById('admin-status-label').innerText = "Сейчас загадано:";
                     document.getElementById('admin-current-mode-label').innerText = `Режим: ${currentMode}`;
                 }
             } else {
                 currentWord = "";
                 if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
+                
+                // Если игра не активна, проверяем, идет ли сбор
+                checkEventStatus();
+            }
+        }
+
+        async function checkEventStatus() {
+            try {
+                const res = await fetch('/api/v1/events/current'); 
+                const data = await res.json();
+                
                 const wordEl = document.getElementById('admin-current-word');
-                if (wordEl) {
+                const labelEl = document.getElementById('admin-status-label');
+                const modeEl = document.getElementById('admin-current-mode-label');
+
+                if (data.status === 'active' && data.event) {
+                    wordEl.innerText = "ИДЕТ СБОР";
+                    wordEl.style.color = '#ff9500';
+                    labelEl.innerText = "Статус:";
+                    modeEl.innerText = `${data.event.current_points} / ${data.event.target_points} ОЧКОВ`;
+                } else {
                     wordEl.innerText = "ИГРА ОСТАНОВЛЕНА";
                     wordEl.style.color = '#ff4d4d';
-                    document.getElementById('admin-current-mode-label').innerText = "";
+                    labelEl.innerText = "Статус:";
+                    modeEl.innerText = "Сборов нет";
                 }
-            }
+            } catch(e) {}
         }
 
         function initRealtime() {
@@ -549,9 +572,6 @@
             });
         }
 
-        // ==========================================
-        // ЛОГИКА REALTIME ДЛЯ ЛИДЕРБОРДА
-        // ==========================================
         function initLeaderboardRealtime() {
             supabaseClient
                 .channel('leaderboard-changes')
@@ -560,7 +580,6 @@
                     () => fetchLeaderboard()
                 )
                 .subscribe();
-            
             fetchLeaderboard();
         }
 
@@ -643,9 +662,6 @@
             }
         }
 
-        // ==========================================
-        // ИНИЦИАЛИЗАЦИЯ И ДОСТУП
-        // ==========================================
         if (isObs) {
             document.body.classList.add('obs-mode');
             document.getElementById('obs-view').classList.remove('hidden');
@@ -694,9 +710,6 @@
             }
         }
 
-        // ==========================================
-        // ФУНКЦИИ АДМИН-ПАНЕЛИ
-        // ==========================================
         async function changeGameMode() {
             const newMode = document.getElementById('game-mode-select').value;
             await apiCall('/api/v1/admin/guess/mode/set', { mode: newMode });
