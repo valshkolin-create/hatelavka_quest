@@ -33,7 +33,8 @@
         /* ИЗМЕНЕНИЕ: position: fixed и 100vh для фиксации при растягивании */
         #event-cover {
             position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
-            background-size: cover; background-position: center;
+            background-size: cover; 
+            background-position: center 80%; /* <--- ПО ГОРИЗОНТАЛИ ПО ЦЕНТРУ, ПО ВЕРТИКАЛИ НА 80% ВНИЗ */
             animation: breathe 15s infinite ease-in-out;
             z-index: 0;
             transition: background-image 0.5s ease;
