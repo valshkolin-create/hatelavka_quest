@@ -264,33 +264,39 @@
             
             <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3 shrink-0">
                 <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Название сбора:</label>
-                <input type="text" id="ev-title" class="input-custom mb-2" value="Начинаем отгадайку!">
+                <!-- Добавлен oninput для автосохранения -->
+                <input type="text" id="ev-title" class="input-custom mb-2" value="Начинаем отгадайку!" oninput="saveEventSettings()">
                 
                 <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Обложка (URL картинки или GIF):</label>
-                <input type="text" id="ev-cover" class="input-custom mb-3" placeholder="https://...">
+                <input type="text" id="ev-cover" class="input-custom mb-3" placeholder="https://..." oninput="saveEventSettings()">
                 
-                <div class="grid grid-cols-2 gap-2 mb-3">
+                <!-- ОБНОВЛЕННАЯ СЕТКА: Цель, Цена, Дает Очков -->
+                <div class="grid grid-cols-3 gap-2 mb-3">
                     <div>
-                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Цель (Очки):</label>
-                        <input type="number" id="ev-target" class="input-custom" value="10000">
+                        <label class="block text-[8px] text-gray-400 uppercase font-bold mb-1">Цель:</label>
+                        <input type="number" id="ev-target" class="input-custom" value="2000" oninput="saveEventSettings()">
                     </div>
                     <div>
-                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Цена (Баллы Твича):</label>
-                        <input type="number" id="ev-twitch" class="input-custom" value="50000">
+                        <label class="block text-[8px] text-gray-400 uppercase font-bold mb-1">Цена (Баллы):</label>
+                        <input type="number" id="ev-twitch" class="input-custom" value="500" oninput="saveEventSettings()">
+                    </div>
+                    <div>
+                        <label class="block text-[8px] text-[#9146FF] uppercase font-bold mb-1">Дает (Очков):</label>
+                        <input type="number" id="ev-twitch-gain" class="input-custom" value="20" oninput="saveEventSettings()">
                     </div>
                 </div>
 
                 <!-- НАСТРОЙКИ НАЧИСЛЕНИЙ -->
                 <div class="bg-[rgba(255,255,255,0.02)] p-2 rounded border border-[rgba(255,255,255,0.1)] mb-3">
-                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-2 text-center">Настройки начислений (Очков за 1 шт)</label>
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-2 text-center">Очки за валюту бота</label>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="flex items-center gap-2">
                             <i class="fa-solid fa-coins text-[#ffd700] text-[14px]"></i>
-                            <input type="number" id="ev-coin-val" class="input-custom text-center" value="10">
+                            <input type="number" id="ev-coin-val" class="input-custom text-center" value="10" oninput="saveEventSettings()">
                         </div>
                         <div class="flex items-center gap-2">
                             <i class="fa-solid fa-ticket text-[#007bff] text-[14px]"></i>
-                            <input type="number" id="ev-ticket-val" class="input-custom text-center" value="5">
+                            <input type="number" id="ev-ticket-val" class="input-custom text-center" value="5" oninput="saveEventSettings()">
                         </div>
                     </div>
                 </div>
@@ -378,6 +384,36 @@
         let scrambledWord = ""; 
         let rewardsConfig = [];
 
+        // --- ЛОКАЛЬНОЕ СОХРАНЕНИЕ НАСТРОЕК СБОРА ---
+        function saveEventSettings() {
+            const settings = {
+                title: document.getElementById('ev-title').value,
+                cover: document.getElementById('ev-cover').value,
+                target: document.getElementById('ev-target').value,
+                twitchCost: document.getElementById('ev-twitch').value,
+                twitchGain: document.getElementById('ev-twitch-gain').value,
+                coinVal: document.getElementById('ev-coin-val').value,
+                ticketVal: document.getElementById('ev-ticket-val').value,
+            };
+            localStorage.setItem('hatelove_event_settings', JSON.stringify(settings));
+        }
+
+        function loadEventSettings() {
+            const saved = localStorage.getItem('hatelove_event_settings');
+            if (saved) {
+                try {
+                    const settings = JSON.parse(saved);
+                    if(settings.title) document.getElementById('ev-title').value = settings.title;
+                    if(settings.cover) document.getElementById('ev-cover').value = settings.cover;
+                    if(settings.target) document.getElementById('ev-target').value = settings.target;
+                    if(settings.twitchCost) document.getElementById('ev-twitch').value = settings.twitchCost;
+                    if(settings.twitchGain) document.getElementById('ev-twitch-gain').value = settings.twitchGain;
+                    if(settings.coinVal) document.getElementById('ev-coin-val').value = settings.coinVal;
+                    if(settings.ticketVal) document.getElementById('ev-ticket-val').value = settings.ticketVal;
+                } catch(e) {}
+            }
+        }
+
         async function apiCall(endpoint, additionalBody = {}) {
             const bodyData = { ...additionalBody, initData: tg.initData };
             try {
@@ -414,40 +450,43 @@
         // ==========================================
         // ЗАПУСК СБОРА
         // ==========================================
-       async function startEvent() {
-    const title = document.getElementById('ev-title').value;
-    const coverUrl = document.getElementById('ev-cover').value;
-    const target = parseInt(document.getElementById('ev-target').value);
-    const twitchCost = parseInt(document.getElementById('ev-twitch').value);
-    
-    // Забираем настройки очков
-    const coinVal = parseInt(document.getElementById('ev-coin-val').value) || 10;
-    const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
+        async function startEvent() {
+            const title = document.getElementById('ev-title').value;
+            const coverUrl = document.getElementById('ev-cover').value;
+            const target = parseInt(document.getElementById('ev-target').value);
+            const twitchCost = parseInt(document.getElementById('ev-twitch').value);
+            const twitchGain = parseInt(document.getElementById('ev-twitch-gain').value); // НОВОЕ
+            
+            const coinVal = parseInt(document.getElementById('ev-coin-val').value) || 10;
+            const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
 
-    if (!title || !target || !twitchCost) {
-        return tg.showAlert("Укажите название, цель и цену награды Твича!");
-    }
-
-    tg.showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
-        if (ok) {
-            try {
-                // 👇 ТУТ ИЗМЕНИЛ ТОЛЬКО АДРЕС 👇
-                await apiCall('/api/v1/admin/community_events/create', {
-                    title: title,
-                    cover_url: coverUrl || "",
-                    target_points: target,
-                    twitch_reward_cost: twitchCost,
-                    coin_multiplier: coinVal,
-                    ticket_multiplier: ticketVal
-                });
-                tg.showAlert("Сбор на старт игры успешно запущен!");
-                closeModal('modal-events');
-            } catch (e) {
-                tg.showAlert("Ошибка при создании: " + e.message);
+            if (!title || !target || !twitchCost || !twitchGain) {
+                return tg.showAlert("Укажите все параметры сбора (включая очки за Твич)!");
             }
+
+            saveEventSettings(); // Сохраняем перед запуском
+
+            tg.showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
+                if (ok) {
+                    try {
+                        await apiCall('/api/v1/admin/community_events/create', {
+                            title: title,
+                            cover_url: coverUrl || "",
+                            target_points: target,
+                            twitch_reward_cost: twitchCost,
+                            twitch_reward_gain: twitchGain, // Отправляем на бэкенд сколько очков давать за баллы
+                            coin_multiplier: coinVal,
+                            ticket_multiplier: ticketVal
+                        });
+                        tg.showAlert("Сбор на старт игры успешно запущен!");
+                        closeModal('modal-events');
+                    } catch (e) {
+                        tg.showAlert("Ошибка при создании: " + e.message);
+                    }
+                }
+            });
         }
-    });
-}
+
         // ==========================================
         // ЗАГРУЗКА КЕЙСОВ ИЗ БАЗЫ
         // ==========================================
@@ -696,6 +735,8 @@
                     document.getElementById('auth-view').style.display = 'none';
                     document.getElementById('admin-view').style.display = 'block';
                     
+                    loadEventSettings(); // Подгружаем сохраненные настройки сбора
+
                     initRealtime(); 
                     initLeaderboardRealtime(); 
                     
