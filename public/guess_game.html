@@ -414,40 +414,40 @@
         // ==========================================
         // ЗАПУСК СБОРА
         // ==========================================
-        async function startEvent() {
-            const title = document.getElementById('ev-title').value;
-            const coverUrl = document.getElementById('ev-cover').value;
-            const target = parseInt(document.getElementById('ev-target').value);
-            const twitchCost = parseInt(document.getElementById('ev-twitch').value);
-            
-            // Забираем настройки очков
-            const coinVal = parseInt(document.getElementById('ev-coin-val').value) || 10;
-            const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
+       async function startEvent() {
+    const title = document.getElementById('ev-title').value;
+    const coverUrl = document.getElementById('ev-cover').value;
+    const target = parseInt(document.getElementById('ev-target').value);
+    const twitchCost = parseInt(document.getElementById('ev-twitch').value);
+    
+    // Забираем настройки очков
+    const coinVal = parseInt(document.getElementById('ev-coin-val').value) || 10;
+    const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
 
-            if (!title || !target || !twitchCost) {
-                return tg.showAlert("Укажите название, цель и цену награды Твича!");
+    if (!title || !target || !twitchCost) {
+        return tg.showAlert("Укажите название, цель и цену награды Твича!");
+    }
+
+    tg.showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
+        if (ok) {
+            try {
+                // 👇 ТУТ ИЗМЕНИЛ ТОЛЬКО АДРЕС 👇
+                await apiCall('/api/v1/admin/community_events/create', {
+                    title: title,
+                    cover_url: coverUrl || "",
+                    target_points: target,
+                    twitch_reward_cost: twitchCost,
+                    coin_multiplier: coinVal,
+                    ticket_multiplier: ticketVal
+                });
+                tg.showAlert("Сбор на старт игры успешно запущен!");
+                closeModal('modal-events');
+            } catch (e) {
+                tg.showAlert("Ошибка при создании: " + e.message);
             }
-
-            tg.showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
-                if (ok) {
-                    try {
-                        await apiCall('/api/v1/admin/events/create', {
-                            title: title,
-                            cover_url: coverUrl || "",
-                            target_points: target,
-                            twitch_reward_cost: twitchCost,
-                            coin_multiplier: coinVal,
-                            ticket_multiplier: ticketVal
-                        });
-                        tg.showAlert("Сбор на старт игры успешно запущен!");
-                        closeModal('modal-events');
-                    } catch (e) {
-                        tg.showAlert("Ошибка при создании: " + e.message);
-                    }
-                }
-            });
         }
-
+    });
+}
         // ==========================================
         // ЗАГРУЗКА КЕЙСОВ ИЗ БАЗЫ
         // ==========================================
