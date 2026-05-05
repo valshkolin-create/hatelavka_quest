@@ -91,15 +91,15 @@
         .input-donate {
             background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
             color: white; border-radius: 8px; padding: 6px; text-align: center;
-            font-size: 14px; font-weight: 900; width: 100%; box-sizing: border-box; outline: none;
+            font-size: 16px; font-weight: 900; width: 100%; box-sizing: border-box; outline: none; transition: 0.3s;
         }
-        .input-donate:focus { border-color: #9146FF; }
+        .input-donate:focus { border-color: #9146FF; background: rgba(145,70,255,0.1); }
 
-        /* Чистая круглая кнопка админа без текста */
+        /* Маленькая круглая кнопка админа */
         .admin-btn-floating {
             position: absolute; top: calc(env(safe-area-inset-top, 20px) + 10px); right: 20px;
             background: rgba(0,0,0,0.6); border: 1px solid rgba(145,70,255,0.4);
-            color: #9146FF; width: 36px; height: 36px; border-radius: 50%; font-size: 18px;
+            color: #9146FF; width: 28px; height: 28px; border-radius: 50%; font-size: 14px;
             z-index: 50; display: flex; align-items: center; justify-content: center;
             backdrop-filter: blur(5px); transition: 0.2s; cursor: pointer;
         }
@@ -127,7 +127,7 @@
             background: linear-gradient(135deg, #13131a 0%, #0a0a0c 100%);
             border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 16px; padding: 16px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); width: 100%; max-width: 320px;
-            display: flex; flex-direction: column; max-height: 80vh;
+            display: flex; flex-direction: column; max-height: 80vh; position: relative;
         }
         .tg-scrollable {
             overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: none; touch-action: pan-y;
@@ -160,7 +160,7 @@
 </head>
 <body>
 
-    <!-- КНОПКА АДМИНА (Только шестеренка) -->
+    <!-- КНОПКА АДМИНА (Только шестеренка, уменьшена) -->
     <button onclick="window.location.href='guess_game.html'" id="admin-btn" class="admin-btn-floating hidden">
         <i class="fa-solid fa-gear"></i>
     </button>
@@ -190,34 +190,21 @@
             <div class="text-center shrink-0">
                 <h1 id="ev-title" class="text-[14px] font-black uppercase tracking-wide drop-shadow-lg leading-tight mb-1">...</h1>
                 <div class="flex items-center justify-center">
-                    <span id="ev-percent" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#9146FF] to-[#ff4d4d] drop-shadow-[0_0_10px_rgba(145,70,255,0.6)]">0%</span>
+                    <span id="ev-percent" class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#9146FF] to-[#ff4d4d] drop-shadow-[0_0_10px_rgba(145,70,255,0.6)]">0%</span>
                 </div>
                 <p class="text-[8px] text-gray-400 font-bold uppercase tracking-widest mt-1"><span id="ev-current">0</span> / <span id="ev-target">0</span> ОЧКОВ</p>
             </div>
 
-            <div class="w-full my-3 shrink-0">
+            <div class="w-full my-4 shrink-0">
                 <div class="progress-bg"><div id="ev-bar" class="progress-fill"></div></div>
             </div>
 
-            <div id="controls-section" class="w-full shrink-0">
-                <!-- Ввод с защитой от минусов и спецсимволов -->
-                <input type="text" inputmode="numeric" id="donate-amount" class="input-donate mb-1" placeholder="Сумма..." value="10" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calculatePoints();">
-                
-                <!-- Калькулятор очков -->
-                <div class="text-center mb-2 h-3">
-                    <span id="points-preview" class="text-[9px] font-bold text-[#9146FF] uppercase tracking-widest hidden">
-                        Взнос: <span id="preview-val" class="text-white">0</span> ОЧКОВ
-                    </span>
-                </div>
-
-                <div class="flex gap-2">
-                    <button onclick="donate('coins')" id="btn-coins" class="action-btn btn-coins">
-                        <span class="flex items-center gap-1 text-[10px]"><i class="fa-solid fa-coins"></i> Монеты</span>
-                    </button>
-                    <button onclick="donate('tickets')" id="btn-tickets" class="action-btn btn-tickets">
-                        <span class="flex items-center gap-1 text-[10px]"><i class="fa-solid fa-ticket"></i> Билеты</span>
-                    </button>
-                </div>
+            <!-- ИЗМЕНЕНИЕ: Одна красивая кнопка вместо инпутов -->
+            <div id="controls-section" class="w-full shrink-0 flex justify-center mt-1">
+                <button onclick="startDonateFlow()" class="action-btn btn-purple w-[80%] max-w-[250px] py-3 text-[12px] shadow-[0_0_20px_rgba(145,70,255,0.4)] hover:scale-105">
+                    <i class="fa-solid fa-fire text-[18px] mb-1 drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]"></i>
+                    Внести вклад
+                </button>
             </div>
         </div>
 
@@ -240,6 +227,67 @@
                 </button>
                 <button onclick="openModal('modal-rules')" class="action-btn btn-outline">
                     <span class="text-[9px]"><i class="fa-solid fa-circle-info mr-1"></i> Правила & Призы</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: ПОЭТАПНЫЙ ДОНАТ (ВНЕСЕНИЕ В СБОР) -->
+    <div id="modal-donate" class="hidden modal-overlay !z-[150]">
+        <div class="glass-card text-center relative overflow-hidden transition-all duration-300">
+            <!-- Кнопки управления окном -->
+            <button id="donate-back-btn" onclick="donateGoBack()" class="absolute top-4 left-4 text-gray-400 hover:text-white hidden"><i class="fa-solid fa-arrow-left"></i></button>
+            <button onclick="closeModal('modal-donate')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-times"></i></button>
+
+            <!-- ШАГ 1: ВЫБОР ВАЛЮТЫ -->
+            <div id="donate-step-1" class="py-2">
+                <div class="text-[32px] mb-2 text-[#9146FF] drop-shadow-[0_0_10px_rgba(145,70,255,0.4)]"><i class="fa-solid fa-wallet"></i></div>
+                <h3 class="text-white font-black uppercase text-[12px] mb-5">Чем будем вкладываться?</h3>
+                <div class="flex gap-2 w-full justify-center">
+                    <button onclick="donateSelectCurrency('coins')" class="action-btn btn-coins py-4">
+                        <i class="fa-solid fa-coins text-[18px] mb-1"></i> Монеты
+                    </button>
+                    <button onclick="donateSelectCurrency('tickets')" class="action-btn btn-tickets py-4">
+                        <i class="fa-solid fa-ticket text-[18px] mb-1"></i> Билеты
+                    </button>
+                </div>
+            </div>
+
+            <!-- ШАГ 2: ВВОД СУММЫ -->
+            <div id="donate-step-2" class="hidden py-2">
+                <div id="donate-icon-2" class="text-[32px] mb-2 text-[#ffd700] drop-shadow-[0_0_10px_rgba(255,215,0,0.4)]"><i class="fa-solid fa-coins"></i></div>
+                <h3 class="text-white font-black uppercase text-[12px] mb-1">Введите количество</h3>
+                <p id="donate-desc-2" class="text-[9px] text-gray-400 mb-4 font-bold tracking-wide">1 монета = 10 очков</p>
+                
+                <input type="text" inputmode="numeric" id="donate-amount-modal" class="input-donate mb-3 py-3 text-lg bg-[rgba(0,0,0,0.6)]" placeholder="0" oninput="this.value = this.value.replace(/[^0-9]/g, ''); updateDonatePreview();">
+                
+                <div class="text-center mb-4 h-4">
+                    <span id="points-preview-modal" class="text-[10px] font-bold text-[#9146FF] uppercase tracking-widest hidden bg-[rgba(145,70,255,0.1)] px-3 py-1 rounded-lg">
+                        Взнос: <span id="preview-val-modal" class="text-white">0</span> ОЧКОВ
+                    </span>
+                </div>
+
+                <button onclick="donateGoStep3()" class="action-btn btn-purple w-full py-3 text-[11px] shadow-[0_0_15px_rgba(145,70,255,0.4)]">Далее <i class="fa-solid fa-arrow-right ml-1"></i></button>
+            </div>
+
+            <!-- ШАГ 3: ПОДТВЕРЖДЕНИЕ -->
+            <div id="donate-step-3" class="hidden py-2">
+                <div class="text-[32px] mb-2 text-[#28a745] drop-shadow-[0_0_10px_rgba(40,167,69,0.4)]"><i class="fa-solid fa-check-circle"></i></div>
+                <h3 class="text-white font-black uppercase text-[12px] mb-4">Подтверждение</h3>
+                
+                <div class="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg p-3 mb-5 text-left">
+                    <div class="flex justify-between items-center mb-2 border-b border-[rgba(255,255,255,0.05)] pb-2">
+                        <span class="text-[10px] text-gray-400 uppercase font-bold">Спишется:</span>
+                        <span id="confirm-cost" class="text-[12px] font-black text-white flex items-center gap-1">...</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-gray-400 uppercase font-bold">В шкалу сбора:</span>
+                        <span id="confirm-gain" class="text-[12px] font-black text-[#9146FF]">...</span>
+                    </div>
+                </div>
+
+                <button id="final-donate-btn" onclick="executeDonate()" class="action-btn btn-purple w-full py-3 text-[11px] shadow-[0_0_20px_rgba(145,70,255,0.6)]">
+                    <i class="fa-solid fa-rocket mr-1"></i> Закинуть в котел!
                 </button>
             </div>
         </div>
@@ -318,23 +366,25 @@
         let openModalsStack = [];
 
         function updateBackButton() {
-            // Кнопка назад видна всегда (потому что мы в подменю "Гринд")
             tg.BackButton.show();
         }
 
         tg.BackButton.onClick(() => {
             if (openModalsStack.length > 0) {
-                // Закрываем самое верхнее открытое окно
-                const lastModal = openModalsStack.pop();
-                document.getElementById(lastModal).classList.add('hidden');
-                updateBackButton();
+                const lastModal = openModalsStack[openModalsStack.length - 1];
+                
+                // Если открыт поэтапный донат, и мы не на первом шаге — идем на шаг назад
+                if (lastModal === 'modal-donate' && currentDonateStep > 1) {
+                    donateGoBack();
+                } else {
+                    // Иначе просто закрываем модалку
+                    closeModal(lastModal);
+                }
             } else {
-                // Если окон нет — выходим на главную (или предыдущую страницу)
                 window.history.back();
             }
         });
 
-        // Включаем сразу
         updateBackButton();
 
         // Настройки Supabase
@@ -344,9 +394,7 @@
 
         let isGameActive = false;
         let isEventActive = false;
-        
-        // Для калькулятора по умолчанию
-        const MULTIPLIERS = { coins: 10, tickets: 5 };
+        const MULTIPLIERS = { coins: 10, tickets: 5 }; // Подтягивать бы с бэкенда, но для превью пойдет
 
         // --- КАСТОМНЫЕ ДИАЛОГИ ---
         function showCustomAlert(text, title = "Внимание", icon = "fa-circle-exclamation text-[#9146FF]") {
@@ -395,23 +443,118 @@
             } catch(e) {}
         }
 
-        // --- КАЛЬКУЛЯТОР ОЧКОВ ---
-        function calculatePoints() {
-            const amountStr = document.getElementById('donate-amount').value;
+        // ==========================================
+        // ЛОГИКА ПОЭТАПНОГО ДОНАТА (WIZARD)
+        // ==========================================
+        let currentDonateStep = 1;
+        let donateData = { currency: '', amount: 0, points: 0 };
+
+        function startDonateFlow() {
+            currentDonateStep = 1;
+            document.getElementById('donate-amount-modal').value = '';
+            document.getElementById('points-preview-modal').classList.add('hidden');
+            switchDonateStep(1);
+            openModal('modal-donate');
+        }
+
+        function switchDonateStep(step) {
+            currentDonateStep = step;
+            document.getElementById('donate-step-1').classList.add('hidden');
+            document.getElementById('donate-step-2').classList.add('hidden');
+            document.getElementById('donate-step-3').classList.add('hidden');
+            
+            document.getElementById(`donate-step-${step}`).classList.remove('hidden');
+            
+            const backBtn = document.getElementById('donate-back-btn');
+            if (step === 1) backBtn.classList.add('hidden');
+            else backBtn.classList.remove('hidden');
+        }
+
+        function donateGoBack() {
+            if (currentDonateStep > 1) switchDonateStep(currentDonateStep - 1);
+        }
+
+        function donateSelectCurrency(curr) {
+            donateData.currency = curr;
+            
+            const icon = document.getElementById('donate-icon-2');
+            const desc = document.getElementById('donate-desc-2');
+            
+            if (curr === 'coins') {
+                icon.innerHTML = '<i class="fa-solid fa-coins"></i>';
+                icon.className = 'text-[32px] mb-2 text-[#ffd700] drop-shadow-[0_0_10px_rgba(255,215,0,0.4)]';
+                desc.innerText = `1 монета = ${MULTIPLIERS.coins} очков`;
+            } else {
+                icon.innerHTML = '<i class="fa-solid fa-ticket"></i>';
+                icon.className = 'text-[32px] mb-2 text-[#007bff] drop-shadow-[0_0_10px_rgba(0,123,255,0.4)]';
+                desc.innerText = `1 билет = ${MULTIPLIERS.tickets} очков`;
+            }
+            
+            updateDonatePreview();
+            switchDonateStep(2);
+        }
+
+        function updateDonatePreview() {
+            const amountStr = document.getElementById('donate-amount-modal').value;
             const amount = parseInt(amountStr);
-            const previewBox = document.getElementById('points-preview');
-            const previewVal = document.getElementById('preview-val');
+            const previewBox = document.getElementById('points-preview-modal');
+            const previewVal = document.getElementById('preview-val-modal');
 
             if (!amount || amount <= 0 || isNaN(amount)) {
                 previewBox.classList.add('hidden');
                 return;
             }
-            // Показываем примерный расчет (допустим, по монетам, так как это основная валюта)
-            const totalPoints = amount * MULTIPLIERS.coins; 
-            previewVal.innerText = `~${totalPoints}`;
+            
+            const multiplier = donateData.currency === 'coins' ? MULTIPLIERS.coins : MULTIPLIERS.tickets;
+            donateData.points = amount * multiplier;
+            donateData.amount = amount;
+            
+            previewVal.innerText = `~${donateData.points}`;
             previewBox.classList.remove('hidden');
         }
-        document.addEventListener("DOMContentLoaded", () => calculatePoints());
+
+        function donateGoStep3() {
+            const amountStr = document.getElementById('donate-amount-modal').value;
+            const amount = parseInt(amountStr);
+            if (!amount || amount <= 0 || isNaN(amount)) {
+                return showCustomAlert("Введите сумму больше нуля!");
+            }
+            
+            const currIcon = donateData.currency === 'coins' ? '<i class="fa-solid fa-coins text-[#ffd700]"></i>' : '<i class="fa-solid fa-ticket text-[#007bff]"></i>';
+            
+            document.getElementById('confirm-cost').innerHTML = `${amount} ${currIcon}`;
+            document.getElementById('confirm-gain').innerHTML = `+${donateData.points} ОЧКОВ <i class="fa-solid fa-fire text-[#ff4d4d]"></i>`;
+            
+            switchDonateStep(3);
+        }
+
+        async function executeDonate() {
+            const btn = document.getElementById('final-donate-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i>'; 
+            btn.disabled = true;
+
+            try {
+                const res = await apiCall('/api/v1/events/donate', { currency_type: donateData.currency, amount: donateData.amount });
+                tg.HapticFeedback.notificationOccurred('success');
+                
+                updateEventUI({
+                    title: document.getElementById('ev-title').innerText,
+                    target_points: parseInt(document.getElementById('ev-target').innerText),
+                    current_points: res.new_total,
+                    is_active: !res.is_finished
+                });
+                
+                closeModal('modal-donate');
+                showCustomAlert(`Вклад успешно внесен! Спасибо за поддержку.`, "Супер!", "fa-check-circle text-[#28a745]");
+            } catch (e) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert(e.message, "Ошибка", "fa-xmark text-[#ff4d4d]");
+            } finally {
+                btn.innerHTML = originalHtml; 
+                btn.disabled = false;
+            }
+        }
 
         // --- ЛОГИКА ОТОБРАЖЕНИЯ (МЕНЕДЖЕР СОСТОЯНИЙ) ---
         function updateMainView() {
@@ -465,35 +608,6 @@
                 }
                 updateMainView();
             } catch (e) {}
-        }
-
-        async function donate(type) {
-            const amountInput = document.getElementById('donate-amount');
-            const amount = parseInt(amountInput.value);
-            if (!amount || amount <= 0 || isNaN(amount)) {
-                return showCustomAlert("Пожалуйста, введите целое число больше нуля.");
-            }
-
-            const btn = type === 'coins' ? document.getElementById('btn-coins') : document.getElementById('btn-tickets');
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xl"></i>'; btn.disabled = true;
-
-            try {
-                const res = await apiCall('/api/v1/events/donate', { currency_type: type, amount: amount });
-                tg.HapticFeedback.notificationOccurred('success');
-                
-                updateEventUI({
-                    title: document.getElementById('ev-title').innerText,
-                    target_points: parseInt(document.getElementById('ev-target').innerText),
-                    current_points: res.new_total,
-                    is_active: !res.is_finished
-                });
-            } catch (e) {
-                tg.HapticFeedback.notificationOccurred('error');
-                showCustomAlert(e.message, "Ошибка", "fa-xmark text-[#ff4d4d]");
-            } finally {
-                btn.innerHTML = originalHtml; btn.disabled = false;
-            }
         }
 
         // --- ЛОГИКА СИНХРОНИЗАЦИИ ИГРЫ ---
