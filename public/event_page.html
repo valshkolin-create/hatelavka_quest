@@ -16,6 +16,13 @@
             margin: 0; min-height: 100vh; overflow: hidden; overscroll-behavior: none;
         }
 
+        /* --- ГЛОБАЛЬНЫЙ ЛОАДЕР --- */
+        #global-loader {
+            position: fixed; inset: 0; background-color: #050505; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
         /* --- Анимация обложки --- */
         @keyframes breathe {
             0% { transform: scale(1); }
@@ -23,17 +30,19 @@
             100% { transform: scale(1); }
         }
         
+        /* ИЗМЕНЕНИЕ: position: fixed и 100vh для фиксации при растягивании */
         #event-cover {
-            position: absolute; top: 0; left: 0; width: 100%; height: 65vh;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
             background-size: cover; background-position: center;
             animation: breathe 15s infinite ease-in-out;
             z-index: 0;
             transition: background-image 0.5s ease;
         }
 
+        /* ИЗМЕНЕНИЕ: Градиент уходит в 100% черный (#050505) внизу, скрывая края картинки */
         .cover-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 65vh;
-            background: linear-gradient(to bottom, rgba(5,5,5,0.2) 0%, rgba(5,5,5,0.8) 70%, #050505 100%);
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: linear-gradient(to bottom, rgba(5,5,5,0.1) 0%, rgba(5,5,5,0.7) 50%, #050505 85%, #050505 100%);
             z-index: 1;
         }
 
@@ -161,23 +170,23 @@
 </head>
 <body>
 
+    <!-- ГЛОБАЛЬНЫЙ ЗАГРУЗОЧНЫЙ ЭКРАН -->
+    <div id="global-loader">
+        <div class="loader mb-4 !w-10 !h-10 border-[3px]"></div>
+        <p class="text-[#9146FF] text-[10px] uppercase font-black tracking-widest animate-pulse">Синхронизация...</p>
+    </div>
+
     <!-- КНОПКА АДМИНА (Только шестеренка, уменьшена) -->
     <button onclick="window.location.href='guess_game.html'" id="admin-btn" class="admin-btn-floating hidden">
         <i class="fa-solid fa-gear"></i>
     </button>
 
-    <!-- ОБЛОЖКА -->
-    <div id="event-cover" style="background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2000&auto=format&fit=crop');"></div>
+    <!-- ОБЛОЖКА (Картинка по умолчанию убрана из HTML, подставится через JS) -->
+    <div id="event-cover"></div>
     <div class="cover-overlay"></div>
 
     <!-- КОНТЕНТ (Glass Panel) -->
     <div class="glass-panel" id="content-panel">
-        
-        <!-- СОСТОЯНИЕ 1: ЗАГРУЗКА -->
-        <div id="loading-state" class="flex flex-col items-center justify-center py-2">
-            <div class="loader mb-2"></div>
-            <p class="text-gray-400 text-[8px] uppercase font-bold tracking-widest">Загрузка...</p>
-        </div>
 
         <!-- СОСТОЯНИЕ 2: ПУСТО (Нет сбора и игры) -->
         <div id="empty-state" class="hidden flex flex-col items-center justify-center py-4">
@@ -578,8 +587,6 @@
         function updateMainView() {
             // Защита от мигания "Пока тихо": ждем пока подгрузятся обе сущности
             if (!isInitialGameLoaded || !isInitialEventLoaded) return;
-
-            document.getElementById('loading-state').classList.add('hidden');
             
             if (isGameActive) {
                 document.getElementById('empty-state').classList.add('hidden');
@@ -596,6 +603,17 @@
                 document.getElementById('game-state').classList.add('hidden');
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('event-cover').style.backgroundImage = `url('${defaultCoverUrl}')`;
+            }
+
+            // После установки всех картинок и статусов — плавно убираем лоадер
+            const globalLoader = document.getElementById('global-loader');
+            if (globalLoader && !globalLoader.classList.contains('hidden')) {
+                setTimeout(() => {
+                    globalLoader.style.opacity = '0';
+                    setTimeout(() => {
+                        globalLoader.classList.add('hidden');
+                    }, 500); // 500ms на CSS transition
+                }, 50); // Даем браузеру долю секунды на применение background-image
             }
         }
 
