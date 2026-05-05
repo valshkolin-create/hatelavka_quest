@@ -4147,7 +4147,7 @@ async def update_cauldron_reward_status(
         raise HTTPException(status_code=500, detail="Ошибка обновления")
 
 # --- 1. КРОН: Круговорот (Стоп игры ➔ Новый сбор) ---
-@app.post("/api/v1/admin/events/cycle_restart")
+@app.get("/api/v1/admin/events/cycle_restart")
 async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     verify_cron(request) # Проверка секретного ключа
 
@@ -4172,7 +4172,6 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
     reward_id = None
     if broadcaster_token:
         try:
-            # Награда снова появляется на Твиче!
             reward_id = await create_twitch_reward(broadcaster_token, f"Закрыть сбор: {last_event['title']}", 50000)
         except Exception as e:
             logging.error(f"Не удалось создать награду Твича: {e}")
@@ -9441,15 +9440,14 @@ async def update_cauldron_event(
         raise HTTPException(status_code=500, detail="Не удалось сохранить настройки.")
 
 # Секретный ключ для крона (задай свой сложный пароль в переменных окружения)
-CRON_SECRET = os.getenv("CRON_SECRET", "super_secret_hate_cron_123")
+CRON_SECRET = os.getenv("CRON_SECRET", "твой_секрет_из_vercel")
 
 def verify_cron(request: Request):
-    """Проверка токена прямо из URL (как в steam_sync)"""
+    """Проверка токена из URL для GET запросов"""
     token = request.query_params.get("token")
-    
     if token != CRON_SECRET:
-        print(f"DEBUG CRON: Ожидали {CRON_SECRET}, получили {token}")
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+        # Теперь при ошибке 403 прямо в ответе будет видно, что пришло
+        raise HTTPException(status_code=403, detail=f"Доступ запрещен. Ждали твой секрет, а пришло: '{token}'")
 
 @app.post("/api/v1/admin/events/cauldron/reset")
 async def reset_cauldron_progress(
@@ -22271,9 +22269,9 @@ async def admin_guess_words_get(req: GuessAdminBaseRequest, supabase: httpx.Asyn
     words = [w["word"] for w in res.json()] if res.status_code == 200 else []
     return {"words": words}
 
-@app.post("/api/v1/admin/guess/weekly_rewards")
+@app.get("/api/v1/admin/guess/weekly_rewards")
 async def weekly_rewards(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    verify_cron(request) # Проверка секретного ключа
+    verify_cron(request) 
     
     lb_res = await supabase.get("/guess_leaderboard", params={"order": "score.desc", "limit": "100"})
     leaders = lb_res.json() if lb_res.status_code == 200 else []
@@ -22300,7 +22298,6 @@ async def weekly_rewards(request: Request, supabase: httpx.AsyncClient = Depends
         if reward["reward_type"] == "coins":
             bott_id = user_data.get("bott_internal_id")
             if bott_id:
-                # Начисляем монеты (убедись, что у тебя есть функция add_balance_to_bott)
                 await add_balance_to_bott(bott_id, reward["amount"], f"Топ-{place} в Угадай Слово")
                 results_log.append(f"Выдано {reward['amount']} монет.")
 
@@ -22316,7 +22313,6 @@ async def weekly_rewards(request: Request, supabase: httpx.AsyncClient = Depends
             await supabase.post("/cs_codes", json=code_data)
             await supabase.post("/rpc/add_twitch_winner", json={"p_code": code_data["code"], "p_user_id": tg_id})
 
-    # Обнуляем лидерборд
     await supabase.delete("/guess_leaderboard", params={"score": "gte.0"})
     return {"status": "success", "log": results_log}
     
