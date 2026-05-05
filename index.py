@@ -4274,11 +4274,13 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
     reward_id = None
     if broadcaster_token:
         try:
-            reward_id = await create_twitch_reward(broadcaster_token, f"Закрыть сбор: {last_event['title']}", 50000)
+            # 🔥 БЕРЕМ ЦЕНУ ИЗ ПРОШЛОГО СБОРА, А НЕ ХАРДКОД 50000
+            reward_cost = last_event.get("twitch_reward_cost", 500)
+            reward_id = await create_twitch_reward(broadcaster_token, f"Закрыть сбор: {last_event['title']}", reward_cost)
         except Exception as e:
-            logging.error(f"Не удалось создать награду Твича: {e}")
+            logging.error(f"Не удалось создать награду Твича в CRON: {e}")
 
-    # Запускаем НОВЫЙ СБОР с 0 очков (ДОБАВЛЕН event_type и twitch_reward_gain)
+    # Запускаем НОВЫЙ СБОР с 0 очков
     new_event = {
         "title": last_event["title"],
         "event_type": "guess", # Обязательное поле для БД!
@@ -4287,11 +4289,18 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
         "coin_multiplier": last_event.get("coin_multiplier", 10),
         "ticket_multiplier": last_event.get("ticket_multiplier", 5),
         "twitch_reward_id": reward_id,
-        "twitch_reward_gain": last_event.get("twitch_reward_gain", 20), # 🔥 ПЕРЕНОСИМ ОЧКИ ЗА ТВИЧ ИЗ СТАРОГО СБОРА
+        "twitch_reward_cost": last_event.get("twitch_reward_cost", 500), # 🔥 СОХРАНЯЕМ ЦЕНУ В БАЗУ ДЛЯ СЛЕДУЮЩЕГО ЦИКЛА
+        "twitch_reward_gain": last_event.get("twitch_reward_gain", 20),
         "current_points": 0,
         "is_active": True
     }
-    await supabase.post("/community_events", json=new_event)
+    
+    res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
+    
+    # 🔥 ПРОВЕРЯЕМ ОТВЕТ БАЗЫ, ЧТОБЫ НЕ БЫЛО СКРЫТЫХ ОШИБОК
+    if res.status_code not in (200, 201):
+        logging.error(f"Ошибка сохранения нового цикла сбора в Supabase: {res.text}")
+        return {"status": "error", "message": "Ошибка БД при создании сбора"}
 
     return {"status": "success", "message": "Новый цикл запущен!"}
 
