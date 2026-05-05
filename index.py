@@ -22441,7 +22441,6 @@ async def handle_fossabot_guess(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # Пытаемся достать токен из заголовков или параметров (как было раньше)
     token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
     if not token: 
         return ""
@@ -22450,60 +22449,71 @@ async def handle_fossabot_guess(
         global guess_cache
         now = time.time()
 
-        # ШАГ 1: БЫСТРЫЙ ФИЛЬТР (КЭШ)
-        # Если прошло больше 10 сек, обновляем статус игры из БД
+        # ШАГ 1: Обновление кэша
         if now - guess_cache["updated_at"] > 10:
             state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
                 state = state_res.json()[0]
-                guess_cache["word"] = state.get("current_word", "").upper()
+                # Сохраняем оригинал для БД и UPPER для сравнения
+                guess_cache["raw_word"] = state.get("current_word", "") 
+                guess_cache["word"] = guess_cache["raw_word"].upper()
                 guess_cache["is_active"] = state.get("is_active", False)
                 guess_cache["updated_at"] = now
 
-        # Если игра выключена — ВЫХОДИМ СРАЗУ, не беспокоя API Fossabot
         if not guess_cache["is_active"] or not guess_cache["word"]:
             return ""
 
-        # ШАГ 2: ЗАПРОС КОНТЕКСТА (Твой старый метод, но с защитой)
+        # ШАГ 2: Контекст Fossabot
         async with httpx.AsyncClient() as client:
-            try:
-                # Ставим жесткий таймаут 2 сек, чтобы Vercel не висел
-                fb_res = await client.get(
-                    f"https://api.fossabot.com/v2/customapi/context/{token}", 
-                    timeout=2.0 
-                )
-                
-                # Если Fossabot кинул Ratelimit (429), просто выходим
-                if fb_res.status_code != 200:
-                    print(f"Fossabot Error: {fb_res.status_code}")
-                    return ""
-                
-                message_data = fb_res.json().get("message")
-                if not message_data: return ""
+            fb_res = await client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
+        
+        if fb_res.status_code != 200: return ""
+        message_data = fb_res.json().get("message")
+        if not message_data: return ""
 
-                twitch_login = message_data["user"]["login"].lower()
-                twitch_display = message_data["user"]["display_name"]
-                guess_word = message_data["content"].strip().upper()
+        twitch_login = message_data["user"]["login"].lower()
+        twitch_display = message_data["user"]["display_name"]
+        guess_word = message_data["content"].strip().upper()
 
-            except Exception as e:
-                print(f"Fossabot API Timeout or Error: {e}")
-                return ""
-
-        # ШАГ 3: ПРОВЕРКА СЛОВА
+        # Проверка совпадения
         if guess_word != guess_cache["word"]:
             return ""
 
-        # ... (Дальше твоя логика начисления очков в Supabase)
-        target_word = guess_cache["word"]
-        # [Здесь твой код с supabase.patch и increment_guess_score]
+        # ШАГ 3: Смена слова
+        # Используем raw_word, чтобы фильтр в БД точно нашел строку
+        target_filter = guess_cache["raw_word"]
         
-        # Сбрасываем кэш, чтобы подтянулось новое слово
+        words_res = await supabase.get("/guess_words")
+        words_data = words_res.json() if words_res.status_code == 200 else []
+        
+        # Фильтруем список, исключая текущее слово
+        all_words = [w["word"] for w in words_data if w["word"].upper() != guess_cache["word"]]
+        next_word = random.choice(all_words) if all_words else "КОНЕЦ"
+
+        # Обновляем состояние
+        patch_res = await supabase.patch(
+            "/guess_state", 
+            params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
+            json={"current_word": next_word, "revealed_indices": []},
+            headers={"Prefer": "return=representation"} 
+        )
+        
+        # Проверка: если список пуст, значит current_word в базе уже другой (кто-то успел раньше)
+        data = patch_res.json()
+        if not data:
+            print(f"DEBUG: Не удалось обновить. Возможно, слово '{target_filter}' уже изменилось в БД.")
+            return "" 
+
+        # Начисляем очки
+        await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+        
+        # Сбрасываем кэш
         guess_cache["updated_at"] = 0 
 
-        return f"🎉 @{twitch_display} угадал слово «{target_word}»!"
+        return f"🎉 @{twitch_display} угадал слово «{guess_cache['word']}»! Следующее слово на экране."
 
     except Exception as e:
-        print(f"Global Error: {e}")
+        print(f"DEBUG ERROR: {str(e)}")
         return ""
 
 
