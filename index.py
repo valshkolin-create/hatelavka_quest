@@ -24651,7 +24651,7 @@ async def toggle_twitch_reward(token: str, reward_id: str, is_enabled: bool) -> 
             return False
 
 async def create_twitch_reward(token: str, title: str, cost: int) -> str | None:
-    """Функция для создания кастомной награды прямо на сайте Twitch.tv"""
+    """Функция для создания кастомной награды прямо на сайте Twitch.tv с защитой от дубликатов"""
     client_id = os.getenv("TWITCH_CLIENT_ID")
     if not client_id:
         logging.error("Не задан TWITCH_CLIENT_ID в переменных окружения Vercel")
@@ -24670,14 +24670,49 @@ async def create_twitch_reward(token: str, title: str, cost: int) -> str | None:
     }
     
     async with httpx.AsyncClient() as client:
+        # 1. Пробуем создать новую награду
         res = await client.post(url, headers=headers, json=payload)
+        
         if res.status_code == 200:
             data = res.json()
+            logging.info(f"✅ Создана новая награда на Твиче: '{title}'")
             return data["data"][0]["id"]
-        else:
-            logging.error(f"Ошибка Твича при создании награды: {res.text}")
-            return None
-
+            
+        # 2. Перехватываем ошибку дубликата
+        elif res.status_code == 400 and "DUPLICATE_REWARD" in res.text:
+            logging.info(f"⚠️ Награда '{title}' уже существует! Ищем её для обновления...")
+            
+            # Запрашиваем список наград, созданных нашим приложением
+            get_url = f"{url}&only_manageable_rewards=true"
+            get_res = await client.get(get_url, headers=headers)
+            
+            if get_res.status_code == 200:
+                rewards = get_res.json().get("data", [])
+                
+                # Ищем награду (сравниваем без учета регистра)
+                for r in rewards:
+                    if r["title"].lower() == title.lower():
+                        r_id = r["id"]
+                        
+                        # 🔥 Формируем PATCH для обновления названия, цены и статуса
+                        patch_url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={BROADCASTER_ID}&id={r_id}"
+                        patch_payload = {
+                            "title": title,       # Обновляем название
+                            "cost": cost,         # Обновляем цену
+                            "is_enabled": True    # Включаем награду
+                        }
+                        
+                        patch_res = await client.patch(patch_url, headers=headers, json=patch_payload)
+                        if patch_res.status_code == 200:
+                            logging.info(f"✅ Старая награда '{title}' успешно обновлена (название, цена) и включена!")
+                            return r_id
+                        else:
+                            logging.error(f"❌ Не удалось обновить старую награду: {patch_res.text}")
+                            return None
+                            
+        # 3. Если произошла другая ошибка
+        logging.error(f"Ошибка Твича при создании награды: {res.text}")
+        return None
 
 
 def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
