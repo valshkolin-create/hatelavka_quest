@@ -455,7 +455,7 @@
             const coverUrl = document.getElementById('ev-cover').value;
             const target = parseInt(document.getElementById('ev-target').value);
             const twitchCost = parseInt(document.getElementById('ev-twitch').value);
-            const twitchGain = parseInt(document.getElementById('ev-twitch-gain').value); // НОВОЕ
+            const twitchGain = parseInt(document.getElementById('ev-twitch-gain').value); 
             
             const coinVal = parseInt(document.getElementById('ev-coin-val').value) || 10;
             const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
@@ -464,7 +464,7 @@
                 return tg.showAlert("Укажите все параметры сбора (включая очки за Твич)!");
             }
 
-            saveEventSettings(); // Сохраняем перед запуском
+            saveEventSettings(); 
 
             tg.showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
                 if (ok) {
@@ -474,12 +474,15 @@
                             cover_url: coverUrl || "",
                             target_points: target,
                             twitch_reward_cost: twitchCost,
-                            twitch_reward_gain: twitchGain, // Отправляем на бэкенд сколько очков давать за баллы
+                            twitch_reward_gain: twitchGain, 
                             coin_multiplier: coinVal,
                             ticket_multiplier: ticketVal
                         });
                         tg.showAlert("Сбор на старт игры успешно запущен!");
                         closeModal('modal-events');
+                        
+                        // 🔥 ЗАПРАШИВАЕМ СВЕЖИЕ ДАННЫЕ ДЛЯ АДМИНКИ СРАЗУ ПОСЛЕ СОЗДАНИЯ 🔥
+                        setTimeout(checkEventStatus, 1000); 
                     } catch (e) {
                         tg.showAlert("Ошибка при создании: " + e.message);
                     }
@@ -571,14 +574,14 @@
                 currentWord = "";
                 if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
                 
-                // Если игра не активна, проверяем, идет ли сбор
                 checkEventStatus();
             }
         }
 
         async function checkEventStatus() {
             try {
-                const res = await fetch('/api/v1/events/current'); 
+                // 🔥 ДОБАВЛЕН Date.now() ДЛЯ ОБХОДА КЭША VERCEL 🔥
+                const res = await fetch('/api/v1/events/current?t=' + Date.now()); 
                 const data = await res.json();
                 
                 const wordEl = document.getElementById('admin-current-word');
@@ -600,6 +603,7 @@
         }
 
         function initRealtime() {
+            // 1. Статус игры
             supabaseClient.channel('guess-state-changes').on('postgres_changes', 
                 { event: 'UPDATE', schema: 'public', table: 'guess_state', filter: 'id=eq.1' }, 
                 (payload) => handleStateChange(payload.new)
@@ -609,6 +613,12 @@
                     if (data) handleStateChange(data);
                 }
             });
+
+            // 🔥 2. Сборы (НОВЫЙ БЛОК ДЛЯ АДМИНКИ) 🔥
+            supabaseClient.channel('admin-events-changes').on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'community_events' }, 
+                () => checkEventStatus() // Обновляем статус при любом движении в БД
+            ).subscribe();
         }
 
         function initLeaderboardRealtime() {
@@ -735,7 +745,10 @@
                     document.getElementById('auth-view').style.display = 'none';
                     document.getElementById('admin-view').style.display = 'block';
                     
-                    loadEventSettings(); // Подгружаем сохраненные настройки сбора
+                    loadEventSettings(); 
+
+                    // 🔥 ЗАГРУЖАЕМ СТАТУС ПРИ ВХОДЕ 🔥
+                    checkEventStatus();
 
                     initRealtime(); 
                     initLeaderboardRealtime(); 
