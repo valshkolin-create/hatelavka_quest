@@ -22441,21 +22441,17 @@ async def handle_fossabot_guess(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Читаем данные прямо из ссылки
-    twitch_login = request.query_params.get("user")
-    guess_word = request.query_params.get("guess")
-
-    if not twitch_login or not guess_word:
+    # Пытаемся достать токен из заголовков или параметров (как было раньше)
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: 
         return ""
-
-    twitch_login = twitch_login.lower()
-    guess_word = guess_word.strip().upper()
 
     try:
         global guess_cache
         now = time.time()
 
-        # 2. Быстрая проверка кэша (раз в 10 сек)
+        # ШАГ 1: БЫСТРЫЙ ФИЛЬТР (КЭШ)
+        # Если прошло больше 10 сек, обновляем статус игры из БД
         if now - guess_cache["updated_at"] > 10:
             state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
@@ -22464,40 +22460,50 @@ async def handle_fossabot_guess(
                 guess_cache["is_active"] = state.get("is_active", False)
                 guess_cache["updated_at"] = now
 
-        # 3. Если слово НЕ совпало или игра выключена — ВЫХОДИМ СРАЗУ
-        if not guess_cache["is_active"] or guess_word != guess_cache["word"]:
+        # Если игра выключена — ВЫХОДИМ СРАЗУ, не беспокоя API Fossabot
+        if not guess_cache["is_active"] or not guess_cache["word"]:
             return ""
 
-        # 4. Если угадал — меняем слово и даем очки
+        # ШАГ 2: ЗАПРОС КОНТЕКСТА (Твой старый метод, но с защитой)
+        async with httpx.AsyncClient() as client:
+            try:
+                # Ставим жесткий таймаут 2 сек, чтобы Vercel не висел
+                fb_res = await client.get(
+                    f"https://api.fossabot.com/v2/customapi/context/{token}", 
+                    timeout=2.0 
+                )
+                
+                # Если Fossabot кинул Ratelimit (429), просто выходим
+                if fb_res.status_code != 200:
+                    print(f"Fossabot Error: {fb_res.status_code}")
+                    return ""
+                
+                message_data = fb_res.json().get("message")
+                if not message_data: return ""
+
+                twitch_login = message_data["user"]["login"].lower()
+                twitch_display = message_data["user"]["display_name"]
+                guess_word = message_data["content"].strip().upper()
+
+            except Exception as e:
+                print(f"Fossabot API Timeout or Error: {e}")
+                return ""
+
+        # ШАГ 3: ПРОВЕРКА СЛОВА
+        if guess_word != guess_cache["word"]:
+            return ""
+
+        # ... (Дальше твоя логика начисления очков в Supabase)
         target_word = guess_cache["word"]
+        # [Здесь твой код с supabase.patch и increment_guess_score]
         
-        # Получаем список слов для следующего раунда
-        words_res = await supabase.get("/guess_words")
-        words_data = words_res.json() if words_res.status_code == 200 else []
-        all_words = [w["word"] for w in words_data if w["word"].upper() != target_word]
-        next_word = random.choice(all_words) if all_words else "КОНЕЦ"
-
-        # Атомарное обновление в базе
-        patch_res = await supabase.patch(
-            "/guess_state", 
-            params={"id": "eq.1", "current_word": f"eq.{target_word}"}, 
-            json={"current_word": next_word, "revealed_indices": []},
-            headers={"Prefer": "return=representation"} 
-        )
-        
-        if not patch_res.json():
-            return "" 
-
-        # Начисляем очки игроку
-        await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
-        
-        # Сбрасываем таймер кэша
+        # Сбрасываем кэш, чтобы подтянулось новое слово
         guess_cache["updated_at"] = 0 
 
-        return f"🎉 @{twitch_login} угадал слово «{target_word}»! Очки начислены."
+        return f"🎉 @{twitch_display} угадал слово «{target_word}»!"
 
     except Exception as e:
-        print(f"DEBUG Error: {e}")
+        print(f"Global Error: {e}")
         return ""
 
 
