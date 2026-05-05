@@ -22160,7 +22160,12 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
 
 # --- 2. ФРОНТЕНД: Получить текущий сбор ---
 @app.get("/api/v1/events/current")
-async def get_current_event(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def get_current_event(response: Response, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 🔥 МАГИЯ VERCEL EDGE CACHE 🔥
+    # s-maxage=5: Кэшируем ответ на Edge-серверах Vercel на 5 секунд. 
+    # stale-while-revalidate=10: Если кэш устарел, отдаем старый, а в фоне тихо дергаем базу.
+    response.headers["Cache-Control"] = "public, s-maxage=5, stale-while-revalidate=10"
+    
     res = await supabase.get("/community_events", params={"is_active": "eq.true", "limit": 1})
     data = res.json()
     if not data:
