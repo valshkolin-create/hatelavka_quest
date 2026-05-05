@@ -231,7 +231,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКИ ОСТАЛИСЬ БЕЗ ИЗМЕНЕНИЙ (ВНЕСЕНИЕ В СБОР, ЛИДЕРБОРД, ПРАВИЛА, ДИАЛОГ) -->
     <!-- МОДАЛКА: ПОЭТАПНЫЙ ДОНАТ -->
     <div id="modal-donate" class="hidden modal-overlay !z-[150]">
         <div class="glass-card text-center relative overflow-hidden transition-all duration-300">
@@ -349,6 +348,220 @@
         <a href="/auction" class="nav-item"><i class="fa-solid fa-gavel"></i><span>Аукцион</span></a>
     </nav>
 
+    <!-- АДМИНКА -->
+    <div id="admin-view" class="hidden max-w-lg mx-auto p-3 pb-20 z-50 relative bg-[#0a0a0c]">
+        
+        <!-- Шапка -->
+        <div class="flex justify-between items-center mb-3 bg-[rgba(255,255,255,0.02)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
+            <div class="flex items-center gap-2">
+                <i class="fa-brands fa-twitch text-xl text-[#9146FF]"></i>
+                <div>
+                    <h1>Guess Word <span>Panel</span></h1>
+                    <span class="text-[8px] font-bold text-[#28a745] uppercase tracking-wider"><i class="fa-solid fa-circle text-[5px] animate-pulse relative -top-[1px]"></i> Online</span>
+                </div>
+            </div>
+            <button onclick="window.history.back()" class="text-gray-400 hover:text-white transition text-[9px] font-bold uppercase tracking-wider">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Назад
+            </button>
+        </div>
+
+        <!-- ТЕКУЩЕЕ СЛОВО ИЛИ СТАТУС СБОРА -->
+        <div class="glass-card mb-3" style="background: rgba(145, 70, 255, 0.12); border-color: #9146FF; text-align: center;">
+            <div class="text-[9px] text-purple-300 uppercase font-bold mb-1 tracking-widest" id="admin-status-label">Сейчас на стриме:</div>
+            <div id="admin-current-word" class="text-2xl font-black text-white uppercase tracking-[4px] drop-shadow-md">...</div>
+            <div id="admin-current-mode-label" class="text-[9px] text-gray-300 mt-1 font-bold">Ожидание...</div>
+        </div>
+
+        <!-- КНОПКИ МОДАЛОК -->
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <button onclick="openModal('modal-leaderboard')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
+                <i class="fa-solid fa-trophy text-[14px] mb-1"></i> Топ
+            </button>
+            <button onclick="openModal('modal-dictionary')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
+                <i class="fa-solid fa-book text-[14px] mb-1"></i> Слова
+            </button>
+            <button onclick="openModal('modal-rewards')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
+                <i class="fa-solid fa-gift text-[14px] mb-1"></i> Призы
+            </button>
+            <button onclick="openModal('modal-events')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
+                <i class="fa-solid fa-bullseye text-[14px] mb-1"></i> Сбор на старт
+            </button>
+        </div>
+        
+        <!-- УПРАВЛЕНИЕ ИГРОЙ -->
+        <div class="glass-card mb-4">
+            <h2>Управление Игрой</h2>
+            
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Режим:</label>
+                    <select id="game-mode-select" class="input-custom" onchange="changeGameMode()">
+                        <option value="classic">🟦 Классика</option>
+                        <option value="anagram">🔀 Анаграмма</option>
+                        <option value="edges">↔️ Края</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                        <span>Размер букв (OBS):</span>
+                        <span id="letter-size-val" class="text-[#9146FF]">8</span>
+                    </label>
+                    <input type="range" id="letter-size-slider" min="1.5" max="15" value="8" step="0.5" oninput="changeLetterSize(this.value)" class="w-full accent-[#9146FF] mt-1">
+                </div>
+            </div>
+
+            <!-- КАСТОМНЫЙ ТЕКСТ -->
+            <div class="mb-3 bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold">Текст над буквами (OBS):</label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[8px] text-gray-500 font-bold">РАЗМЕР: <span id="text-size-val" class="text-[#9146FF]">3</span></span>
+                        <input type="range" id="text-size-slider" min="1" max="8" value="3" step="0.1" oninput="changeTextSize(this.value)" class="w-16 accent-[#9146FF]">
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-1">
+                    <input type="text" id="custom-text-input" class="input-custom" placeholder="УГАДАЙ СЛОВО И ПОЛУЧИ КЕЙС">
+                    <button onclick="setCustomText()" class="btn-custom btn-purple px-4"><i class="fa-solid fa-check"></i></button>
+                </div>
+            </div>
+
+            <!-- НАСТРОЙКА ОБЛОЖЕК (ПРИЛОЖЕНИЕ) -->
+            <div class="mb-3 bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
+                <h3 class="text-[9px] text-gray-400 uppercase font-bold mb-2">Обложки (Фон приложения)</h3>
+                <label class="block text-[8px] text-gray-500 uppercase font-bold mb-1">Фон по умолчанию (Без сбора):</label>
+                <input type="text" id="admin-default-cover-input" class="input-custom mb-2" placeholder="https://...">
+
+                <label class="block text-[8px] text-[#9146FF] uppercase font-bold mb-1">Фон во время игры:</label>
+                <input type="text" id="admin-game-cover-input" class="input-custom mb-2" placeholder="https://...">
+
+                <!-- НОВЫЕ ПОЛЗУНКИ ДЛЯ ПОЗИЦИИ И ЗУМА -->
+                <div class="grid grid-cols-1 gap-2 mt-3 mb-3 border-t border-[rgba(255,255,255,0.05)] pt-2">
+                    <div>
+                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                            <span>Позиция X (Влево/Вправо):</span>
+                            <span id="cover-x-val" class="text-[#9146FF]">50%</span>
+                        </label>
+                        <input type="range" id="cover-x-slider" min="0" max="100" value="50" step="1" oninput="changeCoverSetting('x', this.value)" class="w-full accent-[#9146FF]">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                            <span>Позиция Y (Вверх/Вниз):</span>
+                            <span id="cover-y-val" class="text-[#9146FF]">50%</span>
+                        </label>
+                        <input type="range" id="cover-y-slider" min="0" max="100" value="50" step="1" oninput="changeCoverSetting('y', this.value)" class="w-full accent-[#9146FF]">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                            <span>Масштаб (Zoom):</span>
+                            <span id="cover-zoom-val" class="text-[#9146FF]">100%</span>
+                        </label>
+                        <input type="range" id="cover-zoom-slider" min="100" max="300" value="100" step="1" oninput="changeCoverSetting('zoom', this.value)" class="w-full accent-[#9146FF]">
+                    </div>
+                </div>
+
+                <button onclick="setCovers()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-image"></i> Сохранить ссылки</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <button onclick="apiCall('/api/v1/admin/guess/start')" class="btn-custom btn-green"><i class="fa-solid fa-play"></i> Выдать слово</button>
+                <button onclick="apiCall('/api/v1/admin/guess/skip')" class="btn-custom btn-yellow"><i class="fa-solid fa-forward-step"></i> Скип</button>
+            </div>
+            <button onclick="stopAndReward()" class="btn-custom btn-red w-full"><i class="fa-solid fa-stop"></i> Завершить и наградить</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: СБОР НА ЗАПУСК -->
+    <div id="modal-events" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
+        <div class="glass-card w-full max-w-md bg-[#0f0f13] m-0">
+            <div class="flex justify-between items-center mb-3 shrink-0">
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-bullseye text-[#007bff] mr-2"></i> Сбор на старт игры</h2>
+                <button onclick="closeModal('modal-events')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
+            </div>
+            
+            <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3 shrink-0">
+                <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Название сбора:</label>
+                <input type="text" id="ev-title" class="input-custom mb-2" value="Начинаем отгадайку!" oninput="saveEventSettings()">
+                
+                <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Обложка сбора (URL или GIF):</label>
+                <input type="text" id="ev-cover" class="input-custom mb-3" placeholder="https://..." oninput="saveEventSettings()">
+                
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <div>
+                        <label class="block text-[8px] text-gray-400 uppercase font-bold mb-1">Цель:</label>
+                        <input type="number" id="ev-target" class="input-custom" value="2000" oninput="saveEventSettings()">
+                    </div>
+                    <div>
+                        <label class="block text-[8px] text-gray-400 uppercase font-bold mb-1">Цена (Баллы):</label>
+                        <input type="number" id="ev-twitch" class="input-custom" value="500" oninput="saveEventSettings()">
+                    </div>
+                    <div>
+                        <label class="block text-[8px] text-[#9146FF] uppercase font-bold mb-1">Дает (Очков):</label>
+                        <input type="number" id="ev-twitch-gain" class="input-custom" value="20" oninput="saveEventSettings()">
+                    </div>
+                </div>
+
+                <div class="bg-[rgba(255,255,255,0.02)] p-2 rounded border border-[rgba(255,255,255,0.1)] mb-3">
+                    <label class="block text-[9px] text-gray-400 uppercase font-bold mb-2 text-center">Очки за валюту бота</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-coins text-[#ffd700] text-[14px]"></i>
+                            <input type="number" id="ev-coin-val" class="input-custom text-center" value="10" oninput="saveEventSettings()">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-ticket text-[#007bff] text-[14px]"></i>
+                            <input type="number" id="ev-ticket-val" class="input-custom text-center" value="5" oninput="saveEventSettings()">
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="startEvent()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-rocket"></i> Запустить Сбор</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: СЛОВАРЬ -->
+    <div id="modal-dictionary" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
+        <div class="glass-card w-full max-w-md bg-[#0f0f13] m-0">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-book text-[#007bff] mr-2"></i> Словарь игры</h2>
+                <button onclick="closeModal('modal-dictionary')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
+            </div>
+            <p class="text-[9px] text-gray-400 mb-2">Вставь слова столбиком. Бот выберет случайно.</p>
+            <textarea id="words-list-input" class="input-custom mb-3 h-40 resize-none text-[10px]" placeholder="КЕЙС&#10;СТРИМЕР&#10;ПОДАРОК"></textarea>
+            <button onclick="saveDictionary()" class="btn-custom btn-blue w-full py-2"><i class="fa-solid fa-save"></i> Сохранить</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: НАГРАДЫ -->
+    <div id="modal-rewards" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
+        <div class="glass-card w-full max-w-md max-h-[90vh] flex flex-col bg-[#0f0f13] m-0">
+            <div class="flex justify-between items-center mb-3 shrink-0">
+                <h2 class="!mb-0 text-white"><i class="fa-solid fa-gift text-[#ff4d4d] mr-2"></i> Настройки призов</h2>
+                <button onclick="closeModal('modal-rewards')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
+            </div>
+            
+            <div class="bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3 shrink-0">
+                <div class="grid grid-cols-3 gap-2 mb-2">
+                    <input type="number" id="rew-place" placeholder="Место" class="input-custom text-center col-span-1">
+                    <select id="rew-type" onchange="toggleCaseInput()" class="input-custom text-center col-span-2">
+                        <option value="coins">💰 Монеты</option>
+                        <option value="tickets">🎟 Билеты</option>
+                        <option value="case">🎁 Кейс (Drops)</option>
+                    </select>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <input type="number" id="rew-amount" placeholder="Количество" class="input-custom text-center w-full">
+                    <select id="rew-case-name" class="input-custom text-center hidden w-full">
+                        <option value="">Загрузка кейсов...</option>
+                    </select>
+                </div>
+                <button onclick="addReward()" class="btn-custom btn-purple w-full py-2 text-[10px]"><i class="fa-solid fa-plus"></i> Добавить приз</button>
+            </div>
+            
+            <div id="rewards-list" class="flex-1 tg-scrollable pr-1 space-y-1"></div>
+        </div>
+    </div>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
@@ -369,6 +582,16 @@
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isObs = urlParams.get('mode') === 'obs';
+        
+        let currentWord = "";
+        let currentMode = "classic";
+        let revealedIndices = [];
+        let timerSeconds = 30;
+        let scrambledWord = ""; 
+        let rewardsConfig = [];
 
         let isGameActive = false;
         let isEventActive = false;
@@ -422,7 +645,13 @@
         async function checkAdmin() {
             try {
                 const userData = await apiCall('/api/v1/user/me', {}, 'POST');
-                if (userData?.is_admin) { document.getElementById('admin-btn').classList.remove('hidden'); }
+                if (userData?.is_admin) { 
+                    document.getElementById('admin-btn').classList.remove('hidden');
+                    document.getElementById('admin-view').classList.remove('hidden');
+                    // Скрываем клиентскую часть для админа, чтобы он видел только панель
+                    document.getElementById('content-panel').classList.add('hidden');
+                    document.querySelector('.floating-bottom-bar').classList.add('hidden');
+                }
             } catch(e) {}
         }
 
@@ -536,8 +765,10 @@
             }
 
             // ПРИМЕНЯЕМ НАСТРОЙКИ ПОЗИЦИИ (Масштаб, X, Y)
-            coverEl.style.backgroundPosition = `${coverOffsetX}% ${coverOffsetY}%`;
-            coverEl.style.backgroundSize = coverZoom === 100 ? 'cover' : `${coverZoom}%`;
+            if (coverEl) {
+                coverEl.style.backgroundPosition = `${coverOffsetX}% ${coverOffsetY}%`;
+                coverEl.style.backgroundSize = coverZoom === 100 ? 'cover' : `${coverZoom}%`;
+            }
 
             // Трюк с предзагрузкой картинки, чтобы убрать лоадер ТОЛЬКО когда картинка скачалась
             const globalLoader = document.getElementById('global-loader');
@@ -552,8 +783,8 @@
                     setTimeout(() => { globalLoader.classList.add('hidden'); }, 500);
                 };
             } else {
-                // Если лоадер уже скрыт (обычное переключение стейтов), просто меняем фон
-                coverEl.style.backgroundImage = `url('${targetUrl}')`;
+                // Если лоадер уже скрыт, просто меняем фон
+                if(coverEl) coverEl.style.backgroundImage = `url('${targetUrl}')`;
             }
         }
 
@@ -587,9 +818,27 @@
             if (state.game_cover_url) gameCoverUrl = state.game_cover_url;
             
             // Читаем позицию из БД (Если админ настроил ползунки)
-            if (state.cover_zoom !== undefined) coverZoom = state.cover_zoom;
-            if (state.cover_offset_x !== undefined) coverOffsetX = state.cover_offset_x;
-            if (state.cover_offset_y !== undefined) coverOffsetY = state.cover_offset_y;
+            if (state.cover_zoom !== undefined) {
+                coverZoom = state.cover_zoom;
+                if(!isObs && document.getElementById('cover-zoom-slider')) {
+                    document.getElementById('cover-zoom-slider').value = coverZoom;
+                    document.getElementById('cover-zoom-val').innerText = coverZoom + '%';
+                }
+            }
+            if (state.cover_offset_x !== undefined) {
+                coverOffsetX = state.cover_offset_x;
+                if(!isObs && document.getElementById('cover-x-slider')) {
+                    document.getElementById('cover-x-slider').value = coverOffsetX;
+                    document.getElementById('cover-x-val').innerText = coverOffsetX + '%';
+                }
+            }
+            if (state.cover_offset_y !== undefined) {
+                coverOffsetY = state.cover_offset_y;
+                if(!isObs && document.getElementById('cover-y-slider')) {
+                    document.getElementById('cover-y-slider').value = coverOffsetY;
+                    document.getElementById('cover-y-val').innerText = coverOffsetY + '%';
+                }
+            }
             
             if (isInitialGameLoaded && isInitialEventLoaded) { updateMainView(); }
         }
@@ -679,6 +928,118 @@
 
             await Promise.all([p1, p2]);
             updateMainView();
+        }
+
+        // --- ВАЖНО: Функция мгновенного применения стилей при движении ползунков ---
+        let coverSettingTimeout;
+        function changeCoverSetting(axis, val) {
+            document.getElementById(`cover-${axis}-val`).innerText = val + '%';
+            
+            const x = parseInt(document.getElementById('cover-x-slider').value);
+            const y = parseInt(document.getElementById('cover-y-slider').value);
+            const zoom = parseInt(document.getElementById('cover-zoom-slider').value);
+
+            // Мгновенное сохранение в переменные и применение стилей
+            coverOffsetX = x;
+            coverOffsetY = y;
+            coverZoom = zoom;
+
+            const coverEl = document.getElementById('event-cover');
+            if (coverEl) {
+                coverEl.style.backgroundPosition = `${x}% ${y}%`;
+                coverEl.style.backgroundSize = zoom === 100 ? 'cover' : `${zoom}%`;
+            }
+
+            clearTimeout(coverSettingTimeout);
+            coverSettingTimeout = setTimeout(async () => {
+                try {
+                    await apiCall('/api/v1/admin/guess/covers/set', { 
+                        cover_offset_x: x, 
+                        cover_offset_y: y, 
+                        cover_zoom: zoom 
+                    });
+                } catch(e) { console.error(e); }
+            }, 300); // отправляем на бэк с задержкой, чтобы не ддосить базу
+        }
+
+        function saveEventSettings() {
+            const settings = {
+                title: document.getElementById('ev-title').value,
+                cover: document.getElementById('ev-cover').value,
+                target: document.getElementById('ev-target').value,
+                twitchCost: document.getElementById('ev-twitch').value,
+                twitchGain: document.getElementById('ev-twitch-gain').value,
+                coinVal: document.getElementById('ev-coin-val').value,
+                ticketVal: document.getElementById('ev-ticket-val').value,
+            };
+            localStorage.setItem('hatelove_event_settings', JSON.stringify(settings));
+        }
+
+        function loadEventSettings() {
+            const saved = localStorage.getItem('hatelove_event_settings');
+            if (saved) {
+                try {
+                    const settings = JSON.parse(saved);
+                    if(settings.title) document.getElementById('ev-title').value = settings.title;
+                    if(settings.cover) document.getElementById('ev-cover').value = settings.cover;
+                    if(settings.target) document.getElementById('ev-target').value = settings.target;
+                    if(settings.twitchCost) document.getElementById('ev-twitch').value = settings.twitchCost;
+                    if(settings.twitchGain) document.getElementById('ev-twitch-gain').value = settings.twitchGain;
+                    if(settings.coinVal) document.getElementById('ev-coin-val').value = settings.coinVal;
+                    if(settings.ticketVal) document.getElementById('ev-ticket-val').value = settings.ticketVal;
+                } catch(e) {}
+            }
+        }
+
+        async function startEvent() {
+            const title = document.getElementById('ev-title').value;
+            const coverUrl = document.getElementById('ev-cover').value;
+            const target = parseInt(document.getElementById('ev-target').value);
+            const twitchCost = parseInt(document.getElementById('ev-twitch').value);
+            const twitchGain = parseInt(document.getElementById('ev-twitch-gain').value); 
+            
+            const coinVal = parseInt(document.getElementById('ev-coin-val').value) || 10;
+            const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
+
+            if (!title || !target || !twitchCost || !twitchGain) {
+                return tg.showAlert("Укажите все параметры сбора (включая очки за Твич)!");
+            }
+
+            saveEventSettings(); 
+
+            tg.showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
+                if (ok) {
+                    try {
+                        await apiCall('/api/v1/admin/community_events/create', {
+                            title: title,
+                            cover_url: coverUrl || "",
+                            target_points: target,
+                            twitch_reward_cost: twitchCost,
+                            twitch_reward_gain: twitchGain, 
+                            coin_multiplier: coinVal,
+                            ticket_multiplier: ticketVal
+                        });
+                        tg.showAlert("Сбор на старт игры успешно запущен!");
+                        closeModal('modal-events');
+                        
+                        setTimeout(checkEventStatus, 1000); 
+                    } catch (e) {
+                        tg.showAlert("Ошибка при создании: " + e.message);
+                    }
+                }
+            });
+        }
+
+        async function setCovers() {
+            const defaultUrl = document.getElementById('admin-default-cover-input').value;
+            const gameUrl = document.getElementById('admin-game-cover-input').value;
+            
+            try {
+                await apiCall('/api/v1/admin/guess/covers/set', { default_cover_url: defaultUrl, game_cover_url: gameUrl });
+                tg.showAlert("Фоны успешно обновлены!");
+            } catch (e) {
+                tg.showAlert("Ошибка при сохранении: " + e.message);
+            }
         }
 
         checkAdmin();
