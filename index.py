@@ -23005,7 +23005,9 @@ async def withdraw_inventory_item(
     import logging
     import os
     import httpx
-    from datetime import datetime, timedelta, timezone 
+    import time
+    from datetime import datetime, timedelta, timezone
+
     # ВНИМАНИЕ: Убедись, что класс MarketCSGO импортирован или доступен здесь!
 
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
@@ -23084,21 +23086,22 @@ async def withdraw_inventory_item(
     # ==========================================
     # 🔥 СТАВИМ ЖЕЛЕЗОБЕТОННУЮ ПЛОМБУ В БД ДО ВЫСТРЕЛА 🔥
     # ==========================================
+    now_iso = datetime.now(timezone.utc).isoformat()
+
     # Если юзер спамит дабл-кликами, второй клик увидит статус processing и убьется об проверку выше!
     if current_status in valid_for_withdraw:
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
             "status": "processing",
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": now_iso
         })
     # ==========================================
 
     item_data = history_record.get('item') or {}
     item_source = history_record.get('source', 'shop') 
-    
     item_name = history_record.get('replaced_name') or item_data.get('name', 'Неизвестный предмет')
     
     # ==========================================
-    # 💰 ПОЛУЧЕНИЕ ЦЕНЫ И ЗАЩИТА ОТ НУЛЕВОГО БЮДЖЕТА (ФИКС ДЛЯ RAFFLE)
+    # 💰 ПОЛУЧЕНИЕ ЦЕНЫ И ЗАЩИТА ОТ НУЛЕВОГО БЮДЖЕТА
     # ==========================================
     try:
         if history_record.get('replaced_price') is not None:
@@ -23133,9 +23136,7 @@ async def withdraw_inventory_item(
             logging.error(f"[WITHDRAW] Ошибка при запросе кэша: {e}")
 
     has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
-    now_iso = datetime.now(timezone.utc).isoformat()
-
-    import time
+    
     # 🔥 ДЕЛАЕМ УНИКАЛЬНЫМ, ЧТОБЫ ОБХОДИТЬ ОТМЕНЫ (STAGE 5) ОТ МАРКЕТА
     unique_market_id = f"wd_{req.history_id}_{int(time.time())}"
 
@@ -23162,7 +23163,7 @@ async def withdraw_inventory_item(
             custom_id=unique_market_id # 🔥 Передаем статичный ID с таймстампом
         )
         
-        # БЛОК ПЕРЕХВАТА ОШИБОК СТИМА
+        # БЛОК ПЕРЕХВАТА ОШИБОК СТИМА ДО ПОКУПКИ
         if not delivery_res.get("success") and delivery_res.get("is_user_trade_error"):
             error_code = delivery_res.get("market_error_code")
             error_msg = delivery_res.get("error", "Неизвестная ошибка")
@@ -23232,7 +23233,7 @@ async def withdraw_inventory_item(
                     json={"is_reserved": False}
                 )
                 
-                # 🔥 ДОБАВИТЬ ЭТИ СТРОКИ С ПРАВИЛЬНЫМ ОТСТУПОМ:
+                # 🔥 ОТКАТЫВАЕМ СТАТУС В ИСТОРИИ (ВЕРНАЯ ТАБУЛЯЦИЯ) 🔥
                 await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                     "status": "available", "updated_at": now_iso
                 })
@@ -23271,7 +23272,7 @@ async def withdraw_inventory_item(
             except Exception as e:
                 logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
 
-        # 🔥 ДОБАВЛЯЕМ ЭТОТ БЛОК (ЗАЩИТА ОТ ТРЕЙДА ШРЁДИНГЕРА) 🔥
+        # 🔥 ЗАЩИТА ОТ ТРЕЙДА ШРЁДИНГЕРА 🔥
         err_msg = str(delivery_res.get("error", "")).lower()
         err_code = delivery_res.get("market_error_code")
         is_timeout = "таймаут" in err_msg or "timeout" in err_msg or err_code in [500, 502, 504]
