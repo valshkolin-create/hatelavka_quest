@@ -1197,7 +1197,7 @@ class RoulettePrizeUpdateRequest(BaseModel):
 # --- НОВАЯ Pydantic модель для создания ивента ---
 class EventCreateRequest(BaseModel):
     initData: str
-    platform: str = "tg"  # <--- Добавлено!
+    platform: str = "tg"  
     title: str
     description: Optional[str] = None
     image_url: Optional[str] = None
@@ -4145,6 +4145,54 @@ async def update_cauldron_reward_status(
     except Exception as e:
         logging.error(f"Error updating status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка обновления")
+
+@app.post("/api/v1/admin/events/cycle_restart")
+async def cycle_restart_event(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Проверяем админа (или токен крона, если сделаешь автоматизацию)
+    verify_guess_admin(req.initData)
+
+    # 2. Выключаем текущую игру "Угадай слово"
+    await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"is_active": False})
+    global guess_cache
+    guess_cache["updated_at"] = 0
+
+    # 3. Достаем последний сбор, чтобы скопировать его настройки (картинку, цель и т.д.)
+    ev_res = await supabase.get("/community_events", params={"order": "id.desc", "limit": "1"})
+    if not ev_res.json():
+        return {"status": "error", "message": "Нет предыдущего сбора для копирования"}
+    
+    last_event = ev_res.json()[0]
+
+    # 4. Закрываем все старые сборы в БД на всякий случай
+    await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
+
+    # 5. Включаем награду на Твиче заново (создаем новую или переиспользуем логику)
+    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
+    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
+    
+    reward_id = None
+    if broadcaster_token:
+        # Автоматически создаем новую награду на Твиче для нового сбора
+        try:
+            reward_id = await create_twitch_reward(broadcaster_token, f"Закрыть сбор: {last_event['title']}", 50000)
+        except Exception as e:
+            logging.error(f"Не удалось создать награду Твича для нового цикла: {e}")
+
+    # 6. Запускаем НОВЫЙ СБОР с 0 очков
+    new_event = {
+        "title": last_event["title"],
+        "target_points": last_event["target_points"], # То же количество очков для старта
+        "cover_url": last_event["cover_url"],
+        "coin_multiplier": last_event.get("coin_multiplier", 10),
+        "ticket_multiplier": last_event.get("ticket_multiplier", 5),
+        "twitch_reward_id": reward_id,
+        "current_points": 0, # Начинаем с нуля!
+        "is_active": True
+    }
+    
+    await supabase.post("/community_events", json=new_event)
+
+    return {"status": "success", "message": "Игра остановлена, новый сбор запущен!"}
 
 @app.post("/api/v1/admin/events/cauldron/participants")
 async def get_cauldron_participants(
@@ -9394,6 +9442,15 @@ async def update_cauldron_event(
         logging.error(f"КРИТИЧЕСКАЯ ОШИБКА при обновлении настроек котла: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сохранить настройки.")
 
+# Секретный ключ для крона (задай свой сложный пароль в переменных окружения)
+CRON_SECRET = os.getenv("CRON_SECRET", "super_secret_hate_cron_123")
+
+def verify_cron(request: Request):
+    """Проверка, что запрос пришел от нашего настроенного крона"""
+    auth_header = request.headers.get("Authorization")
+    if auth_header != f"Bearer {CRON_SECRET}":
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Неверный токен крона.")
+
 @app.post("/api/v1/admin/events/cauldron/reset")
 async def reset_cauldron_progress(
     request_data: InitDataRequest,
@@ -9564,58 +9621,45 @@ async def toggle_cauldron_reward_status(
         raise HTTPException(status_code=500, detail="Не удалось сохранить статус.")
 
 @app.post("/api/v1/admin/events/create")
-async def create_event(
-    request_data: EventCreateRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+async def create_community_event(req: EventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 🔍 Отладка
-    logging.info(f"ADMIN_IDS = {ADMIN_IDS}")
-    logging.info(f"user из initData = {user}")
-    current_id = None
-    try:
-        current_id = int(user.get("id")) if user and "id" in user else None
-    except Exception:
-        logging.warning(f"Не удалось привести ID к int: {user.get('id') if user else None}")
+    # Достаем токен стримера (чтобы дергать Twitch API)
+    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
+    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
 
-    logging.info(f"current_id (int) = {current_id}")
+    # Закрываем старые активные сборы
+    await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
 
-    # 🚫 Проверка доступа
-    if not current_id or current_id not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Недостаточно прав.")
+    # Создаем награду на Твиче (захардкодили 50000, так как в классе нет поля)
+    reward_id = None
+    if broadcaster_token:
+        twitch_reward_title = f"Закрыть сбор: {req.title}"
+        try:
+            reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, 50000)
+        except Exception as e:
+            logging.error(f"Не удалось создать награду Твича: {e}")
 
-    try:
-        # 1. Формируем данные для Supabase
-        event_payload = {
-            "title": request_data.title,
-            "description": request_data.description,
-            "image_url": request_data.image_url,
-            "tickets_cost": request_data.tickets_cost
-        }
-        if request_data.end_date:
-            event_payload["end_date"] = datetime.fromisoformat(request_data.end_date).isoformat() + 'Z'
-        
-        # 2. Отправляем запрос в Supabase для создания новой записи
-        resp = await supabase.post(
-            "/events",
-            json=event_payload,
-            headers={"Prefer": "return=representation"}
-        )
-        resp.raise_for_status()
-        new_event = resp.json()
-        
-        # 3. Уведомляем клиентов через WebSocket о новом событии
-        await manager.broadcast(json.dumps({"type": "event_created", "event": new_event}))
-        
-        return {"status": "ok", "message": "Событие успешно создано!", "event": new_event}
+    # Сохраняем ивент в базу, сопоставляя твои поля с колонками таблицы
+    new_event = {
+        "title": req.title,
+        "target_points": req.tickets_cost,  # Используем tickets_cost как цель сбора
+        "cover_url": req.image_url,         # Записываем image_url
+        "coin_multiplier": 10,              # 1 монета = 10 очков
+        "ticket_multiplier": 5,             # 1 билет = 5 очков
+        "twitch_reward_id": reward_id,
+        "is_active": True
+    }
     
-    except httpx.HTTPStatusError as e:
-        logging.error(f"Supabase вернул ошибку при создании события: {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail=f"Ошибка базы данных: {e.response.text}")
-    except Exception as e:
-        logging.error(f"Непредвиденная ошибка при создании события: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    # Если в БД добавлены колонки под description и end_date, можно передавать и их
+    if req.description:
+        new_event["description"] = req.description
+
+    res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
+    
+    return {"status": "success", "event": res.json()[0]}
 
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
@@ -21994,21 +22038,21 @@ async def get_current_event(supabase: httpx.AsyncClient = Depends(get_supabase_c
 # --- 3. ФРОНТЕНД: Задонатить в сбор ---
 @app.post("/api/v1/events/donate")
 async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # 1. Авторизация
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Не авторизован")
     tg_id = user_info["id"]
 
-    # 2. Проверяем, есть ли активный сбор
     ev_res = await supabase.get("/community_events", params={"is_active": "eq.true"})
     if not ev_res.json():
         raise HTTPException(status_code=400, detail="Сейчас нет активных сборов")
     event = ev_res.json()[0]
 
     added_points = 0
+    # Берем множители из БД или ставим дефолт
+    c_mult = event.get("coin_multiplier", 10)
+    t_mult = event.get("ticket_multiplier", 5)
 
-    # 3. Обрабатываем валюту
     if req.currency_type == "coins":
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id"})
         bott_id = u_res.json()[0].get("bott_internal_id") if u_res.json() else None
@@ -22016,7 +22060,7 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
             raise HTTPException(status_code=400, detail="ID бота не найден")
         
         await subtract_bott_balance(bott_id, float(req.amount), f"Сбор: {event['title']}")
-        added_points = req.amount * 10  # 1 монетка = 10 очков
+        added_points = req.amount * c_mult
 
     elif req.currency_type == "tickets":
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "tickets"})
@@ -22027,24 +22071,23 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
         
         new_tickets = current_tickets - req.amount
         await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"tickets": new_tickets})
-        added_points = req.amount * 5  # 1 билет = 5 очков
+        added_points = req.amount * t_mult
 
     else:
         raise HTTPException(status_code=400, detail="Неизвестная валюта")
 
-    # 4. Обновляем прогресс сбора
+    # Обновляем прогресс сбора
     new_points = event["current_points"] + added_points
     is_finished = new_points >= event["target_points"]
 
     update_payload = {"current_points": new_points}
     if is_finished:
-        update_payload["is_active"] = False # Закрываем сбор
+        update_payload["is_active"] = False
 
     await supabase.patch("/community_events", params={"id": f"eq.{event['id']}"}, json=update_payload)
 
-    # 5. ЕСЛИ СБОР ДОСТИГ 100% -> ЗАПУСКАЕМ ИГРУ И СКРЫВАЕМ НАГРАДУ
+    # ЕСЛИ СБОР ДОСТИГ 100% -> АВТОЗАПУСК ИГРЫ И СКРЫТИЕ НАГРАДЫ
     if is_finished:
-        # --- АВТОЗАПУСК ОТГАДАЙКИ ---
         try:
             words_res = await supabase.get("/guess_words")
             all_words = [w["word"] for w in words_res.json()] if words_res.status_code == 200 else []
@@ -22055,13 +22098,11 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
                 "current_word": first_word, 
                 "revealed_indices": []
             })
-            # Сбрасываем кэш, чтобы вебхуки Fossabot сразу подхватили новое слово
             global guess_cache
             guess_cache["updated_at"] = 0
         except Exception as e:
-            logging.error(f"Ошибка автозапуска отгадайки при завершении сбора: {e}")
+            logging.error(f"Ошибка автозапуска отгадайки: {e}")
 
-        # --- СКРЫТИЕ НАГРАДЫ TWITCH ---
         if event.get("twitch_reward_id"):
             try:
                 token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
@@ -22076,7 +22117,7 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
         "new_total": new_points,
         "is_finished": is_finished
     }
-
+    
 # --- 4. ФРОНТЕНД/FOSSABOT: Мгновенно закрыть сбор через награду Твича ---
 @app.get("/api/v1/events/force_finish", response_class=PlainTextResponse)
 async def force_finish_event(
@@ -22229,6 +22270,56 @@ async def admin_guess_words_get(req: GuessAdminBaseRequest, supabase: httpx.Asyn
     res = await supabase.get("/guess_words")
     words = [w["word"] for w in res.json()] if res.status_code == 200 else []
     return {"words": words}
+
+@app.post("/api/v1/admin/guess/weekly_rewards")
+async def weekly_rewards(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_cron(request) # Проверка секретного ключа
+    
+    lb_res = await supabase.get("/guess_leaderboard", params={"order": "score.desc", "limit": "100"})
+    leaders = lb_res.json() if lb_res.status_code == 200 else []
+
+    if not leaders:
+        return {"status": "success", "log": ["Лидерборд пуст."]}
+
+    config_res = await supabase.get("/guess_rewards_config")
+    rewards_config = {item["place"]: item for item in config_res.json()} if config_res.status_code == 200 else {}
+
+    results_log = []
+
+    for index, player in enumerate(leaders):
+        place = index + 1
+        reward = rewards_config.get(place)
+        if not reward: continue 
+
+        user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{player['twitch_login']}"})
+        if not user_res.json(): continue 
+        
+        user_data = user_res.json()[0]
+        tg_id = user_data["telegram_id"]
+
+        if reward["reward_type"] == "coins":
+            bott_id = user_data.get("bott_internal_id")
+            if bott_id:
+                # Начисляем монеты (убедись, что у тебя есть функция add_balance_to_bott)
+                await add_balance_to_bott(bott_id, reward["amount"], f"Топ-{place} в Угадай Слово")
+                results_log.append(f"Выдано {reward['amount']} монет.")
+
+        elif reward["reward_type"] == "tickets":
+            new_tickets = user_data.get("tickets", 0) + reward["amount"]
+            await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"tickets": new_tickets})
+
+        elif reward["reward_type"] == "case":
+            camp_data = {"title": f"Топ-{place} места", "winners_limit": 1, "is_active": True, "target_case_name": reward["target_case_name"]}
+            camp_res = await supabase.post("/twitch_campaigns", json=camp_data, headers={"Prefer": "return=representation"})
+            camp_id = camp_res.json()[0]["id"]
+            code_data = {"code": f"TOP-{player['twitch_login'].upper()}-{random.randint(100,999)}", "campaign_id": camp_id, "max_uses": 1, "current_uses": 0, "is_active": True, "target_case_name": reward["target_case_name"]}
+            await supabase.post("/cs_codes", json=code_data)
+            await supabase.post("/rpc/add_twitch_winner", json={"p_code": code_data["code"], "p_user_id": tg_id})
+
+    # Обнуляем лидерборд
+    await supabase.delete("/guess_leaderboard", params={"score": "gte.0"})
+    return {"status": "success", "log": results_log}
+    
 
 @app.post("/api/v1/admin/guess/words/set")
 async def admin_guess_words_set(req: GuessWordsRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
