@@ -845,7 +845,7 @@
             }
         }
 
-        // --- НОВОЕ: Отправка позиции и зума ---
+       // --- НОВОЕ: Отправка позиции и зума на ЕДИНЫЙ эндпоинт ---
         let coverSettingTimeout;
         function changeCoverSetting(axis, val) {
             document.getElementById(`cover-${axis}-val`).innerText = val + '%';
@@ -857,7 +857,8 @@
 
             coverSettingTimeout = setTimeout(async () => {
                 try {
-                    await apiCall('/api/v1/admin/guess/covers/settings/set', { 
+                    // Изменили URL на единый
+                    await apiCall('/api/v1/admin/guess/covers/set', { 
                         cover_offset_x: x, 
                         cover_offset_y: y, 
                         cover_zoom: zoom 
