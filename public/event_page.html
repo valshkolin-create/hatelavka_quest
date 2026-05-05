@@ -35,15 +35,15 @@
             100% { transform: scale(1); }
         }
         
-        /* ИЗМЕНЕНИЕ: 120vh, чтобы скрыть швы и границы при растягивании экрана */
+        /* ИЗМЕНЕНИЕ: Добавили плавные переходы для ширины, высоты и позиции, чтобы зум и сдвиг были гладкими */
         #event-cover {
             position: fixed; top: -10vh; left: -10vw; width: 120vw; height: 120vh;
             background-repeat: no-repeat;
             background-size: cover; 
-            background-position: 50% 50%; /* Значения по умолчанию, меняются из JS */
+            background-position: 50% 50%;
             animation: breathe 15s infinite ease-in-out;
             z-index: 0;
-            /* Убрали transition на картинку, чтобы не было мерцания */
+            transition: width 0.4s ease, height 0.4s ease, top 0.4s ease, left 0.4s ease, background-position 0.4s ease;
         }
 
         /* ИЗМЕНЕНИЕ: Градиент плавно и гарантированно уходит в абсолютный черный к 85% */
@@ -370,6 +370,16 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const isObs = urlParams.get('mode') === 'obs';
+        
+        let currentWord = "";
+        let currentMode = "classic";
+        let revealedIndices = [];
+        let timerSeconds = 30;
+        let scrambledWord = ""; 
+        let rewardsConfig = [];
+
         let isGameActive = false;
         let isEventActive = false;
         
@@ -535,9 +545,25 @@
                 targetUrl = defaultCoverUrl;
             }
 
-            // ПРИМЕНЯЕМ НАСТРОЙКИ ПОЗИЦИИ (Масштаб, X, Y)
-            coverEl.style.backgroundPosition = `${coverOffsetX}% ${coverOffsetY}%`;
-            coverEl.style.backgroundSize = coverZoom === 100 ? 'cover' : `${coverZoom}%`;
+            // ПРИМЕНЯЕМ НАСТРОЙКИ ПОЗИЦИИ И ЗУМА (Решение проблемы с неподвижным фоном)
+            if (coverEl) {
+                // Вычисляем размеры контейнера в зависимости от зума (база 120vw/vh)
+                const targetW = 120 * (coverZoom / 100);
+                const targetH = 120 * (coverZoom / 100);
+                
+                // Центрируем контейнер, чтобы он равномерно выходил за края экрана
+                const topPos = -(targetH - 100) / 2;
+                const leftPos = -(targetW - 100) / 2;
+
+                coverEl.style.width = `${targetW}vw`;
+                coverEl.style.height = `${targetH}vh`;
+                coverEl.style.top = `${topPos}vh`;
+                coverEl.style.left = `${leftPos}vw`;
+
+                // Теперь backgroundPosition будет реально двигать картинку!
+                coverEl.style.backgroundPosition = `${coverOffsetX}% ${coverOffsetY}%`;
+                coverEl.style.backgroundSize = 'cover';
+            }
 
             // Трюк с предзагрузкой картинки, чтобы убрать лоадер ТОЛЬКО когда картинка скачалась
             const globalLoader = document.getElementById('global-loader');
@@ -547,13 +573,13 @@
                 
                 // Запускаем скрытие как только скачалось (или если произошла ошибка)
                 img.onload = img.onerror = () => {
-                    coverEl.style.backgroundImage = `url('${targetUrl}')`;
+                    if (coverEl) coverEl.style.backgroundImage = `url('${targetUrl}')`;
                     globalLoader.style.opacity = '0';
                     setTimeout(() => { globalLoader.classList.add('hidden'); }, 500);
                 };
             } else {
                 // Если лоадер уже скрыт (обычное переключение стейтов), просто меняем фон
-                coverEl.style.backgroundImage = `url('${targetUrl}')`;
+                if (coverEl) coverEl.style.backgroundImage = `url('${targetUrl}')`;
             }
         }
 
@@ -586,7 +612,7 @@
             if (state.default_cover_url) defaultCoverUrl = state.default_cover_url;
             if (state.game_cover_url) gameCoverUrl = state.game_cover_url;
             
-            // Читаем позицию из БД (Если админ настроил ползунки)
+            // Читаем позицию из БД (которую админ настроил ползунками)
             if (state.cover_zoom !== undefined) coverZoom = state.cover_zoom;
             if (state.cover_offset_x !== undefined) coverOffsetX = state.cover_offset_x;
             if (state.cover_offset_y !== undefined) coverOffsetY = state.cover_offset_y;
