@@ -244,6 +244,18 @@
                 </div>
             </div>
 
+            <!-- НАСТРОЙКА ОБЛОЖЕК (ПРИЛОЖЕНИЕ) -->
+            <div class="mb-3 bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
+                <h3 class="text-[9px] text-gray-400 uppercase font-bold mb-2">Обложки (Фон приложения)</h3>
+                <label class="block text-[8px] text-gray-500 uppercase font-bold mb-1">Фон по умолчанию (Без сбора):</label>
+                <input type="text" id="admin-default-cover-input" class="input-custom mb-2" placeholder="https://...">
+
+                <label class="block text-[8px] text-[#9146FF] uppercase font-bold mb-1">Фон во время игры:</label>
+                <input type="text" id="admin-game-cover-input" class="input-custom mb-2" placeholder="https://...">
+
+                <button onclick="setCovers()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-image"></i> Сохранить фоны</button>
+            </div>
+
             <div class="grid grid-cols-2 gap-2 mb-2">
                 <button onclick="apiCall('/api/v1/admin/guess/start')" class="btn-custom btn-green"><i class="fa-solid fa-play"></i> Выдать слово</button>
                 <button onclick="apiCall('/api/v1/admin/guess/skip')" class="btn-custom btn-yellow"><i class="fa-solid fa-forward-step"></i> Скип</button>
@@ -267,7 +279,7 @@
                 <!-- Добавлен oninput для автосохранения -->
                 <input type="text" id="ev-title" class="input-custom mb-2" value="Начинаем отгадайку!" oninput="saveEventSettings()">
                 
-                <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Обложка (URL картинки или GIF):</label>
+                <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Обложка сбора (URL или GIF):</label>
                 <input type="text" id="ev-cover" class="input-custom mb-3" placeholder="https://..." oninput="saveEventSettings()">
                 
                 <!-- ОБНОВЛЕННАЯ СЕТКА: Цель, Цена, Дает Очков -->
@@ -544,6 +556,14 @@
                     document.getElementById('letter-size-val').innerText = state.letter_size;
                 }
             }
+            
+            // Заполнение обложек в админке, если они привязаны к БД
+            if (state.default_cover_url && !isObs && document.getElementById('admin-default-cover-input').value === '') {
+                document.getElementById('admin-default-cover-input').value = state.default_cover_url;
+            }
+            if (state.game_cover_url && !isObs && document.getElementById('admin-game-cover-input').value === '') {
+                document.getElementById('admin-game-cover-input').value = state.game_cover_url;
+            }
 
             if (state.is_active && state.current_word) {
                 if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
@@ -773,6 +793,19 @@
             const text = document.getElementById('custom-text-input').value;
             await apiCall('/api/v1/admin/guess/text/set', { custom_text: text });
             tg.showAlert("Текст обновлен!");
+        }
+        
+        // --- СОХРАНЕНИЕ ОБЛОЖЕК (ПРИЛОЖЕНИЕ) ---
+        async function setCovers() {
+            const defaultUrl = document.getElementById('admin-default-cover-input').value;
+            const gameUrl = document.getElementById('admin-game-cover-input').value;
+            
+            try {
+                await apiCall('/api/v1/admin/guess/covers/set', { default_cover_url: defaultUrl, game_cover_url: gameUrl });
+                tg.showAlert("Фоны успешно обновлены!");
+            } catch (e) {
+                tg.showAlert("Ошибка при сохранении: " + e.message);
+            }
         }
 
         let textSizeTimeout;
