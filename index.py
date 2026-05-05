@@ -22025,23 +22025,24 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Достаем токен стримера (безопасно, используя BROADCASTER_ID)
+    # 2. Достаем токен стримера
     token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
     broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
 
     # 3. Закрываем старые активные сборы
     await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
 
-    # 4. Создаем награду на Твиче (если есть токен)
+    # 4. Создаем награду на Твиче
     reward_id = None
     if broadcaster_token:
         twitch_reward_title = f"Закрыть сбор: {req.title}"
         try:
+            # ЕСЛИ ФУНКЦИИ НЕТ, ОН ПРОСТО ВЫДАСТ ОШИБКУ В ЛОГ, НО СБОР СОЗДАСТСЯ
             reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, req.twitch_reward_cost)
         except Exception as e:
             logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # 5. Сохраняем ивент в базу (с множителями!)
+    # 5. Сохраняем ивент в базу
     new_event = {
         "title": req.title,
         "target_points": req.target_points,
@@ -22051,10 +22052,19 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
         "ticket_multiplier": req.ticket_multiplier,
         "is_active": True
     }
-    res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
     
-    return {"status": "success", "event": res.json()[0]}
+    res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
+    res_data = res.json()
 
+    # БЕЗОПАСНАЯ ОБРАБОТКА ОТВЕТА БАЗЫ (Защита от KeyError: 0)
+    if isinstance(res_data, dict) and "message" in res_data:
+        logging.error(f"ОШИБКА SUPABASE: {res_data}")
+        raise HTTPException(status_code=400, detail=f"Ошибка БД: {res_data['message']}")
+
+    # Если всё окей, база возвращает список, берем первый элемент
+    event_data = res_data[0] if isinstance(res_data, list) else res_data
+    
+    return {"status": "success", "event": event_data}
 
 # --- 2. ФРОНТЕНД: Получить текущий сбор ---
 @app.get("/api/v1/events/current")
