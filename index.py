@@ -1197,12 +1197,21 @@ class RoulettePrizeUpdateRequest(BaseModel):
 # --- НОВАЯ Pydantic модель для создания ивента ---
 class EventCreateRequest(BaseModel):
     initData: str
-    platform: str = "tg"  
+    platform: str = "tg"  # <--- Добавлено!
     title: str
     description: Optional[str] = None
     image_url: Optional[str] = None
     tickets_cost: int
     end_date: Optional[str] = None
+
+class CommunityEventCreateRequest(BaseModel):
+    initData: str
+    title: str
+    target_points: int
+    cover_url: str
+    twitch_reward_cost: int = 50000  # Можно передавать с фронта, по дефолту 50000
+    coin_multiplier: int = 10
+    ticket_multiplier: int = 5
 
 class TwitchPurchaseViewedRequest(BaseModel):
     initData: str
@@ -9618,46 +9627,61 @@ async def toggle_cauldron_reward_status(
         logging.error(f"Ошибка при обновлении статуса награды котла: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сохранить статус.")
 
+
 @app.post("/api/v1/admin/events/create")
-async def create_community_event(req: EventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get('id') not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+async def create_event(
+    request_data: EventCreateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
 
-    # Достаем токен стримера (чтобы дергать Twitch API)
-    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
+    # 🔍 Отладка
+    logging.info(f"ADMIN_IDS = {ADMIN_IDS}")
+    logging.info(f"user из initData = {user}")
+    current_id = None
+    try:
+        current_id = int(user.get("id")) if user and "id" in user else None
+    except Exception:
+        logging.warning(f"Не удалось привести ID к int: {user.get('id') if user else None}")
 
-    # Закрываем старые активные сборы
-    await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
+    logging.info(f"current_id (int) = {current_id}")
 
-    # Создаем награду на Твиче (захардкодили 50000, так как в классе нет поля)
-    reward_id = None
-    if broadcaster_token:
-        twitch_reward_title = f"Закрыть сбор: {req.title}"
-        try:
-            reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, 50000)
-        except Exception as e:
-            logging.error(f"Не удалось создать награду Твича: {e}")
+    # 🚫 Проверка доступа
+    if not current_id or current_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Недостаточно прав.")
 
-    # Сохраняем ивент в базу, сопоставляя твои поля с колонками таблицы
-    new_event = {
-        "title": req.title,
-        "target_points": req.tickets_cost,  # Используем tickets_cost как цель сбора
-        "cover_url": req.image_url,         # Записываем image_url
-        "coin_multiplier": 10,              # 1 монета = 10 очков
-        "ticket_multiplier": 5,             # 1 билет = 5 очков
-        "twitch_reward_id": reward_id,
-        "is_active": True
-    }
+    try:
+        # 1. Формируем данные для Supabase
+        event_payload = {
+            "title": request_data.title,
+            "description": request_data.description,
+            "image_url": request_data.image_url,
+            "tickets_cost": request_data.tickets_cost
+        }
+        if request_data.end_date:
+            event_payload["end_date"] = datetime.fromisoformat(request_data.end_date).isoformat() + 'Z'
+        
+        # 2. Отправляем запрос в Supabase для создания новой записи
+        resp = await supabase.post(
+            "/events",
+            json=event_payload,
+            headers={"Prefer": "return=representation"}
+        )
+        resp.raise_for_status()
+        new_event = resp.json()
+        
+        # 3. Уведомляем клиентов через WebSocket о новом событии
+        await manager.broadcast(json.dumps({"type": "event_created", "event": new_event}))
+        
+        return {"status": "ok", "message": "Событие успешно создано!", "event": new_event}
     
-    # Если в БД добавлены колонки под description и end_date, можно передавать и их
-    if req.description:
-        new_event["description"] = req.description
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Supabase вернул ошибку при создании события: {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Ошибка базы данных: {e.response.text}")
+    except Exception as e:
+        logging.error(f"Непредвиденная ошибка при создании события: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
-    res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
-    
-    return {"status": "success", "event": res.json()[0]}
 
 @app.post("/api/v1/admin/stats")
 async def get_admin_stats(
@@ -21992,30 +22016,37 @@ async def get_market_items(
 # ==========================================
 
 # --- 1. АДМИНКА: Создать новый сбор ---
-@app.post("/api/v1/admin/events/create")
-async def create_community_event(req: EventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+@app.post("/api/v1/admin/community_events/create")
+async def create_community_event(req: CommunityEventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # 1. Проверка на админа
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Достаем токен стримера (чтобы дергать Twitch API)
+    # 2. Достаем токен стримера (безопасно)
     token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-    broadcaster_token = token_res.json()[0].get("twitch_access_token")
+    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
 
     # 3. Закрываем старые активные сборы
     await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
 
-    # 4. Создаем награду на Твиче
-    twitch_reward_title = f"Закрыть сбор: {req.title}"
-    reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, req.twitch_reward_cost)
+    # 4. Создаем награду на Твиче (если есть токен)
+    reward_id = None
+    if broadcaster_token:
+        twitch_reward_title = f"Закрыть сбор: {req.title}"
+        try:
+            reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, req.twitch_reward_cost)
+        except Exception as e:
+            logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # 5. Сохраняем ивент в базу
+    # 5. Сохраняем ивент в базу (с множителями!)
     new_event = {
         "title": req.title,
         "target_points": req.target_points,
         "cover_url": req.cover_url,
         "twitch_reward_id": reward_id,
+        "coin_multiplier": req.coin_multiplier,
+        "ticket_multiplier": req.ticket_multiplier,
         "is_active": True
     }
     res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
