@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HATElove | Общий Сбор & Игра</title>
-    <!-- ВЕРНУЛ ПОДКЛЮЧЕНИЕ SUPABASE СЮДА 👇 -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -96,12 +95,12 @@
         }
         .input-donate:focus { border-color: #9146FF; }
 
-        /* Кнопка админа */
+        /* Чистая круглая кнопка админа без текста */
         .admin-btn-floating {
             position: absolute; top: calc(env(safe-area-inset-top, 20px) + 10px); right: 20px;
-            background: rgba(0,0,0,0.6); border: 1px solid rgba(145,70,255,0.5);
-            color: white; padding: 6px 10px; border-radius: 100px; font-size: 9px; font-weight: 900;
-            text-transform: uppercase; z-index: 50; display: flex; align-items: center; gap: 6px;
+            background: rgba(0,0,0,0.6); border: 1px solid rgba(145,70,255,0.4);
+            color: #9146FF; width: 36px; height: 36px; border-radius: 50%; font-size: 18px;
+            z-index: 50; display: flex; align-items: center; justify-content: center;
             backdrop-filter: blur(5px); transition: 0.2s; cursor: pointer;
         }
         .admin-btn-floating:active { transform: scale(0.9); }
@@ -118,11 +117,16 @@
             display: flex; align-items: center; justify-content: center; z-index: 100; 
             padding: 15px 15px 95px 15px;
             overscroll-behavior: none; touch-action: none;
+            opacity: 1; transition: opacity 0.2s ease;
         }
+        .modal-overlay.hidden {
+            display: none; opacity: 0;
+        }
+        
         .glass-card {
             background: linear-gradient(135deg, #13131a 0%, #0a0a0c 100%);
-            border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 16px; padding: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); width: 100%; max-width: 400px;
+            border: 1px solid rgba(145, 70, 255, 0.3); border-radius: 16px; padding: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); width: 100%; max-width: 320px;
             display: flex; flex-direction: column; max-height: 80vh;
         }
         .tg-scrollable {
@@ -145,24 +149,20 @@
         }
         .nav-item { 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            color: var(--text-muted); text-decoration: none; 
-            gap: 2px;
-            padding: 6px 10px; 
+            color: #8E8E93; text-decoration: none; 
+            gap: 2px; padding: 6px 10px; 
             border-radius: 20px; transition: all 0.3s ease; 
         }
         .nav-item i { font-size: 18px; }
         .nav-item span { font-size: 9px; font-weight: 600; }
         .nav-item.active { background: transparent; color: #FFFFFF; }
-
-        .floating-bottom-bar .nav-item { color: #8E8E93; }
-        .floating-bottom-bar .nav-item.active { color: #FFFFFF; }
     </style>
 </head>
 <body>
 
-    <!-- КНОПКА АДМИНА -->
+    <!-- КНОПКА АДМИНА (Только шестеренка) -->
     <button onclick="window.location.href='guess_game.html'" id="admin-btn" class="admin-btn-floating hidden">
-        <i class="fa-solid fa-screwdriver-wrench text-[#9146FF]"></i> Админка
+        <i class="fa-solid fa-gear"></i>
     </button>
 
     <!-- ОБЛОЖКА -->
@@ -200,7 +200,16 @@
             </div>
 
             <div id="controls-section" class="w-full shrink-0">
-                <input type="number" id="donate-amount" class="input-donate mb-2" placeholder="Сумма..." value="10">
+                <!-- Ввод с защитой от минусов и спецсимволов -->
+                <input type="text" inputmode="numeric" id="donate-amount" class="input-donate mb-1" placeholder="Сумма..." value="10" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calculatePoints();">
+                
+                <!-- Калькулятор очков -->
+                <div class="text-center mb-2 h-3">
+                    <span id="points-preview" class="text-[9px] font-bold text-[#9146FF] uppercase tracking-widest hidden">
+                        Взнос: <span id="preview-val" class="text-white">0</span> ОЧКОВ
+                    </span>
+                </div>
+
                 <div class="flex gap-2">
                     <button onclick="donate('coins')" id="btn-coins" class="action-btn btn-coins">
                         <span class="flex items-center gap-1 text-[10px]"><i class="fa-solid fa-coins"></i> Монеты</span>
@@ -249,7 +258,7 @@
                 <div class="w-10 text-right">Очки</div>
             </div>
 
-            <div id="public-leaderboard" class="flex-1 tg-scrollable space-y-1 w-full">
+            <div id="public-leaderboard" class="flex-1 tg-scrollable space-y-1 w-full max-h-[50vh]">
                 <div class="text-gray-500 text-center mt-2 text-[9px]">Загрузка...</div>
             </div>
         </div>
@@ -263,7 +272,7 @@
                 <button onclick="closeModal('modal-rules')" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-times"></i></button>
             </div>
             
-            <div class="tg-scrollable pr-1 text-[9px] text-gray-300 space-y-2">
+            <div class="tg-scrollable pr-1 text-[9px] text-gray-300 space-y-2 max-h-[55vh]">
                 <div class="bg-[rgba(255,255,255,0.05)] p-2 rounded-lg border border-[rgba(255,255,255,0.1)]">
                     <p class="font-bold text-white mb-1"><i class="fa-solid fa-keyboard text-[#9146FF]"></i> Как играть?</p>
                     <p class="leading-relaxed">Смотри на экран трансляции и отгадывай зашифрованное слово. Пиши ответ первым прямо в <b>чат Twitch</b>! За каждое слово бот начислит тебе <i class="fa-solid fa-star text-[#ffd700]"></i> очки.</p>
@@ -279,29 +288,54 @@
         </div>
     </div>
 
+    <!-- КАСТОМНЫЙ ДИАЛОГ (Вместо tg.showAlert) -->
+    <div id="custom-dialog" class="hidden modal-overlay !z-[999]">
+        <div class="glass-card !max-w-[280px] text-center p-5">
+            <div id="dialog-icon" class="text-3xl mb-2 text-[#9146FF]"><i class="fa-solid fa-circle-exclamation"></i></div>
+            <h3 id="dialog-title" class="text-white font-black uppercase text-[12px] mb-2">Внимание</h3>
+            <p id="dialog-text" class="text-gray-300 text-[10px] mb-4 leading-relaxed"></p>
+            <div id="dialog-buttons" class="flex gap-2 w-full justify-center">
+                <!-- Кнопки вставляются через JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
     <nav class="floating-bottom-bar">
-        <a href="/leaderboard" class="nav-item">
-            <i class="fa-solid fa-trophy"></i><span>Топ</span>
-        </a>
-        <a href="/quests" class="nav-item" id="nav-quests">
-            <i class="fa-solid fa-check-double"></i><span>Задания</span>
-        </a>
-        <a href="/" class="nav-item" id="nav-dashboard">
-            <i class="fa-solid fa-house"></i><span>Главная</span>
-        </a>
-        <a href="/events" class="nav-item active">
-            <i class="fa-solid fa-fire"></i><span>Гринд</span>
-        </a>
-        <a href="/auction" class="nav-item">
-            <i class="fa-solid fa-gavel"></i><span>Аукцион</span>
-        </a>
+        <a href="/leaderboard" class="nav-item"><i class="fa-solid fa-trophy"></i><span>Топ</span></a>
+        <a href="/quests" class="nav-item"><i class="fa-solid fa-check-double"></i><span>Задания</span></a>
+        <a href="/" class="nav-item"><i class="fa-solid fa-house"></i><span>Главная</span></a>
+        <a href="/events" class="nav-item active"><i class="fa-solid fa-fire"></i><span>Гринд</span></a>
+        <a href="/auction" class="nav-item"><i class="fa-solid fa-gavel"></i><span>Аукцион</span></a>
     </nav>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+
+        // --- УМНАЯ СИСТЕМНАЯ КНОПКА НАЗАД ---
+        let openModalsStack = [];
+
+        function updateBackButton() {
+            // Кнопка назад видна всегда (потому что мы в подменю "Гринд")
+            tg.BackButton.show();
+        }
+
+        tg.BackButton.onClick(() => {
+            if (openModalsStack.length > 0) {
+                // Закрываем самое верхнее открытое окно
+                const lastModal = openModalsStack.pop();
+                document.getElementById(lastModal).classList.add('hidden');
+                updateBackButton();
+            } else {
+                // Если окон нет — выходим на главную (или предыдущую страницу)
+                window.history.back();
+            }
+        });
+
+        // Включаем сразу
+        updateBackButton();
 
         // Настройки Supabase
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
@@ -310,14 +344,39 @@
 
         let isGameActive = false;
         let isEventActive = false;
+        
+        // Для калькулятора по умолчанию
+        const MULTIPLIERS = { coins: 10, tickets: 5 };
 
-        // --- УТИЛИТЫ ---
+        // --- КАСТОМНЫЕ ДИАЛОГИ ---
+        function showCustomAlert(text, title = "Внимание", icon = "fa-circle-exclamation text-[#9146FF]") {
+            document.getElementById('dialog-icon').innerHTML = `<i class="fa-solid ${icon}"></i>`;
+            document.getElementById('dialog-title').innerText = title;
+            document.getElementById('dialog-text').innerHTML = text.replace(/\n/g, '<br>');
+            document.getElementById('dialog-buttons').innerHTML = `<button onclick="closeModal('custom-dialog')" class="action-btn btn-purple w-full max-w-[120px] py-2 text-[10px]">ОК</button>`;
+            
+            document.getElementById('custom-dialog').classList.remove('hidden');
+            if (!openModalsStack.includes('custom-dialog')) openModalsStack.push('custom-dialog');
+            updateBackButton();
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+        }
+
+        // --- УТИЛИТЫ МОДАЛОК ---
         function openModal(id) {
             document.getElementById(id).classList.remove('hidden');
+            if (!openModalsStack.includes(id)) openModalsStack.push(id);
+            updateBackButton();
+
             if(id === 'modal-leaderboard') loadPublicLeaderboard();
             if(id === 'modal-rules') loadPublicRewards();
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            openModalsStack = openModalsStack.filter(m => m !== id);
+            updateBackButton();
+        }
         
         async function apiCall(endpoint, body = {}, method = 'POST') {
             const options = { method, headers: { 'Content-Type': 'application/json' } };
@@ -335,6 +394,24 @@
                 }
             } catch(e) {}
         }
+
+        // --- КАЛЬКУЛЯТОР ОЧКОВ ---
+        function calculatePoints() {
+            const amountStr = document.getElementById('donate-amount').value;
+            const amount = parseInt(amountStr);
+            const previewBox = document.getElementById('points-preview');
+            const previewVal = document.getElementById('preview-val');
+
+            if (!amount || amount <= 0 || isNaN(amount)) {
+                previewBox.classList.add('hidden');
+                return;
+            }
+            // Показываем примерный расчет (допустим, по монетам, так как это основная валюта)
+            const totalPoints = amount * MULTIPLIERS.coins; 
+            previewVal.innerText = `~${totalPoints}`;
+            previewBox.classList.remove('hidden');
+        }
+        document.addEventListener("DOMContentLoaded", () => calculatePoints());
 
         // --- ЛОГИКА ОТОБРАЖЕНИЯ (МЕНЕДЖЕР СОСТОЯНИЙ) ---
         function updateMainView() {
@@ -393,7 +470,9 @@
         async function donate(type) {
             const amountInput = document.getElementById('donate-amount');
             const amount = parseInt(amountInput.value);
-            if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму!");
+            if (!amount || amount <= 0 || isNaN(amount)) {
+                return showCustomAlert("Пожалуйста, введите целое число больше нуля.");
+            }
 
             const btn = type === 'coins' ? document.getElementById('btn-coins') : document.getElementById('btn-tickets');
             const originalHtml = btn.innerHTML;
@@ -411,7 +490,7 @@
                 });
             } catch (e) {
                 tg.HapticFeedback.notificationOccurred('error');
-                tg.showAlert(e.message);
+                showCustomAlert(e.message, "Ошибка", "fa-xmark text-[#ff4d4d]");
             } finally {
                 btn.innerHTML = originalHtml; btn.disabled = false;
             }
@@ -458,7 +537,7 @@
                     </div>
                 `).join('');
             } catch (e) {
-                container.innerHTML = '<div class="text-red-500 text-center text-xs mt-4">Ошибка загрузки</div>';
+                container.innerHTML = '<div class="text-[#ff4d4d] text-center text-xs mt-4">Ошибка загрузки</div>';
             }
         }
 
@@ -492,7 +571,7 @@
                     </div>`;
                 }).join('');
             } catch (e) {
-                container.innerHTML = '<div class="text-red-500 text-center text-xs mt-2">Ошибка загрузки</div>';
+                container.innerHTML = '<div class="text-[#ff4d4d] text-center text-xs mt-2">Ошибка загрузки</div>';
             }
         }
 
