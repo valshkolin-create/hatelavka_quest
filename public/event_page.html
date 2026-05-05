@@ -646,6 +646,18 @@
             supabaseClient.channel('public-rewards-changes')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'guess_rewards_config' }, () => loadPublicRewards())
                 .subscribe();
+
+            // 🔥 4. СБОРЫ (НОВЫЙ БЛОК ДЛЯ ЗРИТЕЛЕЙ) 🔥
+            supabaseClient.channel('community-events-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'community_events' }, 
+                    (payload) => {
+                        if (payload.eventType === 'UPDATE' && payload.new.is_active) {
+                            updateEventUI(payload.new);
+                        } else {
+                            fetchEventState();
+                        }
+                    })
+                .subscribe();
         }
 
         // --- ПУБЛИЧНЫЕ ДАННЫЕ ДЛЯ МОДАЛОК (Загружаются в фоне) ---
@@ -718,7 +730,6 @@
         
         initSupabaseRealtime();
         fetchEventState();
-        setInterval(fetchEventState, 5000);
     </script>
 </body>
 </html>
