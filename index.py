@@ -4185,9 +4185,10 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
         except Exception as e:
             logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # Запускаем НОВЫЙ СБОР с 0 очков
+    # Запускаем НОВЫЙ СБОР с 0 очков (ДОБАВЛЕН event_type)
     new_event = {
         "title": last_event["title"],
+        "event_type": "guess", # Обязательное поле для БД!
         "target_points": last_event["target_points"], 
         "cover_url": last_event.get("cover_url", ""),
         "coin_multiplier": last_event.get("coin_multiplier", 10),
@@ -22037,14 +22038,14 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     if broadcaster_token:
         twitch_reward_title = f"Закрыть сбор: {req.title}"
         try:
-            # ЕСЛИ ФУНКЦИИ НЕТ, ОН ПРОСТО ВЫДАСТ ОШИБКУ В ЛОГ, НО СБОР СОЗДАСТСЯ
             reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, req.twitch_reward_cost)
         except Exception as e:
             logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # 5. Сохраняем ивент в базу
+    # 5. Сохраняем ивент в базу (ДОБАВЛЕН event_type)
     new_event = {
         "title": req.title,
+        "event_type": "guess", # Обязательное поле для БД!
         "target_points": req.target_points,
         "cover_url": req.cover_url,
         "twitch_reward_id": reward_id,
@@ -22056,14 +22057,12 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
     res_data = res.json()
 
-    # БЕЗОПАСНАЯ ОБРАБОТКА ОТВЕТА БАЗЫ (Защита от KeyError: 0)
+    # Защита от KeyError, если база вернула ошибку
     if isinstance(res_data, dict) and "message" in res_data:
         logging.error(f"ОШИБКА SUPABASE: {res_data}")
         raise HTTPException(status_code=400, detail=f"Ошибка БД: {res_data['message']}")
 
-    # Если всё окей, база возвращает список, берем первый элемент
     event_data = res_data[0] if isinstance(res_data, list) else res_data
-    
     return {"status": "success", "event": event_data}
 
 # --- 2. ФРОНТЕНД: Получить текущий сбор ---
@@ -24391,6 +24390,34 @@ async def force_trust_sync(
 # async def roulette_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/roulette.html")
 # @app.get("/halloween")
 # async def halloween_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/halloween.html")
+
+async def create_twitch_reward(token: str, title: str, cost: int) -> str | None:
+    """Функция для создания кастомной награды прямо на сайте Twitch.tv"""
+    client_id = os.getenv("TWITCH_CLIENT_ID")
+    if not client_id:
+        logging.error("Не задан TWITCH_CLIENT_ID в переменных окружения Vercel")
+        return None
+
+    url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={BROADCASTER_ID}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Client-Id": client_id,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "title": title,
+        "cost": cost,
+        "is_user_input_required": False
+    }
+    
+    async with httpx.AsyncClient() as client:
+        res = await client.post(url, headers=headers, json=payload)
+        if res.status_code == 200:
+            data = res.json()
+            return data["data"][0]["id"]
+        else:
+            logging.error(f"Ошибка Твича при создании награды: {res.text}")
+            return None
 
 
 
