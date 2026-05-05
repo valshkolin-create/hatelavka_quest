@@ -1297,13 +1297,14 @@ class EventCreateRequest(BaseModel):
     end_date: Optional[str] = None
 
 class CommunityEventCreateRequest(BaseModel):
-    initData: str
     title: str
+    cover_url: str = ""
     target_points: int
-    cover_url: str
     twitch_reward_cost: int
+    twitch_reward_gain: int = 20  # 🔥 НОВОЕ ПОЛЕ (сколько очков дает)
     coin_multiplier: int = 10
     ticket_multiplier: int = 5
+    initData: str
 
 class TwitchPurchaseViewedRequest(BaseModel):
     initData: str
@@ -4277,7 +4278,7 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
         except Exception as e:
             logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # Запускаем НОВЫЙ СБОР с 0 очков (ДОБАВЛЕН event_type)
+    # Запускаем НОВЫЙ СБОР с 0 очков (ДОБАВЛЕН event_type и twitch_reward_gain)
     new_event = {
         "title": last_event["title"],
         "event_type": "guess", # Обязательное поле для БД!
@@ -4286,12 +4287,54 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
         "coin_multiplier": last_event.get("coin_multiplier", 10),
         "ticket_multiplier": last_event.get("ticket_multiplier", 5),
         "twitch_reward_id": reward_id,
+        "twitch_reward_gain": last_event.get("twitch_reward_gain", 20), # 🔥 ПЕРЕНОСИМ ОЧКИ ЗА ТВИЧ ИЗ СТАРОГО СБОРА
         "current_points": 0,
         "is_active": True
     }
     await supabase.post("/community_events", json=new_event)
 
     return {"status": "success", "message": "Новый цикл запущен!"}
+
+
+@app.post("/api/v1/admin/community_events/create")
+async def create_community_event(req: CommunityEventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Проверка на админа
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get('id') not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # 2. Достаем токен стримера
+    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
+    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
+
+    # 3. Закрываем старые активные сборы
+    await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
+
+    # 4. Создаем награду на Твиче
+    reward_id = None
+    if broadcaster_token:
+        twitch_reward_title = f"Закрыть сбор: {req.title}"
+        try:
+            reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, req.twitch_reward_cost)
+        except Exception as e:
+            logging.error(f"Не удалось создать награду Твича: {e}")
+
+    # 5. Сохраняем ивент в базу (ДОБАВЛЕН event_type и twitch_reward_gain)
+    new_event = {
+        "title": req.title,
+        "event_type": "guess", # Обязательное поле для БД!
+        "target_points": req.target_points,
+        "cover_url": req.cover_url,
+        "twitch_reward_id": reward_id,
+        "twitch_reward_gain": req.twitch_reward_gain, # 🔥 СОХРАНЯЕМ ОЧКИ ЗА ТВИЧ В БАЗУ
+        "coin_multiplier": req.coin_multiplier,
+        "ticket_multiplier": req.ticket_multiplier,
+        "is_active": True
+    }
+    
+    res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
+    res_data = res.json()
+    return {"status": "success"}
 
 @app.post("/api/v1/admin/events/cauldron/participants")
 async def get_cauldron_participants(
@@ -4876,6 +4919,71 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     
     event_data = data.get("event", {})
     reward_title = event_data.get("reward", {}).get("title", "Unknown")
+
+    # =====================================================================
+    # 👇👇👇 НАШ НОВЫЙ ПЕРЕХВАТЧИК СБОРА ТУТ 👇👇👇
+    # =====================================================================
+    reward_id = event_data.get("reward", {}).get("id")
+    user_name = event_data.get("user_name", "unknown")
+
+    ev_res = await supabase.get("/community_events", params={"is_active": "eq.true"})
+    active_events = ev_res.json()
+    
+    if active_events and len(active_events) > 0:
+        event = active_events[0]
+        
+        # Если ID купленной награды совпадает с наградой нашего сбора:
+        if reward_id == event.get("twitch_reward_id"):
+            gain = event.get("twitch_reward_gain", 20) # Сколько очков даем за 1 покупку
+            new_points = event.get("current_points", 0) + gain
+            is_finished = new_points >= event.get("target_points", 100)
+            
+            # Обновляем очки в БД
+            update_payload = {"current_points": new_points}
+            if is_finished:
+                update_payload["is_active"] = False
+                
+            await supabase.patch("/community_events", params={"id": f"eq.{event['id']}"}, json=update_payload)
+            
+            logging.info(f"🔥 В СБОР ЗАЛЕТЕЛИ ОЧКИ! {user_name} принес +{gain} очков через Twitch!")
+            
+            # Уведомляем админа о пополнении сбора
+            if ADMIN_NOTIFY_CHAT_ID:
+                await safe_send_message(ADMIN_NOTIFY_CHAT_ID, f"🚀 <b>Вклад в сбор с Твича!</b>\nПользователь <b>{user_name}</b> купил награду и добавил +{gain} очков.\nПрогресс: {new_points} / {event.get('target_points')}")
+
+            # ЕСЛИ ШКАЛА ДОШЛА ДО 100% -> ЗАПУСКАЕМ ИГРУ И ТУШИМ НАГРАДУ
+            if is_finished:
+                logging.info("🎯 СБОР ДОБИТ ЧЕРЕЗ ТВИЧ! ЗАПУСКАЕМ ИГРУ!")
+                
+                try:
+                    words_res = await supabase.get("/guess_words")
+                    all_words = [w["word"] for w in words_res.json()] if words_res.status_code == 200 else []
+                    import random
+                    first_word = random.choice(all_words) if all_words else "СЛОВАРЬ_ПУСТ"
+
+                    await supabase.patch("/guess_state", params={"id": "eq.1"}, json={
+                        "is_active": True, 
+                        "current_word": first_word, 
+                        "revealed_indices": []
+                    })
+                    global guess_cache
+                    guess_cache["updated_at"] = 0
+                except Exception as e:
+                    logging.error(f"Ошибка автозапуска отгадайки через Твич: {e}")
+                
+                try:
+                    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
+                    broadcaster_token = token_res.json()[0].get("twitch_access_token")
+                    if broadcaster_token:
+                        await toggle_twitch_reward(broadcaster_token, reward_id, is_enabled=False)
+                except Exception as e:
+                    logging.error(f"Не удалось скрыть награду Твича после завершения сбора: {e}")
+
+            # 🛑 Возвращаем return, чтобы код НЕ пошел дальше и не считал это "Обычной наградой"
+            return 
+    # =====================================================================
+    # ☝️☝️☝️ КОНЕЦ ПЕРЕХВАТЧИКА СБОРА ☝️☝️☝️
+    # =====================================================================
     
     # --- БЫСТРАЯ ПРОВЕРКА ЧЕРЕЗ КЭШ ---
     
@@ -22135,13 +22243,14 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
         except Exception as e:
             logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # 5. Сохраняем ивент в базу (ДОБАВЛЕН event_type)
+    # 5. Сохраняем ивент в базу (ДОБАВЛЕН event_type и twitch_reward_gain)
     new_event = {
         "title": req.title,
         "event_type": "guess", # Обязательное поле для БД!
         "target_points": req.target_points,
         "cover_url": req.cover_url,
         "twitch_reward_id": reward_id,
+        "twitch_reward_gain": req.twitch_reward_gain, # 🔥 СОХРАНЯЕМ ОЧКИ ЗА ТВИЧ В БАЗУ
         "coin_multiplier": req.coin_multiplier,
         "ticket_multiplier": req.ticket_multiplier,
         "is_active": True
@@ -22149,6 +22258,7 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     
     res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
     res_data = res.json()
+    return {"status": "success"}
 
     # Защита от KeyError, если база вернула ошибку
     if isinstance(res_data, dict) and "message" in res_data:
