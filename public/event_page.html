@@ -407,6 +407,14 @@
 
         let isGameActive = false;
         let isEventActive = false;
+        
+        // Флаги и переменные для бесшовной загрузки (без мерцания)
+        let isInitialGameLoaded = false;
+        let isInitialEventLoaded = false;
+        let defaultCoverUrl = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2000&auto=format&fit=crop";
+        let gameCoverUrl = "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?q=80&w=2000&auto=format&fit=crop";
+        let currentEventCoverUrl = "";
+        
         const MULTIPLIERS = { coins: 10, tickets: 5 };
 
         // --- КАСТОМНЫЕ ДИАЛОГИ ---
@@ -568,35 +576,39 @@
 
         // --- ЛОГИКА ОТОБРАЖЕНИЯ (МЕНЕДЖЕР СОСТОЯНИЙ) ---
         function updateMainView() {
+            // Защита от мигания "Пока тихо": ждем пока подгрузятся обе сущности
+            if (!isInitialGameLoaded || !isInitialEventLoaded) return;
+
             document.getElementById('loading-state').classList.add('hidden');
             
             if (isGameActive) {
                 document.getElementById('empty-state').classList.add('hidden');
                 document.getElementById('event-state').classList.add('hidden');
                 document.getElementById('game-state').classList.remove('hidden');
-                document.getElementById('event-cover').style.backgroundImage = "url('https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?q=80&w=2000&auto=format&fit=crop')"; 
+                document.getElementById('event-cover').style.backgroundImage = `url('${gameCoverUrl}')`; 
             } else if (isEventActive) {
                 document.getElementById('empty-state').classList.add('hidden');
                 document.getElementById('game-state').classList.add('hidden');
                 document.getElementById('event-state').classList.remove('hidden');
+                document.getElementById('event-cover').style.backgroundImage = currentEventCoverUrl ? `url('${currentEventCoverUrl}')` : `url('${defaultCoverUrl}')`;
             } else {
                 document.getElementById('event-state').classList.add('hidden');
                 document.getElementById('game-state').classList.add('hidden');
                 document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('event-cover').style.backgroundImage = `url('${defaultCoverUrl}')`;
             }
         }
 
         // --- ЛОГИКА СБОРА ---
         function updateEventUI(eventData) {
             isEventActive = eventData.is_active;
+            if (eventData.cover_url) currentEventCoverUrl = eventData.cover_url;
+
             if (!isEventActive) return updateMainView();
 
             document.getElementById('ev-title').innerText = eventData.title;
             document.getElementById('ev-target').innerText = eventData.target_points;
             document.getElementById('ev-current').innerText = eventData.current_points;
-            if (eventData.cover_url && !isGameActive) {
-                document.getElementById('event-cover').style.backgroundImage = `url('${eventData.cover_url}')`;
-            }
 
             let percent = Math.floor((eventData.current_points / eventData.target_points) * 100);
             if (percent > 100) percent = 100;
@@ -608,9 +620,8 @@
         }
 
         async function fetchEventState() {
-            if (isGameActive) return; 
             try {
-                const data = await (await fetch('/api/v1/events/current')).json();
+                const data = await (await fetch('/api/v1/events/current?t=' + Date.now())).json();
                 if (data.status === 'empty' || !data.event) {
                     isEventActive = false;
                 } else {
@@ -623,7 +634,12 @@
         // --- ЛОГИКА СИНХРОНИЗАЦИИ ---
         function handleGameStateChange(state) {
             isGameActive = state.is_active && !!state.current_word;
-            updateMainView();
+            if (state.default_cover_url) defaultCoverUrl = state.default_cover_url;
+            if (state.game_cover_url) gameCoverUrl = state.game_cover_url;
+            
+            if (isInitialGameLoaded && isInitialEventLoaded) {
+                updateMainView();
+            }
         }
 
         function initSupabaseRealtime() {
@@ -631,12 +647,7 @@
             supabaseClient.channel('guess-state-changes')
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'guess_state', filter: 'id=eq.1' }, 
                     (payload) => handleGameStateChange(payload.new))
-                .subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        const { data } = await supabaseClient.from('guess_state').select('*').eq('id', 1).single();
-                        if (data) handleGameStateChange(data);
-                    }
-                });
+                .subscribe();
 
             // 2. ЛИДЕРБОРД
             supabaseClient.channel('public-leaderboard-changes')
@@ -722,6 +733,35 @@
             }
         }
 
+        // --- НОВАЯ СИСТЕМА ИНИЦИАЛИЗАЦИИ ---
+        // Ждем пока загрузятся оба источника данных, чтобы избежать мигания экранов
+        async function loadInitialData() {
+            const p1 = supabaseClient.from('guess_state').select('*').eq('id', 1).single().then(res => {
+                if (res.data) handleGameStateChange(res.data);
+                isInitialGameLoaded = true;
+            }).catch(() => { isInitialGameLoaded = true; });
+
+            const p2 = fetch('/api/v1/events/current?t=' + Date.now()).then(res => res.json()).then(data => {
+                if (data.status === 'active' && data.event) {
+                    isEventActive = data.event.is_active;
+                    currentEventCoverUrl = data.event.cover_url || "";
+                    document.getElementById('ev-title').innerText = data.event.title;
+                    document.getElementById('ev-target').innerText = data.event.target_points;
+                    document.getElementById('ev-current').innerText = data.event.current_points;
+                    let percent = Math.floor((data.event.current_points / data.event.target_points) * 100);
+                    if (percent > 100) percent = 100;
+                    document.getElementById('ev-percent').innerText = `${percent}%`;
+                    document.getElementById('ev-bar').style.width = `${percent}%`;
+                } else {
+                    isEventActive = false;
+                }
+                isInitialEventLoaded = true;
+            }).catch(() => { isInitialEventLoaded = true; });
+
+            await Promise.all([p1, p2]);
+            updateMainView();
+        }
+
         // --- ИНИЦИАЛИЗАЦИЯ ---
         checkAdmin();
         
@@ -730,7 +770,7 @@
         loadPublicRewards();
         
         initSupabaseRealtime();
-        fetchEventState();
+        loadInitialData();
     </script>
 </body>
 </html>
