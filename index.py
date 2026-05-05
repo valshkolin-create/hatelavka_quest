@@ -22517,6 +22517,37 @@ async def handle_fossabot_guess(
         print(f"DEBUG: Ошибка: {str(e)}")
         return ""
 
+
+# 1. Схема данных, которые прилетают с новых ползунков
+class CoversSettingsRequest(BaseModel):
+    cover_offset_x: int
+    cover_offset_y: int
+    cover_zoom: int
+    initData: Optional[str] = None # Для проверки прав, если используешь
+
+# 2. Сам эндпоинт, который принимает и сохраняет X, Y и Zoom
+@app.post("/api/v1/admin/guess/covers/settings/set")
+async def set_guess_covers_settings(payload: CoversSettingsRequest):
+    # Тут можешь вставить свою проверку прав админа: check_admin_access(payload.initData)
+
+    update_data = {
+        "cover_offset_x": payload.cover_offset_x,
+        "cover_offset_y": payload.cover_offset_y,
+        "cover_zoom": payload.cover_zoom
+    }
+
+    try:
+        # Обновляем строчку в БД
+        response = supabase.table("guess_state").update(update_data).eq("id", 1).execute()
+        
+        return {
+            "status": "success", 
+            "message": "Настройки фона обновлены",
+            "updated_fields": update_data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка БД: {str(e)}")
+
 # 1. Добавь эту схему туда, где у тебя лежат остальные Pydantic модели
 class CoversSetRequest(BaseModel):
     default_cover_url: Optional[str] = None
