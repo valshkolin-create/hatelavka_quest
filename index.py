@@ -1209,7 +1209,7 @@ class CommunityEventCreateRequest(BaseModel):
     title: str
     target_points: int
     cover_url: str
-    twitch_reward_cost: int = 50000  # Можно передавать с фронта, по дефолту 50000
+    twitch_reward_cost: int
     coin_multiplier: int = 10
     ticket_multiplier: int = 5
 
@@ -22014,8 +22014,10 @@ async def get_market_items(
 # ==========================================
 # 🎮 ИГРА "УГАДАЙ СЛОВО" (FOSSABOT + OBS + ADMIN)
 # ==========================================
+# Подтягиваем твой ID из настроек Vercel
+BROADCASTER_ID = os.getenv("TWITCH_BROADCASTER_ID", "883996654")
 
-# --- 1. АДМИНКА: Создать новый сбор ---
+# --- 1. АДМИНКА: Создать новый сбор (для ИГРЫ) ---
 @app.post("/api/v1/admin/community_events/create")
 async def create_community_event(req: CommunityEventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # 1. Проверка на админа
@@ -22023,7 +22025,7 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Достаем токен стримера (безопасно)
+    # 2. Достаем токен стримера (безопасно, используя BROADCASTER_ID)
     token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
     broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
 
