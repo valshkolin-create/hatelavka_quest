@@ -9444,10 +9444,12 @@ async def update_cauldron_event(
 CRON_SECRET = os.getenv("CRON_SECRET", "super_secret_hate_cron_123")
 
 def verify_cron(request: Request):
-    """Проверка, что запрос пришел от нашего настроенного крона"""
-    auth_header = request.headers.get("Authorization")
-    if auth_header != f"Bearer {CRON_SECRET}":
-        raise HTTPException(status_code=403, detail="Доступ запрещен. Неверный токен крона.")
+    """Проверка токена прямо из URL (как в steam_sync)"""
+    token = request.query_params.get("token")
+    
+    if token != CRON_SECRET:
+        print(f"DEBUG CRON: Ожидали {CRON_SECRET}, получили {token}")
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
 @app.post("/api/v1/admin/events/cauldron/reset")
 async def reset_cauldron_progress(
