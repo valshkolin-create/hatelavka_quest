@@ -545,23 +545,19 @@
                 targetUrl = defaultCoverUrl;
             }
 
-            // ПРИМЕНЯЕМ НАСТРОЙКИ ПОЗИЦИИ И ЗУМА (Решение проблемы с неподвижным фоном)
+            // ПРИМЕНЯЕМ НАСТРОЙКИ ПОЗИЦИИ И ЗУМА
             if (coverEl) {
-                // Вычисляем размеры контейнера в зависимости от зума (база 120vw/vh)
                 const targetW = 120 * (coverZoom / 100);
                 const targetH = 120 * (coverZoom / 100);
-                
-                // Центрируем контейнер, чтобы он равномерно выходил за края экрана
-                const topPos = -(targetH - 100) / 2;
-                const leftPos = -(targetW - 100) / 2;
+                const leftPos = (100 - targetW) * (coverOffsetX / 100);
+                const topPos = (100 - targetH) * (coverOffsetY / 100);
 
                 coverEl.style.width = `${targetW}vw`;
                 coverEl.style.height = `${targetH}vh`;
                 coverEl.style.top = `${topPos}vh`;
                 coverEl.style.left = `${leftPos}vw`;
-
-                // Теперь backgroundPosition будет реально двигать картинку!
-                coverEl.style.backgroundPosition = `${coverOffsetX}% ${coverOffsetY}%`;
+                
+                coverEl.style.backgroundPosition = 'center';
                 coverEl.style.backgroundSize = 'cover';
             }
 
