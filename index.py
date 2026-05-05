@@ -4146,53 +4146,51 @@ async def update_cauldron_reward_status(
         logging.error(f"Error updating status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка обновления")
 
+# --- 1. КРОН: Круговорот (Стоп игры ➔ Новый сбор) ---
 @app.post("/api/v1/admin/events/cycle_restart")
-async def cycle_restart_event(req: GuessAdminBaseRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # 1. Проверяем админа (или токен крона, если сделаешь автоматизацию)
-    verify_guess_admin(req.initData)
+async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    verify_cron(request) # Проверка секретного ключа
 
-    # 2. Выключаем текущую игру "Угадай слово"
+    # Выключаем текущую игру
     await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"is_active": False})
     global guess_cache
     guess_cache["updated_at"] = 0
 
-    # 3. Достаем последний сбор, чтобы скопировать его настройки (картинку, цель и т.д.)
+    # Достаем последний сбор для копирования настроек
     ev_res = await supabase.get("/community_events", params={"order": "id.desc", "limit": "1"})
     if not ev_res.json():
-        return {"status": "error", "message": "Нет предыдущего сбора для копирования"}
-    
+        return {"status": "error", "message": "Нет сбора для копирования"}
     last_event = ev_res.json()[0]
 
-    # 4. Закрываем все старые сборы в БД на всякий случай
+    # Закрываем старые сборы
     await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
 
-    # 5. Включаем награду на Твиче заново (создаем новую или переиспользуем логику)
+    # Создаем новую награду на Твиче
     token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
     broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
     
     reward_id = None
     if broadcaster_token:
-        # Автоматически создаем новую награду на Твиче для нового сбора
         try:
+            # Награда снова появляется на Твиче!
             reward_id = await create_twitch_reward(broadcaster_token, f"Закрыть сбор: {last_event['title']}", 50000)
         except Exception as e:
-            logging.error(f"Не удалось создать награду Твича для нового цикла: {e}")
+            logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # 6. Запускаем НОВЫЙ СБОР с 0 очков
+    # Запускаем НОВЫЙ СБОР с 0 очков
     new_event = {
         "title": last_event["title"],
-        "target_points": last_event["target_points"], # То же количество очков для старта
-        "cover_url": last_event["cover_url"],
+        "target_points": last_event["target_points"], 
+        "cover_url": last_event.get("cover_url", ""),
         "coin_multiplier": last_event.get("coin_multiplier", 10),
         "ticket_multiplier": last_event.get("ticket_multiplier", 5),
         "twitch_reward_id": reward_id,
-        "current_points": 0, # Начинаем с нуля!
+        "current_points": 0,
         "is_active": True
     }
-    
     await supabase.post("/community_events", json=new_event)
 
-    return {"status": "success", "message": "Игра остановлена, новый сбор запущен!"}
+    return {"status": "success", "message": "Новый цикл запущен!"}
 
 @app.post("/api/v1/admin/events/cauldron/participants")
 async def get_cauldron_participants(
