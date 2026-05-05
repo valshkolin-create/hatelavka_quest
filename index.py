@@ -22517,6 +22517,43 @@ async def handle_fossabot_guess(
         print(f"DEBUG: Ошибка: {str(e)}")
         return ""
 
+# 1. Добавь эту схему туда, где у тебя лежат остальные Pydantic модели
+class CoversSetRequest(BaseModel):
+    default_cover_url: Optional[str] = None
+    game_cover_url: Optional[str] = None
+    initData: Optional[str] = None # Телеграм авторизация (если используешь)
+
+# 2. Сам эндпоинт. Вставь его к остальным роутам (@app.post или @router.post)
+@app.post("/api/v1/admin/guess/covers/set")
+async def set_guess_covers(payload: CoversSetRequest):
+    # Если у тебя есть функция проверки админа по initData, вызови её здесь
+    # check_admin_access(payload.initData)
+
+    update_data = {}
+    
+    # Собираем данные, которые прислал клиент
+    if payload.default_cover_url is not None:
+        update_data["default_cover_url"] = payload.default_cover_url
+        
+    if payload.game_cover_url is not None:
+        update_data["game_cover_url"] = payload.game_cover_url
+        
+    if not update_data:
+        return {"status": "ok", "message": "Нет данных для обновления"}
+
+    try:
+        # Отправляем в Supabase (в строку, где хранятся текущие настройки игры, обычно id=1)
+        response = supabase.table("guess_state").update(update_data).eq("id", 1).execute()
+        
+        return {
+            "status": "success", 
+            "message": "Фоны успешно обновлены",
+            "updated_fields": update_data
+        }
+    except Exception as e:
+        # Если Supabase ругается (например, забыл добавить колонки в Шаге 1)
+        raise HTTPException(status_code=500, detail=f"Ошибка базы данных: {str(e)}")
+
 # --- Pydantic Схемы ---
 class GuessModeRequest(GuessAdminBaseRequest):
     mode: str
