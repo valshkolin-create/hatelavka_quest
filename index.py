@@ -8281,7 +8281,8 @@ async def twitch_oauth_start(request: Request, initData: str = Query(...)):
         # Набор прав. 
         # moderation:read — критически важен для стримера
         # user:read:follows и user:read:subscriptions — для обычных юзеров
-        scopes_list = "user:read:email user:read:subscriptions user:read:follows moderation:read channel:read:vips"
+        # 🔥 ДОБАВИЛИ channel:manage:redemptions ДЛЯ СОЗДАНИЯ НАГРАД 🔥
+        scopes_list = "user:read:email user:read:subscriptions user:read:follows moderation:read channel:read:vips channel:manage:redemptions"
         
         params = {
             "response_type": "code",
@@ -8297,7 +8298,7 @@ async def twitch_oauth_start(request: Request, initData: str = Query(...)):
     except Exception as e:
         logging.error(f"❌ [Twitch OAuth Start] Ошибка: {e}")
         raise HTTPException(status_code=500, detail="Ошибка генерации ссылки")
-
+        
 @app.get("/api/v1/auth/twitch_callback")
 async def twitch_oauth_callback(
     request: Request, 
