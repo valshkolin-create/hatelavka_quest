@@ -23231,6 +23231,12 @@ async def withdraw_inventory_item(
                     params={"assetid": f"eq.{real_skin['assetid']}"}, 
                     json={"is_reserved": False}
                 )
+                
+                # 🔥 ДОБАВИТЬ ЭТИ СТРОКИ С ПРАВИЛЬНЫМ ОТСТУПОМ:
+                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                    "status": "available", "updated_at": now_iso
+                })
+                raise HTTPException(status_code=400, detail=f"Ошибка Steam: {err_msg}. Попробуйте еще раз.")
 
     elif force_replacement:
         # 🔥 СРАБОТАЛА ЧЕРНАЯ МЕТКА КРОНА: Сразу отдаем в замены
@@ -23245,7 +23251,7 @@ async def withdraw_inventory_item(
         market_key = os.getenv("CSGO_MARKET_API_KEY")
         if market_key:
             try:
-                # 🔥 ЗАМЕНЯЕМ СЫРОЙ HTTPX НА НАШ КЛАСС
+                # Заменяем сырой HTTPX на наш класс
                 market = MarketCSGO(api_key=market_key)
                 m_data = await market.check_order_status(unique_market_id)
                 
@@ -23258,12 +23264,26 @@ async def withdraw_inventory_item(
                         
                         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                             "status": "market_pending",
-                            "tradeofferid": unique_market_id, # 🔥 ДОБАВЛЕНО: Сохраняем ID, чтобы трейд-чекер его нашел!
+                            "tradeofferid": unique_market_id, 
                             "updated_at": now_iso
                         })
                         return {"success": True, "message": "Предмет закуплен на Маркете и летит к вам! Ожидайте трейд."}
             except Exception as e:
                 logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
+
+        # 🔥 ДОБАВЛЯЕМ ЭТОТ БЛОК (ЗАЩИТА ОТ ТРЕЙДА ШРЁДИНГЕРА) 🔥
+        err_msg = str(delivery_res.get("error", "")).lower()
+        err_code = delivery_res.get("market_error_code")
+        is_timeout = "таймаут" in err_msg or "timeout" in err_msg or err_code in [500, 502, 504]
+
+        if is_timeout:
+            logging.warning(f"[SCHRODINGER] Маркет отвалился по таймауту. Оставляем заказ {unique_market_id} в market_pending!")
+            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                "status": "market_pending",
+                "tradeofferid": unique_market_id,
+                "updated_at": now_iso
+            })
+            return {"success": True, "message": "Маркет сильно загружен, но ваш заказ в очереди. Пожалуйста, ожидайте трейд в Steam!"}
 
     # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН
