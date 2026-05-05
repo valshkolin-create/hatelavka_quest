@@ -235,15 +235,16 @@
     <!-- МОДАЛКА: ПОЭТАПНЫЙ ДОНАТ (ВНЕСЕНИЕ В СБОР) -->
     <div id="modal-donate" class="hidden modal-overlay !z-[150]">
         <div class="glass-card text-center relative overflow-hidden transition-all duration-300">
-            <!-- Кнопки управления окном -->
-            <button id="donate-back-btn" onclick="donateGoBack()" class="absolute top-4 left-4 text-gray-400 hover:text-white hidden"><i class="fa-solid fa-arrow-left"></i></button>
-            <button onclick="closeModal('modal-donate')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-times"></i></button>
+            <!-- Исправленные кнопки: огромная зона клика (p-5), передний план (z-60) и без фона -->
+            <button id="donate-back-btn" onclick="donateGoBack()" class="absolute top-0 left-0 p-5 text-gray-400 hover:text-white hidden z-[60]"><i class="fa-solid fa-arrow-left text-lg pointer-events-none"></i></button>
+            <button onclick="closeModal('modal-donate')" class="absolute top-0 right-0 p-5 text-gray-400 hover:text-white z-[60]"><i class="fa-solid fa-times text-lg pointer-events-none"></i></button>
 
-            <!-- ШАГ 1: ВЫБОР ВАЛЮТЫ -->
-            <div id="donate-step-1" class="py-2">
+            <!-- ШАГ 1: ВЫБОР ВАЛЮТЫ И ТВИТЧ -->
+            <div id="donate-step-1" class="py-2 mt-4">
                 <div class="text-[32px] mb-2 text-[#9146FF] drop-shadow-[0_0_10px_rgba(145,70,255,0.4)]"><i class="fa-solid fa-wallet"></i></div>
-                <h3 class="text-white font-black uppercase text-[12px] mb-5">Чем будем вкладываться?</h3>
-                <div class="flex gap-2 w-full justify-center">
+                <h3 class="text-white font-black uppercase text-[12px] mb-4">Чем будем вкладываться?</h3>
+                
+                <div class="flex gap-2 w-full justify-center mb-4">
                     <button onclick="donateSelectCurrency('coins')" class="action-btn btn-coins py-4">
                         <i class="fa-solid fa-coins text-[18px] mb-1"></i> Монеты
                     </button>
@@ -251,10 +252,21 @@
                         <i class="fa-solid fa-ticket text-[18px] mb-1"></i> Билеты
                     </button>
                 </div>
+
+                <!-- КАРТОЧКА TWITCH (Вернули!) -->
+                <div class="bg-[rgba(145,70,255,0.08)] border border-[rgba(145,70,255,0.2)] rounded-lg p-3 text-left shadow-[inset_0_0_10px_rgba(145,70,255,0.1)]">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fa-brands fa-twitch text-[#9146FF] text-lg"></i>
+                        <span class="text-[10px] font-black text-white uppercase tracking-wider">Бесплатно за баллы</span>
+                    </div>
+                    <p class="text-[9px] text-gray-300 leading-relaxed mb-3">Закинуть очки в общий котел можно прямо на стриме, используя баллы канала (Channel Points).</p>
+                    <!-- Ссылка ведет на твой канал HATElove -->
+                    <a href="https://twitch.tv/hatelove_ttv" target="_blank" class="block text-center bg-[#9146FF] hover:bg-[#7b35e0] transition text-white font-bold uppercase text-[9px] py-2 rounded shadow-[0_0_15px_rgba(145,70,255,0.4)]">Перейти на стрим</a>
+                </div>
             </div>
 
             <!-- ШАГ 2: ВВОД СУММЫ -->
-            <div id="donate-step-2" class="hidden py-2">
+            <div id="donate-step-2" class="hidden py-2 mt-4">
                 <div id="donate-icon-2" class="text-[32px] mb-2 text-[#ffd700] drop-shadow-[0_0_10px_rgba(255,215,0,0.4)]"><i class="fa-solid fa-coins"></i></div>
                 <h3 class="text-white font-black uppercase text-[12px] mb-1">Введите количество</h3>
                 <p id="donate-desc-2" class="text-[9px] text-gray-400 mb-4 font-bold tracking-wide">1 монета = 10 очков</p>
@@ -271,7 +283,7 @@
             </div>
 
             <!-- ШАГ 3: ПОДТВЕРЖДЕНИЕ -->
-            <div id="donate-step-3" class="hidden py-2">
+            <div id="donate-step-3" class="hidden py-2 mt-4">
                 <div class="text-[32px] mb-2 text-[#28a745] drop-shadow-[0_0_10px_rgba(40,167,69,0.4)]"><i class="fa-solid fa-check-circle"></i></div>
                 <h3 class="text-white font-black uppercase text-[12px] mb-4">Подтверждение</h3>
                 
@@ -295,39 +307,41 @@
 
     <!-- МОДАЛКА: ЛИДЕРБОРД -->
     <div id="modal-leaderboard" class="hidden modal-overlay">
-        <div class="glass-card">
+        <div class="glass-card relative">
             <div class="flex justify-between items-center mb-2 shrink-0">
                 <h2 class="!mb-0 text-white font-black text-[12px] uppercase"><i class="fa-solid fa-trophy text-[#ffd700] mr-1"></i> Лидерборд</h2>
-                <button onclick="closeModal('modal-leaderboard')" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-times"></i></button>
+                <!-- Увеличен хитбокс крестика -->
+                <button onclick="closeModal('modal-leaderboard')" class="absolute top-0 right-0 p-4 text-gray-400 hover:text-white text-lg z-50"><i class="fa-solid fa-times pointer-events-none"></i></button>
             </div>
             
-            <div class="flex flex-row justify-between items-center px-2 py-1 text-[8px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.1)] mb-1 shrink-0">
+            <div class="flex flex-row justify-between items-center px-2 py-1 text-[8px] text-gray-400 uppercase font-bold border-b border-[rgba(255,255,255,0.1)] mb-1 shrink-0 mt-2">
                 <div class="flex-1">Twitch-Ник</div>
                 <div class="w-10 text-right">Очки</div>
             </div>
 
             <div id="public-leaderboard" class="flex-1 tg-scrollable space-y-1 w-full max-h-[50vh]">
-                <div class="text-gray-500 text-center mt-2 text-[9px]">Загрузка...</div>
+                <div class="text-gray-500 text-center mt-4 text-[9px]">Загрузка...</div>
             </div>
         </div>
     </div>
 
     <!-- МОДАЛКА: ПРАВИЛА И ПРИЗЫ -->
     <div id="modal-rules" class="hidden modal-overlay">
-        <div class="glass-card">
+        <div class="glass-card relative">
             <div class="flex justify-between items-center mb-2 shrink-0">
                 <h2 class="!mb-0 text-white font-black text-[12px] uppercase"><i class="fa-solid fa-book-open text-[#007bff] mr-1"></i> Правила</h2>
-                <button onclick="closeModal('modal-rules')" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-times"></i></button>
+                <!-- Увеличен хитбокс крестика -->
+                <button onclick="closeModal('modal-rules')" class="absolute top-0 right-0 p-4 text-gray-400 hover:text-white text-lg z-50"><i class="fa-solid fa-times pointer-events-none"></i></button>
             </div>
             
-            <div class="tg-scrollable pr-1 text-[9px] text-gray-300 space-y-2 max-h-[55vh]">
+            <div class="tg-scrollable pr-1 text-[9px] text-gray-300 space-y-2 max-h-[55vh] mt-2">
                 <div class="bg-[rgba(255,255,255,0.05)] p-2 rounded-lg border border-[rgba(255,255,255,0.1)]">
                     <p class="font-bold text-white mb-1"><i class="fa-solid fa-keyboard text-[#9146FF]"></i> Как играть?</p>
                     <p class="leading-relaxed">Смотри на экран трансляции и отгадывай зашифрованное слово. Пиши ответ первым прямо в <b>чат Twitch</b>! За каждое слово бот начислит тебе <i class="fa-solid fa-star text-[#ffd700]"></i> очки.</p>
                 </div>
                 
-                <div>
-                    <h3 class="font-black text-white uppercase text-[9px] mb-1"><i class="fa-solid fa-gift text-[#ff4d4d]"></i> Призы Победителям:</h3>
+                <div class="mt-3">
+                    <h3 class="font-black text-white uppercase text-[9px] mb-2"><i class="fa-solid fa-gift text-[#ff4d4d]"></i> Призы Победителям:</h3>
                     <div id="public-rewards-list" class="space-y-1">
                         <div class="text-center text-[8px] text-gray-500 py-1">Загрузка призов...</div>
                     </div>
@@ -373,11 +387,9 @@
             if (openModalsStack.length > 0) {
                 const lastModal = openModalsStack[openModalsStack.length - 1];
                 
-                // Если открыт поэтапный донат, и мы не на первом шаге — идем на шаг назад
                 if (lastModal === 'modal-donate' && currentDonateStep > 1) {
                     donateGoBack();
                 } else {
-                    // Иначе просто закрываем модалку
                     closeModal(lastModal);
                 }
             } else {
@@ -394,7 +406,7 @@
 
         let isGameActive = false;
         let isEventActive = false;
-        const MULTIPLIERS = { coins: 10, tickets: 5 }; // Подтягивать бы с бэкенда, но для превью пойдет
+        const MULTIPLIERS = { coins: 10, tickets: 5 };
 
         // --- КАСТОМНЫЕ ДИАЛОГИ ---
         function showCustomAlert(text, title = "Внимание", icon = "fa-circle-exclamation text-[#9146FF]") {
@@ -414,9 +426,6 @@
             document.getElementById(id).classList.remove('hidden');
             if (!openModalsStack.includes(id)) openModalsStack.push(id);
             updateBackButton();
-
-            if(id === 'modal-leaderboard') loadPublicLeaderboard();
-            if(id === 'modal-rules') loadPublicRewards();
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
 
@@ -610,13 +619,14 @@
             } catch (e) {}
         }
 
-        // --- ЛОГИКА СИНХРОНИЗАЦИИ ИГРЫ ---
+        // --- ЛОГИКА СИНХРОНИЗАЦИИ ---
         function handleGameStateChange(state) {
             isGameActive = state.is_active && !!state.current_word;
             updateMainView();
         }
 
         function initSupabaseRealtime() {
+            // 1. ИГРА
             supabaseClient.channel('guess-state-changes')
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'guess_state', filter: 'id=eq.1' }, 
                     (payload) => handleGameStateChange(payload.new))
@@ -626,9 +636,19 @@
                         if (data) handleGameStateChange(data);
                     }
                 });
+
+            // 2. ЛИДЕРБОРД
+            supabaseClient.channel('public-leaderboard-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'guess_leaderboard' }, () => loadPublicLeaderboard())
+                .subscribe();
+
+            // 3. НАГРАДЫ
+            supabaseClient.channel('public-rewards-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'guess_rewards_config' }, () => loadPublicRewards())
+                .subscribe();
         }
 
-        // --- ПУБЛИЧНЫЕ ДАННЫЕ ДЛЯ МОДАЛОК ---
+        // --- ПУБЛИЧНЫЕ ДАННЫЕ ДЛЯ МОДАЛОК (Загружаются в фоне) ---
         async function loadPublicLeaderboard() {
             const container = document.getElementById('public-leaderboard');
             try {
@@ -691,6 +711,11 @@
 
         // --- ИНИЦИАЛИЗАЦИЯ ---
         checkAdmin();
+        
+        // Загружаем данные для модалок СРАЗУ при открытии страницы
+        loadPublicLeaderboard();
+        loadPublicRewards();
+        
         initSupabaseRealtime();
         fetchEventState();
         setInterval(fetchEventState, 5000);
