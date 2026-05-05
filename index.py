@@ -22243,21 +22243,27 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
         except Exception as e:
             logging.error(f"Не удалось создать награду Твича: {e}")
 
-    # 5. Сохраняем ивент в базу (ДОБАВЛЕН event_type и twitch_reward_gain)
+    # 5. Сохраняем ивент в базу
     new_event = {
         "title": req.title,
         "event_type": "guess", # Обязательное поле для БД!
         "target_points": req.target_points,
+        "current_points": 0,   # 🔥 ВОТ ЧЕГО НЕ ХВАТАЛО! Стартуем с 0 очков
         "cover_url": req.cover_url,
         "twitch_reward_id": reward_id,
-        "twitch_reward_gain": req.twitch_reward_gain, # 🔥 СОХРАНЯЕМ ОЧКИ ЗА ТВИЧ В БАЗУ
+        "twitch_reward_gain": req.twitch_reward_gain,
         "coin_multiplier": req.coin_multiplier,
         "ticket_multiplier": req.ticket_multiplier,
         "is_active": True
     }
     
     res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
-    res_data = res.json()
+    
+    # 🔥 ПРОВЕРЯЕМ ОТВЕТ БАЗЫ, ЧТОБЫ БОЛЬШЕ НЕ ПРОПУСКАТЬ ОШИБКИ
+    if res.status_code not in (200, 201):
+        logging.error(f"Ошибка сохранения сбора в Supabase: {res.text}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при создании сбора.")
+        
     return {"status": "success"}
 
     # Защита от KeyError, если база вернула ошибку
