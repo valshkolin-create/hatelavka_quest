@@ -216,6 +216,98 @@ async def get_user_balance_from_bott(telegram_id: int) -> float | None:
     except Exception as e:
         logging.error(f"❌ Сетевая ошибка при запросе баланса из Bot-t: {e}")
         return None
+
+async def subtract_bott_balance(bott_internal_id: int, amount: float, comment: str = "Донат в сбор"):
+    """
+    Списывает баланс и имитирует системные уведомления Bot-t (как при пополнении).
+    Если средств недостаточно, выдает ошибку, чтобы донат не засчитался "бесплатно".
+    """
+    if not bott_internal_id:
+        raise HTTPException(status_code=400, detail="ID бота не найден")
+        
+    db_client = await get_background_client()
+    
+    # 📌 Эндпоинт для СПИСАНИЯ из официального API
+    url_sub = "https://api.bot-t.com/v1/bot/user/subtract-balance"
+    params = {"botToken": BOTT_BOT_TOKEN, "secretKey": BOTT_SECRET_KEY}
+    
+    clean_amount = int(amount) if amount == int(amount) else amount
+    
+    payload = {
+        "bot_id": int(BOTT_BOT_ID),
+        "user_id": int(bott_internal_id),
+        "sum": clean_amount,
+        "comment": comment
+    }
+    
+    try:
+        client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=10.0)
+        resp = await client.post(url_sub, params=params, json=payload)
+        
+        # Если статус 200, значит списание прошло успешно (у юзера хватило денег)
+        if resp.status_code == 200 and resp.json().get("result"):
+            
+            u_resp = await db_client.get(
+                "/users", 
+                params={"bott_internal_id": f"eq.{bott_internal_id}", "select": "telegram_id, username, bot_t_coins"}
+            )
+            u_data = u_resp.json()
+            
+            user_tg_id = None
+            tg_username = "не указан"
+            new_balance_display = "обновляется..."
+            
+            if u_data and isinstance(u_data, list) and len(u_data) > 0:
+                user_tg_id = u_data[0].get("telegram_id")
+                tg_username = f"@{u_data[0].get('username')}" if u_data[0].get('username') else "скрыт"
+                
+                old_bal = u_data[0].get("bot_t_coins", 0) or 0
+                # 🔥 При списании отнимаем сумму, чтобы показать красивый остаток
+                new_balance_display = f"{old_bal - clean_amount}"
+
+            # --- 📝 ФОРМИРУЕМ КРАСИВОЕ СООБЩЕНИЕ О СПИСАНИИ ---
+            full_msg = (
+                f"➖ <b>Списание монет (Донат в сбор)</b>\n\n"
+                f"<b>Сумма:</b> -{clean_amount} ⭐️\n"
+                f"<b>Аккаунт:</b> {tg_username}\n"
+                f"<b>Остаток:</b> {new_balance_display} ⭐️\n"
+                f"<b>ID зрителя:</b> #{user_tg_id or '---'}\n"
+                f"<b>Цель:</b> {comment}"
+            )
+
+            # 2. ОТПРАВЛЯЕМ ЧЕК ПОЛЬЗОВАТЕЛЮ
+            url_msg = "https://api.bot-t.com/v1/bot/message/send"
+            await client.post(url_msg, params=params, json={
+                "bot_id": int(BOTT_BOT_ID),
+                "user_id": int(bott_internal_id),
+                "message": full_msg,
+                "parse_mode": "HTML"
+            })
+
+            # 3. ОТПРАВЛЯЕМ ЛОГ АДМИНУ
+            if ADMIN_NOTIFY_CHAT_ID:
+                try:
+                    await bot.send_message(
+                        chat_id=int(ADMIN_NOTIFY_CHAT_ID), 
+                        text=f"📉 <b>ЛОГ СПИСАНИЯ (СБОР)</b>\n{full_msg}", 
+                        parse_mode="HTML"
+                    )
+                except Exception as admin_err:
+                    logging.error(f"Ошибка уведомления админа (списание): {admin_err}")
+
+            logging.info(f"✅ Цикл списания {clean_amount} монет завершен для {bott_internal_id}")
+            return True
+            
+        else:
+            # Если BOTT API вернуло ошибку (например, не хватает баланса)
+            logging.error(f"❌ Ошибка BOTT API при списании: {resp.text}")
+            raise HTTPException(status_code=400, detail="Недостаточно монет на балансе")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"⚠️ Ошибка системы списания: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка при списании")
         
 async def activate_single_promocode(promo_id: int, telegram_id: int, reward_value: int, description: str):
     """
@@ -22074,7 +22166,6 @@ async def get_current_event(supabase: httpx.AsyncClient = Depends(get_supabase_c
     if not data:
         return {"status": "empty", "event": None}
     return {"status": "active", "event": data[0]}
-
 
 # --- 3. ФРОНТЕНД: Задонатить в сбор ---
 @app.post("/api/v1/events/donate")
