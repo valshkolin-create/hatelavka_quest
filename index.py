@@ -24504,6 +24504,37 @@ async def force_trust_sync(
 # @app.get("/halloween")
 # async def halloween_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/halloween.html")
 
+async def toggle_twitch_reward(token: str, reward_id: str, is_enabled: bool) -> bool:
+    """Функция для включения/выключения кастомной награды на Twitch"""
+    client_id = os.getenv("TWITCH_CLIENT_ID")
+    if not client_id:
+        logging.error("Не задан TWITCH_CLIENT_ID в переменных Vercel")
+        return False
+
+    # Обращаемся к API Твича, передаем ID стримера и ID конкретной награды
+    url = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={BROADCASTER_ID}&id={reward_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Client-Id": client_id,
+        "Content-Type": "application/json"
+    }
+    
+    # Говорим Твичу: "Сделай статус награды активным или выключенным"
+    payload = {
+        "is_enabled": is_enabled
+    }
+    
+    async with httpx.AsyncClient() as client:
+        res = await client.patch(url, headers=headers, json=payload)
+        
+        if res.status_code == 200:
+            status_text = "включена" if is_enabled else "выключена"
+            logging.info(f"✅ Награда Твича {reward_id} успешно {status_text}!")
+            return True
+        else:
+            logging.error(f"❌ Ошибка Твича при изменении статуса награды: {res.status_code} - {res.text}")
+            return False
+
 async def create_twitch_reward(token: str, title: str, cost: int) -> str | None:
     """Функция для создания кастомной награды прямо на сайте Twitch.tv"""
     client_id = os.getenv("TWITCH_CLIENT_ID")
