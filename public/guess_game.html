@@ -253,7 +253,32 @@
                 <label class="block text-[8px] text-[#9146FF] uppercase font-bold mb-1">Фон во время игры:</label>
                 <input type="text" id="admin-game-cover-input" class="input-custom mb-2" placeholder="https://...">
 
-                <button onclick="setCovers()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-image"></i> Сохранить фоны</button>
+                <!-- НОВЫЕ ПОЛЗУНКИ ДЛЯ ПОЗИЦИИ И ЗУМА -->
+                <div class="grid grid-cols-1 gap-2 mt-3 mb-3 border-t border-[rgba(255,255,255,0.05)] pt-2">
+                    <div>
+                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                            <span>Позиция X (Влево/Вправо):</span>
+                            <span id="cover-x-val" class="text-[#9146FF]">50%</span>
+                        </label>
+                        <input type="range" id="cover-x-slider" min="0" max="100" value="50" step="1" oninput="changeCoverSetting('x', this.value)" class="w-full accent-[#9146FF]">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                            <span>Позиция Y (Вверх/Вниз):</span>
+                            <span id="cover-y-val" class="text-[#9146FF]">50%</span>
+                        </label>
+                        <input type="range" id="cover-y-slider" min="0" max="100" value="50" step="1" oninput="changeCoverSetting('y', this.value)" class="w-full accent-[#9146FF]">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
+                            <span>Масштаб (Zoom):</span>
+                            <span id="cover-zoom-val" class="text-[#9146FF]">100%</span>
+                        </label>
+                        <input type="range" id="cover-zoom-slider" min="100" max="300" value="100" step="1" oninput="changeCoverSetting('zoom', this.value)" class="w-full accent-[#9146FF]">
+                    </div>
+                </div>
+
+                <button onclick="setCovers()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-image"></i> Сохранить ссылки</button>
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-2">
@@ -493,7 +518,6 @@
                         tg.showAlert("Сбор на старт игры успешно запущен!");
                         closeModal('modal-events');
                         
-                        // 🔥 ЗАПРАШИВАЕМ СВЕЖИЕ ДАННЫЕ ДЛЯ АДМИНКИ СРАЗУ ПОСЛЕ СОЗДАНИЯ 🔥
                         setTimeout(checkEventStatus, 1000); 
                     } catch (e) {
                         tg.showAlert("Ошибка при создании: " + e.message);
@@ -565,6 +589,20 @@
                 document.getElementById('admin-game-cover-input').value = state.game_cover_url;
             }
 
+            // --- ОБНОВЛЕНИЕ НОВЫХ СЛАЙДЕРОВ ---
+            if (state.cover_offset_x !== undefined && !isObs) {
+                document.getElementById('cover-x-slider').value = state.cover_offset_x;
+                document.getElementById('cover-x-val').innerText = state.cover_offset_x + '%';
+            }
+            if (state.cover_offset_y !== undefined && !isObs) {
+                document.getElementById('cover-y-slider').value = state.cover_offset_y;
+                document.getElementById('cover-y-val').innerText = state.cover_offset_y + '%';
+            }
+            if (state.cover_zoom !== undefined && !isObs) {
+                document.getElementById('cover-zoom-slider').value = state.cover_zoom;
+                document.getElementById('cover-zoom-val').innerText = state.cover_zoom + '%';
+            }
+
             if (state.is_active && state.current_word) {
                 if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
                     currentWord = state.current_word.toUpperCase();
@@ -600,7 +638,6 @@
 
         async function checkEventStatus() {
             try {
-                // 🔥 ДОБАВЛЕН Date.now() ДЛЯ ОБХОДА КЭША VERCEL 🔥
                 const res = await fetch('/api/v1/events/current?t=' + Date.now()); 
                 const data = await res.json();
                 
@@ -634,10 +671,10 @@
                 }
             });
 
-            // 🔥 2. Сборы (НОВЫЙ БЛОК ДЛЯ АДМИНКИ) 🔥
+            // 2. Сборы (НОВЫЙ БЛОК ДЛЯ АДМИНКИ)
             supabaseClient.channel('admin-events-changes').on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'community_events' }, 
-                () => checkEventStatus() // Обновляем статус при любом движении в БД
+                () => checkEventStatus() 
             ).subscribe();
         }
 
@@ -806,6 +843,27 @@
             } catch (e) {
                 tg.showAlert("Ошибка при сохранении: " + e.message);
             }
+        }
+
+        // --- НОВОЕ: Отправка позиции и зума ---
+        let coverSettingTimeout;
+        function changeCoverSetting(axis, val) {
+            document.getElementById(`cover-${axis}-val`).innerText = val + '%';
+            clearTimeout(coverSettingTimeout);
+            
+            const x = parseInt(document.getElementById('cover-x-slider').value);
+            const y = parseInt(document.getElementById('cover-y-slider').value);
+            const zoom = parseInt(document.getElementById('cover-zoom-slider').value);
+
+            coverSettingTimeout = setTimeout(async () => {
+                try {
+                    await apiCall('/api/v1/admin/guess/covers/settings/set', { 
+                        cover_offset_x: x, 
+                        cover_offset_y: y, 
+                        cover_zoom: zoom 
+                    });
+                } catch(e) { console.error(e); }
+            }, 300);
         }
 
         let textSizeTimeout;
