@@ -4823,9 +4823,14 @@ window.claimTrustAmnesty = async function() {
             
             if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             
-            // ФИКС БАГА: после успешной амнистии жестко обновляем страницу для применения траста
+            // ТИХОЕ ОБНОВЛЕНИЕ ДАННЫХ ВМЕСТО РЕЛОАДА
+            userData.trust_score = 35.0;
+            userData.penalty_points = 0;
+            refreshDataSilently(); // Фоново стягиваем свежие данные из БД
+            
+            // ФИКС БАГА: после успешной амнистии показываем алерт и переоткрываем окно с новыми цифрами
             customAlert("✅ Амнистия применена! Твой траст-фактор восстановлен до 35. Постарайся больше не падать в красную зону!", () => {
-                window.location.reload();
+                setTimeout(openTrustModal, 100);
             });
             
         } catch (e) {
