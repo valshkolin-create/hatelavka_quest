@@ -350,7 +350,7 @@ function getAllRewardImages(eventData) {
             },
     // <-- ДОБАВЛЯЕМ НОВУЮ ТЕМУ -->
             runcase: {
-                title: 'RUNCASE x HATELOVE', // Как на скрине, или "Ранговый Кейс"
+                title: 'TOPSKIN x HATELOVE', // Как на скрине, или "Ранговый Кейс"
                 btnAction: 'СЗАЛУТАТЬ ДРОП', // У Runcase кнопки капсом
                 acc: 'дроп',
                 prep: 'дропе'
