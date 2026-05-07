@@ -404,8 +404,27 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        // Инициализация Telegram WebApp с безопасной проверкой (чтобы не крашилось в OBS)
+        let tg = null;
+        try {
+            if (window.Telegram && window.Telegram.WebApp) {
+                tg = window.Telegram.WebApp;
+                if (tg.expand) tg.expand();
+            }
+        } catch(e) {
+            console.warn("Telegram WebApp not fully initialized:", e);
+        }
+
+        // Безопасные обертки для нативных вызовов TG (на случай тестирования в браузере)
+        function showAlert(msg) {
+            if (tg && tg.showAlert) tg.showAlert(msg);
+            else alert(msg);
+        }
+
+        function showConfirm(msg, callback) {
+            if (tg && tg.showConfirm) tg.showConfirm(msg, callback);
+            else callback(confirm(msg));
+        }
 
         const SUPABASE_URL = 'https://pyeuckjcrsiaseyqrsek.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg';
@@ -452,7 +471,8 @@
         }
 
         async function apiCall(endpoint, additionalBody = {}) {
-            const bodyData = { ...additionalBody, initData: tg.initData };
+            // Безопасное получение initData
+            const bodyData = { ...additionalBody, initData: tg ? tg.initData : "" };
             try {
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -462,7 +482,7 @@
                 if (!res.ok) throw new Error("API Error");
                 return await res.json();
             } catch (e) {
-                if(tg.HapticFeedback && !isObs) tg.HapticFeedback.notificationOccurred('error');
+                if(tg && tg.HapticFeedback && !isObs) tg.HapticFeedback.notificationOccurred('error');
                 throw e;
             }
         }
@@ -473,7 +493,7 @@
             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.disableVerticalSwipes) {
                 window.Telegram.WebApp.disableVerticalSwipes();
             }
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
         
         function closeModal(id) {
@@ -498,12 +518,12 @@
             const ticketVal = parseInt(document.getElementById('ev-ticket-val').value) || 5;
 
             if (!title || !target || !twitchCost || !twitchGain) {
-                return tg.showAlert("Укажите все параметры сбора (включая очки за Твич)!");
+                return showAlert("Укажите все параметры сбора (включая очки за Твич)!");
             }
 
             saveEventSettings(); 
 
-            tg.showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
+            showConfirm(`Запустить сбор "${title}"?\nСтарые активные сборы будут отключены!`, async (ok) => {
                 if (ok) {
                     try {
                         await apiCall('/api/v1/admin/community_events/create', {
@@ -515,12 +535,12 @@
                             coin_multiplier: coinVal,
                             ticket_multiplier: ticketVal
                         });
-                        tg.showAlert("Сбор на старт игры успешно запущен!");
+                        showAlert("Сбор на старт игры успешно запущен!");
                         closeModal('modal-events');
                         
                         setTimeout(checkEventStatus, 1000); 
                     } catch (e) {
-                        tg.showAlert("Ошибка при создании: " + e.message);
+                        showAlert("Ошибка при создании: " + e.message);
                     }
                 }
             });
@@ -617,7 +637,11 @@
                     
                     renderWord();
                 } else {
-                    revealedIndices = state.revealed_indices || [];
+                    // ИСПРАВЛЕНИЕ РАССИНХРОНА: Сохраняем локально открытые буквы при обновлении параметров.
+                    const serverIndices = state.revealed_indices || [];
+                    if (serverIndices.length > revealedIndices.length) {
+                        revealedIndices = serverIndices;
+                    }
                     renderWord();
                 }
 
@@ -646,15 +670,23 @@
                 const modeEl = document.getElementById('admin-current-mode-label');
 
                 if (data.status === 'active' && data.event) {
-                    wordEl.innerText = "ИДЕТ СБОР";
-                    wordEl.style.color = '#ff9500';
-                    labelEl.innerText = "Статус:";
-                    modeEl.innerText = `${data.event.current_points} / ${data.event.target_points} ОЧКОВ`;
+                    if (!currentWord) { // ИСПРАВЛЕНИЕ: Не затирать статус, если активно слово
+                        if (wordEl) {
+                            wordEl.innerText = "ИДЕТ СБОР";
+                            wordEl.style.color = '#ff9500';
+                        }
+                        if (labelEl) labelEl.innerText = "Статус:";
+                        if (modeEl) modeEl.innerText = `${data.event.current_points} / ${data.event.target_points} ОЧКОВ`;
+                    }
                 } else {
-                    wordEl.innerText = "ИГРА ОСТАНОВЛЕНА";
-                    wordEl.style.color = '#ff4d4d';
-                    labelEl.innerText = "Статус:";
-                    modeEl.innerText = "Сборов нет";
+                    if (!currentWord) { // ИСПРАВЛЕНИЕ: То же самое
+                        if (wordEl) {
+                            wordEl.innerText = "ИГРА ОСТАНОВЛЕНА";
+                            wordEl.style.color = '#ff4d4d';
+                        }
+                        if (labelEl) labelEl.innerText = "Статус:";
+                        if (modeEl) modeEl.innerText = "Сборов нет";
+                    }
                 }
             } catch(e) {}
         }
@@ -829,7 +861,7 @@
         async function setCustomText() {
             const text = document.getElementById('custom-text-input').value;
             await apiCall('/api/v1/admin/guess/text/set', { custom_text: text });
-            tg.showAlert("Текст обновлен!");
+            showAlert("Текст обновлен!");
         }
         
         // --- СОХРАНЕНИЕ ОБЛОЖЕК (ПРИЛОЖЕНИЕ) ---
@@ -839,9 +871,9 @@
             
             try {
                 await apiCall('/api/v1/admin/guess/covers/set', { default_cover_url: defaultUrl, game_cover_url: gameUrl });
-                tg.showAlert("Фоны успешно обновлены!");
+                showAlert("Фоны успешно обновлены!");
             } catch (e) {
-                tg.showAlert("Ошибка при сохранении: " + e.message);
+                showAlert("Ошибка при сохранении: " + e.message);
             }
         }
 
@@ -888,9 +920,9 @@
         async function saveDictionary() {
             const text = document.getElementById('words-list-input').value;
             const words = text.split(/[\n,]+/).map(w => w.trim().toUpperCase()).filter(w => w.length > 2);
-            if(words.length === 0) return tg.showAlert("Словарь пуст!");
+            if(words.length === 0) return showAlert("Словарь пуст!");
             await apiCall('/api/v1/admin/guess/words/set', { words: words });
-            tg.showAlert("Сохранено!");
+            showAlert("Сохранено!");
             closeModal('modal-dictionary');
         }
 
@@ -944,9 +976,9 @@
             const type = document.getElementById('rew-type').value;
             const amount = parseInt(document.getElementById('rew-amount').value) || 0;
             const caseName = document.getElementById('rew-case-name').value;
-            if (!place) return tg.showAlert("Укажите место");
+            if (!place) return showAlert("Укажите место");
             
-            if (type === 'case' && !caseName) return tg.showAlert("Выберите кейс из списка");
+            if (type === 'case' && !caseName) return showAlert("Выберите кейс из списка");
 
             await apiCall('/api/v1/admin/guess/rewards_config/add', { place, reward_type: type, amount, target_case_name: caseName });
             
@@ -962,12 +994,12 @@
         }
 
         async function stopAndReward() { 
-            tg.showConfirm("Выдать награды согласно списку?", async (ok) => {
+            showConfirm("Выдать награды согласно списку?", async (ok) => {
                 if (ok) {
                     try {
                         const res = await apiCall('/api/v1/admin/guess/finish_and_reward');
-                        tg.showAlert("Раздача завершена!\n\n" + (res.log ? res.log.join("\n") : "Ок"));
-                    } catch(e) { tg.showAlert("Ошибка!"); }
+                        showAlert("Раздача завершена!\n\n" + (res.log ? res.log.join("\n") : "Ок"));
+                    } catch(e) { showAlert("Ошибка!"); }
                 }
             });
         }
