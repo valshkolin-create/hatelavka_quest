@@ -17548,7 +17548,6 @@ async def claim_trust_amnesty(
     request_data: AmnestyRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Авторизация (твоя функция)
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -17556,12 +17555,12 @@ async def claim_trust_amnesty(
     telegram_id = user_info["id"]
 
     try:
-        # 2. Достаем юзера из таблицы users
+        # 🔥 ВАЖНО: Добавили выборку monthly_message_count
         user_resp = await supabase.get(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}", 
-                "select": "trust_score,amnesty_used_at,penalty_points"
+                "select": "trust_score,amnesty_used_at,penalty_points,monthly_message_count"
             }
         )
         
@@ -17570,25 +17569,25 @@ async def claim_trust_amnesty(
             
         user_data = user_resp.json()[0]
         current_trust = float(user_data.get("trust_score") or 30.0)
+        current_penalties = float(user_data.get("penalty_points") or 0.0)
         
-        # 3. БРОНЯ 1: Траст должен быть ниже 35
+        # Считаем, сколько баллов у юзера реально (без учета штрафов)
+        pure_active_score = current_trust + current_penalties
+        
+        # БРОНЯ 1: Траст должен быть ниже 35
         if current_trust >= 35.0:
             raise HTTPException(status_code=400, detail="Амнистия доступна только если твой траст упал ниже 35.")
             
-        # 4. БРОНЯ 2: Идем в event_matrix_quest и проверяем красную таблетку!
+        # БРОНЯ 2: Матрица
         matrix_resp = await supabase.get(
             "/event_matrix_quest",
-            params={
-                "user_id": f"eq.{telegram_id}",
-                "select": "selected_pill"
-            }
+            params={"user_id": f"eq.{telegram_id}", "select": "selected_pill"}
         )
         if matrix_resp.status_code == 200 and matrix_resp.json():
-            pill_data = matrix_resp.json()[0]
-            if pill_data.get("selected_pill") == "red":
+            if matrix_resp.json()[0].get("selected_pill") == "red":
                 raise HTTPException(status_code=403, detail="Ты выбрал путь ленивца. Амнистия недоступна.")
                 
-        # 5. БРОНЯ 3: Проверка кулдауна
+        # БРОНЯ 3: Кулдаун
         amnesty_used_at_str = user_data.get("amnesty_used_at")
         if amnesty_used_at_str:
             last_used = datetime.fromisoformat(amnesty_used_at_str.replace("Z", "+00:00"))
@@ -17597,17 +17596,24 @@ async def claim_trust_amnesty(
             
             if delta < timedelta(days=30):
                 days_left = 30 - delta.days
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Амнистию можно использовать только раз в месяц. Осталось ждать: {days_left} дн."
-                )
+                raise HTTPException(status_code=400, detail=f"Амнистию можно использовать только раз в месяц. Осталось ждать: {days_left} дн.")
                 
-        # 6. ВЫДАЕМ АМНИСТИЮ (Сброс штрафов и установка 35 баллов)
+        # Формируем данные на обновление
         update_payload = {
             "trust_score": 35.0,
             "penalty_points": 0,
             "amnesty_used_at": datetime.now(timezone.utc).isoformat()
         }
+        
+        # 🔥 УМНАЯ НАКРУТКА СТАТИСТИКИ 🔥
+        # Если чистый актив меньше 35, докидываем фейковые сообщения Твича
+        if pure_active_score < 35.0:
+            deficit = 35.0 - pure_active_score
+            # 1 балл Траста = 37.5 сообщений Твича
+            messages_to_add = int(deficit * 37.5) + 1
+            current_msgs = int(user_data.get("monthly_message_count") or 0)
+            
+            update_payload["monthly_message_count"] = current_msgs + messages_to_add
         
         update_resp = await supabase.patch(
             "/users",
@@ -17619,11 +17625,7 @@ async def claim_trust_amnesty(
             logging.error(f"Ошибка базы данных при амнистии: {update_resp.text}")
             raise HTTPException(status_code=500, detail="Ошибка базы данных")
         
-        return {
-            "success": True, 
-            "message": "Амнистия успешно применена", 
-            "new_trust": 35.0
-        }
+        return {"success": True, "message": "Амнистия успешно применена", "new_trust": 35.0}
 
     except HTTPException:
         raise
