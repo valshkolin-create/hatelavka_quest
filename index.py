@@ -17555,12 +17555,12 @@ async def claim_trust_amnesty(
     telegram_id = user_info["id"]
 
     try:
-        # 🔥 ВАЖНО: Добавили выборку monthly_message_count
+        # 🔥 ВАЖНО: Добавили выборку penalty_points для расчета "чистого" актива
         user_resp = await supabase.get(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}", 
-                "select": "trust_score,amnesty_used_at,penalty_points,monthly_message_count"
+                "select": "trust_score,amnesty_used_at,penalty_points"
             }
         )
         
@@ -17598,22 +17598,19 @@ async def claim_trust_amnesty(
                 days_left = 30 - delta.days
                 raise HTTPException(status_code=400, detail=f"Амнистию можно использовать только раз в месяц. Осталось ждать: {days_left} дн.")
                 
+        # 🔥 УМНЫЙ БУФЕР АМНИСТИИ 🔥
+        # Считаем, сколько баллов не хватает до 35 (если актив меньше 35)
+        bonus_needed = 0.0
+        if pure_active_score < 35.0:
+            bonus_needed = round(35.0 - pure_active_score, 2)
+            
         # Формируем данные на обновление
         update_payload = {
             "trust_score": 35.0,
             "penalty_points": 0,
+            "amnesty_bonus": bonus_needed,  # Сохраняем разницу в новую колонку!
             "amnesty_used_at": datetime.now(timezone.utc).isoformat()
         }
-        
-        # 🔥 УМНАЯ НАКРУТКА СТАТИСТИКИ 🔥
-        # Если чистый актив меньше 35, докидываем фейковые сообщения Твича
-        if pure_active_score < 35.0:
-            deficit = 35.0 - pure_active_score
-            # 1 балл Траста = 37.5 сообщений Твича
-            messages_to_add = int(deficit * 37.5) + 1
-            current_msgs = int(user_data.get("monthly_message_count") or 0)
-            
-            update_payload["monthly_message_count"] = current_msgs + messages_to_add
         
         update_resp = await supabase.patch(
             "/users",
