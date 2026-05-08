@@ -2475,15 +2475,37 @@ window.initiateReplacementConfirm = (historyId, assetid, itemName) => {
 // P2P TRADE-IN ОБМЕН
 // ================================================================
 window.openP2PModal = async () => {
+    // 🔥 ПРОВЕРКА ТРАСТ-ФАКТОРА (Пускаем от 40 баллов) 🔥
+    const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
+    
+    if (score < 40) {
+        return showShopModal({
+            title: '<span style="color: #ff9500; font-weight: 900;"><i class="fa-solid fa-lock"></i> TRADE-IN НЕДОСТУПЕН</span>',
+            subtitle: `Обмен кейсов  доступен только при <b>Траст-факторе от 40 баллов</b>.\n\nТвой текущий траст: <b style="color: #ff3b30;">${score.toFixed(1)}</b>.\n\nПрояви немного активности на стримах и в чате, чтобы разблокировать эту функцию!`,
+            confirmText: 'ПОНЯТНО',
+            confirmClass: 'btn-yellow-modal',
+            showCancel: false,
+            onConfirm: (close) => close()
+        });
+    }
+
+    // Если траст >= 40 — загружаем интерфейс обмена
     document.getElementById('p2p-modal').classList.remove('hidden');
-    document.getElementById('p2p-quantity').value = 1; document.getElementById('p2p-total').innerText = '0';
-    const select = document.getElementById('p2p-case-select'); select.innerHTML = '<option value="">Загрузка...</option>';
+    document.getElementById('p2p-quantity').value = 1; 
+    document.getElementById('p2p-total').innerText = '0';
+    
+    const select = document.getElementById('p2p-case-select'); 
+    select.innerHTML = '<option value="">Загрузка...</option>';
+    
     try {
         cachedP2PCases = await makeApiRequest('/api/v1/p2p/cases', {}, 'GET', true) || [];
         select.innerHTML = '<option value="">-- Нажми, чтобы выбрать кейс --</option>' + cachedP2PCases.map(item => `<option value="${item.id}" data-price="${item.price_in_coins}" data-image="${item.image_url}" data-name="${item.case_name.replace(/"/g, '&quot;')}">${item.case_name}</option>`).join('');
-    } catch(e) { select.innerHTML = '<option value="">Ошибка загрузки</option>'; }
+    } catch(e) { 
+        select.innerHTML = '<option value="">Ошибка загрузки</option>'; 
+    }
+    
     loadP2PHistoryData();
-}
+};
 window.closeP2PModal = () => document.getElementById('p2p-modal').classList.add('hidden');
 
 window.calculateP2P = () => {
