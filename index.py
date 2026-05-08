@@ -21548,7 +21548,7 @@ async def execute_directed_swap(
     if not (1 <= len(req.history_ids) <= 4):
         raise HTTPException(status_code=400, detail="Выберите от 1 до 4 предметов")
 
-    # 2. Получаем предметы юзера и считаем сумму
+    # 2. Получаем предметы юзера и считаем сумму В МОНЕТАХ
     id_list_str = ",".join(map(str, req.history_ids))
     check_resp = await supabase.get(
         "/cs_history",
@@ -21556,7 +21556,7 @@ async def execute_directed_swap(
             "id": f"in.({id_list_str})",
             "user_id": f"eq.{user_id}",
             "status": "in.(pending,failed,available)",
-            "select": "id, replaced_price, is_swapped, item:cs_items(price)"
+            "select": "id, replaced_price, is_swapped, item:cs_items(price_rub)" # 🔥 ИСПРАВЛЕНО: тянем price_rub
         }
     )
     rows = check_resp.json()
@@ -21574,7 +21574,7 @@ async def execute_directed_swap(
             total_given_sum += float(replaced)
         else:
             item_data = row.get('item') or {}
-            total_given_sum += float(item_data.get('price', 0))
+            total_given_sum += float(item_data.get('price_rub', 0)) # 🔥 ИСПРАВЛЕНО: берем монеты
 
     if total_given_sum <= 0:
         raise HTTPException(status_code=400, detail="Сумма ваших предметов равна нулю")
@@ -21595,11 +21595,14 @@ async def execute_directed_swap(
     target_item = target_data[0]
     target_price = float(target_item.get('price_rub', 0))
 
-    # 4. ГЛАВНАЯ ПРОВЕРКА: Цена выбранного <= Сумма отданных
-    if target_price > total_given_sum:
+    # 4. ГЛАВНАЯ ПРОВЕРКА: Комиссия 20%
+    # Максимальная цена, которую он может забрать - на 20% дешевле отданного
+    max_allowed_price = total_given_sum * 0.80
+
+    if target_price > max_allowed_price:
         raise HTTPException(
             status_code=400, 
-            detail=f"Не хватает баланса обмена! Выбрано на {target_price}, а у вас {total_given_sum}"
+            detail=f"Не хватает баланса обмена! Доступно: {max_allowed_price:.2f}, а выбрано на {target_price:.2f}"
         )
 
     # 5. Транзакция: Сжигаем старые предметы
@@ -21609,7 +21612,7 @@ async def execute_directed_swap(
         json={"status": "exchanged_swap"}
     )
 
-    # 6. Выдаем новый предмет с клеймом is_swapped = True
+    # 6. Выдаем новый предмет
     new_history_payload = {
         "user_id": user_id,
         "item_id": None, 
@@ -21617,11 +21620,10 @@ async def execute_directed_swap(
         "status": "available",
         "replaced_price": target_price,
         "replaced_image_url": target_item.get('image_url'),
-        "replaced_rarity": target_item.get('rarity', 'common'), # 🔥 СОХРАНЯЕМ РЕДКОСТЬ
+        "replaced_rarity": target_item.get('rarity', 'common'),
         "is_swapped": True 
     }
     
-    # Отправляем в БД и просим вернуть созданную строку (чтобы получить сгенерированный ID)
     res = await supabase.post(
         "/cs_history", 
         json=new_history_payload,
@@ -21630,7 +21632,6 @@ async def execute_directed_swap(
     
     inserted_row = res.json()[0]
 
-    # Возвращаем данные на фронт, чтобы показать красивый попап
     return {
         "success": True, 
         "message": "Успешный обмен!",
