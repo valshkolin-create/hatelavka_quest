@@ -6536,22 +6536,46 @@ async def create_p2p_trade(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401)
+    if not user_info: 
+        raise HTTPException(status_code=401)
     
+    user_id = user_info['id']
+
+    # 🔥 ШАГ 1: Проверяем Траст-фактор пользователя в базе
+    user_resp = await supabase.get("/users", params={
+        "telegram_id": f"eq.{user_id}",
+        "select": "trust_score"
+    })
+    user_records = user_resp.json()
+    
+    if not user_records:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    # Извлекаем оценку (по дефолту 30, если вдруг пусто)
+    current_trust = float(user_records[0].get("trust_score", 30.0))
+
+    # 🔥 ШАГ 2: Жесткая блокировка, если траст ниже 40
+    if current_trust < 40.0:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Trade-In доступен только при Траст-факторе от 40 баллов! Твой текущий траст: {current_trust:.1f}"
+        )
+
+    # --- Дальше идет твоя оригинальная логика ---
+
     # Получаем цену кейса
     case_resp = await supabase.get("/case_prices", params={"id": f"eq.{request_data.case_id}"})
     cases = case_resp.json()
-    if not cases: raise HTTPException(status_code=400, detail="Кейс не найден")
+    if not cases: 
+        raise HTTPException(status_code=400, detail="Кейс не найден")
     
     price = cases[0]['price_in_coins']
     total_coins = price * request_data.quantity
     
-    # Создаем сделку (таймер 30 мин ставится при одобрении админом, или сразу - зависит от логики. 
-    # По твоему ТЗ таймер дается "чтоб я подтвердил", значит ставим expires_at сразу)
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
     
     payload = {
-        "user_id": user_info['id'],
+        "user_id": user_id,
         "case_id": request_data.case_id,
         "quantity": request_data.quantity,
         "total_coins": total_coins,
@@ -6560,17 +6584,19 @@ async def create_p2p_trade(
     }
     
     await supabase.post("/p2p_trades", json=payload)
-    # === ДОБАВИТЬ: Уведомление в технический чат ===
+
+    # Уведомление в технический чат
     if ADMIN_NOTIFY_CHAT_ID:
         admin_msg = (
             f"📦 <b>Новая заявка P2P!</b>\n\n"
-            f"Пользователь: ID {user_info['id']}\n"
+            f"Пользователь: ID {user_id}\n"
+            f"Траст: <b>{current_trust:.1f}</b>\n" # Добавил траст в логи для тебя
             f"Кейс ID: {request_data.case_id}\n"
             f"Кол-во: {request_data.quantity}\n"
             f"Сумма: <b>{total_coins} монет</b>"
         )
         await try_send_message(int(ADMIN_NOTIFY_CHAT_ID), admin_msg)
-    # ===============================================
+
     return {"message": "Заявка создана! Ждите подтверждения админа."}
 
 # 3. Пользователь нажал "Я передал кейсы"
