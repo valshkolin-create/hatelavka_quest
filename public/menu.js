@@ -2104,21 +2104,46 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
     
     const bottomProgress = document.getElementById('r-bottom-progress');
 
-    // 🔥 СКРЫВАЕМ ПОЛОСКУ ГАРАНТА, ЕСЛИ БЭКЕНД ПРИСЛАЛ LACKY = 0 🔥
+    // 🔥 ЛОГИКА ОТОБРАЖЕНИЯ ГАРАНТА 🔥
     if (!lacky || lacky === 0) {
-        bottomProgress.style.display = 'none';
+        // Проверяем, почему пришел 0. Если это из-за красного траста — показываем плашку наказания.
+        const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
+        
+        if (score < 30) {
+            bottomProgress.style.display = 'flex';
+            
+            // Гасим точки и красим в тускло-красный
+            const dots = document.querySelectorAll('#r-bottom-progress .r-progress-dot');
+            dots.forEach(dot => {
+                dot.className = 'r-progress-dot'; 
+                dot.style.background = 'rgba(255, 59, 48, 0.2)'; 
+                dot.style.boxShadow = 'none';
+            });
+
+            // Выводим грозный текст
+            const progressTextEl = document.getElementById('r-progress-text');
+            if (progressTextEl) progressTextEl.innerHTML = '<span style="color: #ff3b30; font-size: 11px; font-weight: 800; text-transform: uppercase;">🚫 Гарант отключен (Низкий траст) 🚫</span>';
+        } else {
+            // Если это просто ивентовый кейс или купон (у нормальных ребят) - просто прячем полоску
+            bottomProgress.style.display = 'none';
+        }
     } else {
         bottomProgress.style.display = 'flex';
         let currentLacky = lacky; 
         const dots = document.querySelectorAll('#r-bottom-progress .r-progress-dot');
         dots.forEach((dot, index) => {
             dot.className = 'r-progress-dot'; 
+            // Возвращаем стандартные стили на случай, если раньше они были затерты красным цветом
+            dot.style.background = '';
+            dot.style.boxShadow = '';
             if (index < currentLacky) { dot.classList.add('active'); if (index === 4 && currentLacky === 5) dot.classList.add('guaranteed'); }
         });
 
         const progressTextEl = document.getElementById('r-progress-text');
-        if (currentLacky === 5) progressTextEl.innerHTML = '<span style="color: #ffcc00; font-size: 11px;">🔥 ГАРАНТ АКТИВЕН 🔥</span>';
-        else progressTextEl.innerHTML = `Осталось <span style="color: #fff; font-weight: 800;">${5 - currentLacky}</span> до гаранта`;
+        if (progressTextEl) {
+            if (currentLacky === 5) progressTextEl.innerHTML = '<span style="color: #ffcc00; font-size: 11px;">🔥 ГАРАНТ АКТИВЕН 🔥</span>';
+            else progressTextEl.innerHTML = `Осталось <span style="color: #fff; font-weight: 800;">${5 - currentLacky}</span> до гаранта`;
+        }
     }
 
     document.getElementById('r-top-header').style.display = 'flex';
