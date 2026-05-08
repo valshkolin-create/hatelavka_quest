@@ -21316,12 +21316,12 @@ async def get_user_inventory(
     
     user_id = user_data['id']
 
-    # 🔥 Добавили replaced_image_url, replaced_rarity и is_swapped в выборку
+    # 🔥 ИСПРАВЛЕНИЕ: Добавили price_rub в select!
     resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, price)",
+            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, price, price_rub)",
             "order": "created_at.desc"
         }
     )
@@ -21337,23 +21337,27 @@ async def get_user_inventory(
         if not item_data and not row.get('replaced_name'):
             continue
 
+        # Цена в билетах (старая логика)
         raw_price = row.get('replaced_price') if row.get('replaced_price') else item_data.get('price', 0)
         ticket_val = int(float(raw_price))
+
+        # 🔥 Новая цена в МОНЕТАХ для обмена (Свапа)
+        coin_val = row.get('replaced_price') if row.get('replaced_price') else item_data.get('price_rub', 0)
 
         inventory.append({
             "history_id": row['id'],
             "item_id": item_data.get('id'),
             "name": row.get('replaced_name') or item_data.get('name', 'Секретный скин'),
             "image_url": row.get('replaced_image_url') or item_data.get('image_url', ''),
-            # 🔥 Берем рарность из замены, а если её нет — из оригинального предмета
             "rarity": row.get('replaced_rarity') or item_data.get('rarity', 'common'),
-            "price": ticket_val, 
+            "price": ticket_val,  # Оставляем билеты для кнопки "Продать за билеты"
+            "price_rub": float(coin_val), # 🔥 ОТПРАВЛЯЕМ МОНЕТЫ НА ФРОНТ
             "status": row['status'],
             "received_at": row['created_at'],
             "updated_at": row.get('updated_at') or row['created_at'],
             "replaced_name": row.get('replaced_name'),
             "replaced_price": row.get('replaced_price'),
-            "is_swapped": row.get('is_swapped', False) # Отдаем флаг на фронт
+            "is_swapped": row.get('is_swapped', False) 
         })
 
     return inventory
