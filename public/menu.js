@@ -4103,37 +4103,35 @@ window.handleSwapMainBtn = async () => {
             return customAlert("Выберите хотя бы один предмет для обмена!");
         }
 
-        // Включаем визуальную загрузку на кнопке
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Подбор скинов...';
         btn.disabled = true;
 
-        // Высчитываем минимальную цену (70% от суммы)
-        const minPrice = totalSum * 0.70;
+        // 🔥 МАТЕМАТИКА КОМИССИИ (НАЦЕНКА 20%) 🔥
+        // Юзер получает только 80% от суммы своих скинов
+        const maxPrice = totalSum * 0.80; 
+        const minPrice = totalSum * 0.40; // Снизили минималку, чтобы выбор был шире
 
         try {
-            // 🔥 ДЕЛАЕМ ТОЧЕЧНЫЙ ЗАПРОС К БЭКЕНДУ 🔥
-            let rawMarket = await makeApiRequest(`/api/v1/shop/market_cache?min_price=${minPrice}&max_price=${totalSum}`, {}, 'GET', true);
+            // Ищем скины на бэке по новым лимитам
+            let rawMarket = await makeApiRequest(`/api/v1/shop/market_cache?min_price=${minPrice}&max_price=${maxPrice}`, {}, 'GET', true);
             
             let marketRes = [];
             if (Array.isArray(rawMarket)) marketRes = rawMarket;
             else if (rawMarket && Array.isArray(rawMarket.items)) marketRes = rawMarket.items;
             else if (rawMarket && Array.isArray(rawMarket.data)) marketRes = rawMarket.data;
 
-            // Обновляем глобальный массив ТОЛЬКО подходящими скинами
+            // Обновляем глобальный массив
             globalMarketItems = marketRes;
-            
-            // Если всё скачалось успешно — переключаем экран
             goToSwapStep(2);
         } catch(e) {
             customAlert("Не удалось загрузить варианты для замены.");
         } finally {
-            // Возвращаем кнопку в исходный вид
             btn.innerText = originalText;
             btn.disabled = false;
         }
     } 
     // ==========================================
-    // ЛОГИКА ОСТАЛЬНЫХ ШАГОВ (Осталась твоя)
+    // ЛОГИКА ОСТАЛЬНЫХ ШАГОВ
     // ==========================================
     else if (currentSwapStep === 2) {
         goToSwapStep(3);
@@ -4244,21 +4242,21 @@ window.renderSwapMarket = function() {
 
     const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
 
-    const minPrice = totalSum * 0.70; 
-    const maxPrice = totalSum;
+    // 🔥 ТА ЖЕ КОМИССИЯ ДЛЯ ФИЛЬТРА 🔥
+    const maxPrice = totalSum * 0.80;
+    const minPrice = totalSum * 0.40;
 
-    // 🔥 ЧЕРНЫЙ СПИСОК (Фронтенд-броня) 🔥
-    // Внутри функции renderSwapMarket
-const blacklist = [
-    "sticker |", "graffiti |", "patch |", "music kit |", 
-    "pin |", "charm |", "pass |", "case", "кейс",
-    "capsule", "капсула", "terminal", "терминал", "token" // 🔥 Добавили эти
-];
+    // ЧЕРНЫЙ СПИСОК (Фронтенд-броня)
+    const blacklist = [
+        "sticker |", "graffiti |", "patch |", "music kit |", 
+        "pin |", "charm |", "pass |", "case", "кейс",
+        "capsule", "капсула", "terminal", "терминал", "token"
+    ];
 
     const availableMarketItems = globalMarketItems.filter(item => {
         const priceRub = parseFloat(item.price_rub) || 0;
         
-        // 1. Фильтр бюджета
+        // 1. Фильтр бюджета (теперь по maxPrice с учетом комсы!)
         if (totalSum <= 0 || priceRub > maxPrice || priceRub < minPrice) return false;
 
         const lowerName = item.market_hash_name.toLowerCase();
