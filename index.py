@@ -17241,12 +17241,14 @@ async def buy_bott_item_proxy(
                 final_items, final_weights = all_items, weights
                 
         else:
-            # ==========================================
+           # ==========================================
             # 🎁 СЕКРЕТНЫЙ МИНИ-ДЖЕКПОТ (Сюрприз для юзера)
             # ==========================================
-            # Шанс 7% (0.07), что обычная крутка выдаст 100% окуп.
-            # Абузить невозможно, так как это решает чистый рандом на сервере в момент клика.
-            is_surprise_drop = random.random() < 0.07 
+            # Если траст красный, сюрприз-дроп отключаем принудительно
+            if current_trust == 'red':
+                is_surprise_drop = False
+            else:
+                is_surprise_drop = random.random() < 0.07 
             
             surprise_items = []
             surprise_weights = []
@@ -17267,10 +17269,33 @@ async def buy_bott_item_proxy(
                 
                 # 2. Собираем обычную корзину (стандартная рулетка)
                 normal_items.append(skin)
+
+                # ==========================================
+                # ⚖️ DYNAMIC WEIGHTS: МАТЕМАТИКА ТРАСТА
+                # ==========================================
+                trust_modifier = 1.0
+                
+                if current_trust == 'red':
+                    # Красный траст (Ленивцы)
+                    if skin_price >= base_case_price:
+                        trust_modifier = 0.2  # Шанс на окуп падает на 80%
+                    elif skin_price >= target_value:
+                        trust_modifier = 0.5  # Шанс на средний дроп падает на 50%
+                    else:
+                        trust_modifier = 2.5  # Шанс на мусор увеличивается в 2.5 раза
+                        
+                elif current_trust == 'green':
+                    # Зеленый траст (Активные зрители)
+                    if skin_price >= base_case_price:
+                        trust_modifier = 1.15 # Буст 15% на хороший дроп
+                    elif skin_price < target_value:
+                        trust_modifier = 0.9  # Режем шанс на мусор на 10%
+                # ==========================================
+
                 if target_value <= skin_price < base_case_price * 1.5:
-                    normal_weights.append(w * pity_multiplier)
+                    normal_weights.append(w * pity_multiplier * trust_modifier)
                 else:
-                    normal_weights.append(w)
+                    normal_weights.append(w * trust_modifier)
 
             # Если рандом прокнул И в кейсе есть подходящие скины под "сюрприз"
             if is_surprise_drop and surprise_items:
@@ -17319,7 +17344,7 @@ async def buy_bott_item_proxy(
             "winner": winner_output,
             "roulette_strip": roulette_strip,
             "history_id": history_id,
-            "lacky": 0 if is_event_case else current_lacky,  # 🔥 ПЕРЕДАЕМ 0 ДЛЯ СКРЫТИЯ ПОЛОСКИ 🔥
+            "lacky": 0 if (is_event_case or current_trust == 'red') else current_lacky,  # 🔥 СКРЫВАЕМ ПОЛОСКУ ГАРАНТА ДЛЯ КРАСНЫХ 🔥
             "messages": [f"Выпало: {winner['name']}"]
         }
 
