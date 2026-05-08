@@ -4176,7 +4176,7 @@ function renderSwapInventory(items) {
     }
 
     grid.innerHTML = items.map(item => {
-        const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : (parseFloat(item.price) || 0);
+        const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : Math.floor(parseFloat(item.price_rub) || 0);
         const shortName = (item.name || "Скин").split('|').pop().trim();
         const isSelected = swapGivenItems.has(item.history_id);
         const border = isSelected ? '#34c759' : 'transparent';
