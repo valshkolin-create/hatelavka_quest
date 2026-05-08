@@ -2499,7 +2499,7 @@ window.openP2PModal = async () => {
                 </div>
                 
                 <div style="font-size: 12px; color: #ccc; line-height: 1.4;">
-                    Обмен кейсов с администратором доступен только при <b style="color: #fff;">Траст-факторе от 40 баллов</b>.
+                    Обмен кейсов доступен только при <b style="color: #fff;">Траст-факторе от 40 баллов</b>.
                 </div>
 
                 <div style="width: 100%; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 12px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.05);">
