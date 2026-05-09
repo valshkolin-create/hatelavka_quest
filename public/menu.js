@@ -5059,7 +5059,8 @@ if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.sele
             const data = await res.json();
             const gamesBtn = document.getElementById('nav-games-btn');
             if (gamesBtn && data && data.length > 0) {
-                if (data[0].is_active) {
+                // Включаем только если игра активна И стрим онлайн (userData обновляется у тебя в фоне)
+                if (data[0].is_active && typeof userData !== 'undefined' && userData.is_stream_online) {
                     gamesBtn.classList.add('game-live');
                 } else {
                     gamesBtn.classList.remove('game-live');
