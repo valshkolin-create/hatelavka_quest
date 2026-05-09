@@ -22484,7 +22484,7 @@ async def force_finish_event(
 
     return f"Сбор закрыт! Игра 'Угадай слово' запущена."
 
-# Глобальные кэши
+# Кэши
 guess_cache = {
     "word": None,
     "is_active": False,
@@ -22497,10 +22497,7 @@ words_cache = {
     "updated_at": 0
 }
 
-# 🔥 ГЛОБАЛЬНЫЙ КЛИЕНТ: сохраняет соединение открытым, экономит ~150ms на SSL
-http_client = httpx.AsyncClient()
-
-# 🔥 ФУНКЦИЯ ДЛЯ ФОНА: выполнится УЖЕ ПОСЛЕ того, как мы ответим Fossabot
+# Фоновая задача
 async def finish_guess_tasks(supabase: httpx.AsyncClient, twitch_login: str, next_word: str):
     try:
         await asyncio.gather(
@@ -22513,22 +22510,22 @@ async def finish_guess_tasks(supabase: httpx.AsyncClient, twitch_login: str, nex
     except Exception as e:
         print(f"DEBUG BACKGROUND ERROR: {e}")
 
-
 @app.get("/api/v1/twitch/fossabot_guess", response_class=PlainTextResponse)
 async def handle_fossabot_guess(
     request: Request,
-    background_tasks: BackgroundTasks, # 🔥 ДОБАВЛЯЕМ В ПАРАМЕТРЫ ЭНДПОИНТА
+    background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
-    if not token: 
-        return ""
-
     try:
         global guess_cache, words_cache
         now = time.time()
 
-        # ШАГ 1: Обновление кэша текущего слова
+        # 🔥 СУПЕР-БЫСТРАЯ ПРОВЕРКА 🔥
+        # Читаем то, что написал зритель, прямо из ссылки (которую мы настроили в Шаге 1)
+        raw_guess = request.query_params.get("guess", "")
+        guess_word = unquote(raw_guess).strip().upper() if raw_guess else ""
+
+        # Если кэш пустой или старый — обновляем (раз в 10 сек)
         if now - guess_cache["updated_at"] > 10:
             state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
@@ -22538,26 +22535,18 @@ async def handle_fossabot_guess(
                 guess_cache["is_active"] = state.get("is_active", False)
                 guess_cache["updated_at"] = now
 
-        if not guess_cache["is_active"] or not guess_cache["word"]:
+        # Если игра не активна или слово из чата не совпадает с кэшем — МГНОВЕННЫЙ ОТКАЗ (1ms)
+        if not guess_cache["is_active"] or guess_word != guess_cache["word"]:
             return ""
 
-        # ШАГ 2: Контекст Fossabot (Используем глобальный клиент!)
-        fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
+        # --- СЮДА ДОЙДЕТ ТОЛЬКО ПОБЕДИТЕЛЬ ---
         
-        if fb_res.status_code != 200: return ""
-        message_data = fb_res.json().get("message")
-        if not message_data: return ""
+        # Получаем ник из URL
+        twitch_display = request.query_params.get("user", "Зритель")
+        twitch_login = twitch_display.lower()
 
-        twitch_login = message_data["user"]["login"].lower()
-        twitch_display = message_data["user"]["display_name"]
-        guess_word = message_data["content"].strip().upper()
-
-        if guess_word != guess_cache["word"]:
-            return ""
-
-        # ШАГ 3: Смена слова
+        # Обновляем кэш слов (раз в час)
         target_filter = guess_cache["raw_word"]
-        
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word"})
             if words_res.status_code == 200:
@@ -22567,6 +22556,7 @@ async def handle_fossabot_guess(
         all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
 
+        # Единственный сетевой запрос, которого мы ждем — это смена слова (защита от читеров)
         patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
@@ -22574,17 +22564,13 @@ async def handle_fossabot_guess(
             headers={"Prefer": "return=representation"} 
         )
         
-        data = patch_res.json()
-        if not data:
-            return "" 
+        if not patch_res.json():
+            return "" # Кто-то успел на миллисекунду быстрее
 
-        # 🔥 ШАГ 4: МАГИЯ ФОНОВЫХ ЗАДАЧ
-        # Передаем Broadcast и очки в фоне. Код пойдет дальше, не дожидаясь их выполнения.
+        # Запускаем фоновые задачи (очки и экран)
         background_tasks.add_task(finish_guess_tasks, supabase, twitch_login, next_word)
-        
         guess_cache["updated_at"] = 0 
 
-        # Отвечаем Fossabot мгновенно!
         return f"🎉 @{twitch_display} угадал слово «{guess_cache['word']}»! Следующее слово на экране."
 
     except Exception as e:
