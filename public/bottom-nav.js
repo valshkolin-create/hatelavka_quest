@@ -1,4 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
+    // 🔥 ОПРЕДЕЛЯЕМ ПЛАТФОРМУ 🔥
+    // Если это Android, добавляем спасительные 15px, чтобы поднять бар над системными кнопками
+    let androidPadding = "0px";
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform === 'android') {
+        androidPadding = "15px"; 
+    }
+
     // 1. Вставляем стили
     const style = document.createElement('style');
     style.innerHTML = `
@@ -7,9 +14,11 @@ document.addEventListener("DOMContentLoaded", () => {
         .floating-bottom-bar {
             font-family: 'Montserrat', sans-serif;
             
-            /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
+            /* 🔥 УМНЫЙ ОТСТУП СНИЗУ 🔥 */
+            /* 15px база + системная шторка iOS + наш костыль для кнопок Android */
             position: fixed; 
-            bottom: 15px; 
+            bottom: calc(15px + env(safe-area-inset-bottom, 0px) + ${androidPadding}); 
+            
             left: 50vw; 
             transform: translateX(-50%); 
             width: 85vw; 
@@ -106,22 +115,22 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.head.appendChild(style);
 
-    // 2. Вставляем HTML меню (Кнопка игры ведет на event_page.html)
+    // 2. Вставляем HTML меню
     const navHTML = `
         <nav class="floating-bottom-bar">
-            <a href="/leaderboard" class="nav-item" data-path="leaderboard">
+            <a href="/leaderboard" class="nav-item" data-path="/leaderboard">
                 <i class="fa-solid fa-trophy"></i><span>Топ</span>
             </a>
-            <a href="/quests" class="nav-item" data-path="quests">
+            <a href="/quests" class="nav-item" data-path="/quests">
                 <i class="fa-solid fa-check-double"></i><span>Задания</span>
             </a>
             <a href="/" class="nav-item" data-path="/">
                 <i class="fa-solid fa-house"></i><span>Главная</span>
             </a>
-            <a href="/events" class="nav-item" data-path="events">
+            <a href="/events" class="nav-item" data-path="/events">
                 <i class="fa-solid fa-fire"></i><span>Гринд</span>
             </a>
-            <a href="event_page.html" class="nav-item" data-path="event_page" id="nav-games-btn">
+            <a href="/event_page" class="nav-item" data-path="/event_page" id="nav-games-btn">
                 <div class="comic-badge">ИГРА<br>НАЧАЛАСЬ</div>
                 <i class="fa-solid fa-gamepad"></i><span>Игры</span>
             </a>
@@ -130,21 +139,17 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.insertAdjacentHTML('beforeend', navHTML);
 
     // 3. Умная логика подсветки активной кнопки
-    let currentPath = window.location.pathname;
+    let currentPath = window.location.pathname.replace('.html', '');
     
     // Приводим пути главной к одному виду
-    if (currentPath === '/menu' || currentPath === '/menu.html' || currentPath === '/index.html' || currentPath === '') {
+    if (currentPath === '/menu' || currentPath === '' || currentPath === '/index') {
         currentPath = '/';
     }
 
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.classList.remove('active');
-        const dataPath = item.getAttribute('data-path');
-        
-        if (dataPath === '/' && currentPath === '/') {
-            item.classList.add('active');
-        } else if (dataPath !== '/' && currentPath.includes(dataPath)) {
+        if (item.getAttribute('data-path') === currentPath) {
             item.classList.add('active');
         }
     });
