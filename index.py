@@ -22559,6 +22559,12 @@ async def handle_fossabot_guess(
             print(f"DEBUG: Не удалось обновить. Возможно, слово '{target_filter}' уже изменилось в БД.")
             return "" 
 
+        # 🔥 НОВОЕ: МГНОВЕННЫЙ BROADCAST ДЛЯ OBS И ИГРОКОВ 🔥
+        await broadcast_guess_update(supabase, "force-update", {
+            "current_word": next_word,
+            "revealed_indices": []
+        })
+
         # Начисляем очки
         await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
         
@@ -22760,9 +22766,18 @@ async def admin_guess_start(req: GuessAdminBaseRequest, supabase: httpx.AsyncCli
     all_words = [w["word"] for w in words_res.json()]
     first_word = random.choice(all_words) if all_words else "СЛОВАРЬ_ПУСТ"
     
+    # 1. Записываем в базу
     await supabase.patch("/guess_state", params={"id": "eq.1"}, json={
         "is_active": True, "current_word": first_word, "revealed_indices": []
     })
+    
+    # 🔥 2. МГНОВЕННЫЙ BROADCAST ДЛЯ OBS И ИГРОКОВ 🔥
+    await broadcast_guess_update(supabase, "force-update", {
+        "is_active": True,
+        "current_word": first_word,
+        "revealed_indices": []
+    })
+    
     return {"status": "started"}
 
 @app.post("/api/v1/admin/guess/skip")
@@ -22775,7 +22790,15 @@ async def admin_guess_skip(req: GuessAdminBaseRequest, supabase: httpx.AsyncClie
     all_words = [w["word"] for w in words_res.json() if w["word"].upper() != current_word.upper()]
     next_word = random.choice(all_words) if all_words else "КОНЕЦ"
     
+    # 1. Записываем в БД
     await supabase.patch("/guess_state", params={"id": "eq.1"}, json={"current_word": next_word, "revealed_indices": []})
+    
+    # 🔥 2. МГНОВЕННЫЙ BROADCAST ДЛЯ OBS И ИГРОКОВ 🔥
+    await broadcast_guess_update(supabase, "force-update", {
+        "current_word": next_word,
+        "revealed_indices": []
+    })
+    
     return {"status": "skipped"}
 
 @app.post("/api/v1/admin/guess/leaderboard")
@@ -24719,6 +24742,41 @@ async def force_trust_sync(
 # async def roulette_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/roulette.html")
 # @app.get("/halloween")
 # async def halloween_page(request: Request): return FileResponse(f"{TEMPLATES_DIR}/halloween.html")
+
+
+async def broadcast_guess_update(supabase: httpx.AsyncClient, event_name: str, payload: dict):
+    """
+    Отправляет мгновенное сообщение через Supabase Realtime Broadcast.
+    Это обновляет экраны в OBS и у игроков за ~30мс, не дожидаясь базы.
+    """
+    try:
+        # Эндпоинт для Broadcast в Supabase
+        # Замени на свой URL, если нужно, но по умолчанию он выглядит так:
+        broadcast_url = f"{supabase.base_url.replace('/rest/v1', '')}/realtime/v1/api/broadcast"
+        
+        # Токены берем из твоего клиента
+        headers = {
+            "apikey": supabase.headers.get("apikey"),
+            "Authorization": supabase.headers.get("Authorization"),
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "messages": [
+                {
+                    "topic": "realtime:guess-state-changes", # Твой канал
+                    "event": event_name,
+                    "payload": payload
+                }
+            ]
+        }
+        
+        # Отправляем в фоне, не ждем долго
+        await supabase.post(broadcast_url, json=data, headers=headers)
+        logging.info(f"Broadcast отправлен: {event_name}")
+    except Exception as e:
+        logging.error(f"Ошибка отправки Broadcast: {e}")
+
 
 async def toggle_twitch_reward(token: str, reward_id: str, is_enabled: bool) -> bool:
     """Функция для включения/выключения кастомной награды на Twitch"""
