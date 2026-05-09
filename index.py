@@ -22520,12 +22520,11 @@ async def handle_fossabot_guess(
         global guess_cache, words_cache
         now = time.time()
 
-        # 🔥 СУПЕР-БЫСТРАЯ ПРОВЕРКА 🔥
-        # Читаем то, что написал зритель, прямо из ссылки (которую мы настроили в Шаге 1)
+        # 🔥 СУПЕР-БЫСТРАЯ ПРОВЕРКА (Берем данные из ссылки)
         raw_guess = request.query_params.get("guess", "")
         guess_word = unquote(raw_guess).strip().upper() if raw_guess else ""
 
-        # Если кэш пустой или старый — обновляем (раз в 10 сек)
+        # Обновляем кэш загаданного слова (раз в 10 сек)
         if now - guess_cache["updated_at"] > 10:
             state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
@@ -22535,17 +22534,15 @@ async def handle_fossabot_guess(
                 guess_cache["is_active"] = state.get("is_active", False)
                 guess_cache["updated_at"] = now
 
-        # Если игра не активна или слово из чата не совпадает с кэшем — МГНОВЕННЫЙ ОТКАЗ (1ms)
+        # Если игра не активна или слово из чата не совпадает — МГНОВЕННЫЙ ОТКАЗ (64ms)
         if not guess_cache["is_active"] or guess_word != guess_cache["word"]:
             return ""
 
         # --- СЮДА ДОЙДЕТ ТОЛЬКО ПОБЕДИТЕЛЬ ---
         
-        # Получаем ник из URL
         twitch_display = request.query_params.get("user", "Зритель")
         twitch_login = twitch_display.lower()
 
-        # Обновляем кэш слов (раз в час)
         target_filter = guess_cache["raw_word"]
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word"})
@@ -22556,7 +22553,7 @@ async def handle_fossabot_guess(
         all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
 
-        # Единственный сетевой запрос, которого мы ждем — это смена слова (защита от читеров)
+        # Меняем слово в базе
         patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
@@ -22565,9 +22562,9 @@ async def handle_fossabot_guess(
         )
         
         if not patch_res.json():
-            return "" # Кто-то успел на миллисекунду быстрее
+            return "" # Кто-то успел угадать быстрее
 
-        # Запускаем фоновые задачи (очки и экран)
+        # Запускаем фоновые задачи (очки и OBS)
         background_tasks.add_task(finish_guess_tasks, supabase, twitch_login, next_word)
         guess_cache["updated_at"] = 0 
 
@@ -22576,6 +22573,7 @@ async def handle_fossabot_guess(
     except Exception as e:
         print(f"DEBUG ERROR: {str(e)}")
         return ""
+
 
 # 1. Единая схема для всех настроек фона (всё делаем Optional)
 class CoversUpdateRequest(BaseModel):
