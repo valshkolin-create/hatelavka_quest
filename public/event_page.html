@@ -181,8 +181,8 @@
     <!-- КОНТЕНТ (Glass Panel) -->
     <div class="glass-panel" id="content-panel">
         
-        <!-- 🔥 НОВОЕ: СОСТОЯНИЕ 1: СТРИМ ОФФЛАЙН 🔥 -->
-        <div id="offline-state" class="hidden flex flex-col items-center justify-center py-4 text-center">
+        <!-- 🔥 СОСТОЯНИЕ 1: СТРИМ ОФФЛАЙН (С КНОПКАМИ НАГРАД) 🔥 -->
+        <div id="offline-state" class="hidden flex-col items-center justify-center py-4 text-center">
             <div class="relative mb-3">
                 <i class="fa-brands fa-twitch text-4xl text-gray-600"></i>
                 <div class="absolute -bottom-1 -right-1 bg-gray-800 rounded-full p-1 border-2 border-[#050505]">
@@ -190,16 +190,21 @@
                 </div>
             </div>
             <h2 class="text-[14px] font-black text-gray-300 uppercase tracking-widest mb-1">Стрим оффлайн</h2>
-            <p class="text-[9px] text-gray-500 mt-1 px-4 leading-relaxed">
+            <p class="text-[9px] text-gray-500 mt-1 px-4 leading-relaxed mb-4">
                 Игра начнется, как только стример запустит трансляцию.<br>Ждем тебя на стриме!
             </p>
-            <a href="https://twitch.tv/hatelove_ttv" target="_blank" class="mt-4 bg-[rgba(145,70,255,0.1)] border border-[rgba(145,70,255,0.3)] text-[#9146FF] px-4 py-2 rounded-lg font-bold text-[10px] uppercase transition hover:bg-[rgba(145,70,255,0.2)]">
-                Перейти на канал
-            </a>
+            <div class="grid grid-cols-2 gap-2 w-full shrink-0">
+                <button onclick="openModal('modal-leaderboard')" class="action-btn btn-purple">
+                    <span class="text-[9px]"><i class="fa-solid fa-trophy mr-1"></i> Топ Игроков</span>
+                </button>
+                <button onclick="openModal('modal-rules')" class="action-btn btn-outline">
+                    <span class="text-[9px]"><i class="fa-solid fa-circle-info mr-1"></i> Правила & Призы</span>
+                </button>
+            </div>
         </div>
 
         <!-- СОСТОЯНИЕ 2: ПУСТО (Нет сбора и игры) -->
-        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-4">
+        <div id="empty-state" class="hidden flex-col items-center justify-center py-4">
             <i class="fa-solid fa-bed text-2xl text-gray-600 mb-2"></i>
             <h2 class="text-[12px] font-black text-gray-400 uppercase">Пока тихо</h2>
             <p class="text-[8px] text-gray-500 mt-1 text-center">Стример отдыхает или готовит что-то грандиозное.</p>
@@ -400,13 +405,13 @@
         let isInitialGameLoaded = false;
         let isInitialEventLoaded = false;
         
-        // 🔥 ИЗМЕНЕНО: Снижено разрешение картинок для моментальной загрузки (w=800, q=60)
+        // Снижено разрешение картинок для моментальной загрузки (w=800, q=60)
         let defaultCoverUrl = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=60&w=800&auto=format&fit=crop";
         let gameCoverUrl = "https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?q=60&w=800&auto=format&fit=crop";
         let currentEventCoverUrl = "";
 
-        // 🔥 НОВОЕ: Переменная статуса стрима 
-        let isStreamLive = true; 
+        // 🔥 ПО умолчанию null, чтобы не было морганий
+        let isStreamLive = null; 
 
         // ПЕРЕМЕННЫЕ ПОЗИЦИИ КАРТИНКИ
         let coverZoom = 100;
@@ -446,37 +451,6 @@
             if (!res.ok) throw new Error((await res.json()).detail || "API Error");
             return await res.json();
         }
-
-        async function checkAdmin() {
-            try {
-                const userData = await apiCall('/api/v1/user/me', {}, 'POST');
-                if (userData) {
-                    if (userData.is_admin) { document.getElementById('admin-btn').classList.remove('hidden'); }
-                    
-                    // 🔥 НОВОЕ: Проверка статуса стрима сразу при заходе
-                    if (userData.is_stream_online !== undefined) {
-                        isStreamLive = userData.is_stream_online;
-                        updateMainView();
-                    }
-                }
-            } catch(e) {}
-        }
-
-        // 🔥 НОВОЕ: Фоновая проверка статуса стрима каждые 30 секунд
-        async function checkStreamStatus() {
-            try {
-                const userData = await apiCall('/api/v1/user/me', {}, 'POST');
-                if (userData && userData.is_stream_online !== undefined) {
-                    const newStatus = userData.is_stream_online;
-                    if (isStreamLive !== newStatus) {
-                        isStreamLive = newStatus;
-                        updateMainView();
-                    }
-                }
-            } catch(e) {}
-        }
-        // Запускаем интервал
-        setInterval(checkStreamStatus, 30000);
 
         let currentDonateStep = 1;
         let donateData = { currency: '', amount: 0, points: 0 };
@@ -564,9 +538,10 @@
             }
         }
 
-        // 🔥 ИЗМЕНЕНО: Новая логика отрисовки состояний и мгновенное снятие лоадера
+        // 🔥 ИЗМЕНЕНО: Строгая логика отрисовки. Никакого снятия лоадера внутри этой функции.
         function updateMainView() {
-            if (!isInitialGameLoaded || !isInitialEventLoaded) return;
+            // Если данные еще не загрузились - ничего не делаем.
+            if (!isInitialGameLoaded || !isInitialEventLoaded || isStreamLive === null) return;
             
             const coverEl = document.getElementById('event-cover');
             let targetUrl = defaultCoverUrl;
@@ -577,15 +552,15 @@
             document.getElementById('game-state').classList.add('hidden');
             document.getElementById('offline-state').classList.add('hidden');
 
-            if (!isStreamLive) {
-                // ЕСЛИ СТРИМ ОФФЛАЙН
+            if (isStreamLive === false) {
+                // ЕСЛИ СТРИМ ОФФЛАЙН (Кнопки есть внутри этого блока)
                 document.getElementById('offline-state').classList.remove('hidden');
                 targetUrl = defaultCoverUrl;
-            } else if (isGameActive) {
+            } else if (isGameActive === true) {
                 // ЕСЛИ ИГРА ИДЕТ
                 document.getElementById('game-state').classList.remove('hidden');
                 targetUrl = gameCoverUrl;
-            } else if (isEventActive) {
+            } else if (isEventActive === true) {
                 // ЕСЛИ ИДЕТ СБОР
                 document.getElementById('event-state').classList.remove('hidden');
                 targetUrl = currentEventCoverUrl ? currentEventCoverUrl : defaultCoverUrl;
@@ -610,13 +585,6 @@
                 coverEl.style.backgroundPosition = 'center';
                 coverEl.style.backgroundSize = 'cover';
                 coverEl.style.backgroundImage = `url('${targetUrl}')`; // Меняем картинку мгновенно
-            }
-
-            // УБИРАЕМ ЛОАДЕР МОМЕНТАЛЬНО (без ожидания загрузки картинки)
-            const globalLoader = document.getElementById('global-loader');
-            if (globalLoader && !globalLoader.classList.contains('hidden')) {
-                globalLoader.style.opacity = '0';
-                setTimeout(() => { globalLoader.classList.add('hidden'); }, 500);
             }
         }
 
@@ -649,7 +617,6 @@
             if (state.default_cover_url) defaultCoverUrl = state.default_cover_url;
             if (state.game_cover_url) gameCoverUrl = state.game_cover_url;
             
-            // Читаем позицию из БД (которую админ настроил ползунками)
             if (state.cover_zoom !== undefined) coverZoom = state.cover_zoom;
             if (state.cover_offset_x !== undefined) coverOffsetX = state.cover_offset_x;
             if (state.cover_offset_y !== undefined) coverOffsetY = state.cover_offset_y;
@@ -719,6 +686,26 @@
             } catch (e) { container.innerHTML = '<div class="text-[#ff4d4d] text-center text-xs mt-2">Ошибка загрузки</div>'; }
         }
 
+        // 🔥 НОВОЕ: Проверка админки и статуса твича (работает в рамках инициализации)
+        async function checkAdmin() {
+            try {
+                const userData = await apiCall('/api/v1/user/me', {}, 'POST');
+                if (userData) {
+                    if (userData.is_admin) { document.getElementById('admin-btn').classList.remove('hidden'); }
+                    if (userData.is_stream_online !== undefined) {
+                        isStreamLive = userData.is_stream_online;
+                    } else {
+                        isStreamLive = false;
+                    }
+                } else {
+                    isStreamLive = false;
+                }
+            } catch(e) {
+                isStreamLive = false; // Фолбек при ошибке
+            }
+        }
+
+        // 🔥 ИЗМЕНЕНО: Грузим все данные ОДНОВРЕМЕННО. Лоадер снимается только когда всё готово.
         async function loadInitialData() {
             const p1 = supabaseClient.from('guess_state').select('*').eq('id', 1).single().then(res => {
                 if (res.data) handleGameStateChange(res.data);
@@ -740,15 +727,26 @@
                 isInitialEventLoaded = true;
             }).catch(() => { isInitialEventLoaded = true; });
 
-            await Promise.all([p1, p2]);
+            const p3 = checkAdmin(); // Ждем статус Твича
+
+            // Ожидаем завершения всех 3-х проверок
+            await Promise.all([p1, p2, p3]);
+            
+            // Вызываем отрисовку правильного стейта ОДИН раз
             updateMainView();
+            
+            // И только теперь снимаем лоадер
+            const globalLoader = document.getElementById('global-loader');
+            if (globalLoader) {
+                globalLoader.style.opacity = '0';
+                setTimeout(() => { globalLoader.classList.add('hidden'); }, 500);
+            }
         }
 
-        checkAdmin();
         loadPublicLeaderboard();
         loadPublicRewards();
         initSupabaseRealtime();
-        loadInitialData();
+        loadInitialData(); // Запускает всю цепочку
     </script>
 </body>
 </html>
