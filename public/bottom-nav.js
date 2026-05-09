@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
             position: fixed; 
-            bottom: calc(15px + ${androidPadding});
+            bottom: calc(15px + ${androidPadding}); 
             left: 50vw; 
             transform: translateX(-50%); 
             width: 85vw; 
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.body.insertAdjacentHTML('beforeend', navHTML);
 
-    // 3. Умная логика подсветки активной кнопки
+    // 3. Умная логика подсветки активной кнопки и добавление вибрации
     let currentPath = window.location.pathname.replace('.html', '');
     
     // Приводим пути главной к одному виду
@@ -165,6 +165,14 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (dataPath !== '/' && currentPath.includes(dataPath)) {
             item.classList.add('active');
         }
+
+        // 🔥 ДОБАВЛЕНА ВИБРАЦИЯ ПРИ КЛИКЕ 🔥
+        item.addEventListener('click', () => {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                // selectionChanged() идеально подходит для переключения вкладок
+                window.Telegram.WebApp.HapticFeedback.selectionChanged();
+            }
+        });
     });
 
     // 4. АВТОНОМНАЯ ПРОВЕРКА СТАТУСА ИГРЫ
