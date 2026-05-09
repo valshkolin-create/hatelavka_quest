@@ -187,7 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const gamesBtn = document.getElementById('nav-games-btn');
             
             if (gamesBtn && data && data.length > 0) {
-                const isStreamOnline = (typeof window.userData !== 'undefined' && window.userData.is_stream_online);
+                const isStreamOnline = (typeof userData !== 'undefined' && userData.is_stream_online);
                 
                 if (data[0].is_active && isStreamOnline) {
                     gamesBtn.classList.add('game-live');
