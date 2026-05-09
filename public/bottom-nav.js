@@ -187,7 +187,22 @@ document.addEventListener("DOMContentLoaded", () => {
             const gamesBtn = document.getElementById('nav-games-btn');
             
             if (gamesBtn && data && data.length > 0) {
-                const isStreamOnline = (typeof userData !== 'undefined' && userData.is_stream_online);
+                // 🔥 БРОНЕБОЙНАЯ ПРОВЕРКА СТАТУСА СТРИМА ДЛЯ ВСЕХ СТРАНИЦ 🔥
+                let isStreamOnline = false;
+
+                // 1. Сначала ищем в оперативной памяти (если основной скрипт на странице)
+                if (typeof userData !== 'undefined' && userData.is_stream_online) {
+                    isStreamOnline = true;
+                } 
+                // 2. Если памяти нет, достаем из сохраненного кэша бутстрапа (для других страниц)
+                else {
+                    try {
+                        const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+                        if (cached && cached.user && cached.user.is_stream_online) {
+                            isStreamOnline = true;
+                        }
+                    } catch(e) {}
+                }
                 
                 if (data[0].is_active && isStreamOnline) {
                     gamesBtn.classList.add('game-live');
