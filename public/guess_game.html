@@ -730,18 +730,32 @@
         }
 
         function initRealtime() {
-            // 1. Статус игры
-            supabaseClient.channel('guess-state-changes').on('postgres_changes', 
+            const channel = supabaseClient.channel('guess-state-changes');
+
+            // 1. Стандартный слушатель базы данных (резервный)
+            channel.on('postgres_changes', 
                 { event: 'UPDATE', schema: 'public', table: 'guess_state', filter: 'id=eq.1' }, 
                 (payload) => handleStateChange(payload.new)
-            ).subscribe(async (status) => {
+            );
+
+            // 🔥 2. НОВОЕ: Мгновенный слушатель Broadcast от бэкенда 🔥
+            channel.on('broadcast', { event: 'force-update' }, (payload) => {
+                console.log("⚡ Получен мгновенный Broadcast!", payload.payload);
+                // Имитируем payload от базы данных, чтобы интерфейс обновился сразу
+                handleStateChange(payload.payload); 
+                
+                // На всякий случай запрашиваем полный стейт, чтобы подтянуть размеры/настройки
+                setTimeout(forceSyncState, 500); 
+            });
+
+            channel.subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
                     const { data } = await supabaseClient.from('guess_state').select('*').eq('id', 1).single();
                     if (data) handleStateChange(data);
                 }
             });
 
-            // 2. Сборы
+            // Сборы
             supabaseClient.channel('admin-events-changes').on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'community_events' }, 
                 () => checkEventStatus() 
