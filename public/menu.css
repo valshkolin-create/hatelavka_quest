@@ -780,7 +780,7 @@ html, body {
    Поэтому даем жесткий отступ (+68px), который перекрывает системную шторку на любой диагонали.
    Если шторки у юзера нет - это будет просто аккуратный отступ от края экрана. */
 body.android-mode .top-header {
-    padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 64px) !important;
+    padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 68px) !important;
 }
 /*body.android-mode .toggle-container {
     top: calc(var(--tg-content-safe-area-inset-top, 0px) + 118px) !important;
