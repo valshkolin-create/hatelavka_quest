@@ -1,9 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
     // 🔥 ОПРЕДЕЛЯЕМ ПЛАТФОРМУ 🔥
-    // На андроиде делаем отступ в 2 раза меньше (8px вместо 15px)
+    // На андроиде делаем отступ в 12px, чтобы поднять над системными кнопками
     let androidPadding = "0px";
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform === 'android') {
-        androidPadding = "8px"; 
+        androidPadding = "12px"; 
     }
 
     // 1. Вставляем стили
@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
             background: rgba(40, 40, 40, 0.95); 
             border: 1px solid rgba(255, 255, 255, 0.1); 
             border-radius: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            /* Тень за баром убрана */
             display: flex; justify-content: space-around; align-items: center; 
             padding: 6px 12px; z-index: 1000;
         }
@@ -169,7 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
         // 🔥 ДОБАВЛЕНА ВИБРАЦИЯ ПРИ КЛИКЕ 🔥
         item.addEventListener('click', () => {
             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
-                // selectionChanged() идеально подходит для переключения вкладок
                 window.Telegram.WebApp.HapticFeedback.selectionChanged();
             }
         });
