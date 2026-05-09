@@ -1,9 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
     // 🔥 ОПРЕДЕЛЯЕМ ПЛАТФОРМУ 🔥
-    // Если это Android, добавляем спасительные 15px, чтобы поднять бар над системными кнопками
+    // На андроиде делаем отступ в 2 раза меньше (8px вместо 15px)
     let androidPadding = "0px";
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform === 'android') {
-        androidPadding = "15px"; 
+        androidPadding = "8px"; 
     }
 
     // 1. Вставляем стили
@@ -14,22 +14,31 @@ document.addEventListener("DOMContentLoaded", () => {
         .floating-bottom-bar {
             font-family: 'Montserrat', sans-serif;
             
-            /* 🔥 УМНЫЙ ОТСТУП СНИЗУ 🔥 */
-            /* 15px база + системная шторка iOS + наш костыль для кнопок Android */
+            /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
             position: fixed; 
             bottom: calc(15px + env(safe-area-inset-bottom, 0px) + ${androidPadding}); 
-            
             left: 50vw; 
             transform: translateX(-50%); 
             width: 85vw; 
             max-width: 360px;
             box-sizing: border-box;
 
-            background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            /* БАЗОВЫЙ ФОН ДЛЯ СТАРЫХ/СЛАБЫХ УСТРОЙСТВ */
+            background: rgba(40, 40, 40, 0.95); 
             border: 1px solid rgba(255, 255, 255, 0.1); 
             border-radius: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
             display: flex; justify-content: space-around; align-items: center; 
             padding: 6px 12px; z-index: 1000;
+        }
+
+        /* 🔥 СОЧНЫЙ ЭФФЕКТ СТЕКЛА ТОЛЬКО ДЛЯ НОВЫХ УСТРОЙСТВ 🔥 */
+        @supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
+            .floating-bottom-bar {
+                background: rgba(25, 25, 28, 0.65); /* Больше прозрачности, чтобы блюр было видно */
+                backdrop-filter: blur(25px) saturate(150%);
+                -webkit-backdrop-filter: blur(25px) saturate(150%);
+                border-top: 1px solid rgba(255, 255, 255, 0.15); /* Легкий блик света сверху */
+            }
         }
         
         .nav-item { 
@@ -118,16 +127,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // 2. Вставляем HTML меню
     const navHTML = `
         <nav class="floating-bottom-bar">
-            <a href="/leaderboard" class="nav-item" data-path="/leaderboard">
+            <a href="/leaderboard" class="nav-item" data-path="leaderboard">
                 <i class="fa-solid fa-trophy"></i><span>Топ</span>
             </a>
-            <a href="/quests" class="nav-item" data-path="/quests">
+            <a href="/quests" class="nav-item" data-path="quests">
                 <i class="fa-solid fa-check-double"></i><span>Задания</span>
             </a>
             <a href="/" class="nav-item" data-path="/">
                 <i class="fa-solid fa-house"></i><span>Главная</span>
             </a>
-            <a href="/events" class="nav-item" data-path="/events">
+            <a href="/events" class="nav-item" data-path="events">
                 <i class="fa-solid fa-fire"></i><span>Гринд</span>
             </a>
             <a href="event_page.html" class="nav-item" data-path="event_page.html" id="nav-games-btn">
@@ -149,7 +158,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-path') === currentPath) {
+        const dataPath = item.getAttribute('data-path');
+        
+        if (dataPath === '/' && currentPath === '/') {
+            item.classList.add('active');
+        } else if (dataPath !== '/' && currentPath.includes(dataPath)) {
             item.classList.add('active');
         }
     });
