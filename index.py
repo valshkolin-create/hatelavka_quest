@@ -22484,10 +22484,17 @@ async def force_finish_event(
 
     return f"Сбор закрыт! Игра 'Угадай слово' запущена."
 
-# ГЛОБАЛЬНЫЙ КЭШ: живет в памяти "прогретых" функций Vercel
+# ГЛОБАЛЬНЫЕ КЭШИ: живут в памяти "прогретых" функций Vercel
 guess_cache = {
     "word": None,
     "is_active": False,
+    "updated_at": 0,
+    "raw_word": ""
+}
+
+# НОВОЕ: Кэш для всего списка слов
+words_cache = {
+    "list": [],
     "updated_at": 0
 }
 
@@ -22501,10 +22508,10 @@ async def handle_fossabot_guess(
         return ""
 
     try:
-        global guess_cache
+        global guess_cache, words_cache
         now = time.time()
 
-        # ШАГ 1: Обновление кэша
+        # ШАГ 1: Обновление кэша текущего слова
         if now - guess_cache["updated_at"] > 10:
             state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
@@ -22534,18 +22541,21 @@ async def handle_fossabot_guess(
         if guess_word != guess_cache["word"]:
             return ""
 
-        # ШАГ 3: Смена слова
-        # Используем raw_word, чтобы фильтр в БД точно нашел строку
+        # ШАГ 3: Смена слова (ОПТИМИЗИРОВАНО)
         target_filter = guess_cache["raw_word"]
         
-        words_res = await supabase.get("/guess_words")
-        words_data = words_res.json() if words_res.status_code == 200 else []
+        # Обновляем кэш слов только 1 раз в час (3600 секунд), запрашиваем ТОЛЬКО колонку word
+        if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
+            words_res = await supabase.get("/guess_words", params={"select": "word"})
+            if words_res.status_code == 200:
+                words_cache["list"] = [w["word"] for w in words_res.json()]
+                words_cache["updated_at"] = now
         
-        # Фильтруем список, исключая текущее слово
-        all_words = [w["word"] for w in words_data if w["word"].upper() != guess_cache["word"]]
+        # Выбираем следующее слово из кэша
+        all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
 
-        # Обновляем состояние
+        # Обновляем состояние в БД
         patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
@@ -22553,22 +22563,23 @@ async def handle_fossabot_guess(
             headers={"Prefer": "return=representation"} 
         )
         
-        # Проверка: если список пуст, значит current_word в базе уже другой (кто-то успел раньше)
+        # Проверка от дубликатов (кто-то успел раньше)
         data = patch_res.json()
         if not data:
             print(f"DEBUG: Не удалось обновить. Возможно, слово '{target_filter}' уже изменилось в БД.")
             return "" 
 
-        # 🔥 НОВОЕ: МГНОВЕННЫЙ BROADCAST ДЛЯ OBS И ИГРОКОВ 🔥
-        await broadcast_guess_update(supabase, "force-update", {
-            "current_word": next_word,
-            "revealed_indices": []
-        })
-
-        # Начисляем очки
-        await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+        # ШАГ 4: Параллельное выполнение финала (УСКОРЕНО)
+        # Broadcast и начисление очков летят одновременно
+        await asyncio.gather(
+            broadcast_guess_update(supabase, "force-update", {
+                "current_word": next_word,
+                "revealed_indices": []
+            }),
+            supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+        )
         
-        # Сбрасываем кэш
+        # Сбрасываем кэш, чтобы следующий запрос увидел новое слово
         guess_cache["updated_at"] = 0 
 
         return f"🎉 @{twitch_display} угадал слово «{guess_cache['word']}»! Следующее слово на экране."
@@ -22576,7 +22587,6 @@ async def handle_fossabot_guess(
     except Exception as e:
         print(f"DEBUG ERROR: {str(e)}")
         return ""
-
 
 # 1. Единая схема для всех настроек фона (всё делаем Optional)
 class CoversUpdateRequest(BaseModel):
@@ -24750,9 +24760,9 @@ async def broadcast_guess_update(supabase: httpx.AsyncClient, event_name: str, p
     Это обновляет экраны в OBS и у игроков за ~30мс, не дожидаясь базы.
     """
     try:
-        # Эндпоинт для Broadcast в Supabase
-        # Замени на свой URL, если нужно, но по умолчанию он выглядит так:
-        broadcast_url = f"{supabase.base_url.replace('/rest/v1', '')}/realtime/v1/api/broadcast"
+        # ИСПРАВЛЕНИЕ: Оборачиваем supabase.base_url в str()
+        base_url_str = str(supabase.base_url)
+        broadcast_url = f"{base_url_str.replace('/rest/v1', '').rstrip('/')}/realtime/v1/api/broadcast"
         
         # Токены берем из твоего клиента
         headers = {
