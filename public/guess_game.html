@@ -281,11 +281,12 @@
                 <button onclick="setCovers()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-image"></i> Сохранить ссылки</button>
             </div>
 
+            <!-- ИЗМЕНЕНО: Кнопки обернуты в новую умную функцию -->
             <div class="grid grid-cols-2 gap-2 mb-2">
-                <button onclick="apiCall('/api/v1/admin/guess/start')" class="btn-custom btn-green"><i class="fa-solid fa-play"></i> Выдать слово</button>
-                <button onclick="apiCall('/api/v1/admin/guess/skip')" class="btn-custom btn-yellow"><i class="fa-solid fa-forward-step"></i> Скип</button>
+                <button onclick="adminAction('/api/v1/admin/guess/start', this)" class="btn-custom btn-green"><i class="fa-solid fa-play"></i> Выдать слово</button>
+                <button onclick="adminAction('/api/v1/admin/guess/skip', this)" class="btn-custom btn-yellow"><i class="fa-solid fa-forward-step"></i> Скип</button>
             </div>
-            <button onclick="stopAndReward()" class="btn-custom btn-red w-full"><i class="fa-solid fa-stop"></i> Завершить и наградить</button>
+            <button onclick="stopAndRewardBtn(this)" class="btn-custom btn-red w-full"><i class="fa-solid fa-stop"></i> Завершить и наградить</button>
         </div>
     </div>
 
@@ -404,7 +405,7 @@
     </div>
 
     <script>
-        // Инициализация Telegram WebApp с безопасной проверкой (чтобы не крашилось в OBS)
+        // Инициализация Telegram WebApp с безопасной проверкой
         let tg = null;
         try {
             if (window.Telegram && window.Telegram.WebApp) {
@@ -415,7 +416,7 @@
             console.warn("Telegram WebApp not fully initialized:", e);
         }
 
-        // Безопасные обертки для нативных вызовов TG (на случай тестирования в браузере)
+        // Безопасные обертки для нативных вызовов TG 
         function showAlert(msg) {
             if (tg && tg.showAlert) tg.showAlert(msg);
             else alert(msg);
@@ -440,7 +441,6 @@
         let scrambledWord = ""; 
         let rewardsConfig = [];
 
-        // --- ЛОКАЛЬНОЕ СОХРАНЕНИЕ НАСТРОЕК СБОРА ---
         function saveEventSettings() {
             const settings = {
                 title: document.getElementById('ev-title').value,
@@ -471,7 +471,6 @@
         }
 
         async function apiCall(endpoint, additionalBody = {}) {
-            // Безопасное получение initData
             const bodyData = { ...additionalBody, initData: tg ? tg.initData : "" };
             try {
                 const res = await fetch(endpoint, {
@@ -485,6 +484,55 @@
                 if(tg && tg.HapticFeedback && !isObs) tg.HapticFeedback.notificationOccurred('error');
                 throw e;
             }
+        }
+
+        // 🔥 НОВОЕ: Функция для принудительного и мгновенного получения стейта из БД
+        // Это убивает рассинхрон между ПУ и OBS
+        async function forceSyncState() {
+            try {
+                const { data, error } = await supabaseClient.from('guess_state').select('*').eq('id', 1).single();
+                if (data && !error) {
+                    handleStateChange(data);
+                }
+            } catch(e) {
+                console.warn('Ошибочка синхронизации стейта:', e);
+            }
+        }
+
+        // 🔥 НОВОЕ: Умные функции для кнопок, чтобы они мгновенно обновляли интерфейс
+        async function adminAction(endpoint, btnEl) {
+            const origHTML = btnEl.innerHTML;
+            btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btnEl.disabled = true;
+            try {
+                await apiCall(endpoint);
+                setTimeout(forceSyncState, 300); // Даем бэку 300мс на сохранение и вытягиваем данные
+            } catch(e) {
+                showAlert("Ошибка: " + e.message);
+            } finally {
+                btnEl.innerHTML = origHTML;
+                btnEl.disabled = false;
+            }
+        }
+
+        async function stopAndRewardBtn(btnEl) {
+            showConfirm("Выдать награды согласно списку?", async (ok) => {
+                if (ok) {
+                    const origHTML = btnEl.innerHTML;
+                    btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Выдача...';
+                    btnEl.disabled = true;
+                    try {
+                        const res = await apiCall('/api/v1/admin/guess/finish_and_reward');
+                        showAlert("Раздача завершена!\n\n" + (res.log ? res.log.join("\n") : "Ок"));
+                        setTimeout(forceSyncState, 300);
+                    } catch(e) {
+                        showAlert("Ошибка!");
+                    } finally {
+                        btnEl.innerHTML = origHTML;
+                        btnEl.disabled = false;
+                    }
+                }
+            });
         }
 
         function openModal(id) {
@@ -504,9 +552,6 @@
             }
         }
 
-        // ==========================================
-        // ЗАПУСК СБОРА
-        // ==========================================
         async function startEvent() {
             const title = document.getElementById('ev-title').value;
             const coverUrl = document.getElementById('ev-cover').value;
@@ -546,9 +591,6 @@
             });
         }
 
-        // ==========================================
-        // ЗАГРУЗКА КЕЙСОВ ИЗ БАЗЫ
-        // ==========================================
         async function loadCases() {
             try {
                 const { data, error } = await supabaseClient.from('shop_cache').select('data').eq('category_id', 2716312).single();
@@ -565,9 +607,6 @@
             }
         }
 
-        // ==========================================
-        // ЛОГИКА REALTIME (ОБЩАЯ)
-        // ==========================================
         function handleStateChange(state) {
             const obsTextEl = document.getElementById('obs-custom-text');
             if (obsTextEl) {
@@ -601,7 +640,6 @@
                 }
             }
             
-            // Заполнение обложек в админке, если они привязаны к БД
             if (state.default_cover_url && !isObs && document.getElementById('admin-default-cover-input').value === '') {
                 document.getElementById('admin-default-cover-input').value = state.default_cover_url;
             }
@@ -609,7 +647,6 @@
                 document.getElementById('admin-game-cover-input').value = state.game_cover_url;
             }
 
-            // --- ОБНОВЛЕНИЕ НОВЫХ СЛАЙДЕРОВ ---
             if (state.cover_offset_x !== undefined && !isObs) {
                 document.getElementById('cover-x-slider').value = state.cover_offset_x;
                 document.getElementById('cover-x-val').innerText = state.cover_offset_x + '%';
@@ -637,7 +674,6 @@
                     
                     renderWord();
                 } else {
-                    // ИСПРАВЛЕНИЕ РАССИНХРОНА: Сохраняем локально открытые буквы при обновлении параметров.
                     const serverIndices = state.revealed_indices || [];
                     if (serverIndices.length > revealedIndices.length) {
                         revealedIndices = serverIndices;
@@ -653,10 +689,12 @@
                     document.getElementById('admin-current-mode-label').innerText = `Режим: ${currentMode}`;
                 }
             } else {
-                currentWord = "";
-                if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
-                
-                checkEventStatus();
+                // 🔥 ЗАЩИТА: Сбрасываем текст только если игра действительно была активна
+                if (currentWord !== "") {
+                    currentWord = "";
+                    if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
+                    checkEventStatus();
+                }
             }
         }
 
@@ -670,7 +708,7 @@
                 const modeEl = document.getElementById('admin-current-mode-label');
 
                 if (data.status === 'active' && data.event) {
-                    if (!currentWord) { // ИСПРАВЛЕНИЕ: Не затирать статус, если активно слово
+                    if (!currentWord) { 
                         if (wordEl) {
                             wordEl.innerText = "ИДЕТ СБОР";
                             wordEl.style.color = '#ff9500';
@@ -679,7 +717,7 @@
                         if (modeEl) modeEl.innerText = `${data.event.current_points} / ${data.event.target_points} ОЧКОВ`;
                     }
                 } else {
-                    if (!currentWord) { // ИСПРАВЛЕНИЕ: То же самое
+                    if (!currentWord) {
                         if (wordEl) {
                             wordEl.innerText = "ИГРА ОСТАНОВЛЕНА";
                             wordEl.style.color = '#ff4d4d';
@@ -703,7 +741,7 @@
                 }
             });
 
-            // 2. Сборы (НОВЫЙ БЛОК ДЛЯ АДМИНКИ)
+            // 2. Сборы
             supabaseClient.channel('admin-events-changes').on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'community_events' }, 
                 () => checkEventStatus() 
@@ -766,9 +804,6 @@
             }
         }
 
-        // ==========================================
-        // УТИЛИТЫ И РЕНДЕР
-        // ==========================================
         function shuffleString(str) {
             const arr = str.split('');
             for (let i = arr.length - 1; i > 0; i--) {
@@ -800,10 +835,19 @@
             }
         }
 
+        // ==========================================
+        // ИНИЦИАЛИЗАЦИЯ И РАЗДЕЛЕНИЕ НА OBS/АДМИНКУ
+        // ==========================================
         if (isObs) {
             document.body.classList.add('obs-mode');
             document.getElementById('obs-view').classList.remove('hidden');
+            
+            // 🔥 Забираем стейт мгновенно без морганий
+            forceSyncState(); 
             initRealtime();
+            
+            // 🔥 Пуллинг каждые 3 секунды, чтобы ничего не зависало
+            setInterval(forceSyncState, 3000); 
 
             setInterval(() => {
                 if (!currentWord || currentMode !== 'classic') return;
@@ -836,11 +880,15 @@
                     
                     loadEventSettings(); 
 
-                    // 🔥 ЗАГРУЖАЕМ СТАТУС ПРИ ВХОДЕ 🔥
+                    // 🔥 Сначала ждем точный стейт из базы, а потом уже чекаем статус
+                    await forceSyncState();
                     checkEventStatus();
 
                     initRealtime(); 
                     initLeaderboardRealtime(); 
+                    
+                    // 🔥 Пуллинг для админки (чтобы она не отставала от OBS)
+                    setInterval(forceSyncState, 3000); 
                     
                     loadCases();
                     loadDictionary();
@@ -864,7 +912,6 @@
             showAlert("Текст обновлен!");
         }
         
-        // --- СОХРАНЕНИЕ ОБЛОЖЕК (ПРИЛОЖЕНИЕ) ---
         async function setCovers() {
             const defaultUrl = document.getElementById('admin-default-cover-input').value;
             const gameUrl = document.getElementById('admin-game-cover-input').value;
@@ -877,7 +924,6 @@
             }
         }
 
-       // --- НОВОЕ: Отправка позиции и зума на ЕДИНЫЙ эндпоинт ---
         let coverSettingTimeout;
         function changeCoverSetting(axis, val) {
             document.getElementById(`cover-${axis}-val`).innerText = val + '%';
@@ -889,7 +935,6 @@
 
             coverSettingTimeout = setTimeout(async () => {
                 try {
-                    // Изменили URL на единый
                     await apiCall('/api/v1/admin/guess/covers/set', { 
                         cover_offset_x: x, 
                         cover_offset_y: y, 
@@ -993,16 +1038,6 @@
             loadRewards();
         }
 
-        async function stopAndReward() { 
-            showConfirm("Выдать награды согласно списку?", async (ok) => {
-                if (ok) {
-                    try {
-                        const res = await apiCall('/api/v1/admin/guess/finish_and_reward');
-                        showAlert("Раздача завершена!\n\n" + (res.log ? res.log.join("\n") : "Ок"));
-                    } catch(e) { showAlert("Ошибка!"); }
-                }
-            });
-        }
     </script>
 </body>
 </html>
