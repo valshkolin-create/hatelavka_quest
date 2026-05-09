@@ -1100,3 +1100,77 @@ body.desktop-platform .content-wrapper {
     padding-top: 0 !important;
     margin-top: 0 !important;
 }
+/* Обязательно добавляем relative для позиционирования бейджа */
+.nav-item { 
+    position: relative; 
+}
+
+/* Бейдж-облачко в стиле комиксов */
+.comic-badge {
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ff3b30, #ff4d4d);
+    color: #fff;
+    font-size: 7px;
+    font-weight: 900;
+    text-transform: uppercase;
+    padding: 4px 6px;
+    border-radius: 6px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(255, 59, 48, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+    border: 1px solid #cc0000;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    animation: comicPulse 1.5s infinite ease-in-out;
+    z-index: 10;
+}
+
+/* Хвостик облачка диалога */
+.comic-badge::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px 5px 0;
+    border-style: solid;
+    border-color: #ff3b30 transparent transparent transparent;
+}
+
+/* Анимация пульсации бейджа */
+@keyframes comicPulse {
+    0% { transform: translateX(-50%) scale(1) rotate(-4deg); }
+    50% { transform: translateX(-50%) scale(1.15) rotate(4deg); }
+    100% { transform: translateX(-50%) scale(1) rotate(-4deg); }
+}
+
+/* КОГДА ИГРА АКТИВНА (Включается через JS) */
+.nav-item.game-live .comic-badge {
+    opacity: 1;
+    visibility: visible;
+}
+
+.nav-item.game-live i {
+    color: #ff4d4d !important;
+    filter: drop-shadow(0 0 10px rgba(255, 77, 77, 0.8));
+    animation: shakeIcon 2s infinite;
+}
+
+.nav-item.game-live span {
+    color: #ff4d4d !important;
+    font-weight: 900;
+    text-shadow: 0 0 5px rgba(255, 77, 77, 0.4);
+}
+
+/* Анимация дрожания геймпада */
+@keyframes shakeIcon {
+    0%, 100% { transform: rotate(0) scale(1); }
+    10%, 30%, 50%, 70%, 90% { transform: rotate(-12deg) scale(1.1); }
+    20%, 40%, 60%, 80% { transform: rotate(12deg) scale(1.1); }
+}
