@@ -14,17 +14,15 @@
         }
     </style>
     
-    <script>
+  <script>
         (function() {
             try {
-                const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-                if (cached && cached.maintenance) {
-                    // Если в кэше техработы — сразу показываем зеленое окно
-                    document.addEventListener("DOMContentLoaded", function() {
-                        document.getElementById('maintenance-screen-hardcore').style.display = 'flex';
-                    });
-                }
-                // ВАЖНО: Мы больше не удаляем стиль здесь! Его удалит main(), когда убедится, что всё ок.
+                // Вместо проверки старого кэша, просто сразу показываем дефолтный экран загрузки
+                document.addEventListener("DOMContentLoaded", function() {
+                    const loader = document.getElementById('loader-overlay');
+                    if (loader) loader.classList.remove('hidden');
+                });
+                // ВАЖНО: Мы больше не удаляем стиль анти-вспышки здесь! Его удалит main(), когда убедится, что всё ок.
             } catch(e) {}
         })();
     </script>
