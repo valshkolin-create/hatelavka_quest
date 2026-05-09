@@ -1,21 +1,32 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Вставляем стили (включая стили бейджа и анимации игры)
+    // 1. Вставляем стили
     const style = document.createElement('style');
     style.innerHTML = `
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap');
+
         .floating-bottom-bar {
+            font-family: 'Montserrat', sans-serif;
             position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
-            width: 85%; max-width: 360px;
+            
+            /* 🔥 ФИКС ШИРИНЫ 🔥 */
+            width: 360px; 
+            max-width: 92vw;
+            box-sizing: border-box;
+
             background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1); 
             border-radius: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            display: flex; justify-content: space-around; align-items: center; 
+            display: flex; justify-content: space-between; align-items: center; 
             padding: 6px 12px; z-index: 1000;
         }
+        
         .nav-item { 
+            flex: 1; /* 🔥 ФИКС КНОПОК: Теперь они делят ширину поровну и не дергают бар */
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            color: #8E8E93; text-decoration: none; gap: 2px; padding: 6px 10px; 
+            color: #8E8E93; text-decoration: none; gap: 2px; padding: 6px 0; 
             border-radius: 20px; transition: all 0.3s ease; position: relative;
         }
+        
         .nav-item i { font-size: 18px; transition: all 0.3s ease; }
         .nav-item span { font-size: 9px; font-weight: 600; transition: all 0.3s ease; }
         .nav-item.active { background: transparent; color: #FFFFFF; }
@@ -93,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.head.appendChild(style);
 
-    // 2. Вставляем HTML меню с обновленной кнопкой "Игры"
+    // 2. Вставляем HTML меню
     const navHTML = `
         <nav class="floating-bottom-bar">
             <a href="/leaderboard" class="nav-item" data-path="/leaderboard">
@@ -108,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <a href="/events" class="nav-item" data-path="/events">
                 <i class="fa-solid fa-fire"></i><span>Гринд</span>
             </a>
-            <a href="/event_page.html" class="nav-item" data-path="event_page.html" id="nav-games-btn">
+            <a href="/event_page" class="nav-item" data-path="/event_page" id="nav-games-btn">
                 <div class="comic-badge">ИГРА<br>НАЧАЛАСЬ</div>
                 <i class="fa-solid fa-gamepad"></i><span>Игры</span>
             </a>
@@ -117,10 +128,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.insertAdjacentHTML('beforeend', navHTML);
 
     // 3. Логика подсветки активной кнопки меню
-    // Нормализуем пути, чтобы /event_page.html и /event_page совпадали
-    const currentPath = window.location.pathname.replace('.html', '');
-    const navItems = document.querySelectorAll('.nav-item');
+    let currentPath = window.location.pathname.replace('.html', '');
     
+    // Фикс для главной
+    if (currentPath === '/menu' || currentPath === '' || currentPath === '/index') {
+        currentPath = '/';
+    }
+
+    const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.classList.remove('active');
         if (item.getAttribute('data-path') === currentPath) {
@@ -141,7 +156,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const gamesBtn = document.getElementById('nav-games-btn');
             
             if (gamesBtn && data && data.length > 0) {
-                // Безопасная проверка: userData может быть не определен на некоторых страницах до загрузки основного скрипта
                 const isStreamOnline = (typeof window.userData !== 'undefined' && window.userData.is_stream_online);
                 
                 if (data[0].is_active && isStreamOnline) {
@@ -155,6 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
     
-    checkGameStatus(); // Мгновенная проверка при загрузке
-    setInterval(checkGameStatus, 10000); // Проверка каждые 10 секунд
+    checkGameStatus();
+    setInterval(checkGameStatus, 10000);
 });
