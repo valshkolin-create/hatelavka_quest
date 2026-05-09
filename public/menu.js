@@ -5036,10 +5036,38 @@ window.toggleSmartFilter = () => {
         circle.style.background = '#8e8e93';
     }
 
-    if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
 
-    // Мгновенно перерисовываем кейсы
-    if (typeof window.currentCategoryId !== 'undefined' && itemsCache[window.currentCategoryId]) {
-        renderItems(itemsCache[window.currentCategoryId]);
-    }
+    // Мгновенно перерисовываем кейсы
+    if (typeof window.currentCategoryId !== 'undefined' && itemsCache[window.currentCategoryId]) {
+        renderItems(itemsCache[window.currentCategoryId]);
+    }
 };
+
+// ================================================================
+// АВТОНОМНАЯ ПРОВЕРКА СТАТУСА ИГРЫ (ДЛЯ КНОПКИ В МЕНЮ)
+// ================================================================
+(function initGameBadgeChecker() {
+    const checkGameStatus = async () => {
+        try {
+            const res = await fetch('https://pyeuckjcrsiaseyqrsek.supabase.co/rest/v1/guess_state?id=eq.1&select=is_active', {
+                headers: { 
+                    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg', 
+                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg' 
+                }
+            });
+            const data = await res.json();
+            const gamesBtn = document.getElementById('nav-games-btn');
+            if (gamesBtn && data && data.length > 0) {
+                if (data[0].is_active) {
+                    gamesBtn.classList.add('game-live');
+                } else {
+                    gamesBtn.classList.remove('game-live');
+                }
+            }
+        } catch(e) {}
+    };
+    
+    checkGameStatus(); // Проверяем мгновенно при загрузке страницы
+    setInterval(checkGameStatus, 10000); // И затем каждые 10 секунд в фоне
+})();
