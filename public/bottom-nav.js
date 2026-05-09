@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
             position: fixed; 
-            bottom: calc(15px + env(safe-area-inset-bottom, 0px) + ${androidPadding}); 
+            bottom: calc(15px + ${androidPadding});
             left: 50vw; 
             transform: translateX(-50%); 
             width: 85vw; 
