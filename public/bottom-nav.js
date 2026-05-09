@@ -6,24 +6,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
         .floating-bottom-bar {
             font-family: 'Montserrat', sans-serif;
-            position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); 
             
-            /* 🔥 ФИКС ШИРИНЫ 🔥 */
-            width: 360px; 
-            max-width: 92vw;
+            /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
+            position: fixed; 
+            bottom: 15px; 
+            left: 50vw; 
+            transform: translateX(-50%); 
+            width: 85vw; 
+            max-width: 360px;
             box-sizing: border-box;
 
             background: rgba(40, 40, 40, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1); 
             border-radius: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            display: flex; justify-content: space-between; align-items: center; 
+            display: flex; justify-content: space-around; align-items: center; 
             padding: 6px 12px; z-index: 1000;
         }
         
         .nav-item { 
-            flex: 1; /* 🔥 ФИКС КНОПОК: Теперь они делят ширину поровну и не дергают бар */
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            color: #8E8E93; text-decoration: none; gap: 2px; padding: 6px 0; 
+            color: #8E8E93; text-decoration: none; gap: 2px; padding: 6px 10px; 
             border-radius: 20px; transition: all 0.3s ease; position: relative;
         }
         
@@ -104,22 +106,22 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.head.appendChild(style);
 
-    // 2. Вставляем HTML меню
+    // 2. Вставляем HTML меню (Кнопка игры ведет на event_page.html)
     const navHTML = `
         <nav class="floating-bottom-bar">
-            <a href="/leaderboard" class="nav-item" data-path="/leaderboard">
+            <a href="/leaderboard" class="nav-item" data-path="leaderboard">
                 <i class="fa-solid fa-trophy"></i><span>Топ</span>
             </a>
-            <a href="/quests" class="nav-item" data-path="/quests">
+            <a href="/quests" class="nav-item" data-path="quests">
                 <i class="fa-solid fa-check-double"></i><span>Задания</span>
             </a>
             <a href="/" class="nav-item" data-path="/">
                 <i class="fa-solid fa-house"></i><span>Главная</span>
             </a>
-            <a href="/events" class="nav-item" data-path="/events">
+            <a href="/events" class="nav-item" data-path="events">
                 <i class="fa-solid fa-fire"></i><span>Гринд</span>
             </a>
-            <a href="/event_page.html" class="nav-item" data-path="event_page.html" id="nav-games-btn">
+            <a href="event_page.html" class="nav-item" data-path="event_page" id="nav-games-btn">
                 <div class="comic-badge">ИГРА<br>НАЧАЛАСЬ</div>
                 <i class="fa-solid fa-gamepad"></i><span>Игры</span>
             </a>
@@ -127,18 +129,22 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.body.insertAdjacentHTML('beforeend', navHTML);
 
-    // 3. Логика подсветки активной кнопки меню
-    let currentPath = window.location.pathname.replace('.html', '');
+    // 3. Умная логика подсветки активной кнопки
+    let currentPath = window.location.pathname;
     
-    // Фикс для главной
-    if (currentPath === '/menu' || currentPath === '' || currentPath === '/index') {
+    // Приводим пути главной к одному виду
+    if (currentPath === '/menu' || currentPath === '/menu.html' || currentPath === '/index.html' || currentPath === '') {
         currentPath = '/';
     }
 
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-path') === currentPath) {
+        const dataPath = item.getAttribute('data-path');
+        
+        if (dataPath === '/' && currentPath === '/') {
+            item.classList.add('active');
+        } else if (dataPath !== '/' && currentPath.includes(dataPath)) {
             item.classList.add('active');
         }
     });
