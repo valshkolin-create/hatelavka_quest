@@ -45,7 +45,7 @@ async function fetchVkParamsFromBridge() {
 }
 
 // Глобальные переменные
-var dom = window.dom || {
+const dom = {
     loaderOverlay: document.getElementById('loader-overlay'),
     loadingText: document.getElementById('loading-text'),
     loadingBarFill: document.getElementById('loading-bar-fill'),
