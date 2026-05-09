@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // На андроиде делаем отступ в 14px, чтобы поднять над системными кнопками
     let androidPadding = "0px";
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform === 'android') {
-        androidPadding = "22px"; 
+        androidPadding = "25px"; 
     }
 
     // 1. Вставляем стили
