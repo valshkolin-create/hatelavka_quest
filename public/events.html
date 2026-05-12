@@ -471,13 +471,13 @@
 
     /* === РАЗРЕШАЕМ СКРОЛЛ ВНУТРИ === */
     #main-content {
-        height: 100%; /* Строго 100%, никаких 100vh! */
+        height: 100%; 
         overflow-y: auto !important; 
         -webkit-overflow-scrolling: touch; 
         box-sizing: border-box;
         
-        /* 🔥 МАГИЯ ОТСТУПОВ: Челка/шторка + 20px сверху, 15px по бокам, 120px снизу */
-        padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 20px) 15px 120px 15px; 
+        /* 🔥 МЕНЯЕМ ЭТУ СТРОКУ: */
+        padding: 5px 15px 120px 15px; 
     }
     /* === PULL TO REFRESH СТИЛИ (ЭТОГО НЕ ХВАТАЛО) === */
     #pull-to-refresh {
@@ -595,13 +595,9 @@
   </div>
 
   <div class="new-header-container">
-    <a href="#" id="header-back-btn" class="header-back-button">
-        <i class="fa-solid fa-chevron-left"></i> Назад
-    </a>
     <div class="page-header">
         <h1 class="page-title">Гринд</h1>
     </div>
-    <div style="width: 40px;"></div>
   </div>
 
   <div class="balance-grid">
@@ -788,15 +784,6 @@
             // Если истории нет, идем принудительно в меню
             window.location.href = '/menu';
         }
-    }
-
-    // 1. Настраиваем HTML кнопку
-    const headerBackBtn = document.getElementById('header-back-btn');
-    if (headerBackBtn) {
-        headerBackBtn.addEventListener('click', (e) => {
-            e.preventDefault(); // Отменяем переход по ссылке #
-            goBack();
-        });
     }
 
     // 2. Настраиваем нативную кнопку Telegram (в шапке самого мессенджера)
