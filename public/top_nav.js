@@ -1,6 +1,6 @@
 (function() {
     // ==========================================
-    // 1. ТВОЙ CSS ШАПКИ И МЕНЮ (ПОЛНОСТЬЮ 1В1)
+    // 1. CSS ШАПКИ, МЕНЮ И БАЗОВОЙ ВЕРСТКИ
     // ==========================================
     const navStyles = `
         :root {
@@ -41,57 +41,19 @@
             content: ''; display: block; height: 160px; width: 100%; flex-shrink: 0; pointer-events: none;
         }
 
+        /* ШАПКА */
         .top-header {
             display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; 
             padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
             margin-bottom: 35px; position: relative; z-index: 100;
         }
 
-        .logo-wrapper { display: flex; align-items: center; gap: 14px; cursor: pointer; }
+        /* Логотип + Текст */
+        .logo-wrapper { display: flex; align-items: center; gap: 14px; }
         .app-logo { width: 28px; height: 28px; border-radius: 0; background: transparent; object-fit: contain; }
         .logo-text { display: flex; flex-direction: column; justify-content: center; }
         .logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
         .logo-subtitle { font-size: 7px; color: rgba(255, 255, 255, 0.4); font-weight: 800; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        .logo-btn-container {
-            position: relative; display: inline-flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-            width: 28px; height: 28px;
-        }
-        .logo-btn-container:active { transform: scale(0.9); }
-
-        .notif-badge-logo {
-            position: absolute; top: -6px; right: -8px; /* Выставили поверх колокольчика */
-            background: #ff3b30; color: white; font-size: 9px; font-weight: 800;
-            height: 16px; min-width: 16px; padding: 0 4px; border-radius: 8px;
-            border: 2px solid #121212; /* Под цвет фона страницы */
-            box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5);
-            display: flex; align-items: center; justify-content: center; box-sizing: border-box; z-index: 11;
-        }
-
-        /* 🔥 ИСПРАВЛЕННЫЙ КОЛОКОЛЬЧИК (БЕЗ ФОНА, СПРАВА, СЕРЫЙ) 🔥 */
-        .bell-overlay {
-            position: absolute;
-            top: 2px;
-            right: -12px; /* Сдвинут правее логотипа */
-            width: 18px;
-            height: 18px;
-            background: transparent !important; /* Жестко без фона */
-            border: none !important;
-            box-shadow: none !important;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            pointer-events: none;
-        }
-
-        .bell-overlay i {
-            font-size: 14px; 
-            color: #8e8e93; /* 🔥 ПО УМОЛЧАНИЮ СЕРЫЙ, КАК В МЕНЮ */
-            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
-            transition: color 0.3s, text-shadow 0.3s;
-        }
 
         /* ПРАВАЯ ГРУППА */
         .header-right-group { display: flex; align-items: center; gap: 6px; }
@@ -103,6 +65,8 @@
         #refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
         .balance-pill:active #refresh-icon { color: #fff; }
         .user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+        
+        /* Бургер */
         .glass-burger { width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); padding: 0; }
         .glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
         .glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
@@ -112,14 +76,14 @@
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
         .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 65px) 25px 25px 25px; box-sizing: border-box; display: flex; flex-direction: column; }
         .side-menu-overlay.active .side-menu-content { right: 0; }
-        .side-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-top: 10px; }
+        .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 30px; padding-top: 10px; }
         .icon-btn { background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; outline: none; }
         .side-nav { display: flex; flex-direction: column; gap: 10px; }
         .side-nav a { display: flex; align-items: center; gap: 15px; color: var(--text-primary); text-decoration: none; font-size: 16px; font-weight: 600; padding: 15px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
         .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
 
         /* МОДАЛКИ УНИВЕРСАЛЬНЫЕ */
-        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 10002; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
         .modal:not(.hidden) { opacity: 1; visibility: visible; }
         .modal.visible { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; }
         .modal-content { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.7); padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative; z-index: 10000; }
@@ -150,8 +114,7 @@
     const navHtml = `
         <div id="side-menu-overlay" class="side-menu-overlay">
             <div class="side-menu-content">
-                <div class="side-menu-header">
-                    <h3 id="fullName">Профиль</h3>
+                <div class="side-menu-header" style="justify-content: flex-end;">
                     <button id="close-menu-btn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <nav class="side-nav">
@@ -163,7 +126,7 @@
                     <a href="#" onclick="if(typeof openCouponModal === 'function') openCouponModal(); return false;">
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
                     </a>
-                    <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
+                    <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-па-нель</a>
                 </nav>
             </div>
         </div>
@@ -201,13 +164,7 @@
         <!-- САМА ШАПКА -->
         <header class="top-header" id="universal-top-header">
             <div class="logo-wrapper">
-                <div id="logo-notification-btn" class="logo-btn-container" onclick="if(typeof openNotificationsHistory === 'function') openNotificationsHistory()">
-                    <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
-                    <div class="bell-overlay">
-                        <i class="fa-solid fa-bell"></i>
-                        <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
-                    </div>
-                </div>
+                <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
                 <div class="logo-text">
                     <span class="logo-title">HATElavka</span>
                     <span class="logo-subtitle">
@@ -287,7 +244,7 @@
         // Запускаем детектор платформы
         detectPlatforms();
 
-        // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА И УВЕДОМЛЕНИЙ ПРИ СТАРТЕ 🔥
+        // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА ПРИ СТАРТЕ 🔥
         // Ждем Telegram initData, чтобы не словить 422
         const tryLoadData = () => {
             if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
@@ -295,7 +252,6 @@
                 return;
             }
             if (typeof window.checkBalance === 'function') window.checkBalance(true);
-            if (typeof window.fetchNotificationsBadge === 'function') window.fetchNotificationsBadge();
         };
         setTimeout(tryLoadData, 300);
     }
@@ -385,56 +341,6 @@
             title: "Подтверждение", subtitle: message, confirmText: "ДА", confirmClass: "btn-yellow-modal", showCancel: true,
             onConfirm: (close) => { close(); if (callback) callback(true); }
         });
-    };
-
-    // 🔥 АВТОМАТИЧЕСКАЯ ПОДСВЕТКА КОЛОКОЛЬЧИКА 🔥
-    window.updateNotificationBadgeUI = function(count) {
-        const badge = document.getElementById('logo-notification-badge');
-        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); 
-        if (!badge) return;
-        
-        if (count > 0) {
-            badge.textContent = count > 99 ? '99+' : count;
-            badge.classList.remove('hidden');
-            if (bellIcon) {
-                bellIcon.style.color = '#ffd700'; // Загорается желтым
-                bellIcon.style.textShadow = '0 0 8px rgba(255, 215, 0, 0.4)';
-            }
-        } else {
-            badge.classList.add('hidden');
-            if (bellIcon) {
-                bellIcon.style.color = '#8e8e93'; // Возвращается в серый
-                bellIcon.style.textShadow = 'none';
-            }
-        }
-    };
-
-    window.fetchNotificationsBadge = async function() {
-        if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return;
-
-        const badge = document.getElementById('logo-notification-badge');
-        if (!badge) return;
-        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); 
-        
-        try {
-            if (typeof window.makeApiRequest !== 'function') return;
-            const res = await window.makeApiRequest('/api/v1/notifications', {}, 'GET', true);
-            
-            if (res && res.unread_count > 0) {
-                badge.textContent = res.unread_count > 99 ? '99+' : res.unread_count;
-                badge.classList.remove('hidden');
-                if (bellIcon) {
-                    bellIcon.style.color = '#ffd700';
-                    bellIcon.style.textShadow = '0 0 8px rgba(255, 215, 0, 0.4)';
-                }
-            } else {
-                badge.classList.add('hidden');
-                if (bellIcon) {
-                    bellIcon.style.color = '#8e8e93';
-                    bellIcon.style.textShadow = 'none';
-                }
-            }
-        } catch (e) {}
     };
 
     // Баланс
