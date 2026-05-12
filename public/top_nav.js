@@ -50,7 +50,6 @@
         .bell-wrapper { position: absolute; top: -2px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: #1c1c1e; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.5); border: 1px solid rgba(255, 255, 255, 0.1); z-index: 10; pointer-events: none; }
         .bell-wrapper i { font-size: 9px; color: #ffd700; }
         
-        /* ПРАВИЛЬНЫЙ БЕЙДЖ */
         .notif-badge-logo { 
             position: absolute; top: -4px; right: -8px; background: #ff3b30; color: white; font-size: 9px; font-weight: 800; 
             height: 16px; min-width: 16px; padding: 0 4px; border-radius: 8px; border: 2px solid var(--bg-main); 
@@ -129,7 +128,7 @@
                     <a href="#" onclick="if(typeof openCouponModal === 'function') openCouponModal(); return false;">
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
                     </a>
-                    <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
+                    <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-па-нель</a>
                 </nav>
             </div>
         </div>
@@ -168,11 +167,13 @@
             <div class="logo-wrapper">
                 <div id="logo-notification-btn" class="logo-btn-container" onclick="if(typeof openNotificationsHistory === 'function') openNotificationsHistory()">
                     <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
+                    
+                    <!-- БЕЙДЖ СНОВА ТУТ: Внутри bell-wrapper как ты просил -->
                     <div class="bell-wrapper">
                         <i class="fa-solid fa-bell"></i>
+                        <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
                     </div>
-                    <!-- БЕЙДЖ ТЕПЕРЬ ТУТ -->
-                    <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
+
                 </div>
                 <div class="logo-text">
                     <span class="logo-title">HATElavka</span>
