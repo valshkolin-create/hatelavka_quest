@@ -23,24 +23,29 @@
       --accent-green: #34c759;
     }
 
-    /* === ✅ ГЛАВНЫЙ ФИКС СКРОЛЛА === */
+   /* === ✅ ГЛАВНЫЙ ФИКС СКРОЛЛА === */
     html, body {
         margin: 0;
         padding: 0;
         width: 100%;
-        /* Используем переменную ТГ для точной высоты, иначе 100% */
         height: var(--tg-viewport-height, 100%); 
-        position: fixed; /* Блокируем скролл всей страницы */
+        position: fixed; 
         overflow: hidden; 
         overscroll-behavior-y: none;
         background-color: var(--bg-color);
         color: var(--text-color);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        
+        /* 🔥 ДОБАВЛЕНО: Делаем макет гибким, чтобы шапка не перекрывала кнопки */
+        display: flex;
+        flex-direction: column;
     }
 
     /* === ✅ КОНТЕЙНЕР ДЛЯ КОНТЕНТА === */
     #main-content {
         height: 100%; 
+        flex: 1; /* 🔥 Растягиваем блок ровно на остаток экрана */
+        min-height: 0; /* 🔥 Разблокируем скролл */
         overflow-y: auto !important; 
         -webkit-overflow-scrolling: touch; 
         position: relative;
@@ -48,7 +53,6 @@
         display: block;
         box-sizing: border-box; 
         
-        /* 🔥 ИЗМЕНЕНО: Оставили 5px сверху, так как шапка top_nav уже делает нужный отступ */
         padding: 5px 15px 120px 15px; 
     }
 
@@ -590,9 +594,11 @@
           const currentY = e.touches[0].clientY;
           const diff = currentY - startY;
 
-          if (diff > 0 && mainContent.scrollTop <= 0) {
+          // 🔥 ИЗМЕНЕНО: Поставили порог diff > 8 вместо diff > 0.
+          // Теперь микро-дрожание пальца при клике не будет блокировать нажатие на кнопки!
+          if (diff > 8 && mainContent.scrollTop <= 0) {
               if (e.cancelable) e.preventDefault();
-              pulledDistance = Math.pow(diff, 0.85); 
+              pulledDistance = Math.pow(diff, 0.85);
               if (pulledDistance > 180) pulledDistance = 180;
 
               mainContent.style.transform = `translateY(${pulledDistance}px)`;
