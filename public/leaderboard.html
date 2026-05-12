@@ -40,16 +40,16 @@
 
     /* === ✅ КОНТЕЙНЕР ДЛЯ КОНТЕНТА === */
     #main-content {
-        height: 100%; /* Строго 100% от высоты body, никаких 100vh! */
+        height: 100%; 
         overflow-y: auto !important; 
         -webkit-overflow-scrolling: touch; 
         position: relative;
         z-index: 10;
         display: block;
-        box-sizing: border-box; /* Заставляет padding не увеличивать общую высоту блока */
+        box-sizing: border-box; 
         
-        /* Умный отступ сверху (под шторку ТГ) + 15px по бокам + 120px снизу (под футер) */
-        padding: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 20px) 15px 120px 15px; 
+        /* 🔥 ИЗМЕНЕНО: Оставили 5px сверху, так как шапка top_nav уже делает нужный отступ */
+        padding: 5px 15px 120px 15px; 
     }
 
     /* === ✅ КРУТИЛКА ОБНОВЛЕНИЯ === */
@@ -164,9 +164,9 @@
         background-color: #34c759; border-radius: 2px;
         box-shadow: 0 0 5px rgba(52, 199, 89, 0.8);
     }
-  #app-container {
-    /* Берем системный отступ ТГ или браузера и добавляем 60px сверху для надежности */
-    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
+ #app-container {
+    /* 🔥 ИЗМЕНЕНО: Убрали двойной отступ */
+    padding-top: 0px !important;
     box-sizing: border-box !important;
 }
 
