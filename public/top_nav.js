@@ -1,6 +1,6 @@
 (function() {
     // ==========================================
-    // 1. CSS ШАПКИ, МЕНЮ И БАЗОВОЙ ВЕРСТКИ
+    // 1. CSS ШАПКИ И МЕНЮ
     // ==========================================
     const navStyles = `
         :root {
@@ -41,21 +41,18 @@
             content: ''; display: block; height: 160px; width: 100%; flex-shrink: 0; pointer-events: none;
         }
 
-        /* ШАПКА */
         .top-header {
             display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; 
             padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
             margin-bottom: 35px; position: relative; z-index: 100;
         }
 
-        /* Логотип + Текст */
-        .logo-wrapper { display: flex; align-items: center; gap: 14px; }
+        .logo-wrapper { display: flex; align-items: center; gap: 14px; cursor: pointer; }
         .app-logo { width: 28px; height: 28px; border-radius: 0; background: transparent; object-fit: contain; }
         .logo-text { display: flex; flex-direction: column; justify-content: center; }
         .logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
         .logo-subtitle { font-size: 7px; color: rgba(255, 255, 255, 0.4); font-weight: 800; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* ПРАВАЯ ГРУППА */
         .header-right-group { display: flex; align-items: center; gap: 6px; }
         .balance-pill { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s; width: auto; min-width: max-content; white-space: nowrap; }
         .balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
@@ -65,13 +62,10 @@
         #refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
         .balance-pill:active #refresh-icon { color: #fff; }
         .user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
-        
-        /* Бургер */
         .glass-burger { width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); padding: 0; }
         .glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
         .glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
 
-        /* БОКОВОЕ МЕНЮ */
         .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
         .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 65px) 25px 25px 25px; box-sizing: border-box; display: flex; flex-direction: column; }
@@ -82,7 +76,6 @@
         .side-nav a { display: flex; align-items: center; gap: 15px; color: var(--text-primary); text-decoration: none; font-size: 16px; font-weight: 600; padding: 15px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
         .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
 
-        /* МОДАЛКИ УНИВЕРСАЛЬНЫЕ */
         .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 10002; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
         .modal:not(.hidden) { opacity: 1; visibility: visible; }
         .modal.visible { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; }
@@ -101,7 +94,6 @@
         .btn-cancel-modal { background: rgba(255,255,255,0.1); color: #fff; }
         .btn-yellow-modal { background: #ffcc00; color: #000; }
 
-        /* Адаптация */
         body.android-mode .top-header { padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 35px) !important; }
         body.desktop-platform .top-header { padding-top: 15px !important; margin-bottom: 5px !important; }
         @media (min-width: 768px) { body { max-width: 480px; margin: 0 auto; border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); position: relative; } }
@@ -114,7 +106,7 @@
     const navHtml = `
         <div id="side-menu-overlay" class="side-menu-overlay">
             <div class="side-menu-content">
-                <div class="side-menu-header" style="justify-content: flex-end;">
+                <div class="side-menu-header">
                     <button id="close-menu-btn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <nav class="side-nav">
@@ -126,7 +118,7 @@
                     <a href="#" onclick="if(typeof openCouponModal === 'function') openCouponModal(); return false;">
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
                     </a>
-                    <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-па-нель</a>
+                    <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
                 </nav>
             </div>
         </div>
@@ -245,7 +237,6 @@
         detectPlatforms();
 
         // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА ПРИ СТАРТЕ 🔥
-        // Ждем Telegram initData, чтобы не словить 422
         const tryLoadData = () => {
             if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
                 setTimeout(tryLoadData, 100);
