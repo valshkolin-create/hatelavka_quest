@@ -56,55 +56,15 @@ body.browser-view {
 /* НОВЫЕ СТИЛИ ДЛЯ ВЫРАВНИВАНИЯ */
 .new-header-container {
     display: flex;
-    justify-content: space-between;
+    justify-content: center; /* Центрируем заголовок */
     align-items: center;
-    position: relative;
-    /* Забираем отступы у дочерних элементов */
-    margin-bottom: 20px; 
-    padding: 5px 0;
-}
-
-.header-back-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: none;
-    border: none;
-    color: #007aff; /* Синий цвет (Action color) */
-    font-size: 12px; /* Размер как в профиле */
-    cursor: pointer;
-    padding: 5px 0;
-    font-weight: 500;
-    text-decoration: none;
-    position: relative;
-    z-index: 2; /* Кнопка должна быть поверх заголовка */
-    margin: 0; /* Убираем старые отступы */
-    transition: opacity 0.2s ease;
-}
-
-.header-back-button:hover {
-    color: #007aff; 
-    opacity: 0.8;
-}
-
-.header-back-button:active {
-    opacity: 0.6;
-}
-
-.header-back-button i {
-    font-size: 12px; 
+    margin-bottom: 15px; 
+    padding: 10px 0 0 0;
 }
 
 .page-header {
-    margin: 0; /* Убираем старые отступы */
-    /* Абсолютное центрирование */
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
     text-align: center;
-    z-index: 1; /* Заголовок под кнопкой */
+    z-index: 1; 
 }
 
 .page-title {
@@ -635,7 +595,10 @@ body.browser-view {
     z-index: 10;
     display: block;
     box-sizing: border-box;
-    padding: 0 10px 0; 
+    
+    /* 🔥 ИЗМЕНЕНО: Добавили 120px снизу для футера и 5px сверху */
+    padding: 5px 10px 120px 10px; 
+    
     will-change: transform;
     background: transparent;
 }
@@ -669,26 +632,6 @@ body.browser-view {
     font-size: 24px; 
     color: #FFD700;
     text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
-}
-
-/* ==========================================
-   УМНЫЕ ОТСТУПЫ ДЛЯ ШАПКИ (IOS / ANDROID / DESKTOP)
-========================================== */
-#app-container, .new-header-container {
-    padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
-    box-sizing: border-box !important;
-}
-
-/* ANDROID-ВЕРСИЯ (Железобетонный фикс шторки) */
-body.android-mode #app-container,
-body.android-mode .new-header-container {
-    padding-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 68px) !important;
-}
-
-/* ПК-ВЕРСИЯ */
-body.desktop-mode #app-container,
-body.desktop-mode .new-header-container {
-    padding-top: 15px !important;
 }
 
 /* ==========================================
