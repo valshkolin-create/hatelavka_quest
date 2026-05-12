@@ -1764,20 +1764,22 @@ async function main() {
                 allQuests = cachedData.quests || [];
                 
                 // Обновляем UI
-                dom.fullName.textContent = userData.full_name || "Гость";
+                if (dom.fullName) {
+                    dom.fullName.textContent = userData.full_name || "Гость";
+                    
+                    // Кнопка промокодов
+                    if (dom.fullName.parentNode && !document.getElementById('promo-btn-inject')) {
+                        const btn = document.createElement('a');
+                        btn.id = 'promo-btn-inject';
+                        btn.href = 'profile.html';
+                        btn.className = 'promo-profile-btn'; 
+                        btn.innerHTML = 'Промокоды'; 
+                        dom.fullName.insertAdjacentElement('afterend', btn);
+                    }
+                }
+                
                 if (document.getElementById('ticketStats')) {
                     document.getElementById('ticketStats').textContent = userData.tickets || 0;
-                }
-
-                // Кнопка промокодов
-                if (dom.fullName.parentNode && !document.getElementById('promo-btn-inject')) {
-                    const btn = document.createElement('a');
-                    btn.id = 'promo-btn-inject';
-                    btn.href = 'profile.html';
-                    btn.className = 'promo-profile-btn'; 
-                    // Иконку убираем стилями, оставляем текст для читалки
-                    btn.innerHTML = 'Промокоды'; 
-                    dom.fullName.insertAdjacentElement('afterend', btn);
                 }
 
                 // Инициализация переключателя и темы
@@ -1851,17 +1853,20 @@ async function main() {
             allQuests = bootstrapData.quests;
             
             if (userData) {
-                dom.fullName.textContent = userData.full_name || "Гость";
+                if (dom.fullName) {
+                    dom.fullName.textContent = userData.full_name || "Гость";
+                    if (dom.fullName.parentNode && !document.getElementById('promo-btn-inject')) {
+                        const btn = document.createElement('a');
+                        btn.id = 'promo-btn-inject';
+                        btn.href = 'profile.html';
+                        btn.className = 'promo-profile-btn'; 
+                        btn.innerHTML = 'Промокоды';
+                        dom.fullName.insertAdjacentElement('afterend', btn);
+                    }
+                }
+                
                 if (document.getElementById('ticketStats')) {
                     document.getElementById('ticketStats').textContent = userData.tickets || 0;
-                }
-                if (dom.fullName.parentNode && !document.getElementById('promo-btn-inject')) {
-                    const btn = document.createElement('a');
-                    btn.id = 'promo-btn-inject';
-                    btn.href = 'profile.html';
-                    btn.className = 'promo-profile-btn'; 
-                    btn.innerHTML = 'Промокоды';
-                    dom.fullName.insertAdjacentElement('afterend', btn);
                 }
             }
 
