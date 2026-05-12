@@ -1,6 +1,6 @@
 (function() {
     // ==========================================
-    // 1. CSS ШАПКИ, МЕНЮ И БАЗОВОЙ ВЕРСТКИ
+    // 1. ТВОЙ CSS ШАПКИ И МЕНЮ (ПОЛНОСТЬЮ 1В1)
     // ==========================================
     const navStyles = `
         :root {
@@ -12,6 +12,11 @@
             --radius-pill: 40px;
             --radius-card: 24px; 
             --primary-color: #ffd700;
+            --rarity-blue: #4b69ff;
+            --rarity-purple: #8847ff;
+            --rarity-pink: #d32ce6;
+            --rarity-red: #eb4b4b;
+            --rarity-gold: #ffd700;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -21,53 +26,59 @@
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             overflow: hidden; background-color: var(--bg-main); color: var(--text-primary);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow-x: hidden; overscroll-behavior-x: none !important;
+            overflow-x: hidden;
+            overscroll-behavior-x: none !important;
         }
 
         .hidden { display: none !important; }
 
-        /* ШАПКА */
+        .main-content-scrollable {
+            height: 100%; overflow-y: auto; overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; padding-bottom: 0; 
+            overscroll-behavior-x: none !important;
+        }
+        .main-content-scrollable::after {
+            content: ''; display: block; height: 160px; width: 100%; flex-shrink: 0; pointer-events: none;
+        }
+
         .top-header {
             display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; 
             padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
-            margin-bottom: 5px !important; position: relative; z-index: 100;
+            margin-bottom: 35px; position: relative; z-index: 100;
         }
 
-        /* Логотип + Текст */
         .logo-wrapper { display: flex; align-items: center; gap: 14px; cursor: pointer; }
         .app-logo { width: 28px; height: 28px; border-radius: 0; background: transparent; object-fit: contain; }
         .logo-text { display: flex; flex-direction: column; justify-content: center; }
         .logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
         .logo-subtitle { font-size: 7px; color: rgba(255, 255, 255, 0.4); font-weight: 800; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* ==========================================
-           ТВОЙ CSS: ЛОГОТИП-УВЕДОМЛЕНИЕ (ИН-АПП)
-        ========================================== */
         .logo-btn-container {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-            width: 28px; 
-            height: 28px;
+            position: relative; display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+            width: 28px; height: 28px;
+        }
+        .logo-btn-container:active { transform: scale(0.9); }
+
+        .notif-badge-logo {
+            position: absolute; top: -6px; right: -8px; /* Выставили поверх колокольчика */
+            background: #ff3b30; color: white; font-size: 9px; font-weight: 800;
+            height: 16px; min-width: 16px; padding: 0 4px; border-radius: 8px;
+            border: 2px solid #121212; /* Под цвет фона страницы */
+            box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5);
+            display: flex; align-items: center; justify-content: center; box-sizing: border-box; z-index: 11;
         }
 
-        .logo-btn-container:active {
-            transform: scale(0.9);
-        }
-
-        /* КОЛОКОЛЬЧИК (Без круга, сдвинут вправо) */
+        /* 🔥 ИСПРАВЛЕННЫЙ КОЛОКОЛЬЧИК (БЕЗ ФОНА, СПРАВА, СЕРЫЙ) 🔥 */
         .bell-overlay {
             position: absolute;
             top: 2px;
-            right: -14px; /* Сдвигаем колокольчик вправо от логотипа */
+            right: -12px; /* Сдвинут правее логотипа */
             width: 18px;
             height: 18px;
-            background: transparent !important; /* Жестко убиваем фон */
-            border: none !important; /* Убиваем бордер */
-            box-shadow: none !important; /* Убиваем тени */
+            background: transparent !important; /* Жестко без фона */
+            border: none !important;
+            box-shadow: none !important;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -76,91 +87,13 @@
         }
 
         .bell-overlay i {
-            font-size: 15px; /* Чуть увеличили */
-            color: #ffd700;
+            font-size: 14px; 
+            color: #8e8e93; /* 🔥 ПО УМОЛЧАНИЮ СЕРЫЙ, КАК В МЕНЮ */
             filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
             transition: color 0.3s, text-shadow 0.3s;
         }
 
-        .notif-badge-logo {
-            position: absolute;
-            top: -6px;
-            right: -8px;
-            background: #ff3b30;
-            color: white;
-            font-size: 9px;
-            font-weight: 800;
-            height: 16px;
-            min-width: 16px;
-            padding: 0 4px;
-            border-radius: 8px;
-            border: 2px solid var(--bg-main); 
-            box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5);
-            display: flex; 
-            align-items: center;
-            justify-content: center;
-            box-sizing: border-box;
-            z-index: 11;
-        }
-
-        @keyframes badge-pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.15); box-shadow: 0 0 10px rgba(255, 59, 48, 0.6); }
-            100% { transform: scale(1); }
-        }
-
-        .badge-pulse-anim {
-            animation: badge-pulse 0.5s ease-in-out 2;
-        }
-
-        /* --- ТВОЙ CSS: ВТОРОЙ РЯД --- */
-        .row-two-grid {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; 
-            gap: 10px; 
-            height: 110px; 
-            width: 100%;
-            margin-top: -30px; 
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .schedule-box {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            padding: 0 !important;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            cursor: pointer;
-            width: 100%;
-            height: 100%;
-            min-width: 0;
-            box-sizing: border-box;
-            position: relative; 
-            z-index: 2;
-        }
-
-        .schedule-box:active {
-            transform: scale(0.96);
-        }
-
-        .schedule-box .schedule-title {
-            color: #ffd700;
-            font-weight: 900;
-            font-size: 15px;
-            text-transform: uppercase;
-            margin-bottom: 2px;
-            line-height: 1.1;
-            letter-spacing: 0.5px;
-            text-shadow: 0 0 8px rgba(255, 215, 0, 0.4); 
-        }
-
-        /* Баланс, Аватар, Бургер */
+        /* ПРАВАЯ ГРУППА */
         .header-right-group { display: flex; align-items: center; gap: 6px; }
         .balance-pill { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s; width: auto; min-width: max-content; white-space: nowrap; }
         .balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
@@ -169,17 +102,15 @@
         .refresh-icon-wrapper { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
         #refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
         .balance-pill:active #refresh-icon { color: #fff; }
-        .user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; background: #2c2c2e; }
-
-        /* Бургер */
-        .glass-burger { width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; outline: none; }
-        .glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; }
+        .user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+        .glass-burger { width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); padding: 0; }
+        .glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
         .glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
 
-        /* Боковое меню */
+        /* БОКОВОЕ МЕНЮ */
         .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
-        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 65px) 25px 25px 25px; box-sizing: border-box; display: flex; flex-direction: column; }
+        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 65px) 25px 25px 25px; box-sizing: border-box; display: flex; flex-direction: column; }
         .side-menu-overlay.active .side-menu-content { right: 0; }
         .side-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-top: 10px; }
         .icon-btn { background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; outline: none; }
@@ -187,12 +118,13 @@
         .side-nav a { display: flex; align-items: center; gap: 15px; color: var(--text-primary); text-decoration: none; font-size: 16px; font-weight: 600; padding: 15px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
         .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
 
-        /* МОДАЛКИ (КУПОНЫ, FAQ, ALERTS) */
-        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 10002; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
+        /* МОДАЛКИ УНИВЕРСАЛЬНЫЕ */
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
         .modal:not(.hidden) { opacity: 1; visibility: visible; }
-        .modal-content { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.7); padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative; z-index: 10000;}
+        .modal.visible { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; }
+        .modal-content { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.7); padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative; z-index: 10000; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        
+
         .custom-confirm-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 90000; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: 0.2s; }
         .custom-confirm-overlay.visible { opacity: 1; visibility: visible; pointer-events: auto; }
         .custom-confirm-box { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; width: 85%; max-width: 320px; text-align: center; transform: scale(0.9); transition: 0.2s; }
@@ -213,7 +145,7 @@
     `;
 
     // ==========================================
-    // 2. HTML ШАПКИ, МЕНЮ И КУПОНОВ
+    // 2. HTML ШАПКИ И БОКОВОГО МЕНЮ
     // ==========================================
     const navHtml = `
         <div id="side-menu-overlay" class="side-menu-overlay">
@@ -236,8 +168,8 @@
             </div>
         </div>
 
-        <!-- МОДАЛКА КУПОНОВ (ВШИТО) -->
-        <div id="coupon-modal" class="modal hidden">
+        <!-- МОДАЛКА КУПОНОВ -->
+        <div id="coupon-modal" class="modal hidden" style="z-index: 10002;">
             <div class="modal-content" style="text-align: center; max-width: 320px;">
                 <div class="modal-header">
                     <h3 style="margin: 0; color: #fff;">Активация</h3>
@@ -266,11 +198,11 @@
             </div>
         </div>
 
-        <header class="top-header">
+        <!-- САМА ШАПКА -->
+        <header class="top-header" id="universal-top-header">
             <div class="logo-wrapper">
                 <div id="logo-notification-btn" class="logo-btn-container" onclick="if(typeof openNotificationsHistory === 'function') openNotificationsHistory()">
                     <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
-                    
                     <div class="bell-overlay">
                         <i class="fa-solid fa-bell"></i>
                         <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
@@ -308,7 +240,7 @@
     // 3. ЛОГИКА ВНЕДРЕНИЯ И ДЕТЕКТОРОВ
     // ==========================================
     function initTopNav() {
-        if (document.getElementById('side-menu-overlay')) return; 
+        if (document.getElementById('universal-top-header')) return; // Защита от дублей
 
         // Внедряем CSS
         const styleEl = document.createElement('style');
@@ -352,10 +284,11 @@
             }
         } catch(e){}
 
-        // Запускаем детектор
+        // Запускаем детектор платформы
         detectPlatforms();
 
         // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА И УВЕДОМЛЕНИЙ ПРИ СТАРТЕ 🔥
+        // Ждем Telegram initData, чтобы не словить 422
         const tryLoadData = () => {
             if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
                 setTimeout(tryLoadData, 100);
@@ -398,6 +331,7 @@
         }
     }
 
+    // Запускаем внедрение
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initTopNav);
     } else {
@@ -405,7 +339,7 @@
     }
 
     // ==========================================
-    // 4. ГЛОБАЛЬНЫЕ ФУНКЦИИ (МОДАЛКИ, БАЛАНС, КУПОНЫ, FAQ)
+    // 4. ГЛОБАЛЬНЫЕ ФУНКЦИИ (МОДАЛКИ, БАЛАНС)
     // ==========================================
 
     window.showShopModal = function({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
@@ -453,22 +387,23 @@
         });
     };
 
-    // Уведомления 
+    // 🔥 АВТОМАТИЧЕСКАЯ ПОДСВЕТКА КОЛОКОЛЬЧИКА 🔥
     window.updateNotificationBadgeUI = function(count) {
         const badge = document.getElementById('logo-notification-badge');
         const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); 
         if (!badge) return;
+        
         if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
             badge.classList.remove('hidden');
             if (bellIcon) {
-                bellIcon.style.color = '#ffd700';
+                bellIcon.style.color = '#ffd700'; // Загорается желтым
                 bellIcon.style.textShadow = '0 0 8px rgba(255, 215, 0, 0.4)';
             }
         } else {
             badge.classList.add('hidden');
             if (bellIcon) {
-                bellIcon.style.color = '';
+                bellIcon.style.color = '#8e8e93'; // Возвращается в серый
                 bellIcon.style.textShadow = 'none';
             }
         }
@@ -480,9 +415,11 @@
         const badge = document.getElementById('logo-notification-badge');
         if (!badge) return;
         const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); 
+        
         try {
-            if(typeof window.makeApiRequest !== 'function') return;
+            if (typeof window.makeApiRequest !== 'function') return;
             const res = await window.makeApiRequest('/api/v1/notifications', {}, 'GET', true);
+            
             if (res && res.unread_count > 0) {
                 badge.textContent = res.unread_count > 99 ? '99+' : res.unread_count;
                 badge.classList.remove('hidden');
@@ -493,13 +430,11 @@
             } else {
                 badge.classList.add('hidden');
                 if (bellIcon) {
-                    bellIcon.style.color = '';
+                    bellIcon.style.color = '#8e8e93';
                     bellIcon.style.textShadow = 'none';
                 }
             }
-        } catch (e) {
-            console.warn("Не удалось загрузить бейдж", e);
-        }
+        } catch (e) {}
     };
 
     // Баланс
@@ -528,7 +463,6 @@
                 window.renderBalanceUI(data.balance, data.tickets);
             }
         } catch (err) {
-            console.warn("[SHOP BALANCE] Фоновое обновление прервано:", err.message);
         } finally { 
             setTimeout(() => { 
                 isBalanceLoading = false; 
@@ -597,21 +531,17 @@
             if (res.valid) {
                 window.customAlert("✅ " + res.message);
                 window.closeCouponModal();
-                
                 if (!window.activeFreeCases) window.activeFreeCases = [];
                 if (res.target_case_name && !window.activeFreeCases.includes(res.target_case_name)) {
                     window.activeFreeCases.push(res.target_case_name);
                 }
-                
                 const shopTab = document.querySelector('.toggle-option[data-target="view-shop"]');
                 if (shopTab) shopTab.click();
-                
                 if(typeof window.loadCategory === 'function') window.loadCategory(window.currentCategoryId || 2716312); 
             } else {
                 window.customAlert("❌ " + res.message);
             }
         } catch (e) {
-            console.error("Ошибка активации:", e);
         } finally {
             if(btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
         }
