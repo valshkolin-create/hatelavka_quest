@@ -8,7 +8,6 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   
   <script>
-
     // Предварительная загрузка данных, пока грузится основной тяжелый JS
     window.bootstrapPromise = fetch('/api/v1/bootstrap', {
         method: 'POST',
@@ -36,6 +35,9 @@
   </script>
   <link rel="stylesheet" href="/fontawesome/css/all.min.css" />
   <link rel="stylesheet" href="/quests.css?v=2" />
+  
+  <!-- 🔥 ПОДКЛЮЧАЕМ ИДЕАЛЬНЫЙ ВЕРХНИЙ БАР И МЕНЮ 🔥 -->
+  <script src="/top_nav.js" defer></script>
 </head>
 <body>
   
@@ -47,23 +49,11 @@
     </div>
   </div>
 
+  <!-- Старая панель .user-profile полностью удалена отсюда -->
   <main id="main-content" class="main-content">
     
     <div id="pull-to-refresh">
         <i class="fa-solid fa-rotate-right"></i> 
-    </div>
-
-    <div class="user-profile" style="margin-bottom: 20px;">
-        <div class="user-info">
-          <div id="fullName" class="user-name">Загрузка...</div>
-        </div>
-        <div class="stats-block">
-          <div class="stats-item tickets-item">
-              <span id="ticketStats" class="stats-text">0</span>
-              <div class="stats-icon stats-icon-star"><i class="fa-solid fa-ticket"></i></div>
-              <i class="fa-solid fa-circle-question info-question-icon" id="info-question-icon"></i>
-          </div>
-        </div>
     </div>
 
     <h2 class="page-title" style="grid-column: 1 / -1; margin-bottom: 5px;">
@@ -114,7 +104,9 @@
             <div id="active-automatic-quest-container" style="width: 100%; margin-top: 5px;"></div>
         </div>
 
-    </div> <div id="section-manual-quests" class="hidden" style="grid-column: 1 / -1; width: 100%;">
+    </div> 
+    
+    <div id="section-manual-quests" class="hidden" style="grid-column: 1 / -1; width: 100%;">
         <div style="text-align: center; margin-bottom: 15px; color: #ffcc00; font-size: 13px; font-weight: 600;">
              📝 Список доступных заданий
         </div>
