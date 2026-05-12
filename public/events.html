@@ -205,22 +205,22 @@
     .shop-arrow { color: var(--text-secondary); font-size: 12px; }
 
     /* МОДАЛКА */
-    .modal-overlay {
+.modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: var(--tg-viewport-height, 100vh); /* 🔥 Точная высота под Telegram */
     background: rgba(0, 0, 0, 0.8);
-    z-index: 9999; /* Поверх всего */
-    display: flex; /* Включаем Flexbox */
-    align-items: center; /* Центрируем по вертикали */
-    justify-content: center; /* Центрируем по горизонтали */
+    z-index: 9999; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
-    padding: 20px; /* Отступ от краев экрана, чтобы не прилипало */
-    box-sizing: border-box; /* Учитываем отступы в размере */
+    padding: 20px; 
+    box-sizing: border-box; 
 }
 
 .modal-overlay.visible {
@@ -660,7 +660,7 @@
     <div class="shop-arrow"><i class="fa-solid fa-chevron-right"></i></div>
   </div>
 
-  <div class="free-ticket-section">
+ <div class="free-ticket-section">
     <div>
         <span class="free-ticket-title">Ежедневный билет</span>
         <span class="free-ticket-text" id="ticket-subtitle">Бесплатно раз в 24ч</span>
@@ -668,52 +668,54 @@
     <div id="free-ticket-container"></div>
   </div>
 
-  <div id="shop-modal" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">
-            <div class="shop-tabs">
-                <button class="tab-btn active" id="tab-tickets" onclick="switchTab('tickets')">Билеты</button>
-                <button class="tab-btn" id="tab-promos" onclick="switchTab('promos')">Монеты</button>
-            </div>
-            <button class="modal-close-btn" onclick="closeShopModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="shop-grid" id="shop-container"></div>
-        </div>
-    </div>
+</main> <!-- ЗАКРЫВАЕМ MAIN ЗДЕСЬ -->
+
+<!-- 🔥 ВЫНЕСЛИ МОДАЛКИ СЮДА, НАПРЯМУЮ В BODY 🔥 -->
+<div id="shop-modal" class="modal-overlay">
+  <div class="modal-content">
+      <div class="modal-header">
+          <div class="shop-tabs">
+              <button class="tab-btn active" id="tab-tickets" onclick="switchTab('tickets')">Билеты</button>
+              <button class="tab-btn" id="tab-promos" onclick="switchTab('promos')">Монеты</button>
+          </div>
+          <button class="modal-close-btn" onclick="closeShopModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+          <div class="shop-grid" id="shop-container"></div>
+      </div>
   </div>
-
-  <div id="success-modal" class="modal-overlay">
-    <div class="success-modal-content">
-        <div class="success-icon-box">
-            <i class="fa-solid fa-check"></i>
-        </div>
-        <div class="success-title-text">Успешно!</div>
-        <div class="success-desc-text" id="success-message">
-            Покупка совершена. (зачисление может занять до минуты)
-        </div>
-        
-        <div id="success-promo-container" class="promo-copy-box" style="display: none;">
-            <span class="promo-label">Ваш код (нажмите чтобы скопировать):</span>
-            <span class="promo-value" id="success-promo-code" onclick="copyPromo(this)">CODE123</span>
-        </div>
-
-        <div id="promo-instruction-block" style="display: none;">
-            <span class="saved-in-profile-text">
-                <i class="fa-solid fa-floppy-disk"></i> Код также сохранен в вашем профиле
-            </span>
-            <button class="reward-how-to-use-btn" onclick="openHowToUsePopup()">
-                <i class="fa-solid fa-circle-question"></i> Как использовать?
-            </button>
-        </div>
-        <button class="btn-close-success" onclick="closeSuccessModal()">Закрыть</button>
-    </div>
 </div>
-  </main>
 
-  <!-- 🔥 НИЖНИЙ И ВЕРХНИЙ БАР 🔥 -->
-  <script src="/top_nav.js" defer></script>
-  <script src="/bottom-nav.js"></script>
+<div id="success-modal" class="modal-overlay">
+  <div class="success-modal-content">
+      <div class="success-icon-box">
+          <i class="fa-solid fa-check"></i>
+      </div>
+      <div class="success-title-text">Успешно!</div>
+      <div class="success-desc-text" id="success-message">
+          Покупка совершена. (зачисление может занять до минуты)
+      </div>
+      
+      <div id="success-promo-container" class="promo-copy-box" style="display: none;">
+          <span class="promo-label">Ваш код (нажмите чтобы скопировать):</span>
+          <span class="promo-value" id="success-promo-code" onclick="copyPromo(this)">CODE123</span>
+      </div>
+
+      <div id="promo-instruction-block" style="display: none;">
+          <span class="saved-in-profile-text">
+              <i class="fa-solid fa-floppy-disk"></i> Код также сохранен в вашем профиле
+          </span>
+          <button class="reward-how-to-use-btn" onclick="openHowToUsePopup()">
+              <i class="fa-solid fa-circle-question"></i> Как использовать?
+          </button>
+      </div>
+      <button class="btn-close-success" onclick="closeSuccessModal()">Закрыть</button>
+  </div>
+</div>
+
+<!-- НИЖНИЙ И ВЕРХНИЙ БАР -->
+<script src="/top_nav.js" defer></script>
+<script src="/bottom-nav.js"></script>
 
 <div id="how-to-use-popup" class="modal-overlay">
     <div class="custom-popup">
