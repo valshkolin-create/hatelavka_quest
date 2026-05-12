@@ -40,39 +40,123 @@
         .logo-title { font-size: 13px; font-weight: 900; color: #fff; line-height: 1; text-transform: uppercase; letter-spacing: 0.3px; }
         .logo-subtitle { font-size: 7px; color: rgba(255, 255, 255, 0.4); font-weight: 800; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* ЛОГОТИП-УВЕДОМЛЕНИЕ */
+        /* ==========================================
+           ТВОЙ CSS: ЛОГОТИП-УВЕДОМЛЕНИЕ (ИН-АПП)
+        ========================================== */
         .logo-btn-container {
-            position: relative; display: inline-flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1); width: 28px; height: 28px;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+            width: 28px; 
+            height: 28px;
         }
-        .logo-btn-container:active { transform: scale(0.9); }
-        
-        /* 🔥 ИСПРАВЛЕННЫЙ КОЛОКОЛЬЧИК (БЕЗ КРУГА, СПРАВА) */
-        .bell-wrapper { 
-            position: absolute; 
-            top: 2px; 
-            right: -12px; /* Сдвигаем вправо за логотип */
+
+        .logo-btn-container:active {
+            transform: scale(0.9);
+        }
+
+        .notif-badge-logo {
+            position: absolute;
+            top: -4px;
+            right: -8px;
+            background: #ff3b30;
+            color: white;
+            font-size: 9px;
+            font-weight: 800;
+            height: 16px;
+            min-width: 16px;
+            padding: 0 4px;
+            border-radius: 8px;
+            border: 2px solid var(--bg-main); /* Используем твою переменную фона */
+            box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5);
             display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            z-index: 10; 
-            pointer-events: none; 
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            z-index: 11;
         }
-        .bell-wrapper i { 
-            font-size: 14px; /* Чуть больше, т.к. нет фона */
-            color: #ffd700; 
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+
+        @keyframes badge-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); box-shadow: 0 0 10px rgba(255, 59, 48, 0.6); }
+            100% { transform: scale(1); }
+        }
+
+        .badge-pulse-anim {
+            animation: badge-pulse 0.5s ease-in-out 2;
+        }
+
+        /* КОЛОКОЛЬЧИК (Без круга, сдвинут вправо) */
+        .bell-overlay {
+            position: absolute;
+            top: 2px;
+            right: -10px; /* Сдвигаем колокольчик вправо от логотипа */
+            width: 18px;
+            height: 18px;
+            /* Фон и рамка убраны, чтобы не было кружочка */
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .bell-overlay i {
+            font-size: 14px; /* Чуть увеличили, так как нет круга */
+            color: #ffd700;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
             transition: color 0.3s, text-shadow 0.3s;
         }
-        
-        .notif-badge-logo { 
-            position: absolute; 
-            top: -6px; 
-            right: -8px; /* Позиционируем относительно самого колокольчика */
-            background: #ff3b30; color: white; font-size: 9px; font-weight: 800; 
-            height: 16px; min-width: 16px; padding: 0 4px; border-radius: 8px; border: 2px solid var(--bg-main); 
-            box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5); display: flex; align-items: center; justify-content: center; 
-            box-sizing: border-box; z-index: 11; 
+
+        /* --- ТВОЙ CSS: ВТОРОЙ РЯД --- */
+        .row-two-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; 
+            gap: 10px; 
+            height: 110px; 
+            width: 100%;
+            margin-top: -30px; 
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .schedule-box {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            position: relative; 
+            z-index: 2;
+        }
+
+        .schedule-box:active {
+            transform: scale(0.96);
+        }
+
+        .schedule-box .schedule-title {
+            color: #ffd700;
+            font-weight: 900;
+            font-size: 15px;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+            line-height: 1.1;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.4); 
         }
 
         /* Баланс, Аватар, Бургер */
@@ -185,7 +269,8 @@
             <div class="logo-wrapper">
                 <div id="logo-notification-btn" class="logo-btn-container" onclick="if(typeof openNotificationsHistory === 'function') openNotificationsHistory()">
                     <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
-                    <div class="bell-wrapper">
+                    <!-- Заменили класс на bell-overlay из твоего CSS -->
+                    <div class="bell-overlay">
                         <i class="fa-solid fa-bell"></i>
                         <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
                     </div>
@@ -270,7 +355,7 @@
         detectPlatforms();
 
         // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА И УВЕДОМЛЕНИЙ ПРИ СТАРТЕ 🔥
-        // Чтобы не ловить 422 ошибки, скрипт подождет данные телеграма:
+        // Защита от 422 ошибки
         const tryLoadData = () => {
             if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
                 setTimeout(tryLoadData, 100);
@@ -323,7 +408,6 @@
     // 4. ГЛОБАЛЬНЫЕ ФУНКЦИИ (МОДАЛКИ, БАЛАНС, КУПОНЫ, FAQ)
     // ==========================================
 
-    // Глобальная функция создания окон
     window.showShopModal = function({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
         const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
         const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
@@ -369,10 +453,10 @@
         });
     };
 
-    // Уведомления
+    // Уведомления (Используем твой .bell-overlay)
     window.updateNotificationBadgeUI = function(count) {
         const badge = document.getElementById('logo-notification-badge');
-        const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
+        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); // Заменили класс
         if (!badge) return;
         if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
@@ -391,12 +475,12 @@
     };
 
     window.fetchNotificationsBadge = async function() {
-        // 🔥 ЗАЩИТА ОТ 422 ОШИБКИ: ждем пока телеграм отдаст initData 🔥
+        // Защита от 422 ошибки
         if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return;
 
         const badge = document.getElementById('logo-notification-badge');
         if (!badge) return;
-        const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
+        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); // Заменили класс
         try {
             if(typeof window.makeApiRequest !== 'function') return;
             const res = await window.makeApiRequest('/api/v1/notifications', {}, 'GET', true);
@@ -422,7 +506,7 @@
     // Баланс
     let isBalanceLoading = false;
     window.checkBalance = async function(updateUI = true) {
-        // 🔥 ЗАЩИТА ОТ 422 ОШИБКИ 🔥
+        // Защита от 422 ошибки
         if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return Promise.resolve();
 
         if (isBalanceLoading) return Promise.resolve();
