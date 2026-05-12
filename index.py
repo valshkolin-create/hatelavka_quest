@@ -12529,6 +12529,9 @@ async def activate_referral_bonus(
 
                 # Если нашли реального пользователя
                 if real_referrer_id:
+                    # Приводим к int, чтобы избежать бага сравнения (число != строка)
+                    real_referrer_id = int(real_referrer_id)
+
                     # Защита: нельзя пригласить самого себя
                     if real_referrer_id != user_id:
                         final_referrer_id = real_referrer_id
@@ -12543,6 +12546,11 @@ async def activate_referral_bonus(
 
                     else:
                         logging.warning("[REFERRAL_ACTIVATE] Попытка само-реферальства")
+                        # ЖЕСТКАЯ БЛОКИРОВКА: Прерываем функцию
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="Нельзя использовать свой собственный реферальный код!"
+                        )
                 else:
                     logging.warning(f"[REFERRAL_ACTIVATE] Реферер {incoming_id} не найден.")
 
