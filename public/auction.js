@@ -52,15 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 1. Настраиваем HTML кнопку
-    const headerBackBtn = document.getElementById('header-back-btn');
-    if (headerBackBtn) {
-        headerBackBtn.addEventListener('click', (e) => {
-            e.preventDefault(); // Отменяем переход по ссылке #
-            goBack();
-        });
-    }
-
     // 2. Настраиваем нативную кнопку Telegram (в шапке)
     if (tg.BackButton) {
         tg.BackButton.show();
