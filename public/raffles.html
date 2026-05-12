@@ -24,20 +24,24 @@
             background: var(--bg);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            position: fixed; /* Фиксируем body */
-            overflow: hidden; /* Убираем скролл body */
+            position: fixed; 
+            overflow: hidden; 
             overscroll-behavior-y: none;
             -webkit-tap-highlight-color: transparent;
+            /* 🔥 ДОБАВЛЕНО: Делаем страницу гибкой для новой шапки */
+            display: flex;
+            flex-direction: column;
         }
 
         /* === КОНТЕЙНЕР ДЛЯ СКРОЛЛА === */
         #main-content {
-            height: 100vh;
-            overflow-y: auto !important; /* Скролл здесь */
+            height: 100%; /* 🔥 Убрали vh, теперь 100% */
+            flex: 1; /* 🔥 Заставляет блок занять ровно остаток экрана под шапкой */
+            overflow-y: auto !important; 
             -webkit-overflow-scrolling: touch;
             box-sizing: border-box;
-            padding: 16px;
-            padding-bottom: 120px; /* Отступ под футер */
+            /* 🔥 ИЗМЕНЕНО: Отступ сверху 0, по бокам 16px, снизу 120px */
+            padding: 0px 16px 120px 16px; 
         }
 
         /* === PULL TO REFRESH СТИЛИ === */
@@ -66,7 +70,7 @@
             text-shadow: 0 0 15px rgba(36, 129, 204, 0.6);
         }
         
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0 20px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin: 0px 0 20px; }
         h1 { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
         
         .history-btn { 
