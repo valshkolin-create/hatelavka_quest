@@ -14,45 +14,23 @@
             --primary-color: #ffd700;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-        /* ФУЛЛСКРИН ФИКС (С УЧЕТОМ ТЕЛЕГРАМА) */
         html, body {
-            width: 100vw;
-            height: 100vh;
-            height: var(--tg-viewport-height, 100vh); 
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            overflow: hidden;
-            background-color: var(--bg-main);
-            color: var(--text-primary);
+            width: 100vw; height: 100vh; height: var(--tg-viewport-height, 100vh); 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            overflow: hidden; background-color: var(--bg-main); color: var(--text-primary);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow-x: hidden;
-            overscroll-behavior-x: none !important;
+            overflow-x: hidden; overscroll-behavior-x: none !important;
         }
 
         .hidden { display: none !important; }
 
-        /* ==========================================
-           ШАПКА (ОСТАЕТСЯ НАВЕРХУ)
-        ========================================== */
+        /* ШАПКА */
         .top-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 16px; 
-            
-            /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛОК (iPhone/Android): Учитывает челку + 55px */
+            display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; 
             padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
-            
-            margin-bottom: 5px !important; 
-            position: relative;
-            z-index: 100;
+            margin-bottom: 5px !important; position: relative; z-index: 100;
         }
 
         /* Логотип + Текст */
@@ -64,72 +42,59 @@
 
         /* ЛОГОТИП-УВЕДОМЛЕНИЕ */
         .logo-btn-container {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-            width: 28px; 
-            height: 28px;
+            position: relative; display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1); width: 28px; height: 28px;
         }
         .logo-btn-container:active { transform: scale(0.9); }
         
-        .bell-wrapper { position: absolute; top: -2px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: #1c1c1e; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.5); border: 1px solid rgba(255, 255, 255, 0.1); z-index: 10; pointer-events: none; }
-        .bell-wrapper i { font-size: 9px; color: #ffd700; }
+        /* 🔥 ИСПРАВЛЕННЫЙ КОЛОКОЛЬЧИК (БЕЗ КРУГА, СПРАВА) */
+        .bell-wrapper { 
+            position: absolute; 
+            top: 2px; 
+            right: -12px; /* Сдвигаем вправо за логотип */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 10; 
+            pointer-events: none; 
+        }
+        .bell-wrapper i { 
+            font-size: 14px; /* Чуть больше, т.к. нет фона */
+            color: #ffd700; 
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+            transition: color 0.3s, text-shadow 0.3s;
+        }
         
         .notif-badge-logo { 
-            position: absolute; top: -4px; right: -8px; background: #ff3b30; color: white; font-size: 9px; font-weight: 800; 
+            position: absolute; 
+            top: -6px; 
+            right: -8px; /* Позиционируем относительно самого колокольчика */
+            background: #ff3b30; color: white; font-size: 9px; font-weight: 800; 
             height: 16px; min-width: 16px; padding: 0 4px; border-radius: 8px; border: 2px solid var(--bg-main); 
             box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5); display: flex; align-items: center; justify-content: center; 
             box-sizing: border-box; z-index: 11; 
         }
 
-        /* ПРАВАЯ ГРУППА: Баланс, Аватар, Бургер */
+        /* Баланс, Аватар, Бургер */
         .header-right-group { display: flex; align-items: center; gap: 6px; }
-
-        .balance-pill {
-            background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px;
-            padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s;
-            width: auto; min-width: max-content; white-space: nowrap;
-        }
+        .balance-pill { background: rgba(30, 30, 32, 0.5); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 3px 4px 3px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s; width: auto; min-width: max-content; white-space: nowrap; }
         .balance-pill:active { transform: scale(0.96); background: rgba(40, 40, 42, 0.7); }
         .balance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
         .balance-row { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; line-height: 1; color: #fff; font-family: 'SF Mono', 'Roboto Mono', monospace; }
         .refresh-icon-wrapper { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
         #refresh-icon { font-size: 9px; color: #8E8E93; transition: color 0.2s; }
         .balance-pill:active #refresh-icon { color: #fff; }
+        .user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; background: #2c2c2e; }
 
-        .user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
-
-        /* БУРГЕР */
-        .glass-burger {
-            width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s, background 0.2s; padding: 0; outline: none;
-        }
-        .glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
+        /* Бургер */
+        .glass-burger { width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; outline: none; }
+        .glass-burger span { display: block; width: 12px; height: 1.5px; background-color: rgba(255, 255, 255, 0.85); border-radius: 2px; }
         .glass-burger:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
 
-        /* ==========================================
-           БОКОВОЕ МЕНЮ (ФУЛЛСКРИН + СИЛЬНЫЙ БЛЮР)
-        ========================================== */
+        /* Боковое меню */
         .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
-
-        .side-menu-content { 
-            position: absolute; top: 0; 
-            right: -100%; 
-            width: 100%;  
-            height: 100%; 
-            background: rgba(28, 28, 30, 0.75); 
-            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); 
-            transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); 
-            padding: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 65px) 25px 25px 25px; 
-            box-sizing: border-box; display: flex; flex-direction: column;
-        }
+        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 65px) 25px 25px 25px; box-sizing: border-box; display: flex; flex-direction: column; }
         .side-menu-overlay.active .side-menu-content { right: 0; }
         .side-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-top: 10px; }
         .icon-btn { background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; outline: none; }
@@ -160,12 +125,6 @@
         body.desktop-platform .top-header { padding-top: 15px !important; margin-bottom: 5px !important; }
         @media (min-width: 768px) { body { max-width: 480px; margin: 0 auto; border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); position: relative; } }
         html.vk-mode, html.vk-mode body { position: fixed !important; overflow: hidden !important; background-color: #000; }
-        
-        .p2p-input { width: 100%; background: #2c2c2e; border: 1px solid rgba(255,255,255,0.05); color: #fff; padding: 14px 16px; border-radius: 14px; font-size: 16px; outline: none; appearance: none; -webkit-appearance: none; box-sizing: border-box; }
-        .btn-buy { background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; }
-        
-        /* Стили для уведомлений внутри модалки */
-        .notif-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 32px 20px 10px; margin-bottom: 4px; border-radius: 12px; background: #232325; position: relative; box-sizing: border-box; width: 100%; text-align: left; }
     `;
 
     // ==========================================
@@ -183,8 +142,8 @@
                     <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
                     <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
                     <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки</a>
-                    <a href="#" onclick="window.showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
-                    <a href="#" onclick="window.openCouponModal(); return false;">
+                    <a href="#" onclick="if(typeof showFaq === 'function') showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
+                    <a href="#" onclick="if(typeof openCouponModal === 'function') openCouponModal(); return false;">
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
                     </a>
                     <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
@@ -197,7 +156,7 @@
             <div class="modal-content" style="text-align: center; max-width: 320px;">
                 <div class="modal-header">
                     <h3 style="margin: 0; color: #fff;">Активация</h3>
-                    <button onclick="window.closeCouponModal()" class="icon-btn" style="font-size: 20px;"><i class="fa-solid fa-xmark"></i></button>
+                    <button onclick="closeCouponModal()" class="icon-btn" style="font-size: 20px;"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 
                 <div style="font-size: 45px; margin: 10px 0; animation: pulse 2s infinite;">🎟️</div>
@@ -209,14 +168,14 @@
                     <input type="text" id="coupon-input" placeholder="КОД" autocapitalize="off" spellcheck="false"
                            style="width: 100%; background: #2c2c2e; border: 1px solid rgba(255,255,255,0.05); color: #fff; padding: 14px 45px 14px 16px; border-radius: 14px; font-weight: 700; font-size: 14px; text-align: center; letter-spacing: 2px; height: 44px; outline: none; box-sizing: border-box;">
                     
-                    <button onclick="window.pasteCoupon()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.05); border: none; color: #8e8e93; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <button onclick="pasteCoupon()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.05); border: none; color: #8e8e93; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <i class="fa-solid fa-paste" style="font-size: 12px;"></i>
                     </button>
                 </div>
                 
                 <button id="activate-coupon-btn" class="confirm-btn btn-buy" 
-                        style="height: 44px; font-size: 13px; background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); color: #fff; border-radius: 10px; width: 100%;" 
-                        onclick="window.activateCouponSubmit()">
+                        style="height: 44px; font-size: 13px; background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); color: #fff; border-radius: 10px;" 
+                        onclick="activateCouponSubmit()">
                     Активировать
                 </button>
             </div>
@@ -224,15 +183,12 @@
 
         <header class="top-header">
             <div class="logo-wrapper">
-                <div id="logo-notification-btn" class="logo-btn-container" onclick="window.openNotificationsHistory()">
+                <div id="logo-notification-btn" class="logo-btn-container" onclick="if(typeof openNotificationsHistory === 'function') openNotificationsHistory()">
                     <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
-                    
                     <div class="bell-wrapper">
                         <i class="fa-solid fa-bell"></i>
+                        <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
                     </div>
-                    <!-- БЕЙДЖ ТУТ (сразу после bell-wrapper) -->
-                    <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
-                    
                 </div>
                 <div class="logo-text">
                     <span class="logo-title">HATElavka</span>
@@ -245,7 +201,7 @@
             </div>
 
             <div class="header-right-group">
-                <div class="balance-pill" onclick="window.checkBalance(true)">
+                <div class="balance-pill" onclick="if(typeof checkBalance === 'function') checkBalance(true)">
                     <div class="balance-col">
                         <div class="balance-row"><span id="user-balance">0</span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i></div>
                         <div class="balance-row"><span id="ticketStats">0</span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i></div>
@@ -314,10 +270,16 @@
         detectPlatforms();
 
         // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА И УВЕДОМЛЕНИЙ ПРИ СТАРТЕ 🔥
-        setTimeout(() => {
+        // Чтобы не ловить 422 ошибки, скрипт подождет данные телеграма:
+        const tryLoadData = () => {
+            if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
+                setTimeout(tryLoadData, 100);
+                return;
+            }
             if (typeof window.checkBalance === 'function') window.checkBalance(true);
             if (typeof window.fetchNotificationsBadge === 'function') window.fetchNotificationsBadge();
-        }, 300);
+        };
+        setTimeout(tryLoadData, 300);
     }
 
     function detectPlatforms() {
@@ -358,9 +320,10 @@
     }
 
     // ==========================================
-    // 4. ГЛОБАЛЬНЫЕ ФУНКЦИИ (МОДАЛКИ, БАЛАНС, КУПОНЫ, FAQ, УВЕДОМЛЕНИЯ)
+    // 4. ГЛОБАЛЬНЫЕ ФУНКЦИИ (МОДАЛКИ, БАЛАНС, КУПОНЫ, FAQ)
     // ==========================================
 
+    // Глобальная функция создания окон
     window.showShopModal = function({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
         const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
         const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
@@ -406,89 +369,7 @@
         });
     };
 
-    // --- УВЕДОМЛЕНИЯ ---
-    window.openNotificationsHistory = async function() {
-        const badge = document.getElementById('logo-notification-badge');
-        if (badge) badge.classList.add('hidden'); 
-        
-        const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
-        if (bellIcon) {
-            bellIcon.style.color = '';
-            bellIcon.style.textShadow = 'none';
-        }
-
-        window.showShopModal({
-            title: "🔔 Уведомления",
-            subtitle: '<div style="text-align:center; padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px; color:#ffd700;"></i><br><br>Загрузка истории...</div>',
-            confirmText: "Закрыть",
-            confirmClass: "btn-cancel-modal",
-            showCancel: false,
-            onConfirm: (close) => close()
-        });
-
-        try {
-            if(typeof window.makeApiRequest !== 'function') throw new Error("makeApiRequest not found");
-            const res = await window.makeApiRequest('/api/v1/notifications', {}, 'GET', true);
-            const notifs = res.notifications || [];
-
-            let html = '<div style="max-height: 65vh; overflow-y: auto; padding-right: 6px; text-align: left; overflow-x: hidden; display: block; width: 100%; box-sizing: border-box;">';
-
-            if (notifs.length === 0) {
-                html += '<div style="text-align: center; color: #888; padding: 40px 10px;"><i class="fa-regular fa-bell-slash" style="font-size: 32px; margin-bottom: 12px; opacity: 0.4;"></i><br><span style="font-size: 12px; font-weight: 400;">Здесь пока пусто.</span><br><span style="font-size: 10px; opacity: 0.6;">Вся история начислений будет храниться тут.</span></div>';
-            } else {
-                notifs.forEach(n => {
-                    let icon = '<i class="fa-solid fa-bell" style="color: #8e8e93;"></i>';
-                    let iconBg = 'rgba(255, 255, 255, 0.05)';
-                    
-                    if (n.type === 'coins') { icon = '<i class="fa-solid fa-coins" style="color: #ffd700;"></i>'; iconBg = 'rgba(255, 215, 0, 0.1)'; }
-                    if (n.type === 'tickets') { icon = '<i class="fa-solid fa-ticket" style="color: #9146ff;"></i>'; iconBg = 'rgba(145, 70, 255, 0.1)'; }
-                    if (n.type === 'error') { icon = '<i class="fa-solid fa-circle-xmark" style="color: #ff3b30;"></i>'; iconBg = 'rgba(255, 59, 48, 0.1)'; }
-                    if (n.type === 'system' || n.type === 'success') { icon = '<i class="fa-solid fa-check" style="color: #34c759;"></i>'; iconBg = 'rgba(52, 199, 89, 0.1)'; }
-
-                    const dateObj = new Date(n.created_at);
-                    const timeStr = dateObj.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
-                    const dateStr = dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
-                    const unreadBorder = n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(255,215,0,0.3)';
-
-                    // Функция escapeHTML вшита прямо сюда на случай отсутствия
-                    const escapeStr = (s) => (typeof s === 'string') ? s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]) : s;
-
-                    html += `<div class="notif-item" style="border: 1px solid ${unreadBorder};">
-                        <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">
-                            ${icon}
-                        </div>
-                        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0; padding-bottom: 2px;">
-                            <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
-                                ${escapeStr(n.title)}
-                            </div>
-                            <div style="font-size: 11px; font-weight: 400; color: #aaa; line-height: 1.3; word-break: break-word; overflow-wrap: anywhere; white-space: normal; margin-bottom: 0;">
-                                ${escapeStr(n.message)}
-                            </div>
-                        </div>
-                        <div style="position: absolute; bottom: 4px; right: 10px; font-size: 9px; font-weight: 500; color: #666;">
-                            ${dateStr} в ${timeStr}
-                        </div>
-                        <div style="position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: flex; align-items: flex-start; justify-content: flex-end;" onclick="if(typeof deleteNotification === 'function') deleteNotification(event, '${n.id}')" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
-                            <i class="fa-solid fa-trash" style="color: #ff3b30; font-size: 12px;"></i>
-                        </div>
-                    </div>`;
-                });
-            }
-            html += '</div>';
-
-            const subtitleEl = document.querySelector('.custom-confirm-box .confirm-subtitle');
-            if (subtitleEl) subtitleEl.innerHTML = html;
-
-            if (notifs.some(n => !n.is_read)) {
-                await window.makeApiRequest('/api/v1/notifications/read', { user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id }, 'POST', true);
-            }
-
-        } catch (e) {
-            const subtitleEl = document.querySelector('.custom-confirm-box .confirm-subtitle');
-            if (subtitleEl) subtitleEl.innerHTML = '<div style="color:#ff3b30; text-align:center; padding:20px; font-size: 12px;">Не удалось загрузить историю.</div>';
-        }
-    };
-
+    // Уведомления
     window.updateNotificationBadgeUI = function(count) {
         const badge = document.getElementById('logo-notification-badge');
         const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
@@ -510,6 +391,9 @@
     };
 
     window.fetchNotificationsBadge = async function() {
+        // 🔥 ЗАЩИТА ОТ 422 ОШИБКИ: ждем пока телеграм отдаст initData 🔥
+        if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return;
+
         const badge = document.getElementById('logo-notification-badge');
         if (!badge) return;
         const bellIcon = document.querySelector('.bell-wrapper i.fa-bell');
@@ -535,9 +419,12 @@
         }
     };
 
-    // --- БАЛАНС ---
+    // Баланс
     let isBalanceLoading = false;
     window.checkBalance = async function(updateUI = true) {
+        // 🔥 ЗАЩИТА ОТ 422 ОШИБКИ 🔥
+        if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return Promise.resolve();
+
         if (isBalanceLoading) return Promise.resolve();
         isBalanceLoading = true;
         
@@ -588,7 +475,7 @@
         }
     };
 
-    // --- КУПОНЫ ---
+    // Купоны
     window.openCouponModal = () => {
         const m = document.getElementById('coupon-modal');
         if(m) m.classList.remove('hidden');
@@ -648,7 +535,7 @@
         }
     };
 
-    // --- FAQ ---
+    // FAQ
     window.showFaq = function() {
         const faqHtml = '<div style="text-align: left; font-size: 13px; line-height: 1.35; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">' +
             '<div>Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:</div><br>' +
