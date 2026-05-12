@@ -58,9 +58,33 @@
             transform: scale(0.9);
         }
 
+        /* КОЛОКОЛЬЧИК (Без круга, сдвинут вправо) */
+        .bell-overlay {
+            position: absolute;
+            top: 2px;
+            right: -14px; /* Сдвигаем колокольчик вправо от логотипа */
+            width: 18px;
+            height: 18px;
+            background: transparent !important; /* Жестко убиваем фон */
+            border: none !important; /* Убиваем бордер */
+            box-shadow: none !important; /* Убиваем тени */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .bell-overlay i {
+            font-size: 15px; /* Чуть увеличили */
+            color: #ffd700;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+
         .notif-badge-logo {
             position: absolute;
-            top: -4px;
+            top: -6px;
             right: -8px;
             background: #ff3b30;
             color: white;
@@ -70,7 +94,7 @@
             min-width: 16px;
             padding: 0 4px;
             border-radius: 8px;
-            border: 2px solid var(--bg-main); /* Используем твою переменную фона */
+            border: 2px solid var(--bg-main); 
             box-shadow: 0 2px 6px rgba(255, 59, 48, 0.5);
             display: flex; 
             align-items: center;
@@ -87,29 +111,6 @@
 
         .badge-pulse-anim {
             animation: badge-pulse 0.5s ease-in-out 2;
-        }
-
-        /* КОЛОКОЛЬЧИК (Без круга, сдвинут вправо) */
-        .bell-overlay {
-            position: absolute;
-            top: 2px;
-            right: -10px; /* Сдвигаем колокольчик вправо от логотипа */
-            width: 18px;
-            height: 18px;
-            /* Фон и рамка убраны, чтобы не было кружочка */
-            background: transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            pointer-events: none;
-        }
-
-        .bell-overlay i {
-            font-size: 14px; /* Чуть увеличили, так как нет круга */
-            color: #ffd700;
-            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
-            transition: color 0.3s, text-shadow 0.3s;
         }
 
         /* --- ТВОЙ CSS: ВТОРОЙ РЯД --- */
@@ -269,7 +270,7 @@
             <div class="logo-wrapper">
                 <div id="logo-notification-btn" class="logo-btn-container" onclick="if(typeof openNotificationsHistory === 'function') openNotificationsHistory()">
                     <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
-                    <!-- Заменили класс на bell-overlay из твоего CSS -->
+                    
                     <div class="bell-overlay">
                         <i class="fa-solid fa-bell"></i>
                         <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
@@ -355,7 +356,6 @@
         detectPlatforms();
 
         // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА И УВЕДОМЛЕНИЙ ПРИ СТАРТЕ 🔥
-        // Защита от 422 ошибки
         const tryLoadData = () => {
             if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
                 setTimeout(tryLoadData, 100);
@@ -453,10 +453,10 @@
         });
     };
 
-    // Уведомления (Используем твой .bell-overlay)
+    // Уведомления 
     window.updateNotificationBadgeUI = function(count) {
         const badge = document.getElementById('logo-notification-badge');
-        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); // Заменили класс
+        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); 
         if (!badge) return;
         if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
@@ -475,12 +475,11 @@
     };
 
     window.fetchNotificationsBadge = async function() {
-        // Защита от 422 ошибки
         if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return;
 
         const badge = document.getElementById('logo-notification-badge');
         if (!badge) return;
-        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); // Заменили класс
+        const bellIcon = document.querySelector('.bell-overlay i.fa-bell'); 
         try {
             if(typeof window.makeApiRequest !== 'function') return;
             const res = await window.makeApiRequest('/api/v1/notifications', {}, 'GET', true);
@@ -506,7 +505,6 @@
     // Баланс
     let isBalanceLoading = false;
     window.checkBalance = async function(updateUI = true) {
-        // Защита от 422 ошибки
         if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return Promise.resolve();
 
         if (isBalanceLoading) return Promise.resolve();
