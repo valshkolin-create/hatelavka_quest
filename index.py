@@ -23342,16 +23342,31 @@ async def withdraw_inventory_item(
         raise HTTPException(status_code=400, detail="Этот предмет нельзя вывести (уже продан или получен).")
 
     # ==========================================
-    # 🔥 СТАВИМ ЖЕЛЕЗОБЕТОННУЮ ПЛОМБУ В БД ДО ВЫСТРЕЛА 🔥
+    # 🔥 АТОМАРНАЯ ПЛОМБА В БД ДО ВЫСТРЕЛА 🔥
     # ==========================================
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Если юзер спамит дабл-кликами, второй клик увидит статус processing и убьется об проверку выше!
     if current_status in valid_for_withdraw:
-        await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-            "status": "processing",
-            "updated_at": now_iso
-        })
+        # Добавляем в params проверку текущего статуса!
+        patch_res = await supabase.patch(
+            "/cs_history", 
+            params={
+                "id": f"eq.{req.history_id}",
+                "status": f"eq.{current_status}" # 🔥 КРИТИЧЕСКИ ВАЖНО: Обновляем только если статус не изменился!
+            }, 
+            json={
+                "status": "processing",
+                "updated_at": now_iso
+            },
+            headers={"Prefer": "return=representation"} # Просим базу вернуть обновленную строку
+        )
+        
+        updated_rows = patch_res.json()
+        
+        # Если другой поток уже поменял статус на processing, база ничего не обновит и вернет пустой список
+        if not updated_rows or len(updated_rows) == 0:
+            logging.warning(f"[RACE CONDITION] Попытка двойного вывода остановлена для ID {req.history_id}")
+            raise HTTPException(status_code=400, detail="Этот предмет уже обрабатывается. Пожалуйста, подождите.")
     # ==========================================
 
     item_data = history_record.get('item') or {}
@@ -23629,12 +23644,24 @@ async def confirm_replacement(
     # 🔥 ГЕНЕРИРУЕМ ТЕКУЩЕЕ ВРЕМЯ ДЛЯ ТАЙМЕРА 30 МИНУТ
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Сразу ставим статус "В обработке", чтобы юзер видел прогресс и НЕ СМОГ запустить еще раз
-    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-        "status": "processing",
-        "details": "Заявка принята, запускаем ботов...",
-        "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ТАЙМЕР НА 30 МИНУТ В БАЗЕ
-    })
+    # 🔥 АТОМАРНАЯ СМЕНА СТАТУСА 🔥
+    patch_res = await supabase.patch(
+        "/cs_history", 
+        params={
+            "id": f"eq.{req.history_id}",
+            "status": f"eq.{current_status}" # Защита от двойного клика
+        }, 
+        json={
+            "status": "processing",
+            "details": "Заявка принята, запускаем ботов...",
+            "updated_at": now_iso 
+        },
+        headers={"Prefer": "return=representation"}
+    )
+    
+    updated_rows = patch_res.json()
+    if not updated_rows or len(updated_rows) == 0:
+        return {"success": False, "message": "⚠️ Заявка уже была принята в обработку!"}
 
     # --- 3. ЗАПУСКАЕМ ФОНОВУЮ ЛОГИКУ ---
     background_tasks.add_task(
@@ -23717,15 +23744,30 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                 # 1. ГЕНЕРИРУЕМ УНИКАЛЬНЫЙ ID
                 unique_market_id = f"repl_{req.history_id}_{int(time.time())}" 
                 
-                # 2. 🔥 СНАЧАЛА ЗАПИСЫВАЕМ В БАЗУ 🔥 (Броня от двойных списаний)
-                # Юзер уже не сможет нажать кнопку, а если сеть отвалится - мы не потеряем ID
-                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                    "status": "market_pending",
-                    "tradeofferid": unique_market_id,
-                    "replaced_name": m_name,
-                    "replaced_price": replaced_price,
-                    "updated_at": now_iso
-                })
+               # 2. 🔥 АТОМАРНО ЗАПИСЫВАЕМ В БАЗУ 🔥 (Броня от двойных фоновых задач)
+                db_update = await supabase.patch(
+                    "/cs_history", 
+                    params={
+                        "id": f"eq.{req.history_id}",
+                        "status": "eq.processing" # 🔥 КРИТИЧЕСКИ ВАЖНО: Переводим ТОЛЬКО из processing!
+                    }, 
+                    json={
+                        "status": "market_pending",
+                        "tradeofferid": unique_market_id,
+                        "replaced_name": m_name,
+                        "replaced_price": replaced_price,
+                        "updated_at": now_iso
+                    },
+                    headers={"Prefer": "return=representation"} # Просим вернуть измененные данные
+                )
+
+                check_update = db_update.json()
+                
+                # Если база вернула пустой ответ, значит статус УЖЕ изменился другой задачей.
+                # Тихо убиваем этот дублирующий процесс, чтобы не купить второй скин.
+                if not check_update or len(check_update) == 0:
+                    logging.error(f"[BG-REPLACEMENT] Дублирующая фоновая задача остановлена для {req.history_id}!")
+                    return
 
                 logging.info(f"[MARKET API] Покупка {m_name} (ID: {unique_market_id})")
                 
