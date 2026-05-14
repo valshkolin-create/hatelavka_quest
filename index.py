@@ -17100,10 +17100,10 @@ async def buy_bott_item_proxy(
                                 logging.info(f"[SHOP] Smart Sync успешен. Актуальный баланс из Bot-T: {current_balance_kopecks}")
                 except Exception as e:
                     logging.error(f"[SHOP] Ошибка синхронизации с Bot-T перед покупкой: {e}")
-                    # Если Bot-T недоступен, продолжаем с последним известным балансом из БД
+
 
         # =========================================================================
-        # 2. ЖЕСТКАЯ ПРОВЕРКА БАЛАНСА И СИНХРОННОЕ СПИСАНИЕ
+        # 2. ЖЕСТКАЯ ПРОВЕРКА БАЛАНСА И АТОМАРНОЕ СПИСАНИЕ (ЗАЩИТА ОТ DOUBLE-CLICK)
         # =========================================================================
         if currency == 'tickets':
             if current_tickets < final_price: # <-- ТУТ final_price
@@ -17111,30 +17111,37 @@ async def buy_bott_item_proxy(
             # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
             new_balance = int(current_tickets - final_price) # <-- ТУТ final_price
             update_col = "tickets"
+            old_balance = current_tickets # 🔥 Запоминаем старый баланс для проверки
         else:
             if current_balance_kopecks < (final_price * 100): # <-- ТУТ final_price
                 raise HTTPException(status_code=400, detail=f"Недостаточно средств! Цена для вас: {int(final_price)}")
             # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
             new_balance = int(current_balance_kopecks - (final_price * 100)) # <-- ТУТ final_price
             update_col = "bot_t_coins"
+            old_balance = current_balance_kopecks # 🔥 Запоминаем старый баланс для проверки
 
-        # 🔥 СПИСЫВАЕМ И ЖДЕМ ОТВЕТА БАЗЫ ПЕРЕД ТЕМ КАК КРУТИТЬ 🔥
+        # 🔥 СПИСЫВАЕМ С АТОМАРНОЙ ПЛОМБОЙ 🔥
         try:
             patch_resp = await supabase.patch(
                 "/users",
-                params={"telegram_id": f"eq.{telegram_id}"},
+                params={
+                    "telegram_id": f"eq.{telegram_id}",
+                    update_col: f"eq.{old_balance}" # 🔥 БЛОКИРОВКА: Спишет только если баланс не изменился!
+                },
                 json={update_col: new_balance},
                 headers={"Prefer": "return=representation"}
             )
             patch_data = patch_resp.json()
             
-            # Если база не вернула данные, значит списание не прошло
-            if not patch_data or isinstance(patch_data, dict) and "message" in patch_data:
-                logging.error(f"[SHOP] Ошибка списания: {patch_data}")
-                raise HTTPException(status_code=500, detail="Транзакция отклонена базой данных")
+            # Если база вернула пустой массив, значит кто-то (другой клик) уже изменил баланс долей секунды ранее
+            if not patch_data or len(patch_data) == 0:
+                logging.warning(f"[SHOP RACE CONDITION] Двойной клик от юзера {telegram_id}. Отменяем дубликат.")
+                raise HTTPException(status_code=400, detail="Транзакция обрабатывается. Пожалуйста, не нажимайте кнопку дважды!")
                 
             logging.info(f"[SHOP] Баланс списан: {update_col} -> {new_balance}")
             
+        except HTTPException:
+            raise # Прокидываем нашу ошибку дабл-клика выше
         except Exception as e:
             logging.error(f"Ошибка проведения транзакции: {e}")
             raise HTTPException(status_code=500, detail="Ошибка проведения транзакции")
@@ -17175,10 +17182,11 @@ async def buy_bott_item_proxy(
             background_tasks.add_task(send_to_bott_bg, BOTT_BOT_ID, item_id, bott_internal_id, bott_secret_key, price, final_price)
             
     else:
-        # === ЛОГИКА ТРАТЫ КУПОНА (ПЕРЕНОС ID ИЗ ОЖИДАНИЯ В ИСПОЛЬЗОВАННЫЕ) ===
+        # === ЛОГИКА ТРАТЫ КУПОНА С ЗАЩИТОЙ ОТ ГОНКИ ===
         used_ids = promo_data.get('used_by_ids') or []
         activated_ids = promo_data.get('activated_by_ids') or []
         u_id = int(telegram_id)
+        current_uses_db = promo_data.get('current_uses', 0) # 🔥 Берем текущее количество использований
 
         if u_id not in used_ids:
             used_ids.append(u_id)
@@ -17186,15 +17194,28 @@ async def buy_bott_item_proxy(
         if u_id in activated_ids:
             activated_ids.remove(u_id)
 
-        await supabase.patch(
+        # 🔥 АТОМАРНАЯ СМЕНА СТАТУСА КУПОНА 🔥
+        patch_coupon = await supabase.patch(
             "/cs_codes", 
-            params={"code": f"eq.{coupon_code}"}, 
+            params={
+                "code": f"eq.{coupon_code}",
+                "current_uses": f"eq.{current_uses_db}" # 🔥 Обновит только если кол-во использований не изменилось
+            }, 
             json={
-                "current_uses": promo_data['current_uses'] + 1,
+                "current_uses": current_uses_db + 1,
                 "used_by_ids": used_ids,
                 "activated_by_ids": activated_ids
-            }
+            },
+            headers={"Prefer": "return=representation"}
         )
+        
+        coupon_updated_data = patch_coupon.json()
+        
+        # Защита от дабл-клика по купону
+        if not coupon_updated_data or len(coupon_updated_data) == 0:
+            logging.warning(f"[SHOP RACE CONDITION] Двойной клик на купон {coupon_code} от {u_id}.")
+            raise HTTPException(status_code=400, detail="Купон уже в процессе использования. Подождите!")
+
         logging.info(f"[SHOP] Купон {coupon_code} успешно потрачен юзером {u_id}. Списки обновлены.")
 
     # =========================================================================
