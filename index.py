@@ -502,377 +502,191 @@ async def get_roulette_strip(winner_item, count=30):
         return [winner_item] * count
 
 async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, history_id: int, target_condition: str = None, target_market_name: str = None, source: str = "shop", custom_id: str = None):
-    """
-    Ищет предмет: 
-    Если source == 'shop' -> Строго на Маркете (Приоритет, по market_hash_name).
-    Если source == 'twitch' -> Строго на складе (в кэше ботов) или замену.
-    """
-    import re
-    import logging
-    import os
-    import asyncio # 🔥 ДОБАВЛЕНО ДЛЯ ТАЙМАУТА МАРКЕТА
-
-    # 1. Проверка адреса доставки (Trade URL)
+    # 1. Проверка адреса доставки
     trade_pattern = r"partner=(\d+)&token=([a-zA-Z0-9_-]+)"
     if not re.search(trade_pattern, trade_url):
-        logging.error(f"[STOREKEEPER] Ошибка: Неверный Trade URL у юзера {user_id}")
         return {"success": False, "error": "invalid_url", "message": "Неверная ссылка на обмен"}
 
     cond_text = f" (Качество: {target_condition})" if target_condition else ""
-    logging.info(f"[STOREKEEPER] Заказ принят: {target_name}{cond_text} (Бюджет: {target_price_rub} руб. | Источник: {source})")
+    logging.info(f"[STOREKEEPER] Заказ: {target_name}{cond_text} (Бюджет: {target_price_rub} | Источник: {source})")
 
     real_skin = None
     target_lower = target_name.lower()
-    
-    # 🔥 ФИКС ОШИБКИ: Сначала создаем переменную, чтобы она была доступна везде
     market_search_name = target_market_name if target_market_name else target_name
     
-    # 🔥 [ОБНОВЛЕННЫЙ ПЕРЕВОДЧИК: ВЕРСИЯ 2.0]
-    # Если имени нет или в нем русские буквы — лезем в "словарь" steam_inventory_cache
+    # 🔥 [ОПТИМИЗИРОВАННЫЙ ПЕРЕВОДЧИК: ВЕРСИЯ 3.0]
     if not market_search_name or bool(re.search('[а-яА-Я]', market_search_name)):
-        logging.info(f"[STOREKEEPER] Умный поиск перевода для '{target_name}'...")
-        
-        # Маппинг для склейки русского названия с качеством
-        cond_map_ru = {
-            "FN": "Прямо с завода",
-            "MW": "Немного поношенное",
-            "FT": "После полевых",
-            "WW": "Поношенное",
-            "BS": "Закаленное в боях"
-        }
-        
-        # Собираем полное имя для поиска в кэше
-        full_ru_name = target_name
-        if target_condition in cond_map_ru:
-            full_ru_name = f"{target_name} ({cond_map_ru[target_condition]})"
+        cond_map_ru = {"FN": "Прямо с завода", "MW": "Немного поношенное", "FT": "После полевых", "WW": "Поношенное", "BS": "Закаленное в боях"}
+        full_ru_name = f"{target_name} ({cond_map_ru[target_condition]})" if target_condition in cond_map_ru else target_name
 
         try:
-            # 1. Пробуем найти по максимально точному совпадению (с качеством)
-            trans_res = await supabase.get("/steam_inventory_cache", params={
-                "name_ru": f"ilike.%{full_ru_name}%",
-                "select": "market_hash_name",
-                "limit": 1
-            })
-            trans_data = trans_res.json()
+            # 🚀 ПАРАЛЛЕЛЬНЫЙ ПОИСК ПЕРЕВОДА (Точный и Запасной стреляют одновременно)
+            req_exact = supabase.get("/steam_inventory_cache", params={"name_ru": f"ilike.%{full_ru_name}%", "select": "market_hash_name", "limit": 1})
+            req_alt = supabase.get("/steam_inventory_cache", params={"name_ru": f"ilike.%{target_name}%", "select": "market_hash_name", "limit": 1})
             
-            if trans_data and len(trans_data) > 0:
-                market_search_name = trans_data[0].get('market_hash_name')
-                logging.info(f"[STOREKEEPER] Перевод найден (точно): {market_search_name}")
+            res_exact, res_alt = await asyncio.gather(req_exact, req_alt)
+            
+            data_exact = res_exact.json()
+            if data_exact and len(data_exact) > 0:
+                market_search_name = data_exact[0].get('market_hash_name')
+                logging.info(f"[STOREKEEPER] Перевод (точно): {market_search_name}")
             else:
-                # 2. Если не нашли с качеством, ищем просто по базовому названию
-                logging.info(f"[STOREKEEPER] Точный перевод не найден, ищем по базе: {target_name}...")
-                trans_res_alt = await supabase.get("/steam_inventory_cache", params={
-                    "name_ru": f"ilike.%{target_name}%",
-                    "select": "market_hash_name",
-                    "limit": 1
-                })
-                trans_data_alt = trans_res_alt.json()
-                
-                if trans_data_alt and len(trans_data_alt) > 0:
-                    market_search_name = trans_data_alt[0].get('market_hash_name')
-                    logging.info(f"[STOREKEEPER] Перевод найден (по названию): {market_search_name}")
+                data_alt = res_alt.json()
+                if data_alt and len(data_alt) > 0:
+                    market_search_name = data_alt[0].get('market_hash_name')
+                    logging.info(f"[STOREKEEPER] Перевод (базовый): {market_search_name}")
                 else:
-                    logging.warning(f"[STOREKEEPER] Перевод для '{target_name}' не найден. План А будет пропущен.")
+                    logging.warning(f"[STOREKEEPER] Перевод не найден.")
                     market_search_name = "SKIP_MARKET_NOT_FOUND"
-                    
         except Exception as e:
-            logging.error(f"[STOREKEEPER] Ошибка при поиске перевода: {e}")
-            # В случае ошибки оставляем что было, чтобы не падать
+            logging.error(f"[STOREKEEPER] Ошибка перевода: {e}")
             market_search_name = market_search_name or target_name
 
-   # ==========================================
-    # 🛒 ЛАВКА: ТОЛЬКО МАРКЕТ (PURE MARKET)
+    # ==========================================
+    # 🛒 ЛАВКА: ТОЛЬКО МАРКЕТ
     # ==========================================
     if source in ["shop", "raffle", "auction"]:
         if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
-            logging.info(f"[STOREKEEPER] Лавка: Пробуем купить на Маркете: {market_search_name}")
-            
-            import time 
-            
             TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
             market = MarketCSGO(api_key=TM_API_KEY)
-            
-            # 🔥 ИСПРАВЛЕНИЕ: Используем переданный custom_id или создаем новый только если его нет
-            if custom_id:
-                unique_market_id = custom_id
-            else:
-                unique_market_id = f"sh_{history_id}_{int(time.time())}"[:40]
+            unique_market_id = custom_id or f"sh_{history_id}_{int(time.time())}"[:40]
 
-            # 🔥 УМНЫЙ БЮДЖЕТ ПЕРВОЙ ПОКУПКИ
             base_target = float(target_price_rub)
-            if base_target < 50.0:
-                smart_budget = base_target + 3.0
-            else:
-                smart_budget = base_target * 1.10
+            smart_budget = base_target + 3.0 if base_target < 50.0 else base_target * 1.10
             
-            # 🔥 ОБЩИЙ ЛИМИТ ВРЕМЕНИ (Даем 22 секунды, чтобы успели пройти все 3 ретрая) 🔥
+            # 🔥 СНИЗИЛ ТАЙМАУТ ДО 12 СЕКУНД (чтобы Vercel не убил функцию до обработки ошибки)
             try:
                 market_res = await asyncio.wait_for(
                     market.buy_for_user(
                         hash_name=market_search_name, 
-                        max_price_rub=smart_budget, # 🔥 Передаем умный бюджет
+                        max_price_rub=smart_budget,
                         trade_link=trade_url, 
                         custom_id=unique_market_id 
                     ),
-                    timeout=55.0
+                    timeout=12.0 # Было 55.0
                 )
             except asyncio.TimeoutError:
-                logging.warning(f"[STOREKEEPER] ⏳ Глобальный таймаут от Маркета при покупке {market_search_name}")
-                # 🔥 МЕНЯЕМ КОД НА 504, ЧТОБЫ ГЛАВНЫЙ ФАЙЛ ЗАБЛОКИРОВАЛ ЗАМЕНЫ 🔥
-                market_res = {"success": False, "error": "market_timeout", "code": 504}
+                logging.warning(f"[STOREKEEPER] ⏳ Таймаут Маркета (12s) для {market_search_name}")
+                return {"success": False, "error": "market_timeout", "code": 504}
             except Exception as e:
-                logging.error(f"[STOREKEEPER] Ошибка вызова Маркета: {e}")
-                market_res = {"success": False, "error": str(e), "code": 999}
+                return {"success": False, "error": str(e), "code": 999}
             
             if market_res.get("success"):
-                logging.info(f"[STOREKEEPER] ✅ Успешно куплено на TM! CustomID: {unique_market_id}")
-                await supabase.patch("/cs_history", 
-                    params={"id": f"eq.{history_id}"}, 
-                    json={
-                        "status": "market_pending",
-                        "tradeofferid": unique_market_id # 🔥 Сохраняем уникальный ID в базу
-                    }
-                )
+                await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "market_pending", "tradeofferid": unique_market_id})
                 return {"success": True, "message": "Предмет куплен на Маркете и скоро будет отправлен!"}
             else:
-                # 🔥 УМНЫЙ ПЕРЕХВАТЧИК ОШИБОК МАРКЕТА 🔥
                 error_code = market_res.get("code")
-                # 3, 8, 12: проблема с ссылкой. 5: скрыт инвентарь. 6: бан. 7: нет гуарда. 20: лаги стима. 21: фулл инвентарь.
                 if error_code in [3, 5, 6, 7, 8, 12, 20, 21]:
                     err = market_res.get("error", "Неизвестная ошибка")
-                    logging.error(f"[STOREKEEPER] 🛑 Критическая ошибка аккаунта юзера: Код {error_code} ({err})")
-                    return {
-                        "success": False, 
-                        "is_user_trade_error": True, 
-                        "market_error_code": error_code,
-                        "error": err,
-                        "message": "Ошибка доставки"
-                    }
-
-                err = market_res.get("error", "Неизвестная ошибка")
-                logging.warning(f"[STOREKEEPER] Маркет не справился (Код: {error_code}, Ошибка: {err}). Прокидываем ошибку.")
-                # 🔥 ПРОКИДЫВАЕМ КОД ОШИБКИ И ТЕКСТ ДАЛЬШЕ 🔥
-                return {"success": False, "is_user_trade_error": False, "error": err, "code": error_code}
+                    return {"success": False, "is_user_trade_error": True, "market_error_code": error_code, "error": err}
+                return {"success": False, "is_user_trade_error": False, "error": market_res.get("error", "Error"), "code": error_code}
         else:
-            logging.warning(f"[STOREKEEPER] Лавка: Пропущено (нет англ. названия): {market_search_name}")
             return {"success": False, "is_user_trade_error": False, "error": "no_english_name"}
 
     # ==========================================
-    # 🎮 ТВИЧ: ТОЛЬКО ЛОКАЛЬНЫЙ СКЛАД БОТОВ
+    # 🎮 ТВИЧ: ТОЛЬКО ЛОКАЛЬНЫЙ СКЛАД
     # ==========================================
     elif source == "twitch":
-        logging.info(f"[STOREKEEPER] Твич: Ищем физический предмет в Кэше ботов...")
-        
-        # --- СПЕЦНАЗ: РАНДОМНЫЙ ДЕШЕВЫЙ ЛУТ ---
         if "наклейка" in target_lower or "sticker" in target_lower:
-            logging.info("[STOREKEEPER] Ищем любую дешевую наклейку в кэше...")
-            stock_res = await supabase.get("/steam_inventory_cache", params={
-                "or": "(name_ru.ilike.%Наклейка%,market_hash_name.ilike.%Sticker%)",
-                "is_reserved": "eq.false",
-                "order": "price_rub.asc",
-                "limit": 1
-            })
-            stock_data = stock_res.json()
-            if stock_data and len(stock_data) > 0:
-                real_skin = stock_data[0]
-                logging.info(f"[STOREKEEPER] Нашли рандомную наклейку: {real_skin['market_hash_name']}")
-
+            keyword = "Sticker"
         elif "сувенир" in target_lower or "souvenir" in target_lower:
-            logging.info("[STOREKEEPER] Ищем любой дешевый сувенир в кэше...")
+            keyword = "Souvenir"
+        else:
+            keyword = None
+
+        if keyword:
             stock_res = await supabase.get("/steam_inventory_cache", params={
-                "or": "(name_ru.ilike.%Сувенир%,market_hash_name.ilike.%Souvenir%)",
-                "is_reserved": "eq.false",
-                "order": "price_rub.asc",
-                "limit": 1
+                "or": f"(name_ru.ilike.%{keyword}%,market_hash_name.ilike.%{keyword}%)",
+                "is_reserved": "eq.false", "order": "price_rub.asc", "limit": 1
             })
             stock_data = stock_res.json()
-            if stock_data and len(stock_data) > 0:
-                real_skin = stock_data[0]
-                logging.info(f"[STOREKEEPER] Нашли рандомный сувенир: {real_skin['market_hash_name']}")
-
-        # --- ОБЫЧНЫЙ ПОИСК ПО СКЛАДУ ---
+            if stock_data: real_skin = stock_data[0]
+        
         if not real_skin:
-            search_params = {
-                "name_ru": f"ilike.%{target_name}%",
-                "is_reserved": "eq.false",
-                "limit": 1
-            }
-            if target_condition:
-                search_params["condition"] = f"eq.{target_condition}"
+            search_params = {"name_ru": f"ilike.%{target_name}%", "is_reserved": "eq.false", "limit": 1}
+            if target_condition: search_params["condition"] = f"eq.{target_condition}"
+            
+            min_p, max_p = target_price_rub * 0.93, target_price_rub * 1.07
+            alt_params = {"is_reserved": "eq.false", "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", "order": "price_rub.asc", "limit": 1}
 
-            stock_res = await supabase.get("/steam_inventory_cache", params=search_params)
-            stock_data = stock_res.json()
+            # 🚀 ПАРАЛЛЕЛЬНЫЙ ПОИСК ПО СКЛАДУ (Оригинал и Замена ищутся одновременно)
+            req_exact = supabase.get("/steam_inventory_cache", params=search_params)
+            req_alt = supabase.get("/steam_inventory_cache", params=alt_params) if target_price_rub > 0 else None
+            
+            if req_alt:
+                res_exact, res_alt = await asyncio.gather(req_exact, req_alt)
+                stock_data, alts_data = res_exact.json(), res_alt.json()
+            else:
+                res_exact = await req_exact
+                stock_data, alts_data = res_exact.json(), []
 
             if stock_data and len(stock_data) > 0:
                 real_skin = stock_data[0]
-                logging.info(f"[STOREKEEPER] Найден оригинал на складе! AssetID: {real_skin['assetid']}")
-            else:
-                # План "В": Умная замена (±7% от цены)
-                if target_price_rub > 0:
-                    min_p, max_p = target_price_rub * 0.93, target_price_rub * 1.07
-                    logging.info(f"[STOREKEEPER] Ищем замену на складе от {min_p:.2f} до {max_p:.2f} руб.")
-                    
-                    alt_res = await supabase.get("/steam_inventory_cache", params={
-                        "is_reserved": "eq.false",
-                        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
-                        "order": "price_rub.asc",
-                        "limit": 1
-                    })
-                    
-                    alts = alt_res.json()
-                    if alts and len(alts) > 0:
-                        real_skin = alts[0]
-                        logging.info(f"[STOREKEEPER] Нашли замену: {real_skin['market_hash_name']}")
+            elif alts_data and len(alts_data) > 0:
+                real_skin = alts_data[0]
 
-        # --- ФИНАЛИЗАЦИЯ ДЛЯ ТВИЧА ---
         if real_skin:
-            await supabase.patch("/steam_inventory_cache", 
-                params={"assetid": f"eq.{real_skin['assetid']}"}, 
-                json={"is_reserved": True}
+            # 🚀 ПАРАЛЛЕЛЬНОЕ СОХРАНЕНИЕ В БД (3 запроса в одном потоке)
+            await asyncio.gather(
+                supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{real_skin['assetid']}"}, json={"is_reserved": True}),
+                supabase.post("/user_winnings", json={"user_id": user_id, "assetid": real_skin["assetid"], "account_id": real_skin["account_id"], "trade_url": trade_url, "trade_status": "pending", "market_hash_name": real_skin["market_hash_name"], "history_id": history_id}),
+                supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "pending"})
             )
-
-            delivery_payload = {
-                "user_id": user_id,
-                "assetid": real_skin["assetid"],
-                "account_id": real_skin["account_id"],
-                "trade_url": trade_url,
-                "trade_status": "pending",
-                "market_hash_name": real_skin["market_hash_name"],
-                "history_id": history_id 
-            }
-            
-            await supabase.post("/user_winnings", json=delivery_payload)
-            await supabase.patch("/cs_history", params={"id": f"eq.{history_id}"}, json={"status": "pending"})
-
             return {"success": True, "real_skin": real_skin, "message": "Предмет зарезервирован на складе"}
 
-    logging.error(f"[STOREKEEPER] Везде пусто для {target_name}!")
     return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
-    
 
 # =======================================================
-# 🚀 БЛОК 6: ПРЯМАЯ ОТПРАВКА STEAM API (КУРЬЕР 2.0)
 async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
-    """
-    Прямой запрос к Steam API без сторонних библиотек.
-    С улучшенным логированием и защитой от пустых ответов.
-    """
-    import json
-    import re
-    import httpx
-    import logging
-
-    # 1. Достаем ключи из ссылки юзера
     match = re.search(r'partner=(\d+)&token=([a-zA-Z0-9_-]+)', trade_url)
-    if not match:
-        return {"success": False, "error": "Неверный формат трейд-ссылки"}
+    if not match: return {"success": False, "error": "Неверный формат трейд-ссылки"}
     
-    partner_id = match.group(1)
-    token = match.group(2)
-    
-    # Steam API требует конвертации короткого partner_id в длинный steam64id
+    partner_id, token = match.group(1), match.group(2)
     steam64id = int(partner_id) + 76561197960265728
 
-    # 2. Достаем куки бота из базы
     acc_res = await supabase.get("/steam_accounts", params={"id": f"eq.{account_id}"})
     acc_data = acc_res.json()
-    if not acc_data:
-        return {"success": False, "error": "Бот не найден в базе"}
+    if not acc_data: return {"success": False, "error": "Бот не найден"}
     
     raw_session_data = acc_data[0].get('session_data', {})
-    
-    # Парсим JSON, если Supabase вернул его строкой
-    if isinstance(raw_session_data, str):
-        try:
-            session_data = json.loads(raw_session_data)
-        except json.JSONDecodeError:
-            session_data = {}
-    else:
-        session_data = raw_session_data
+    session_data = json.loads(raw_session_data) if isinstance(raw_session_data, str) else raw_session_data
         
     cookies_dict = session_data.get('cookies', {})
-    sessionid = cookies_dict.get('sessionid')
-    steamLoginSecure = cookies_dict.get('steamLoginSecure')
-    
-    if not sessionid or not steamLoginSecure:
-        return {"success": False, "error": "Куки бота не найдены (Нужна авторизация)"}
-
-    # 3. Собираем посылку для Steam API
-    json_tradeoffer = {
-        "newversion": True,
-        "version": 2,
-        "me": {
-            "assets": [{"appid": 730, "contextid": "2", "amount": 1, "assetid": str(assetid)}],
-            "currency": [],
-            "ready": False
-        },
-        "them": {"assets": [], "currency": [], "ready": False}
-    }
+    if not cookies_dict.get('sessionid') or not cookies_dict.get('steamLoginSecure'):
+        return {"success": False, "error": "Куки бота не найдены"}
 
     payload = {
-        "sessionid": sessionid,
+        "sessionid": cookies_dict['sessionid'],
         "serverid": "1",
         "partner": str(steam64id),
         "tradeoffermessage": "Твой выигрыш от стримера HATElove_ttv! 🐸",
-        "json_tradeoffer": json.dumps(json_tradeoffer),
+        "json_tradeoffer": json.dumps({"newversion": True, "version": 2, "me": {"assets": [{"appid": 730, "contextid": "2", "amount": 1, "assetid": str(assetid)}], "currency": [], "ready": False}, "them": {"assets": [], "currency": [], "ready": False}}),
         "captcha": "",
         "trade_offer_create_params": json.dumps({"trade_offer_access_token": token})
     }
 
-    headers = {
-        "Referer": trade_url,
-        "Origin": "https://steamcommunity.com",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    }
-
-    cookies = {
-        "sessionid": sessionid,
-        "steamLoginSecure": steamLoginSecure
-    }
-
-    url = "https://steamcommunity.com/tradeoffer/new/send"
-
-    # 4. Отправляем оффер!
+    headers = {"Referer": trade_url, "Origin": "https://steamcommunity.com", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    
+    # 🔥 ТАЙМАУТ STEAM (Снижен до 10 сек, чтобы уложиться в лимиты Serverless)
     try:
-        logging.info(f"[COURIER] Отправка... Бот #{account_id}, Предмет: {assetid}, Кому: {partner_id}")
-        
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(url, data=payload, headers=headers, cookies=cookies)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post("https://steamcommunity.com/tradeoffer/new/send", data=payload, headers=headers, cookies=cookies_dict)
             
-            # Если слетели куки, Steam может кинуть редирект на страницу входа
             if resp.status_code == 302 or "login" in str(resp.url):
-                logging.error("[COURIER] Стим просит логин. Куки протухли!")
-                return {"success": False, "error": "Сессия бота устарела. Нужно обновить куки."}
+                return {"success": False, "error": "Сессия бота устарела."}
             
-            raw_text = resp.text # Читаем сырой текст для защиты и логов
-            
-            try:
-                resp_json = resp.json()
-            except Exception:
-                logging.error(f"[COURIER] Стим вернул не JSON. Код: {resp.status_code}. Ответ: {raw_text[:200]}")
-                return {"success": False, "error": f"Стим вернул ошибку сервера (Код {resp.status_code})"}
-            
-            # 🔥 ВОТ ОНА, ЗАЩИТА ОТ NoneType 🔥
+            resp_json = resp.json()
             if not isinstance(resp_json, dict):
-                logging.error(f"[COURIER] Стим сошел с ума и вернул: {raw_text[:200]}")
                 return {"success": False, "error": "Steam недоступен или вернул пустой ответ"}
 
-            # Проверяем успешность
             if "tradeofferid" in resp_json:
-                logging.info(f"[COURIER] Успех! TradeID: {resp_json['tradeofferid']}")
                 return {"success": True, "tradeofferid": resp_json['tradeofferid']}
-            else:
-                # Достаем реальную ошибку Стима
-                err_msg = resp_json.get("strError", "Неизвестная ошибка Steam")
-                logging.error(f"[COURIER] Стим отклонил трейд: {err_msg} | Сырой ответ: {raw_text[:200]}")
-                return {"success": False, "error": err_msg}
+            
+            return {"success": False, "error": resp_json.get("strError", "Неизвестная ошибка Steam")}
 
     except httpx.TimeoutException:
-        logging.error("[COURIER] Сбой соединения: Steam не отвечает (Таймаут 15с).")
-        # 🔥 ВОТ ТУТ МЫ ОТДАЕМ steam_timeout=True 🔥
-        return {"success": False, "error": "Steam завис и не отвечает. Попробуйте позже.", "steam_timeout": True}
+        return {"success": False, "error": "Steam завис и не отвечает.", "steam_timeout": True}
     except Exception as e:
-        logging.error(f"[COURIER] Сбой соединения: {str(e)}")
         return {"success": False, "error": "Сбой соединения со Steam"}
 # --- Pydantic Models ---
 
@@ -23312,52 +23126,42 @@ async def withdraw_inventory_item(
     req: InventorySellRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    import re
-    import logging
-    import os
-    import httpx
-    import time
-    from datetime import datetime, timedelta, timezone
-
-    # ВНИМАНИЕ: Убедись, что класс MarketCSGO импортирован или доступен здесь!
-
     user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_data:
         raise HTTPException(status_code=401, detail="Auth failed")
 
     user_id = user_data["id"]
 
-    # ЛЮТАЯ БЛОКИРОВКА ПОВЕРХ ВСЕГО
-    await verify_user_not_banned(user_id, supabase)
+    # ==========================================
+    # 🚀 ПАРАЛЛЕЛЬНЫЙ ЗАПРОС К БД (Экономит ~300-500 мс)
+    # ==========================================
+    # Мы одновременно: проверяем на бан, тянем юзера и тянем предмет
+    history_params = {
+        "id": f"eq.{req.history_id}",
+        "user_id": f"eq.{user_id}",
+        "select": "id, status, updated_at, source, details, replaced_name, replaced_price, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
+    }
+    
+    # asyncio.gather выполнит все 3 задачи одновременно. 
+    # Если verify_user_not_banned выкинет ошибку, запрос сразу прервется.
+    _, user_res, check_resp = await asyncio.gather(
+        verify_user_not_banned(user_id, supabase),
+        supabase.get("/users", params={"telegram_id": f"eq.{user_id}"}),
+        supabase.get("/cs_history", params=history_params)
+    )
 
-    # 1. Получаем данные юзера
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+    # --- Обработка данных Юзера ---
     user_list = user_res.json()
     if not user_list or not isinstance(user_list, list):
         raise HTTPException(status_code=400, detail="User error")
     
     user_info = user_list[0]
     trade_link = user_info.get('trade_link')
-    full_name = user_info.get('full_name', 'User')
-    username = user_info.get('username')
-    username_txt = f"@{username}" if username else "Без юзернейма"
-
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
-    # 2. Получаем предмет из истории
-    check_resp = await supabase.get(
-        "/cs_history",
-        params={
-            "id": f"eq.{req.history_id}",
-            "user_id": f"eq.{user_id}",
-            # 🔥 ДОБАВЛЕНО: details, replaced_name, replaced_price в выборку
-            "select": "id, status, updated_at, source, details, replaced_name, replaced_price, item:cs_items(name, price, rarity, condition, price_rub, market_hash_name)"
-        }
-    )
-    
+    # --- Обработка данных Предмета ---
     rows = check_resp.json()
-
     if isinstance(rows, dict) or not rows or not isinstance(rows, list):
         raise HTTPException(status_code=404, detail="Предмет не найден")
 
@@ -23368,29 +23172,26 @@ async def withdraw_inventory_item(
     # ==========================================
     # 🕒 БЛОК ПРОВЕРКИ ТАЙМЕРА (30 МИНУТ)
     # ==========================================
-    processing_statuses = ["market_pending", "auto_queued", "sent", "offer_sent"]
+    processing_statuses = {"market_pending", "auto_queued", "sent", "offer_sent"}
+    valid_for_withdraw = {"pending", "failed", "available"}
     
-    if current_status in processing_statuses:
-        if updated_at_str:
-            time_str = updated_at_str.replace("Z", "+00:00")
-            if "+" not in time_str and not re.search(r"-\d{2}:\d{2}$", time_str):
-                time_str += "+00:00"
+    if current_status in processing_statuses and updated_at_str:
+        time_str = updated_at_str.replace("Z", "+00:00")
+        if "+" not in time_str and not re.search(r"-\d{2}:\d{2}$", time_str):
+            time_str += "+00:00"
+            
+        try:
+            updated_dt = datetime.fromisoformat(time_str)
+            if datetime.now(timezone.utc) - updated_dt < timedelta(minutes=30):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="⏳ Трейд уже находится в очереди отправки. Пожалуйста, подождите 30 минут."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logging.error(f"Time parse error: {e}")
                 
-            try:
-                updated_dt = datetime.fromisoformat(time_str)
-                # 🔥 ЕСЛИ ПРОШЛО МЕНЬШЕ 30 МИНУТ - БЛОКИРУЕМ
-                if datetime.now(timezone.utc) - updated_dt < timedelta(minutes=30):
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="⏳ Трейд уже находится в очереди отправки. Пожалуйста, подождите 30 минут."
-                    )
-            except HTTPException:
-                raise
-            except Exception as e:
-                logging.error(f"Time parse error: {e}")
-                
-    # Если статус не позволяет вывод
-    valid_for_withdraw = ["pending", "failed", "available"]
     if current_status not in valid_for_withdraw and current_status not in processing_statuses:
         raise HTTPException(status_code=400, detail="Этот предмет нельзя вывести (уже продан или получен).")
 
@@ -23400,27 +23201,17 @@ async def withdraw_inventory_item(
     now_iso = datetime.now(timezone.utc).isoformat()
 
     if current_status in valid_for_withdraw:
-        # Добавляем в params проверку текущего статуса!
         patch_res = await supabase.patch(
             "/cs_history", 
-            params={
-                "id": f"eq.{req.history_id}",
-                "status": f"eq.{current_status}" # 🔥 КРИТИЧЕСКИ ВАЖНО: Обновляем только если статус не изменился!
-            }, 
-            json={
-                "status": "processing",
-                "updated_at": now_iso
-            },
-            headers={"Prefer": "return=representation"} # Просим базу вернуть обновленную строку
+            params={"id": f"eq.{req.history_id}", "status": f"eq.{current_status}"}, 
+            json={"status": "processing", "updated_at": now_iso},
+            headers={"Prefer": "return=representation"} 
         )
         
         updated_rows = patch_res.json()
-        
-        # Если другой поток уже поменял статус на processing, база ничего не обновит и вернет пустой список
         if not updated_rows or len(updated_rows) == 0:
             logging.warning(f"[RACE CONDITION] Попытка двойного вывода остановлена для ID {req.history_id}")
             raise HTTPException(status_code=400, detail="Этот предмет уже обрабатывается. Пожалуйста, подождите.")
-    # ==========================================
 
     item_data = history_record.get('item') or {}
     item_source = history_record.get('source', 'shop') 
@@ -23430,21 +23221,20 @@ async def withdraw_inventory_item(
     # 💰 ПОЛУЧЕНИЕ ЦЕНЫ И ЗАЩИТА ОТ НУЛЕВОГО БЮДЖЕТА
     # ==========================================
     try:
-        if history_record.get('replaced_price') is not None:
-            target_price_base = float(history_record.get('replaced_price'))
-            target_price_rub = float(history_record.get('replaced_price'))
+        replaced_price = history_record.get('replaced_price')
+        if replaced_price is not None:
+            target_price_base = target_price_rub = float(replaced_price)
         else:
             target_price_base = float(item_data.get('price') or 0.0)
             target_price_rub = float(item_data.get('price_rub') or 0.0)
     except Exception as e:
         logging.error(f"[PRICE ERROR] Ошибка парсинга цены для {req.history_id}: {e}")
-        target_price_base = 0.0
-        target_price_rub = 0.0
+        target_price_base = target_price_rub = 0.0
 
     item_condition = item_data.get('condition')
     market_hash_name = history_record.get('replaced_name') or item_data.get('market_hash_name')
 
-    # 🔥 СПАСАТЕЛЬНЫЙ КРУГ: Если в БД цена 0 (розыгрыш), тянем её из кэша
+    # 🔥 СПАСАТЕЛЬНЫЙ КРУГ
     if target_price_rub <= 0.0 and market_hash_name:
         logging.info(f"[WITHDRAW] Бюджет 0.0 руб. Тянем актуальную цену из кэша для '{market_hash_name}'...")
         try:
@@ -23454,27 +23244,23 @@ async def withdraw_inventory_item(
                 "limit": 1
             })
             cache_data = cache_res.json()
-            if cache_data and len(cache_data) > 0 and cache_data[0].get('price_rub'):
+            if cache_data and cache_data[0].get('price_rub'):
                 target_price_rub = float(cache_data[0]['price_rub'])
                 target_price_base = float(cache_data[0].get('price', target_price_rub))
-                logging.info(f"[WITHDRAW] ✅ Цена успешно подтянута из кэша: {target_price_rub} руб.")
+                logging.info(f"[WITHDRAW] ✅ Цена из кэша: {target_price_rub} руб.")
         except Exception as e:
             logging.error(f"[WITHDRAW] Ошибка при запросе кэша: {e}")
 
     has_english_name = market_hash_name and not bool(re.search('[а-яА-Я]', market_hash_name))
-    
-    # 🔥 ДЕЛАЕМ УНИКАЛЬНЫМ, ЧТОБЫ ОБХОДИТЬ ОТМЕНЫ (STAGE 5) ОТ МАРКЕТА
     unique_market_id = f"wd_{req.history_id}_{int(time.time())}"
-
-    # 🔥 ЧИТАЕМ МЕТКУ КРОНА
     item_details = str(history_record.get('details', ''))
     force_replacement = "FORCE_REPLACEMENT" in item_details
 
-    delivery_res = {} # Заглушка, чтобы код ниже не упал с ошибкой
+    delivery_res = {}
 
     if has_english_name and not force_replacement:
         # ==========================================
-        # 📦 ВЫЗОВ КЛАДОВЩИКА (ПЛАН А и Б)
+        # 📦 ВЫЗОВ КЛАДОВЩИКА (Тяжелый внешний запрос)
         # ==========================================
         delivery_res = await fulfill_item_delivery(
             user_id=user_id,
@@ -23486,7 +23272,7 @@ async def withdraw_inventory_item(
             target_condition=item_condition,
             target_market_name=market_hash_name,
             source=item_source,
-            custom_id=unique_market_id # 🔥 Передаем статичный ID с таймстампом
+            custom_id=unique_market_id
         )
         
         # БЛОК ПЕРЕХВАТА ОШИБОК СТИМА ДО ПОКУПКИ
@@ -23494,37 +23280,30 @@ async def withdraw_inventory_item(
             error_code = delivery_res.get("market_error_code")
             error_msg = delivery_res.get("error", "Неизвестная ошибка")
             
-            # Если вылетели с ошибкой до покупки — откатываем пломбу
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "available", "updated_at": now_iso
             })
 
-            if error_code in [3, 8, 12]:
-                detail_msg = "⚠️ Ваша трейд-ссылка недействительна или устарела. Обновите её в профиле!"
-            elif error_code == 5:
-                detail_msg = "🔒 Ваш инвентарь скрыт настройками приватности Steam. Откройте его и попробуйте снова."
-            elif error_code == 6:
-                detail_msg = "🚫 На вашем аккаунте Steam висит Трейд-бан."
-            elif error_code == 7:
-                detail_msg = "📱 У вас не привязан мобильный аутентификатор Steam Guard."
-            elif error_code == 21:
-                detail_msg = "📦 Ваш инвентарь CS2 переполнен (максимум 1000 предметов)."
-            elif error_code == 20:
-                detail_msg = "⏳ Серверы Steam сейчас лагают. Попробуйте вывести скин через 30 минут."
-            else:
-                detail_msg = f"Ошибка вывода: {error_msg} (Код: {error_code})"
-
+            error_map = {
+                3: "⚠️ Ваша трейд-ссылка недействительна. Обновите её!",
+                8: "⚠️ Ваша трейд-ссылка недействительна. Обновите её!",
+                12: "⚠️ Ваша трейд-ссылка недействительна. Обновите её!",
+                5: "🔒 Ваш инвентарь скрыт настройками приватности Steam.",
+                6: "🚫 На вашем аккаунте Steam висит Трейд-бан.",
+                7: "📱 У вас не привязан мобильный аутентификатор Steam Guard.",
+                20: "⏳ Серверы Steam сейчас лагают. Попробуйте через 30 минут.",
+                21: "📦 Ваш инвентарь CS2 переполнен (максимум 1000 предметов)."
+            }
+            detail_msg = error_map.get(error_code, f"Ошибка вывода: {error_msg} (Код: {error_code})")
             raise HTTPException(status_code=400, detail=detail_msg)
 
-        # --- СЛУЧАЙ 1: Успешная покупка на Маркете ---
-        market_msg = "Предмет куплен на Маркете и скоро будет отправлен!"
-        if delivery_res.get("success") and delivery_res.get("message") == market_msg:
+        # --- СЛУЧАЙ 1: Маркет ---
+        if delivery_res.get("success") and delivery_res.get("message") == "Предмет куплен на Маркете и скоро будет отправлен!":
             return {"success": True, "message": "Предмет закуплен на Маркете! Следите за статусом в профиле."}
 
-        # --- СЛУЧАЙ 2: Предмет найден на твоем складе ---
+        # --- СЛУЧАЙ 2: Склад ---
         if delivery_res.get("success") and "real_skin" in delivery_res:
             real_skin = delivery_res.get("real_skin")
-            
             trade_res = await send_steam_trade_offer(
                 account_id=real_skin["account_id"],
                 assetid=real_skin["assetid"],
@@ -23533,62 +23312,53 @@ async def withdraw_inventory_item(
             )
             
             if trade_res and trade_res.get("success"):
-                t_id = str(trade_res.get("tradeofferid"))
                 await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                     "status": "sent",
-                    "tradeofferid": t_id,
-                    "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ВРЕМЯ
+                    "tradeofferid": str(trade_res.get("tradeofferid")),
+                    "updated_at": now_iso 
                 })
                 return {"success": True, "message": "Трейд отправлен! Подтвердите получение в Steam."}
             else:
-                # 🔥 ЕСЛИ СТИМ ОТВАЛИЛСЯ ПО ТАЙМАУТУ - НЕ СНИМАЕМ РЕЗЕРВ И НЕ ИДЕМ В ЗАМЕНЫ 🔥
                 if trade_res.get("steam_timeout"):
-                    logging.warning(f"[COURIER] Таймаут от Steam. Сохраняем резерв, так как трейд мог создаться.")
+                    logging.warning("[COURIER] Таймаут от Steam. Сохраняем резерв.")
                     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                        "status": "processing",
-                        "updated_at": now_iso
+                        "status": "processing", "updated_at": now_iso
                     })
-                    return {"success": True, "message": "Steam долго обрабатывает трейд. Пожалуйста, подождите пару минут и проверьте инвентарь или историю обменов Steam."}
+                    return {"success": True, "message": "Steam долго обрабатывает трейд. Пожалуйста, подождите пару минут."}
 
-                # Если это ОБЫЧНАЯ ошибка (например, бан трейда), тогда снимаем резерв
                 err_msg = trade_res.get('error', 'Steam Error')
                 logging.error(f"[COURIER] Сбой при выдаче оригинала: {err_msg}. Снимаем резерв.")
                 
-                await supabase.patch("/steam_inventory_cache", 
-                    params={"assetid": f"eq.{real_skin['assetid']}"}, 
-                    json={"is_reserved": False}
+                # Запускаем откат резерва и статуса параллельно
+                await asyncio.gather(
+                    supabase.patch("/steam_inventory_cache", 
+                        params={"assetid": f"eq.{real_skin['assetid']}"}, 
+                        json={"is_reserved": False}
+                    ),
+                    supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                        "status": "available", "updated_at": now_iso
+                    })
                 )
-                
-                # 🔥 ОТКАТЫВАЕМ СТАТУС В ИСТОРИИ (ВЕРНАЯ ТАБУЛЯЦИЯ) 🔥
-                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-                    "status": "available", "updated_at": now_iso
-                })
                 raise HTTPException(status_code=400, detail=f"Ошибка Steam: {err_msg}. Попробуйте еще раз.")
 
     elif force_replacement:
-        # 🔥 СРАБОТАЛА ЧЕРНАЯ МЕТКА КРОНА: Сразу отдаем в замены
         logging.info(f"[WITHDRAW] Скин {req.history_id} помечен FORCE_REPLACEMENT. Скипаем маркет.")
         delivery_res = {"success": False}
 
     # ==========================================
-    # 🔥 ИНЪЕКЦИЯ ПРОВЕРКИ МАРКЕТА (Защита от двойной отправки) 🔥
+    # 🔥 ИНЪЕКЦИЯ ПРОВЕРКИ МАРКЕТА
     # ==========================================
-    # Игнорируем проверку маркета, если мы здесь из-за force_replacement
     if not delivery_res.get("success") and not force_replacement:
         market_key = os.getenv("CSGO_MARKET_API_KEY")
         if market_key:
             try:
-                # Заменяем сырой HTTPX на наш класс
                 market = MarketCSGO(api_key=market_key)
                 m_data = await market.check_order_status(unique_market_id)
                 
-                # Если success: true и есть данные, Маркет ВЗЯЛ заказ в работу
                 if m_data and m_data.get("success") and "data" in m_data:
                     stage = str(m_data["data"].get("stage"))
-                    # stage 1 = Новый, stage 2 = Передан (или передается)
                     if stage in ["1", "2"]:
-                        logging.info(f"[MARKET SYNC] Спасли от двойной покупки! Заказ {unique_market_id} уже обрабатывается Маркетом.")
-                        
+                        logging.info(f"[MARKET] Заказ {unique_market_id} уже обрабатывается Маркетом.")
                         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                             "status": "market_pending",
                             "tradeofferid": unique_market_id, 
@@ -23598,19 +23368,16 @@ async def withdraw_inventory_item(
             except Exception as e:
                 logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
 
-        # 🔥 ЗАЩИТА ОТ ТРЕЙДА ШРЁДИНГЕРА 🔥
         err_msg = str(delivery_res.get("error", "")).lower()
         err_code = delivery_res.get("market_error_code")
-        is_timeout = "таймаут" in err_msg or "timeout" in err_msg or err_code in [500, 502, 504]
-
-        if is_timeout:
-            logging.warning(f"[SCHRODINGER] Маркет отвалился по таймауту. Оставляем заказ {unique_market_id} в market_pending!")
+        if "таймаут" in err_msg or "timeout" in err_msg or err_code in [500, 502, 504]:
+            logging.warning(f"[SCHRODINGER] Маркет отвалился по таймауту.")
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "market_pending",
                 "tradeofferid": unique_market_id,
                 "updated_at": now_iso
             })
-            return {"success": True, "message": "Маркет сильно загружен, но ваш заказ в очереди. Пожалуйста, ожидайте трейд в Steam!"}
+            return {"success": True, "message": "Маркет сильно загружен, но ваш заказ в очереди."}
 
     # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН
@@ -23618,7 +23385,6 @@ async def withdraw_inventory_item(
     replacements = await get_replacement_options(target_price_rub, target_price_base, supabase)
     
     if replacements:
-        # Откатываем пломбу, чтобы юзер мог выбрать замену
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
             "status": "available", "updated_at": now_iso
         })
@@ -23634,7 +23400,7 @@ async def withdraw_inventory_item(
     # ==========================================
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
         "status": "processing",
-        "updated_at": now_iso # 🔥 СБРАСЫВАЕМ ВРЕМЯ
+        "updated_at": now_iso 
     })
     
     return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
