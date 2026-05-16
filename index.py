@@ -2360,9 +2360,10 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
 # ⬇️⬇️⬇️ ВСТАВЛЯЕМ КЛАСС МАРКЕТА СЮДА ⬇️⬇️⬇️
 
 class MarketCSGO:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, use_proxy: bool = True):
         self.api_key = api_key
         self.base_url = "https://market.csgo.com/api/v2"
+        self.use_proxy = use_proxy
 
     @staticmethod
     def parse_trade_link(trade_link: str):
@@ -2404,34 +2405,46 @@ class MarketCSGO:
         query_string = "&".join([f"{k}={urllib.parse.quote(str(v), safe='')}" for k, v in params.items()])
         url = f"{self.base_url}/{endpoint}?{query_string}"
         
+        # 🔥 ОБНОВЛЕННЫЕ ЗАГОЛОВКИ (Броня от Cloudflare)
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "application/json"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"'
         }
 
-        # ⚡️ РЕЖИМ ТЕРМИНАТОРА: 1 попытка, 9 секунд.
-        async with httpx.AsyncClient(proxies=PROXY_URL, headers=headers) as client:
+        # Выбираем, использовать ли прокси
+        client_args = {"headers": headers}
+        if self.use_proxy:
+            client_args["proxies"] = PROXY_URL
+
+        # ⚡️ РЕЖИМ ТЕРМИНАТОРА: 1 попытка, 12 секунд.
+        async with httpx.AsyncClient(**client_args) as client:
             try:
                 # Даем максимум времени, который физически есть на Vercel
-                response = await client.get(url, timeout=9.0)
+                response = await client.get(url, timeout=12.0)
                 
                 if response.status_code == 200:
                     return response.json()
                 
-                # Если любая ошибка (502, 403) — сразу ротируем IP для следующего раза
-                async with httpx.AsyncClient() as rotator:
-                    await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                # Если любая ошибка (502, 403) и мы на прокси — сразу ротируем IP
+                if self.use_proxy:
+                    async with httpx.AsyncClient() as rotator:
+                        await rotator.get(CHANGE_IP_URL, timeout=0.8)
                 return {"success": False, "error": f"status_{response.status_code}"}
 
             except Exception as e:
                 # Если таймаут или любая беда — тоже ротируем IP
                 logging.warning(f"[MARKET] Сбой: {e}. Меняем IP...")
-                try:
-                    async with httpx.AsyncClient() as rotator:
-                        await rotator.get(CHANGE_IP_URL, timeout=0.8)
-                except: pass
+                if self.use_proxy:
+                    try:
+                        async with httpx.AsyncClient() as rotator:
+                            await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                    except: pass
                 return {"success": False, "error": "timeout_limit"}
-                    
+                
     async def get_lowest_price(self, hash_name: str):
         import logging
         data = await self._make_request("bid-ask", {"hash_name": hash_name})
@@ -3471,25 +3484,32 @@ async def sync_steam_inventory(
 
         # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
         market_prices_rub = {}
-        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ МАССОВКУ (ТЕПЕРЬ С МУСОРОМ) 🔥
+        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ МАССОВКУ (Включая дешевые наклейки) 🔥
+        
+        # 🔥 Заголовки для обхода защиты Cloudflare 🔥
+        cf_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"'
+        }
         
         try:
-            async with httpx.AsyncClient() as client:
+            # Передаем заголовки в клиент
+            async with httpx.AsyncClient(headers=cf_headers) as client:
                 price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=30.0)
                 if price_resp.status_code == 200:
                     market_data = price_resp.json()
                     for item in market_data.get("items", []):
                         m_name = item["market_hash_name"]
                         price = float(item["price"])
-                        # volume = int(item.get("volume", 0)) # Раньше использовали объем, теперь убираем
 
                         market_prices_rub[m_name] = price
                         
-                        # 🔥 НОВАЯ ЛОГИКА: Берем всё от 0 до 3000 рублей 🔥
-                        if 0 <= price <= 3000:
-                            # Мы УБРАЛИ проверку на Sticker, Graffiti и Capsule.
-                            # Теперь этот копеечный мусор влетит в базу!
-                            
+                        # 🔥 Берем ВСЁ от копеек (0.30 руб и т.д.) до 3000 рублей. Отсекаем только нули. 🔥
+                        if 0 < price <= 3000:
                             # Определяем редкость для Маркета (визуализация на складе)
                             final_rarity = known_rarities.get(m_name) or guess_backend_rarity(m_name, price)
                             
@@ -10944,35 +10964,48 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     if not active_trades and not results_log:
         return {"status": "ok", "message": "Чисто. Нет активных трейдов на Маркете."}
 
-    async with httpx.AsyncClient(timeout=10.0) as client: 
-        for trade in active_trades:
-            trade_id = trade["id"]
-            
-            # Достаем уникальный ID Маркета из поля tradeofferid
-            custom_id = trade.get("tradeofferid")
-            if not custom_id:
-                continue # Если ID нет, Маркету нечего проверять
-            
-            updated_at_str = trade.get("updated_at")
-            trade_time = parser.parse(updated_at_str) if updated_at_str else now
-            minutes_passed = (now - trade_time).total_seconds() / 60
+    # 🔥 1. ЧИТАЕМ ТУМБЛЕР ПРОКСИ ИЗ БД
+    use_proxy = True 
+    try:
+        proxy_res = await supabase.get("/system_settings", params={"setting_key": "eq.market_proxy_enabled"})
+        if proxy_res.status_code == 200:
+            proxy_data = proxy_res.json()
+            if proxy_data and isinstance(proxy_data, list) and len(proxy_data) > 0:
+                use_proxy = proxy_data[0].get("setting_value", True)
+    except Exception:
+        pass # Если таблицы нет или ошибка, просто используем True
 
-            # 🔥 ФИЛЬТР СВЕЖЕСТИ: Ждем минимум 2 минуты перед проверкой
-            if minutes_passed < 2.0:
-                continue
+    # 🔥 2. ИНИЦИАЛИЗИРУЕМ КЛАСС (вместо сырого httpx)
+    # Важно: Убедись, что класс MarketCSGO импортирован в этом файле!
+    market = MarketCSGO(api_key=TM_API_KEY, use_proxy=use_proxy)
 
-            try:
-                # Отправляем запрос на Маркет
-                tm_res = await client.get(
-                    "https://market.csgo.com/api/v2/get-buy-info-by-custom-id",
-                    params={"key": TM_API_KEY, "custom_id": custom_id}
-                )
-                
-                # 🔥 ЗАЩИТА ОТ БАНА IP: Пауза 1 сек между запросами
-                await asyncio.sleep(1)
-                
-                # 1. Если Маркет лежит или тупит
-                if tm_res.status_code != 200:
+    for trade in active_trades:
+        trade_id = trade["id"]
+        
+        # Достаем уникальный ID Маркета из поля tradeofferid
+        custom_id = trade.get("tradeofferid")
+        if not custom_id:
+            continue # Если ID нет, Маркету нечего проверять
+        
+        updated_at_str = trade.get("updated_at")
+        trade_time = parser.parse(updated_at_str) if updated_at_str else now
+        minutes_passed = (now - trade_time).total_seconds() / 60
+
+        # 🔥 ФИЛЬТР СВЕЖЕСТИ: Ждем минимум 2 минуты перед проверкой
+        if minutes_passed < 2.0:
+            continue
+
+        try:
+            # 🔥 3. ИСПОЛЬЗУЕМ КЛАСС ДЛЯ ЗАПРОСА
+            tm_data = await market.check_order_status(custom_id)
+            
+            # 🔥 ЗАЩИТА ОТ БАНА IP: Пауза 1 сек между запросами
+            await asyncio.sleep(1)
+            
+            # 1. Если Маркет лежит, тупит или нас блочит Cloudflare
+            if isinstance(tm_data, dict) and not tm_data.get("success") and "error" in tm_data:
+                err_str = tm_data.get("error", "")
+                if err_str.startswith("status_") or err_str == "timeout_limit":
                     if minutes_passed > 35:
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
                             "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
@@ -10980,43 +11013,42 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         results_log.append(f"#{trade_id}: available (TM API timeout > 35m + FORCE_REPLACEMENT)")
                     continue
 
-                tm_data = tm_res.json()
-                trade_info = tm_data.get("data", {})
-                
-                # 2. Если Маркет не знает такую сделку
-                if not tm_data.get("success") or not trade_info:
-                    if tm_data.get("error") == "not found" and minutes_passed > 10:
-                        # 🔥 ПРАВИЛО 10 МИНУТ + ЧЕРНАЯ МЕТКА
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
-                            "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
-                        })
-                        results_log.append(f"#{trade_id}: available (TM not found > 10m + FORCE_REPLACEMENT)")
-                    elif minutes_passed > 35:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
-                            "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
-                        })
-                        results_log.append(f"#{trade_id}: available (TM not found > 35m + FORCE_REPLACEMENT)")
-                    continue
-
-                stage = str(trade_info.get("stage"))
-                settlement = int(trade_info.get("settlement") or 0)
-
-                # ПРАВИЛО №1: УСПЕХ (Передано юзеру)
-                if settlement > 0 or stage == "2":
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received", "updated_at": now_iso})
-                    results_log.append(f"#{trade_id}: received (stage {stage})")
-
-                # ПРАВИЛО №2: ОТМЕНА (Продавец отменил или 35 минут прошло без движений)
-                elif stage in ["4", "5"] or (minutes_passed >= 35 and settlement == 0):
-                    # 🔥 ТАКЖЕ ДОБАВЛЕНА ЧЕРНАЯ МЕТКА ПРИ ОТМЕНАХ МАРКЕТА
+            trade_info = tm_data.get("data", {})
+            
+            # 2. Если Маркет не знает такую сделку
+            if not tm_data.get("success") or not trade_info:
+                if tm_data.get("error") == "not found" and minutes_passed > 10:
+                    # 🔥 ПРАВИЛО 10 МИНУТ + ЧЕРНАЯ МЕТКА
                     await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
                         "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
                     })
-                    results_log.append(f"#{trade_id}: available (stage {stage}, mins: {minutes_passed:.1f} + FORCE_REPLACEMENT)")
-
-            except Exception as e:
-                results_log.append(f"#{trade_id}: EXCEPTION {str(e)}")
+                    results_log.append(f"#{trade_id}: available (TM not found > 10m + FORCE_REPLACEMENT)")
+                elif minutes_passed > 35:
+                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
+                        "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
+                    })
+                    results_log.append(f"#{trade_id}: available (TM not found > 35m + FORCE_REPLACEMENT)")
                 continue
+
+            stage = str(trade_info.get("stage"))
+            settlement = int(trade_info.get("settlement") or 0)
+
+            # ПРАВИЛО №1: УСПЕХ (Передано юзеру)
+            if settlement > 0 or stage == "2":
+                await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received", "updated_at": now_iso})
+                results_log.append(f"#{trade_id}: received (stage {stage})")
+
+            # ПРАВИЛО №2: ОТМЕНА (Продавец отменил или 35 минут прошло без движений)
+            elif stage in ["4", "5"] or (minutes_passed >= 35 and settlement == 0):
+                # 🔥 ТАКЖЕ ДОБАВЛЕНА ЧЕРНАЯ МЕТКА ПРИ ОТМЕНАХ МАРКЕТА
+                await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={
+                    "status": "available", "updated_at": now_iso, "details": "FORCE_REPLACEMENT"
+                })
+                results_log.append(f"#{trade_id}: available (stage {stage}, mins: {minutes_passed:.1f} + FORCE_REPLACEMENT)")
+
+        except Exception as e:
+            results_log.append(f"#{trade_id}: EXCEPTION {str(e)}")
+            continue
 
     return {"status": "ok", "details": results_log}
     
