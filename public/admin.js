@@ -3810,6 +3810,26 @@ if (dom.settingQuestScheduleOverride) {
                 return;
             }
 
+            // 6. Навигация
+            const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
+
+            const isTwitchInnerButton = target.closest('.reward-settings-btn, .reward-purchases-link, .notification-badge');
+            
+            if (navButton && navButton.tagName.toLowerCase() !== 'a') {
+                event.preventDefault();
+                const view = navButton.dataset.view;
+                if (view) await switchView(view);
+                else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
+                else if (navButton.id === 'go-create-challenge') {
+                    dom.challengeForm.reset();
+                    dom.challengeForm.elements['challenge_id'].value = '';
+                    updateChallengeFormUI(dom.challengeForm);
+                    dom.challengeFormTitle.textContent = 'Новый челлендж';
+                    await switchView('view-admin-challenge-form');
+                }
+                return;
+            }
+
             // --- 🛡️ ПОДТВЕРЖДЕНИЕ ВЫДАЧИ ПРИЗА (ПОБЕДИТЕЛЬ) ---
             const confirmWinnerBtn = target.closest('.confirm-winner-prize-btn');
             if (confirmWinnerBtn) {
