@@ -2230,15 +2230,19 @@ class MarketCSGO:
         }
 
         # Выбираем, использовать ли прокси
+       # Выбираем, использовать ли прокси
         client_args = {"headers": headers}
         if self.use_proxy:
             client_args["proxies"] = PROXY_URL
 
-        # ⚡️ РЕЖИМ ТЕРМИНАТОРА: 1 попытка, 12 секунд.
+        # 🔥 УМНЫЙ ТАЙМАУТ: 2 секунды на коннект к прокси, 10 на ответ от маркета
+        custom_timeout = httpx.Timeout(10.0, connect=2.0)
+
+        # ⚡️ РЕЖИМ ТЕРМИНАТОРА: разделенный таймаут
         async with httpx.AsyncClient(**client_args) as client:
             try:
-                # Даем максимум времени, который физически есть на Vercel
-                response = await client.get(url, timeout=12.0)
+                # Используем наш кастомный таймаут
+                response = await client.get(url, timeout=custom_timeout)
                 
                 if response.status_code == 200:
                     return response.json()
@@ -2249,8 +2253,24 @@ class MarketCSGO:
                         await rotator.get(CHANGE_IP_URL, timeout=0.8)
                 return {"success": False, "error": f"status_{response.status_code}"}
 
+            except httpx.ConnectTimeout:
+                # Сработает ровно через 2 секунды, если выданный Astroproxy IP - мертвый!
+                logging.warning("[MARKET] Мертвый IP прокси (ConnectTimeout). Меняем IP...")
+                if self.use_proxy:
+                    try:
+                        async with httpx.AsyncClient() as rotator:
+                            await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                    except: pass
+                return {"success": False, "error": "timeout_limit"}
+
+            except httpx.ReadTimeout:
+                # Сработает через 10 секунд, если прокси живой, но сам МАРКЕТ тупит
+                logging.warning("[MARKET] Маркет долго думает (ReadTimeout).")
+                # Здесь IP менять НЕ ОБЯЗАТЕЛЬНО, проблема на стороне CS:GO Market
+                return {"success": False, "error": "timeout_limit"}
+
             except Exception as e:
-                # Если таймаут или любая беда — тоже ротируем IP
+                # Для прочих ошибок (ошибка парсинга и т.д.)
                 logging.warning(f"[MARKET] Сбой: {e}. Меняем IP...")
                 if self.use_proxy:
                     try:
