@@ -2897,9 +2897,14 @@ function executeCopy(rewardsData, targetLevel) {
         // [НАЧАЛО] ВСТАВЬ ЭТОТ ЛОГ
         console.log('[DEBUG] setupEventListeners() - ФУНКЦИЯ ЗАПУЩЕНА. Начинаем привязку...');
         // [КОНЕЦ] ВСТАВЬ ЭТОТ ЛОГ
-        // 👇 ДОБАВЛЯЕМ ВЫЗОВ НАШЕГО НОВОГО ФАЙЛА 👇
+        // ВЫЗЫВАЕМ СОБЫТИЯ ТВИЧА
     if (typeof window.setupTwitchEventListeners === 'function') {
         window.setupTwitchEventListeners();
+    }
+
+    // 👇 ДОБАВЛЯЕМ ВЫЗОВ P2P 👇
+    if (typeof window.setupP2PEventListeners === 'function') {
+        window.setupP2PEventListeners();
     }
     // 1. Исправление для формы Челленджей (Challenges)
     if (dom.challengeForm) {
@@ -2961,14 +2966,6 @@ function executeCopy(rewardsData, targetLevel) {
                 }
             });
         }
-        // --- ОБРАБОТЧИК КНОПКИ ОБНОВЛЕНИЯ В P2P МОДАЛКЕ ---
-        const refreshP2PBtn = document.getElementById('btn-refresh-p2p-details');
-        if (refreshP2PBtn) {
-            refreshP2PBtn.addEventListener('click', (e) => {
-                e.preventDefault(); // На всякий случай
-                refreshCurrentP2PTradeDetails();
-            });
-        }
         // --- 👇👇👇 ДОБАВЬТЕ ЭТОТ БЛОК 👇👇👇 ---
         const reloadPendingBtn = document.getElementById('reload-pending-actions-btn');
         if (reloadPendingBtn) {
@@ -2976,25 +2973,6 @@ function executeCopy(rewardsData, targetLevel) {
                 showLoader(); // Показываем лоадер
                 await loadPendingActions(); // Вызываем функцию загрузки
                 hideLoader(); // Прячем лоадер
-            });
-        }
-        // ⬇️⬇️⬇️ ВСТАВИТЬ СЮДА ⬇️⬇️⬇️
-        if (dom.createP2PCaseForm) {
-            dom.createP2PCaseForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                try {
-                    await makeApiRequest('/api/v1/admin/p2p/case/add', {
-                        case_name: formData.get('case_name'),
-                        image_url: formData.get('image_url'),
-                        price_in_coins: parseInt(formData.get('price_in_coins'))
-                    });
-                    tg.showAlert('Кейс добавлен!');
-                    e.target.reset();
-                    loadP2PCases(); // Обновляем список
-                } catch (err) {
-                    tg.showAlert(err.message);
-                }
             });
         }
     if (dom.adminResetUserWeeklyProgressSearchBtn) {
@@ -5937,40 +5915,6 @@ if (addGiftSkinForm) {
             tg.showAlert(`Ошибка: ${err.message}`);
         }
     });
-}
-/* === НОВАЯ ФУНКЦИЯ: ОБНОВЛЕНИЕ ОТКРЫТОЙ СДЕЛКИ === */
-async function refreshCurrentP2PTradeDetails() {
-    if (!currentP2PTradeId) return;
-
-    const btn = document.getElementById('btn-refresh-p2p-details');
-    const icon = btn ? btn.querySelector('i') : null;
-
-    // Анимация вращения
-    if (icon) icon.classList.add('fa-spin');
-
-    try {
-        // 1. Запрашиваем свежий список
-        const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
-        
-        // 2. Ищем текущую сделку
-        const trade = trades.find(t => t.id === currentP2PTradeId);
-
-        if (trade) {
-            // 3. Перерисовываем модалку свежими данными
-            openP2PDetailsModal(trade);
-            tg.showPopup({message: 'Данные обновлены'});
-        } else {
-            // Если сделка пропала (например, удалена)
-            tg.showAlert('Сделка не найдена (возможно, удалена)');
-            closeModal('p2pTradeDetailsModal');
-            loadP2PTrades(); // Обновляем список на фоне
-        }
-    } catch (e) {
-        tg.showAlert('Ошибка обновления: ' + e.message);
-    } finally {
-        // Убираем анимацию
-        if (icon) icon.classList.remove('fa-spin');
-    }
 }
 // Функция инициализации управления ивентом (ОБНОВЛЕННАЯ)
 async function initEventControls() {
