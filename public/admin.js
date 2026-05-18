@@ -4938,5 +4938,4 @@ if (addGiftSkinForm) {
     });
 }
 
-// Делаем функцию глобальной, чтобы HTML onclick её видел
-window.toggleRewardStatus = toggleRewardStatus;
+
