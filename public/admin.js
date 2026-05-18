@@ -5067,65 +5067,7 @@ async function main() {
             hideLoader();
         }
     }
-    // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
-// --- ЛОГИКА P2P СДЕЛОК (MAIN) ---
-/* === 1. ЗАГРУЗКА СПИСКА (С КНОПКОЙ УДАЛЕНИЯ) === */
-async function loadP2PTrades() {
-    const container = document.getElementById('p2p-trades-list'); 
-    if (!container) return;
-
-    container.className = 'p2p-trades-grid'; 
-    container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Загрузка...</p>';
-
-    try {
-        const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
-        
-        container.innerHTML = '';
-        updateP2PBadge(trades);
-
-        if (!trades || trades.length === 0) {
-            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #777;">Нет активных сделок.</p>';
-            return;
-        }
-
-        trades.forEach(trade => {
-            const user = trade.user || {};
-            const caseItem = trade.case || {};
-            
-            let statusClass = 'status-pending';
-            if (trade.status === 'review' || trade.status === 'active') statusClass = 'status-review';
-            if (trade.status === 'completed') statusClass = 'status-completed';
-            if (trade.status === 'canceled') statusClass = 'status-canceled';
-
-            const caseName = caseItem.case_name || ('Case #' + trade.case_id);
-            const caseImg = caseItem.image_url || 'https://via.placeholder.com/60';
-            const userName = user.full_name || user.username || ('User ' + trade.user_id);
-
-            // КНОПКА УДАЛЕНИЯ ДОБАВЛЕНА СЮДА (onclick с stopPropagation)
-            const html = `
-                <div class="p2p-trade-card">
-                    <button class="p2p-card-delete-btn" onclick="deleteP2PTradeFromCard(event, ${trade.id})" title="Удалить навсегда">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-
-                    <div class="p2p-status-dot ${statusClass}"></div>
-                    <img src="${escapeHTML(caseImg)}" onerror="this.src='https://placehold.co/60'">
-                    <div class="p2p-user-name">${escapeHTML(userName)}</div>
-                    <div class="p2p-case-name">${escapeHTML(caseName)}</div>
-                    
-                    <button class="btn-details-p2p" onclick='openP2PDetailsModal(${JSON.stringify(trade).replace(/'/g, "&#39;")})'>
-                        Подробнее
-                    </button>
-                </div>
-            `;
-            container.insertAdjacentHTML('beforeend', html);
-        });
-
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<p class="error-message" style="grid-column: 1/-1;">Ошибка: ${e.message}</p>`;
-    }
-}
+    // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ----
 
 /* === НОВАЯ ФУНКЦИЯ: БЫСТРОЕ УДАЛЕНИЕ С КАРТОЧКИ === */
 function deleteP2PTradeFromCard(event, tradeId) {
