@@ -2643,7 +2643,7 @@ function executeCopy(rewardsData, targetLevel) {
     if (typeof window.setupP2PEventListeners === 'function') {
         window.setupP2PEventListeners();
     }
-    / 👇👇👇 ДОБАВЬ ВОТ ЭТОТ БЛОК ДЛЯ КОТЛА 👇👇👇
+    // 👇👇👇 ДОБАВЬ ВОТ ЭТОТ БЛОК ДЛЯ КОТЛА 👇👇👇
         if (typeof window.setupCauldronEventListeners === 'function') {
             window.setupCauldronEventListeners();
         }
