@@ -4,7 +4,7 @@
 
 let currentP2PTradeId = null;
 
-async function loadP2PTrades() {
+window.loadP2PTrades = async function() {
     const container = document.getElementById('p2p-trades-list'); 
     if (!container) return;
 
@@ -15,7 +15,7 @@ async function loadP2PTrades() {
         const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
         
         container.innerHTML = '';
-        updateP2PBadge(trades);
+        window.updateP2PBadge(trades);
 
         if (!trades || trades.length === 0) {
             container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #777;">Нет активных сделок.</p>';
@@ -58,7 +58,7 @@ async function loadP2PTrades() {
         console.error(e);
         container.innerHTML = `<p class="error-message" style="grid-column: 1/-1;">Ошибка: ${e.message}</p>`;
     }
-}
+};
 
 window.deleteP2PTradeFromCard = function(event, tradeId) {
     event.stopPropagation(); 
@@ -72,7 +72,7 @@ window.deleteP2PTradeFromCard = function(event, tradeId) {
                     initData: tg.initData 
                 });
                 tg.showPopup({message: 'Удалено'});
-                loadP2PTrades(); 
+                window.loadP2PTrades(); 
             } catch (e) {
                 tg.showAlert('Ошибка: ' + e.message);
             }
@@ -132,11 +132,11 @@ window.openP2PDetailsModal = function(trade) {
         document.getElementById('modal-p2p-date').value = 'Неизвестно';
     }
     
-    renderP2PModalStatus(trade.status, trade.id, trade.total_coins);
+    window.renderP2PModalStatus(trade.status, trade.id, trade.total_coins);
     document.getElementById('p2pTradeDetailsModal').classList.remove('hidden');
 };
 
-function renderP2PModalStatus(status, tradeId, amount) {
+window.renderP2PModalStatus = function(status, tradeId, amount) {
     const statusEl = document.getElementById('modal-p2p-status-text');
     const actionsDiv = document.getElementById('modal-p2p-actions');
     actionsDiv.innerHTML = ''; 
@@ -200,7 +200,7 @@ function renderP2PModalStatus(status, tradeId, amount) {
 
     statusEl.innerText = statusText;
     statusEl.style.color = statusColor;
-}
+};
 
 window.approveP2PTrade = async function(tradeId) {
     showLoader();
@@ -223,8 +223,8 @@ window.approveP2PTrade = async function(tradeId) {
         });
 
         tg.showPopup({ message: "Заявка принята, ссылка отправлена!" });
-        renderP2PModalStatus('active', tradeId, 0); 
-        loadP2PTrades(); 
+        window.renderP2PModalStatus('active', tradeId, 0); 
+        window.loadP2PTrades(); 
 
     } catch (e) {
         tg.showAlert("Ошибка: " + e.message);
@@ -241,8 +241,8 @@ window.completeP2PTrade = async function(tradeId, coins) {
                 await makeApiRequest('/api/v1/admin/p2p/complete', { trade_id: tradeId, initData: tg.initData });
                 tg.showPopup({message: 'Успешно! Монеты выданы.'});
                 
-                renderP2PModalStatus('completed', tradeId, coins);
-                loadP2PTrades(); 
+                window.renderP2PModalStatus('completed', tradeId, coins);
+                window.loadP2PTrades(); 
             } catch (e) {
                 tg.showAlert(e.message);
             }
@@ -266,7 +266,7 @@ window.deleteCurrentP2PTrade = function() {
                 
                 tg.showPopup({message: 'Сделка удалена.'});
                 window.closeModal('p2pTradeDetailsModal');
-                loadP2PTrades(); 
+                window.loadP2PTrades(); 
             } catch (e) {
                 tg.showAlert('Ошибка: ' + e.message);
             }
@@ -284,8 +284,8 @@ window.rejectP2PTrade = function(tradeId) {
                 await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: tradeId, initData: tg.initData });
                 
                 tg.showPopup({message: 'Статус изменен на "Отменено"'});
-                renderP2PModalStatus('canceled', tradeId, 0);
-                loadP2PTrades(); 
+                window.renderP2PModalStatus('canceled', tradeId, 0);
+                window.loadP2PTrades(); 
             } catch (e) {
                 tg.showAlert('Ошибка: ' + e.message);
             }
@@ -302,7 +302,7 @@ window.cancelP2PTrade = async function(tradeId) {
             try {
                 await makeApiRequest('/api/v1/admin/p2p/cancel', { trade_id: parseInt(tradeId) });
                 tg.showAlert("Сделка отменена.");
-                loadP2PTrades();
+                window.loadP2PTrades();
             } catch (e) {
                 tg.showAlert("Ошибка: " + e.message);
             } finally {
@@ -509,12 +509,13 @@ window.adminForceConfirmSent = async function(tradeId) {
                 
                 tg.showPopup({message: 'Статус обновлен вручную!'});
                 
-                renderP2PModalStatus('review', tradeId, 0); 
-                loadP2PTrades(); 
+                window.renderP2PModalStatus('review', tradeId, 0); 
+                window.loadP2PTrades(); 
                 
-                const trade = (await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true)).find(t => t.id === tradeId);
+                const trades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
+                const trade = trades.find(t => t.id === tradeId);
                 if (trade) {
-                    renderP2PModalStatus('review', tradeId, trade.total_coins);
+                    window.renderP2PModalStatus('review', tradeId, trade.total_coins);
                 }
 
             } catch (e) {
@@ -544,7 +545,7 @@ window.refreshCurrentP2PTradeDetails = async function() {
         } else {
             tg.showAlert('Сделка не найдена (возможно, удалена)');
             window.closeModal('p2pTradeDetailsModal');
-            loadP2PTrades(); 
+            window.loadP2PTrades(); 
         }
     } catch (e) {
         tg.showAlert('Ошибка обновления: ' + e.message);
