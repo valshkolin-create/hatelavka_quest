@@ -2643,6 +2643,11 @@ function executeCopy(rewardsData, targetLevel) {
     if (typeof window.setupP2PEventListeners === 'function') {
         window.setupP2PEventListeners();
     }
+    / 👇👇👇 ДОБАВЬ ВОТ ЭТОТ БЛОК ДЛЯ КОТЛА 👇👇👇
+        if (typeof window.setupCauldronEventListeners === 'function') {
+            window.setupCauldronEventListeners();
+        }
+        // 👆👆👆 ================================== 👆👆👆
     // 1. Исправление для формы Челленджей (Challenges)
     if (dom.challengeForm) {
         const typeSelect = dom.challengeForm.querySelector('select[name="condition_type"]');
