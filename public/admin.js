@@ -4938,4 +4938,18 @@ if (addGiftSkinForm) {
     });
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("Admin Init Started");
+    tg.ready();
+    
+    // Запускаем прослушку кликов
+    if (typeof setupEventListeners === 'function') {
+        setupEventListeners();
+    }
+    
+    // Запускаем инициализацию админки
+    if (typeof main === 'function') {
+        main();
+    }
+});
 
