@@ -2080,3 +2080,27 @@ input:checked + .slider:before {
 .edit-mode-active .admin-add-btn {
     animation: none !important;
 }
+
+/* Кнопка Редактирования (Шапка) */
+.edit-mode-toggle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #333; /* Черно-серое */
+    color: #aaa;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 10px;
+}
+
+.edit-mode-toggle.active {
+    background-color: #ffd700 !important; /* Желтый */
+    color: #000 !important; /* Черная иконка */
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6) !important;
+    transform: scale(1.1);
+}
