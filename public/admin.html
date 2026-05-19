@@ -1726,6 +1726,22 @@
         </div>
     </div>
 </div>
+
+  <!-- МОДАЛКА: Выбор новой иконки для добавления -->
+<div id="icon-picker-modal" class="modal-overlay hidden" style="z-index: 2001;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Выберите значок</h2>
+            <button class="modal-close-btn" data-close-modal="icon-picker-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size: 12px; color: var(--text-color-muted); margin-top: 0;">Нажмите на значок, чтобы перенести его на главную страницу.</p>
+            <div id="icon-picker-grid" class="pending-actions-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <!-- Сюда JS загрузит все доступные админские кнопки -->
+            </div>
+        </div>
+    </div>
+</div>
   
 <!-- НИЖНИЙ И ВЕРХНИЙ БАР -->
     <script src="/top_nav.js" defer></script>
