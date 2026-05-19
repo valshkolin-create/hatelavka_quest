@@ -245,6 +245,8 @@
             if (typeof window.checkBalance === 'function') window.checkBalance(true);
         };
         setTimeout(tryLoadData, 300);
+        // 🔥 ПРОВЕРКА АДМИНА 🔥
+        checkAdminAccess();
     }
 
     function detectPlatforms() {
@@ -277,6 +279,50 @@
             }
         }
     }
+
+    async function checkAdminAccess() {
+        const adminNav = document.getElementById('nav-admin');
+        if (!adminNav) return;
+
+        // 1. Быстрая проверка: смотрим кэш
+        try {
+            const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+            if (cached?.user?.is_admin) {
+                adminNav.classList.remove('hidden');
+                return; // Если в кэше уже админ, сразу показываем и выходим
+            }
+        } catch (e) {}
+
+        // 2. Надежная проверка: если в кэше пусто или не админ, спрашиваем бэкенд
+        const tryLoadMe = async () => {
+            // Ждем инициализации TG WebApp или API-запросника
+            if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
+                setTimeout(tryLoadMe, 200);
+                return;
+            }
+            try {
+                if (typeof window.makeApiRequest === 'function') {
+                    // Запрашиваем данные юзера тихо, без крутилок
+                    const userData = await window.makeApiRequest('/api/v1/user/me', {}, 'GET', true);
+                    if (userData && userData.is_admin) {
+                        adminNav.classList.remove('hidden');
+                        
+                        // Заодно обновляем кэш, чтобы в следующий раз было мгновенно
+                        try {
+                            const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+                            if (!cached.user) cached.user = {};
+                            cached.user.is_admin = true;
+                            localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
+                        } catch(e){}
+                    }
+                }
+            } catch (e) {
+                console.warn("Не удалось проверить статус админа", e);
+            }
+        };
+        
+        setTimeout(tryLoadMe, 300);
+    }
 
     // Запускаем внедрение
     if (document.readyState === 'loading') {
