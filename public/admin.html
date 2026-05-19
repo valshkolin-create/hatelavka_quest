@@ -1698,6 +1698,34 @@
             </div>
         </div>
     </div>
+
+  <!-- Модалка действий с иконкой (Удалить/Заменить) -->
+<div id="edit-icon-action-modal" class="modal-overlay hidden" style="z-index: 2000;">
+    <div class="prompt-modal">
+        <h3>Действие</h3>
+        <p style="font-size: 13px; color: var(--text-color-muted); margin-bottom: 15px;">Что сделать с этой иконкой?</p>
+        <div class="prompt-actions" style="flex-direction: column; gap: 10px;">
+            <button id="btn-replace-icon" class="admin-menu-button" style="background-color: var(--action-color);">Заменить иконку</button>
+            <button id="btn-delete-icon" class="admin-menu-button" style="background-color: var(--danger-color);">Удалить</button>
+            <button class="cancel-btn" data-close-modal="edit-icon-action-modal" style="margin-top: 10px;">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка выбора новой иконки -->
+<div id="icon-picker-modal" class="modal-overlay hidden" style="z-index: 2001;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Выберите раздел</h2>
+            <button class="modal-close-btn" data-close-modal="icon-picker-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="icon-picker-grid" class="pending-actions-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <!-- Сюда JS загрузит все доступные админские кнопки -->
+            </div>
+        </div>
+    </div>
+</div>
   
 <!-- НИЖНИЙ И ВЕРХНИЙ БАР -->
     <script src="/top_nav.js" defer></script>
