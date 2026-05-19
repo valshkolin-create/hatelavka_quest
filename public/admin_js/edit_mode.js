@@ -303,7 +303,10 @@ async function saveLayout() {
 
     // 2. Отправляем на бэкенд
     try {
-        await makeApiRequest('/api/v1/admin/layout/save', { layout: layout });
+        await makeApiRequest('/api/v1/admin/layout/save', { 
+            initData: tg.initData, // <-- ДОБАВЛЕНО
+            layout: layout 
+        });
     } catch (e) {
         console.error("Ошибка сохранения рабочего стола в БД:", e);
         if(window.tg) tg.showAlert("Ошибка синхронизации папок с сервером");
@@ -316,7 +319,10 @@ async function restoreLayoutFromDB() {
     
     try {
         // Запрашиваем с сервера
-        const response = await makeApiRequest('/api/v1/admin/layout/get', {}, 'POST', true);
+        const response = await makeApiRequest('/api/v1/admin/layout/get', {
+            initData: tg.initData // <-- ДОБАВЛЕНО ВМЕСТО {}
+        }, 'POST', true);
+        
         if (response && response.layout) {
             layout = response.layout;
             localStorage.setItem('adminMainLayout', JSON.stringify(layout)); // обновляем кэш
