@@ -17,8 +17,13 @@
     <main id="app-container" class="main-content">
         <div id="view-admin-main" class="view">
             <div class="page-header">                
-                <!-- ПУСТОЙ БЛОК СЛЕВА (ОН НУЖЕН ДЛЯ ИДЕАЛЬНОЙ ЦЕНТРОВКИ) -->
-                <div style="width: 80px;"></div>
+
+              <!-- БЛОК СЛЕВА С КНОПКОЙ РЕДАКТИРОВАНИЯ -->
+    <div style="width: 80px; display: flex; justify-content: flex-start; align-items: center;">
+        <button id="edit-mode-toggle" class="edit-mode-toggle" title="Режим редактирования">
+            <i class="fa-solid fa-pen"></i>
+        </button>
+    </div>
                 
                 <h1 class="page-header-title">Админ-панель</h1>
                 
@@ -1714,14 +1719,13 @@
 </div>
 
 <!-- МОДАЛКА: Просмотр содержимого папки (Обычный режим) -->
-<div id="folder-view-modal" class="modal-overlay hidden" style="z-index: 1500; align-items: flex-end; padding-bottom: 30px;">
-    <div class="modal-content" style="background: rgba(30,30,30,0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); width: 95%;">
+<div id="folder-view-modal" class="modal-overlay hidden" style="z-index: 1500; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: rgba(30,30,30,0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px;">
         <div class="modal-header">
             <h2 id="folder-view-title" class="modal-title" style="font-size: 18px;">Папка</h2>
             <button class="modal-close-btn" data-close-modal="folder-view-modal">&times;</button>
         </div>
         <div class="modal-body">
-            <!-- Сюда скрипт временно переместит иконки -->
             <div id="folder-view-grid" class="pending-actions-grid" style="grid-template-columns: repeat(4, 1fr);"></div>
         </div>
     </div>
