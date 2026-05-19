@@ -133,9 +133,9 @@ html, body {
 .quest-category-header .category-actions-in-header { display: flex; gap: 10px; align-items: center; }
 /* Смещаем кнопку тех. работ чуть ниже, чтобы она не перекрывала меню из шапки */
 .sleep-mode-toggle { 
-    position: absolute !important; /* Привязываем к самому контенту админки */
-    top: 15px !important; /* Ставим на один уровень с заголовком */
-    right: 20px !important; 
+    position: fixed; 
+    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 105px) !important; 
+    right: 20px; 
     width: 24px; 
     height: 24px; 
     background-color: var(--action-color); 
@@ -148,7 +148,7 @@ html, body {
     justify-content: center; 
     cursor: pointer; 
     box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
-    z-index: 100; 
+    z-index: 1000; 
 }
 /* Используем оранжевый цвет для тех. работ */
 .sleep-mode-toggle.is-sleeping { background-color: #ff9500; box-shadow: 0 0 15px rgba(255, 149, 0, 0.6); }
