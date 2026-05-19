@@ -8,9 +8,10 @@ let firstFolderItem = null;
 let currentEditItem = null;
 let currentOpenFolderContents = null;
 
+// === ЗАГРУЗКА И ИНИЦИАЛИЗАЦИЯ ===
 document.addEventListener('DOMContentLoaded', async () => {
     assignUniqueIDs(); 
-    await restoreLayoutFromDB(); // Ждем загрузки из базы
+    await restoreLayoutFromDB(); // Сначала грузим из базы, если не вышло - из локалки
     
     // Подключаем кнопку из шапки
     const editBtn = document.getElementById('edit-mode-toggle');
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// === ВКЛЮЧЕНИЕ / ВЫКЛЮЧЕНИЕ РЕЖИМА РЕДАКТИРОВАНИЯ ===
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const grid = document.querySelector('#tab-content-main .admin-icon-menu');
@@ -32,6 +34,7 @@ function toggleEditMode() {
         grid.classList.add('edit-mode-active');
         enableEditInterception(grid);
         
+        // Добавляем кнопку "+" 
         const addBtn = document.createElement('div');
         addBtn.className = 'empty-edit-slot admin-add-btn';
         addBtn.innerHTML = `<div class="slot-circle">+</div><span>Добавить</span>`;
@@ -45,11 +48,13 @@ function toggleEditMode() {
         isSelectingForFolder = false;
         firstFolderItem = null;
         
+        // Убираем кнопку "+"
         const addBtn = grid.querySelector('.admin-add-btn');
         if (addBtn) addBtn.remove();
     }
 }
 
+// === БЛОКИРОВКА ПЕРЕХОДОВ ВО ВРЕМЯ ТРЯСКИ ===
 function enableEditInterception(grid) {
     grid.querySelectorAll('.admin-icon-button:not(.admin-add-btn)').forEach(item => {
         item.addEventListener('click', handleIconEditClick, true);
@@ -69,7 +74,7 @@ function handleIconEditClick(e) {
 
     const item = e.currentTarget;
 
-    // === ЛОГИКА СБОРКИ ПАПОК ===
+    // Сборка папок
     if (isSelectingForFolder) {
         if (item === firstFolderItem) return;
         
@@ -80,16 +85,11 @@ function handleIconEditClick(e) {
             if(window.tg) return tg.showAlert('Нельзя класть папку в папку!');
         }
         
-        // Если кликнули на существующую папку
         if (itemIsFolder) {
             addToExistingFolder(firstFolderItem, item);
-        } 
-        // Если первый элемент был папкой (сначала выбрали папку, потом иконку)
-        else if (firstIsFolder) {
+        } else if (firstIsFolder) {
             addToExistingFolder(item, firstFolderItem);
-        } 
-        // Оба обычные иконки - создаем новую папку
-        else {
+        } else {
             createFolder(firstFolderItem, item);
         }
         
@@ -107,6 +107,7 @@ function handleIconEditClick(e) {
     document.getElementById('edit-icon-action-modal').classList.remove('hidden');
 }
 
+// === ДОБАВЛЕНИЕ НОВЫХ ИКОНОК ===
 function openAddFromAdminPicker() {
     const pickerGrid = document.getElementById('icon-picker-grid');
     pickerGrid.innerHTML = '';
@@ -135,7 +136,7 @@ function openAddFromAdminPicker() {
                 mainGrid.insertBefore(item, addBtn); 
                 
                 item.addEventListener('click', handleIconEditClick, true);
-                saveLayout();
+                saveLayout(); // Сохраняем изменение
                 
                 document.getElementById('icon-picker-modal').classList.add('hidden');
             };
@@ -145,7 +146,7 @@ function openAddFromAdminPicker() {
     document.getElementById('icon-picker-modal').classList.remove('hidden');
 }
 
-// === ДЕЙСТВИЯ ИЗ МЕНЮ ===
+// === ДЕЙСТВИЯ ИЗ МОДАЛКИ (СКРЫТЬ, СОЗДАТЬ ПАПКУ, РАСПАКОВАТЬ) ===
 document.getElementById('btn-hide-icon').onclick = () => {
     if (currentEditItem) {
         currentEditItem.classList.add('user-hidden');
@@ -166,7 +167,7 @@ document.getElementById('btn-unpack-folder').onclick = () => {
     unpackFolder(currentEditItem);
 };
 
-// === МАГИЯ ПАПОК (Создание, Добавление, Превью) ===
+// === ЛОГИКА ПАПОК ===
 function createFolder(el1, el2) {
     const folderName = prompt('Название новой папки:', 'Папка') || 'Папка';
     const folderId = 'folder_' + Date.now();
@@ -184,11 +185,10 @@ function createFolder(el1, el2) {
     el1.parentNode.insertBefore(folderDiv, el1);
     const contents = folderDiv.querySelector('.folder-contents');
     
-    // Прячем иконки внутрь
     contents.appendChild(el1);
     contents.appendChild(el2);
 
-    updateFolderPreview(folderDiv); // Собираем превью!
+    updateFolderPreview(folderDiv);
 
     folderDiv.addEventListener('click', handleIconEditClick, true);
     folderDiv.addEventListener('click', openFolderNormalMode);
@@ -198,25 +198,22 @@ function createFolder(el1, el2) {
 function addToExistingFolder(iconEl, folderEl) {
     const contents = folderEl.querySelector('.folder-contents');
     contents.appendChild(iconEl);
-    updateFolderPreview(folderEl); // Обновляем сетку 2x2
+    updateFolderPreview(folderEl);
     saveLayout();
     if(window.tg) tg.showPopup({message: 'Иконка добавлена в папку!'});
 }
 
-// Генератор превью для папки (до 4 иконок)
 function updateFolderPreview(folderEl) {
     const contents = folderEl.querySelector('.folder-contents');
     const wrapper = folderEl.querySelector('.folder-wrapper');
-    wrapper.innerHTML = ''; // Очищаем старое превью
+    wrapper.innerHTML = ''; 
 
-    // Берем первые 4 иконки
     const children = Array.from(contents.children).slice(0, 4);
     
     children.forEach(child => {
         const childIconWrapper = child.querySelector('.icon-wrapper');
         if (!childIconWrapper) return;
         
-        // Клонируем внутренности, чтобы удалить лишние бейджики (уведомления)
         const clone = childIconWrapper.cloneNode(true);
         clone.querySelectorAll('.notification-badge, .reward-shortcut-btn').forEach(el => el.remove());
         
@@ -261,7 +258,7 @@ function unpackFolder(folderEl) {
     saveLayout();
 }
 
-// === ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ ===
+// === ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ (DB + LOCALSTORAGE) ===
 function assignUniqueIDs() {
     const items = document.querySelectorAll('.admin-icon-button:not(.admin-folder)');
     items.forEach((item) => {
@@ -276,7 +273,6 @@ function assignUniqueIDs() {
     });
 }
 
-// СОХРАНЕНИЕ В БАЗУ
 async function saveLayout() {
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
     const layout = { folders: {}, hidden: [], mainOrder: [] };
@@ -298,46 +294,44 @@ async function saveLayout() {
         }
     });
 
-    // 1. Дублируем в localStorage (для мгновенной отрисовки при F5, пока грузится база)
+    // Дублируем в кэш для мгновенной загрузки при F5
     localStorage.setItem('adminMainLayout', JSON.stringify(layout));
 
-    // 2. Отправляем на бэкенд
+    // Отправляем на сервер (используем initData из TG)
     try {
+        const initDataStr = (typeof tg !== 'undefined' && tg.initData) ? tg.initData : '';
         await makeApiRequest('/api/v1/admin/layout/save', { 
-            initData: tg.initData, // <-- ДОБАВЛЕНО
+            initData: initDataStr,
             layout: layout 
         });
     } catch (e) {
         console.error("Ошибка сохранения рабочего стола в БД:", e);
-        if(window.tg) tg.showAlert("Ошибка синхронизации папок с сервером");
     }
 }
 
-// ВОССТАНОВЛЕНИЕ ИЗ БАЗЫ
 async function restoreLayoutFromDB() {
     let layout = null;
     
     try {
-        // Запрашиваем с сервера
+        const initDataStr = (typeof tg !== 'undefined' && tg.initData) ? tg.initData : '';
         const response = await makeApiRequest('/api/v1/admin/layout/get', {
-            initData: tg.initData // <-- ДОБАВЛЕНО ВМЕСТО {}
+            initData: initDataStr 
         }, 'POST', true);
         
         if (response && response.layout) {
             layout = response.layout;
-            localStorage.setItem('adminMainLayout', JSON.stringify(layout)); // обновляем кэш
+            localStorage.setItem('adminMainLayout', JSON.stringify(layout)); 
         }
     } catch (e) {
         console.error("Не удалось загрузить рабочий стол с сервера, берем из кэша", e);
-        // Если сервер недоступен, берем из локального кэша
         layout = JSON.parse(localStorage.getItem('adminMainLayout'));
     }
 
-    if (!layout) return; // Если у пользователя еще нет кастомных настроек, оставляем дефолт
+    if (!layout) return;
 
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
 
-    // 1. Скрываем ненужные
+    // 1. Скрываем элементы
     if (layout.hidden) {
         layout.hidden.forEach(id => {
             const item = document.getElementById(id);
@@ -348,7 +342,7 @@ async function restoreLayoutFromDB() {
         });
     }
 
-    // 2. Расставляем по местам
+    // 2. Расставляем папки и кнопки на главной
     if (layout.mainOrder) {
         layout.mainOrder.forEach(id => {
             if (layout.folders && layout.folders[id]) {
@@ -385,78 +379,4 @@ async function restoreLayoutFromDB() {
             }
         });
     }
-}
-
-function saveLayout() {
-    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
-    const layout = { folders: {}, hidden: [], mainOrder: [] };
-
-    mainGrid.querySelectorAll('.admin-icon-button').forEach(item => {
-        if (item.classList.contains('admin-add-btn')) return;
-        
-        if (item.classList.contains('user-hidden')) {
-            layout.hidden.push(item.id);
-        } else if (item.classList.contains('admin-folder')) {
-            const childrenIds = Array.from(item.querySelectorAll('.folder-contents .admin-icon-button')).map(child => child.id);
-            layout.folders[item.id] = {
-                name: item.querySelector('span').innerText,
-                children: childrenIds // Больше не храним HTML, только ID!
-            };
-            layout.mainOrder.push(item.id);
-        } else {
-            layout.mainOrder.push(item.id);
-        }
-    });
-
-    localStorage.setItem('adminMainLayout', JSON.stringify(layout));
-}
-
-function restoreLayout() {
-    const layout = JSON.parse(localStorage.getItem('adminMainLayout'));
-    if (!layout) return;
-
-    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
-
-    layout.hidden.forEach(id => {
-        const item = document.getElementById(id);
-        if (item) {
-            mainGrid.appendChild(item);
-            item.classList.add('user-hidden');
-        }
-    });
-
-    layout.mainOrder.forEach(id => {
-        if (layout.folders[id]) {
-            const data = layout.folders[id];
-            const folderDiv = document.createElement('div');
-            folderDiv.className = 'admin-icon-button admin-folder';
-            folderDiv.id = id;
-            folderDiv.innerHTML = `
-                <div class="icon-wrapper folder-wrapper"></div>
-                <span>${data.name}</span>
-                <div class="folder-contents"></div>
-            `;
-            const contents = folderDiv.querySelector('.folder-contents');
-            
-            data.children.forEach(childId => {
-                const child = document.getElementById(childId);
-                if (child) {
-                    child.classList.remove('user-hidden');
-                    contents.appendChild(child);
-                }
-            });
-            
-            if (contents.children.length > 0) {
-                updateFolderPreview(folderDiv); // Собираем превью динамически!
-                mainGrid.appendChild(folderDiv);
-                folderDiv.addEventListener('click', openFolderNormalMode);
-            }
-        } else {
-            const item = document.getElementById(id);
-            if (item) {
-                item.classList.remove('user-hidden');
-                mainGrid.appendChild(item);
-            }
-        }
-    });
 }
