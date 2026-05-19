@@ -21,51 +21,39 @@ html, body {
     width: 100%;
     height: 100%;
     
-    /* Главная часть: блокируем скролл самого окна */
     position: fixed; 
     overflow: hidden; 
     overscroll-behavior-y: none;
     
-    /* Твои старые стили фона и текста сохраняем */
+    /* 🔥 МАГИЯ ЗДЕСЬ: заставляем контент автоматически занимать всё место под шапкой 🔥 */
+    display: flex !important;
+    flex-direction: column !important;
+    
     background-color: var(--bg-color);
     background-image: var(--bg-gradient);
     color: var(--text-color);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* === ПРИНУДИТЕЛЬНЫЙ ФИКС ШАПКИ ИЗ СКРИПТОВ === */
-.top-header {
-    position: fixed !important; /* Жестко фиксируем наверху */
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    margin-bottom: 0 !important; /* Убиваем гигантский отступ из JS */
-    z-index: 1000 !important;
-    background: rgba(18, 18, 18, 0.85) !important; /* Легкий фон, чтобы контент не сливался */
-    backdrop-filter: blur(15px) !important;
-    -webkit-backdrop-filter: blur(15px) !important;
-}
-
 /* === ТЕПЕРЬ СКРОЛЛИТСЯ ТОЛЬКО ЭТОТ КОНТЕЙНЕР === */
 #app-container {
-    position: absolute !important; /* Отвязываем от шапки, чтобы не плюсовать отступы */
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100vh !important; 
-    height: var(--tg-viewport-height, 100vh) !important;
+    /* Автоматически вычисляет высоту, не залезая за пределы экрана */
+    flex-grow: 1 !important;
+    height: 0 !important; 
+    
     overflow-y: auto !important; 
-    -webkit-overflow-scrolling: touch !important; 
+    -webkit-overflow-scrolling: touch; 
     
-    z-index: 10 !important;
-    display: block !important;
-    box-sizing: border-box !important;
+    position: relative !important;
+    z-index: 10;
+    display: block;
+    box-sizing: border-box;
     
-    /* 
-      Верх: Отступ под системную шторку + 95px (компенсация высоты шапки)
-      Низ: Отступ под системную полоску + 95px (под нижнее меню)
-    */
-    padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 95px) 20px calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 20px)) + 95px) 20px !important;
+    /* 🔥 ПРИПОДНИМАЕМ АДМИНКУ ВЫШЕ 🔥 */
+    margin-top: -15px !important; /* Убираем лишний пробел от шапки */
+    
+    /* Отступ сверху теперь минимальный, а снизу — ровно под системную полоску и твое нижнее меню */
+    padding: 10px 20px calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 20px)) + 100px) 20px !important;
 }
 .hidden { display: none !important; }
 .quests-container { display: flex; flex-direction: column; gap: 15px; }
@@ -145,9 +133,9 @@ html, body {
 .quest-category-header .category-actions-in-header { display: flex; gap: 10px; align-items: center; }
 /* Смещаем кнопку тех. работ чуть ниже, чтобы она не перекрывала меню из шапки */
 .sleep-mode-toggle { 
-    position: fixed; 
-    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 105px) !important; 
-    right: 20px; 
+    position: absolute !important; /* Привязываем к самому контенту админки */
+    top: 15px !important; /* Ставим на один уровень с заголовком */
+    right: 20px !important; 
     width: 24px; 
     height: 24px; 
     background-color: var(--action-color); 
@@ -160,7 +148,7 @@ html, body {
     justify-content: center; 
     cursor: pointer; 
     box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
-    z-index: 1000; 
+    z-index: 100; 
 }
 /* Используем оранжевый цвет для тех. работ */
 .sleep-mode-toggle.is-sleeping { background-color: #ff9500; box-shadow: 0 0 15px rgba(255, 149, 0, 0.6); }
