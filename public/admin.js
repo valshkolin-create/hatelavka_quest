@@ -3225,7 +3225,6 @@ if (dom.settingQuestScheduleOverride) {
                         loadPendingActions();
                     }
                 }
-            }
         });
 
 // --- NEW Event Listener for Sort Order Inputs ---
@@ -3489,6 +3488,7 @@ if (dom.settingQuestScheduleOverride) {
                 e.currentTarget.href = url;
             });
         }
+      } // <--- ✅ ОСТАВЬ ЕЁ ЗДЕСЬ (Она теперь правильно закрывает setupEventListeners)
 
         // 3. ФИНАЛ: Отправка формы
         if (dom.manualTwitchLinkForm) {
@@ -3517,8 +3517,6 @@ if (dom.settingQuestScheduleOverride) {
                     tg.showAlert(`Ошибка: ${err.message}`);
                 }
             });
-        }
-            
         }
         
 
