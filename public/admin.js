@@ -4531,6 +4531,37 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Admin Init Started");
     tg.ready();
     
+    // === НАТИВНАЯ КНОПКА "НАЗАД" ОТ TELEGRAM ===
+    tg.BackButton.show(); // Показываем стрелочку вместо крестика
+
+    tg.onEvent('backButtonClicked', () => {
+        // 1. Если открыта какая-то модалка — закрываем её (не уходим с экрана)
+        const openModal = document.querySelector('.modal-overlay:not(.hidden)');
+        if (openModal) {
+            openModal.classList.add('hidden');
+            return;
+        }
+
+        // 2. Ищем, на каком экране мы сейчас находимся
+        const activeView = document.querySelector('.view:not(.hidden)');
+        if (!activeView) return;
+
+        // 3. Если мы на главном экране админки -> выходим в главное меню бота
+        if (activeView.id === 'view-admin-main') {
+            window.location.href = '/menu';
+            return;
+        }
+
+        // 4. Если мы внутри подменю (например, редактирование квеста) -> ищем куда вести назад
+        const hiddenBackBtn = activeView.querySelector('.back-button[data-view]');
+        if (hiddenBackBtn && hiddenBackBtn.dataset.view) {
+            switchView(hiddenBackBtn.dataset.view); // Возвращаемся на предыдущий экран админки
+        } else {
+            switchView('view-admin-main'); // Запасной вариант
+        }
+    });
+    // ============================================
+    
     // Запускаем прослушку кликов
     if (typeof setupEventListeners === 'function') {
         setupEventListeners();
