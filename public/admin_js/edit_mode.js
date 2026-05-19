@@ -8,9 +8,9 @@ let firstFolderItem = null;
 let currentEditItem = null;
 let currentOpenFolderContents = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     assignUniqueIDs(); 
-    restoreLayout();   
+    await restoreLayoutFromDB(); // Ждем загрузки из базы
     
     // Подключаем кнопку из шапки
     const editBtn = document.getElementById('edit-mode-toggle');
@@ -274,6 +274,111 @@ function assignUniqueIDs() {
             item.id = `btn_safe_${uniqueStr}`;
         }
     });
+}
+
+// СОХРАНЕНИЕ В БАЗУ
+async function saveLayout() {
+    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
+    const layout = { folders: {}, hidden: [], mainOrder: [] };
+
+    mainGrid.querySelectorAll('.admin-icon-button').forEach(item => {
+        if (item.classList.contains('admin-add-btn')) return;
+        
+        if (item.classList.contains('user-hidden')) {
+            layout.hidden.push(item.id);
+        } else if (item.classList.contains('admin-folder')) {
+            const childrenIds = Array.from(item.querySelectorAll('.folder-contents .admin-icon-button')).map(child => child.id);
+            layout.folders[item.id] = {
+                name: item.querySelector('span').innerText,
+                children: childrenIds 
+            };
+            layout.mainOrder.push(item.id);
+        } else {
+            layout.mainOrder.push(item.id);
+        }
+    });
+
+    // 1. Дублируем в localStorage (для мгновенной отрисовки при F5, пока грузится база)
+    localStorage.setItem('adminMainLayout', JSON.stringify(layout));
+
+    // 2. Отправляем на бэкенд
+    try {
+        await makeApiRequest('/api/v1/admin/layout/save', { layout: layout });
+    } catch (e) {
+        console.error("Ошибка сохранения рабочего стола в БД:", e);
+        if(window.tg) tg.showAlert("Ошибка синхронизации папок с сервером");
+    }
+}
+
+// ВОССТАНОВЛЕНИЕ ИЗ БАЗЫ
+async function restoreLayoutFromDB() {
+    let layout = null;
+    
+    try {
+        // Запрашиваем с сервера
+        const response = await makeApiRequest('/api/v1/admin/layout/get', {}, 'POST', true);
+        if (response && response.layout) {
+            layout = response.layout;
+            localStorage.setItem('adminMainLayout', JSON.stringify(layout)); // обновляем кэш
+        }
+    } catch (e) {
+        console.error("Не удалось загрузить рабочий стол с сервера, берем из кэша", e);
+        // Если сервер недоступен, берем из локального кэша
+        layout = JSON.parse(localStorage.getItem('adminMainLayout'));
+    }
+
+    if (!layout) return; // Если у пользователя еще нет кастомных настроек, оставляем дефолт
+
+    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
+
+    // 1. Скрываем ненужные
+    if (layout.hidden) {
+        layout.hidden.forEach(id => {
+            const item = document.getElementById(id);
+            if (item) {
+                mainGrid.appendChild(item);
+                item.classList.add('user-hidden');
+            }
+        });
+    }
+
+    // 2. Расставляем по местам
+    if (layout.mainOrder) {
+        layout.mainOrder.forEach(id => {
+            if (layout.folders && layout.folders[id]) {
+                const data = layout.folders[id];
+                const folderDiv = document.createElement('div');
+                folderDiv.className = 'admin-icon-button admin-folder';
+                folderDiv.id = id;
+                folderDiv.innerHTML = `
+                    <div class="icon-wrapper folder-wrapper"></div>
+                    <span>${data.name}</span>
+                    <div class="folder-contents"></div>
+                `;
+                const contents = folderDiv.querySelector('.folder-contents');
+                
+                data.children.forEach(childId => {
+                    const child = document.getElementById(childId);
+                    if (child) {
+                        child.classList.remove('user-hidden');
+                        contents.appendChild(child);
+                    }
+                });
+                
+                if (contents.children.length > 0) {
+                    updateFolderPreview(folderDiv);
+                    mainGrid.appendChild(folderDiv);
+                    folderDiv.addEventListener('click', openFolderNormalMode);
+                }
+            } else {
+                const item = document.getElementById(id);
+                if (item) {
+                    item.classList.remove('user-hidden');
+                    mainGrid.appendChild(item);
+                }
+            }
+        });
+    }
 }
 
 function saveLayout() {
