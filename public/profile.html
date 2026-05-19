@@ -2428,27 +2428,9 @@ window.checkTradeStatus = async function(historyId) {
                                 
                                 const data = await response.json();
 
-                                if (data.url) {
-                                    // 🔥 БРОНЕБОЙНАЯ МАГИЯ ДЛЯ ANDROID 🔥
-                                    if (tg.platform === 'android') {
-                                        // Отрезаем https:// 
-                                        const urlWithoutHttps = data.url.replace(/^https?:\/\//, '');
-                                        
-                                        // Формируем Intent с ПРИНУДИТЕЛЬНЫМ указанием пакета Chrome.
-                                        // Это запретит Андроиду открывать приложение Twitch!
-                                       const intentUrl = `intent://${urlWithoutHttps}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end;`;
-                                        
-                                        // Кликаем
-                                        const a = document.createElement('a');
-                                        a.href = intentUrl;
-                                        a.target = '_blank';
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        document.body.removeChild(a);
-                                    } else {
-                                        // Для iOS и ПК
-                                        tg.openLink(data.url);
-                                    }
+                               if (data.url) {
+                                    // Официальный метод Telegram для всех платформ (Android, iOS, PC)
+                                    tg.openLink(data.url);
 
                                     setTimeout(() => {
                                         tg.close();
