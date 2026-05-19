@@ -12,7 +12,7 @@ let currentOpenFolderContents = null;
 document.addEventListener('DOMContentLoaded', () => {
     assignUniqueIDs(); 
     
-    // 1. МГНОВЕННАЯ ЗАГРУЗКА ИЗ КЭША (чтобы избежать "прыжков" интерфейса)
+    // 1. МГНОВЕННАЯ ЗАГРУЗКА ИЗ КЭША
     const cachedStr = localStorage.getItem('adminMainLayout');
     if (cachedStr) {
         try {
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 2. ФОНОВАЯ СИНХРОНИЗАЦИЯ С БАЗОЙ (не блокирует отрисовку)
+    // 2. ФОНОВАЯ СИНХРОНИЗАЦИЯ С БАЗОЙ
     syncLayoutWithDB(cachedStr);
     
     // Подключаем кнопку из шапки
@@ -33,6 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleEditMode();
         });
     }
+
+    // Инициализация Drag & Drop
+    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
+    initDragAndDrop(mainGrid);
 });
 
 function toggleEditMode() {
@@ -65,7 +69,116 @@ function toggleEditMode() {
     }
 }
 
-// === ЖЕСТКАЯ БЛОКИРОВКА КЛИКОВ (ССЫЛОК) ===
+// === ЛОГИКА DRAG & DROP (ПЕРЕТАСКИВАНИЕ) ===
+let dragElement = null;
+let ghostElement = null;
+let startX = 0, startY = 0;
+let isDragging = false;
+let justDragged = false; // Флаг, чтобы отличать клик от перетаскивания
+
+function initDragAndDrop(grid) {
+    grid.addEventListener('touchstart', handleDragStart, { passive: false });
+    grid.addEventListener('touchmove', handleDragMove, { passive: false });
+    grid.addEventListener('touchend', handleDragEnd);
+
+    grid.addEventListener('mousedown', handleDragStart);
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+}
+
+function handleDragStart(e) {
+    if (!isEditMode) return;
+    
+    const target = e.target.closest('.admin-icon-button:not(.admin-add-btn)');
+    if (!target) return;
+
+    dragElement = target;
+    startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    startY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+    isDragging = false;
+}
+
+function handleDragMove(e) {
+    if (!dragElement || !isEditMode) return;
+
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    // Если сдвинули курсор больше чем на 8px — начинаем тащить
+    if (!isDragging && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        isDragging = true;
+        justDragged = true; 
+        
+        // Создаем "призрака", который летит за пальцем
+        ghostElement = dragElement.cloneNode(true);
+        ghostElement.style.position = 'fixed';
+        ghostElement.style.pointerEvents = 'none';
+        ghostElement.style.zIndex = '9999';
+        ghostElement.style.opacity = '0.9';
+        ghostElement.style.transform = 'scale(1.1)';
+        ghostElement.style.transition = 'none'; 
+        ghostElement.style.animation = 'none'; // Отключаем тряску у призрака
+        
+        // Убираем марджины, чтобы он не дергался при отрыве
+        ghostElement.style.margin = '0';
+        document.body.appendChild(ghostElement);
+        
+        dragElement.style.opacity = '0.3'; // Оригинал делаем полупрозрачным
+    }
+
+    if (isDragging) {
+        e.preventDefault(); // Запрещаем скролл страницы на мобилках
+        
+        ghostElement.style.left = (clientX - ghostElement.offsetWidth / 2) + 'px';
+        ghostElement.style.top = (clientY - ghostElement.offsetHeight / 2) + 'px';
+
+        // Ищем элемент под пальцем (прячем призрака на миллисекунду)
+        ghostElement.style.display = 'none';
+        const elemBelow = document.elementFromPoint(clientX, clientY);
+        ghostElement.style.display = 'block';
+
+        if (elemBelow) {
+            const targetItem = elemBelow.closest('.admin-icon-button:not(.admin-add-btn)');
+            if (targetItem && targetItem !== dragElement) {
+                const grid = dragElement.parentNode;
+                const rect = targetItem.getBoundingClientRect();
+                const isAfter = clientX > rect.left + rect.width / 2;
+                
+                // Раздвигаем сетку (переносим оригинал на новое место)
+                if (isAfter) {
+                    grid.insertBefore(dragElement, targetItem.nextSibling);
+                } else {
+                    grid.insertBefore(dragElement, targetItem);
+                }
+            }
+        }
+    }
+}
+
+function handleDragEnd(e) {
+    if (!dragElement) return;
+
+    if (isDragging) {
+        // Заканчиваем перетаскивание
+        dragElement.style.opacity = '1';
+        if (ghostElement) {
+            ghostElement.remove();
+            ghostElement = null;
+        }
+        saveLayout(); // Сохраняем новый порядок!
+        
+        // Блокируем клик на 50мс, чтобы не открылось меню
+        setTimeout(() => { justDragged = false; }, 50);
+    }
+    
+    dragElement = null;
+    isDragging = false;
+}
+
+// === ЖЕСТКАЯ БЛОКИРОВКА КЛИКОВ ===
 function handleGridEditClick(e) {
     if (!isEditMode) return;
     
@@ -74,6 +187,9 @@ function handleGridEditClick(e) {
 
     e.preventDefault();
     e.stopPropagation();
+
+    // Если мы только что бросили иконку, меню открывать не надо!
+    if (justDragged) return;
 
     if (btn.classList.contains('admin-add-btn')) {
         openAddFromAdminPicker();
@@ -317,7 +433,6 @@ async function saveLayout() {
     }
 }
 
-// Функция применяет JSON-макет к экрану
 function applyLayoutToDOM(layout) {
     if (!layout) return;
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
@@ -337,7 +452,6 @@ function applyLayoutToDOM(layout) {
             if (layout.folders && layout.folders[id]) {
                 const data = layout.folders[id];
                 
-                // Проверяем, существует ли папка, чтобы не дублировать
                 let folderDiv = document.getElementById(id);
                 if (!folderDiv) {
                     folderDiv = document.createElement('div');
@@ -376,7 +490,6 @@ function applyLayoutToDOM(layout) {
     }
 }
 
-// Фоновая сверка с базой данных
 async function syncLayoutWithDB(cachedStr) {
     try {
         const initDataStr = (typeof tg !== 'undefined' && tg.initData) ? tg.initData : '';
@@ -387,7 +500,6 @@ async function syncLayoutWithDB(cachedStr) {
         if (response && response.layout) {
             const dbLayoutStr = JSON.stringify(response.layout);
             
-            // Если БД отличается от кэша устройства (админ редактировал с другого телефона/ПК)
             if (dbLayoutStr !== cachedStr) {
                 localStorage.setItem('adminMainLayout', dbLayoutStr);
                 resetGridToDefault(); 
@@ -399,16 +511,13 @@ async function syncLayoutWithDB(cachedStr) {
     }
 }
 
-// Разбираем сетку до "заводского" состояния перед применением нового макета из БД
 function resetGridToDefault() {
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
     
-    // Достаем все кнопки из папок
     mainGrid.querySelectorAll('.admin-icon-button:not(.admin-folder)').forEach(item => {
         item.classList.remove('user-hidden');
         mainGrid.appendChild(item);
     });
 
-    // Уничтожаем пустые папки
     mainGrid.querySelectorAll('.admin-folder').forEach(folder => folder.remove());
 }
