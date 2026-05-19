@@ -1699,30 +1699,30 @@
         </div>
     </div>
 
-  <!-- Модалка действий с иконкой (Удалить/Заменить) -->
+<!-- МОДАЛКА: Действия с иконкой (в режиме редактирования) -->
 <div id="edit-icon-action-modal" class="modal-overlay hidden" style="z-index: 2000;">
     <div class="prompt-modal">
-        <h3>Действие</h3>
-        <p style="font-size: 13px; color: var(--text-color-muted); margin-bottom: 15px;">Что сделать с этой иконкой?</p>
+        <h3>Редактирование</h3>
+        <p style="font-size: 13px; color: var(--text-color-muted); margin-bottom: 15px;">Выберите действие</p>
         <div class="prompt-actions" style="flex-direction: column; gap: 10px;">
-            <button id="btn-replace-icon" class="admin-menu-button" style="background-color: var(--action-color);">Заменить иконку</button>
-            <button id="btn-delete-icon" class="admin-menu-button" style="background-color: var(--danger-color);">Удалить</button>
+            <button id="btn-make-folder" class="admin-menu-button" style="background-color: var(--action-color);">📁 Объединить в папку</button>
+            <button id="btn-unpack-folder" class="admin-menu-button hidden" style="background-color: var(--warning-color);">📦 Распаковать папку</button>
+            <button id="btn-hide-icon" class="admin-menu-button" style="background-color: var(--danger-color);">👁️ Скрыть с экрана</button>
             <button class="cancel-btn" data-close-modal="edit-icon-action-modal" style="margin-top: 10px;">Отмена</button>
         </div>
     </div>
 </div>
 
-<!-- Модалка выбора новой иконки -->
-<div id="icon-picker-modal" class="modal-overlay hidden" style="z-index: 2001;">
-    <div class="modal-content">
+<!-- МОДАЛКА: Просмотр содержимого папки (Обычный режим) -->
+<div id="folder-view-modal" class="modal-overlay hidden" style="z-index: 1500; align-items: flex-end; padding-bottom: 30px;">
+    <div class="modal-content" style="background: rgba(30,30,30,0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); width: 95%;">
         <div class="modal-header">
-            <h2 class="modal-title">Выберите раздел</h2>
-            <button class="modal-close-btn" data-close-modal="icon-picker-modal">&times;</button>
+            <h2 id="folder-view-title" class="modal-title" style="font-size: 18px;">Папка</h2>
+            <button class="modal-close-btn" data-close-modal="folder-view-modal">&times;</button>
         </div>
         <div class="modal-body">
-            <div id="icon-picker-grid" class="pending-actions-grid" style="grid-template-columns: repeat(4, 1fr);">
-                <!-- Сюда JS загрузит все доступные админские кнопки -->
-            </div>
+            <!-- Сюда скрипт временно переместит иконки -->
+            <div id="folder-view-grid" class="pending-actions-grid" style="grid-template-columns: repeat(4, 1fr);"></div>
         </div>
     </div>
 </div>
