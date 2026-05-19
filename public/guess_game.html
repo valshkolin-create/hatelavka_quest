@@ -762,16 +762,28 @@
             ).subscribe();
         }
 
-        function initLeaderboardRealtime() {
-            supabaseClient
-                .channel('leaderboard-changes')
-                .on('postgres_changes', 
-                    { event: '*', schema: 'public', table: 'guess_leaderboard' }, 
-                    () => fetchLeaderboard()
-                )
-                .subscribe();
-            fetchLeaderboard();
-        }
+        let leaderboardTimeout = null; // Глобальная переменная для таймера
+
+function initLeaderboardRealtime() {
+    supabaseClient
+        .channel('leaderboard-changes')
+        .on('postgres_changes', 
+            { event: '*', schema: 'public', table: 'guess_leaderboard' }, 
+            () => {
+                // Если прилетело еще одно изменение, отменяем старый запрос
+                if (leaderboardTimeout) {
+                    clearTimeout(leaderboardTimeout);
+                }
+                // Ждем 500мс после ПОСЛЕДНЕГО изменения в БД, и только потом делаем 1 запрос
+                leaderboardTimeout = setTimeout(() => {
+                    fetchLeaderboard();
+                }, 500);
+            }
+        )
+        .subscribe();
+        
+    fetchLeaderboard();
+}
 
         async function fetchLeaderboard() {
             try {
