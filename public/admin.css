@@ -1987,7 +1987,7 @@ input:checked + .slider:before {
 }
 
 
-/* === РЕЖИМ РЕДАКТИРОВАНИЯ (ГЛАВНОЕ МЕНЮ) === */
+/* === РЕЖИМ РЕДАКТИРОВАНИЯ (iOS STYLE) === */
 @keyframes jiggle1 {
     0% { transform: rotate(-2deg); }
     50% { transform: rotate(2deg); }
@@ -1999,14 +1999,21 @@ input:checked + .slider:before {
     100% { transform: rotate(2deg); }
 }
 
-/* Тряска только в режиме редактирования */
-.edit-mode-active .admin-icon-button {
+/* Тряска и настройки курсора */
+.edit-mode-active .admin-icon-button:not(.admin-add-btn) {
     animation: jiggle1 0.25s infinite;
     position: relative;
     z-index: 10;
+    cursor: grab !important; /* Указатель в виде открытой руки */
+    touch-action: none; /* Запрещаем прокрутку экрана при перетаскивании на телефоне */
 }
-.edit-mode-active .admin-icon-button:nth-child(even) {
+
+.edit-mode-active .admin-icon-button:not(.admin-add-btn):nth-child(even) {
     animation: jiggle2 0.25s infinite;
+}
+
+.edit-mode-active .admin-icon-button:active {
+    cursor: grabbing !important; /* Кулак при зажатии */
 }
 
 /* Скрытые элементы */
