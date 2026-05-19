@@ -9,59 +9,29 @@ let currentEditItem = null;
 let currentOpenFolderContents = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    assignUniqueIDs(); // Генерируем ID для ВСЕХ кнопок (включая вкладку Администрирование)
+    assignUniqueIDs(); // Генерируем НАДЕЖНЫЕ ID
     restoreLayout();   // Восстанавливаем порядок
-    setupTopToBottomSwipe();
+    
+    // Подключаем кнопку из шапки
+    const editBtn = document.getElementById('edit-mode-toggle');
+    if(editBtn) {
+        editBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleEditMode();
+        });
+    }
 });
 
-// 1. Отслеживаем свайп СВЕРХУ-ВНИЗ (Touch + Мышь для ПК)
-function setupTopToBottomSwipe() {
-    const container = document.getElementById('app-container');
-    const mainView = document.getElementById('view-admin-main');
-    let startY = 0;
-    let isPulling = false;
-
-    const startPull = (y) => {
-        if (container.scrollTop <= 0 && !mainView.classList.contains('hidden')) {
-            startY = y;
-            isPulling = true;
-        }
-    };
-
-    const movePull = (y) => {
-        if (!isPulling) return;
-        const pullDistance = y - startY;
-
-        if (pullDistance > 120) {
-            isPulling = false;
-            toggleEditMode(); // Включаем/Выключаем режим
-            if(window.tg && window.tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-        }
-    };
-
-    const endPull = () => { isPulling = false; };
-
-    // Для телефонов
-    container.addEventListener('touchstart', (e) => startPull(e.touches[0].clientY), { passive: true });
-    container.addEventListener('touchmove', (e) => movePull(e.touches[0].clientY), { passive: true });
-    container.addEventListener('touchend', endPull);
-
-    // Для ПК (Мышь)
-    container.addEventListener('mousedown', (e) => startPull(e.clientY));
-    window.addEventListener('mousemove', (e) => movePull(e.clientY)); // window, чтобы не терять фокус при резком движении
-    window.addEventListener('mouseup', endPull);
-}
-
-// 2. Вкл / Выкл режим редактирования
+// 1. Вкл / Выкл режим редактирования
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const grid = document.querySelector('#tab-content-main .admin-icon-menu');
+    const btn = document.getElementById('edit-mode-toggle');
     
     if (isEditMode) {
+        btn.classList.add('active');
         grid.classList.add('edit-mode-active');
         enableEditInterception(grid);
-        
-        if(window.tg) tg.showPopup({message: 'Режим редактирования.\nПовторите свайп вниз для выхода.'});
         
         // Добавляем кнопку "+" в конец сетки
         const addBtn = document.createElement('div');
@@ -71,6 +41,7 @@ function toggleEditMode() {
         grid.appendChild(addBtn);
 
     } else {
+        btn.classList.remove('active');
         grid.classList.remove('edit-mode-active');
         disableEditInterception(grid);
         isSelectingForFolder = false;
@@ -127,11 +98,9 @@ function openAddFromAdminPicker() {
     const pickerGrid = document.getElementById('icon-picker-grid');
     pickerGrid.innerHTML = '';
     
-    // Берем все иконки из вкладки "Администрирование"
     const adminGrid = document.querySelector('#tab-content-admin .admin-icon-menu');
     const adminItems = Array.from(adminGrid.querySelectorAll('.admin-icon-button'));
     
-    // Берем скрытые иконки с главной
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
     const hiddenMainItems = Array.from(mainGrid.querySelectorAll('.admin-icon-button.user-hidden'));
     
@@ -152,7 +121,7 @@ function openAddFromAdminPicker() {
                 const addBtn = mainGrid.querySelector('.admin-add-btn');
                 mainGrid.insertBefore(item, addBtn); // Вставляем перед плюсом
                 
-                item.addEventListener('click', handleIconEditClick, true); // Добавляем слушатель
+                item.addEventListener('click', handleIconEditClick, true);
                 saveLayout();
                 
                 document.getElementById('icon-picker-modal').classList.add('hidden');
@@ -253,13 +222,20 @@ function unpackFolder(folderEl) {
     saveLayout();
 }
 
-// === СОХРАНЕНИЕ ПОРЯДКА В ПАМЯТИ БРАУЗЕРА ===
+// === ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ (ИСПРАВЛЕНИЕ БАГА) ===
 function assignUniqueIDs() {
-    const items = document.querySelectorAll('.admin-icon-menu .admin-icon-button:not(.admin-folder)');
-    items.forEach((item, idx) => {
+    // Выдаем ID всем кнопкам на основе их текста или атрибутов (они никогда не меняются при перемещении)
+    const items = document.querySelectorAll('.admin-icon-button:not(.admin-folder)');
+    items.forEach((item) => {
         if (!item.id) {
-            const text = item.querySelector('span')?.innerText.trim().replace(/\s+/g, '_') || '';
-            item.id = `grid_item_${idx}_${text}`;
+            const view = item.getAttribute('data-view') || '';
+            const href = item.getAttribute('href') || '';
+            const text = item.querySelector('span')?.innerText.trim() || '';
+            
+            // Создаем уникальный ID (например: btn_view_admin_quests)
+            let uniqueStr = view + '_' + href + '_' + text;
+            uniqueStr = uniqueStr.replace(/[^a-zA-Z0-9а-яА-Я]/g, '_'); // убираем спецсимволы
+            item.id = `btn_safe_${uniqueStr}`;
         }
     });
 }
@@ -295,16 +271,16 @@ function restoreLayout() {
 
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
 
-    // Скрытые переносим и прячем
+    // Скрываем те, что были удалены с экрана
     layout.hidden.forEach(id => {
         const item = document.getElementById(id);
         if (item) {
-            mainGrid.appendChild(item);
+            mainGrid.appendChild(item); // перемещаем на главную
             item.classList.add('user-hidden');
         }
     });
 
-    // Восстанавливаем порядок на главной
+    // Восстанавливаем порядок и папки
     layout.mainOrder.forEach(id => {
         if (layout.folders[id]) {
             const data = layout.folders[id];
@@ -317,10 +293,17 @@ function restoreLayout() {
                 <div class="folder-contents"></div>
             `;
             const contents = folderDiv.querySelector('.folder-contents');
+            
+            // Запихиваем кнопки обратно в папку
             data.children.forEach(childId => {
                 const child = document.getElementById(childId);
-                if (child) contents.appendChild(child);
+                if (child) {
+                    child.classList.remove('user-hidden');
+                    contents.appendChild(child);
+                }
             });
+            
+            // Возвращаем папку на экран
             if (contents.children.length > 0) {
                 mainGrid.appendChild(folderDiv);
                 folderDiv.addEventListener('click', openFolderNormalMode);
@@ -329,7 +312,7 @@ function restoreLayout() {
             const item = document.getElementById(id);
             if (item) {
                 item.classList.remove('user-hidden');
-                mainGrid.appendChild(item);
+                mainGrid.appendChild(item); // Возвращаем обычную кнопку на экран
             }
         }
     });
