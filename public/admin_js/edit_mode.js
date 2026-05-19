@@ -8,10 +8,24 @@ let firstFolderItem = null;
 let currentEditItem = null;
 let currentOpenFolderContents = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
+// === ИНИЦИАЛИЗАЦИЯ: CACHE-FIRST ПОДХОД ===
+document.addEventListener('DOMContentLoaded', () => {
     assignUniqueIDs(); 
-    await restoreLayoutFromDB();
     
+    // 1. МГНОВЕННАЯ ЗАГРУЗКА ИЗ КЭША (чтобы избежать "прыжков" интерфейса)
+    const cachedStr = localStorage.getItem('adminMainLayout');
+    if (cachedStr) {
+        try {
+            applyLayoutToDOM(JSON.parse(cachedStr));
+        } catch (e) {
+            console.error("Ошибка чтения кэша:", e);
+        }
+    }
+
+    // 2. ФОНОВАЯ СИНХРОНИЗАЦИЯ С БАЗОЙ (не блокирует отрисовку)
+    syncLayoutWithDB(cachedStr);
+    
+    // Подключаем кнопку из шапки
     const editBtn = document.getElementById('edit-mode-toggle');
     if(editBtn) {
         editBtn.addEventListener('click', (e) => {
@@ -30,7 +44,6 @@ function toggleEditMode() {
         btn.classList.add('active');
         grid.classList.add('edit-mode-active');
         
-        // Жесткий перехват всех кликов на уровне сетки
         grid.addEventListener('click', handleGridEditClick, true);
         
         const addBtn = document.createElement('div');
@@ -59,7 +72,6 @@ function handleGridEditClick(e) {
     const btn = e.target.closest('.admin-icon-button, .admin-add-btn');
     if (!btn) return;
 
-    // Полностью парализуем любые переходы по ссылкам
     e.preventDefault();
     e.stopPropagation();
 
@@ -72,7 +84,6 @@ function handleGridEditClick(e) {
 }
 
 function processItemClick(item) {
-    // === ЛОГИКА СБОРКИ ПАПОК ===
     if (isSelectingForFolder) {
         if (item === firstFolderItem) return;
         
@@ -127,7 +138,6 @@ function openAddFromAdminPicker() {
             clone.classList.remove('user-hidden', 'edit-mode-active');
             clone.style.animation = 'none';
             
-            // Жестко перехватываем клик в окне выбора, чтобы ссылки не открывались
             clone.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -138,7 +148,7 @@ function openAddFromAdminPicker() {
                 
                 saveLayout();
                 document.getElementById('icon-picker-modal').classList.add('hidden');
-            }, true); // true = Capturing phase (самый ранний перехват)
+            }, true);
 
             pickerGrid.appendChild(clone);
         });
@@ -257,7 +267,7 @@ function unpackFolder(folderEl) {
     saveLayout();
 }
 
-// === ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ ===
+// === ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ И СИНХРОНИЗАЦИЯ ===
 function assignUniqueIDs() {
     const items = document.querySelectorAll('.admin-icon-button:not(.admin-folder)');
     items.forEach((item) => {
@@ -276,7 +286,6 @@ async function saveLayout() {
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
     const layout = { folders: {}, hidden: [], mainOrder: [] };
 
-    // ИСПРАВЛЕНИЕ БАГА: Проходим ТОЛЬКО по прямым детям сетки! Внутрь папок не лезем.
     Array.from(mainGrid.children).forEach(item => {
         if (!item.classList.contains('admin-icon-button')) return;
         if (item.classList.contains('admin-add-btn')) return;
@@ -284,7 +293,6 @@ async function saveLayout() {
         if (item.classList.contains('user-hidden')) {
             layout.hidden.push(item.id);
         } else if (item.classList.contains('admin-folder')) {
-            // Сохраняем состав папки
             const childrenIds = Array.from(item.querySelectorAll('.folder-contents .admin-icon-button')).map(child => child.id);
             layout.folders[item.id] = {
                 name: item.querySelector('span').innerText,
@@ -292,7 +300,6 @@ async function saveLayout() {
             };
             layout.mainOrder.push(item.id);
         } else {
-            // Обычная кнопка на главной странице
             layout.mainOrder.push(item.id);
         }
     });
@@ -310,27 +317,9 @@ async function saveLayout() {
     }
 }
 
-async function restoreLayoutFromDB() {
-    let layout = null;
-    
-    try {
-        const initDataStr = (typeof tg !== 'undefined' && tg.initData) ? tg.initData : '';
-        const response = await makeApiRequest('/api/v1/admin/layout/get', {
-            initData: initDataStr 
-        }, 'POST', true);
-        
-        if (response && response.layout) {
-            layout = response.layout;
-            localStorage.setItem('adminMainLayout', JSON.stringify(layout)); 
-        } else {
-            layout = JSON.parse(localStorage.getItem('adminMainLayout'));
-        }
-    } catch (e) {
-        layout = JSON.parse(localStorage.getItem('adminMainLayout'));
-    }
-
+// Функция применяет JSON-макет к экрану
+function applyLayoutToDOM(layout) {
     if (!layout) return;
-
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
 
     if (layout.hidden) {
@@ -347,14 +336,21 @@ async function restoreLayoutFromDB() {
         layout.mainOrder.forEach(id => {
             if (layout.folders && layout.folders[id]) {
                 const data = layout.folders[id];
-                const folderDiv = document.createElement('div');
-                folderDiv.className = 'admin-icon-button admin-folder';
-                folderDiv.id = id;
-                folderDiv.innerHTML = `
-                    <div class="icon-wrapper folder-wrapper"></div>
-                    <span>${data.name}</span>
-                    <div class="folder-contents"></div>
-                `;
+                
+                // Проверяем, существует ли папка, чтобы не дублировать
+                let folderDiv = document.getElementById(id);
+                if (!folderDiv) {
+                    folderDiv = document.createElement('div');
+                    folderDiv.className = 'admin-icon-button admin-folder';
+                    folderDiv.id = id;
+                    folderDiv.innerHTML = `
+                        <div class="icon-wrapper folder-wrapper"></div>
+                        <span>${data.name}</span>
+                        <div class="folder-contents"></div>
+                    `;
+                    folderDiv.addEventListener('click', openFolderNormalMode);
+                }
+                
                 const contents = folderDiv.querySelector('.folder-contents');
                 
                 data.children.forEach(childId => {
@@ -368,7 +364,6 @@ async function restoreLayoutFromDB() {
                 if (contents.children.length > 0) {
                     updateFolderPreview(folderDiv);
                     mainGrid.appendChild(folderDiv);
-                    folderDiv.addEventListener('click', openFolderNormalMode);
                 }
             } else {
                 const item = document.getElementById(id);
@@ -379,4 +374,41 @@ async function restoreLayoutFromDB() {
             }
         });
     }
+}
+
+// Фоновая сверка с базой данных
+async function syncLayoutWithDB(cachedStr) {
+    try {
+        const initDataStr = (typeof tg !== 'undefined' && tg.initData) ? tg.initData : '';
+        const response = await makeApiRequest('/api/v1/admin/layout/get', {
+            initData: initDataStr 
+        }, 'POST', true);
+        
+        if (response && response.layout) {
+            const dbLayoutStr = JSON.stringify(response.layout);
+            
+            // Если БД отличается от кэша устройства (админ редактировал с другого телефона/ПК)
+            if (dbLayoutStr !== cachedStr) {
+                localStorage.setItem('adminMainLayout', dbLayoutStr);
+                resetGridToDefault(); 
+                applyLayoutToDOM(response.layout);
+            }
+        }
+    } catch (e) {
+        console.warn("Фоновая синхронизация с сервером не удалась", e);
+    }
+}
+
+// Разбираем сетку до "заводского" состояния перед применением нового макета из БД
+function resetGridToDefault() {
+    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
+    
+    // Достаем все кнопки из папок
+    mainGrid.querySelectorAll('.admin-icon-button:not(.admin-folder)').forEach(item => {
+        item.classList.remove('user-hidden');
+        mainGrid.appendChild(item);
+    });
+
+    // Уничтожаем пустые папки
+    mainGrid.querySelectorAll('.admin-folder').forEach(folder => folder.remove());
 }
