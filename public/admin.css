@@ -1853,3 +1853,62 @@ input:checked + .slider:before {
     margin-bottom: 14px !important; /* Меняй цифру: больше — отступ шире, меньше — ближе */
 }
 
+/* === 1. ЖЕЛЕЗОБЕТОННАЯ ПОЗИЦИЯ КНОПКИ ТЕХ-РАБОТ === */
+.sleep-mode-toggle {
+    position: fixed !important;
+    /* 9px + safe-area идеально центрируют 24px кнопку относительно 22px заголовка */
+    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 9px) !important;
+    right: 20px !important;
+    z-index: 1000 !important;
+}
+
+/* === 2. СЕТКА ИКОНОК: СТРОГО 4 В РЯД === */
+.admin-icon-menu, 
+.pending-actions-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important; /* Принудительно 4 колонки */
+    gap: 8px !important; /* Уменьшаем отступ между колонками, чтобы влезало на мобилках */
+    padding: 10px 0 !important;
+}
+
+/* === 3. УМЕНЬШАЕМ САМИ ИКОНКИ И ТЕКСТ === */
+.admin-icon-button .icon-wrapper {
+    width: 50px !important;  /* Было 64px */
+    height: 50px !important; /* Было 64px */
+    font-size: 20px !important; /* Было 26px */
+    border-radius: 12px !important;
+    margin: 0 auto !important; /* Центрируем иконку в колонке */
+}
+
+/* Уменьшаем картинки внутри (например, превью скинов или Twitch Drops) */
+.admin-icon-button .icon-wrapper img {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+}
+
+/* Уменьшаем текст под кнопками */
+.admin-icon-button span {
+    font-size: 10px !important; /* Было 12px */
+    line-height: 1.1 !important;
+    word-break: break-word !important; /* Разрешаем перенос длинных слов */
+    margin-top: 4px !important;
+    text-align: center !important;
+}
+
+/* Корректируем сетку для Twitch наград, чтобы бейджики не съезжали */
+.pending-actions-grid .admin-icon-button .reward-shortcut-btn,
+#twitch-rewards-container .admin-icon-button .reward-shortcut-btn {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 11px !important;
+}
+
+/* Корректируем бейджи уведомлений (красные кружочки) под новый размер */
+.notification-badge {
+    min-width: 18px !important;
+    height: 18px !important;
+    font-size: 10px !important;
+    top: -4px !important;
+    right: -4px !important;
+}
