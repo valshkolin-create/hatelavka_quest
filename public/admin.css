@@ -2029,7 +2029,7 @@ input:checked + .slider:before {
 /* --- ТОЧНАЯ НАСТРОЙКА КНОПКИ "ДОБАВИТЬ" --- */
 .edit-mode-active .admin-add-btn {
     animation: none !important;
-    margin-top: -12px !important;    /* Приподнимаем чуть выше */
+    margin-top: -18px !important;    /* Приподнимаем чуть выше */
     margin-left: -5px !important;    /* Сдвигаем левее */
     position: relative;
     z-index: 5;
