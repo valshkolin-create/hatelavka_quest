@@ -9518,7 +9518,7 @@ async def save_admin_layout(
         "value": request_data.layout
     }
 
-    # Upsert: обновит запись, если ключ уже существует
+    # Upsert: обновит запись, если key уже существует
     resp = await supabase.post(
         "/settings", 
         json=payload, 
@@ -9553,9 +9553,9 @@ async def get_admin_layout(
         if data and len(data) > 0:
             return {"success": True, "layout": data[0]["value"]}
     
-    # Если записи нет (админ еще ничего не настраивал) или произошла ошибка, возвращаем None
+    # Если записи нет или ошибка, возвращаем None (фронт отрисует локальный кэш или дефолт)
     return {"success": True, "layout": None}
-
+    
 @app.post("/api/v1/admin/cauldron/update")
 async def update_cauldron_event(
     request_data: CauldronUpdateRequest,
