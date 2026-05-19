@@ -9,8 +9,8 @@ let currentEditItem = null;
 let currentOpenFolderContents = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    assignUniqueIDs(); // Генерируем НАДЕЖНЫЕ ID
-    restoreLayout();   // Восстанавливаем порядок
+    assignUniqueIDs(); 
+    restoreLayout();   
     
     // Подключаем кнопку из шапки
     const editBtn = document.getElementById('edit-mode-toggle');
@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// 1. Вкл / Выкл режим редактирования
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const grid = document.querySelector('#tab-content-main .admin-icon-menu');
@@ -33,7 +32,6 @@ function toggleEditMode() {
         grid.classList.add('edit-mode-active');
         enableEditInterception(grid);
         
-        // Добавляем кнопку "+" в конец сетки
         const addBtn = document.createElement('div');
         addBtn.className = 'empty-edit-slot admin-add-btn';
         addBtn.innerHTML = `<div class="slot-circle">+</div><span>Добавить</span>`;
@@ -47,13 +45,11 @@ function toggleEditMode() {
         isSelectingForFolder = false;
         firstFolderItem = null;
         
-        // Убираем кнопку "+"
         const addBtn = grid.querySelector('.admin-add-btn');
         if (addBtn) addBtn.remove();
     }
 }
 
-// === БЛОКИРОВКА ПЕРЕХОДОВ ВО ВРЕМЯ РЕДАКТИРОВАНИЯ ===
 function enableEditInterception(grid) {
     grid.querySelectorAll('.admin-icon-button:not(.admin-add-btn)').forEach(item => {
         item.addEventListener('click', handleIconEditClick, true);
@@ -73,12 +69,30 @@ function handleIconEditClick(e) {
 
     const item = e.currentTarget;
 
+    // === ЛОГИКА СБОРКИ ПАПОК ===
     if (isSelectingForFolder) {
         if (item === firstFolderItem) return;
-        if (item.classList.contains('admin-folder') || firstFolderItem.classList.contains('admin-folder')) {
+        
+        const itemIsFolder = item.classList.contains('admin-folder');
+        const firstIsFolder = firstFolderItem.classList.contains('admin-folder');
+
+        if (itemIsFolder && firstIsFolder) {
             if(window.tg) return tg.showAlert('Нельзя класть папку в папку!');
         }
-        createFolder(firstFolderItem, item);
+        
+        // Если кликнули на существующую папку
+        if (itemIsFolder) {
+            addToExistingFolder(firstFolderItem, item);
+        } 
+        // Если первый элемент был папкой (сначала выбрали папку, потом иконку)
+        else if (firstIsFolder) {
+            addToExistingFolder(item, firstFolderItem);
+        } 
+        // Оба обычные иконки - создаем новую папку
+        else {
+            createFolder(firstFolderItem, item);
+        }
+        
         isSelectingForFolder = false;
         firstFolderItem = null;
         return;
@@ -93,7 +107,6 @@ function handleIconEditClick(e) {
     document.getElementById('edit-icon-action-modal').classList.remove('hidden');
 }
 
-// === ФУНКЦИЯ ДОБАВЛЕНИЯ НОВЫХ ИКОНОК С ДРУГИХ ВКЛАДОК ===
 function openAddFromAdminPicker() {
     const pickerGrid = document.getElementById('icon-picker-grid');
     pickerGrid.innerHTML = '';
@@ -119,7 +132,7 @@ function openAddFromAdminPicker() {
                 
                 item.classList.remove('user-hidden');
                 const addBtn = mainGrid.querySelector('.admin-add-btn');
-                mainGrid.insertBefore(item, addBtn); // Вставляем перед плюсом
+                mainGrid.insertBefore(item, addBtn); 
                 
                 item.addEventListener('click', handleIconEditClick, true);
                 saveLayout();
@@ -129,11 +142,10 @@ function openAddFromAdminPicker() {
             pickerGrid.appendChild(clone);
         });
     }
-    
     document.getElementById('icon-picker-modal').classList.remove('hidden');
 }
 
-// === ДЕЙСТВИЯ С ИКОНКАМИ ===
+// === ДЕЙСТВИЯ ИЗ МЕНЮ ===
 document.getElementById('btn-hide-icon').onclick = () => {
     if (currentEditItem) {
         currentEditItem.classList.add('user-hidden');
@@ -146,7 +158,7 @@ document.getElementById('btn-make-folder').onclick = () => {
     document.getElementById('edit-icon-action-modal').classList.add('hidden');
     isSelectingForFolder = true;
     firstFolderItem = currentEditItem;
-    if(window.tg) tg.showPopup({message: 'Выберите вторую иконку для объединения'});
+    if(window.tg) tg.showPopup({message: 'Выберите вторую иконку или папку для объединения'});
 };
 
 document.getElementById('btn-unpack-folder').onclick = () => {
@@ -154,6 +166,7 @@ document.getElementById('btn-unpack-folder').onclick = () => {
     unpackFolder(currentEditItem);
 };
 
+// === МАГИЯ ПАПОК (Создание, Добавление, Превью) ===
 function createFolder(el1, el2) {
     const folderName = prompt('Название новой папки:', 'Папка') || 'Папка';
     const folderId = 'folder_' + Date.now();
@@ -162,28 +175,54 @@ function createFolder(el1, el2) {
     folderDiv.className = 'admin-icon-button admin-folder';
     folderDiv.id = folderId;
     
-    const icon1 = el1.querySelector('.icon-wrapper').innerHTML;
-    const icon2 = el2.querySelector('.icon-wrapper').innerHTML;
-    const color1 = el1.querySelector('.icon-wrapper').style.color || '#fff';
-    const color2 = el2.querySelector('.icon-wrapper').style.color || '#fff';
-
     folderDiv.innerHTML = `
-        <div class="icon-wrapper folder-wrapper">
-            <div class="mini-icon" style="color: ${color1}">${icon1}</div>
-            <div class="mini-icon" style="color: ${color2}">${icon2}</div>
-        </div>
+        <div class="icon-wrapper folder-wrapper"></div>
         <span>${folderName}</span>
         <div class="folder-contents"></div>
     `;
 
     el1.parentNode.insertBefore(folderDiv, el1);
     const contents = folderDiv.querySelector('.folder-contents');
+    
+    // Прячем иконки внутрь
     contents.appendChild(el1);
     contents.appendChild(el2);
+
+    updateFolderPreview(folderDiv); // Собираем превью!
 
     folderDiv.addEventListener('click', handleIconEditClick, true);
     folderDiv.addEventListener('click', openFolderNormalMode);
     saveLayout();
+}
+
+function addToExistingFolder(iconEl, folderEl) {
+    const contents = folderEl.querySelector('.folder-contents');
+    contents.appendChild(iconEl);
+    updateFolderPreview(folderEl); // Обновляем сетку 2x2
+    saveLayout();
+    if(window.tg) tg.showPopup({message: 'Иконка добавлена в папку!'});
+}
+
+// Генератор превью для папки (до 4 иконок)
+function updateFolderPreview(folderEl) {
+    const contents = folderEl.querySelector('.folder-contents');
+    const wrapper = folderEl.querySelector('.folder-wrapper');
+    wrapper.innerHTML = ''; // Очищаем старое превью
+
+    // Берем первые 4 иконки
+    const children = Array.from(contents.children).slice(0, 4);
+    
+    children.forEach(child => {
+        const childIconWrapper = child.querySelector('.icon-wrapper');
+        if (!childIconWrapper) return;
+        
+        // Клонируем внутренности, чтобы удалить лишние бейджики (уведомления)
+        const clone = childIconWrapper.cloneNode(true);
+        clone.querySelectorAll('.notification-badge, .reward-shortcut-btn').forEach(el => el.remove());
+        
+        const color = childIconWrapper.style.color || '#fff';
+        wrapper.insertAdjacentHTML('beforeend', `<div class="mini-icon" style="color: ${color}">${clone.innerHTML}</div>`);
+    });
 }
 
 function openFolderNormalMode(e) {
@@ -222,19 +261,16 @@ function unpackFolder(folderEl) {
     saveLayout();
 }
 
-// === ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ (ИСПРАВЛЕНИЕ БАГА) ===
+// === ЖЕЛЕЗОБЕТОННОЕ СОХРАНЕНИЕ ===
 function assignUniqueIDs() {
-    // Выдаем ID всем кнопкам на основе их текста или атрибутов (они никогда не меняются при перемещении)
     const items = document.querySelectorAll('.admin-icon-button:not(.admin-folder)');
     items.forEach((item) => {
         if (!item.id) {
             const view = item.getAttribute('data-view') || '';
             const href = item.getAttribute('href') || '';
             const text = item.querySelector('span')?.innerText.trim() || '';
-            
-            // Создаем уникальный ID (например: btn_view_admin_quests)
             let uniqueStr = view + '_' + href + '_' + text;
-            uniqueStr = uniqueStr.replace(/[^a-zA-Z0-9а-яА-Я]/g, '_'); // убираем спецсимволы
+            uniqueStr = uniqueStr.replace(/[^a-zA-Z0-9а-яА-Я]/g, '_');
             item.id = `btn_safe_${uniqueStr}`;
         }
     });
@@ -253,8 +289,7 @@ function saveLayout() {
             const childrenIds = Array.from(item.querySelectorAll('.folder-contents .admin-icon-button')).map(child => child.id);
             layout.folders[item.id] = {
                 name: item.querySelector('span').innerText,
-                preview: item.querySelector('.folder-wrapper').innerHTML,
-                children: childrenIds
+                children: childrenIds // Больше не храним HTML, только ID!
             };
             layout.mainOrder.push(item.id);
         } else {
@@ -271,16 +306,14 @@ function restoreLayout() {
 
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
 
-    // Скрываем те, что были удалены с экрана
     layout.hidden.forEach(id => {
         const item = document.getElementById(id);
         if (item) {
-            mainGrid.appendChild(item); // перемещаем на главную
+            mainGrid.appendChild(item);
             item.classList.add('user-hidden');
         }
     });
 
-    // Восстанавливаем порядок и папки
     layout.mainOrder.forEach(id => {
         if (layout.folders[id]) {
             const data = layout.folders[id];
@@ -288,13 +321,12 @@ function restoreLayout() {
             folderDiv.className = 'admin-icon-button admin-folder';
             folderDiv.id = id;
             folderDiv.innerHTML = `
-                <div class="icon-wrapper folder-wrapper">${data.preview}</div>
+                <div class="icon-wrapper folder-wrapper"></div>
                 <span>${data.name}</span>
                 <div class="folder-contents"></div>
             `;
             const contents = folderDiv.querySelector('.folder-contents');
             
-            // Запихиваем кнопки обратно в папку
             data.children.forEach(childId => {
                 const child = document.getElementById(childId);
                 if (child) {
@@ -303,8 +335,8 @@ function restoreLayout() {
                 }
             });
             
-            // Возвращаем папку на экран
             if (contents.children.length > 0) {
+                updateFolderPreview(folderDiv); // Собираем превью динамически!
                 mainGrid.appendChild(folderDiv);
                 folderDiv.addEventListener('click', openFolderNormalMode);
             }
@@ -312,7 +344,7 @@ function restoreLayout() {
             const item = document.getElementById(id);
             if (item) {
                 item.classList.remove('user-hidden');
-                mainGrid.appendChild(item); // Возвращаем обычную кнопку на экран
+                mainGrid.appendChild(item);
             }
         }
     });
