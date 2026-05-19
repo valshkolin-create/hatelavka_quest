@@ -44,8 +44,12 @@ html, body {
     display: block;
     box-sizing: border-box;
     
-    /* Твои старые отступы + запас снизу */
-    padding: 25px 20px 50px; 
+    /* 
+      Идеальные отступы: 
+      Верх: Отступ под системную шторку + 70px под твою шапку.
+      Низ: Отступ под системную полоску + 100px под нижнее меню.
+    */
+    padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 70px) 20px calc(var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 20px)) + 100px) 20px !important;
 }
 .hidden { display: none !important; }
 .quests-container { display: flex; flex-direction: column; gap: 15px; }
@@ -1827,8 +1831,3 @@ input:checked + .slider:before {
     margin-bottom: 14px !important; /* Меняй цифру: больше — отступ шире, меньше — ближе */
 }
 
-#app-container {
-    /* Берем системный отступ ТГ или браузера и добавляем 60px сверху для надежности */
-    padding-top: calc(var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 60px) !important;
-    box-sizing: border-box !important;
-}
