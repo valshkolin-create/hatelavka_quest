@@ -2026,13 +2026,9 @@ input:checked + .slider:before {
     color: var(--text-color-muted);
 }
 
-/* --- ТОЧНАЯ НАСТРОЙКА КНОПКИ "ДОБАВИТЬ" --- */
+/* Кнопка "Добавить" не должна трястись */
 .edit-mode-active .admin-add-btn {
     animation: none !important;
-    margin-top: -18px !important;    /* Приподнимаем чуть выше */
-    margin-left: -5px !important;    /* Сдвигаем левее */
-    position: relative;
-    z-index: 5;
 }
 
 /* Кнопка Редактирования (Шапка) */
