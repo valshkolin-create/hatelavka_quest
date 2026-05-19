@@ -132,21 +132,29 @@ html, body {
 .quest-category-header .category-info { flex-grow: 1; display: flex; align-items: center; }
 .quest-category-header .category-actions-in-header { display: flex; gap: 10px; align-items: center; }
 /* Смещаем кнопку тех. работ чуть ниже, чтобы она не перекрывала меню из шапки */
-/* === 1. ПОЗИЦИЯ КНОПКИ ТЕХ-РАБОТ (ВНУТРИ ШАПКИ) === */
+/* === ВОЗВРАЩАЕМ РОДНОЙ СТИЛЬ КНОПКЕ В ШАПКЕ === */
 .sleep-mode-toggle {
-    position: relative !important;
-    top: auto !important;
-    right: auto !important;
-    width: 28px !important; 
-    height: 28px !important;
-    z-index: 10 !important;
+    position: static !important; /* Стоит ровно в контейнере шапки */
     margin: 0 !important;
+    padding: 0 !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important; /* Снова круглая */
+    background-color: var(--action-color) !important; /* Твой фирменный синий */
+    color: white !important;
+    border: none !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important; /* Твоя красивая тень */
+    cursor: pointer !important;
 }
-/* Используем оранжевый цвет для тех. работ */
-.sleep-mode-toggle.is-sleeping { background-color: #ff9500; box-shadow: 0 0 15px rgba(255, 149, 0, 0.6); }
+
+/* Оранжевый цвет, когда тех-работы включены */
+.sleep-mode-toggle.is-sleeping { 
+    background-color: #ff9500 !important; 
+    box-shadow: 0 0 15px rgba(255, 149, 0, 0.6) !important; 
+}
 .admin-icon-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 20px; padding: 10px 0; }
 .admin-icon-button { display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; text-decoration: none; color: var(--text-color); gap: 8px; }
 .admin-icon-button .icon-wrapper { width: 64px; height: 64px; background-color: var(--surface-glass-bg); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; transition: background-color 0.2s, transform 0.2s; }
