@@ -9,40 +9,47 @@ let currentEditItem = null;
 let currentOpenFolderContents = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    assignUniqueIDs(); // Каждой кнопке нужен ID для сохранения
-    restoreLayout();   // Восстанавливаем папки и скрытые кнопки
+    assignUniqueIDs(); // Генерируем ID для ВСЕХ кнопок (включая вкладку Администрирование)
+    restoreLayout();   // Восстанавливаем порядок
     setupTopToBottomSwipe();
 });
 
-// 1. Отслеживаем свайп СВЕРХУ-ВНИЗ
+// 1. Отслеживаем свайп СВЕРХУ-ВНИЗ (Touch + Мышь для ПК)
 function setupTopToBottomSwipe() {
     const container = document.getElementById('app-container');
     const mainView = document.getElementById('view-admin-main');
     let startY = 0;
     let isPulling = false;
 
-    container.addEventListener('touchstart', (e) => {
-        // Срабатывает ТОЛЬКО на главной странице и если мы в самом верху скролла
+    const startPull = (y) => {
         if (container.scrollTop <= 0 && !mainView.classList.contains('hidden')) {
-            startY = e.touches[0].clientY;
+            startY = y;
             isPulling = true;
         }
-    }, { passive: true });
+    };
 
-    container.addEventListener('touchmove', (e) => {
+    const movePull = (y) => {
         if (!isPulling) return;
-        const currentY = e.touches[0].clientY;
-        const pullDistance = currentY - startY;
+        const pullDistance = y - startY;
 
-        // Если потянули ВНИЗ больше чем на 120px
         if (pullDistance > 120) {
             isPulling = false;
-            toggleEditMode(); // Вкл / Выкл
+            toggleEditMode(); // Включаем/Выключаем режим
             if(window.tg && window.tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
         }
-    }, { passive: true });
+    };
 
-    container.addEventListener('touchend', () => { isPulling = false; });
+    const endPull = () => { isPulling = false; };
+
+    // Для телефонов
+    container.addEventListener('touchstart', (e) => startPull(e.touches[0].clientY), { passive: true });
+    container.addEventListener('touchmove', (e) => movePull(e.touches[0].clientY), { passive: true });
+    container.addEventListener('touchend', endPull);
+
+    // Для ПК (Мышь)
+    container.addEventListener('mousedown', (e) => startPull(e.clientY));
+    window.addEventListener('mousemove', (e) => movePull(e.clientY)); // window, чтобы не терять фокус при резком движении
+    window.addEventListener('mouseup', endPull);
 }
 
 // 2. Вкл / Выкл режим редактирования
@@ -53,18 +60,31 @@ function toggleEditMode() {
     if (isEditMode) {
         grid.classList.add('edit-mode-active');
         enableEditInterception(grid);
-        tg.showPopup({message: 'Режим настройки меню\nПовторите свайп вниз для выхода.'});
+        
+        if(window.tg) tg.showPopup({message: 'Режим редактирования.\nПовторите свайп вниз для выхода.'});
+        
+        // Добавляем кнопку "+" в конец сетки
+        const addBtn = document.createElement('div');
+        addBtn.className = 'empty-edit-slot admin-add-btn';
+        addBtn.innerHTML = `<div class="slot-circle">+</div><span>Добавить</span>`;
+        addBtn.onclick = openAddFromAdminPicker;
+        grid.appendChild(addBtn);
+
     } else {
         grid.classList.remove('edit-mode-active');
         disableEditInterception(grid);
         isSelectingForFolder = false;
         firstFolderItem = null;
+        
+        // Убираем кнопку "+"
+        const addBtn = grid.querySelector('.admin-add-btn');
+        if (addBtn) addBtn.remove();
     }
 }
 
-// Перехватываем клики, чтобы ссылки не открывались во время тряски
+// === БЛОКИРОВКА ПЕРЕХОДОВ ВО ВРЕМЯ РЕДАКТИРОВАНИЯ ===
 function enableEditInterception(grid) {
-    grid.querySelectorAll('.admin-icon-button').forEach(item => {
+    grid.querySelectorAll('.admin-icon-button:not(.admin-add-btn)').forEach(item => {
         item.addEventListener('click', handleIconEditClick, true);
     });
 }
@@ -74,20 +94,18 @@ function disableEditInterception(grid) {
     });
 }
 
-// 3. Обработка клика по иконке
 function handleIconEditClick(e) {
     if (!isEditMode) return;
     
     e.preventDefault();
-    e.stopPropagation(); // Блокируем стандартный переход
+    e.stopPropagation();
 
     const item = e.currentTarget;
 
-    // Если мы в процессе выбора второй иконки для папки
     if (isSelectingForFolder) {
         if (item === firstFolderItem) return;
         if (item.classList.contains('admin-folder') || firstFolderItem.classList.contains('admin-folder')) {
-            return tg.showAlert('Нельзя класть папку в папку!');
+            if(window.tg) return tg.showAlert('Нельзя класть папку в папку!');
         }
         createFolder(firstFolderItem, item);
         isSelectingForFolder = false;
@@ -95,7 +113,6 @@ function handleIconEditClick(e) {
         return;
     }
 
-    // Обычный клик открывает меню действий
     currentEditItem = item;
     const isFolder = item.classList.contains('admin-folder');
     
@@ -105,8 +122,49 @@ function handleIconEditClick(e) {
     document.getElementById('edit-icon-action-modal').classList.remove('hidden');
 }
 
-// === КНОПКИ МОДАЛКИ ДЕЙСТВИЙ ===
+// === ФУНКЦИЯ ДОБАВЛЕНИЯ НОВЫХ ИКОНОК С ДРУГИХ ВКЛАДОК ===
+function openAddFromAdminPicker() {
+    const pickerGrid = document.getElementById('icon-picker-grid');
+    pickerGrid.innerHTML = '';
+    
+    // Берем все иконки из вкладки "Администрирование"
+    const adminGrid = document.querySelector('#tab-content-admin .admin-icon-menu');
+    const adminItems = Array.from(adminGrid.querySelectorAll('.admin-icon-button'));
+    
+    // Берем скрытые иконки с главной
+    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
+    const hiddenMainItems = Array.from(mainGrid.querySelectorAll('.admin-icon-button.user-hidden'));
+    
+    const allAvailable = [...adminItems, ...hiddenMainItems];
+    
+    if (allAvailable.length === 0) {
+        pickerGrid.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Все иконки уже на главной.</p>';
+    } else {
+        allAvailable.forEach(item => {
+            const clone = item.cloneNode(true);
+            clone.classList.remove('user-hidden', 'edit-mode-active');
+            clone.style.animation = 'none';
+            
+            clone.onclick = (e) => {
+                e.preventDefault();
+                
+                item.classList.remove('user-hidden');
+                const addBtn = mainGrid.querySelector('.admin-add-btn');
+                mainGrid.insertBefore(item, addBtn); // Вставляем перед плюсом
+                
+                item.addEventListener('click', handleIconEditClick, true); // Добавляем слушатель
+                saveLayout();
+                
+                document.getElementById('icon-picker-modal').classList.add('hidden');
+            };
+            pickerGrid.appendChild(clone);
+        });
+    }
+    
+    document.getElementById('icon-picker-modal').classList.remove('hidden');
+}
 
+// === ДЕЙСТВИЯ С ИКОНКАМИ ===
 document.getElementById('btn-hide-icon').onclick = () => {
     if (currentEditItem) {
         currentEditItem.classList.add('user-hidden');
@@ -119,7 +177,7 @@ document.getElementById('btn-make-folder').onclick = () => {
     document.getElementById('edit-icon-action-modal').classList.add('hidden');
     isSelectingForFolder = true;
     firstFolderItem = currentEditItem;
-    tg.showPopup({message: 'Выберите вторую иконку, чтобы объединить их'});
+    if(window.tg) tg.showPopup({message: 'Выберите вторую иконку для объединения'});
 };
 
 document.getElementById('btn-unpack-folder').onclick = () => {
@@ -127,7 +185,6 @@ document.getElementById('btn-unpack-folder').onclick = () => {
     unpackFolder(currentEditItem);
 };
 
-// 4. Логика создания папки (DOM Магия)
 function createFolder(el1, el2) {
     const folderName = prompt('Название новой папки:', 'Папка') || 'Папка';
     const folderId = 'folder_' + Date.now();
@@ -136,7 +193,6 @@ function createFolder(el1, el2) {
     folderDiv.className = 'admin-icon-button admin-folder';
     folderDiv.id = folderId;
     
-    // Достаем цвета и иконки для красивого превью папки
     const icon1 = el1.querySelector('.icon-wrapper').innerHTML;
     const icon2 = el2.querySelector('.icon-wrapper').innerHTML;
     const color1 = el1.querySelector('.icon-wrapper').style.color || '#fff';
@@ -152,20 +208,15 @@ function createFolder(el1, el2) {
     `;
 
     el1.parentNode.insertBefore(folderDiv, el1);
-    
-    // Прячем реальные иконки внутрь HTML папки (все их ссылки и обработчики сохраняются!)
     const contents = folderDiv.querySelector('.folder-contents');
     contents.appendChild(el1);
     contents.appendChild(el2);
 
-    // Вешаем слушатели на новую папку
     folderDiv.addEventListener('click', handleIconEditClick, true);
     folderDiv.addEventListener('click', openFolderNormalMode);
-    
     saveLayout();
 }
 
-// Открытие папки в обычном режиме
 function openFolderNormalMode(e) {
     if (isEditMode) return;
     e.preventDefault();
@@ -176,7 +227,6 @@ function openFolderNormalMode(e) {
     
     document.getElementById('folder-view-title').innerText = folder.querySelector('span').innerText;
     
-    // Временно переносим кнопки в модалку, чтобы они красиво отобразились
     while (contents.firstChild) {
         modalGrid.appendChild(contents.firstChild);
     }
@@ -184,7 +234,6 @@ function openFolderNormalMode(e) {
     document.getElementById('folder-view-modal').classList.remove('hidden');
 }
 
-// Закрытие модалки папки (возвращаем кнопки обратно в DOM)
 document.querySelector('#folder-view-modal .modal-close-btn').onclick = () => {
     const modalGrid = document.getElementById('folder-view-grid');
     if (currentOpenFolderContents) {
@@ -204,13 +253,11 @@ function unpackFolder(folderEl) {
     saveLayout();
 }
 
-// === СИСТЕМА СОХРАНЕНИЯ (ПЕРЕЖИВЕТ ПЕРЕЗАГРУЗКУ) ===
-
+// === СОХРАНЕНИЕ ПОРЯДКА В ПАМЯТИ БРАУЗЕРА ===
 function assignUniqueIDs() {
-    const items = document.querySelectorAll('#tab-content-main .admin-icon-button:not(.admin-folder)');
+    const items = document.querySelectorAll('.admin-icon-menu .admin-icon-button:not(.admin-folder)');
     items.forEach((item, idx) => {
         if (!item.id) {
-            // Генерируем ID из текста кнопки или ссылки
             const text = item.querySelector('span')?.innerText.trim().replace(/\s+/g, '_') || '';
             item.id = `grid_item_${idx}_${text}`;
         }
@@ -218,23 +265,25 @@ function assignUniqueIDs() {
 }
 
 function saveLayout() {
-    const grid = document.querySelector('#tab-content-main .admin-icon-menu');
-    const layout = { folders: {}, hidden: [] };
+    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
+    const layout = { folders: {}, hidden: [], mainOrder: [] };
 
-    // Сохраняем скрытые
-    grid.querySelectorAll('.admin-icon-button.user-hidden').forEach(item => {
-        if(item.id) layout.hidden.push(item.id);
-    });
-
-    // Сохраняем папки
-    grid.querySelectorAll('.admin-folder').forEach(folder => {
-        const childrenIds = Array.from(folder.querySelectorAll('.folder-contents .admin-icon-button'))
-                                 .map(child => child.id);
-        layout.folders[folder.id] = {
-            name: folder.querySelector('span').innerText,
-            preview: folder.querySelector('.folder-wrapper').innerHTML,
-            children: childrenIds
-        };
+    mainGrid.querySelectorAll('.admin-icon-button').forEach(item => {
+        if (item.classList.contains('admin-add-btn')) return;
+        
+        if (item.classList.contains('user-hidden')) {
+            layout.hidden.push(item.id);
+        } else if (item.classList.contains('admin-folder')) {
+            const childrenIds = Array.from(item.querySelectorAll('.folder-contents .admin-icon-button')).map(child => child.id);
+            layout.folders[item.id] = {
+                name: item.querySelector('span').innerText,
+                preview: item.querySelector('.folder-wrapper').innerHTML,
+                children: childrenIds
+            };
+            layout.mainOrder.push(item.id);
+        } else {
+            layout.mainOrder.push(item.id);
+        }
     });
 
     localStorage.setItem('adminMainLayout', JSON.stringify(layout));
@@ -244,38 +293,44 @@ function restoreLayout() {
     const layout = JSON.parse(localStorage.getItem('adminMainLayout'));
     if (!layout) return;
 
-    const grid = document.querySelector('#tab-content-main .admin-icon-menu');
+    const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
 
-    // Скрываем ненужное
+    // Скрытые переносим и прячем
     layout.hidden.forEach(id => {
         const item = document.getElementById(id);
-        if (item) item.classList.add('user-hidden');
+        if (item) {
+            mainGrid.appendChild(item);
+            item.classList.add('user-hidden');
+        }
     });
 
-    // Восстанавливаем папки
-    Object.keys(layout.folders).forEach(folderId => {
-        const data = layout.folders[folderId];
-        
-        const folderDiv = document.createElement('div');
-        folderDiv.className = 'admin-icon-button admin-folder';
-        folderDiv.id = folderId;
-        folderDiv.innerHTML = `
-            <div class="icon-wrapper folder-wrapper">${data.preview}</div>
-            <span>${data.name}</span>
-            <div class="folder-contents"></div>
-        `;
-        
-        const contents = folderDiv.querySelector('.folder-contents');
-        
-        data.children.forEach(childId => {
-            const child = document.getElementById(childId);
-            if (child) contents.appendChild(child); // Перемещаем оригинальную кнопку внутрь
-        });
-
-        // Если папка не пустая, добавляем в сетку
-        if (contents.children.length > 0) {
-            grid.appendChild(folderDiv);
-            folderDiv.addEventListener('click', openFolderNormalMode);
+    // Восстанавливаем порядок на главной
+    layout.mainOrder.forEach(id => {
+        if (layout.folders[id]) {
+            const data = layout.folders[id];
+            const folderDiv = document.createElement('div');
+            folderDiv.className = 'admin-icon-button admin-folder';
+            folderDiv.id = id;
+            folderDiv.innerHTML = `
+                <div class="icon-wrapper folder-wrapper">${data.preview}</div>
+                <span>${data.name}</span>
+                <div class="folder-contents"></div>
+            `;
+            const contents = folderDiv.querySelector('.folder-contents');
+            data.children.forEach(childId => {
+                const child = document.getElementById(childId);
+                if (child) contents.appendChild(child);
+            });
+            if (contents.children.length > 0) {
+                mainGrid.appendChild(folderDiv);
+                folderDiv.addEventListener('click', openFolderNormalMode);
+            }
+        } else {
+            const item = document.getElementById(id);
+            if (item) {
+                item.classList.remove('user-hidden');
+                mainGrid.appendChild(item);
+            }
         }
     });
 }
