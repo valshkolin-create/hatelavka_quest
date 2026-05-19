@@ -8651,6 +8651,13 @@ class BottWebhookModel(BaseModel):
     custom_fields: Optional[str] = None # Сюда придет ID юзера
     # Остальные поля можно не описывать, если они нам не нужны
 
+class LayoutSaveRequest(BaseModel):
+    initData: str
+    layout: Dict
+
+class LayoutGetRequest(BaseModel):
+    initData: str
+
 # ------------------------------------------------------------------
 # 1. ПОЛНОСТЬЮ ЗАМЕНИТЕ ВСПОМОГАТЕЛЬНУЮ ФУНКЦИЮ НА ЭТУ ВЕРСИЮ
 # ------------------------------------------------------------------
@@ -9492,6 +9499,62 @@ async def user_heartbeat(
         return {"is_active": False}
         
 # --- API ДЛЯ ИВЕНТА "ВЕДЬМИНСКИЙ КОТЕЛ" ---
+
+@app.post("/api/v1/admin/layout/save")
+async def save_admin_layout(
+    request_data: LayoutSaveRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Сохраняет кастомное расположение иконок и папок на главной"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    admin_id = user_info.get("id")
+    
+    payload = {
+        "key": f"admin_layout_{admin_id}",
+        "value": request_data.layout
+    }
+
+    # Upsert: обновит запись, если ключ уже существует
+    resp = await supabase.post(
+        "/settings", 
+        json=payload, 
+        headers={"Prefer": "resolution=merge-duplicates"}
+    )
+
+    if resp.status_code not in (200, 201, 204):
+        raise HTTPException(status_code=500, detail="Ошибка сохранения макета в БД")
+
+    return {"success": True, "message": "Рабочий стол сохранен!"}
+
+
+@app.post("/api/v1/admin/layout/get")
+async def get_admin_layout(
+    request_data: LayoutGetRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Получает кастомное расположение иконок и папок при загрузке страницы"""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    admin_id = user_info.get("id")
+    layout_key = f"admin_layout_{admin_id}"
+
+    # Делаем GET запрос с фильтрацией по ключу
+    resp = await supabase.get(f"/settings?key=eq.{layout_key}&select=value")
+
+    if resp.status_code == 200:
+        data = resp.json()
+        if data and len(data) > 0:
+            return {"success": True, "layout": data[0]["value"]}
+    
+    # Если записи нет (админ еще ничего не настраивал) или произошла ошибка, возвращаем None
+    return {"success": True, "layout": None}
 
 @app.post("/api/v1/admin/cauldron/update")
 async def update_cauldron_event(
