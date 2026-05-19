@@ -10,10 +10,6 @@
 </head>
 <body>
 
-    <button id="sleep-mode-toggle" class="sleep-mode-toggle hidden" title="Технический режим">
-        <i class="fa-solid fa-screwdriver-wrench"></i>
-    </button>
-
     <div id="loader-overlay" class="loader-overlay hidden">
         <div class="spinner"></div>
     </div>
@@ -21,14 +17,19 @@
     <main id="app-container" class="main-content">
         <div id="view-admin-main" class="view">
             <div class="page-header">
-                <a href="/menu" class="back-button"><i class="fa-solid fa-house"></i> Назад</a>
+                <!-- Обертка для левой кнопки (задаем ширину, чтобы заголовок был ровно по центру) -->
+                <div style="width: 80px; display: flex; align-items: center;">
+                    <a href="/menu" class="back-button"><i class="fa-solid fa-house"></i> Назад</a>
+                </div>
+                
                 <h1 class="page-header-title">Админ-панель</h1>
-                <div style="width: 80px;"></div>
-            </div>
-
-            <div class="tabs-container main-tabs">
-                <button class="tab-button active" data-tab="main">Основное</button>
-                <button class="tab-button" data-tab="admin">Администрирование</button>
+                
+                <!-- Обертка для правой кнопки (той же ширины, выровнена вправо) -->
+                <div style="width: 80px; display: flex; justify-content: flex-end; align-items: center;">
+                    <button id="sleep-mode-toggle" class="sleep-mode-toggle hidden" title="Технический режим">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </button>
+                </div>
             </div>
 
           <div id="admin-recent-wrapper" style="display: none; margin-bottom: 20px;">
