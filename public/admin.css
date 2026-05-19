@@ -1839,31 +1839,30 @@ input:checked + .slider:before {
 }
 
 /* --- СТИЛИ ДЛЯ ЗАГОЛОВКА "НЕДАВНО ОТКРЫТЫЕ" --- */
-
 #admin-recent-wrapper h3 {
-    font-size: 11px !important; /* Уменьшаем сам текст (было 14px) */
-    margin-bottom: 6px !important; /* Уменьшаем отступ от текста до карточек */
-    padding-bottom: 4px !important; /* Делаем полоску под текстом ближе */
-    font-weight: 500 !important; /* Делаем шрифт чуть менее жирным */
+    font-size: 12px !important; 
+    margin-bottom: 4px !important; /* Максимально прижимаем текст к карточкам */
+    padding-bottom: 0 !important; 
+    border-bottom: none !important; /* 🔥 УДАЛЯЕМ ЛИНИЮ 🔥 */
+    font-weight: 500 !important;
 }
 
-/* Уменьшаем иконку часиков рядом с текстом */
 #admin-recent-wrapper h3 i {
     font-size: 11px !important; 
     margin-right: 3px !important;
 }
+
 #admin-recent-wrapper {
-    margin-bottom: 14px !important; /* Меняй цифру: больше — отступ шире, меньше — ближе */
+    margin-bottom: 5px !important; /* Убираем огромный отступ после блока */
 }
 
-
-/* === 2. СЕТКА ИКОНОК: СТРОГО 4 В РЯД === */
+/* === СЕТКА ИКОНОК: СТРОГО 4 В РЯД И МАКСИМАЛЬНО ПЛОТНО === */
 .admin-icon-menu, 
 .pending-actions-grid {
     display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important; /* Принудительно 4 колонки */
-    gap: 8px !important; /* Уменьшаем отступ между колонками, чтобы влезало на мобилках */
-    padding: 10px 0 !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 5px !important; /* 🔥 Сужаем интервал между самими ячейками */
+    padding: 5px 0 !important; /* 🔥 Уменьшаем пустые отступы сверху и снизу сетки */
 }
 
 /* === 3. УМЕНЬШАЕМ САМИ ИКОНКИ И ТЕКСТ === */
