@@ -1845,14 +1845,6 @@ input:checked + .slider:before {
     margin-bottom: 14px !important; /* Меняй цифру: больше — отступ шире, меньше — ближе */
 }
 
-/* === 1. ЖЕЛЕЗОБЕТОННАЯ ПОЗИЦИЯ КНОПКИ ТЕХ-РАБОТ === */
-.sleep-mode-toggle {
-    position: fixed !important;
-    /* 9px + safe-area идеально центрируют 24px кнопку относительно 22px заголовка */
-    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 9px) !important;
-    right: 20px !important;
-    z-index: 1000 !important;
-}
 
 /* === 2. СЕТКА ИКОНОК: СТРОГО 4 В РЯД === */
 .admin-icon-menu, 
