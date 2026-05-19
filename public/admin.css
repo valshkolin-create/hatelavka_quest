@@ -132,24 +132,16 @@ html, body {
 .quest-category-header .category-info { flex-grow: 1; display: flex; align-items: center; }
 .quest-category-header .category-actions-in-header { display: flex; gap: 10px; align-items: center; }
 /* Смещаем кнопку тех. работ чуть ниже, чтобы она не перекрывала меню из шапки */
-.sleep-mode-toggle { 
-    position: fixed; 
-    top: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 20px)) + 105px) !important; 
-    right: 20px; 
-    width: 24px; 
-    height: 24px; 
-    background-color: var(--action-color); 
-    border-radius: 50%; 
-    border: none; 
-    color: white; 
-    font-size: 15px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    cursor: pointer; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
-    z-index: 1000; 
-}
+/* === 1. ПОЗИЦИЯ КНОПКИ ТЕХ-РАБОТ (ВНУТРИ ШАПКИ) === */
+.sleep-mode-toggle {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    width: 28px !important;  /* Можно чуть увеличить, раз она теперь в шапке */
+    height: 28px !important;
+    z-index: 10 !important;
+    margin: 0 !important;
+}}
 /* Используем оранжевый цвет для тех. работ */
 .sleep-mode-toggle.is-sleeping { background-color: #ff9500; box-shadow: 0 0 15px rgba(255, 149, 0, 0.6); }
 .admin-icon-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 20px; padding: 10px 0; }
