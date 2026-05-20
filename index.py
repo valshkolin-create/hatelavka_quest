@@ -21801,6 +21801,39 @@ async def create_twitch_campaign(
     return {"status": "success", "message": "Раздача запущена!"}
 
 # ==========================================
+# 4.5 ИНФОРМАЦИЯ ДЛЯ ФРОНТЕНДА (MINI APP)
+# ==========================================
+@app.get("/api/v1/twitch/campaign_info/{campaign_id}")
+async def get_campaign_info(
+    campaign_id: int, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Ищем кампанию в базе
+    res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
+    if not res.json():
+        raise HTTPException(status_code=404, detail="Кампания не найдена")
+        
+    campaign = res.json()[0]
+    
+    # 2. 🔥 ПРОВЕРКА ТАЙМЕРА (Ленивая оценка)
+    if campaign.get("is_active") and campaign.get("expires_at"):
+        expires_at = datetime.fromisoformat(campaign["expires_at"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > expires_at:
+            # Время вышло! Закрываем в базе
+            await supabase.patch(
+                "/twitch_campaigns", 
+                params={"id": f"eq.{campaign_id}"}, 
+                json={"is_active": False}
+            )
+            campaign["is_active"] = False # Меняем статус на лету
+            
+    # 3. Если кампания не активна (или время только что вышло), отдаем ошибку.
+    if not campaign.get("is_active"):
+        raise HTTPException(status_code=400, detail="Раздача завершена")
+
+    return campaign
+
+# ==========================================
 # 4. РЕДАКТИРОВАНИЕ ПОСТА
 # ==========================================
 @app.post("/api/v1/admin/twitch_campaigns/edit_post")
@@ -21949,6 +21982,19 @@ async def redirect_to_twitch(
     except:
         pass
 
+    # 🔥 ЛЕНИВАЯ ПРОВЕРКА ТАЙМЕРА ПРИ ПЕРЕХОДЕ ИЗ ТГ 🔥
+    try:
+        camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}"})
+        if camp_res.status_code == 200 and camp_res.json():
+            campaign = camp_res.json()[0]
+            if campaign.get("is_active") and campaign.get("expires_at"):
+                expires_at = datetime.fromisoformat(campaign["expires_at"].replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > expires_at:
+                    # Время истекло — деактивируем кампанию прямо сейчас
+                    await supabase.patch("/twitch_campaigns", params={"id": f"eq.{campaign_id}"}, json={"is_active": False})
+    except Exception as e:
+        print(f"Ошибка ленивой проверки в редиректе: {e}")
+
     # 2. Определяем устройство
     user_agent = request.headers.get("user-agent", "").lower()
     is_mobile = any(word in user_agent for word in ["iphone", "android", "mobile"])
@@ -21965,6 +22011,7 @@ async def redirect_to_twitch(
     else:
         # 💻 ПК: Сразу на Twitch, без лишних окон
         return RedirectResponse(url="https://www.twitch.tv/hatelove_ttv")
+        
 import re
 from datetime import datetime, timedelta
 import asyncio
@@ -22011,7 +22058,6 @@ async def handle_fossabot_claim(
         extracted_code = match.group(1)
 
         # --- ШАГ 3: АНТИ-ФЛУД СИСТЕМА (3 попытки за 5 минут) ---
-        # Считаем, сколько раз юзер «тыкал» код за последние 5 минут
         five_min_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
         spam_res = await supabase.get("/twitch_clicks", params={
             "twitch_name": f"eq.{twitch_display_name}",
@@ -22020,36 +22066,47 @@ async def handle_fossabot_claim(
             "count": "exact"
         })
         
-        # Получаем количество попыток (в Supabase count возвращается в заголовках или через len)
         attempts_count = len(spam_res.json()) if spam_res.status_code == 200 else 0
 
         if attempts_count >= 3:
-            # Если 3 и более попыток — отправляем команду мута для Fossabot
             print(f"DEBUG: МУТ за флуд: {twitch_display_name}")
             return f"/timeout {twitch_user} 300 | @{twitch_display_name}, ты исчерпал 3 попытки за 5 минут! Отдохни 5 минут. ⛔"
         
         # 4. Поиск кода в БД
         code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
         if code_res.status_code != 200 or not code_res.json():
-            # Если кода нет, уведомляем о попытке (чтобы юзер видел счетчик)
             return f"@{twitch_display_name}, код «{extracted_code}» не найден или не активен! (Попытка {attempts_count + 1}/3) 🔍"
 
         cs_code = code_res.json()[0]
         campaign_id = cs_code.get("campaign_id")
         
-        # 5. Проверка кампании
+        # 5. Проверка кампании и ТАЙМЕРА (Lazy Evaluation)
         camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}", "is_active": "is.true"})
         if camp_res.status_code != 200 or not camp_res.json():
             return f"@{twitch_display_name}, раздача по этому коду уже завершена. ⌛"
         
         campaign = camp_res.json()[0]
 
-        # 6. Проверка привязки юзера
-        user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id"})
+        # 🔥 ПРОВЕРКА ВРЕМЕНИ
+        if campaign.get("expires_at"):
+            expires_at = datetime.fromisoformat(campaign["expires_at"].replace("Z", "+00:00"))
+            if datetime.now(timezone.utc) > expires_at:
+                await supabase.patch("/twitch_campaigns", params={"id": f"eq.{campaign_id}"}, json={"is_active": False})
+                return f"@{twitch_display_name}, время действия этого кода уже истекло! ⏰"
+
+        # 6. Проверка привязки юзера и БАНА
+        # 🔥 Запрашиваем is_banned вместе с telegram_id
+        user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id,is_banned"})
         if user_res.status_code != 200 or not user_res.json():
             return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в ТГ бота @HATElavka_bot и привяжи его в профиле."
         
-        tg_id_int = int(user_res.json()[0]["telegram_id"])
+        user_data = user_res.json()[0]
+
+        # 🔥 ПРОВЕРКА НА БАН
+        if user_data.get("is_banned") is True:
+            return f"@{twitch_display_name}, твой аккаунт заблокирован ⛔ Напиши в ТГ админку для выяснения причины: @hatelove_twitch"
+
+        tg_id_int = int(user_data["telegram_id"])
 
         # 7. Вызов RPC (обработка клика)
         rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
@@ -22060,7 +22117,6 @@ async def handle_fossabot_claim(
         })
         
         rpc_data_raw = rpc_res.json()
-        # Ответ может прийти как список [{}], выравниваем
         res_data = rpc_data_raw[0] if isinstance(rpc_data_raw, list) and rpc_data_raw else rpc_data_raw
 
         # --- ОБРАБОТКА ДУБЛИКАТА ---
@@ -22069,13 +22125,12 @@ async def handle_fossabot_claim(
 
         is_winner = res_data.get('is_winner')
         is_leader = res_data.get('is_leader')
-        batch_time = res_data.get('batch_time')
 
         # 8. Награда победителя (Пуш в ТГ)
         if is_winner:
             await supabase.post("/rpc/add_twitch_winner", json={
                 "p_code": extracted_code, 
-                "p_user_id": tg_id_int  # <-- Передаем как чистое число
+                "p_user_id": tg_id_int
             })
             
             # Фоновое уведомление
@@ -22086,16 +22141,12 @@ async def handle_fossabot_claim(
 
         # 9. Только ЛИДЕР отвечает в чат за всю группу
         if not is_leader:
-            # Если не лидер, можно написать короткое подтверждение (по желанию), 
-            # но лучше молчать, чтобы не засорять чат.
             return ""
 
-        # Ждем сборку «пачки» (те, кто нажал в эту же секунду)
+        # Ждем сборку «пачки»
         print(f"DEBUG: Лидер {twitch_display_name} собирает пачку...")
-        await asyncio.sleep(2.6)
+        await asyncio.sleep(1.0)
 
-        # Получаем всех участников пачки
-        # Используем фильтр по campaign_id и сортировку (надежнее, чем время)
         batch_clicks_res = await supabase.get("/twitch_clicks", params={
             "campaign_id": f"eq.{campaign_id}",
             "order": "created_at.desc",
@@ -22104,10 +22155,8 @@ async def handle_fossabot_claim(
         clicks_data = batch_clicks_res.json() if batch_clicks_res.status_code == 200 else []
         
         if not clicks_data:
-            # Если БД не успела выдать список, берем текущего лидера как единственного участника
             clicks_data = [{"twitch_name": twitch_display_name, "is_winner": is_winner}]
 
-        # Группируем ники
         winners_list = list(set([c['twitch_name'] for c in clicks_data if c.get('is_winner')]))
         losers_list = list(set([c['twitch_name'] for c in clicks_data if not c.get('is_winner')]))
 
@@ -22129,7 +22178,7 @@ async def handle_fossabot_claim(
         return f"⚠️ Ошибка системы: {str(e)}"
         
 # ==========================================
-# 7. СТАТИСТИКА (АДМИНКА)
+# 7. СТАТИСТИКА (АДМИНКА) - ИСПРАВЛЕНО
 # ==========================================
 @app.post("/api/v1/admin/twitch_campaigns/list")
 async def get_twitch_campaigns_list(
@@ -22140,7 +22189,15 @@ async def get_twitch_campaigns_list(
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    camp_res = await supabase.get("/twitch_campaigns", params={"order": "id.desc"})
+    # 🔥 ИСПРАВЛЕНИЕ: Запрашиваем только те кампании, у которых ЕСТЬ текст поста.
+    # Это мгновенно скроет все системные "Приз за 6 место" (у которых post_text = null)
+    camp_res = await supabase.get(
+        "/twitch_campaigns", 
+        params={
+            "post_text": "not.is.null", 
+            "order": "id.desc"
+        }
+    )
     campaigns = camp_res.json() if camp_res.status_code == 200 else []
 
     results = []
@@ -22418,13 +22475,19 @@ async def force_finish_event(
     # Запускаем игру
     try:
         words_res = await supabase.get("/guess_words")
-        all_words = [w["word"] for w in words_res.json()] if words_res.status_code == 200 else []
+        # Фильтруем: длина от 4 символов и без дефисов
+        all_words = [
+            w["word"] for w in words_res.json() 
+            if words_res.status_code == 200 and len(w["word"]) >= 4 and "-" not in w["word"]
+        ]
         first_word = random.choice(all_words) if all_words else "СЛОВАРЬ_ПУСТ"
 
+        # Принудительно очищаем used_words и записываем туда первое слово
         await supabase.patch("/guess_state", params={"id": "eq.1"}, json={
             "is_active": True, 
             "current_word": first_word, 
-            "revealed_indices": []
+            "revealed_indices": [],
+            "used_words": [first_word] if first_word != "СЛОВАРЬ_ПУСТ" else []
         })
         global guess_cache
         guess_cache["updated_at"] = 0
@@ -22516,20 +22579,44 @@ async def handle_fossabot_guess(
 
         # --- СЮДА ДОЙДЕТ ТОЛЬКО ПОБЕДИТЕЛЬ ---
         target_filter = guess_cache["raw_word"]
+        
+        # Получаем свежее состояние игры из базы (чтобы узнать сыгранные слова)
+        state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+        current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
+        used_words = current_state.get("used_words", [])
+
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word"})
             if words_res.status_code == 200:
-                words_cache["list"] = [w["word"] for w in words_res.json()]
+                # Кэшируем только валидные слова (от 4 знаков, без дефисов)
+                words_cache["list"] = [
+                    w["word"] for w in words_res.json() 
+                    if len(w["word"]) >= 4 and "-" not in w["word"]
+                ]
                 words_cache["updated_at"] = now
         
-        all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
+        # Выбираем слова, которые еще НЕ использовались в этом круге и не равны текущему
+        all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != guess_cache["word"]]
+
+        # Если все доступные слова в базе закончились — сбрасываем круг истории
+        if not all_words:
+            used_words = []
+            all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
+
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
+
+        if next_word != "КОНЕЦ":
+            used_words.append(next_word)
 
         # Меняем слово в базе
         patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
-            json={"current_word": next_word, "revealed_indices": []},
+            json={
+                "current_word": next_word, 
+                "revealed_indices": [],
+                "used_words": used_words
+            },
             headers={"Prefer": "return=representation"} 
         )
         
@@ -22545,7 +22632,6 @@ async def handle_fossabot_guess(
     except Exception as e:
         print(f"DEBUG ERROR: {str(e)}")
         return ""
-
 
 # 1. Единая схема для всех настроек фона (всё делаем Optional)
 class CoversUpdateRequest(BaseModel):
