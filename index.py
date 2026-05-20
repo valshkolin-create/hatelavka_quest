@@ -22145,7 +22145,7 @@ async def handle_fossabot_claim(
 
         # Ждем сборку «пачки»
         print(f"DEBUG: Лидер {twitch_display_name} собирает пачку...")
-        await asyncio.sleep(2.6)
+        await asyncio.sleep(1.0)
 
         batch_clicks_res = await supabase.get("/twitch_clicks", params={
             "campaign_id": f"eq.{campaign_id}",
