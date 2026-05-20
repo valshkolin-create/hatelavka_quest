@@ -149,10 +149,10 @@ window.renderP2PModalStatus = function(status, tradeId, amount) {
         statusColor = '#ff9500';
         actionsDiv.innerHTML = `
             <div style="display: flex; gap: 10px;">
-                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
+                <button onclick="window.rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
                     <i class="fa-solid fa-xmark"></i> Отказать
                 </button>
-                <button onclick="approveP2PTrade(${tradeId})" class="admin-action-btn approve" style="flex: 2;">
+                <button onclick="window.approveP2PTrade(${tradeId})" class="admin-action-btn approve" style="flex: 2;">
                     <i class="fa-solid fa-bolt"></i> Принять
                 </button>
             </div>`;
@@ -165,11 +165,11 @@ window.renderP2PModalStatus = function(status, tradeId, amount) {
                 Ожидаем, пока пользователь нажмет «Я передал»
             </div>
             
-            <button onclick="adminForceConfirmSent(${tradeId})" class="admin-action-btn confirm" style="width: 100%; margin-bottom: 8px; background-color: #007aff;">
+            <button onclick="window.adminForceConfirmSent(${tradeId})" class="admin-action-btn confirm" style="width: 100%; margin-bottom: 8px; background-color: #007aff;">
                 <i class="fa-solid fa-eye"></i> Я уже вижу скин (Подтвердить)
             </button>
 
-            <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%; font-size: 13px; padding: 8px;">
+            <button onclick="window.rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%; font-size: 13px; padding: 8px;">
                 Отменить (если долго не кидает)
             </button>
         `;
@@ -179,10 +179,10 @@ window.renderP2PModalStatus = function(status, tradeId, amount) {
         statusColor = '#007aff';
         actionsDiv.innerHTML = `
             <div style="display: flex; gap: 10px;">
-                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
+                <button onclick="window.rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
                     Обман
                 </button>
-                <button onclick="completeP2PTrade(${tradeId}, ${amount})" class="admin-action-btn confirm" style="flex: 2;">
+                <button onclick="window.completeP2PTrade(${tradeId}, ${amount})" class="admin-action-btn confirm" style="flex: 2;">
                     <i class="fa-solid fa-coins"></i> Подтвердить
                 </button>
             </div>`;
