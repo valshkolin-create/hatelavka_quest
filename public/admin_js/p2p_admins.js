@@ -554,7 +554,6 @@ window.refreshCurrentP2PTradeDetails = async function() {
     }
 };
 
-// Экспортируем слушатели событий для P2P
 window.setupP2PEventListeners = function() {
     const refreshP2PBtn = document.getElementById('btn-refresh-p2p-details');
     if (refreshP2PBtn) {
@@ -564,7 +563,7 @@ window.setupP2PEventListeners = function() {
         });
     }
 
-    / НОВЫЙ БЛОК: Единый обработчик кнопок в модалке
+    // НОВЫЙ БЛОК: Единый обработчик кнопок в модалке
     const actionsDiv = document.getElementById('modal-p2p-actions');
     if (actionsDiv) {
         actionsDiv.addEventListener('click', (e) => {
@@ -573,7 +572,7 @@ window.setupP2PEventListeners = function() {
 
             const action = btn.dataset.action;
             const id = parseInt(btn.dataset.id);
-            const amount = parseInt(btn.dataset.amount); // Если нужно для complete
+            const amount = parseInt(btn.dataset.amount);
 
             if (action === 'reject') window.rejectP2PTrade(id);
             if (action === 'approve') window.approveP2PTrade(id);
@@ -581,7 +580,6 @@ window.setupP2PEventListeners = function() {
             if (action === 'complete') window.completeP2PTrade(id, amount);
         });
     }
-};
 
     const createP2PCaseForm = document.getElementById('create-p2p-case-form');
     if (createP2PCaseForm) {
