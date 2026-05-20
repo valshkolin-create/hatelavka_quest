@@ -4423,43 +4423,7 @@ async function main() {
         }
     };
 
-/* === ДЕЙСТВИЕ: ПРИНУДИТЕЛЬНОЕ ПОДТВЕРЖДЕНИЕ ОТПРАВКИ === */
-async function adminForceConfirmSent(tradeId) {
-    showCustomConfirmHTML(
-        '👀 Вы видите скин в трейдах Steam?<br><span style="font-size:13px; color:#aaa">Это переведет сделку в статус "Проверка", как будто пользователь сам нажал кнопку.</span>',
-        async () => {
-            try {
-                await makeApiRequest('/api/v1/admin/p2p/force_confirm_sent', { 
-                    trade_id: tradeId, 
-                    initData: tg.initData 
-                });
-                
-                tg.showPopup({message: 'Статус обновлен вручную!'});
-                
-                // Получаем актуальные данные сделки, чтобы узнать сумму (amount)
-                // Для обновления интерфейса. Если amount неизвестен, ставим 0, но лучше передать.
-                // В данном случае мы просто обновим статус на 'review', amount подтянется при следующем открытии или действии
-                renderP2PModalStatus('review', tradeId, 0); // 0, так как сумма здесь только для кнопки подтверждения, она перерисуется
-                
-                // Перезагружаем список, чтобы подтянуть точные данные
-                loadP2PTrades(); 
-                
-                // Закрываем и открываем модалку заново (или просто обновляем), 
-                // чтобы кнопка "Завершить" получила правильную сумму
-                // Самый простой способ обновить сумму в кнопке:
-                const trade = (await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true)).find(t => t.id === tradeId);
-                if (trade) {
-                    renderP2PModalStatus('review', tradeId, trade.total_coins);
-                }
 
-            } catch (e) {
-                tg.showAlert('Ошибка: ' + e.message);
-            }
-        },
-        'Да, скин у меня',
-        '#007aff'
-    );
-}
 // --- 🎁 GIFT ADMIN LOGIC ---
 
 async function loadGiftSkins() {
