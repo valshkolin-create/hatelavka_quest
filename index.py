@@ -22129,7 +22129,7 @@ async def handle_fossabot_claim(
         return f"⚠️ Ошибка системы: {str(e)}"
         
 # ==========================================
-# 7. СТАТИСТИКА (АДМИНКА)
+# 7. СТАТИСТИКА (АДМИНКА) - ИСПРАВЛЕНО
 # ==========================================
 @app.post("/api/v1/admin/twitch_campaigns/list")
 async def get_twitch_campaigns_list(
@@ -22140,7 +22140,15 @@ async def get_twitch_campaigns_list(
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    camp_res = await supabase.get("/twitch_campaigns", params={"order": "id.desc"})
+    # 🔥 ИСПРАВЛЕНИЕ: Запрашиваем только те кампании, у которых ЕСТЬ текст поста.
+    # Это мгновенно скроет все системные "Приз за 6 место" (у которых post_text = null)
+    camp_res = await supabase.get(
+        "/twitch_campaigns", 
+        params={
+            "post_text": "not.is.null", 
+            "order": "id.desc"
+        }
+    )
     campaigns = camp_res.json() if camp_res.status_code == 200 else []
 
     results = []
@@ -22418,13 +22426,19 @@ async def force_finish_event(
     # Запускаем игру
     try:
         words_res = await supabase.get("/guess_words")
-        all_words = [w["word"] for w in words_res.json()] if words_res.status_code == 200 else []
+        # Фильтруем: длина от 4 символов и без дефисов
+        all_words = [
+            w["word"] for w in words_res.json() 
+            if words_res.status_code == 200 and len(w["word"]) >= 4 and "-" not in w["word"]
+        ]
         first_word = random.choice(all_words) if all_words else "СЛОВАРЬ_ПУСТ"
 
+        # Принудительно очищаем used_words и записываем туда первое слово
         await supabase.patch("/guess_state", params={"id": "eq.1"}, json={
             "is_active": True, 
             "current_word": first_word, 
-            "revealed_indices": []
+            "revealed_indices": [],
+            "used_words": [first_word] if first_word != "СЛОВАРЬ_ПУСТ" else []
         })
         global guess_cache
         guess_cache["updated_at"] = 0
@@ -22516,20 +22530,44 @@ async def handle_fossabot_guess(
 
         # --- СЮДА ДОЙДЕТ ТОЛЬКО ПОБЕДИТЕЛЬ ---
         target_filter = guess_cache["raw_word"]
+        
+        # Получаем свежее состояние игры из базы (чтобы узнать сыгранные слова)
+        state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+        current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
+        used_words = current_state.get("used_words", [])
+
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word"})
             if words_res.status_code == 200:
-                words_cache["list"] = [w["word"] for w in words_res.json()]
+                # Кэшируем только валидные слова (от 4 знаков, без дефисов)
+                words_cache["list"] = [
+                    w["word"] for w in words_res.json() 
+                    if len(w["word"]) >= 4 and "-" not in w["word"]
+                ]
                 words_cache["updated_at"] = now
         
-        all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
+        # Выбираем слова, которые еще НЕ использовались в этом круге и не равны текущему
+        all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != guess_cache["word"]]
+
+        # Если все доступные слова в базе закончились — сбрасываем круг истории
+        if not all_words:
+            used_words = []
+            all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
+
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
+
+        if next_word != "КОНЕЦ":
+            used_words.append(next_word)
 
         # Меняем слово в базе
         patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
-            json={"current_word": next_word, "revealed_indices": []},
+            json={
+                "current_word": next_word, 
+                "revealed_indices": [],
+                "used_words": used_words
+            },
             headers={"Prefer": "return=representation"} 
         )
         
@@ -22545,7 +22583,6 @@ async def handle_fossabot_guess(
     except Exception as e:
         print(f"DEBUG ERROR: {str(e)}")
         return ""
-
 
 # 1. Единая схема для всех настроек фона (всё делаем Optional)
 class CoversUpdateRequest(BaseModel):
