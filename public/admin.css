@@ -2054,3 +2054,16 @@ input:checked + .slider:before {
     box-shadow: 0 0 15px rgba(255, 215, 0, 0.6) !important;
     transform: scale(1.1);
 }
+
+/* Делаем все оверлеи "прозрачными" для мышки, если они скрыты */
+.modal-overlay.hidden, 
+.custom-confirm-overlay.hidden {
+    pointer-events: none;
+}
+
+/* А для самой кнопки принудительно разрешаем клики */
+.admin-action-btn {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 10001; /* Поверх всего */
+}
