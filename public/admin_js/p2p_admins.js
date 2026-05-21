@@ -586,25 +586,3 @@ window.setupP2PEventListeners = function() {
         });
     }
 };
-
-    const createP2PCaseForm = document.getElementById('create-p2p-case-form');
-    if (createP2PCaseForm) {
-        createP2PCaseForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            try {
-                await makeApiRequest('/api/v1/admin/p2p/case/add', {
-                    case_name: formData.get('case_name'),
-                    image_url: formData.get('image_url'),
-                    price_in_coins: parseInt(formData.get('price_in_coins'))
-                });
-                tg.showAlert('Кейс добавлен!');
-                e.target.reset();
-                window.loadP2PCases(); 
-            } catch (err) {
-                tg.showAlert(err.message);
-            }
-        });
-    }
-};
-   
