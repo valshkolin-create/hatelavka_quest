@@ -1,5 +1,14 @@
 // admin.js
 
+// 👇 ГЛОБАЛЬНЫЙ ЛОВЕЦ ОШИБОК 👇
+window.addEventListener('error', function(event) {
+    console.error('🚨 [КРИТИЧЕСКАЯ ОШИБКА JS]:', event.message);
+    console.error('📍 В файле:', event.filename, 'на строке:', event.lineno);
+});
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('🚨 [НЕПОЙМАННЫЙ PROMISE]:', event.reason);
+});
     const WEAR_OPTIONS = [
     { val: '', text: 'Качество не указано' },
     { val: 'Factory New', text: 'Прямо с завода (FN)' },
@@ -3001,7 +3010,15 @@ if (dom.settingQuestScheduleOverride) {
         }            
 
         // --- 🔥 ОБНОВЛЕННЫЙ ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ (OPTIMISTIC UI) 🔥 ---
-        document.body.addEventListener('click', async (event) => {
+       document.body.addEventListener('click', async (event) => {
+            // 👇👇👇 ДОБАВЬТЕ ЭТИ ЛОГИ СЮДА 👇👇👇
+            console.log('-----------------------------------');
+            console.log('🔥 [КЛИК ПОЙМАН] Целевой элемент:', event.target);
+            console.log('🔥 [КЛИК ПОЙМАН] Теги и классы:', event.target.tagName, event.target.className);
+            console.log('🔥 [КЛИК ПОЙМАН] ID элемента:', event.target.id || 'Нет ID');
+            // 👆👆👆 КОНЕЦ ВСТАВКИ ЛОГОВ 👆👆👆
+
+            const target = event.target;
             const target = event.target;
 
             // 👇👇👇 ВСТАВКА: СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ 👇👇👇
@@ -3089,6 +3106,8 @@ if (dom.settingQuestScheduleOverride) {
 
             // --- 🛡️ ДЕЙСТВИЯ ИЗ СПИСКОВ ---
             const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn');
+           // 👇👇👇 ДОБАВЬТЕ ЛОГ СЮДА 👇👇👇
+            console.log('🎯 [ПОИСК КНОПКИ] Найдена ли action-кнопка?:', actionButton ? 'ДА' : 'НЕТ', actionButton);
             if (!actionButton) return;
 
             const id = actionButton.dataset.id;
@@ -3488,7 +3507,6 @@ if (dom.settingQuestScheduleOverride) {
                 e.currentTarget.href = url;
             });
         }
-      } // <--- ✅ ОСТАВЬ ЕЁ ЗДЕСЬ (Она теперь правильно закрывает setupEventListeners)
 
         // 3. ФИНАЛ: Отправка формы
         if (dom.manualTwitchLinkForm) {
@@ -4490,6 +4508,7 @@ if (addGiftSkinForm) {
         }
     });
 }
+ } // <--- ✅ ОСТАВЬ ЕЁ ЗДЕСЬ (Она теперь правильно закрывает setupEventListeners)
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Admin Init Started");
