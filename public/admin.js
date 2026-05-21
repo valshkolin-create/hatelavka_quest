@@ -4406,3 +4406,150 @@ window.renderShopPurchases = function(purchases, targetElement) {
 
     listContainer.insertAdjacentHTML('beforeend', cardsHtml);
 };
+
+/* ==========================================
+   ВОССТАНОВЛЕННАЯ РАБОЧАЯ ЛОГИКА МАГАЗИНА
+   ========================================== */
+
+// --- 1. ФУНКЦИЯ ЗАПУСКА МАССОВОЙ АВТОВЫДАЧИ (С АВТООБНОВЛЕНИЕМ) ---
+window.triggerMassSteamDelivery = function() {
+    showCustomConfirmHTML(
+        `Запустить бота-кладовщика?<br><span style="font-size:12px; color:#aaa; font-weight:normal;">Бот тихо проверит все заявки и отправит скины. В случае нехватки предметов заявки просто останутся висеть.<br><br>Отчет придет вам в Telegram.</span>`,
+        async (closeModal) => {
+            showLoader();
+            try {
+                // 1. Даем команду бэкенду начать рассылку (фоновая задача)
+                await makeApiRequest('/api/v1/admin/steam/mass_send', {}, 'POST', true);
+                
+                tg.showPopup({ 
+                    title: 'Запущено!', 
+                    message: 'Бот начал рассылку. Список будет обновляться автоматически на ваших глазах.' 
+                });
+                
+                closeModal();
+
+                // 2. Включаем "Радар" — тихо обновляем список каждые 3 секунды
+                let polls = 0;
+                const pollInterval = setInterval(async () => {
+                    polls++;
+                    try {
+                        // Тихо (без крутилки) запрашиваем свежий список из БД
+                        const purchases = await makeApiRequest('/api/v1/admin/shop_purchases/details', {}, 'POST', true);
+                        
+                        // Перерисовываем список на экране
+                        const container = document.getElementById('shop-purchases-list');
+                        if (container && typeof renderShopPurchases === 'function') {
+                            renderShopPurchases(purchases, container);
+                        }
+
+                        // Обновляем красный кружочек (счетчик) в главном меню админки
+                        const shopBadge = document.getElementById('shop-badge-main');
+                        if (shopBadge) {
+                            const count = purchases ? purchases.length : 0;
+                            shopBadge.textContent = count;
+                            shopBadge.classList.toggle('hidden', count === 0);
+                        }
+                        
+                        // Проверяем: остались ли еще скины на выдачу?
+                        const stillHasSkins = purchases && purchases.some(p => !!p.won_skin_name);
+                        
+                        // Если скинов не осталось ИЛИ мы проверили уже 6 раз (18 секунд прошло), 
+                        // выключаем радар, чтобы не спамить сервер.
+                        if (!stillHasSkins || polls >= 6) {
+                            clearInterval(pollInterval);
+                        }
+                    } catch (err) {
+                        console.error("Ошибка автообновления списка:", err);
+                        clearInterval(pollInterval);
+                    }
+                }, 3000); // 3000 миллисекунд = 3 секунды
+
+            } catch (e) {
+                tg.showAlert(`Ошибка запуска: ${e.message}`);
+            } finally {
+                hideLoader();
+            }
+        }, 
+        'Запустить', 
+        '#00c0e3'
+    );
+};
+
+// --- 2. ГЛОБАЛЬНАЯ ФУНКЦИЯ ДЕЙСТВИЯ (С парсингом ID и автовыдачей билетов) ---
+window.handleShopAction = function(id, action, title = '', userId = 0) {
+    const isApprove = action === 'approve';
+    let confirmMsg = isApprove ? 'Подтвердить выдачу товара?' : 'Отклонить покупку?';
+    let btnText = isApprove ? 'Выдать' : 'Отклонить';
+    let btnColor = isApprove ? '#34c759' : '#ff3b30';
+
+    // --- ЛОГИКА АВТО-ВЫДАЧИ БИЛЕТОВ ---
+    let isTicketAuto = false;
+    let ticketAmount = 0;
+
+    if (isApprove && title && title.toLowerCase().includes('билет')) {
+        if (!userId || userId === 0) {
+            alert("Ошибка JS: Не передан ID пользователя!");
+            return;
+        }
+        const numberMatch = title.match(/(\d+)/);
+        ticketAmount = numberMatch ? parseInt(numberMatch[0], 10) : 1;
+        confirmMsg = `Обнаружены билеты: <b>${ticketAmount} шт</b>.<br>Для пользователя ID: ${userId}<br>Выдать их автоматически и закрыть заявку?`;
+        btnText = `Выдать ${ticketAmount} 🎟️`;
+        isTicketAuto = true;
+    }
+
+    showCustomConfirmHTML(confirmMsg, async (closeModal) => {
+        showLoader();
+
+        try {
+            // === ИСПРАВЛЕНИЕ: ПАРСИНГ ID И ВЫБОР ЭНДПОИНТА ===
+            const idString = String(id);
+            const isCase = idString.startsWith('case_');
+            // Извлекаем только цифры (из "case_76" получим 76)
+            const realNumericId = parseInt(idString.split('_')[1] || idString);
+
+            let endpoint = '';
+            if (isCase) {
+                // Для кейсов (таблица cs_history)
+                endpoint = isApprove ? '/api/v1/admin/cs_history/complete' : '/api/v1/admin/cs_history/reject';
+            } else {
+                // Для обычных наград (таблица manual_rewards)
+                endpoint = isApprove ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
+            }
+            // ===============================================
+
+            if (isTicketAuto) {
+                await makeApiRequest('/api/v1/admin/users/grant-stars', { 
+                    user_id_to_grant: userId, 
+                    amount: ticketAmount 
+                }, 'POST', true);
+            }
+
+            // Отправляем запрос с ЧИСЛОВЫМ ID (realNumericId)
+            await makeApiRequest(endpoint, { reward_id: realNumericId }, 'POST', true);
+
+            // Удаляем карточку по СТРОКОВОМУ ID (как в HTML: "shop-card-case_76")
+            document.getElementById(`shop-card-${id}`)?.remove();
+            
+            const shopBadge = document.getElementById('shop-badge-main');
+            if (shopBadge) {
+                let c = Math.max(0, (parseInt(shopBadge.textContent) || 0) - 1);
+                shopBadge.textContent = c;
+                if (c === 0) shopBadge.classList.add('hidden');
+            }
+
+            hideLoader();
+            
+            if (isTicketAuto) {
+                tg.showPopup({ message: `✅ Выдано ${ticketAmount} билетов и заявка закрыта!` });
+            } else {
+                tg.showPopup({ message: isApprove ? '✅ Выдано' : '❌ Отклонено' });
+            }
+
+        } catch (e) {
+            hideLoader();
+            console.error("Shop Action Error:", e);
+            tg.showAlert(`Ошибка: ${e.message}`);
+        }
+    }, btnText, btnColor);
+};
