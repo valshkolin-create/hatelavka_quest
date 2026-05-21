@@ -49,168 +49,191 @@
 </div>
 
             <div id="tab-content-main" class="tab-content active">
-                <div class="admin-icon-menu">
-                    <div class="admin-icon-button" data-view="view-admin-pending-actions">
-                        <div class="icon-wrapper">
-                            <i class="fa-solid fa-user-check"></i>
-                            <span class="notification-badge hidden" id="main-pending-count">0</span>
-                        </div>
-                        <span>Выдача и проверки</span>
-                    </div>
+    <div class="admin-icon-menu">
+        <div class="admin-icon-button" data-view="view-admin-pending-actions">
+            <div class="icon-wrapper">
+                <i class="fa-solid fa-user-check"></i>
+                <span class="notification-badge hidden" id="main-pending-count">0</span>
+            </div>
+            <span>Выдача и проверки</span>
+        </div>
 
-                    <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
-    <div class="icon-wrapper" style="color: var(--twitch-color); border-color: rgba(145, 70, 255, 0.3);">
-        <i class="fa-brands fa-twitch"></i>
-    </div>
-    <span>Twitch</span>
-</div>
-                  
-                  <div class="admin-icon-button" id="btn-manual-twitch-link">
-                        <div class="icon-wrapper" style="color: #6441a5; position: relative;">
-                            <i class="fa-solid fa-link"></i>
-                            <i class="fa-brands fa-twitch" style="font-size: 10px; position: absolute; bottom: 12px; right: 12px;"></i>
-                        </div>
-                        <span>Связь Twitch</span>
-                    </div>
-                  <div class="admin-icon-button" data-view="view-admin-shop">
-                        <div class="icon-wrapper" style="color: #ffcc00;">
-                            <i class="fa-solid fa-cart-shopping"></i>
-                            <span class="notification-badge hidden" id="shop-badge-main">0</span>
-                        </div>
-                        <span>Магазин</span>
-                    </div>
-                  <div class="admin-icon-button" data-view="view-admin-p2p-trades">
-                        <div class="icon-wrapper" style="color: #00bcd4;">
-                            <i class="fa-solid fa-right-left"></i>
-                            <span class="notification-badge hidden" id="p2p-badge-main">0</span>
-                        </div>
-                        <span>TRADE KEYS P2P</span>
-                    </div>
-                  <a href="/cs_roulette.html" class="admin-icon-button">
-                        <div class="icon-wrapper" style="color: #ff9800;">
-                            <i class="fa-solid fa-user-secret"></i>
-                        </div>
-                        <span>Секретка меню</span>
-                    </a>
-                  <a href="/admin_steam.html" class="admin-icon-button">
-                        <div class="icon-wrapper" style="color: #00adee;">
-                            <i class="fa-brands fa-steam"></i>
-                        </div>
-                        <span>Steam автоматический вывод</span>
-                    </a>
-                    <div class="admin-icon-button" data-view="view-admin-promocodes">
-                        <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
-                        <span>Промокоды</span>
-                    </div>
-                  <a href="/admin_twitch.html" class="admin-icon-button">
-                        <div class="icon-wrapper" style="color: #9146FF; border-color: rgba(145, 70, 255, 0.3);">
-                            <i class="fa-brands fa-twitch"></i>
-                        </div>
-                        <span>Twitch Drops</span>
-                    </a>
-                </div> </div> <div id="tab-content-admin" class="tab-content hidden">
-                <div class="admin-icon-menu">
-                    <div class="admin-icon-button" data-view="view-admin-quests">
-                        <div class="icon-wrapper"><i class="fa-solid fa-list-check"></i></div>
-                        <span>Задания</span>
-                    </div>
-                  
-                  <a href="/admin_challenges.html" class="admin-icon-button">
-                <div class="icon-wrapper" style="color: #0088cc; border-color: rgba(0, 136, 204, 0.3);">
-                    <i class="fa-solid fa-layer-group"></i>
-                        </div>
-                        <span>ТГ Испытания</span>
-                    </a>                  
-                    <div class="admin-icon-button" data-view="view-admin-challenges">
-                        <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
-                        <span>Челленджи</span>
-                    </div>
-                    <div class="admin-icon-button" data-view="view-admin-categories">
-                        <div class="icon-wrapper"><i class="fa-solid fa-folder-tree"></i></div>
-                        <span>Категории</span>
-                    </div>
-                    <div class="admin-icon-button" data-view="view-admin-settings">
-                        <div class="icon-wrapper"><i class="fa-solid fa-sliders"></i></div>
-                        <span>Настройки</span>
-                    </div>
-                    <div class="admin-icon-button" data-view="view-admin-roulette">
-                        <div class="icon-wrapper" style="color: var(--warning-color);"><i class="fa-solid fa-dice"></i></div>
-                        <span>Рулетки</span>
-                    </div>
-                     <div class="admin-icon-button" data-view="view-admin-statistics">
-                        <div class="icon-wrapper" style="color: var(--primary-color);"><i class="fa-solid fa-chart-line"></i></div>
-                        <span>Статистика</span>
-                    </div>
-                  <a href="/admin_raffles.html" class="admin-icon-button">
-                        <div class="icon-wrapper" style="color: #ff2d55; border-color: rgba(255, 45, 85, 0.3);">
-                        <i class="fa-solid fa-ticket"></i>
-                    </div>
-                        <span>Розыгрыши</span>
-                    </a>
-                  <a href="/admin_chat_tg.html" class="admin-icon-button">
-                        <div class="icon-wrapper" style="color: #229ED9; border-color: rgba(34, 158, 217, 0.3);">
-                            <i class="fa-solid fa-comments"></i>
-                        </div>
-                        <span>Комментарии ТГ</span>
-                    </a>
-                  <a href="/admin_cases.html" class="admin-icon-button">
-                        <div class="icon-wrapper" style="color: #ff9800; border-color: rgba(255, 152, 0, 0.3);">
-                            <i class="fa-solid fa-boxes-stacked"></i>
-                        </div>
-                        <span>Кейсы</span>
-                    </a>
-                    <a href="/roulette.html" target="_blank" class="admin-icon-button">
-                        <div class="icon-wrapper"><i class="fa-solid fa-eye"></i></div>
-                        <span>Просмотр рулетки</span>
-                    </a>
-                    <div class="admin-icon-button" data-view="view-admin-user-management">
-                        <div class="icon-wrapper"><i class="fa-solid fa-user-gear"></i></div>
-                        <span>Пользователи</span>
-                    </div>
-                    <div class="admin-icon-button" data-view="view-admin-cauldron">
-                        <div class="icon-wrapper" style="color: #ff9500;"><i class="fa-solid fa-hat-wizard"></i></div>
-                        <span>Ивент "Котел"</span>
-                    </div>
-                   <a href="/checkpoint.html" class="admin-icon-button" style="text-decoration: none;">
-                        <div class="icon-wrapper" style="color: #ff4757;"><i class="fa-solid fa-calendar-days"></i></div>
-                        <span>Чекпоинт</span>
-                     </a>
-                    </div>
-                  <a href="/admin_auctions.html" class="admin-icon-button" style="text-decoration: none;">
-                        <div class="icon-wrapper" style="color: #AC87C5; border-color: rgba(172, 135, 197, 0.3);">
-                            <i class="fa-solid fa-gavel"></i>
-                        </div>
-                        <span>Аукционы</span>
-                  </a>
-                  <div class="admin-icon-button" data-view="view-admin-weekly-goals">
-                        <div class="icon-wrapper" style="color: #FFC107;"><i class="fa-solid fa-calendar-week"></i></div>
-                        <span>Недельные испытания</span>
-                    </div>
-                  <div class="admin-icon-button" data-view="view-admin-schedule">
-                    <div class="icon-wrapper" style="color: #A065F7;"><i class="fa-solid fa-calendar-alt"></i></div>
-                    <span>Расписание</span>
-                </div>
-                  <div class="admin-icon-button" data-view="view-admin-p2p-settings">
-                        <div class="icon-wrapper" style="color: #e91e63;"><i class="fa-solid fa-key"></i></div>
-                        <span>P2P Настройки</span>
-                  </div> 
+        <div class="admin-icon-button" data-view="view-admin-twitch-rewards">
+            <div class="icon-wrapper" style="color: var(--twitch-color); border-color: rgba(145, 70, 255, 0.3);">
+                <i class="fa-brands fa-twitch"></i>
+            </div>
+            <span>Twitch</span>
+        </div>
+        
+        <div class="admin-icon-button" id="btn-manual-twitch-link">
+            <div class="icon-wrapper" style="color: #6441a5; position: relative;">
+                <i class="fa-solid fa-link"></i>
+                <i class="fa-brands fa-twitch" style="font-size: 10px; position: absolute; bottom: 12px; right: 12px;"></i>
+            </div>
+            <span>Связь Twitch</span>
+        </div>
 
-                  <!-- Новая кнопка перехода в админку игры (замени /guess_game на свой роут) -->
-                  <a href="/guess_game.html" class="admin-icon-button" style="text-decoration: none;">
-                        <div class="icon-wrapper" style="color: #9146FF; border-color: rgba(145, 70, 255, 0.3);">
-                            <i class="fa-solid fa-gamepad"></i>
-                        </div>
-                        <span>Угадай слово</span>
-                  </a>
+        <div class="admin-icon-button" data-view="view-admin-shop">
+            <div class="icon-wrapper" style="color: #ffcc00;">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span class="notification-badge hidden" id="shop-badge-main">0</span>
+            </div>
+            <span>Магазин</span>
+        </div>
 
-                  <a href="/admin_transit" class="admin-icon-button" style="text-decoration: none;">
-                        <div class="icon-wrapper" style="color: #34c759; border-color: rgba(52, 199, 89, 0.3);">
-                            <i class="fa-solid fa-truck-fast"></i>
-                        </div>
-                        <span>Мастер переезда</span>
-                  </a>
-                </div> </div>
+        <div class="admin-icon-button" data-view="view-admin-p2p-trades">
+            <div class="icon-wrapper" style="color: #00bcd4;">
+                <i class="fa-solid fa-right-left"></i>
+                <span class="notification-badge hidden" id="p2p-badge-main">0</span>
+            </div>
+            <span>TRADE KEYS P2P</span>
+        </div>
+
+        <a href="/cs_roulette.html" class="admin-icon-button">
+            <div class="icon-wrapper" style="color: #ff9800;">
+                <i class="fa-solid fa-user-secret"></i>
+            </div>
+            <span>Секретка меню</span>
+        </a>
+
+        <a href="/admin_steam.html" class="admin-icon-button">
+            <div class="icon-wrapper" style="color: #00adee;">
+                <i class="fa-brands fa-steam"></i>
+            </div>
+            <span>Steam автоматический вывод</span>
+        </a>
+
+        <div class="admin-icon-button" data-view="view-admin-promocodes">
+            <div class="icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
+            <span>Промокоды</span>
+        </div>
+
+        <a href="/admin_twitch.html" class="admin-icon-button">
+            <div class="icon-wrapper" style="color: #9146FF; border-color: rgba(145, 70, 255, 0.3);">
+                <i class="fa-brands fa-twitch"></i>
+            </div>
+            <span>Twitch Drops</span>
+        </div>
+    </div> <!-- Закрываем .admin-icon-menu -->
+</div> <!-- Закрываем #tab-content-main -->
+
+<div id="tab-content-admin" class="tab-content hidden">
+    <div class="admin-icon-menu">
+        <div class="admin-icon-button" data-view="view-admin-quests">
+            <div class="icon-wrapper"><i class="fa-solid fa-list-check"></i></div>
+            <span>Задания</span>
+        </div>
+        
+        <a href="/admin_challenges.html" class="admin-icon-button">
+            <div class="icon-wrapper" style="color: #0088cc; border-color: rgba(0, 136, 204, 0.3);">
+                <i class="fa-solid fa-layer-group"></i>
+            </div>
+            <span>ТГ Испытания</span>
+        </a>
+        
+        <div class="admin-icon-button" data-view="view-admin-challenges">
+            <div class="icon-wrapper"><i class="fa-solid fa-trophy"></i></div>
+            <span>Челленджи</span>
+        </div>
+        
+        <div class="admin-icon-button" data-view="view-admin-categories">
+            <div class="icon-wrapper"><i class="fa-solid fa-folder-tree"></i></div>
+            <span>Категории</span>
+        </div>
+        
+        <div class="admin-icon-button" data-view="view-admin-settings">
+            <div class="icon-wrapper"><i class="fa-solid fa-sliders"></i></div>
+            <span>Настройки</span>
+        </div>
+        
+        <div class="admin-icon-button" data-view="view-admin-roulette">
+            <div class="icon-wrapper" style="color: var(--warning-color);"><i class="fa-solid fa-dice"></i></div>
+            <span>Рулетки</span>
+        </div>
+        
+        <div class="admin-icon-button" data-view="view-admin-statistics">
+            <div class="icon-wrapper" style="color: var(--primary-color);"><i class="fa-solid fa-chart-line"></i></div>
+            <span>Статистика</span>
+        </div>
+        
+        <a href="/admin_raffles.html" class="admin-icon-button">
+            <div class="icon-wrapper" style="color: #ff2d55; border-color: rgba(255, 45, 85, 0.3);">
+                <i class="fa-solid fa-ticket"></i>
+            </div>
+            <span>Розыгрыши</span>
+        </a>
+        
+        <a href="/admin_chat_tg.html" class="admin-icon-button">
+            <div class="icon-wrapper" style="color: #229ED9; border-color: rgba(34, 158, 217, 0.3);">
+                <i class="fa-solid fa-comments"></i>
+            </div>
+            <span>Комментарии ТГ</span>
+        </a>
+        
+        <a href="/admin_cases.html" class="admin-icon-button">
+            <div class="icon-wrapper" style="color: #ff9800; border-color: rgba(255, 152, 0, 0.3);">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+            <span>Кейсы</span>
+        </a>
+        
+        <a href="/roulette.html" target="_blank" class="admin-icon-button">
+            <div class="icon-wrapper"><i class="fa-solid fa-eye"></i></div>
+            <span>Просмотр рулетки</span>
+        </a>
+        
+        <div class="admin-icon-button" data-view="view-admin-user-management">
+            <div class="icon-wrapper"><i class="fa-solid fa-user-gear"></i></div>
+            <span>Пользователи</span>
+        </div>
+        
+        <div class="admin-icon-button" data-view="view-admin-cauldron">
+            <div class="icon-wrapper" style="color: #ff9500;"><i class="fa-solid fa-hat-wizard"></i></div>
+            <span>Ивент "Котел"</span>
+        </div>
+        
+        <a href="/checkpoint.html" class="admin-icon-button" style="text-decoration: none;">
+            <div class="icon-wrapper" style="color: #ff4757;"><i class="fa-solid fa-calendar-days"></i></div>
+            <span>Чекпоинт</span>
+        </a>
+        
+        <a href="/admin_auctions.html" class="admin-icon-button" style="text-decoration: none;">
+            <div class="icon-wrapper" style="color: #AC87C5; border-color: rgba(172, 135, 197, 0.3);">
+                <i class="fa-solid fa-gavel"></i>
+            </div>
+            <span>Аукционы</span>
+        </a>
+        
+        <div class="admin-icon-button" data-view="view-admin-weekly-goals">
+            <div class="icon-wrapper" style="color: #FFC107;"><i class="fa-solid fa-calendar-week"></i></div>
+            <span>Недельные испытания</span>
+        </div>
+        
+        <div class="admin-icon-button" data-view="view-admin-schedule">
+            <div class="icon-wrapper" style="color: #A065F7;"><i class="fa-solid fa-calendar-alt"></i></div>
+            <span>Расписание</span>
+        </div>
+        
+        <div class="admin-icon-button" data-view="view-admin-p2p-settings">
+            <div class="icon-wrapper" style="color: #e91e63;"><i class="fa-solid fa-key"></i></div>
+            <span>P2P Настройки</span>
         </div> 
+
+        <a href="/guess_game.html" class="admin-icon-button" style="text-decoration: none;">
+            <div class="icon-wrapper" style="color: #9146FF; border-color: rgba(145, 70, 255, 0.3);">
+                <i class="fa-solid fa-gamepad"></i>
+            </div>
+            <span>Угадай слово</span>
+        </a>
+
+        <a href="/admin_transit" class="admin-icon-button" style="text-decoration: none;">
+            <div class="icon-wrapper" style="color: #34c759; border-color: rgba(52, 199, 89, 0.3);">
+                <i class="fa-solid fa-truck-fast"></i>
+            </div>
+            <span>Мастер переезда</span>
+        </a>
+    </div> <!-- Закрываем .admin-icon-menu -->
+</div> <!-- Закрываем #tab-content-admin -->
       <div id="view-admin-user-management" class="view hidden">
             <div class="page-header">
                 <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
