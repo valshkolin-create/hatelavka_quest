@@ -150,10 +150,10 @@ window.renderP2PModalStatus = function(status, tradeId, amount) {
         statusColor = '#ff9500';
         actionsDiv.innerHTML = `
             <div style="display: flex; gap: 10px;">
-                <button data-action="reject" data-id="${tradeId}" class="admin-action-btn reject" style="flex: 1;">
+                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
                     <i class="fa-solid fa-xmark"></i> Отказать
                 </button>
-                <button data-action="approve" data-id="${tradeId}" class="admin-action-btn approve" style="flex: 2;">
+                <button onclick="approveP2PTrade(${tradeId})" class="admin-action-btn approve" style="flex: 2;">
                     <i class="fa-solid fa-bolt"></i> Принять
                 </button>
             </div>`;
@@ -166,11 +166,11 @@ window.renderP2PModalStatus = function(status, tradeId, amount) {
                 Ожидаем, пока пользователь нажмет «Я передал»
             </div>
             
-            <button data-action="force_confirm" data-id="${tradeId}" class="admin-action-btn confirm" style="width: 100%; margin-bottom: 8px; background-color: #007aff;">
+            <button onclick="adminForceConfirmSent(${tradeId})" class="admin-action-btn confirm" style="width: 100%; margin-bottom: 8px; background-color: #007aff;">
                 <i class="fa-solid fa-eye"></i> Я уже вижу скин (Подтвердить)
             </button>
 
-            <button data-action="reject" data-id="${tradeId}" class="admin-action-btn reject" style="width: 100%; font-size: 13px; padding: 8px;">
+            <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="width: 100%; font-size: 13px; padding: 8px;">
                 Отменить (если долго не кидает)
             </button>
         `;
@@ -180,10 +180,10 @@ window.renderP2PModalStatus = function(status, tradeId, amount) {
         statusColor = '#007aff';
         actionsDiv.innerHTML = `
             <div style="display: flex; gap: 10px;">
-                <button data-action="reject" data-id="${tradeId}" class="admin-action-btn reject" style="flex: 1;">
+                <button onclick="rejectP2PTrade(${tradeId})" class="admin-action-btn reject" style="flex: 1;">
                     Обман
                 </button>
-                <button data-action="complete" data-id="${tradeId}" data-amount="${amount}" class="admin-action-btn confirm" style="flex: 2;">
+                <button onclick="completeP2PTrade(${tradeId}, ${amount})" class="admin-action-btn confirm" style="flex: 2;">
                     <i class="fa-solid fa-coins"></i> Подтвердить
                 </button>
             </div>`;
@@ -564,29 +564,28 @@ window.setupP2PEventListeners = function() {
         });
     }
 
-    // НОВЫЙ БЛОК: Единый перехватчик кликов (Telegram его не заблокирует)
-    const actionsDiv = document.getElementById('modal-p2p-actions');
-    if (actionsDiv) {
-        // Убиваем старые слушатели, чтобы не двоило
-        const newActionsDiv = actionsDiv.cloneNode(true);
-        actionsDiv.parentNode.replaceChild(newActionsDiv, actionsDiv);
+    // БЛОК С newActionsDiv УДАЛЕН - он больше не нужен, работают прямые onclick
 
-        newActionsDiv.addEventListener('click', (e) => {
-            const btn = e.target.closest('.admin-action-btn');
-            if (!btn) return;
-
-            const action = btn.dataset.action;
-            if (!action) return;
-
-            const id = parseInt(btn.dataset.id);
-            const amount = parseInt(btn.dataset.amount) || 0;
-
-            if (action === 'reject') window.rejectP2PTrade(id);
-            if (action === 'approve') window.approveP2PTrade(id);
-            if (action === 'force_confirm') window.adminForceConfirmSent(id);
-            if (action === 'complete') window.completeP2PTrade(id, amount);
+    const createP2PCaseForm = document.getElementById('create-p2p-case-form');
+    if (createP2PCaseForm) {
+        createP2PCaseForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            try {
+                await makeApiRequest('/api/v1/admin/p2p/case/add', {
+                    case_name: formData.get('case_name'),
+                    image_url: formData.get('image_url'),
+                    price_in_coins: parseInt(formData.get('price_in_coins'))
+                });
+                tg.showAlert('Кейс добавлен!');
+                e.target.reset();
+                window.loadP2PCases(); 
+            } catch (err) {
+                tg.showAlert(err.message);
+            }
         });
     }
+};
 
     const createP2PCaseForm = document.getElementById('create-p2p-case-form');
     if (createP2PCaseForm) {
