@@ -607,41 +607,4 @@ window.setupP2PEventListeners = function() {
         });
     }
 };
-    // НОВЫЙ БЛОК: Единый обработчик кнопок в модалке
-    const actionsDiv = document.getElementById('modal-p2p-actions');
-    if (actionsDiv) {
-        actionsDiv.addEventListener('click', (e) => {
-            const btn = e.target.closest('.admin-action-btn');
-            if (!btn) return;
-
-            const action = btn.dataset.action;
-            const id = parseInt(btn.dataset.id);
-            const amount = parseInt(btn.dataset.amount);
-
-            if (action === 'reject') window.rejectP2PTrade(id);
-            if (action === 'approve') window.approveP2PTrade(id);
-            if (action === 'force_confirm') window.adminForceConfirmSent(id);
-            if (action === 'complete') window.completeP2PTrade(id, amount);
-        });
-    }
-
-    const createP2PCaseForm = document.getElementById('create-p2p-case-form');
-    if (createP2PCaseForm) {
-        createP2PCaseForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            try {
-                await makeApiRequest('/api/v1/admin/p2p/case/add', {
-                    case_name: formData.get('case_name'),
-                    image_url: formData.get('image_url'),
-                    price_in_coins: parseInt(formData.get('price_in_coins'))
-                });
-                tg.showAlert('Кейс добавлен!');
-                e.target.reset();
-                window.loadP2PCases(); 
-            } catch (err) {
-                tg.showAlert(err.message);
-            }
-        });
-    }
-};
+   
