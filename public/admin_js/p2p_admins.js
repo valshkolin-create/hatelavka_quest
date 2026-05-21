@@ -3,6 +3,7 @@
 // ==========================================
 
 let currentP2PTradeId = null;
+let adminP2PTradeLinkCache = ''; // <-- ДОБАВЛЕНО, чтобы не было ReferenceError
 
 window.loadP2PTrades = async function() {
     const container = document.getElementById('p2p-trades-list'); 
