@@ -3019,7 +3019,6 @@ if (dom.settingQuestScheduleOverride) {
             // 👆👆👆 КОНЕЦ ВСТАВКИ ЛОГОВ 👆👆👆
 
             const target = event.target;
-            const target = event.target;
 
             // 👇👇👇 ВСТАВКА: СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ 👇👇👇
             const clickedMenuButton = target.closest('.admin-icon-button');
