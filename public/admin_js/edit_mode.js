@@ -37,6 +37,44 @@ document.addEventListener('DOMContentLoaded', () => {
     // Инициализация Drag & Drop
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
     initDragAndDrop(mainGrid);
+
+    // === ДИНАМИЧЕСКИ ДОБАВЛЯЕМ КНОПКУ "ОТКРЫТЬ ПАПКУ" В МЕНЮ ===
+    const actionModal = document.getElementById('edit-icon-action-modal');
+    const unpackBtn = document.getElementById('btn-unpack-folder');
+    if (actionModal && unpackBtn && !document.getElementById('btn-open-folder-edit')) {
+        const btn = document.createElement('button');
+        btn.id = 'btn-open-folder-edit';
+        btn.className = 'admin-menu-button';
+        btn.style.backgroundColor = 'var(--action-color)';
+        btn.innerHTML = '<i class="fa-solid fa-folder-open"></i> Открыть';
+        btn.onclick = () => {
+            actionModal.classList.add('hidden');
+            openFolderNormalMode({ currentTarget: currentEditItem, preventDefault: () => {} });
+        };
+        unpackBtn.parentNode.insertBefore(btn, unpackBtn);
+    }
+    
+    // === ОБРАБОТЧИК КЛИКОВ ВНУТРИ ПАПКИ В РЕЖИМЕ РЕДАКТИРОВАНИЯ ===
+    const folderGrid = document.getElementById('folder-view-grid');
+    if (folderGrid) {
+        folderGrid.addEventListener('click', (e) => {
+            if (!isEditMode) return;
+            const btn = e.target.closest('.admin-icon-button:not(.folder-add-btn)');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                currentEditItem = btn;
+                
+                // Внутри папки можно только удалять, создание папок в папке запрещено
+                document.getElementById('btn-make-folder').classList.add('hidden');
+                document.getElementById('btn-unpack-folder').classList.add('hidden');
+                const openBtn = document.getElementById('btn-open-folder-edit');
+                if (openBtn) openBtn.classList.add('hidden');
+                
+                document.getElementById('edit-icon-action-modal').classList.remove('hidden');
+            }
+        });
+    }
 });
 
 function toggleEditMode() {
@@ -192,7 +230,7 @@ function handleGridEditClick(e) {
     if (justDragged) return;
 
     if (btn.classList.contains('admin-add-btn')) {
-        openAddFromAdminPicker();
+        openAddFromAdminPicker(false);
         return;
     }
 
@@ -230,16 +268,19 @@ function processItemClick(item) {
     document.getElementById('btn-make-folder').classList.toggle('hidden', isFolder);
     document.getElementById('btn-unpack-folder').classList.toggle('hidden', !isFolder);
     
+    const openBtn = document.getElementById('btn-open-folder-edit');
+    if (openBtn) openBtn.classList.toggle('hidden', !isFolder);
+    
     document.getElementById('edit-icon-action-modal').classList.remove('hidden');
 }
 
 // === ДОБАВЛЕНИЕ НОВЫХ ИКОНОК ===
-function openAddFromAdminPicker() {
+function openAddFromAdminPicker(isForFolder = false) {
     const pickerGrid = document.getElementById('icon-picker-grid');
     pickerGrid.innerHTML = '';
     
     const adminGrid = document.querySelector('#tab-content-admin .admin-icon-menu');
-    const adminItems = Array.from(adminGrid.querySelectorAll('.admin-icon-button'));
+    const adminItems = adminGrid ? Array.from(adminGrid.querySelectorAll('.admin-icon-button')) : [];
     
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
     const hiddenMainItems = Array.from(mainGrid.querySelectorAll('.admin-icon-button.user-hidden'));
@@ -247,7 +288,7 @@ function openAddFromAdminPicker() {
     const allAvailable = [...adminItems, ...hiddenMainItems];
     
     if (allAvailable.length === 0) {
-        pickerGrid.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Все иконки уже на главной.</p>';
+        pickerGrid.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Нет доступных иконок.</p>';
     } else {
         allAvailable.forEach(item => {
             const clone = item.cloneNode(true);
@@ -258,9 +299,31 @@ function openAddFromAdminPicker() {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                item.classList.remove('user-hidden');
-                const addBtn = mainGrid.querySelector('.admin-add-btn');
-                mainGrid.insertBefore(item, addBtn); 
+                let elementToAdd;
+                // 🔥 ФИКС БАГА С ПЕРЕКИДЫВАНИЕМ: Клонируем элементы из админки, создавая ярлыки
+                if (item.closest('#tab-content-admin')) {
+                    elementToAdd = item.cloneNode(true);
+                    elementToAdd.id = item.id + '_shortcut'; // Уникальный ID для ярлыка
+                } else {
+                    elementToAdd = item; // Скрытые иконки просто возвращаем
+                }
+                
+                elementToAdd.classList.remove('user-hidden', 'edit-mode-active');
+                elementToAdd.style.animation = ''; 
+                
+                // Проверяем, куда добавляем: в папку или на главную
+                if (isForFolder === true && currentOpenFolderContents) {
+                    const modalGrid = document.getElementById('folder-view-grid');
+                    const folderAddBtn = modalGrid.querySelector('.folder-add-btn');
+                    if (folderAddBtn) {
+                        modalGrid.insertBefore(elementToAdd, folderAddBtn);
+                    } else {
+                        modalGrid.appendChild(elementToAdd);
+                    }
+                } else {
+                    const addBtn = mainGrid.querySelector('.admin-add-btn');
+                    mainGrid.insertBefore(elementToAdd, addBtn); 
+                }
                 
                 saveLayout();
                 document.getElementById('icon-picker-modal').classList.add('hidden');
@@ -275,7 +338,16 @@ function openAddFromAdminPicker() {
 // === ДЕЙСТВИЯ ИЗ МЕНЮ ===
 document.getElementById('btn-hide-icon').onclick = () => {
     if (currentEditItem) {
-        currentEditItem.classList.add('user-hidden');
+        // 🔥 Если это ярлык - удаляем насовсем. Если оригинал - скрываем.
+        if (currentEditItem.id.endsWith('_shortcut')) {
+            currentEditItem.remove(); 
+        } else {
+            currentEditItem.classList.add('user-hidden');
+            // Если выкидываем из папки, возвращаем в корень, чтобы не сломать логику папки
+            if (currentEditItem.closest('#folder-view-grid') || currentEditItem.closest('.folder-contents')) {
+                document.querySelector('#tab-content-main .admin-icon-menu').appendChild(currentEditItem);
+            }
+        }
         saveLayout();
         document.getElementById('edit-icon-action-modal').classList.add('hidden');
     }
@@ -348,8 +420,7 @@ function updateFolderPreview(folderEl) {
 }
 
 function openFolderNormalMode(e) {
-    if (isEditMode) return;
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     
     const folder = e.currentTarget;
     const contents = folder.querySelector('.folder-contents');
@@ -362,14 +433,38 @@ function openFolderNormalMode(e) {
     }
     currentOpenFolderContents = contents;
     document.getElementById('folder-view-modal').classList.remove('hidden');
+
+    // 🔥 ДОБАВЛЯЕМ ПЛЮСИК ДЛЯ ПАПКИ В РЕЖИМЕ РЕДАКТИРОВАНИЯ
+    if (isEditMode) {
+        modalGrid.classList.add('edit-mode-active');
+        const addBtn = document.createElement('div');
+        addBtn.className = 'empty-edit-slot folder-add-btn';
+        addBtn.innerHTML = `<div class="slot-circle">+</div><span>Добавить</span>`;
+        addBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            openAddFromAdminPicker(true); // true означает добавление в папку
+        };
+        modalGrid.appendChild(addBtn);
+    } else {
+        modalGrid.classList.remove('edit-mode-active');
+    }
 }
 
 document.querySelector('#folder-view-modal .modal-close-btn').onclick = () => {
     const modalGrid = document.getElementById('folder-view-grid');
+    
+    // Убираем кнопку-плюсик перед сохранением
+    const addBtn = modalGrid.querySelector('.folder-add-btn');
+    if (addBtn) addBtn.remove();
+    
     if (currentOpenFolderContents) {
         while (modalGrid.firstChild) {
             currentOpenFolderContents.appendChild(modalGrid.firstChild);
         }
+        const parentFolder = currentOpenFolderContents.closest('.admin-folder');
+        if (parentFolder) updateFolderPreview(parentFolder);
+        
+        if (isEditMode) saveLayout();
     }
     document.getElementById('folder-view-modal').classList.add('hidden');
 };
@@ -433,13 +528,26 @@ async function saveLayout() {
     }
 }
 
+// Вспомогательная функция для генерации ярлыков
+function getOrCreateItem(id) {
+    let item = document.getElementById(id);
+    if (!item && id.endsWith('_shortcut')) {
+        const orig = document.getElementById(id.replace('_shortcut', ''));
+        if (orig) {
+            item = orig.cloneNode(true);
+            item.id = id;
+        }
+    }
+    return item;
+}
+
 function applyLayoutToDOM(layout) {
     if (!layout) return;
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
 
     if (layout.hidden) {
         layout.hidden.forEach(id => {
-            const item = document.getElementById(id);
+            const item = getOrCreateItem(id); 
             if (item) {
                 mainGrid.appendChild(item);
                 item.classList.add('user-hidden');
@@ -468,7 +576,7 @@ function applyLayoutToDOM(layout) {
                 const contents = folderDiv.querySelector('.folder-contents');
                 
                 data.children.forEach(childId => {
-                    const child = document.getElementById(childId);
+                    const child = getOrCreateItem(childId); 
                     if (child) {
                         child.classList.remove('user-hidden');
                         contents.appendChild(child);
@@ -480,7 +588,7 @@ function applyLayoutToDOM(layout) {
                     mainGrid.appendChild(folderDiv);
                 }
             } else {
-                const item = document.getElementById(id);
+                const item = getOrCreateItem(id);
                 if (item) {
                     item.classList.remove('user-hidden');
                     mainGrid.appendChild(item);
