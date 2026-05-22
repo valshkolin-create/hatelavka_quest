@@ -188,7 +188,6 @@
     // ==========================================
     // 3. ЛОГИКА ВНЕДРЕНИЯ И ДЕТЕКТОРОВ
     // ==========================================
-     function initTopNav() {
         function initTopNav() {
         // 🔥 ВОТ ЭТА СТРОЧКА СПАСЕТ АДМИНКУ 🔥
         if (window.location.pathname.includes('/admin')) return;
