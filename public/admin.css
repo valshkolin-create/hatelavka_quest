@@ -2084,27 +2084,3 @@ header.top-header .header-right-group,
 .custom-confirm-overlay.hidden {
     pointer-events: none !important;
 }
-
-/* =========================================================
-   ФИКС: ОТМЕНА ГЛОБАЛЬНЫХ СТИЛЕЙ ИЗ ШАПКИ ТОЛЬКО ДЛЯ АДМИНКИ
-   ========================================================= */
-
-html, body {
-    /* Отключаем блокировку скролла и фиксированное позиционирование */
-    position: static !important;
-    height: auto !important;
-    overflow: auto !important;
-    overflow-x: hidden !important;
-    
-    /* Отключаем мобильное ограничение ширины для ПК-версии */
-    max-width: 100% !important; 
-    
-    /* Возвращаем оригинальные цвета админки (замени на свои, если у тебя другие) */
-    background-color: #f4f6f9 !important; 
-    color: #333333 !important;
-}
-
-/* Если нижнее плавающее меню перекрывает тебе контент в админке — скрываем его */
-.floating-bottom-bar {
-    display: none !important;
-}
