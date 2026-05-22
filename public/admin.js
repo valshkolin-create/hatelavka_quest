@@ -3258,7 +3258,6 @@ if (dom.settingQuestScheduleOverride) {
                 }
             }
         });
-    } // <--- 🟢 КОНЕЦ ФУНКЦИИ setupEventListeners
 
 // --- NEW Event Listener for Sort Order Inputs ---
         let sortOrderDebounceTimer;
