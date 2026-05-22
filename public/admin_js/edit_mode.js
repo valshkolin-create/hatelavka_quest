@@ -75,6 +75,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Привязываем правильное закрытие модалки папки
+    const modalCloseBtn = document.querySelector('#folder-view-modal .modal-close-btn');
+    if (modalCloseBtn) {
+        modalCloseBtn.onclick = closeFolderModal;
+    }
 });
 
 function toggleEditMode() {
@@ -112,7 +118,7 @@ let dragElement = null;
 let ghostElement = null;
 let startX = 0, startY = 0;
 let isDragging = false;
-let justDragged = false; // Флаг, чтобы отличать клик от перетаскивания
+let justDragged = false; 
 
 function initDragAndDrop(grid) {
     grid.addEventListener('touchstart', handleDragStart, { passive: false });
@@ -145,12 +151,10 @@ function handleDragMove(e) {
     const dx = clientX - startX;
     const dy = clientY - startY;
 
-    // Если сдвинули курсор больше чем на 8px — начинаем тащить
     if (!isDragging && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
         isDragging = true;
         justDragged = true; 
         
-        // Создаем "призрака", который летит за пальцем
         ghostElement = dragElement.cloneNode(true);
         ghostElement.style.position = 'fixed';
         ghostElement.style.pointerEvents = 'none';
@@ -158,22 +162,20 @@ function handleDragMove(e) {
         ghostElement.style.opacity = '0.9';
         ghostElement.style.transform = 'scale(1.1)';
         ghostElement.style.transition = 'none'; 
-        ghostElement.style.animation = 'none'; // Отключаем тряску у призрака
+        ghostElement.style.animation = 'none'; 
         
-        // Убираем марджины, чтобы он не дергался при отрыве
         ghostElement.style.margin = '0';
         document.body.appendChild(ghostElement);
         
-        dragElement.style.opacity = '0.3'; // Оригинал делаем полупрозрачным
+        dragElement.style.opacity = '0.3'; 
     }
 
     if (isDragging) {
-        e.preventDefault(); // Запрещаем скролл страницы на мобилках
+        e.preventDefault(); 
         
         ghostElement.style.left = (clientX - ghostElement.offsetWidth / 2) + 'px';
         ghostElement.style.top = (clientY - ghostElement.offsetHeight / 2) + 'px';
 
-        // Ищем элемент под пальцем (прячем призрака на миллисекунду)
         ghostElement.style.display = 'none';
         const elemBelow = document.elementFromPoint(clientX, clientY);
         ghostElement.style.display = 'block';
@@ -185,7 +187,6 @@ function handleDragMove(e) {
                 const rect = targetItem.getBoundingClientRect();
                 const isAfter = clientX > rect.left + rect.width / 2;
                 
-                // Раздвигаем сетку (переносим оригинал на новое место)
                 if (isAfter) {
                     grid.insertBefore(dragElement, targetItem.nextSibling);
                 } else {
@@ -200,15 +201,13 @@ function handleDragEnd(e) {
     if (!dragElement) return;
 
     if (isDragging) {
-        // Заканчиваем перетаскивание
         dragElement.style.opacity = '1';
         if (ghostElement) {
             ghostElement.remove();
             ghostElement = null;
         }
-        saveLayout(); // Сохраняем новый порядок!
+        saveLayout(); 
         
-        // Блокируем клик на 50мс, чтобы не открылось меню
         setTimeout(() => { justDragged = false; }, 50);
     }
     
@@ -226,7 +225,6 @@ function handleGridEditClick(e) {
     e.preventDefault();
     e.stopPropagation();
 
-    // Если мы только что бросили иконку, меню открывать не надо!
     if (justDragged) return;
 
     if (btn.classList.contains('admin-add-btn')) {
@@ -300,18 +298,20 @@ function openAddFromAdminPicker(isForFolder = false) {
                 e.stopPropagation();
                 
                 let elementToAdd;
-                // 🔥 ФИКС БАГА С ПЕРЕКИДЫВАНИЕМ: Клонируем элементы из админки, создавая ярлыки
+                
+                // 🔥 ФИКС БАГА С ЯРЛЫКАМИ: Генерируем уникальный ID каждый раз
                 if (item.closest('#tab-content-admin')) {
                     elementToAdd = item.cloneNode(true);
-                    elementToAdd.id = item.id + '_shortcut'; // Уникальный ID для ярлыка
+                    const baseId = item.id.split('_shortcut')[0];
+                    // Уникальный ID позволяет добавить одну и ту же кнопку в разные папки!
+                    elementToAdd.id = baseId + '_shortcut_' + Date.now() + '_' + Math.floor(Math.random()*1000);
                 } else {
-                    elementToAdd = item; // Скрытые иконки просто возвращаем
+                    elementToAdd = item; 
                 }
                 
                 elementToAdd.classList.remove('user-hidden', 'edit-mode-active');
                 elementToAdd.style.animation = ''; 
                 
-                // Проверяем, куда добавляем: в папку или на главную
                 if (isForFolder === true && currentOpenFolderContents) {
                     const modalGrid = document.getElementById('folder-view-grid');
                     const folderAddBtn = modalGrid.querySelector('.folder-add-btn');
@@ -338,12 +338,10 @@ function openAddFromAdminPicker(isForFolder = false) {
 // === ДЕЙСТВИЯ ИЗ МЕНЮ ===
 document.getElementById('btn-hide-icon').onclick = () => {
     if (currentEditItem) {
-        // 🔥 Если это ярлык - удаляем насовсем. Если оригинал - скрываем.
-        if (currentEditItem.id.endsWith('_shortcut')) {
+        if (currentEditItem.id.includes('_shortcut')) {
             currentEditItem.remove(); 
         } else {
             currentEditItem.classList.add('user-hidden');
-            // Если выкидываем из папки, возвращаем в корень, чтобы не сломать логику папки
             if (currentEditItem.closest('#folder-view-grid') || currentEditItem.closest('.folder-contents')) {
                 document.querySelector('#tab-content-main .admin-icon-menu').appendChild(currentEditItem);
             }
@@ -434,15 +432,16 @@ function openFolderNormalMode(e) {
     currentOpenFolderContents = contents;
     document.getElementById('folder-view-modal').classList.remove('hidden');
 
-    // 🔥 ДОБАВЛЯЕМ ПЛЮСИК ДЛЯ ПАПКИ В РЕЖИМЕ РЕДАКТИРОВАНИЯ
     if (isEditMode) {
-        modalGrid.classList.add('edit-mode-active');
+        // 🔥 ВАЖНО: УБИРАЕМ КЛАСС edit-mode-active ЧТОБЫ УБРАТЬ ТРЯСУЧКУ!
+        modalGrid.classList.remove('edit-mode-active');
+        
         const addBtn = document.createElement('div');
         addBtn.className = 'empty-edit-slot folder-add-btn';
         addBtn.innerHTML = `<div class="slot-circle">+</div><span>Добавить</span>`;
         addBtn.onclick = (ev) => {
             ev.stopPropagation();
-            openAddFromAdminPicker(true); // true означает добавление в папку
+            openAddFromAdminPicker(true); 
         };
         modalGrid.appendChild(addBtn);
     } else {
@@ -450,10 +449,10 @@ function openFolderNormalMode(e) {
     }
 }
 
-document.querySelector('#folder-view-modal .modal-close-btn').onclick = () => {
+// 🔥 ФИКС: ВЫНЕСЕННАЯ ФУНКЦИЯ ЗАКРЫТИЯ ПАПКИ (ЖЕСТКАЯ ОЧИСТКА)
+function closeFolderModal() {
     const modalGrid = document.getElementById('folder-view-grid');
     
-    // Убираем кнопку-плюсик перед сохранением
     const addBtn = modalGrid.querySelector('.folder-add-btn');
     if (addBtn) addBtn.remove();
     
@@ -466,8 +465,11 @@ document.querySelector('#folder-view-modal .modal-close-btn').onclick = () => {
         
         if (isEditMode) saveLayout();
     }
+    
+    // ОЧИЩАЕМ ПАМЯТЬ, ЧТОБЫ ПАПКИ НЕ ОБЪЕДИНЯЛИСЬ
+    currentOpenFolderContents = null;
     document.getElementById('folder-view-modal').classList.add('hidden');
-};
+}
 
 function unpackFolder(folderEl) {
     const contents = folderEl.querySelector('.folder-contents');
@@ -528,11 +530,11 @@ async function saveLayout() {
     }
 }
 
-// Вспомогательная функция для генерации ярлыков
 function getOrCreateItem(id) {
     let item = document.getElementById(id);
-    if (!item && id.endsWith('_shortcut')) {
-        const orig = document.getElementById(id.replace('_shortcut', ''));
+    if (!item && id.includes('_shortcut')) {
+        const origId = id.split('_shortcut')[0];
+        const orig = document.getElementById(origId);
         if (orig) {
             item = orig.cloneNode(true);
             item.id = id;
