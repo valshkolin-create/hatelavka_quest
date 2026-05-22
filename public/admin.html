@@ -107,14 +107,16 @@
             <span>Промокоды</span>
         </div>
 
+<!-- Конец вкладки Основное -->
         <a href="/admin_twitch.html" class="admin-icon-button">
             <div class="icon-wrapper" style="color: #9146FF; border-color: rgba(145, 70, 255, 0.3);">
                 <i class="fa-brands fa-twitch"></i>
             </div>
             <span>Twitch Drops</span>
-        </div>
+        </a> <!-- ❗️ ИСПРАВЛЕНО: здесь было </div> вместо </a> -->
     </div> <!-- Закрываем .admin-icon-menu -->
 </div> <!-- Закрываем #tab-content-main -->
+
 
 <div id="tab-content-admin" class="tab-content hidden">
     <div class="admin-icon-menu">
@@ -225,7 +227,7 @@
             <span>Угадай слово</span>
         </a>
 
-<a href="/admin_transit" class="admin-icon-button" style="text-decoration: none;">
+        <a href="/admin_transit" class="admin-icon-button" style="text-decoration: none;">
             <div class="icon-wrapper" style="color: #34c759; border-color: rgba(52, 199, 89, 0.3);">
                 <i class="fa-solid fa-truck-fast"></i>
             </div>
@@ -235,11 +237,13 @@
 </div> <!-- Закрываем #tab-content-admin -->
 
 </div> <!-- ВАЖНО: Закрываем #view-admin-main -->
-      <div id="view-admin-user-management" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Управление</h1>
-                <div style="width: 60px;"></div> </div>
+
+<div id="view-admin-user-management" class="view hidden">
+    <div class="page-header">
+        <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+        <h1 class="page-header-title">Управление</h1>
+        <div style="width: 60px;"></div>
+    </div>
 
 <div class="quest-card">
             <div class="user-management-section">
