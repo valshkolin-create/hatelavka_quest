@@ -21182,6 +21182,8 @@ async def finalize_auction_webhook(
     winner_name = auction.get('current_highest_bidder_name', 'Счастливчик')
     title = auction.get('title')
     wear = auction.get('wear')
+
+    await supabase.patch("/auctions", params={"id": f"eq.{req.auction_id}"}, json={"winner_id": winner_id})
     
     # --- МАГИЯ: ВОССТАНАВЛИВАЕМ ПОЛНОЕ НАЗВАНИЕ ДЛЯ МАРКЕТА ---
     quality_map = {
