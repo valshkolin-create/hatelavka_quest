@@ -622,6 +622,7 @@ const showLoader = () => {
                     await loadP2PTrades();
                     break;
                 }
+                    
                 case 'view-admin-p2p-settings': {
                     await loadP2PSettingsAndCases(); // <-- Грузит кейсы И твою ссылку в инпут
                     break;
@@ -629,7 +630,13 @@ const showLoader = () => {
                 case 'view-admin-gifts': {
                     await loadGiftSkins();
                     break;
-                }    
+                }
+                case 'view-admin-checkpoint': {
+                    if (typeof window.loadCheckpointSettings === 'function') {
+                        await window.loadCheckpointSettings();
+                    }
+                    break;
+                }
                 // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
                case 'view-admin-advent': {
                     await loadAdventSettings();
@@ -2260,6 +2267,10 @@ function executeCopy(rewardsData, targetLevel) {
     if (typeof window.setupTwitchEventListeners === 'function') {
         window.setupTwitchEventListeners();
     }
+
+    if (typeof window.setupCheckpointEventListeners === 'function') {
+            window.setupCheckpointEventListeners();
+        }
 
     // 👇 ДОБАВЛЯЕМ ВЫЗОВ P2P 👇
     if (typeof window.setupP2PEventListeners === 'function') {
