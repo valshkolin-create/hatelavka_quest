@@ -2055,15 +2055,31 @@ input:checked + .slider:before {
     transform: scale(1.1);
 }
 
-/* Делаем все оверлеи "прозрачными" для мышки, если они скрыты */
-.modal-overlay.hidden, 
-.custom-confirm-overlay.hidden {
-    pointer-events: none;
+/* === ФИКС БЛОКИРОВКИ КНОПОК ШАПКОЙ (ТОЛЬКО ЧЕРЕЗ ADMIN.CSS) === */
+
+/* 1. Делаем саму область шапки "прозрачной" для кликов */
+header.top-header,
+#universal-top-header {
+    pointer-events: none !important;
 }
 
-/* А для самой кнопки принудительно разрешаем клики */
+/* 2. Возвращаем кликабельность только нужным элементам внутри шапки (логотип, баланс, меню) */
+header.top-header .logo-wrapper,
+header.top-header .header-right-group,
+#universal-top-header .logo-wrapper,
+#universal-top-header .header-right-group {
+    pointer-events: auto !important;
+}
+
+/* 3. Убираем ломающий z-index у кнопок админки */
 .admin-action-btn {
     pointer-events: auto !important;
     position: relative;
-    z-index: 10001; /* Поверх всего */
+    z-index: 2 !important; 
+}
+
+/* 4. Железобетонно выключаем перехват кликов у скрытых модалок */
+.modal-overlay.hidden, 
+.custom-confirm-overlay.hidden {
+    pointer-events: none !important;
 }
