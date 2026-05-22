@@ -2981,18 +2981,11 @@ if (dom.settingQuestScheduleOverride) {
             });
         }            
 
-        // --- 🔥 ОБНОВЛЕННЫЙ ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ (OPTIMISTIC UI) 🔥 ---
-       document.body.addEventListener('click', async (event) => {
-            // 👇👇👇 ДОБАВЬТЕ ЭТИ ЛОГИ СЮДА 👇👇👇
-            console.log('-----------------------------------');
-            console.log('🔥 [КЛИК ПОЙМАН] Целевой элемент:', event.target);
-            console.log('🔥 [КЛИК ПОЙМАН] Теги и классы:', event.target.tagName, event.target.className);
-            console.log('🔥 [КЛИК ПОЙМАН] ID элемента:', event.target.id || 'Нет ID');
-            // 👆👆👆 КОНЕЦ ВСТАВКИ ЛОГОВ 👆👆👆
-
+       // --- 🔥 ОБНОВЛЕННЫЙ ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ (OPTIMISTIC UI) 🔥 ---
+        document.body.addEventListener('click', async (event) => {
             const target = event.target;
 
-            // 👇👇👇 ВСТАВКА: СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ 👇👇👇
+            // 👇 СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ
             const clickedMenuButton = target.closest('.admin-icon-button');
             if (clickedMenuButton) {
                 const titleSpan = clickedMenuButton.querySelector('span:not(.notification-badge)');
@@ -3000,17 +2993,13 @@ if (dom.settingQuestScheduleOverride) {
                 
                 if (titleSpan && iconWrapper) {
                     const title = titleSpan.textContent.trim();
-                    // Берем саму иконку, игнорируя красные кружочки с цифрами
                     const iconElement = iconWrapper.querySelector('i, img');
                     const iconHtml = iconElement ? iconElement.outerHTML : '';
-                    
                     const iconColor = iconWrapper.style.color || '';
                     const borderColor = iconWrapper.style.borderColor || '';
-                    
                     let viewId = clickedMenuButton.dataset.view;
                     let isLink = false;
                     
-                    // Если это ссылка (href)
                     if (!viewId && clickedMenuButton.tagName.toLowerCase() === 'a') {
                         viewId = clickedMenuButton.getAttribute('href');
                         isLink = true;
@@ -3057,9 +3046,6 @@ if (dom.settingQuestScheduleOverride) {
 
             // 6. Навигация
             const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
-
-            const isTwitchInnerButton = target.closest('.reward-settings-btn, .reward-purchases-link, .notification-badge');
-            
             if (navButton && navButton.tagName.toLowerCase() !== 'a') {
                 event.preventDefault();
                 const view = navButton.dataset.view;
@@ -3076,11 +3062,9 @@ if (dom.settingQuestScheduleOverride) {
             }
 
             // --- 🛡️ ДЕЙСТВИЯ ИЗ СПИСКОВ ---
-            const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn');
-           // 👇👇👇 ДОБАВЬТЕ ЛОГ СЮДА 👇👇👇
-            console.log('🎯 [ПОИСК КНОПКИ] Найдена ли action-кнопка?:', actionButton ? 'ДА' : 'НЕТ', actionButton);
+            const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .shop-action-btn');
+            
             if (!actionButton) return;
-
             const id = actionButton.dataset.id;
 
             // 1. Редактировать категорию
@@ -3141,7 +3125,6 @@ if (dom.settingQuestScheduleOverride) {
             // 6. Удалить приз рулетки
             else if (actionButton.matches('.delete-roulette-prize-btn')) {
                  showCustomConfirmHTML('Удалить этот приз?', () => {
-                    // Тут сложная структура, лучше перегрузить список в фоне
                     makeApiRequest('/api/v1/admin/roulette/delete', { prize_id: parseInt(actionButton.dataset.id) }, 'POST', true)
                         .then(async () => {
                             const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
@@ -3154,7 +3137,7 @@ if (dom.settingQuestScheduleOverride) {
             // 7. Редактировать квест
             else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.edit-category-btn') && !actionButton.matches('.edit-weekly-goal-btn')) {
                  const questId = parseInt(actionButton.dataset.id);
-                 showLoader(); // Тут нужен лоадер, т.к. мы грузим данные для формы
+                 showLoader();
                  const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: questId }, 'POST', true);
                  await fetchAndCacheCategories(true);
                  populateCategorySelects(quest.category_id);
@@ -3206,16 +3189,76 @@ if (dom.settingQuestScheduleOverride) {
                         .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
                 });
             }
-                // Функция проверки на пустоту
-                function checkEmptyList() {
-                    if (dom.modalBody.querySelectorAll('.admin-submission-card').length === 0) {
-                        dom.submissionsModal.classList.add('hidden');
-                        tg.showPopup({message: '✅ Все обработано'});
-                        // Фоновое обновление счетчика
-                        loadPendingActions();
+            // 👇👇👇 ВОССТАНОВЛЕННЫЕ БЛОКИ ДЛЯ ЗАЯВОК 👇👇👇
+            // 11. Посмотреть заявки (Квесты)
+            else if (actionButton.matches('.admin-view-subs-btn')) {
+                const questId = actionButton.dataset.id;
+                dom.submissionsModal.dataset.sourceType = 'quest';
+                dom.submissionsModal.dataset.sourceId = questId;
+                dom.modalTitle.textContent = actionButton.dataset.title;
+                dom.submissionsModal.classList.remove('hidden');
+                dom.modalBody.innerHTML = '<p style="text-align: center;">Загрузка...</p>';
+                
+                makeApiRequest('/api/v1/admin/quests/submissions', { quest_id: parseInt(questId) }, 'POST', true)
+                    .then(subs => {
+                        if (typeof renderSubmissions === 'function') {
+                            renderSubmissions(subs, dom.modalBody);
+                        }
+                    })
+                    .catch(e => {
+                        dom.modalBody.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
+                    });
+            }
+            // 12. Одобрить/Отклонить заявку (Квесты)
+            else if (actionButton.matches('.admin-action-btn') && actionButton.dataset.action) {
+                const reqId = actionButton.dataset.id;
+                const actionType = actionButton.dataset.action;
+                const isSilent = actionType === 'rejected_silent';
+                const finalAction = isSilent ? 'rejected' : actionType;
+                
+                let text = actionType === 'approved' ? 'Одобрить заявку?' : (isSilent ? 'Отклонить ТИХО (без уведомления)?' : 'Отклонить заявку и уведомить?');
+
+                showCustomConfirmHTML(text, async (closeModal) => {
+                    showLoader();
+                    try {
+                        await makeApiRequest('/api/v1/admin/actions/verify', {
+                            action_id: parseInt(reqId),
+                            status: finalAction,
+                            silent: isSilent
+                        }, 'POST', true);
+                        
+                        document.getElementById(`submission-card-${reqId}`)?.remove();
+                        tg.showPopup({message: 'Успешно!'});
+                        checkEmptyList();
+                    } catch (err) {
+                        tg.showAlert(`Ошибка: ${err.message}`);
+                    } finally {
+                        hideLoader();
                     }
+                }, actionType === 'approved' ? 'Одобрить' : 'Отклонить', actionType === 'approved' ? '#34c759' : '#ff3b30');
+            }
+            // 13. Действия магазина (Магазин/Кейсы)
+            else if (actionButton.matches('.shop-action-btn')) {
+                const shopId = actionButton.dataset.shopId;
+                const shopAction = actionButton.dataset.shopAction;
+                const shopTitle = actionButton.dataset.title;
+                const shopUserId = parseInt(actionButton.dataset.userId);
+                
+                if (typeof window.handleShopAction === 'function') {
+                    window.handleShopAction(shopId, shopAction, shopTitle, shopUserId);
                 }
+            }
+
+            // Функция проверки на пустоту (Используется после одобрения/отклонения)
+            function checkEmptyList() {
+                if (dom.modalBody.querySelectorAll('.admin-submission-card').length === 0) {
+                    dom.submissionsModal.classList.add('hidden');
+                    tg.showPopup({message: '✅ Все обработано'});
+                    if (typeof loadPendingActions === 'function') loadPendingActions();
+                }
+            }
         });
+    } // <--- 🟢 КОНЕЦ ФУНКЦИИ setupEventListeners
 
 // --- NEW Event Listener for Sort Order Inputs ---
         let sortOrderDebounceTimer;
@@ -4394,10 +4437,10 @@ window.renderShopPurchases = function(purchases, targetElement) {
             </div>
 
             <div class="shop-actions">
-                <button class="admin-action-btn approve" onclick="handleShopAction('${p.id}', 'approve', '${safeTitle}', ${userId})" title="Подтвердить выдачу">
+                <button class="admin-action-btn approve shop-action-btn" data-shop-id="${p.id}" data-shop-action="approve" data-title="${safeTitle}" data-user-id="${userId}" title="Подтвердить выдачу">
                     <i class="fa-solid fa-check"></i>
                 </button>
-                <button class="admin-action-btn reject" onclick="handleShopAction('${p.id}', 'reject', '${safeTitle}', ${userId})" title="Отклонить">
+                <button class="admin-action-btn reject shop-action-btn" data-shop-id="${p.id}" data-shop-action="reject" data-title="${safeTitle}" data-user-id="${userId}" title="Отклонить">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
