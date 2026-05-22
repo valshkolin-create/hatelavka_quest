@@ -188,7 +188,12 @@
     // ==========================================
     // 3. ЛОГИКА ВНЕДРЕНИЯ И ДЕТЕКТОРОВ
     // ==========================================
-    function initTopNav() {
+     function initTopNav() {
+        function initTopNav() {
+        // 🔥 ВОТ ЭТА СТРОЧКА СПАСЕТ АДМИНКУ 🔥
+        if (window.location.pathname.includes('/admin')) return;
+
+
         if (document.getElementById('universal-top-header')) return; // Защита от дублей
 
         // Внедряем CSS
