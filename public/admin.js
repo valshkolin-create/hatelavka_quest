@@ -3776,9 +3776,7 @@ function setupEventListeners() {
             }
         });
     }
-
-} // <--- ✅ ОСТАВЬ ЕЁ ЗДЕСЬ (Она теперь правильно закрывает setupEventListeners)
-
+    
 async function main() {
     try {
         tg.expand();
