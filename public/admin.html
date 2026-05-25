@@ -1337,37 +1337,37 @@
             <form id="checkpoint-settings-form">
                 
                 <!-- Вкладка 1: Основные настройки -->
-                <div id="tab-content-cp-settings" class="tab-content active">
-                    <div class="quest-card admin-form">
-                        <label>Название Сезона</label>
-                        <input type="text" name="cp_title" placeholder="Например: Операция Снегопад" required>
+               <div id="tab-content-cp-settings" class="tab-content active">
+    <div class="quest-card admin-form">
+        <label>Название Сезона</label>
+        <input type="text" name="cp_title" placeholder="Например: Операция Снегопад" required style="width: 100%; box-sizing: border-box;">
 
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <div style="flex: 1;">
-                                <label>Дата начала (UTC)</label>
-                                <input type="datetime-local" name="cp_start_date">
-                            </div>
-                            <div style="flex: 1;">
-                                <label>Дата окончания (UTC)</label>
-                                <input type="datetime-local" name="cp_end_date">
-                            </div>
-                        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+            <div style="flex: 1 1 140px;">
+                <label>Дата начала (UTC)</label>
+                <input type="datetime-local" name="cp_start_date" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div style="flex: 1 1 140px;">
+                <label>Дата окончания (UTC)</label>
+                <input type="datetime-local" name="cp_end_date" style="width: 100%; box-sizing: border-box;">
+            </div>
+        </div>
 
-                        <label style="margin-top: 15px;">Цена Premium пропуска (в монетах)</label>
-                        <input type="number" name="cp_premium_price" placeholder="Например: 5000" value="0">
-                        <p class="form-hint">Если 0 — премиум можно выдать только руками.</p>
+        <label style="margin-top: 15px;">Цена Premium пропуска (в монетах)</label>
+        <input type="number" name="cp_premium_price" placeholder="Например: 5000" value="0" style="width: 100%; box-sizing: border-box;">
+        <p class="form-hint">Если 0 — премиум можно выдать только руками.</p>
 
-                        <label>URL главного баннера</label>
-                        <input type="text" name="cp_banner_url" placeholder="https://...">
-                    </div>
+        <label>URL главного баннера</label>
+        <input type="text" name="cp_banner_url" placeholder="https://..." style="width: 100%; box-sizing: border-box;">
+    </div>
 
-                    <div class="quest-card" style="margin-top: 20px;">
-                        <h3 style="margin-top: 0; color: var(--danger-color);">Опасная зона</h3>
-                        <button type="button" id="reset-cp-season-btn" class="admin-action-btn reject" style="width: 100%;">
-                            Сбросить сезон (Обнулить EXP и прогресс у ВСЕХ)
-                        </button>
-                    </div>
-                </div>
+    <div class="quest-card" style="margin-top: 20px;">
+        <h3 style="margin-top: 0; color: var(--danger-color);">Опасная зона</h3>
+        <button type="button" id="reset-cp-season-btn" class="admin-action-btn reject" style="width: 100%;">
+            Сбросить сезон (Обнулить EXP и прогресс у ВСЕХ)
+        </button>
+    </div>
+</div>
 
                 <!-- Вкладка 2: Уровни (Тиры) -->
                 <div id="tab-content-cp-tiers" class="tab-content hidden">
