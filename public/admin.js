@@ -2600,80 +2600,420 @@ function executeCopy(rewardsData, targetLevel) {
     }
 
     // Закрытие модального окна (убедись, что этот код уже есть или добавь его)
-    document.body.addEventListener('click', (event) => {
-        const target = event.target;
-        const closeButton = target.closest('[data-close-modal]');
-        if (closeButton) {
-            const modalId = closeButton.dataset.closeModal;
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.add('hidden');
+   // --- 🔥 ЕДИНЫЙ ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ (ОБЪЕДИНЕННЫЙ И ОЧИЩЕННЫЙ) 🔥 ---
+document.body.addEventListener('click', async (event) => {
+    const target = event.target;
+
+    // 1. СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ (Недавние вкладки)
+    const clickedMenuButton = target.closest('.admin-icon-button');
+    if (clickedMenuButton && !target.closest('.delete-purchase-btn') && !target.closest('.reward-settings-btn')) { 
+        const titleSpan = clickedMenuButton.querySelector('span:not(.notification-badge)');
+        const iconWrapper = clickedMenuButton.querySelector('.icon-wrapper');
+        
+        if (titleSpan && iconWrapper) {
+            const title = titleSpan.textContent.trim();
+            const iconElement = iconWrapper.querySelector('i, img');
+            const iconHtml = iconElement ? iconElement.outerHTML : '';
+            const iconColor = iconWrapper.style.color || '';
+            const borderColor = iconWrapper.style.borderColor || '';
+            
+            let viewId = clickedMenuButton.dataset.view;
+            let isLink = false;
+            
+            if (!viewId && clickedMenuButton.tagName.toLowerCase() === 'a') {
+                viewId = clickedMenuButton.getAttribute('href');
+                isLink = true;
             }
-        } else if (target.classList.contains('modal-overlay') && target.id !== 'admin-create-goal-modal') { // <-- ВОТ ИЗМЕНЕНИЕ
-             target.classList.add('hidden'); // Закрытие по клику на фон
+
+            if (viewId && typeof saveRecentView === 'function') {
+                saveRecentView(viewId, title, iconHtml, iconColor, borderColor, isLink);
+            }
         }
-    });
+    }
 
-        if(dom.passwordPromptCancel) {
-            dom.passwordPromptCancel.addEventListener('click', () => {
-                dom.passwordPromptOverlay.classList.add('hidden');
-            });
+    // 2. Кнопка "Связаться" (Копирование)
+    const contactBtn = target.closest('.admin-contact-btn');
+    if (contactBtn) {
+        const userId = contactBtn.dataset.userId;
+        const userUsername = contactBtn.dataset.userUsername;
+        if (userId) {
+            let textToCopy = (userUsername && userUsername !== 'null' && userUsername.trim() !== '') ? `@${userUsername}` : userId;
+            let message = textToCopy.startsWith('@') ? `Username ${textToCopy} скопирован!` : 'ID скопирован!';
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                tg.showPopup({message: message});
+            } catch (e) { tg.showAlert('Ошибка копирования.'); }
         }
+        return;
+    }
 
-        if(dom.passwordPromptConfirm) {
-            dom.passwordPromptConfirm.addEventListener('click', async () => {
-                const password = dom.passwordPromptInput.value;
-                if (!password) return;
+    // 3. Управление полями наград (Котел)
+    if (target.closest('[id^="add-top-reward-btn-"]')) {
+        const level = target.closest('[id^="add-top-reward-btn-"]').dataset.level;
+        document.getElementById(`top-rewards-container-${level}`)?.appendChild(createTopRewardRow());
+        return;
+    }
+    const removeRewardBtn = target.closest('.remove-reward-btn');
+    if (removeRewardBtn) {
+        removeRewardBtn.closest('.top-reward-row').remove();
+        if (typeof checkCopyVisibility === 'function') checkCopyVisibility();
+        return;
+    }
 
-                // Новая проверка пароля 6971
-                if (password === ADMIN_PASSWORD) {
-                    hasAdminAccess = true; // <-- Устанавливаем флаг админа
-                    dom.passwordPromptOverlay.classList.add('hidden');
-                    dom.passwordPromptInput.value = '';
+    // 4. Закрытие модалок
+    const closeModalBtn = target.closest('[data-close-modal]');
+    if (closeModalBtn) {
+        document.getElementById(closeModalBtn.dataset.closeModal)?.classList.add('hidden');
+        return;
+    }
 
-                    // Показываем все скрытые элементы админа
-                    document.querySelectorAll('.admin-feature-6971').forEach(el => {
-                        el.style.display = 'block'; // или 'flex'
-                    });
-                    
-                    // Показываем инпуты сортировки на уже загруженных страницах (если они есть)
-                    document.querySelectorAll('.reward-sort-order-input').forEach(el => {
-                        el.style.display = 'block';
-                    });
+    // 5. Настройки награды Twitch (Шестеренка)
+    const settingsBtn = target.closest('.reward-settings-btn');
+    if (settingsBtn) {
+        const rewardData = JSON.parse(settingsBtn.dataset.reward);
+        if (hasAdminAccess) openTwitchRewardSettings(rewardData);
+        else {
+            afterPasswordCallback = () => openTwitchRewardSettings(rewardData);
+            dom.passwordPromptOverlay.classList.remove('hidden');
+            dom.passwordPromptInput.focus();
+        }
+        return;
+    }
 
-                    const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
-                    // Переключаем вкладку, только если мы не выполняем другое действие
-                    if(adminTabButton && !afterPasswordCallback) { 
-                         adminTabButton.click();
-                    }
+    // 6. Покупки Twitch (Клик по иконке)
+    const purchasesLink = target.closest('.reward-purchases-link');
+    if (purchasesLink) {
+        event.preventDefault();
+        await openTwitchPurchases(purchasesLink.dataset.rewardId, purchasesLink.dataset.rewardTitle);
+        return;
+    }
 
-                    // Выполняем отложенное действие, если оно есть
-                    if (typeof afterPasswordCallback === 'function') {
-                        afterPasswordCallback();
-                        afterPasswordCallback = null; // Сбрасываем
-                    }
+    // 7. Навигация (вкладки, назад, создание)
+    const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
+    if (navButton && navButton.tagName.toLowerCase() !== 'a' && !target.closest('.reward-settings-btn') && !target.closest('.delete-purchase-btn')) {
+        event.preventDefault();
+        const view = navButton.dataset.view;
+        if (view) await switchView(view);
+        else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
+        else if (navButton.id === 'go-create-challenge') {
+            dom.challengeForm.reset();
+            dom.challengeForm.elements['challenge_id'].value = '';
+            updateChallengeFormUI(dom.challengeForm);
+            dom.challengeFormTitle.textContent = 'Новый челлендж';
+            await switchView('view-admin-challenge-form');
+        }
+        return;
+    }
 
-                } else {
-                    // Старая проверка (на случай, если у модераторов другой пароль)
-                    try {
-                        const result = await makeApiRequest('/api/v1/admin/verify_password', { password });
-                        if (result.success) {
-                            // hasAdminAccess остается false, это просто модератор
-                            dom.passwordPromptOverlay.classList.add('hidden');
-                            dom.passwordPromptInput.value = '';
-                            const adminTabButton = document.querySelector('.tabs-container.main-tabs .tab-button[data-tab="admin"]');
-                            if(adminTabButton) adminTabButton.click();
-                        } else {
-                            tg.showAlert('Неверный пароль!');
-                        }
-                    } catch (error) {
-                        tg.showAlert('Ошибка проверки пароля.');
-                        console.error('Ошибка верификации пароля:', error);
-                    }
+    // --- 🛡️ TWITCH ПОКУПКИ: УДАЛЕНИЕ ---
+    const deletePurchaseBtn = target.closest('.delete-purchase-btn');
+    if (deletePurchaseBtn) {
+        event.preventDefault(); 
+        event.stopPropagation();
+        const purchaseId = deletePurchaseBtn.dataset.purchaseId;
+
+        showCustomConfirmHTML('Удалить эту покупку навсегда?', () => {
+            const itemDiv = document.getElementById(`purchase-item-${purchaseId}`);
+            if (itemDiv) {
+                itemDiv.style.transition = 'all 0.3s ease-out';
+                itemDiv.style.transform = 'translateX(100%)';
+                itemDiv.style.opacity = '0';
+                setTimeout(() => itemDiv.remove(), 300);
+            }
+            const refreshBtn = document.getElementById('refresh-purchases-btn');
+            if (refreshBtn) {
+                const currentRewardId = refreshBtn.dataset.rewardId;
+                const badge = document.querySelector(`.admin-icon-button[data-reward-id="${currentRewardId}"] .notification-badge`);
+                if (badge) {
+                    let c = Math.max(0, (parseInt(badge.textContent) || 0) - 1);
+                    badge.textContent = c;
+                    if (c === 0) badge.classList.add('hidden');
                 }
-            });
+            }
+            makeApiRequest('/api/v1/admin/twitch_rewards/purchase/delete', { purchase_id: parseInt(purchaseId) }, 'POST', true)
+                .then(() => tg.showPopup({ message: '✅ Удалено' }))
+                .catch(e => tg.showAlert(`Ошибка сервера: ${e.message}`));
+        });
+        return;
+    }
+
+    // --- 🛡️ TWITCH ПОКУПКИ: УДАЛИТЬ ВСЕ ---
+    const deleteAllBtn = target.closest('#delete-all-purchases-btn');
+    if (deleteAllBtn) {
+        const rewardId = parseInt(deleteAllBtn.dataset.rewardId);
+        showCustomConfirmHTML('Удалить ВСЕ покупки для этой награды? Необратимо.', () => {
+            document.getElementById('twitch-purchases-body').innerHTML = '<p style="text-align: center;">Нет покупок.</p>';
+            deleteAllBtn.classList.add('hidden');
+            makeApiRequest('/api/v1/admin/twitch_rewards/purchases/delete_all', { reward_id: rewardId }, 'POST', true)
+                .then(() => tg.showPopup({ message: '✅ Все удалено' }))
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        });
+        return;
+    }
+
+    // --- 🛡️ TWITCH ПОКУПКИ: ВЫДАЧА ПРОМОКОДА ---
+    const issuePromoBtn = target.closest('.issue-promo-btn');
+    if (issuePromoBtn) {
+        const purchaseId = issuePromoBtn.dataset.purchaseId;
+        const isConditionMet = issuePromoBtn.closest('.purchase-item').dataset.conditionMet === 'true';
+        const msg = isConditionMet ? 'Выдать награду (промокод)?' : '⚠️ Условие не выполнено! Выдать все равно?';
+        
+        showCustomConfirmHTML(msg, () => {
+            document.getElementById(`purchase-item-${purchaseId}`)?.remove();
+            makeApiRequest('/api/v1/admin/twitch_rewards/issue_promocode', { purchase_id: parseInt(purchaseId) }, 'POST', true)
+                .then(res => tg.showPopup({ message: res.message || 'Награда выдана' }))
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        }, 'Выдать', '#ff9500');
+        return;
+    }
+
+    // --- 🛡️ TWITCH ПОКУПКИ: ВЫДАЧА БИЛЕТОВ ---
+    const issueTicketsBtn = target.closest('.issue-tickets-btn');
+    if (issueTicketsBtn) {
+        const purchaseId = issueTicketsBtn.dataset.purchaseId;
+        const amount = issueTicketsBtn.dataset.amount;
+        const isConditionMet = issueTicketsBtn.closest('.purchase-item').dataset.conditionMet === 'true';
+        const msg = isConditionMet ? `Выдать ${amount} 🎟️ билетов?` : `⚠️ Условие не выполнено! Выдать ${amount} 🎟️?`;
+
+        showCustomConfirmHTML(msg, () => {
+            document.getElementById(`purchase-item-${purchaseId}`)?.remove();
+            makeApiRequest('/api/v1/admin/twitch_rewards/issue_tickets', { purchase_id: parseInt(purchaseId) }, 'POST', true)
+                .then(res => tg.showPopup({ message: 'Билеты выданы' }))
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        }, 'Выдать', '#007aff');
+        return;
+    }
+
+    // --- 🛡️ ПРОВЕРКА WIZEBOT ---
+    const checkBtn = target.closest('.check-wizebot-btn, .wizebot-check-btn');
+    if (checkBtn) {
+        const nickname = checkBtn.dataset.nickname;
+        const period = checkBtn.dataset.period || 'session';
+        const resultDiv = checkBtn.classList.contains('wizebot-check-btn') 
+            ? checkBtn.closest('.purchase-item').querySelector('.purchase-warning') 
+            : checkBtn.closest('.admin-submission-card').querySelector('.wizebot-stats-result');
+        
+        if (!resultDiv && checkBtn.classList.contains('wizebot-check-btn')) {
+             checkBtn.disabled = true;
+             checkBtn.textContent = '...';
+             makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: period }, 'POST', true)
+                .then(stats => {
+                    const msg = stats.found ? `✅ ${stats.messages} сообщ. (Ранг ${stats.rank})` : `⚠️ Не найден в топе`;
+                    tg.showPopup({message: msg});
+                })
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`))
+                .finally(() => { checkBtn.disabled = false; checkBtn.innerHTML = '<i class="fa-brands fa-twitch"></i> Проверить'; });
+             return;
         }
 
+        if (resultDiv) {
+            resultDiv.innerHTML = '<i>Проверяем...</i>';
+            checkBtn.disabled = true;
+            makeApiRequest('/api/v1/admin/wizebot/check_user', { twitch_username: nickname, period: period }, 'POST', true)
+                .then(stats => {
+                    resultDiv.innerHTML = stats.found 
+                        ? `<p style="color: var(--primary-color);">✅ ${stats.messages} сообщ. (Ранг ${stats.rank})</p>`
+                        : `<p style="color: var(--warning-color);">⚠️ Не найден в топ-100</p>`;
+                })
+                .catch(e => resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка: ${e.message}</p>`)
+                .finally(() => checkBtn.disabled = false);
+        }
+        return;
+    }
+
+    // --- 🛡️ ПОДТВЕРЖДЕНИЕ ВЫДАЧИ ПРИЗА (ПОБЕДИТЕЛЬ ИВЕНТА) ---
+    const confirmWinnerBtn = target.closest('.confirm-winner-prize-btn');
+    if (confirmWinnerBtn) {
+        showCustomConfirmHTML('Выдать приз и закрыть заявку?', () => {
+            confirmWinnerBtn.closest('.admin-submission-card').remove();
+            makeApiRequest('/api/v1/admin/events/confirm_sent', { event_id: parseInt(confirmWinnerBtn.dataset.eventId) }, 'POST', true)
+                .then(() => tg.showPopup({ message: '✅ Приз выдан' }))
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        }, 'Подтвердить', '#34c759');
+        return;
+    }
+
+    // --- 🛡️ ДЕЙСТВИЯ СО СПИСКАМИ (Квесты, Категории, Аукционы и пр.) ---
+    const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .shop-action-btn');
+    if (!actionButton) return;
+
+    const id = actionButton.dataset.id;
+
+    if (actionButton.matches('.edit-category-btn')) {
+        showGenericPrompt('Редактировать категорию', actionButton.dataset.name, id);
+    } 
+    else if (actionButton.matches('.delete-category-btn')) {
+        showCustomConfirmHTML('Удалить категорию?', () => {
+            actionButton.closest('.category-card').remove();
+            makeApiRequest('/api/v1/admin/categories/delete', { category_id: parseInt(id) }, 'POST', true)
+                .catch(e => { tg.showAlert(`Ошибка: ${e.message}`); loadCategories(); });
+        });
+    } 
+    else if (actionButton.matches('.admin-edit-challenge-btn')) {
+        const c = JSON.parse(actionButton.dataset.challenge);
+        const form = dom.challengeForm;
+        let condType = c.condition_type, period = 'session';
+        const parts = c.condition_type.split('_');
+        if (['twitch_messages', 'twitch_uptime'].includes(parts.slice(0, 2).join('_'))) {
+            condType = parts.slice(0, 2).join('_');
+            period = parts[parts.length - 1];
+        }
+        form.elements['challenge_id'].value = c.id;
+        form.elements['description'].value = c.description;
+        form.elements['condition_type'].value = condType;
+        form.elements['challenge_period'].value = period;
+        form.elements['target_value'].value = c.target_value;
+        form.elements['reward_amount'].value = c.reward_amount;
+        form.elements['duration_days'].value = c.duration_days;
+        form.elements['is_active'].value = c.is_active.toString();
+        updateChallengeFormUI(form);
+        dom.challengeFormTitle.textContent = 'Редактирование';
+        await switchView('view-admin-challenge-form');
+    } 
+    else if (actionButton.matches('.admin-delete-challenge-btn')) {
+        showCustomConfirmHTML(`Удалить челлендж ID ${id}?`, () => {
+            actionButton.closest('.manage-quest-card').remove();
+            makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) }, 'POST', true)
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        });
+    } 
+    else if (actionButton.matches('.edit-roulette-prize-btn')) {
+        if (typeof editPrizeModal !== 'undefined' && typeof editPrizeForm !== 'undefined') {
+            const prizeData = JSON.parse(actionButton.dataset.prize);
+            editPrizeForm.elements['prize_id'].value = prizeData.id;
+            editPrizeForm.elements['reward_title'].value = prizeData.reward_title;
+            editPrizeForm.elements['skin_name'].value = prizeData.skin_name;
+            editPrizeForm.elements['image_url'].value = prizeData.image_url;
+            editPrizeForm.elements['chance_weight'].value = prizeData.chance_weight;
+            editPrizeForm.elements['quantity'].value = prizeData.quantity;
+            editPrizeModal.classList.remove('hidden');
+        }
+    } 
+    else if (actionButton.matches('.delete-roulette-prize-btn')) {
+         showCustomConfirmHTML('Удалить этот приз?', () => {
+            makeApiRequest('/api/v1/admin/roulette/delete', { prize_id: parseInt(actionButton.dataset.id) }, 'POST', true)
+                .then(async () => {
+                    const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
+                    if (typeof renderRoulettePrizes === 'function') renderRoulettePrizes(prizes);
+                    tg.showPopup({ message: 'Приз удален' });
+                })
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        });
+    }
+    else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.edit-category-btn') && !actionButton.matches('.edit-weekly-goal-btn')) {
+         const questId = parseInt(actionButton.dataset.id);
+         showLoader();
+         const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: questId }, 'POST', true);
+         if (typeof fetchAndCacheCategories === 'function') await fetchAndCacheCategories(true);
+         if (typeof populateCategorySelects === 'function') populateCategorySelects(quest.category_id);
+         const form = dom.editQuestForm;
+         let questType = quest.quest_type, twitchPeriod = 'session';
+         if (quest.quest_type && quest.quest_type.startsWith('automatic_twitch_')) {
+             const parts = quest.quest_type.split('_');
+             if (parts.length > 3) { questType = parts.slice(0, 3).join('_'); twitchPeriod = parts[3]; }
+         }
+         form.elements['quest_id'].value = quest.id;
+         form.elements['title'].value = quest.title;
+         form.elements['icon_url'].value = quest.icon_url || '';
+         form.elements['description'].value = quest.description || '';
+         form.elements['reward_amount'].value = quest.reward_amount;
+         form.elements['category_id'].value = quest.category_id || '';
+         form.elements['quest_type'].value = questType;
+         form.elements['action_url'].value = quest.action_url || '';
+         form.elements['twitch_period'].value = twitchPeriod;
+         form.elements['target_value'].value = quest.target_value || '';
+         form.elements['duration_hours'].value = quest.duration_hours || 0;
+         form.elements['is_active'].value = quest.is_active.toString();
+         form.elements['is_repeatable'].value = quest.is_repeatable.toString();
+         updateQuestFormUI(form);
+         hideLoader();
+         await switchView('view-admin-edit');
+    } 
+    else if (actionButton.matches('.admin-delete-quest-btn') && !actionButton.matches('.delete-category-btn') && !actionButton.matches('.delete-auction-btn') && !actionButton.matches('.delete-weekly-goal-btn')) {
+        showCustomConfirmHTML(`Удалить квест ID ${id}?`, () => {
+            actionButton.closest('.manage-quest-card').remove();
+            makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) }, 'POST', true)
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        });
+    } 
+    else if (actionButton.matches('.delete-auction-btn')) {
+        showCustomConfirmHTML(`Удалить лот ID ${id}?`, () => {
+            actionButton.closest('.manage-quest-card').remove();
+            makeApiRequest('/api/v1/admin/auctions/delete', { id: parseInt(id) }, 'POST', true)
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        });
+    }
+    else if (actionButton.matches('.delete-weekly-goal-btn')) {
+        const goalId = actionButton.dataset.goalId;
+        showCustomConfirmHTML('Удалить эту задачу?', () => {
+            actionButton.closest('.weekly-goal-card').remove();
+            makeApiRequest('/api/v1/admin/weekly_goals/delete', { goal_id: goalId }, 'POST', true)
+                .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
+        });
+    }
+    else if (actionButton.matches('.admin-view-subs-btn')) {
+        showLoader();
+        const submissions = await makeApiRequest('/api/v1/admin/quest/submissions', { quest_id: parseInt(id) }, 'POST', true);
+        hideLoader();
+        if (typeof renderSubmissionsInModal === 'function') renderSubmissionsInModal(submissions, actionButton.dataset.title);
+        dom.submissionsModal.classList.remove('hidden');
+    } 
+    else if (actionButton.matches('.shop-action-btn')) {
+        const shopId = actionButton.dataset.shopId;
+        const shopAction = actionButton.dataset.shopAction;
+        const shopTitle = actionButton.dataset.title;
+        const shopUserId = parseInt(actionButton.dataset.userId);
+        
+        if (typeof window.handleShopAction === 'function') {
+            window.handleShopAction(shopId, shopAction, shopTitle, shopUserId);
+        }
+    }
+    
+    // --- 🛡️ ОБРАБОТКА ЗАЯВОК (Одобрить/Отклонить/Тихо) ---
+    else if (actionButton.matches('.admin-action-btn') && actionButton.dataset.action) {
+        const action = actionButton.dataset.action;
+        const card = actionButton.closest('.admin-submission-card');
+        const subId = parseInt(actionButton.dataset.id);
+        if (!subId || !card) return;
+
+        // Оптимистичный UI
+        card.style.opacity = '0.5'; 
+        const rollback = () => { card.style.opacity = '1'; };
+
+        try {
+            if (card.id.startsWith('submission-card-')) {
+                // Это заявка на квест
+                await makeApiRequest('/api/v1/admin/submission/update', { submission_id: subId, action: action }, 'POST', true);
+                card.remove();
+                checkEmptyList();
+            } 
+            else if (card.id.startsWith('prize-card-')) {
+                // Это выдача ручной награды (чекпоинт/события)
+                const isSilent = action === 'rejected_silent';
+                const finalAction = isSilent ? 'reject' : (action === 'approved' ? 'complete' : 'reject');
+                const endpoint = action === 'approved' ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
+                
+                const payload = { reward_id: subId };
+                if (isSilent) payload.is_silent = true;
+
+                await makeApiRequest(endpoint, payload, 'POST', true);
+                card.remove();
+                checkEmptyList();
+            }
+        } catch (e) {
+            rollback();
+            tg.showAlert(`Ошибка: ${e.message}`);
+        }
+
+        function checkEmptyList() {
+            if (dom.modalBody && dom.modalBody.querySelectorAll('.admin-submission-card').length === 0) {
+                dom.submissionsModal.classList.add('hidden');
+                tg.showPopup({message: '✅ Все обработано'});
+                if (typeof loadPendingActions === 'function') loadPendingActions();
+            }
+        }
+    }
+});
 // --- UPDATED Event Listener for Save Order Button (Квесты) ---
             if (dom.saveOrderButton) {
                 dom.saveOrderButton.addEventListener('click', async () => {
@@ -2991,285 +3331,6 @@ if (dom.settingQuestScheduleOverride) {
                 });
             });
         }            
-
-       // --- 🔥 ОБНОВЛЕННЫЙ ГЛАВНЫЙ ОБРАБОТЧИК КЛИКОВ (OPTIMISTIC UI) 🔥 ---
-        document.body.addEventListener('click', async (event) => {
-            const target = event.target;
-
-            // 👇 СОХРАНЕНИЕ ИСТОРИИ КЛИКОВ
-            const clickedMenuButton = target.closest('.admin-icon-button');
-            if (clickedMenuButton) {
-                const titleSpan = clickedMenuButton.querySelector('span:not(.notification-badge)');
-                const iconWrapper = clickedMenuButton.querySelector('.icon-wrapper');
-                
-                if (titleSpan && iconWrapper) {
-                    const title = titleSpan.textContent.trim();
-                    const iconElement = iconWrapper.querySelector('i, img');
-                    const iconHtml = iconElement ? iconElement.outerHTML : '';
-                    const iconColor = iconWrapper.style.color || '';
-                    const borderColor = iconWrapper.style.borderColor || '';
-                    let viewId = clickedMenuButton.dataset.view;
-                    let isLink = false;
-                    
-                    if (!viewId && clickedMenuButton.tagName.toLowerCase() === 'a') {
-                        viewId = clickedMenuButton.getAttribute('href');
-                        isLink = true;
-                    }
-
-                    if (viewId) {
-                        saveRecentView(viewId, title, iconHtml, iconColor, borderColor, isLink);
-                    }
-                }
-            }
-
-            // 1. Кнопка "Связаться" (Копирование)
-            const contactBtn = target.closest('.admin-contact-btn');
-            if (contactBtn) {
-                const userId = contactBtn.dataset.userId;
-                const userUsername = contactBtn.dataset.userUsername;
-                if (userId) {
-                    let textToCopy = (userUsername && userUsername !== 'null' && userUsername.trim() !== '') ? `@${userUsername}` : userId;
-                    let message = textToCopy.startsWith('@') ? `Username ${textToCopy} скопирован!` : 'ID скопирован!';
-                    try {
-                        await navigator.clipboard.writeText(textToCopy);
-                        tg.showPopup({message: message});
-                    } catch (e) { tg.showAlert('Ошибка копирования.'); }
-                }
-                return;
-            }
-
-            // 2. Управление полями наград (Котел)
-            if (target.closest('[id^="add-top-reward-btn-"]')) {
-                const level = target.closest('[id^="add-top-reward-btn-"]').dataset.level;
-                document.getElementById(`top-rewards-container-${level}`)?.appendChild(createTopRewardRow());
-                return;
-            }
-            if (target.closest('.remove-reward-btn')) {
-                target.closest('.top-reward-row').remove();
-                return;
-            }
-
-            // 3. Закрытие модалок
-            if (target.closest('[data-close-modal]')) {
-                document.getElementById(target.closest('[data-close-modal]').dataset.closeModal)?.classList.add('hidden');
-                return;
-            }
-
-            // 6. Навигация
-            const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
-            if (navButton && navButton.tagName.toLowerCase() !== 'a') {
-                event.preventDefault();
-                const view = navButton.dataset.view;
-                if (view) await switchView(view);
-                else if (navButton.id === 'go-create-quest') await switchView('view-admin-create');
-                else if (navButton.id === 'go-create-challenge') {
-                    dom.challengeForm.reset();
-                    dom.challengeForm.elements['challenge_id'].value = '';
-                    updateChallengeFormUI(dom.challengeForm);
-                    dom.challengeFormTitle.textContent = 'Новый челлендж';
-                    await switchView('view-admin-challenge-form');
-                }
-                return;
-            }
-
-            // --- 🛡️ ДЕЙСТВИЯ ИЗ СПИСКОВ ---
-            const actionButton = target.closest('.admin-edit-quest-btn, .admin-delete-quest-btn, .admin-view-subs-btn, .admin-action-btn, .admin-edit-challenge-btn, .admin-delete-challenge-btn, .edit-category-btn, .delete-category-btn, .shop-action-btn');
-            
-            if (!actionButton) return;
-            const id = actionButton.dataset.id;
-
-            // 1. Редактировать категорию
-            if (actionButton.matches('.edit-category-btn')) {
-                showGenericPrompt('Редактировать категорию', actionButton.dataset.name, id);
-            } 
-            // 2. Удалить категорию
-            else if (actionButton.matches('.delete-category-btn')) {
-                showCustomConfirmHTML('Удалить категорию?', () => {
-                    actionButton.closest('.category-card').remove();
-                    makeApiRequest('/api/v1/admin/categories/delete', { category_id: parseInt(id) }, 'POST', true)
-                        .catch(e => { tg.showAlert(`Ошибка: ${e.message}`); loadCategories(); });
-                });
-            } 
-            // 3. Редактировать челлендж
-            else if (actionButton.matches('.admin-edit-challenge-btn')) {
-                const c = JSON.parse(actionButton.dataset.challenge);
-                const form = dom.challengeForm;
-                let condType = c.condition_type, period = 'session';
-                const parts = c.condition_type.split('_');
-                if (['twitch_messages', 'twitch_uptime'].includes(parts.slice(0, 2).join('_'))) {
-                    condType = parts.slice(0, 2).join('_');
-                    period = parts[parts.length - 1];
-                }
-                form.elements['challenge_id'].value = c.id;
-                form.elements['description'].value = c.description;
-                form.elements['condition_type'].value = condType;
-                form.elements['challenge_period'].value = period;
-                form.elements['target_value'].value = c.target_value;
-                form.elements['reward_amount'].value = c.reward_amount;
-                form.elements['duration_days'].value = c.duration_days;
-                form.elements['is_active'].value = c.is_active.toString();
-                updateChallengeFormUI(form);
-                dom.challengeFormTitle.textContent = 'Редактирование';
-                await switchView('view-admin-challenge-form');
-            } 
-            // 4. Удалить челлендж
-            else if (actionButton.matches('.admin-delete-challenge-btn')) {
-                showCustomConfirmHTML(`Удалить челлендж ID ${id}?`, () => {
-                    actionButton.closest('.manage-quest-card').remove();
-                    makeApiRequest('/api/v1/admin/challenges/delete', { challenge_id: parseInt(id) }, 'POST', true)
-                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
-                });
-            } 
-            // 5. Редактировать приз рулетки
-            else if (actionButton.matches('.edit-roulette-prize-btn')) {
-                if (editPrizeModal && editPrizeForm) {
-                    const prizeData = JSON.parse(actionButton.dataset.prize);
-                    editPrizeForm.elements['prize_id'].value = prizeData.id;
-                    editPrizeForm.elements['reward_title'].value = prizeData.reward_title;
-                    editPrizeForm.elements['skin_name'].value = prizeData.skin_name;
-                    editPrizeForm.elements['image_url'].value = prizeData.image_url;
-                    editPrizeForm.elements['chance_weight'].value = prizeData.chance_weight;
-                    editPrizeForm.elements['quantity'].value = prizeData.quantity;
-                    editPrizeModal.classList.remove('hidden');
-                }
-            } 
-            // 6. Удалить приз рулетки
-            else if (actionButton.matches('.delete-roulette-prize-btn')) {
-                 showCustomConfirmHTML('Удалить этот приз?', () => {
-                    makeApiRequest('/api/v1/admin/roulette/delete', { prize_id: parseInt(actionButton.dataset.id) }, 'POST', true)
-                        .then(async () => {
-                            const prizes = await makeApiRequest('/api/v1/admin/roulette/prizes', {}, 'POST', true);
-                            renderRoulettePrizes(prizes);
-                            tg.showPopup({ message: 'Приз удален' });
-                        })
-                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
-                });
-            }
-            // 7. Редактировать квест
-            else if (actionButton.matches('.admin-edit-quest-btn') && !actionButton.matches('.edit-category-btn') && !actionButton.matches('.edit-weekly-goal-btn')) {
-                 const questId = parseInt(actionButton.dataset.id);
-                 showLoader();
-                 const quest = await makeApiRequest('/api/v1/admin/quest/details', { quest_id: questId }, 'POST', true);
-                 await fetchAndCacheCategories(true);
-                 populateCategorySelects(quest.category_id);
-                 const form = dom.editQuestForm;
-                 let questType = quest.quest_type, twitchPeriod = 'session';
-                 if (quest.quest_type && quest.quest_type.startsWith('automatic_twitch_')) {
-                     const parts = quest.quest_type.split('_');
-                     if (parts.length > 3) { questType = parts.slice(0, 3).join('_'); twitchPeriod = parts[3]; }
-                 }
-                 form.elements['quest_id'].value = quest.id;
-                 form.elements['title'].value = quest.title;
-                 form.elements['icon_url'].value = quest.icon_url || '';
-                 form.elements['description'].value = quest.description || '';
-                 form.elements['reward_amount'].value = quest.reward_amount;
-                 form.elements['category_id'].value = quest.category_id || '';
-                 form.elements['quest_type'].value = questType;
-                 form.elements['action_url'].value = quest.action_url || '';
-                 form.elements['twitch_period'].value = twitchPeriod;
-                 form.elements['target_value'].value = quest.target_value || '';
-                 form.elements['duration_hours'].value = quest.duration_hours || 0;
-                 form.elements['is_active'].value = quest.is_active.toString();
-                 form.elements['is_repeatable'].value = quest.is_repeatable.toString();
-                 updateQuestFormUI(form);
-                 hideLoader();
-                 await switchView('view-admin-edit');
-            } 
-            // 8. Удалить квест
-            else if (actionButton.matches('.admin-delete-quest-btn') && !actionButton.matches('.delete-category-btn') && !actionButton.matches('.delete-auction-btn') && !actionButton.matches('.delete-weekly-goal-btn')) {
-                showCustomConfirmHTML(`Удалить квест ID ${id}?`, () => {
-                    actionButton.closest('.manage-quest-card').remove();
-                    makeApiRequest('/api/v1/admin/quest/delete', { quest_id: parseInt(id) }, 'POST', true)
-                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
-                });
-            } 
-            // 9. Аукцион: Удалить
-            else if (actionButton.matches('.delete-auction-btn')) {
-                showCustomConfirmHTML(`Удалить лот ID ${id}?`, () => {
-                    actionButton.closest('.manage-quest-card').remove();
-                    makeApiRequest('/api/v1/admin/auctions/delete', { id: parseInt(id) }, 'POST', true)
-                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
-                });
-            }
-            // 10. Недельный забег: Удалить
-            else if (actionButton.matches('.delete-weekly-goal-btn')) {
-                const goalId = actionButton.dataset.goalId;
-                showCustomConfirmHTML('Удалить эту задачу?', () => {
-                    actionButton.closest('.weekly-goal-card').remove();
-                    makeApiRequest('/api/v1/admin/weekly_goals/delete', { goal_id: goalId }, 'POST', true)
-                        .catch(e => tg.showAlert(`Ошибка: ${e.message}`));
-                });
-            }
-            // 👇👇👇 ВОССТАНОВЛЕННЫЕ БЛОКИ ДЛЯ ЗАЯВОК 👇👇👇
-            // 11. Посмотреть заявки (Квесты)
-            else if (actionButton.matches('.admin-view-subs-btn')) {
-                const questId = actionButton.dataset.id;
-                dom.submissionsModal.dataset.sourceType = 'quest';
-                dom.submissionsModal.dataset.sourceId = questId;
-                dom.modalTitle.textContent = actionButton.dataset.title;
-                dom.submissionsModal.classList.remove('hidden');
-                dom.modalBody.innerHTML = '<p style="text-align: center;">Загрузка...</p>';
-                
-                makeApiRequest('/api/v1/admin/quests/submissions', { quest_id: parseInt(questId) }, 'POST', true)
-                    .then(subs => {
-                        if (typeof renderSubmissions === 'function') {
-                            renderSubmissions(subs, dom.modalBody);
-                        }
-                    })
-                    .catch(e => {
-                        dom.modalBody.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
-                    });
-            }
-            // 12. Одобрить/Отклонить заявку (Квесты)
-            else if (actionButton.matches('.admin-action-btn') && actionButton.dataset.action) {
-                const reqId = actionButton.dataset.id;
-                const actionType = actionButton.dataset.action;
-                const isSilent = actionType === 'rejected_silent';
-                const finalAction = isSilent ? 'rejected' : actionType;
-                
-                let text = actionType === 'approved' ? 'Одобрить заявку?' : (isSilent ? 'Отклонить ТИХО (без уведомления)?' : 'Отклонить заявку и уведомить?');
-
-                showCustomConfirmHTML(text, async (closeModal) => {
-                    showLoader();
-                    try {
-                        await makeApiRequest('/api/v1/admin/actions/verify', {
-                            action_id: parseInt(reqId),
-                            status: finalAction,
-                            silent: isSilent
-                        }, 'POST', true);
-                        
-                        document.getElementById(`submission-card-${reqId}`)?.remove();
-                        tg.showPopup({message: 'Успешно!'});
-                        checkEmptyList();
-                    } catch (err) {
-                        tg.showAlert(`Ошибка: ${err.message}`);
-                    } finally {
-                        hideLoader();
-                    }
-                }, actionType === 'approved' ? 'Одобрить' : 'Отклонить', actionType === 'approved' ? '#34c759' : '#ff3b30');
-            }
-            // 13. Действия магазина (Магазин/Кейсы)
-            else if (actionButton.matches('.shop-action-btn')) {
-                const shopId = actionButton.dataset.shopId;
-                const shopAction = actionButton.dataset.shopAction;
-                const shopTitle = actionButton.dataset.title;
-                const shopUserId = parseInt(actionButton.dataset.userId);
-                
-                if (typeof window.handleShopAction === 'function') {
-                    window.handleShopAction(shopId, shopAction, shopTitle, shopUserId);
-                }
-            }
-
-            // Функция проверки на пустоту (Используется после одобрения/отклонения)
-            function checkEmptyList() {
-                if (dom.modalBody.querySelectorAll('.admin-submission-card').length === 0) {
-                    dom.submissionsModal.classList.add('hidden');
-                    tg.showPopup({message: '✅ Все обработано'});
-                    if (typeof loadPendingActions === 'function') loadPendingActions();
-                }
-            }
-        });
-
 // --- NEW Event Listener for Sort Order Inputs ---
         let sortOrderDebounceTimer;
         document.body.addEventListener('change', async (event) => {
