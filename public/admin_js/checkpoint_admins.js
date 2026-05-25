@@ -53,37 +53,36 @@ window.createCpTierRow = function(tier = null, index = 0) {
 
     const wrapper = document.createElement('div');
     wrapper.className = 'cp-tier-row admin-form'; 
-    wrapper.style.cssText = 'padding: 15px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.2); position: relative;';
+    // ДОБАВЛЕНО: margin-bottom и box-sizing
+    wrapper.style.cssText = 'padding: 15px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(0,0,0,0.2); position: relative; margin-bottom: 12px; box-sizing: border-box;';
 
     wrapper.innerHTML = `
-        <button type="button" class="admin-action-btn reject remove-tier-btn" style="position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; padding: 0;">
+        <button type="button" class="admin-action-btn reject remove-tier-btn" style="position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center; z-index: 2;">
             <i class="fa-solid fa-xmark"></i>
         </button>
         
-        <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 15px;">
-            <div style="flex: 1;">
-                <label style="color: #ff4757;">Уровень (Tier)</label>
-                <input type="number" class="tier-level" value="${data.level}" required style="font-weight: bold; font-size: 16px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 15px; padding-right: 35px;">
+            <div style="flex: 1 1 80px; min-width: 80px;">
+                <label style="color: #ff4757; font-size: 12px; display: block; margin-bottom: 4px;">Уровень (Tier)</label>
+                <input type="number" class="tier-level" value="${data.level}" required style="font-weight: bold; font-size: 16px; width: 100%; box-sizing: border-box;">
             </div>
-            <div style="flex: 2;">
-                <label style="color: #ffd700;">Требуется Звезд (EXP)</label>
-                <input type="number" class="tier-stars" value="${data.required_stars}" required>
+            <div style="flex: 2 1 120px; min-width: 120px;">
+                <label style="color: #ffd700; font-size: 12px; display: block; margin-bottom: 4px;">Требуется Звезд (EXP)</label>
+                <input type="number" class="tier-stars" value="${data.required_stars}" required style="width: 100%; box-sizing: border-box;">
             </div>
         </div>
 
-        <div style="display: flex; gap: 15px;">
-            <!-- FREE КОЛОНКА -->
-            <div style="flex: 1; padding: 10px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 6px;">
-                <h4 style="margin: 0 0 10px; text-align: center; color: #a4b0be;">FREE Награда</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            <div style="flex: 1 1 100%; min-width: 140px; padding: 12px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; box-sizing: border-box;">
+                <h4 style="margin: 0 0 10px; text-align: center; color: #a4b0be; font-size: 13px;">FREE Награда</h4>
                 ${getRewardTypeSelectHtml(data.free_reward.type, 'free')}
-                <input type="text" class="styled-input reward-value-input free-val" placeholder="Значение (кол-во или Hash Name)" value="${escapeHTML(String(data.free_reward.value))}" style="width: 100%;">
+                <input type="text" class="styled-input reward-value-input free-val" placeholder="Значение" value="${escapeHTML(String(data.free_reward.value))}" style="width: 100%; box-sizing: border-box; margin-top: 5px;">
             </div>
 
-            <!-- PREMIUM КОЛОНКА -->
-            <div style="flex: 1; padding: 10px; border: 1px solid rgba(255, 71, 87, 0.4); background: rgba(255, 71, 87, 0.05); border-radius: 6px;">
-                <h4 style="margin: 0 0 10px; text-align: center; color: #ff4757;">PREMIUM Награда</h4>
+            <div style="flex: 1 1 100%; min-width: 140px; padding: 12px; border: 1px solid rgba(255, 71, 87, 0.4); background: rgba(255, 71, 87, 0.05); border-radius: 8px; box-sizing: border-box;">
+                <h4 style="margin: 0 0 10px; text-align: center; color: #ff4757; font-size: 13px;">PREMIUM Награда</h4>
                 ${getRewardTypeSelectHtml(data.premium_reward.type, 'premium')}
-                <input type="text" class="styled-input reward-value-input premium-val" placeholder="Значение (кол-во или Hash Name)" value="${escapeHTML(String(data.premium_reward.value))}" style="width: 100%;">
+                <input type="text" class="styled-input reward-value-input premium-val" placeholder="Значение" value="${escapeHTML(String(data.premium_reward.value))}" style="width: 100%; box-sizing: border-box; margin-top: 5px;">
             </div>
         </div>
     `;
@@ -118,9 +117,9 @@ window.createCpQuestRow = function(mapping = null) {
     
     const wrapper = document.createElement('div');
     wrapper.className = 'cp-quest-row admin-form';
-    wrapper.style.cssText = 'display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);';
+    // ДОБАВЛЕНО: flex-wrap и box-sizing
+    wrapper.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px; box-sizing: border-box;';
 
-    // Строим options для селекта из кэша availableCpQuests
     let optionsHtml = '<option value="">-- Выберите задание --</option>';
     availableCpQuests.forEach(q => {
         const selected = (String(q.id) === String(data.quest_id)) ? 'selected' : '';
@@ -128,14 +127,14 @@ window.createCpQuestRow = function(mapping = null) {
     });
 
     wrapper.innerHTML = `
-        <select class="cp-quest-id-select styled-input" style="flex: 2; margin: 0;" required>
+        <select class="cp-quest-id-select styled-input" style="flex: 1 1 200px; margin: 0; min-width: 0; box-sizing: border-box;" required>
             ${optionsHtml}
         </select>
-        <div style="flex: 1; display: flex; align-items: center; gap: 5px;">
+        <div style="flex: 1 1 100px; display: flex; align-items: center; gap: 5px; min-width: 100px;">
             <i class="fa-solid fa-star" style="color: #ffd700;"></i>
-            <input type="number" class="cp-quest-exp styled-input" placeholder="EXP" value="${data.exp_reward}" required style="margin: 0;">
+            <input type="number" class="cp-quest-exp styled-input" placeholder="EXP" value="${data.exp_reward}" required style="margin: 0; width: 100%; box-sizing: border-box;">
         </div>
-        <button type="button" class="admin-action-btn reject remove-cp-quest-btn" style="width: 40px; height: 40px; padding: 0; flex-shrink: 0;">
+        <button type="button" class="admin-action-btn reject remove-cp-quest-btn" style="width: 40px; height: 40px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
             <i class="fa-solid fa-trash"></i>
         </button>
     `;
