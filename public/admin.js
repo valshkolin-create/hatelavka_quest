@@ -2868,9 +2868,14 @@ function setupEventListeners() {
             const subId = parseInt(actionButton.dataset.id);
             if (!subId || !card) return;
 
-            // Оптимистичный UI
+           // Оптимистичный UI
             card.style.opacity = '0.5'; 
-            const rollback = () => { card.style.opacity = '1'; };
+            actionButton.disabled = true; // Выключаем кнопку, чтобы не нажали еще раз
+            
+            const rollback = () => { 
+                card.style.opacity = '1'; 
+                actionButton.disabled = false; // Включаем обратно при ошибке
+            };
 
             try {
                 if (card.id.startsWith('submission-card-')) {
