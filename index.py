@@ -2176,7 +2176,8 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
 class MarketCSGO:
     def __init__(self, api_key: str, use_proxy: bool = True):
         self.api_key = api_key
-            self.base_url = "https://cs2.market/api/v2"
+        # Убрали слеш на конце, чтобы не было двойных слешей в URL
+        self.base_url = "https://cs2.market/api/v2" 
         self.use_proxy = use_proxy
 
     @staticmethod
@@ -2193,7 +2194,6 @@ class MarketCSGO:
 
     async def check_trade_link(self, trade_link: str):
         """Проверяет, живая ли ссылка через API Маркета"""
-        # ТУТ ДОЛЖНО БЫТЬ 8 ПРОБЕЛОВ ОТ КРАЯ (если функция внутри класса)
         params = {"trade_url": trade_link}
         response = await self._make_request("test-trade-url", params)
         
@@ -2209,7 +2209,6 @@ class MarketCSGO:
         import asyncio 
         import json 
 
-        # Данные оставляем те же
         PROXY_URL = "http://HatelovestreamertO5:bf0127fM6@node-ru-229.astroproxy.com:10065"
         CHANGE_IP_URL = "https://astroproxy.com/api/v1/ports/6522473/newip?token=3d054951f258a93f"
 
@@ -2217,9 +2216,10 @@ class MarketCSGO:
         params['key'] = self.api_key
         
         query_string = "&".join([f"{k}={urllib.parse.quote(str(v), safe='')}" for k, v in params.items()])
+        # Исправлено формирование URL (теперь без двойных слешей)
         url = f"{self.base_url}/{endpoint}?{query_string}"
         
-        # 🔥 ОБНОВЛЕННЫЕ ЗАГОЛОВКИ (Броня от Cloudflare)
+        # Броня от Cloudflare
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
@@ -2229,53 +2229,46 @@ class MarketCSGO:
             "Sec-Ch-Ua-Platform": '"Windows"'
         }
 
-        # Выбираем, использовать ли прокси
-       # Выбираем, использовать ли прокси
         client_args = {"headers": headers}
         if self.use_proxy:
-            client_args["proxies"] = PROXY_URL
+            # ИСПОЛЬЗУЕМ "proxy", а не "proxies" для новых версий httpx!
+            client_args["proxy"] = PROXY_URL
 
-        # 🔥 УМНЫЙ ТАЙМАУТ: 2 секунды на коннект к прокси, 10 на ответ от маркета
-        custom_timeout = httpx.Timeout(10.0, connect=2.0)
+        # 🔥 АДЕКВАТНЫЙ ТАЙМАУТ ДЛЯ РЕЗИДЕНТНЫХ ПРОКСИ: 
+        # 10 секунд на коннект к прокси-ноде, 15 на общий ответ
+        custom_timeout = httpx.Timeout(15.0, connect=10.0)
 
-        # ⚡️ РЕЖИМ ТЕРМИНАТОРА: разделенный таймаут
         async with httpx.AsyncClient(**client_args) as client:
             try:
-                # Используем наш кастомный таймаут
                 response = await client.get(url, timeout=custom_timeout)
                 
                 if response.status_code == 200:
                     return response.json()
                 
-                # Если любая ошибка (502, 403) и мы на прокси — сразу ротируем IP
                 if self.use_proxy:
                     async with httpx.AsyncClient() as rotator:
-                        await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                        await rotator.get(CHANGE_IP_URL, timeout=5.0)
                 return {"success": False, "error": f"status_{response.status_code}"}
 
             except httpx.ConnectTimeout:
-                # Сработает ровно через 2 секунды, если выданный Astroproxy IP - мертвый!
                 logging.warning("[MARKET] Мертвый IP прокси (ConnectTimeout). Меняем IP...")
                 if self.use_proxy:
                     try:
                         async with httpx.AsyncClient() as rotator:
-                            await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                            await rotator.get(CHANGE_IP_URL, timeout=5.0)
                     except: pass
                 return {"success": False, "error": "timeout_limit"}
 
             except httpx.ReadTimeout:
-                # Сработает через 10 секунд, если прокси живой, но сам МАРКЕТ тупит
                 logging.warning("[MARKET] Маркет долго думает (ReadTimeout).")
-                # Здесь IP менять НЕ ОБЯЗАТЕЛЬНО, проблема на стороне CS:GO Market
                 return {"success": False, "error": "timeout_limit"}
 
             except Exception as e:
-                # Для прочих ошибок (ошибка парсинга и т.д.)
                 logging.warning(f"[MARKET] Сбой: {e}. Меняем IP...")
                 if self.use_proxy:
                     try:
                         async with httpx.AsyncClient() as rotator:
-                            await rotator.get(CHANGE_IP_URL, timeout=0.8)
+                            await rotator.get(CHANGE_IP_URL, timeout=5.0)
                     except: pass
                 return {"success": False, "error": "timeout_limit"}
                 
