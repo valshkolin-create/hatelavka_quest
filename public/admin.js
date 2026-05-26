@@ -240,7 +240,8 @@ let categoriesCache = [];
 let adminQuestsCache = []; // Кэш для "Ручных заданий" (Q1)
 let adminTwitchRewardsCache = []; // Кэш для "Twitch Наград" (Q3)
 let currentEditingCategoryId = null;
-let hasAdminAccess = false; // Станет true после ввода пароля 6971
+// Проверяем временный кэш: если пароль уже вводили в этой сессии, сразу даем доступ
+let hasAdminAccess = sessionStorage.getItem('admin_unlocked') === 'true';
 const ADMIN_PASSWORD = '6971'; // Пароль для админ-функций
 let currentCauldronData = {};
 
@@ -2978,13 +2979,17 @@ function setupEventListeners() {
         });
     }
 
-    // 2. Кнопка "Подтвердить / Войти"
+   // 2. Кнопка "Подтвердить / Войти"
     if (dom.passwordPromptConfirm) {
         dom.passwordPromptConfirm.addEventListener('click', () => {
             const pwd = dom.passwordPromptInput.value.trim();
             
             if (pwd === ADMIN_PASSWORD) {
-                hasAdminAccess = true; // Открываем глобальный доступ
+                hasAdminAccess = true; 
+                
+                // 👇 СОХРАНЯЕМ В КЭШ БРАУЗЕРА (до закрытия вкладки) 👇
+                sessionStorage.setItem('admin_unlocked', 'true');
+                
                 dom.passwordPromptOverlay.classList.add('hidden');
                 dom.passwordPromptInput.value = '';
 
@@ -2993,13 +2998,12 @@ function setupEventListeners() {
                     el.style.display = 'block'; 
                 });
 
-                // Если пароль спросили для конкретного действия (например, шестеренка Twitch)
+                // Выполняем то действие, ради которого просили пароль (например, открытие настроек)
                 if (afterPasswordCallback) {
                     afterPasswordCallback();
                     afterPasswordCallback = null;
                 } else {
-                    // Если просто переходили по вкладке
-                    tg.showPopup({message: '✅ Доступ разрешен! Нажми на нужную вкладку еще раз.'});
+                    tg.showPopup({message: '✅ Доступ разрешен!'});
                 }
             } else {
                 tg.showAlert('❌ Неверный пароль!');
