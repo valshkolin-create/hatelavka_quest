@@ -2176,7 +2176,7 @@ def is_valid_init_data(init_data: str, valid_tokens: list[str]) -> dict | None:
 class MarketCSGO:
     def __init__(self, api_key: str, use_proxy: bool = True):
         self.api_key = api_key
-            self.base_url = "https://cs2.market/api/v2/"
+            self.base_url = "https://cs2.market/api/v2"
         self.use_proxy = use_proxy
 
     @staticmethod
