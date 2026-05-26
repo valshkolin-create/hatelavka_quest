@@ -3941,7 +3941,12 @@ async function main() {
         }
         
         updateSleepButton(sleepStatus);
-        await switchView('view-admin-main');
+await switchView('view-admin-main');
+
+// Фоновая загрузка счётчиков (без блокировки UI)
+if (typeof window.loadPendingActions === 'function') {
+    window.loadPendingActions().catch(e => console.warn('Фоновая загрузка pending:', e));
+}
 
          // 👇👇👇 ВСТАВЬТЕ ЭТОТ БЛОК ДЛЯ АВТО-ОТКРЫТИЯ ЗАЯВОК 👇👇👇
          const urlParams = new URLSearchParams(window.location.search);
