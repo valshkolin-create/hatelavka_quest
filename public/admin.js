@@ -755,9 +755,13 @@ const switchView = async (targetViewId) => {
                 break;
             }
             case 'view-admin-main': {
-               console.log("[switchView] Выполнен case 'view-admin-main'.");
-               break;
-            }
+    console.log("[switchView] Выполнен case 'view-admin-main'.");
+    renderRecentViews();
+    if (typeof window.loadPendingActions === 'function') {
+        window.loadPendingActions().catch(e => console.warn('Фоновая загрузка pending:', e));
+    }
+    break;
+}
             case 'view-admin-user-management': {
                 console.log("[switchView] Выполнен case 'view-admin-user-management'.");
                 // Сбрасываем видимость скрытых форм при переходе
