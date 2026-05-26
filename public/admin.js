@@ -2967,6 +2967,58 @@ function setupEventListeners() {
         });
     }
 
+    // --- 🔐 ОБРАБОТЧИКИ ДЛЯ ОКНА ВВОДА ПАРОЛЯ 🔐 ---
+    
+    // 1. Кнопка "Отмена"
+    if (dom.passwordPromptCancel) {
+        dom.passwordPromptCancel.addEventListener('click', () => {
+            dom.passwordPromptOverlay.classList.add('hidden');
+            dom.passwordPromptInput.value = '';
+            afterPasswordCallback = null; // Сбрасываем зависшее действие, если было
+        });
+    }
+
+    // 2. Кнопка "Подтвердить / Войти"
+    if (dom.passwordPromptConfirm) {
+        dom.passwordPromptConfirm.addEventListener('click', () => {
+            const pwd = dom.passwordPromptInput.value.trim();
+            
+            if (pwd === ADMIN_PASSWORD) {
+                hasAdminAccess = true; // Открываем глобальный доступ
+                dom.passwordPromptOverlay.classList.add('hidden');
+                dom.passwordPromptInput.value = '';
+
+                // Физически показываем все скрытые элементы HATElavka для админа
+                document.querySelectorAll('.admin-feature-6971').forEach(el => {
+                    el.style.display = 'block'; 
+                });
+
+                // Если пароль спросили для конкретного действия (например, шестеренка Twitch)
+                if (afterPasswordCallback) {
+                    afterPasswordCallback();
+                    afterPasswordCallback = null;
+                } else {
+                    // Если просто переходили по вкладке
+                    tg.showPopup({message: '✅ Доступ разрешен! Нажми на нужную вкладку еще раз.'});
+                }
+            } else {
+                tg.showAlert('❌ Неверный пароль!');
+                dom.passwordPromptInput.value = '';
+            }
+        });
+    }
+
+    // 3. Удобство: Обработка нажатия Enter в самом поле ввода
+    if (dom.passwordPromptInput) {
+        dom.passwordPromptInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                dom.passwordPromptConfirm.click();
+            }
+        });
+    }
+    // --- КОНЕЦ БЛОКА ПАРОЛЯ ---
+
     if(dom.sleepPromptCancel) dom.sleepPromptCancel.addEventListener('click', () => dom.sleepPromptOverlay.classList.add('hidden'));
     if(dom.sleepPromptConfirm) {
         dom.sleepPromptConfirm.addEventListener('click', async () => {
