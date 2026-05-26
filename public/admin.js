@@ -3837,10 +3837,40 @@ function setupEventListeners() {
             }
         });
     }
+
+// --- ⚡️ ФУНКЦИЯ МОЛНИЕНОСНОЙ ОТРИСОВКИ БЕЙДЖЕЙ ---
+function drawBadgesInstantly() {
+    try {
+        // Достаем из кэша значок Заявок
+        const cachedMain = localStorage.getItem('admin_badge_main');
+        const mainBadge = document.getElementById('main-pending-count');
+        if (mainBadge && cachedMain && cachedMain !== '0') {
+            mainBadge.textContent = cachedMain;
+            mainBadge.classList.remove('hidden');
+        }
+
+        // Достаем из кэша значок Магазина
+        const cachedShop = localStorage.getItem('admin_badge_shop');
+        const shopBadge = document.getElementById('shop-badge-main');
+        if (shopBadge && cachedShop && cachedShop !== '0') {
+            shopBadge.textContent = cachedShop;
+            shopBadge.classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error("Ошибка чтения кэша бейджей:", e);
+    }
+}
     
 async function main() {
     try {
         tg.expand();
+
+        // 👇 ВСТАВЛЯЕМ СЮДА 👇
+        if (typeof drawBadgesInstantly === 'function') {
+            drawBadgesInstantly(); 
+        }
+        // 👆 =============== 👆
+
         // --- ЛОГ 1: Проверяем initData ---
         console.log("main(): Проверка tg.initData:", tg.initData);
         if (!tg.initData) {
@@ -3849,9 +3879,13 @@ async function main() {
         }
 
         showLoader();
-        const [userData, sleepStatus] = await Promise.all([
+        
+        // 🚀 ГЛАВНЫЙ ФИКС: ЗАПУСКАЕМ ВСЕ 4 ЗАПРОСА ОДНОВРЕМЕННО 🚀
+        const [userData, sleepStatus, counts, p2pTrades] = await Promise.all([
             makeApiRequest("/api/v1/user/me", {}, 'POST', true),
-            makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true)
+            makeApiRequest("/api/v1/admin/sleep_mode_status", {}, 'POST', true),
+            makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true).catch(() => ({})),
+            makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true).catch(() => ([]))
         ]);
 
         // --- ЛОГ 2: Проверяем ответ от /user/me ---
@@ -3859,48 +3893,41 @@ async function main() {
         // --- ЛОГ 3: Проверяем результат проверки админа ---
         console.log(`main(): Проверка userData.is_admin. Значение: ${userData?.is_admin}. Результат проверки (!userData.is_admin): ${!userData?.is_admin}`);
 
-        if (!userData.is_admin) {
+        if (!userData || !userData.is_admin) {
             // --- ЛОГ 4: Фиксируем момент выбрасывания ошибки ---
             console.error("main(): ОШИБКА ДОСТУПА! userData.is_admin НЕ true. Выбрасываем ошибку.");
             throw new Error("Доступ запрещен.");
         }
         
-        // ЗАПРОС СЧЕТЧИКОВ ПЕРЕД ПОКАЗОМ ГЛАВНОГО ЭКРАНА
+        // --- ⚡ СРАЗУ РИСУЕМ БЕЙДЖИ ИЗ ПОЛУЧЕННЫХ ДАННЫХ И ОБНОВЛЯЕМ КЭШ ⚡ ---
         try {
-            const counts = await makeApiRequest("/api/v1/admin/pending_counts", {}, 'POST', true);
+            // 1. Заявки (Submissions)
             const totalPending = (counts.submissions || 0) + (counts.event_prizes || 0) + (counts.checkpoint_prizes || 0);
-            
             const mainBadge = document.getElementById('main-pending-count');
             if (mainBadge) {
                 mainBadge.textContent = totalPending;
                 mainBadge.classList.toggle('hidden', totalPending === 0);
+                localStorage.setItem('admin_badge_main', totalPending); // 💾 СОХРАНЯЕМ В КЭШ
             }
 
-            // --- ДОБАВЛЕНО: Обновление бейджа магазина ---
+            // 2. Магазин (Shop)
             const shopBadge = document.getElementById('shop-badge-main');
             if (shopBadge) {
                 const shopCount = counts.shop_prizes || 0;
                 shopBadge.textContent = shopCount;
                 shopBadge.classList.toggle('hidden', shopCount === 0);
+                localStorage.setItem('admin_badge_shop', shopCount); // 💾 СОХРАНЯЕМ В КЭШ
             }
-            // --- КОНЕЦ ДОБАВЛЕНИЯ ---
-            
-            // 👇👇👇 ДОБАВИТЬ ЭТОТ БЛОК НИЖЕ 👇👇👇
-            // --- P2P БЕЙДЖ (Загружаем список, чтобы посчитать активные) ---
-            try {
-                const p2pTrades = await makeApiRequest('/api/v1/admin/p2p/list', {}, 'POST', true);
-                updateP2PBadge(p2pTrades); // Используем существующую функцию для обновления бейджа
-            } catch (p2pErr) {
-                console.error("Ошибка загрузки P2P бейджа при старте:", p2pErr);
-            }
-            // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
 
-        } catch (countError) {
-            console.error("Не удалось загрузить счетчики:", countError);
-            const mainBadge = document.getElementById('main-pending-count');
-            if (mainBadge) mainBadge.classList.add('hidden');
+            // 3. P2P Бейдж
+            if (typeof updateP2PBadge === 'function') {
+                updateP2PBadge(p2pTrades); 
+            }
+        } catch (badgeError) {
+            console.error("Ошибка при отрисовке бейджей:", badgeError);
         }
-        
+        // --- КОНЕЦ БЛОКА БЕЙДЖЕЙ ---
+
         // Этот код не должен выполниться, если нет доступа
         console.log("main(): Доступ разрешен. Установка isAdmin=true и переключение вида.");
         document.body.dataset.isAdmin = 'true';
@@ -3917,40 +3944,40 @@ async function main() {
         await switchView('view-admin-main');
 
          // 👇👇👇 ВСТАВЬТЕ ЭТОТ БЛОК ДЛЯ АВТО-ОТКРЫТИЯ ЗАЯВОК 👇👇👇
-            const urlParams = new URLSearchParams(window.location.search);
-            const tabParam = urlParams.get('tab');
+         const urlParams = new URLSearchParams(window.location.search);
+         const tabParam = urlParams.get('tab');
 
-            if (tabParam === 'shop') {
-                // 1. Переключаем экран на Магазин
-                await switchView('view-admin-shop');
-                
-                // 2. Делаем кнопку "Магазин" активной в нижнем меню (визуально)
-                document.querySelectorAll('.admin-icon-button').forEach(btn => {
-                    if (btn.dataset.view === 'view-admin-shop') {
-                        // Можно добавить класс активной кнопки, если у вас это реализовано
-                    }
-                });
-                
-                // 3. (Опционально) Если заявки в магазине открываются в еще одной модалке, 
-                // вызываем функцию её открытия здесь:
-                // openAdminOrders(); 
-            }
-            // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
-            renderRecentViews();
+         if (tabParam === 'shop') {
+             // 1. Переключаем экран на Магазин
+             await switchView('view-admin-shop');
+             
+             // 2. Делаем кнопку "Магазин" активной в нижнем меню (визуально)
+             document.querySelectorAll('.admin-icon-button').forEach(btn => {
+                 if (btn.dataset.view === 'view-admin-shop') {
+                     // Можно добавить класс активной кнопки, если у вас это реализовано
+                 }
+             });
+             
+             // 3. (Опционально) Если заявки в магазине открываются в еще одной модалке, 
+             // вызываем функцию её открытия здесь:
+             // openAdminOrders(); 
+         }
+         // 👆👆👆 КОНЕЦ ВСТАВКИ 👆👆👆
+         
+         renderRecentViews();
 
-        } catch (e) {
-            // --- ЛОГ 5: Фиксируем ошибку в блоке catch ---
-            console.error("main(): Ошибка поймана в блоке catch:", e.message);
-            document.body.dataset.isAdmin = 'false';
-            if(dom.sleepModeToggle) dom.sleepModeToggle.classList.add('hidden');
-            if(dom.appContainer) dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
-        } finally {
-            // --- ЛОГ 6: Фиксируем выполнение finally ---
-            console.log("main(): Блок finally выполняется.");
-            hideLoader();
-        }
+    } catch (e) {
+        // --- ЛОГ 5: Фиксируем ошибку в блоке catch ---
+        console.error("main(): Ошибка поймана в блоке catch:", e.message);
+        document.body.dataset.isAdmin = 'false';
+        if(dom.sleepModeToggle) dom.sleepModeToggle.classList.add('hidden');
+        if(dom.appContainer) dom.appContainer.innerHTML = `<div style="padding:20px; text-align:center;"><h1>${e.message}</h1><p>Убедитесь, что вы являетесь администратором.</p></div>`;
+    } finally {
+        // --- ЛОГ 6: Фиксируем выполнение finally ---
+        console.log("main(): Блок finally выполняется.");
+        hideLoader();
     }
-    // --- ФУНКЦИИ АДВЕНТ КАЛЕНДАРЯ ---
+}
 
 // ⬆️⬆️⬆️ КОНЕЦ ВСТАВКИ ⬆️⬆️⬆️
 
