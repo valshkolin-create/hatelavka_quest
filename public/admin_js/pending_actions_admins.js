@@ -344,45 +344,5 @@ window.setupPendingActionsEventListeners = function() {
             return;
         }
 
-        // --- ОБРАБОТКА ЗАЯВКИ (Одобрить/Отклонить/Тихо) ---
-        const actionButton = target.closest('.admin-action-btn.approve, .admin-action-btn.reject, .admin-action-btn.reject-silent');
-        if (actionButton && actionButton.closest('.admin-submission-card')) {
-            const action = actionButton.dataset.action;
-            const card = actionButton.closest('.admin-submission-card');
-            const subId = parseInt(actionButton.dataset.id);
-            if (!subId) return;
-
-            // Оптимистично скрываем карточку
-            card.style.opacity = '0.5'; 
-            const rollback = () => { card.style.opacity = '1'; };
-
-            try {
-                if (card.id.startsWith('submission-card-')) {
-                    makeApiRequest('/api/v1/admin/submission/update', { submission_id: subId, action: action }, 'POST', true)
-                        .then(() => { card.remove(); checkEmptyList(); })
-                        .catch(e => { rollback(); tg.showAlert(`Ошибка: ${e.message}`); });
-                } 
-                else if (card.id.startsWith('prize-card-')) {
-                    const endpoint = action === 'approved' ? '/api/v1/admin/manual_rewards/complete' : '/api/v1/admin/manual_rewards/reject';
-                    const payload = { reward_id: subId };
-                    if(action === 'rejected_silent') payload.is_silent = true;
-
-                    makeApiRequest(endpoint, payload, 'POST', true)
-                        .then(() => { card.remove(); checkEmptyList(); })
-                        .catch(e => { rollback(); tg.showAlert(`Ошибка: ${e.message}`); });
-                }
-            } catch (e) { rollback(); }
-
-            // Функция проверки на пустоту
-            function checkEmptyList() {
-                const modalBody = document.getElementById('modal-body');
-                if (modalBody && modalBody.querySelectorAll('.admin-submission-card').length === 0) {
-                    document.getElementById('submissions-modal')?.classList.add('hidden');
-                    tg.showPopup({message: '✅ Все обработано'});
-                    // Фоновое обновление счетчика
-                    window.loadPendingActions();
-                }
-            }
-        }
     });
 };
