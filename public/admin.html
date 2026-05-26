@@ -54,6 +54,14 @@
             <div class="icon-wrapper">
                 <i class="fa-solid fa-user-check"></i>
                 <span class="notification-badge hidden" id="main-pending-count">0</span>
+                <!-- ⚡ МГНОВЕННАЯ ОТРИСОВКА ЗАЯВОК -->
+                <script>
+                    let cMain = localStorage.getItem('admin_badge_main');
+                    if (cMain && cMain !== '0') {
+                        document.getElementById('main-pending-count').textContent = cMain;
+                        document.getElementById('main-pending-count').classList.remove('hidden');
+                    }
+                </script>
             </div>
             <span>Выдача и проверки</span>
         </div>
@@ -76,6 +84,14 @@
             <div class="icon-wrapper" style="color: #ffcc00;">
                 <i class="fa-solid fa-cart-shopping"></i>
                 <span class="notification-badge hidden" id="shop-badge-main">0</span>
+                <!-- ⚡ МГНОВЕННАЯ ОТРИСОВКА МАГАЗИНА -->
+                <script>
+                    let cShop = localStorage.getItem('admin_badge_shop');
+                    if (cShop && cShop !== '0') {
+                        document.getElementById('shop-badge-main').textContent = cShop;
+                        document.getElementById('shop-badge-main').classList.remove('hidden');
+                    }
+                </script>
             </div>
             <span>Магазин</span>
         </div>
@@ -84,6 +100,14 @@
             <div class="icon-wrapper" style="color: #00bcd4;">
                 <i class="fa-solid fa-right-left"></i>
                 <span class="notification-badge hidden" id="p2p-badge-main">0</span>
+                <!-- ⚡ МГНОВЕННАЯ ОТРИСОВКА P2P -->
+                <script>
+                    let cP2p = localStorage.getItem('admin_badge_p2p');
+                    if (cP2p && cP2p !== '0') {
+                        document.getElementById('p2p-badge-main').textContent = cP2p;
+                        document.getElementById('p2p-badge-main').classList.remove('hidden');
+                    }
+                </script>
             </div>
             <span>TRADE KEYS P2P</span>
         </div>
@@ -1886,10 +1910,32 @@
     </div>
 </div>
 
+  <script>
+    (function() {
+        try {
+            // Заявки
+            const cachedMain = localStorage.getItem('admin_badge_main');
+            const mainBadge = document.getElementById('main-pending-count');
+            if (mainBadge && cachedMain && cachedMain !== '0') {
+                mainBadge.textContent = cachedMain;
+                mainBadge.classList.remove('hidden');
+            }
+
+            // Магазин
+            const cachedShop = localStorage.getItem('admin_badge_shop');
+            const shopBadge = document.getElementById('shop-badge-main');
+            if (shopBadge && cachedShop && cachedShop !== '0') {
+                shopBadge.textContent = cachedShop;
+                shopBadge.classList.remove('hidden');
+            }
+        } catch (e) {}
+    })();
+</script>
+
 
 <!-- НИЖНИЙ И ВЕРХНИЙ БАР -->
     <script src="/top_nav.js" defer></script>
-    <script src="/bottom-nav.js"></script>
+    <script src="/bottom-nav.js" defer></script>
 <!-- НИЖНИЙ И ВЕРХНИЙ БАР -->
     <script src="admin.js?v=1.2" defer></script>
     <script src="admin_js/twitch_admins.js" defer></script>
