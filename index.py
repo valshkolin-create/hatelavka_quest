@@ -3034,7 +3034,7 @@ async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get
 
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get("https://market.csgo.com/api/v2/prices/class_instance/RUB.json", timeout=60.0)
+            resp = await client.get("https://cs2.market/api/v2//prices/class_instance/RUB.json", timeout=60.0)
             if resp.status_code != 200:
                 return {"error": "Market API failed"}
             
@@ -3333,7 +3333,7 @@ async def sync_steam_inventory(
         try:
             # Передаем заголовки в клиент
             async with httpx.AsyncClient(headers=cf_headers) as client:
-                price_resp = await client.get("https://market.csgo.com/api/v2/prices/RUB.json", timeout=30.0)
+                price_resp = await client.get("https://cs2.market/api/v2/prices/RUB.json", timeout=30.0)
                 if price_resp.status_code == 200:
                     market_data = price_resp.json()
                     for item in market_data.get("items", []):
@@ -17497,7 +17497,7 @@ async def get_second_account_balance():
     if not api_key:
         raise HTTPException(status_code=500, detail="Ключ второго аккаунта не настроен")
 
-    url = f"https://market.csgo.com/api/v2/get-money?key={api_key}"
+    url = f"https://cs2.market/api/v2/get-money?key={api_key}"
     
     async with httpx.AsyncClient() as client:
         resp = await client.get(url)
@@ -17534,7 +17534,7 @@ async def transfer_money(request: TransferRequest):
     market_amount = int(request.amount * 100)
 
     # Формируем URL для перевода
-    url = f"https://market.csgo.com/api/v2/money-send/{market_amount}/{main_api_key}?key={sender_api_key}&pay_pass={sender_pay_pass}"
+    url = f"https://cs2.market/api/v2/money-send/{market_amount}/{main_api_key}?key={sender_api_key}&pay_pass={sender_pay_pass}"
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(url) # Маркет использует GET даже для действий
@@ -21406,7 +21406,7 @@ async def check_trade_status_endpoint(
         # Увеличиваем таймаут, так как Маркет может долго «думать»
         async with httpx.AsyncClient(timeout=15.0) as client:
             tm_res = await client.get(
-                "https://market.csgo.com/api/v2/get-buy-info-by-custom-id",
+                "https://cs2.market/api/v2/get-buy-info-by-custom-id",
                 params={
                     "key": TM_API_KEY,
                     "custom_id": custom_id
@@ -23132,7 +23132,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
             try:
                 tm_res = await client.get(
-                    f"https://market.csgo.com/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}"
+                    f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}"
                 )
                 
                 if tm_res.status_code != 200:
