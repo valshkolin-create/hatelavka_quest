@@ -47,26 +47,28 @@ window.loadPendingActions = async function() {
 
 // 🔥 Обновленная функция, которая видит ВСЕ типы уведомлений
 // 🔥 Обновленная функция с вытягиванием бейджей поверх папок
+// 🔥 Финальная версия: исправлены папки и добавлено авто-обновление "Недавних"
 window.updateBadgesOnMainGrid = function(groupedSubmissions, allEventPrizes, allCheckpointPrizes) {
-    // Берем ВООБЩЕ ВСЕ кнопки на рабочем столе (и папки, и обычные)
     const allButtons = document.querySelectorAll('#tab-content-main .admin-icon-button');
-    
     if (allButtons.length === 0) return;
 
-    // 1. Очищаем абсолютно все старые бейджи, чтобы не было дублей
+    // 1. Очищаем все старые бейджи на Рабочем столе
     document.querySelectorAll('#tab-content-main .notification-badge').forEach(badge => badge.remove());
 
-    // Считаем общие суммы
+    // 2. Считаем общие суммы уведомлений
     const totalSubmissions = (groupedSubmissions || []).reduce((acc, item) => acc + (item.pending_count || 0), 0);
     const totalEvents = (allEventPrizes || []).length;
     const totalCheckpoints = (allCheckpointPrizes || []).length;
     const totalAll = totalSubmissions + totalEvents + totalCheckpoints;
 
-    if (totalAll === 0) return;
+    // Если нет уведомлений, стираем старые бейджи с "Недавних" и выходим
+    if (totalAll === 0) {
+        if (window.AdminRecentItems) window.AdminRecentItems.render();
+        return;
+    }
 
-    // 2. Раздаем бейджи на ВСЕ кнопки (в том числе на те, что спрятаны внутри папок)
+    // 3. Раздаем бейджи на ВСЕ обычные кнопки (папки пока пропускаем)
     allButtons.forEach(btn => {
-        // Папки пока пропускаем, обработаем их на следующем шаге
         if (btn.classList.contains('admin-folder')) return;
 
         const titleSpan = btn.querySelector('span');
@@ -81,9 +83,7 @@ window.updateBadgesOnMainGrid = function(groupedSubmissions, allEventPrizes, all
             badgeCount = totalEvents;
         } else if (btnTitle.includes('чекпоинт')) {
             badgeCount = totalCheckpoints;
-            
         } else {
-            // Проверяем точечные совпадения (если вынес конкретный квест на рабочий стол)
             const match = (groupedSubmissions || []).find(sub => 
                 (sub.quest_title && sub.quest_title.trim().toLowerCase() === btnTitle) || 
                 (sub.title && sub.title.trim().toLowerCase() === btnTitle)
@@ -91,28 +91,26 @@ window.updateBadgesOnMainGrid = function(groupedSubmissions, allEventPrizes, all
             if (match) badgeCount = match.pending_count || 0;
         }
 
-        // Вешаем кружочек на саму кнопку
+        // Вешаем кружочек на обычную кнопку
         if (badgeCount > 0) {
             const iconWrapper = btn.querySelector('.icon-wrapper');
             if (iconWrapper) {
                 const badge = document.createElement('span');
                 badge.className = 'notification-badge';
-                badge.dataset.count = badgeCount; // Сохраняем в dataset, чтобы папка могла это прочитать
+                badge.dataset.count = badgeCount; // Сохраняем для папок
                 badge.textContent = badgeCount;
                 iconWrapper.appendChild(badge);
             }
         }
     });
 
-    // 3. 🔥 МАГИЯ ПАПОК: Вытягиваем кружочки наверх 🔥
+    // 4. 🔥 МАГИЯ ПАПОК: Вешаем кружочки СНАРУЖИ папки, чтобы не обрезалось
     const folders = document.querySelectorAll('#tab-content-main .admin-folder');
     folders.forEach(folder => {
         let folderTotal = 0;
         
-        // Сначала проверяем, вдруг сама папка называется "Заявки" или "Розыгрыши"
-        // (Ищем span, который является прямым ребенком папки, чтобы не захватить содержимое)
+        // Сначала проверяем название самой папки
         const titleSpan = Array.from(folder.children).find(el => el.tagName.toLowerCase() === 'span');
-        
         if (titleSpan) {
             const folderTitle = titleSpan.innerText.trim().toLowerCase();
             if (folderTitle.includes('заявк') || folderTitle.includes('проверк') || folderTitle.includes('ожидают')) {
@@ -124,8 +122,7 @@ window.updateBadgesOnMainGrid = function(groupedSubmissions, allEventPrizes, all
             }
         }
 
-        // Если папка называется как-то иначе (например, "Управление"), 
-        // просто суммируем бейджи всех кнопок, которые лежат ВНУТРИ неё
+        // Если это обычная папка, просто суммируем бейджи ярлыков внутри неё
         if (folderTotal === 0) {
             const innerBadges = folder.querySelectorAll('.folder-contents .notification-badge');
             innerBadges.forEach(b => {
@@ -133,18 +130,26 @@ window.updateBadgesOnMainGrid = function(groupedSubmissions, allEventPrizes, all
             });
         }
 
-        // Если насчитали хоть одно уведомление — вешаем бейдж ПОВЕРХ папки
+        // Вешаем бейдж ПОВЕРХ папки (наружу от overflow: hidden)
         if (folderTotal > 0) {
-            const folderWrapper = folder.querySelector('.folder-wrapper');
-            if (folderWrapper) {
-                const folderBadge = document.createElement('span');
-                folderBadge.className = 'notification-badge';
-                folderBadge.textContent = folderTotal;
-                folderBadge.style.zIndex = '10'; // Гарантирует, что кружок будет поверх мини-иконок
-                folderWrapper.appendChild(folderBadge);
-            }
+            const folderBadge = document.createElement('span');
+            folderBadge.className = 'notification-badge';
+            folderBadge.textContent = folderTotal;
+            
+            // Принудительно вытягиваем бейдж в правый верхний угол самой папки
+            folderBadge.style.position = 'absolute';
+            folderBadge.style.top = '-4px';
+            folderBadge.style.right = '-4px';
+            folderBadge.style.zIndex = '99';
+            
+            folder.style.position = 'relative'; 
+            folder.appendChild(folderBadge);
         }
     });
+
+    // 5. 🔥 ПЕРЕРИСОВЫВАЕМ НЕДАВНИЕ 🔥
+    // Это заставит "Недавно использованные" скопировать кнопки УЖЕ С БЕЙДЖАМИ
+    if (window.AdminRecentItems) window.AdminRecentItems.render();
 };
 
 window.renderGroupedItemsGrid = function(containerId, groupedData) {
