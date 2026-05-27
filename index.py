@@ -19387,6 +19387,41 @@ async def claim_matrix_reward(
 
     return {"success": True, "message": "Награда успешно получена!"}
 
+def check_bot_penalty(full_name: str, username: str) -> bool:
+    """Проверяет, есть ли чужой бот в нике/имени."""
+    text = f"{full_name or ''} {username or ''}".lower()
+    # Убираем нашего бота (разрешено), даже если есть собачка
+    text = re.sub(r'@?hatelavka_bot', '', text)
+    # Ищем любые другие упоминания, оканчивающиеся на bot (например, @scam_bot, superbot)
+    return bool(re.search(r'\w*bot\b', text))
+
+def clean_bot_ads(text: str) -> str:
+    """Очищает строку от чужих ботов (для публикации итогов)."""
+    if not text: return ""
+    words = text.split()
+    cleaned = []
+    for w in words:
+        w_lower = w.lower()
+        # Если слово содержит bot, но не наше - пропускаем (удаляем)
+        if 'bot' in w_lower and 'hatelavka' not in w_lower:
+            continue
+        cleaned.append(w)
+    return " ".join(cleaned)
+
+def center_text(text: str, width: int = 35) -> str:
+    """
+    Центрирует текст невидимыми символами для Telegram.
+    width - примерная ширина экрана мобильного устройства в символах.
+    """
+    braille_space = "⠀" # Невидимый символ U+2800
+    lines = text.split('\n')
+    centered_lines = []
+    for line in lines:
+        clean_line = re.sub(r'<[^>]+>', '', line) # Игнорируем HTML теги
+        padding_len = max(0, (width - len(clean_line)) // 2)
+        centered_lines.append((braille_space * padding_len) + line)
+    return '\n'.join(centered_lines)
+
 # ==========================================
 # 📸 UPLOAD SYSTEM (ЗАГРУЗКА ФОТО)
 # ==========================================
@@ -20234,9 +20269,21 @@ async def join_raffle(
     except Exception as e:
         print(f"⚠️ Button Upd Error: {e}")
 
-    print(f"✅ User {user_id} joined raffle {req.raffle_id}")
-    return {"message": "Участие принято! 🍀"}
+    # --- 🔥 НОВОЕ: ПРОВЕРКА НА ПЕНАЛЬТИ ДЛЯ ВЫВОДА ALERT ---
+    full_name = user_row.get('full_name', '')
+    username = user_row.get('username', '')
+    
+    # Стандартное сообщение
+    success_msg = "Участие принято! 🍀"
+    
+    # Проверяем наличие чужого бота (убедись, что функция check_bot_penalty добавлена в код выше)
+    if check_bot_penalty(full_name, username):
+        success_msg = "⚠️ В вашем профиле найден тег другого бота!\n\nВаши шансы на победу во ВСЕХ розыгрышах снижены на 20%. Чтобы вернуть шанс, уберите тег из имени/юзернейма.\n\nУчастие принято! 🍀"
 
+    print(f"✅ User {user_id} joined raffle {req.raffle_id}")
+    
+    return {"message": success_msg}
+    
 # 5. (Юзер + OBS) Список
 @app.post("/api/v1/raffles/active")
 async def get_user_raffles(
@@ -20322,8 +20369,11 @@ async def finalize_raffle_webhook(
     raffle_data = lock_resp.json()
     raffle = raffle_data[0]
 
-    # 3. ПОЛУЧАЕМ УЧАСТНИКОВ И НАСТРОЙКИ
-    parts_resp = await supabase.get("/raffle_participants", params={"raffle_id": f"eq.{raffle_id}"})
+    # 3. ПОЛУЧАЕМ УЧАСТНИКОВ И ИХ ИМЕНА ИЗ ТАБЛИЦЫ USERS (ДЛЯ ПРОВЕРКИ ТЕГОВ)
+    parts_resp = await supabase.get("/raffle_participants", params={
+        "raffle_id": f"eq.{raffle_id}",
+        "select": "*, user:users(full_name, username)"
+    })
     participants = parts_resp.json() or []
     count = len(participants)
 
@@ -20424,12 +20474,20 @@ async def finalize_raffle_webhook(
                 import random # Убедимся, что random доступен
                 crypto_gen = random.SystemRandom()
                 
-                # Перемешиваем
-                for _ in range(3):
-                    crypto_gen.shuffle(pool)
+                # --- 🔥 ВЕСОВОЙ РАНДОМ (ШТРАФ 20%) ---
+                weights = []
+                for p in pool:
+                    u_data = p.get('user') or {}
+                    f_name = u_data.get('full_name', '')
+                    u_name = u_data.get('username', '')
+                    
+                    if check_bot_penalty(f_name, u_name):
+                        weights.append(0.8) # Режем вероятность на 20%
+                    else:
+                        weights.append(1.0) # Стандартный шанс
                 
-                # Выбираем
-                winner_entry = crypto_gen.choice(pool)
+                # Выбираем с учетом весов
+                winner_entry = crypto_gen.choices(pool, weights=weights, k=1)[0]
                 winner_id = winner_entry['user_id']
                 
         elif raffle['type'] == 'most_active':
@@ -20566,6 +20624,15 @@ async def finalize_raffle_webhook(
                 )
 
                 print(f"⏱ [{time.time() - start_time:.2f}s] Предмет выдан в БД, кэш маркета проверен")
+
+                # --- ОЧИЩАЕМ ИМЕНА ОТ РЕКЛАМЫ ЧУЖИХ БОТОВ ---
+                raw_full_name = winner_data.get('full_name', 'Счастливчик')
+                raw_username = winner_data.get('username', '')
+                
+                winner_name = clean_bot_ads(raw_full_name) or "Счастливчик"
+                
+                cleaned_username = clean_bot_ads(raw_username)
+                winner_username = f"(@{cleaned_username})" if cleaned_username else ""
 
                 # ==========================================
                 # ФОРМИРУЕМ И ОТПРАВЛЯЕМ ПОСТ О ПОБЕДЕ (Только если не тихий режим)
