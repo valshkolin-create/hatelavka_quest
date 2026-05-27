@@ -575,7 +575,7 @@
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ query: q, min_price: minP, max_price: maxP, offset: currentOffset })
                 });
-                const items = await res.json();
+                let items = await res.json();
                 
                 if (isNewSearch) cont.innerHTML = '';
                 else {
@@ -583,13 +583,28 @@
                     if (l) l.remove();
                 }
 
+                // --- НАШ ФИЛЬТР ОТ МУСОРА ---
+                items = items.filter(item => {
+                    const name = (item.market_hash_name || '').toLowerCase();
+                    const img = item.image_url || '';
+                    
+                    const hasImage = img.trim() !== '';
+                    const isSouvenir = name.includes('souvenir') || name.includes('сувенир');
+                    const isCaseOrTrash = name.includes('case') || name.includes('кейс') || 
+                                          name.includes('capsule') || name.includes('капсула') ||
+                                          name.includes('package') || name.includes('пакет');
+
+                    return hasImage && !isSouvenir && !isCaseOrTrash;
+                });
+                // ----------------------------
+
                 if (!items || items.length === 0) {
                     hasMoreItems = false;
                     if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
                     return;
                 }
 
-                // Если пришло меньше лимита, больше грузить нечего
+                // Если после фильтрации осталось меньше лимита, больше грузить нечего
                 if (items.length < 30) hasMoreItems = false;
 
                 items.forEach(item => {
