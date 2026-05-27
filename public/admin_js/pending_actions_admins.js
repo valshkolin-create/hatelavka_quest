@@ -46,62 +46,102 @@ window.loadPendingActions = async function() {
 };
 
 // 🔥 Обновленная функция, которая видит ВСЕ типы уведомлений
+// 🔥 Обновленная функция с вытягиванием бейджей поверх папок
 window.updateBadgesOnMainGrid = function(groupedSubmissions, allEventPrizes, allCheckpointPrizes) {
-    const mainGridButtons = document.querySelectorAll('#tab-content-main .admin-icon-button, #tab-content-main .folder-contents .admin-icon-button');
+    // Берем ВООБЩЕ ВСЕ кнопки на рабочем столе (и папки, и обычные)
+    const allButtons = document.querySelectorAll('#tab-content-main .admin-icon-button');
     
-    if (mainGridButtons.length === 0) return;
+    if (allButtons.length === 0) return;
 
-    // Сначала удаляем все старые бейджи
-    mainGridButtons.forEach(btn => {
-        const existingBadge = btn.querySelector('.notification-badge');
-        if (existingBadge) existingBadge.remove();
-    });
+    // 1. Очищаем абсолютно все старые бейджи, чтобы не было дублей
+    document.querySelectorAll('#tab-content-main .notification-badge').forEach(badge => badge.remove());
 
-    // Считаем количество для всех разделов
+    // Считаем общие суммы
     const totalSubmissions = (groupedSubmissions || []).reduce((acc, item) => acc + (item.pending_count || 0), 0);
     const totalEvents = (allEventPrizes || []).length;
     const totalCheckpoints = (allCheckpointPrizes || []).length;
-    
-    // Общая сумма всех уведомлений для глобальной кнопки
     const totalAll = totalSubmissions + totalEvents + totalCheckpoints;
 
-    if (totalAll === 0) return; // Нет уведомлений вообще - выходим
+    if (totalAll === 0) return;
 
-    // Перебираем кнопки и вешаем цифры
-    mainGridButtons.forEach(btn => {
+    // 2. Раздаем бейджи на ВСЕ кнопки (в том числе на те, что спрятаны внутри папок)
+    allButtons.forEach(btn => {
+        // Папки пока пропускаем, обработаем их на следующем шаге
+        if (btn.classList.contains('admin-folder')) return;
+
         const titleSpan = btn.querySelector('span');
         if (!titleSpan) return;
         
         const btnTitle = titleSpan.innerText.trim().toLowerCase();
         let badgeCount = 0;
 
-        // 1. ГЛОБАЛЬНЫЕ КНОПКИ (ищем по ключевым словам)
         if (btnTitle.includes('заявк') || btnTitle.includes('проверк') || btnTitle.includes('ожидают')) {
-            badgeCount = totalAll; // Общая кнопка показывает сумму всех событий
+            badgeCount = totalAll;
         } else if (btnTitle.includes('розыгрыш') || btnTitle.includes('приз')) {
             badgeCount = totalEvents;
         } else if (btnTitle.includes('чекпоинт')) {
             badgeCount = totalCheckpoints;
-        } 
-        // 2. ЛОКАЛЬНЫЕ ЯРЛЫКИ КОНКРЕТНЫХ ЗАДАНИЙ (если ты вынес их на раб. стол)
-        else {
+            
+        } else {
+            // Проверяем точечные совпадения (если вынес конкретный квест на рабочий стол)
             const match = (groupedSubmissions || []).find(sub => 
                 (sub.quest_title && sub.quest_title.trim().toLowerCase() === btnTitle) || 
                 (sub.title && sub.title.trim().toLowerCase() === btnTitle)
             );
-            if (match) {
-                badgeCount = match.pending_count || 0;
-            }
+            if (match) badgeCount = match.pending_count || 0;
         }
 
-        // Вешаем кружочек, если насчитали больше 0
+        // Вешаем кружочек на саму кнопку
         if (badgeCount > 0) {
             const iconWrapper = btn.querySelector('.icon-wrapper');
             if (iconWrapper) {
                 const badge = document.createElement('span');
                 badge.className = 'notification-badge';
+                badge.dataset.count = badgeCount; // Сохраняем в dataset, чтобы папка могла это прочитать
                 badge.textContent = badgeCount;
                 iconWrapper.appendChild(badge);
+            }
+        }
+    });
+
+    // 3. 🔥 МАГИЯ ПАПОК: Вытягиваем кружочки наверх 🔥
+    const folders = document.querySelectorAll('#tab-content-main .admin-folder');
+    folders.forEach(folder => {
+        let folderTotal = 0;
+        
+        // Сначала проверяем, вдруг сама папка называется "Заявки" или "Розыгрыши"
+        // (Ищем span, который является прямым ребенком папки, чтобы не захватить содержимое)
+        const titleSpan = Array.from(folder.children).find(el => el.tagName.toLowerCase() === 'span');
+        
+        if (titleSpan) {
+            const folderTitle = titleSpan.innerText.trim().toLowerCase();
+            if (folderTitle.includes('заявк') || folderTitle.includes('проверк') || folderTitle.includes('ожидают')) {
+                folderTotal = totalAll;
+            } else if (folderTitle.includes('розыгрыш') || folderTitle.includes('приз')) {
+                folderTotal = totalEvents;
+            } else if (folderTitle.includes('чекпоинт')) {
+                folderTotal = totalCheckpoints;
+            }
+        }
+
+        // Если папка называется как-то иначе (например, "Управление"), 
+        // просто суммируем бейджи всех кнопок, которые лежат ВНУТРИ неё
+        if (folderTotal === 0) {
+            const innerBadges = folder.querySelectorAll('.folder-contents .notification-badge');
+            innerBadges.forEach(b => {
+                folderTotal += parseInt(b.dataset.count || b.textContent || 0);
+            });
+        }
+
+        // Если насчитали хоть одно уведомление — вешаем бейдж ПОВЕРХ папки
+        if (folderTotal > 0) {
+            const folderWrapper = folder.querySelector('.folder-wrapper');
+            if (folderWrapper) {
+                const folderBadge = document.createElement('span');
+                folderBadge.className = 'notification-badge';
+                folderBadge.textContent = folderTotal;
+                folderBadge.style.zIndex = '10'; // Гарантирует, что кружок будет поверх мини-иконок
+                folderWrapper.appendChild(folderBadge);
             }
         }
     });
