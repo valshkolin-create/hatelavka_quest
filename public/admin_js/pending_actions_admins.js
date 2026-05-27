@@ -3,6 +3,7 @@
 // ==========================================
 
 window.loadPendingActions = async function() {
+    console.log('[DEBUG-BADGES] 1. Запуск loadPendingActions...');
     try {
         const [groupedSubmissions, allEventPrizes, allCheckpointPrizes] = await Promise.all([
             makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),
@@ -10,6 +11,8 @@ window.loadPendingActions = async function() {
             makeApiRequest('/api/v1/admin/checkpoint_rewards/details', {}, 'POST', true)
         ]);
         
+        console.log('[DEBUG-BADGES] 2. Данные с бэка получены:', { groupedSubmissions, allEventPrizes, allCheckpointPrizes });
+
         const filteredSubmissions = (groupedSubmissions || []).filter(item => item.quest_id !== null && item.quest_id !== undefined);
 
         const updateTabText = (tabSelector, hasData) => {
@@ -28,8 +31,12 @@ window.loadPendingActions = async function() {
         updateTabText('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]', allEventPrizes?.length > 0);
         updateTabText('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]', allCheckpointPrizes?.length > 0);
 
+        console.log('[DEBUG-BADGES] 3. Найден ли контейнер для бейджей?', !!document.getElementById('tab-content-submissions'));
+
         window.renderGroupedItemsGrid('tab-content-submissions', filteredSubmissions);
         
+        console.log('[DEBUG-BADGES] 4. Отрисовка бейджей (renderGroupedItemsGrid) завершена');
+
         const eventPrizesContainer = document.getElementById('tab-content-event-prizes');
         if (eventPrizesContainer) window.renderWinners(allEventPrizes, eventPrizesContainer);
 
@@ -37,7 +44,7 @@ window.loadPendingActions = async function() {
         if (checkpointPrizesContainer) window.renderCheckpointPrizes(allCheckpointPrizes, checkpointPrizesContainer);
     
     } catch (e) {
-        console.error("Не удалось загрузить ожидающие действия:", e);
+        console.error("[DEBUG-BADGES] Ошибка в loadPendingActions:", e);
     }
 };
 
