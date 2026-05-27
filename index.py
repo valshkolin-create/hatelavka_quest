@@ -19574,6 +19574,67 @@ async def update_old_prices(
 
     return {"status": "success", "updated_posts": updated_count, "errors": errors_count}
 
+class ParticipantRemoveRequest(BaseModel):
+    initData: str
+    raffle_id: int
+    target_user_id: int  # Telegram ID пользователя, которого нужно выкинуть
+
+@app.post("/api/v1/admin/raffles/remove_participant")
+async def admin_remove_participant(
+    req: ParticipantRemoveRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Проверяем, что запрос делает Админ
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS: 
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    # 2. Удаляем запись об участии
+    delete_resp = await supabase.delete(
+        "/raffle_participants", 
+        params={
+            "raffle_id": f"eq.{req.raffle_id}", 
+            "user_id": f"eq.{req.target_user_id}"
+        },
+        headers={"Prefer": "return=representation"}
+    )
+    
+    # Если такой записи не было, прерываемся
+    if delete_resp.status_code not in (200, 204) or not delete_resp.json():
+        return {"status": "error", "message": "Участник не найден в этом розыгрыше"}
+
+    # 3. Получаем текущие данные розыгрыша (счетчик и настройки для поста)
+    r_resp = await supabase.get("/raffles", params={"id": f"eq.{req.raffle_id}", "select": "participants_count, settings"})
+    if not r_resp.json():
+        return {"status": "error", "message": "Розыгрыш не найден"}
+        
+    r_data = r_resp.json()[0]
+    current_count = r_data.get('participants_count', 1)
+    
+    # 4. Уменьшаем счетчик (защита от ухода в минус)
+    new_count = max(0, current_count - 1)
+    await supabase.patch("/raffles", params={"id": f"eq.{req.raffle_id}"}, json={"participants_count": new_count})
+
+    # 5. Принудительно обновляем кнопку в Telegram
+    sett = r_data.get('settings', {})
+    p_msg_id = sett.get('post_message_id')
+    p_chan_id = sett.get('post_channel_id')
+    
+    if p_msg_id and p_chan_id:
+        # Дергаем нашу функцию обновления кнопки напрямую (без проверок кратности)
+        try:
+            text = f"Участвовать 🎲 ({new_count})"
+            url = f"https://t.me/HATElavka_bot/raffles?startapp=raffle_{req.raffle_id}"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
+            await bot.edit_message_reply_markup(chat_id=p_chan_id, message_id=p_msg_id, reply_markup=kb)
+        except Exception as e:
+            print(f"⚠️ Ошибка обновления кнопки при кике: {e}")
+
+    return {
+        "status": "success", 
+        "message": f"Пользователь {req.target_user_id} удален. Новый счетчик: {new_count}"
+    }
+
 # --- ЭНДПОИНТ ДЛЯ РУЧНОГО ЗАВЕРШЕНИЯ (АДМИНКА) ---
 @app.post("/api/v1/admin/raffles/force_close")
 async def force_close_giveaway(
