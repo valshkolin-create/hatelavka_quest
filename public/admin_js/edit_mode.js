@@ -600,6 +600,8 @@ function applyLayoutToDOM(layout) {
         });
     }
     console.log('[DEBUG-CACHE] B. Восстановление сетки завершено');
+    // 🔥 МГНОВЕННО РИСУЕМ "НЕДАВНИЕ", КАК ТОЛЬКО СЕТКА ПОСТРОЕНА 🔥
+    if (window.AdminRecentItems) window.AdminRecentItems.render();
 }
 
 async function syncLayoutWithDB(cachedStr) {
