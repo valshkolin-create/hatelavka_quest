@@ -211,8 +211,22 @@
         .cross { width: 80px; height: 80px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px var(--danger); animation: fill-red .4s ease-in-out .4s forwards, shake .3s ease-in-out .9s both; }
         .cross-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
 
-        .verify-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        .verify-text { font-size: 16px; font-weight: 600; color: #fff; margin-top: 10px; text-align: center; }
+        .verify-modal-content {
+            background: #1c1c1e;
+            padding: 30px 40px;
+            border-radius: 24px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            animation: zoom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .verify-loader { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.05); border-top: 4px solid var(--primary-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+        .verify-text { font-size: 18px; font-weight: 700; color: #fff; text-align: center; margin: 0; line-height: 1.3; }
+        .verify-subtext { font-size: 13px; color: var(--text-muted); font-weight: 500; text-align: center; margin-top: 6px; display: block; }
 
         @keyframes stroke { 100% { stroke-dashoffset: 0; } }
         @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
@@ -299,8 +313,11 @@
     </div>
 
     <div id="verify-modal" class="modal-overlay" style="z-index: 3000;">
-        <div class="verify-loader"></div>
-        <div class="verify-text">Проверяем условия...<br><span style="font-size:13px; color:var(--text-muted); font-weight:400;">Секундочку, сверяем данные</span></div>
+        <div class="verify-modal-content">
+            <div class="verify-loader"></div>
+            <div class="verify-text">Проверяем условия...</div>
+            <span class="verify-subtext">Секундочку, сверяем данные</span>
+        </div>
     </div>
 
     <script>
