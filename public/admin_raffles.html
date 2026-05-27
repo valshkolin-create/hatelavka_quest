@@ -627,7 +627,6 @@
             try {
                 const res = await fetch('/api/v1/admin/cases/search_cache', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    // 🔥 ПЕРЕДАЕМ ИХ НА БЭКЕНД 🔥
                     body: JSON.stringify({ 
                         query: q, 
                         min_price: minP, 
@@ -638,6 +637,50 @@
                         hide_bs: hideBs
                     })
                 });
+
+                // Получаем ответ от бэкенда
+                let items = await res.json();
+                
+                if (isNewSearch) cont.innerHTML = '';
+                else {
+                    const l = document.getElementById('scroll-loader');
+                    if (l) l.remove();
+                }
+
+                if (!items || items.length === 0) {
+                    hasMoreItems = false;
+                    if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
+                    return;
+                }
+
+                if (items.length < 30) hasMoreItems = false;
+
+                items.forEach(item => {
+                    const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
+                    
+                    const rarityColors = {
+                        'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
+                        'purple': '#8847ff', 'pink': '#d32ce6', 'red': '#eb4b4b', 'gold': '#ffd700'
+                    };
+                    const rColor = rarityColors[item.rarity?.toLowerCase()] || '#4b69ff';
+
+                    cont.innerHTML += `
+                    <div class="search-item" style="border-left: 3px solid ${rColor};">
+                        <img src="${item.image_url}" class="search-img" onerror="this.src='https://placehold.co/40'">
+                        <div class="search-info">
+                            <div style="font-weight:700; font-size:12px; color:#fff;">${item.market_hash_name}</div>
+                            <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
+                        </div>
+                        <button class="search-btn" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
+                    </div>`;
+                });
+            } catch(e) { 
+                console.error(e); 
+                if(isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
+            } finally {
+                isFetching = false;
+            }
+        }
 
         function selectFromCache(jsonStr) {
             const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
