@@ -24200,6 +24200,10 @@ class SearchCacheRequest(BaseModel):
     min_price: float = 0.0
     max_price: float = 9999999.0
     offset: int = 0
+    # 🔥 НОВЫЕ ПОЛЯ ДЛЯ ТУМБЛЕРОВ
+    hide_stickers: bool = False
+    hide_graffiti: bool = False
+    hide_bs: bool = False
 
 @app.post("/api/v1/admin/cases/search_cache")
 async def admin_cases_search_cache(
@@ -24208,8 +24212,8 @@ async def admin_cases_search_cache(
 ):
     query = req.query.strip().replace("%", "").replace("?", "").replace("&", "")
     
-    # Если нет ни текста, ни фильтров по цене — не грузим базу, отдаем пустоту
-    if len(query) < 2 and req.min_price == 0 and req.max_price >= 9999999:
+    # Если нет ни текста, ни фильтров по цене, ни тумблеров — не грузим базу, отдаем пустоту
+    if len(query) < 2 and req.min_price == 0 and req.max_price >= 9999999 and not req.hide_stickers and not req.hide_graffiti and not req.hide_bs:
         return []
 
     try:
@@ -24223,7 +24227,7 @@ async def admin_cases_search_cache(
             ("image_url", "not.is.null"),
             ("image_url", "neq."), # не пустая строка
             
-            # --- ИСКЛЮЧАЕМ СУВЕНИРЫ И КЕЙСЫ ---
+            # --- ИСКЛЮЧАЕМ СУВЕНИРЫ И КЕЙСЫ (Они скрыты всегда) ---
             ("market_hash_name", "not.ilike.*Souvenir*"),
             ("market_hash_name", "not.ilike.*Сувенир*"),
             ("market_hash_name", "not.ilike.*Case*"),
@@ -24241,6 +24245,24 @@ async def admin_cases_search_cache(
         # 🔥 УМНЫЙ ФИЛЬТР: Добавляем поиск по тексту, только если он есть
         if query:
             market_params.append(("market_hash_name", f"ilike.*{query}*"))
+            
+        # ==========================================
+        # 🔥 ДИНАМИЧЕСКИЕ ФИЛЬТРЫ ОТ ТУМБЛЕРОВ 🔥
+        # ==========================================
+        if req.hide_stickers:
+            market_params.append(("market_hash_name", "not.ilike.*Sticker*"))
+            market_params.append(("market_hash_name", "not.ilike.*Наклейка*"))
+            
+        if req.hide_graffiti:
+            market_params.append(("market_hash_name", "not.ilike.*Graffiti*"))
+            market_params.append(("market_hash_name", "not.ilike.*Граффити*"))
+            market_params.append(("market_hash_name", "not.ilike.*Patch*"))
+            market_params.append(("market_hash_name", "not.ilike.*Патч*"))
+            
+        if req.hide_bs:
+            market_params.append(("market_hash_name", "not.ilike.*Battle-Scarred*"))
+            market_params.append(("market_hash_name", "not.ilike.*Закаленное в боях*"))
+        # ==========================================
         
         # Делаем один быстрый запрос в Supabase
         # httpx корректно склеит одинаковые ключи (market_hash_name) через &
