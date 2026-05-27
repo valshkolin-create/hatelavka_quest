@@ -31,8 +31,8 @@ window.loadPendingActions = async function() {
         // 1. Отрисовываем сетку внутри самой вкладки "Заявки"
         window.renderGroupedItemsGrid('tab-content-submissions', filteredSubmissions);
         
-        // 2. 🔥 НОВОЕ: Обновляем ТОЛЬКО бейджики на кнопках Главного меню (Рабочего стола)
-        window.updateBadgesOnMainGrid(filteredSubmissions);
+        // 2. 🔥 ПЕРЕДАЕМ ВСЕ ТРИ МАССИВА для тотального подсчета
+        window.updateBadgesOnMainGrid(filteredSubmissions, allEventPrizes, allCheckpointPrizes);
 
         const eventPrizesContainer = document.getElementById('tab-content-event-prizes');
         if (eventPrizesContainer) window.renderWinners(allEventPrizes, eventPrizesContainer);
@@ -45,41 +45,62 @@ window.loadPendingActions = async function() {
     }
 };
 
-// Функция для точечного обновления бейджей на Рабочем столе
-window.updateBadgesOnMainGrid = function(groupedSubmissions) {
-    // Получаем все кнопки из главной сетки и из папок
+// 🔥 Обновленная функция, которая видит ВСЕ типы уведомлений
+window.updateBadgesOnMainGrid = function(groupedSubmissions, allEventPrizes, allCheckpointPrizes) {
     const mainGridButtons = document.querySelectorAll('#tab-content-main .admin-icon-button, #tab-content-main .folder-contents .admin-icon-button');
     
     if (mainGridButtons.length === 0) return;
 
-    // Сначала удаляем все старые бейджи, чтобы они не дублировались и пропали, если заявок больше нет
+    // Сначала удаляем все старые бейджи
     mainGridButtons.forEach(btn => {
         const existingBadge = btn.querySelector('.notification-badge');
         if (existingBadge) existingBadge.remove();
     });
 
-    if (!groupedSubmissions || groupedSubmissions.length === 0) return;
+    // Считаем количество для всех разделов
+    const totalSubmissions = (groupedSubmissions || []).reduce((acc, item) => acc + (item.pending_count || 0), 0);
+    const totalEvents = (allEventPrizes || []).length;
+    const totalCheckpoints = (allCheckpointPrizes || []).length;
+    
+    // Общая сумма всех уведомлений для глобальной кнопки
+    const totalAll = totalSubmissions + totalEvents + totalCheckpoints;
 
-    // Перебираем кнопки и ищем совпадения по названию
+    if (totalAll === 0) return; // Нет уведомлений вообще - выходим
+
+    // Перебираем кнопки и вешаем цифры
     mainGridButtons.forEach(btn => {
         const titleSpan = btn.querySelector('span');
         if (!titleSpan) return;
         
-        const btnTitle = titleSpan.innerText.trim();
+        const btnTitle = titleSpan.innerText.trim().toLowerCase();
+        let badgeCount = 0;
 
-        // Ищем, есть ли для этой кнопки задания на проверку
-        const match = groupedSubmissions.find(sub => 
-            (sub.quest_title && sub.quest_title.trim() === btnTitle) || 
-            (sub.title && sub.title.trim() === btnTitle)
-        );
+        // 1. ГЛОБАЛЬНЫЕ КНОПКИ (ищем по ключевым словам)
+        if (btnTitle.includes('заявк') || btnTitle.includes('проверк') || btnTitle.includes('ожидают')) {
+            badgeCount = totalAll; // Общая кнопка показывает сумму всех событий
+        } else if (btnTitle.includes('розыгрыш') || btnTitle.includes('приз')) {
+            badgeCount = totalEvents;
+        } else if (btnTitle.includes('чекпоинт')) {
+            badgeCount = totalCheckpoints;
+        } 
+        // 2. ЛОКАЛЬНЫЕ ЯРЛЫКИ КОНКРЕТНЫХ ЗАДАНИЙ (если ты вынес их на раб. стол)
+        else {
+            const match = (groupedSubmissions || []).find(sub => 
+                (sub.quest_title && sub.quest_title.trim().toLowerCase() === btnTitle) || 
+                (sub.title && sub.title.trim().toLowerCase() === btnTitle)
+            );
+            if (match) {
+                badgeCount = match.pending_count || 0;
+            }
+        }
 
-        if (match && match.pending_count > 0) {
+        // Вешаем кружочек, если насчитали больше 0
+        if (badgeCount > 0) {
             const iconWrapper = btn.querySelector('.icon-wrapper');
             if (iconWrapper) {
-                // Добавляем бейдж
                 const badge = document.createElement('span');
                 badge.className = 'notification-badge';
-                badge.textContent = match.pending_count;
+                badge.textContent = badgeCount;
                 iconWrapper.appendChild(badge);
             }
         }
