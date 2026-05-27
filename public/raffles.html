@@ -623,7 +623,17 @@ function render(data) {
                 
                 if(res.ok) {
                     tg.HapticFeedback.notificationOccurred('success');
-                    showModal('success', 'Успех!', ans.message);
+                    
+                    // 🔥 Если в ответе есть предупреждение про 20%, показываем синюю инфо-модалку
+                    if (ans.message.includes("снижены на 20%")) {
+                        // Меняем \n на <br> для красивого переноса строк в HTML
+                        const formattedMsg = ans.message.replace(/\n/g, '<br>');
+                        showModal('info', 'Внимание! ⚠️', formattedMsg);
+                    } else {
+                        // Если все чисто, показываем обычную зеленую галочку
+                        showModal('success', 'Успех!', ans.message);
+                    }
+                    
                     load(); 
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
@@ -663,7 +673,7 @@ function render(data) {
             }
 
             document.getElementById('m-head').innerText = title;
-            document.getElementById('m-desc').innerText = msg;
+            document.getElementById('m-desc').innerHTML = msg;
             m.style.display = 'flex';
         }
 
