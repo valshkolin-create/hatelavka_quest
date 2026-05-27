@@ -3,15 +3,12 @@
 // ==========================================
 
 window.loadPendingActions = async function() {
-    console.log('[DEBUG-BADGES] 1. Запуск loadPendingActions...');
     try {
         const [groupedSubmissions, allEventPrizes, allCheckpointPrizes] = await Promise.all([
             makeApiRequest('/api/v1/admin/pending_actions', {}, 'POST', true),
             makeApiRequest('/api/v1/admin/events/winners/details', {}, 'POST', true),
             makeApiRequest('/api/v1/admin/checkpoint_rewards/details', {}, 'POST', true)
         ]);
-        
-        console.log('[DEBUG-BADGES] 2. Данные с бэка получены:', { groupedSubmissions, allEventPrizes, allCheckpointPrizes });
 
         const filteredSubmissions = (groupedSubmissions || []).filter(item => item.quest_id !== null && item.quest_id !== undefined);
 
@@ -31,11 +28,11 @@ window.loadPendingActions = async function() {
         updateTabText('#view-admin-pending-actions .tab-button[data-tab="event-prizes"]', allEventPrizes?.length > 0);
         updateTabText('#view-admin-pending-actions .tab-button[data-tab="checkpoint-prizes"]', allCheckpointPrizes?.length > 0);
 
-        console.log('[DEBUG-BADGES] 3. Найден ли контейнер для бейджей?', !!document.getElementById('tab-content-submissions'));
-
+        // 1. Отрисовываем сетку внутри самой вкладки "Заявки"
         window.renderGroupedItemsGrid('tab-content-submissions', filteredSubmissions);
         
-        console.log('[DEBUG-BADGES] 4. Отрисовка бейджей (renderGroupedItemsGrid) завершена');
+        // 2. 🔥 НОВОЕ: Обновляем ТОЛЬКО бейджики на кнопках Главного меню (Рабочего стола)
+        window.updateBadgesOnMainGrid(filteredSubmissions);
 
         const eventPrizesContainer = document.getElementById('tab-content-event-prizes');
         if (eventPrizesContainer) window.renderWinners(allEventPrizes, eventPrizesContainer);
@@ -44,8 +41,49 @@ window.loadPendingActions = async function() {
         if (checkpointPrizesContainer) window.renderCheckpointPrizes(allCheckpointPrizes, checkpointPrizesContainer);
     
     } catch (e) {
-        console.error("[DEBUG-BADGES] Ошибка в loadPendingActions:", e);
+        console.error("Не удалось загрузить ожидающие действия:", e);
     }
+};
+
+// Функция для точечного обновления бейджей на Рабочем столе
+window.updateBadgesOnMainGrid = function(groupedSubmissions) {
+    // Получаем все кнопки из главной сетки и из папок
+    const mainGridButtons = document.querySelectorAll('#tab-content-main .admin-icon-button, #tab-content-main .folder-contents .admin-icon-button');
+    
+    if (mainGridButtons.length === 0) return;
+
+    // Сначала удаляем все старые бейджи, чтобы они не дублировались и пропали, если заявок больше нет
+    mainGridButtons.forEach(btn => {
+        const existingBadge = btn.querySelector('.notification-badge');
+        if (existingBadge) existingBadge.remove();
+    });
+
+    if (!groupedSubmissions || groupedSubmissions.length === 0) return;
+
+    // Перебираем кнопки и ищем совпадения по названию
+    mainGridButtons.forEach(btn => {
+        const titleSpan = btn.querySelector('span');
+        if (!titleSpan) return;
+        
+        const btnTitle = titleSpan.innerText.trim();
+
+        // Ищем, есть ли для этой кнопки задания на проверку
+        const match = groupedSubmissions.find(sub => 
+            (sub.quest_title && sub.quest_title.trim() === btnTitle) || 
+            (sub.title && sub.title.trim() === btnTitle)
+        );
+
+        if (match && match.pending_count > 0) {
+            const iconWrapper = btn.querySelector('.icon-wrapper');
+            if (iconWrapper) {
+                // Добавляем бейдж
+                const badge = document.createElement('span');
+                badge.className = 'notification-badge';
+                badge.textContent = match.pending_count;
+                iconWrapper.appendChild(badge);
+            }
+        }
+    });
 };
 
 window.renderGroupedItemsGrid = function(containerId, groupedData) {
