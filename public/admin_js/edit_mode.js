@@ -645,3 +645,76 @@ function resetGridToDefault() {
 
     mainGrid.querySelectorAll('.admin-folder').forEach(folder => folder.remove());
 }
+
+// ==========================================
+// ЛОГИКА "НЕДАВНО ИСПОЛЬЗОВАННЫЕ"
+// ==========================================
+window.AdminRecentItems = {
+    init() {
+        this.trackClicks();
+    },
+    trackClicks() {
+        document.body.addEventListener('click', (e) => {
+            // Отключаем трекинг в режиме редактирования
+            if (typeof isEditMode !== 'undefined' && isEditMode) return;
+            
+            // Ищем клик по кнопке (игнорируем папки и сами кнопки из "недавних")
+            const btn = e.target.closest('.admin-icon-button:not(.admin-folder)');
+            if (!btn || btn.closest('#admin-recent-wrapper')) return;
+            
+            const id = btn.id;
+            if (!id) return;
+
+            let recent = JSON.parse(localStorage.getItem('admin_recent_views') || '[]');
+            
+            // Удаляем дубликат, если кнопка уже есть в истории (чтобы поднять её наверх)
+            recent = recent.filter(item => item !== id);
+            
+            // Добавляем в начало
+            recent.unshift(id);
+            
+            // Оставляем только последние 4 штуки (можешь изменить цифру)
+            if (recent.length > 4) recent.pop(); 
+            
+            localStorage.setItem('admin_recent_views', JSON.stringify(recent));
+            this.render(); // Сразу перерисовываем блок
+        });
+    },
+    render() {
+        const wrapper = document.getElementById('admin-recent-wrapper');
+        const grid = document.getElementById('admin-recent-grid');
+        if (!wrapper || !grid) return;
+
+        const recent = JSON.parse(localStorage.getItem('admin_recent_views') || '[]');
+        grid.innerHTML = ''; // Очищаем старую сетку
+        
+        let added = 0;
+        recent.forEach(id => {
+            const original = document.getElementById(id);
+            
+            // Если кнопка найдена и она не скрыта
+            if (original && !original.classList.contains('user-hidden')) {
+                const clone = original.cloneNode(true);
+                clone.id = id + '_recent'; // Меняем ID клона, чтобы не ломать скрипты
+                
+                // Переносим клик с клона на оригинальную кнопку (имитируем нажатие)
+                clone.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    original.click();
+                });
+                
+                grid.appendChild(clone);
+                added++;
+            }
+        });
+
+        // Показываем блок, если есть хоть одна недавняя кнопка
+        wrapper.style.display = added > 0 ? 'block' : 'none';
+    }
+};
+
+// Запускаем слушатель кликов при старте
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.AdminRecentItems) window.AdminRecentItems.init();
+});
