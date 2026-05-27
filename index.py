@@ -21563,6 +21563,14 @@ async def execute_directed_swap(
         raise HTTPException(status_code=400, detail="Сумма ваших предметов равна нулю")
 
     # 3. Проверяем выбранный target_item в market_cache
+    
+    # 🔥 ПРОВЕРКА 1: Блокируем мусор по названию до запроса в БД
+    forbidden_words = ['souvenir', 'сувенир', 'case', 'кейс', 'capsule', 'капсула', 'package', 'пакет']
+    target_name_lower = req.target_market_name.lower()
+    
+    if any(word in target_name_lower for word in forbidden_words):
+        raise HTTPException(status_code=400, detail="Обмен на сувениры, кейсы и капсулы запрещен!")
+
     target_resp = await supabase.get(
         "/market_cache",
         params={
@@ -21576,6 +21584,12 @@ async def execute_directed_swap(
         raise HTTPException(status_code=400, detail="Выбранный предмет сейчас недоступен")
 
     target_item = target_data[0]
+    
+    # 🔥 ПРОВЕРКА 2: Блокируем предметы без картинок
+    image_url = target_item.get('image_url')
+    if not image_url or image_url.strip() == "":
+        raise HTTPException(status_code=400, detail="Этот предмет недоступен для обмена (отсутствует фото)")
+
     target_price = float(target_item.get('price_rub', 0))
 
     # 4. ГЛАВНАЯ ПРОВЕРКА: Комиссия 20%
@@ -23589,6 +23603,16 @@ async def confirm_replacement(
     user_id = user_data['id']
 
     # ==========================================
+    # 🔥 БЫСТРЫЙ ФИЛЬТР НА МУСОР (ДЛЯ МАРКЕТА)
+    # ==========================================
+    asset_str = str(req.assetid)
+    if asset_str.startswith("MARKET_"):
+        m_name = asset_str.replace("MARKET_", "").lower()
+        forbidden_words = ['souvenir', 'сувенир', 'case', 'кейс', 'capsule', 'капсула', 'package', 'пакет']
+        if any(word in m_name for word in forbidden_words):
+            return {"success": False, "message": "❌ Выбор сувениров, кейсов и капсул запрещен!"}
+
+    # ==========================================
     # 🔥 ЖЕЛЕЗНЫЙ ЩИТ ОТ БЕСКОНЕЧНОГО ФАРМА 🔥
     # ==========================================
     # Достаем заявку и проверяем ее текущий статус
@@ -23604,7 +23628,6 @@ async def confirm_replacement(
     current_status = history_rows[0].get("status")
     
     # Если статус НЕ 'pending', НЕ 'failed' и НЕ 'offer_replacement' - шлем лесом!
-    # Это значит, что предмет УЖЕ в обработке (processing), выдан (sent) или куплен (market_pending).
     allowed_statuses = ["pending", "failed", "offer_replacement", "available"]
     
     if current_status not in allowed_statuses:
@@ -23664,10 +23687,10 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
     import time
     import httpx
     import traceback
-    from datetime import datetime, timezone # 🔥 ДОБАВЛЕНО ДЛЯ ТАЙМЕРА
+    from datetime import datetime, timezone 
     
     try:
-        now_iso = datetime.now(timezone.utc).isoformat() # 🔥 ГЕНЕРИРУЕМ ВРЕМЯ
+        now_iso = datetime.now(timezone.utc).isoformat() 
 
         user_id = user_info.get('telegram_id')
         full_name = user_info.get('full_name', 'User')
@@ -23685,13 +23708,25 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
             item_name_ru = m_name
             m_cache = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{m_name}"})
             if m_cache.status_code == 200 and len(m_cache.json()) > 0:
-                replaced_price = m_cache.json()[0].get('price_rub', 0.0)
+                item_data = m_cache.json()[0]
+                replaced_price = item_data.get('price_rub', 0.0)
+                image_url = item_data.get('image_url')
+                
+                # 🔥 ПРОВЕРКА НА ПУСТУЮ КАРТИНКУ (МАРКЕТ)
+                if not image_url or image_url.strip() == "":
+                    logging.warning(f"[BG-REPLACEMENT] Отмена {m_name} — нет картинки.")
+                    await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                        "status": "failed", 
+                        "details": "Отмена: у предмета отсутствует фото.",
+                        "updated_at": now_iso
+                    })
+                    return
+                    
             logging.info(f"[BG-REPLACEMENT] Юзер {user_id} выбрал с маркета: {m_name}")
         else:
             # Юзер выбрал скин, который мы показали из нашего склада
             check_asset = await supabase.get("/steam_inventory_cache", params={
                 "assetid": f"eq.{req.assetid}"
-                # Убрали фильтр резерва, так как мы его не бронируем, а покупаем на Маркете
             })
             asset_rows = check_asset.json()
             if not asset_rows:
@@ -23704,6 +23739,28 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
 
             selected_item = asset_rows[0]
             m_name = selected_item.get('market_hash_name', '')
+            
+            # 🔥 ПРОВЕРКА НА МУСОР И КАРТИНКУ (ДЛЯ СКЛАДА)
+            forbidden_words = ['souvenir', 'сувенир', 'case', 'кейс', 'capsule', 'капсула', 'package', 'пакет']
+            if any(word in m_name.lower() for word in forbidden_words):
+                logging.warning(f"[BG-REPLACEMENT] Отмена {m_name} — запрещенный предмет.")
+                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                    "status": "failed", 
+                    "details": "Отмена: этот тип предметов запрещен для замены.",
+                    "updated_at": now_iso
+                })
+                return
+                
+            image_url = selected_item.get('image_url') or selected_item.get('icon_url')
+            if not image_url or str(image_url).strip() == "":
+                logging.warning(f"[BG-REPLACEMENT] Отмена {m_name} — нет картинки.")
+                await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                    "status": "failed", 
+                    "details": "Отмена: у предмета отсутствует фото.",
+                    "updated_at": now_iso
+                })
+                return
+
             item_name_ru = selected_item.get('name_ru') or m_name
             replaced_price = selected_item.get('price_rub', 0.0)
             
@@ -23720,9 +23777,9 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
             token_match = re.search(r'token=([a-zA-Z0-9_-]+)', trade_link)
             
             if not partner_match or not token_match:
-                market_error_log = "Неверный формат трейд-ссылки юзера" # <--- вот эту
+                market_error_log = "Неверный формат трейд-ссылки юзера" 
                 logging.warning(f"[BG-REPLACEMENT] {market_error_log}: {trade_link}")
-                # Уводим в ручной режим
+                # Уводим в ручной режим (код уходит ниже в except или пропускает)
             else:
                 # 1. ГЕНЕРИРУЕМ УНИКАЛЬНЫЙ ID
                 unique_market_id = f"repl_{req.history_id}_{int(time.time())}" 
@@ -23741,7 +23798,7 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
                         "replaced_price": replaced_price,
                         "updated_at": now_iso
                     },
-                    headers={"Prefer": "return=representation"} # Просим вернуть измененные данные
+                    headers={"Prefer": "return=representation"} 
                 )
 
                 check_update = db_update.json()
