@@ -544,6 +544,7 @@ function getOrCreateItem(id) {
 }
 
 function applyLayoutToDOM(layout) {
+    console.log('[DEBUG-CACHE] A. Запуск applyLayoutToDOM (восстановление сетки)...', layout ? 'layout есть' : 'layout пуст');
     if (!layout) return;
     const mainGrid = document.querySelector('#tab-content-main .admin-icon-menu');
 
@@ -598,9 +599,11 @@ function applyLayoutToDOM(layout) {
             }
         });
     }
+    console.log('[DEBUG-CACHE] B. Восстановление сетки завершено');
 }
 
 async function syncLayoutWithDB(cachedStr) {
+    console.log('[DEBUG-CACHE] C. Старт syncLayoutWithDB (запрос актуальной сетки с сервера)...');
     try {
         const initDataStr = (typeof tg !== 'undefined' && tg.initData) ? tg.initData : '';
         const response = await makeApiRequest('/api/v1/admin/layout/get', {
@@ -608,16 +611,22 @@ async function syncLayoutWithDB(cachedStr) {
         }, 'POST', true);
         
         if (response && response.layout) {
+            console.log('[DEBUG-CACHE] C1. Получен layout с сервера. Сравниваем с локальным...');
             const dbLayoutStr = JSON.stringify(response.layout);
             
             if (dbLayoutStr !== cachedStr) {
+                console.log('[DEBUG-CACHE] D. Кэш устарел (или его не было), перерисовываем сетку!');
                 localStorage.setItem('adminMainLayout', dbLayoutStr);
                 resetGridToDefault(); 
                 applyLayoutToDOM(response.layout);
+            } else {
+                console.log('[DEBUG-CACHE] D. Кэш актуален, сетку не трогаем');
             }
+        } else {
+            console.log('[DEBUG-CACHE] C2. Сервер не вернул layout');
         }
     } catch (e) {
-        console.warn("Фоновая синхронизация с сервером не удалась", e);
+        console.warn("[DEBUG-CACHE] Фоновая синхронизация с сервером не удалась:", e);
     }
 }
 
