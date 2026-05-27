@@ -20342,7 +20342,7 @@ async def join_raffle(
     if check_bot_penalty(full_name, username):
         success_msg = (
             "В вашем профиле найден тег другого бота!\n\n"
-            "<span style='font-size: 9px; color: var(--text-muted); line-height: 1.2; display: inline-block;'>"
+            "<span style='font-size: 11px; color: var(--text-muted); line-height: 1.2; display: inline-block;'>"
             "Ваши шансы на победу во ВСЕХ розыгрышах снижены на 20%. Чтобы вернуть шанс, уберите тег из имени/юзернейма."
             "</span>\n\n"
             "Участие принято! 🍀"
