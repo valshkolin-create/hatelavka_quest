@@ -141,6 +141,9 @@
         .source-icon { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; border: 1px solid #222; }
         .src-tg { background: #229ED9; }
         .src-tw { background: #9146FF; }
+
+        .kick-btn { background: rgba(255, 77, 77, 0.1); color: var(--danger); border: none; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; margin-left: auto; }
+        .kick-btn:active { transform: scale(0.9); background: rgba(255, 77, 77, 0.3); }
         
         .alert-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
         .alert-msg { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; }
@@ -1109,7 +1112,7 @@
             });
         }
 
-        async function showParts(id) {
+async function showParts(id) {
             document.getElementById('modal-parts').classList.add('modal-active');
             const l = document.getElementById('parts-list');
             const cnt = document.getElementById('parts-count');
@@ -1133,6 +1136,9 @@
                     const source = u.source || 'telegram';
                     const sourceIcon = source === 'twitch' ? '<i class="fa-brands fa-twitch"></i>' : '<i class="fa-brands fa-telegram"></i>';
                     const sourceClass = source === 'twitch' ? 'src-tw' : 'src-tg';
+                    
+                    // Безопасно достаем ID пользователя
+                    const tgUserId = u.user_id || usr.telegram_id;
 
                     l.innerHTML += `
                     <div class="part-item">
@@ -1144,11 +1150,63 @@
                             <div style="font-weight:600; font-size:14px;">${name}</div>
                             <div style="font-size:12px; color:var(--text-sec);">${username}</div>
                         </div>
+                        <button class="kick-btn" onclick="kickParticipant(${id}, ${tgUserId}, this)">
+                            <i class="fa-solid fa-user-slash"></i>
+                        </button>
                     </div>`;
                 });
-            } catch(e) { l.innerHTML = '<div style="text-align:center; color:#ff4d4d; padding:20px;">Ошибка загрузки</div>'; }
+            } catch(e) { 
+                l.innerHTML = '<div style="text-align:center; color:#ff4d4d; padding:20px;">Ошибка загрузки</div>'; 
+            }
+        } // <--- ВОТ ЭТИ СКОБКИ БЫЛИ УТЕРЯНЫ
+
+        async function kickParticipant(raffleId, userId, btnEl) {
+            showConfirm('Удалить участника?', 'Он будет исключен из розыгрыша, а счетчик обновится.', async () => {
+                const originalHtml = btnEl.innerHTML;
+                btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                btnEl.disabled = true;
+
+                try {
+                    const res = await fetch('/api/v1/admin/raffles/remove_participant', {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            initData: tg.initData, 
+                            raffle_id: raffleId, 
+                            target_user_id: userId
+                        })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (res.ok && data.status === 'success') {
+                        tg.HapticFeedback.notificationOccurred('success');
+                        
+                        // Удаляем строчку с юзером из визуала
+                        const itemRow = btnEl.closest('.part-item');
+                        if (itemRow) itemRow.remove();
+                        
+                        // Обновляем счетчик в заголовке окна (Участники: N-1)
+                        const cntEl = document.getElementById('parts-count');
+                        let currentCnt = parseInt(cntEl.innerText.replace(/\D/g, '')) || 0;
+                        if (currentCnt > 0) cntEl.innerText = `(${currentCnt - 1})`;
+                        
+                        // Тихо обновляем главный список розыгрышей на фоне
+                        loadRaffles(); 
+                    } else {
+                        showCustomAlert('Ошибка', data.message || 'Не удалось удалить');
+                        btnEl.innerHTML = originalHtml;
+                        btnEl.disabled = false;
+                    }
+                } catch (e) {
+                    showCustomAlert('Ошибка', 'Сбой соединения');
+                    btnEl.innerHTML = originalHtml;
+                    btnEl.disabled = false;
+                }
+            });
         }
 
+                
         function copyText(txt) {
             navigator.clipboard.writeText(txt);
             tg.HapticFeedback.notificationOccurred('success');
