@@ -391,7 +391,44 @@
                     <input type="number" id="lib-price-min" class="form-input" placeholder="Мин. цена ₽" oninput="debounceSearch()">
                     <input type="number" id="lib-price-max" class="form-input" placeholder="Макс. цена ₽" oninput="debounceSearch()">
                 </div>
-            </div>
+
+                <div class="filter-accordion" style="margin-top: 15px;">
+                    <div class="accordion-header" onclick="toggleFilterAccordion()" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; cursor: pointer;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-sec);"><i class="fa-solid fa-filter"></i> Тонкая настройка</span>
+                        <i class="fa-solid fa-chevron-down" id="accordion-icon" style="color: var(--text-sec); transition: 0.3s;"></i>
+                    </div>
+                    
+                    <div id="accordion-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;">
+                        <div style="padding: 15px 5px 5px 5px; display: flex; flex-direction: column; gap: 12px;">
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 13px; color: var(--text);">Скрыть наклейки</span>
+                                <label class="toggle-switch" style="transform: scale(0.85); margin: 0;">
+                                    <input type="checkbox" id="hide-stickers" onchange="debounceSearch()">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 13px; color: var(--text);">Скрыть граффити и патчи</span>
+                                <label class="toggle-switch" style="transform: scale(0.85); margin: 0;">
+                                    <input type="checkbox" id="hide-graffiti" onchange="debounceSearch()">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 13px; color: var(--text);">Скрыть "Закаленное в боях"</span>
+                                <label class="toggle-switch" style="transform: scale(0.85); margin: 0;">
+                                    <input type="checkbox" id="hide-bs" onchange="debounceSearch()">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                </div>
 
             <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;" onscroll="handleScroll(this)">
                 <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>
@@ -484,6 +521,18 @@
             updateModalBalance(); 
         }
 
+        function toggleFilterAccordion() {
+            const content = document.getElementById('accordion-content');
+            const icon = document.getElementById('accordion-icon');
+            if (content.style.maxHeight === '0px' || content.style.maxHeight === '') {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                content.style.maxHeight = '0px';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
         function debounceSearch() {
             clearTimeout(searchTimeout);
             currentOffset = 0; // Сбрасываем подгрузку при новом запросе
@@ -553,7 +602,12 @@
             const maxP = parseFloat(document.getElementById('lib-price-max').value) || 9999999;
             const cont = document.getElementById('lib-results');
             
-            if (q.length < 2 && minP === 0 && maxP === 9999999) {
+            // 🔥 СЧИТЫВАЕМ ТУМБЛЕРЫ 🔥
+            const hideStickers = document.getElementById('hide-stickers').checked;
+            const hideGraffiti = document.getElementById('hide-graffiti').checked;
+            const hideBs = document.getElementById('hide-bs').checked;
+            
+            if (q.length < 2 && minP === 0 && maxP === 9999999 && !hideStickers && !hideGraffiti && !hideBs) {
                 if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Введите название или цену...</div>';
                 return;
             }
@@ -573,66 +627,17 @@
             try {
                 const res = await fetch('/api/v1/admin/cases/search_cache', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ query: q, min_price: minP, max_price: maxP, offset: currentOffset })
+                    // 🔥 ПЕРЕДАЕМ ИХ НА БЭКЕНД 🔥
+                    body: JSON.stringify({ 
+                        query: q, 
+                        min_price: minP, 
+                        max_price: maxP, 
+                        offset: currentOffset,
+                        hide_stickers: hideStickers,
+                        hide_graffiti: hideGraffiti,
+                        hide_bs: hideBs
+                    })
                 });
-                let items = await res.json();
-                
-                if (isNewSearch) cont.innerHTML = '';
-                else {
-                    const l = document.getElementById('scroll-loader');
-                    if (l) l.remove();
-                }
-
-                // --- НАШ ФИЛЬТР ОТ МУСОРА ---
-                items = items.filter(item => {
-                    const name = (item.market_hash_name || '').toLowerCase();
-                    const img = item.image_url || '';
-                    
-                    const hasImage = img.trim() !== '';
-                    const isSouvenir = name.includes('souvenir') || name.includes('сувенир');
-                    const isCaseOrTrash = name.includes('case') || name.includes('кейс') || 
-                                          name.includes('capsule') || name.includes('капсула') ||
-                                          name.includes('package') || name.includes('пакет');
-
-                    return hasImage && !isSouvenir && !isCaseOrTrash;
-                });
-                // ----------------------------
-
-                if (!items || items.length === 0) {
-                    hasMoreItems = false;
-                    if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
-                    return;
-                }
-
-                // Если после фильтрации осталось меньше лимита, больше грузить нечего
-                if (items.length < 30) hasMoreItems = false;
-
-                items.forEach(item => {
-                    const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
-                    
-                    const rarityColors = {
-                        'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 
-                        'purple': '#8847ff', 'pink': '#d32ce6', 'red': '#eb4b4b', 'gold': '#ffd700'
-                    };
-                    const rColor = rarityColors[item.rarity?.toLowerCase()] || '#4b69ff';
-
-                    cont.innerHTML += `
-                    <div class="search-item" style="border-left: 3px solid ${rColor};">
-                        <img src="${item.image_url}" class="search-img" onerror="this.src='https://placehold.co/40'">
-                        <div class="search-info">
-                            <div style="font-weight:700; font-size:12px; color:#fff;">${item.market_hash_name}</div>
-                            <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
-                        </div>
-                        <button class="search-btn" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
-                    </div>`;
-                });
-            } catch(e) { 
-                console.error(e); 
-                if(isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
-            } finally {
-                isFetching = false;
-            }
-        }
 
         function selectFromCache(jsonStr) {
             const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
