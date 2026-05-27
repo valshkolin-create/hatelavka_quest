@@ -24156,11 +24156,26 @@ async def admin_cases_search_cache(
         return []
 
     try:
-        # 1. Базовые параметры (без текста)
+        # 1. Базовые параметры (с фильтрацией мусора на уровне БД Supabase)
         market_params = [
             ("select", "market_hash_name,price_rub,rarity,image_url"), # 🔥 Берем только нужное
             ("price_rub", f"gte.{req.min_price}"),
             ("price_rub", f"lte.{req.max_price}"),
+            
+            # --- ИСКЛЮЧАЕМ ПУСТЫЕ КАРТИНКИ ---
+            ("image_url", "not.is.null"),
+            ("image_url", "neq."), # не пустая строка
+            
+            # --- ИСКЛЮЧАЕМ СУВЕНИРЫ И КЕЙСЫ ---
+            ("market_hash_name", "not.ilike.*Souvenir*"),
+            ("market_hash_name", "not.ilike.*Сувенир*"),
+            ("market_hash_name", "not.ilike.*Case*"),
+            ("market_hash_name", "not.ilike.*Кейс*"),
+            ("market_hash_name", "not.ilike.*Capsule*"),
+            ("market_hash_name", "not.ilike.*Капсула*"),
+            ("market_hash_name", "not.ilike.*Package*"),
+            ("market_hash_name", "not.ilike.*Пакет*"),
+            
             ("order", "price_rub.desc"),
             ("limit", "30"),
             ("offset", str(req.offset))
@@ -24171,6 +24186,7 @@ async def admin_cases_search_cache(
             market_params.append(("market_hash_name", f"ilike.*{query}*"))
         
         # Делаем один быстрый запрос в Supabase
+        # httpx корректно склеит одинаковые ключи (market_hash_name) через &
         res_cache = await supabase.get("/market_cache", params=market_params)
         
         if res_cache.status_code != 200:
@@ -24192,7 +24208,6 @@ async def admin_cases_search_cache(
                 seen.add(name)
                 unique_items.append({
                     "market_hash_name": name,
-                    # Берем картинку из кэша, если пусто - ставим заглушку
                     "image_url": it.get("image_url") or "https://placehold.co/150", 
                     "price_rub": it.get("price_rub", 0),
                     "rarity": it.get("rarity", "blue")
