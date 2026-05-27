@@ -619,6 +619,11 @@ async function syncLayoutWithDB(cachedStr) {
                 localStorage.setItem('adminMainLayout', dbLayoutStr);
                 resetGridToDefault(); 
                 applyLayoutToDOM(response.layout);
+                
+                // 🔥 ВОЗВРАЩАЕМ БЕЙДЖИ ПОСЛЕ ПЕРЕРИСОВКИ СЕТКИ 🔥
+                if (typeof window.loadPendingActions === 'function') {
+                    window.loadPendingActions();
+                }
             } else {
                 console.log('[DEBUG-CACHE] D. Кэш актуален, сетку не трогаем');
             }
