@@ -346,3 +346,11 @@ window.setupPendingActionsEventListeners = function() {
 
     });
 };
+
+// Запускаем загрузку бейджей сразу при старте приложения
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof window.loadPendingActions === 'function') {
+        // Вызываем без лоадера, чтобы фоновая загрузка не стопила интерфейс
+        window.loadPendingActions(); 
+    }
+});
