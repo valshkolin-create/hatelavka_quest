@@ -497,7 +497,18 @@ async function fetchAndRender() {
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        const name = entry.full_name || entry.username || entry.user_name || '...';
+        // 1. Получаем оригинальное имя
+        let name = entry.full_name || entry.username || entry.user_name || '...';
+
+        // 🔥 2. ВЫРЕЗАЕМ МУСОР ИЗ НИКА 🔥
+        // Ищем @, freeskins или _bot (без учета регистра) и заменяем на пустоту
+        name = name.replace(/@|freeskins|_bot/gi, '').trim();
+        
+        // 3. Если после вырезания от ника вообще ничего не осталось, ставим заглушку
+        if (!name) {
+            name = 'Скрытое имя';
+        }
+
         let value = entry.total_activity ?? entry.value ?? entry.messages_count ?? 0;
 
         if (state.source === 'twitch' && state.twitchMetric === 'uptime') {
