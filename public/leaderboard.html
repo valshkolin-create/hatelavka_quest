@@ -476,25 +476,37 @@ async function fetchAndRender() {
       
       updatePersonalStats(myRealTimeStat);
 
-      if (!Array.isArray(leaderboardData) || leaderboardData.length === 0) {
+      // 🔥 1. УДАЛЯЕМ СИСТЕМНЫЕ АККАУНТЫ ЦЕЛИКОМ ИЗ СПИСКА 🔥
+      // Чтобы они вообще не появлялись и не ломали нумерацию мест
+      const filteredLeaderboard = leaderboardData.filter(entry => {
+          const rawName = (entry.full_name || entry.username || entry.user_name || '').toLowerCase().trim();
+          
+          if (rawName === 'channel' || rawName === 'telegram') {
+              return false; // Выбрасываем из топа
+          }
+          return true; // Остальных оставляем
+      });
+
+      if (!Array.isArray(filteredLeaderboard) || filteredLeaderboard.length === 0) {
         dom.loader.textContent = 'Нет данных.';
         return;
       }
 
-      leaderboardData.forEach((entry, index) => {
+      // 🔥 2. РИСУЕМ ТАБЛИЦУ НА ОСНОВЕ ОЧИЩЕННОГО МАССИВА (filteredLeaderboard) 🔥
+      filteredLeaderboard.forEach((entry, index) => {
         const row = document.createElement('tr');
         let rankContent = index + 1;
         if (index === 0) { row.classList.add('first-place'); rankContent = '🥇'; }  
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        // 🔥 ОЧИЩАЕМ НИК ОТ МУСОРА (УДАЛЯЕМ ЦЕЛЫЕ СЛОВА) 🔥
+        // 🔥 3. ОЧИЩАЕМ НИК ОТ МУСОРА (УДАЛЯЕМ ЦЕЛЫЕ СЛОВА) 🔥
         let name = entry.full_name || entry.username || entry.user_name || '...';
         
-        // 1. Разбиваем имя на отдельные слова по пробелам
+        // Разбиваем имя на отдельные слова по пробелам
         let words = name.split(/\s+/);
         
-        // 2. Фильтруем слова
+        // Фильтруем слова
         words = words.filter(word => {
             let lowerWord = word.toLowerCase();
             
@@ -509,10 +521,10 @@ async function fetchAndRender() {
             return true;
         });
 
-        // 3. Склеиваем слова обратно в строку
+        // Склеиваем слова обратно в строку
         name = words.join(' ').trim();
         
-        // 4. Если после удаления слов ничего не осталось
+        // Если после удаления слов ничего не осталось
         if (!name) {
             name = 'Скрытое имя';
         }
