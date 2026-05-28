@@ -439,18 +439,9 @@ async function fetchAndRender() {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Ошибка сети`);
       const data = await response.json();
-      let leaderboardData = Array.isArray(data) ? data : data.leaderboard;
-
-      // 🔥 ФИЛЬТРУЕМ РЕКЛАМЩИКОВ И БОТОВ 🔥
-      if (Array.isArray(leaderboardData)) {
-          const forbiddenTags = ['@', 'freeskins', '_bot'];
-          leaderboardData = leaderboardData.filter(entry => {
-              // Получаем имя и переводим в нижний регистр для надежной проверки
-              const name = (entry.full_name || entry.username || entry.user_name || '').toLowerCase();
-              // Оставляем только тех, в чьем имени НЕТ запрещенных тегов
-              return !forbiddenTags.some(tag => name.includes(tag));
-          });
-      }
+      
+      // Просто получаем данные, НИКОГО НЕ УДАЛЯЕМ
+      const leaderboardData = Array.isArray(data) ? data : data.leaderboard;
 
       let myRealTimeStat = null;
       let rawTgId = null;
@@ -497,14 +488,13 @@ async function fetchAndRender() {
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        // 1. Получаем оригинальное имя
+        // 🔥 ОЧИЩАЕМ НИК ОТ МУСОРА 🔥
         let name = entry.full_name || entry.username || entry.user_name || '...';
-
-        // 🔥 2. ВЫРЕЗАЕМ МУСОР ИЗ НИКА 🔥
-        // Ищем @, freeskins или _bot (без учета регистра) и заменяем на пустоту
+        
+        // Удаляем @, freeskins и _bot (флаги g и i удалят все совпадения независимо от регистра)
         name = name.replace(/@|freeskins|_bot/gi, '').trim();
         
-        // 3. Если после вырезания от ника вообще ничего не осталось, ставим заглушку
+        // Если после удаления запрещенных слов от ника ничего не осталось
         if (!name) {
             name = 'Скрытое имя';
         }
