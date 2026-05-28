@@ -419,7 +419,7 @@
       updatePersonalStats(null);
   }
 
-  async function fetchAndRender() {
+async function fetchAndRender() {
     dom.leaderboardBody.innerHTML = '';
     dom.loader.style.display = 'block';
     dom.loader.textContent = 'Загрузка данных...';
@@ -439,7 +439,18 @@
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Ошибка сети`);
       const data = await response.json();
-      const leaderboardData = Array.isArray(data) ? data : data.leaderboard;
+      let leaderboardData = Array.isArray(data) ? data : data.leaderboard;
+
+      // 🔥 ФИЛЬТРУЕМ РЕКЛАМЩИКОВ И БОТОВ 🔥
+      if (Array.isArray(leaderboardData)) {
+          const forbiddenTags = ['@', 'freeskins', '_bot'];
+          leaderboardData = leaderboardData.filter(entry => {
+              // Получаем имя и переводим в нижний регистр для надежной проверки
+              const name = (entry.full_name || entry.username || entry.user_name || '').toLowerCase();
+              // Оставляем только тех, в чьем имени НЕТ запрещенных тегов
+              return !forbiddenTags.some(tag => name.includes(tag));
+          });
+      }
 
       let myRealTimeStat = null;
       let rawTgId = null;
