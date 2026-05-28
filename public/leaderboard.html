@@ -488,13 +488,31 @@ async function fetchAndRender() {
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        // 🔥 ОЧИЩАЕМ НИК ОТ МУСОРА 🔥
+        // 🔥 ОЧИЩАЕМ НИК ОТ МУСОРА (УДАЛЯЕМ ЦЕЛЫЕ СЛОВА) 🔥
         let name = entry.full_name || entry.username || entry.user_name || '...';
         
-        // Удаляем @, freeskins и _bot (флаги g и i удалят все совпадения независимо от регистра)
-        name = name.replace(/@|freeskins|_bot/gi, '').trim();
+        // 1. Разбиваем имя на отдельные слова по пробелам
+        let words = name.split(/\s+/);
         
-        // Если после удаления запрещенных слов от ника ничего не осталось
+        // 2. Фильтруем слова
+        words = words.filter(word => {
+            let lowerWord = word.toLowerCase();
+            
+            // Если слово начинается с @ — удаляем его целиком
+            if (lowerWord.startsWith('@')) return false;
+            
+            // Если внутри слова есть bot, skins или hatelavka — удаляем всё слово
+            if (lowerWord.includes('bot') || lowerWord.includes('skins') || lowerWord.includes('hatelavka')) {
+                return false;
+            }
+            
+            return true;
+        });
+
+        // 3. Склеиваем слова обратно в строку
+        name = words.join(' ').trim();
+        
+        // 4. Если после удаления слов ничего не осталось
         if (!name) {
             name = 'Скрытое имя';
         }
