@@ -478,12 +478,13 @@ async function fetchAndRender() {
 
       // 🔥 1. УДАЛЯЕМ СИСТЕМНЫЕ АККАУНТЫ ЦЕЛИКОМ ИЗ СПИСКА 🔥
       const filteredLeaderboard = leaderboardData.filter(entry => {
-          const rawName = (entry.full_name || entry.username || entry.user_name || '').toLowerCase().trim();
+          // Обязательно String(), чтобы избежать ошибок
+          const rawName = String(entry.full_name || entry.username || entry.user_name || '').toLowerCase().trim();
           
           if (rawName === 'channel' || rawName === 'telegram') {
-              return false; // Выбрасываем из топа
+              return false; // Выбрасываем системки из топа
           }
-          return true; // Остальных оставляем
+          return true; // Парней оставляем
       });
 
       if (!Array.isArray(filteredLeaderboard) || filteredLeaderboard.length === 0) {
@@ -499,16 +500,19 @@ async function fetchAndRender() {
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        // 🔥 3. ОЧИЩАЕМ НИК ОТ МУСОРА (ВЫРЕЗАЕМ ТОЛЬКО СПАМ) 🔥
-        let name = entry.full_name || entry.username || entry.user_name || '...';
+        // 🔥 3. ОЧИЩАЕМ НИК ОТ МУСОРА (БЕЗОПАСНЫЙ МЕТОД) 🔥
+        // Железобетонно делаем строкой, чтобы не словить ошибку
+        let name = String(entry.full_name || entry.username || entry.user_name || '...');
         
-        // Вырезаем собачку и спам-слова (в любом регистре, даже если слитно)
-        name = name.replace(/@|freeskins|ezzzskin|skinozbot|hatelavka|_bot|skin|bot/gi, '').trim();
+        // Умная регулярка: 
+        // @[\w_]+ удаляет собачку и всё, что прилеплено к ней (спасет от Lol@ezzzskin)
+        // Остальное удаляет конкретные названия спамеров
+        name = name.replace(/@[\w_]+|freeskins|ezzzskin|skinozbot|hatelavka|_bot/gi, '').trim();
         
-        // Подчищаем знаки препинания по краям (чтобы убрать лишние запятые после вырезания)
+        // Подчищаем висящие запятые или точки по краям (если было "lvl1,@ezzzskin", останется "lvl1")
         name = name.replace(/^[.,\s]+|[.,\s]+$/g, '');
         
-        // Если после удаления мусора от ника ничего не осталось
+        // Если ник состоял ТОЛЬКО из спама, даем заглушку, чтобы парень остался в таблице со своими очками
         if (!name) {
             name = 'Скрытое имя';
         }
