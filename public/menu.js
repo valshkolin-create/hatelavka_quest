@@ -1637,8 +1637,39 @@ async function renderFullInterface(data) {
         renderMatrixTracker(data.matrix_quest, userData);
         checkMatrixEvent(data.matrix_quest);
     }
+// 👇 ДОБАВИТЬ ЭТОТ БЛОК СЮДА 👇
+    // ==========================================
+    // ЛОГИКА ОТОБРАЖЕНИЯ СТАТУСА ПОДПИСКИ
+    // ==========================================
+    const premiumBtn = document.getElementById('premium-status-btn');
+    if (premiumBtn) {
+        // ПОКА ЧТО ВКЛЮЧАЕМ ТОЛЬКО ДЛЯ АДМИНА!
+        if (userData.is_admin) {
+            premiumBtn.classList.remove('hidden');
+            
+            // Заготовка на будущее, когда появится флаг is_premium в БД
+            const isPremium = false; // Поменяем потом на userData.is_premium
+            const icon = document.getElementById('premium-status-icon');
+            const text = document.getElementById('premium-status-text');
+            
+            if (isPremium) {
+                premiumBtn.style.background = 'rgba(255, 215, 0, 0.05)';
+                premiumBtn.style.borderColor = 'rgba(255, 215, 0, 0.3)';
+                icon.style.color = '#ffd700';
+                text.style.color = '#ffd700';
+                text.textContent = 'КРУТОЙ';
+            } else {
+                premiumBtn.style.background = 'rgba(255,255,255,0.02)';
+                premiumBtn.style.borderColor = 'rgba(255,255,255,0.05)';
+                icon.style.color = '#8e8e93';
+                text.style.color = '#fff';
+                text.textContent = 'ОБЫЧНЫЙ';
+            }
+        } else {
+            premiumBtn.classList.add('hidden');
+        }
     }
-    
+    // 👆 КОНЕЦ БЛОКА ПОДПИСКИ 👆 
 // ================================================================
 // 1В1 ЛОГИКА КЕЙСОВ ИЗ SHOP.HTML
 // ================================================================
@@ -3383,6 +3414,37 @@ window.customConfirm = function(message, callback) {
         onConfirm: (close) => {
             close();
             if (callback) callback(true);
+        }
+    });
+};
+
+// ================================================================
+// МОДУЛЬ ПОДПИСКИ (В РАЗРАБОТКЕ)
+// ================================================================
+window.openSubscriptionModal = () => {
+    // В будущем здесь мы будем проверять реальный статус подписки юзера
+    // const isPremium = userData.is_premium;
+
+    showShopModal({
+        title: '<span style="color: #FFD700; font-weight: 900; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"><i class="fa-solid fa-crown"></i> HATElavka Premium</span>',
+        subtitle: `
+            <div style="text-align: left; font-size: 12px; color: #ccc; line-height: 1.4;">
+                <div style="text-align: center; margin-bottom: 15px; font-size: 13px; color: #fff; font-weight: bold;">
+                    Модуль находится в разработке 🛠
+                </div>
+                Будущие преимущества подписки:<br><br>
+                <i class="fa-solid fa-shield-halved" style="color: #34c759; width: 20px;"></i> Всегда <b style="color: #34c759;">зеленый</b> траст-фактор<br>
+                <i class="fa-solid fa-box-open" style="color: #2AABEE; width: 20px;"></i> Бесплатный кейс раз в неделю<br>
+                <i class="fa-solid fa-fire" style="color: #ff9500; width: 20px;"></i> Выделенный статус в Гринде<br>
+                <i class="fa-solid fa-ticket" style="color: #9146ff; width: 20px;"></i> Закрытые Premium-розыгрыши
+            </div>
+        `,
+        confirmText: "КУПИТЬ (СКОРО)",
+        confirmClass: "btn-buy", // Сделает кнопку золотой
+        showCancel: true,
+        onConfirm: (close) => {
+            // Пока тут просто закрываем окно. Потом сюда повесим вызов кассы.
+            close();
         }
     });
 };
