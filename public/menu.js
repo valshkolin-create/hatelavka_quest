@@ -1637,28 +1637,27 @@ async function renderFullInterface(data) {
         renderMatrixTracker(data.matrix_quest, userData);
         checkMatrixEvent(data.matrix_quest);
     }
-}
 
     // ==========================================
     // ЛОГИКА ОТОБРАЖЕНИЯ СТАТУСА ПОДПИСКИ
     // ==========================================
     const premiumBtn = document.getElementById('premium-status-btn');
     if (premiumBtn) {
-        if (userData.is_admin) { // ПОКА ЧТО ВКЛЮЧАЕМ ТОЛЬКО ДЛЯ АДМИНА!
+        // ПОКА ЧТО ВКЛЮЧАЕМ ТОЛЬКО ДЛЯ АДМИНА!
+        if (userData.is_admin) {
             premiumBtn.classList.remove('hidden');
             
-            const isPremium = false; // Заготовка: потом поменяем на userData.is_premium
+            // Заготовка на будущее
+            const isPremium = false; 
             const icon = document.getElementById('premium-status-icon');
             const text = document.getElementById('premium-status-text');
             
             if (isPremium) {
-                // Премиум-визуал
                 icon.style.color = '#ffd700';
                 icon.style.filter = 'drop-shadow(0 0 5px rgba(255, 215, 0, 0.5))';
                 text.style.color = '#ffd700';
                 text.textContent = 'КРУТОЙ';
             } else {
-                // Обычный визуал
                 icon.style.color = '#8e8e93';
                 icon.style.filter = 'none';
                 text.style.color = '#fff';
@@ -1668,8 +1667,7 @@ async function renderFullInterface(data) {
             premiumBtn.classList.add('hidden');
         }
     }
-} // 🔥 ВОТ ЭТА СКОБКА БЫЛА ПОТЕРЯНА! ОНА ЗАКРЫВАЕТ ФУНКЦИЮ renderFullInterface 🔥
-
+} // <--- ЗДЕСЬ ДОЛЖНА БЫТЬ РОВНО ОДНА СКОБКА (Закрывает renderFullInterface)
 
 // ================================================================
 // МОДУЛЬ ПОДПИСКИ (В РАЗРАБОТКЕ) - Вставь это ниже в файл
