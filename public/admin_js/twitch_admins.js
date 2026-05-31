@@ -279,15 +279,14 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                         issueButtonHtml = `<button 
                             class="admin-action-btn manual-steam-btn" 
                             data-purchase-id="${p.id}"
-                            style="background: #171a21; color: #fff; width: 100%; border-radius: 8px;">
-                            <i class="fa-brands fa-steam"></i> Выдать со склада
+                            style="background: #171a21; color: #fff; border: 1px solid rgba(255,255,255,0.1);">
+                            <i class="fa-brands fa-steam" style="margin-right: 5px;"></i> Выдать со склада
                         </button>`;
                     } else {
                         issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
                             <i class="fa-solid fa-file-invoice"></i> Выдача не требуется
                         </div>`;
                     }
-                } 
 
                 actionButtonsHtml = `
                     ${issueButtonHtml}
