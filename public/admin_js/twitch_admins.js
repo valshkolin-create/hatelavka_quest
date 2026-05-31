@@ -210,7 +210,28 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
         const targetValue = reward_settings.target_value || 0;
         const conditionType = reward_settings.condition_type || '';
 
-        body.innerHTML = purchases.map(p => {
+        // --- ЛОГИКА ФИЛЬТРАЦИИ И ГРУППИРОВКИ ---
+        
+        // 1. Сортируем все покупки от новых к старым
+        purchases.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // 2. Раскидываем по 3 массивам в зависимости от статуса
+        const pendingPurchases = [];
+        const completedPurchases = [];
+        const rejectedPurchases = [];
+
+        purchases.forEach(p => {
+            if (p.status === 'Выдан') {
+                completedPurchases.push(p);
+            } else if (p.status.includes('Отклонен') || p.status.includes('Ошибка')) {
+                rejectedPurchases.push(p);
+            } else {
+                pendingPurchases.push(p);
+            }
+        });
+
+        // 3. Функция-помощник для генерации HTML одной покупки
+        const generatePurchaseHtml = (p) => {
             const date = new Date(p.created_at).toLocaleString('ru-RU');
 
             let progressHtml = '';
@@ -263,25 +284,25 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
 
             let actionButtonsHtml;
 
-            if (p.rewarded_at) {
+            if (p.status === 'Выдан' || p.status.includes('Отклонен') || p.rewarded_at) {
+                let statusIcon = p.status === 'Выдан' ? '<i class="fa-solid fa-check-circle"></i>' : '<i class="fa-solid fa-ban"></i>';
                 actionButtonsHtml = `
-                    <div class="rewarded-info" style="flex-grow: 1;"><i class="fa-solid fa-check-circle"></i> Награда выдана</div>
+                    <div class="rewarded-info" style="flex-grow: 1;">${statusIcon} ${p.status}</div>
                     <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
             
             } else {
                 let issueButtonHtml = '';
 
                 // Выносим Steam в отдельное условие, чтобы кнопка работала и без привязки
-               if (rewardType === 'steam') {
-    issueButtonHtml = `<button 
-        class="admin-action-btn manual-steam-btn" 
-        data-purchase-id="${p.id}"
-        data-item-name="${escapeHTML(reward_settings.steam_item_name || '')}"
-        data-item-count="${reward_settings.steam_item_count || 1}"
-        style="display: flex; align-items: center; justify-content: center; flex-grow: 1; padding: 8px 12px; background: #171a21; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-weight: 500; transition: all 0.2s ease;">
-        <i class="fa-brands fa-steam" style="margin-right: 6px; font-size: 1.1em;"></i> Выдать
-    </button>`;
-
+                if (rewardType === 'steam') {
+                    issueButtonHtml = `<button 
+                        class="admin-action-btn manual-steam-btn" 
+                        data-purchase-id="${p.id}"
+                        data-item-name="${escapeHTML(reward_settings.steam_item_name || '')}"
+                        data-item-count="${reward_settings.steam_item_count || 1}"
+                        style="display: flex; align-items: center; justify-content: center; flex-grow: 1; padding: 8px 12px; background: #171a21; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-weight: 500; transition: all 0.2s ease;">
+                        <i class="fa-brands fa-steam" style="margin-right: 6px; font-size: 1.1em;"></i> Выдать
+                    </button>`;
                 } else if (p.status !== 'Привязан') {
                     issueButtonHtml = `
                         <div class="rewarded-info" style="flex-grow: 1; color: var(--warning-color);">
@@ -302,7 +323,7 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                     <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
             }
 
-            const telegramNameDisplay = p.status === 'Привязан'
+            const telegramNameDisplay = p.status === 'Привязан' || p.username
                 ? `<span style="color: var(--text-color-muted); font-weight: normal; margin-left: 5px;">(${p.username || '...'})</span>`
                 : `<span style="color: var(--warning-color); font-weight: normal; margin-left: 5px;">(Не привязан)</span>`;
 
@@ -322,12 +343,50 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                 <div class="purchase-actions">${actionButtonsHtml}</div>
             </div>
             `;
-        }).join('');
+        };
+
+        // 4. Сборка финального HTML
+        let finalHtml = '';
+
+        if (pendingPurchases.length > 0) {
+            finalHtml += `
+                <div class="purchases-group">
+                    <h4 style="margin-bottom: 12px; color: var(--text-color); font-size: 15px;">
+                        <i class="fa-solid fa-clock"></i> Ожидают выдачи (${pendingPurchases.length})
+                    </h4>
+                    ${pendingPurchases.map(generatePurchaseHtml).join('')}
+                </div>`;
+        } else {
+            finalHtml += `<p style="text-align: center; color: var(--success-color); margin-bottom: 15px;"><i class="fa-solid fa-check"></i> Ожидающих заявок нет!</p>`;
+        }
+
+        if (completedPurchases.length > 0) {
+            finalHtml += `
+                <details class="purchases-accordion" style="margin-top: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
+                    <summary style="cursor: pointer; font-weight: bold; color: var(--success-color); outline: none; user-select: none;">
+                        ✅ Завершенные / Выданные (${completedPurchases.length})
+                    </summary>
+                    <div style="margin-top: 15px;">
+                        ${completedPurchases.map(generatePurchaseHtml).join('')}
+                    </div>
+                </details>`;
+        }
+
+        if (rejectedPurchases.length > 0) {
+            finalHtml += `
+                <details class="purchases-accordion" style="margin-top: 10px; background: rgba(255,0,0,0.05); border: 1px solid rgba(255,0,0,0.1); border-radius: 8px; padding: 10px;">
+                    <summary style="cursor: pointer; font-weight: bold; color: var(--danger-color); outline: none; user-select: none;">
+                        ❌ Отклоненные / Ошибки (${rejectedPurchases.length})
+                    </summary>
+                    <div style="margin-top: 15px;">
+                        ${rejectedPurchases.map(generatePurchaseHtml).join('')}
+                    </div>
+                </details>`;
+        }
+
+        body.innerHTML = finalHtml;
 
     } catch(e) {
-        body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
-    }
-}
 
 window.closeManualSteamModal = function() {
     const modal = document.getElementById('manual-steam-modal');
@@ -685,7 +744,7 @@ document.body.addEventListener('click', async (event) => {
                     }, 'POST', true);
                     
                     tg.showPopup({ message: res.message || 'Трейд успешно отправлен!' });
-                    document.getElementById(`purchase-item-${purchaseId}`)?.remove();
+                    document.getElementById('refresh-purchases-btn')?.click();
                 } catch (e) {
                     let errorMsg = `Ошибка: ${e.message}`;
                     if (errorMsg.length > 250) errorMsg = errorMsg.substring(0, 247) + '...';
