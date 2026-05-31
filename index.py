@@ -13287,11 +13287,12 @@ async def twitch_inventory_issue(
         raise HTTPException(status_code=400, detail="Нет трейд-ссылки у пользователя! Пусть добавит в профиль или напишет в сообщении.")
 
     # 3. Идем строго в базу ботов (steam_inventory_cache)
+    # Используем оператор or, чтобы искать и по английскому, и по русскому названию
     inv_resp = await supabase.get("/steam_inventory_cache", params={
         "is_reserved": "is.false",
-        "name": f"ilike.%{req.search_query}%",
+        "or": f"(market_hash_name.ilike.%{req.search_query}%,name_ru.ilike.%{req.search_query}%)",
         "limit": "100", # Берем с запасом, чтобы сгруппировать по боту
-        "select": "assetid, account_id" # <--- ИСПРАВЛЕНО
+        "select": "assetid, account_id"
     })
     
     if inv_resp.status_code != 200:
