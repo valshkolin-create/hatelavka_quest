@@ -158,14 +158,15 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
     deleteAllBtn.disabled = false; 
 
     let massSteamBtn = headerEl.querySelector('#mass-steam-btn');
-    if (!massSteamBtn) {
-        massSteamBtn = document.createElement('button');
-        massSteamBtn.id = 'mass-steam-btn';
-        massSteamBtn.className = 'admin-action-btn';
-        massSteamBtn.style.background = 'var(--action-color, #007aff)'; // Можешь заменить на класс
-        massSteamBtn.innerHTML = '<i class="fa-brands fa-steam"></i> Масс. выдача';
-        headerEl.insertBefore(massSteamBtn, deleteAllBtn);
-    }
+    if (!massSteamBtn) {
+        massSteamBtn = document.createElement('button');
+        massSteamBtn.id = 'mass-steam-btn';
+        massSteamBtn.className = 'admin-action-btn';
+        // Прячем по умолчанию и задаем аккуратный Steam-дизайн
+        massSteamBtn.style.cssText = 'background: #171a21; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 6px 12px; font-size: 13px; display: none; align-items: center; gap: 6px;';
+        massSteamBtn.innerHTML = '<i class="fa-brands fa-steam"></i> Масс. выдача';
+        headerEl.insertBefore(massSteamBtn, deleteAllBtn);
+    }
     massSteamBtn.dataset.rewardId = rewardId;
 
     titleEl.textContent = `Покупки: ${rewardTitle}`;
@@ -190,6 +191,12 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
         deleteAllBtn.classList.remove('hidden');
 
         const rewardType = (reward_settings && reward_settings.reward_type) ? reward_settings.reward_type : 'promocode';
+        
+        // Показываем кнопку масс-выдачи только для Steam наград
+        if (massSteamBtn) {
+            massSteamBtn.style.display = (rewardType === 'steam') ? 'inline-flex' : 'none';
+        }
+
         const rewardAmount = reward_settings.reward_amount ?? (reward_settings.promocode_amount ?? 0);
         const targetValue = reward_settings.target_value || 0;
         const conditionType = reward_settings.condition_type || '';
@@ -255,40 +262,40 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
             } else {
                 let issueButtonHtml = '';
 
-                if (p.status !== 'Привязан') {
+                // Выносим Steam в отдельное условие, чтобы кнопка работала и без привязки
+                if (rewardType === 'steam') {
+                    issueButtonHtml = `<button 
+                        class="admin-action-btn manual-steam-btn" 
+                        data-purchase-id="${p.id}"
+                        style="
+                            display: flex; 
+                            align-items: center; 
+                            justify-content: center; 
+                            flex-grow: 1;
+                            padding: 8px 12px;
+                            background: #171a21; 
+                            color: #fff; 
+                            border: 1px solid rgba(255,255,255,0.1); 
+                            border-radius: 8px;
+                            font-weight: 500;
+                            transition: all 0.2s ease;">
+                        <i class="fa-brands fa-steam" style="margin-right: 6px; font-size: 1.1em;"></i> Выдать со склада
+                    </button>`;
+                } else if (p.status !== 'Привязан') {
                     issueButtonHtml = `
                         <div class="rewarded-info" style="flex-grow: 1; color: var(--warning-color);">
                             <i class="fa-solid fa-link-slash"></i> Ожидает привязки
                         </div>`;
                 } else {
                     if (rewardType === 'tickets') {
-                        issueButtonHtml = `<button 
-                            class="admin-action-btn issue-tickets-btn" 
-                            data-purchase-id="${p.id}" 
-                            data-amount="${rewardAmount}">
-                            Выдать ${rewardAmount} 🎟️
-                        </button>`;
+                        issueButtonHtml = `<button class="admin-action-btn issue-tickets-btn" data-purchase-id="${p.id}" data-amount="${rewardAmount}">Выдать ${rewardAmount} 🎟️</button>`;
                     } else if (rewardType === 'promocode') {
-                        issueButtonHtml = `<button 
-                            class="admin-action-btn issue-promo-btn" 
-                            data-purchase-id="${p.id}" 
-                            data-amount="${rewardAmount}">
-                            Выдать ${rewardAmount} ⭐
-                        </button>`;
-                    } else if (rewardType === 'steam') {
-                        issueButtonHtml = `<button 
-                            class="admin-action-btn manual-steam-btn" 
-                            data-purchase-id="${p.id}"
-                            style="background: #171a21; color: #fff; border: 1px solid rgba(255,255,255,0.1);">
-                            <i class="fa-brands fa-steam" style="margin-right: 5px;"></i> Выдать со склада
-                        </button>`;
-                    } else {
-                        issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
-                            <i class="fa-solid fa-file-invoice"></i> Выдача не требуется
-                        </div>`;
-                    }
-                    } // <--- ВОТ ЭТОЙ СКОБКИ НЕ ХВАТАЛО
-
+                        issueButtonHtml = `<button class="admin-action-btn issue-promo-btn" data-purchase-id="${p.id}" data-amount="${rewardAmount}">Выдать ${rewardAmount} ⭐</button>`;
+                    } else {
+                        issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);"><i class="fa-solid fa-file-invoice"></i> Выдача не требуется</div>`;
+                    }
+                }
+                
                 actionButtonsHtml = `
                     ${issueButtonHtml}
                     <button class="admin-action-btn reject delete-purchase-btn" data-purchase-id="${p.id}"><i class="fa-solid fa-trash"></i></button>`;
@@ -322,8 +329,8 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
 }
 
 window.closeManualSteamModal = function() {
-    const modal = document.getElementById('manual-steam-modal');
-    if (modal) modal.classList.remove('visible');
+    const modal = document.getElementById('manual-steam-modal');
+    if (modal) modal.classList.add('hidden');
 };
 
 // --- ЭКСПОРТ ОБРАБОТЧИКОВ (вызывается из admin.js) ---
@@ -655,11 +662,11 @@ window.setupTwitchEventListeners = function() {
             const submitBtn = document.getElementById('manual-steam-submit-btn');
             const title = document.getElementById('manual-steam-title');
             
-            if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
-            
-            modal.classList.add('visible');
-            
-            const newSubmitBtn = submitBtn.cloneNode(true);
+            if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
+            
+            modal.classList.remove('hidden');
+            
+            const newSubmitBtn = submitBtn.cloneNode(true);
             submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
 
             newSubmitBtn.addEventListener('click', () => {
