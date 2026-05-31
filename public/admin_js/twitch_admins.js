@@ -509,52 +509,6 @@ window.setupTwitchEventListeners = function() {
         });
     }
 
-            // --- 6. Отправка формы ручной выдачи Steam ---
-    const manualSteamSubmitBtn = document.getElementById('manual-steam-submit-btn');
-    if (manualSteamSubmitBtn && !manualSteamSubmitBtn.dataset.listenerAttached) {
-        manualSteamSubmitBtn.dataset.listenerAttached = 'true'; // Защита от двойного навешивания
-        
-        manualSteamSubmitBtn.addEventListener('click', async () => {
-            const modal = document.getElementById('manual-steam-modal');
-            // Достаем контекст из модалки
-            const isMass = modal.dataset.isMass === 'true';
-            const targetId = modal.dataset.targetId;
-
-            const searchQuery = document.getElementById('manual-steam-search').value.trim();
-            const count = parseInt(document.getElementById('manual-steam-count').value) || 1;
-
-            if (!searchQuery) return tg.showAlert("Введите название предмета!");
-
-            const originalText = manualSteamSubmitBtn.innerHTML;
-            manualSteamSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Отправляем...';
-            manualSteamSubmitBtn.disabled = true;
-
-            const endpoint = isMass ? '/api/v1/admin/twitch_rewards/manual_mass_steam' : '/api/v1/admin/twitch_rewards/inventory_issue';
-            const payload = { search_query: searchQuery, count: count };
-
-            if (isMass) payload.reward_id = parseInt(targetId);
-            else payload.purchase_id = parseInt(targetId);
-
-            try {
-                const res = await makeApiRequest(endpoint, payload, 'POST', true);
-                
-                closeManualSteamModal();
-                tg.showPopup({ message: res.message || 'Трейд успешно отправлен!' });
-                
-                if (isMass) {
-                    document.getElementById('refresh-purchases-btn')?.click();
-                } else {
-                    document.getElementById(`purchase-item-${targetId}`)?.remove();
-                }
-            } catch (e) {
-                tg.showAlert(`Ошибка: ${e.message}`);
-            } finally {
-                manualSteamSubmitBtn.innerHTML = originalText;
-                manualSteamSubmitBtn.disabled = false;
-            }
-        });
-    }
-
     // 5. Делегированные клики Twitch
     document.body.addEventListener('click', (event) => {
         const target = event.target;
@@ -696,11 +650,12 @@ window.setupTwitchEventListeners = function() {
             return;
         }
 
-       // --- РУЧНАЯ ВЫДАЧА STEAM (ОДИНОЧНАЯ И МАССОВАЯ) ---
+// --- 🛡️ РУЧНАЯ ВЫДАЧА STEAM (ОТКРЫТИЕ ОКНА) ---
         const manualSteamBtn = target.closest('.manual-steam-btn');
         const massSteamBtnAction = target.closest('#mass-steam-btn');
 
         if (manualSteamBtn || massSteamBtnAction) {
+            event.preventDefault(); // Блокируем стандартное поведение на всякий случай
             const isMass = !!massSteamBtnAction;
             const targetId = isMass ? massSteamBtnAction.dataset.rewardId : manualSteamBtn.dataset.purchaseId;
             
@@ -710,15 +665,72 @@ window.setupTwitchEventListeners = function() {
             if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
             
             if (modal) {
-                // Записываем контекст прямо в модалку
+                // Безопасно записываем контекст
                 modal.dataset.isMass = isMass;
                 modal.dataset.targetId = targetId;
 
-                // Очищаем поля при открытии
-                document.getElementById('manual-steam-search').value = '';
-                document.getElementById('manual-steam-count').value = '1';
+                // БЕЗОПАСНАЯ ОЧИСТКА: проверяем, что поля существуют
+                const searchInput = document.getElementById('manual-steam-search');
+                const countInput = document.getElementById('manual-steam-count');
+                if (searchInput) searchInput.value = '';
+                if (countInput) countInput.value = '1';
 
                 modal.classList.remove('hidden');
+            }
+            return;
+        }
+
+        // --- 🛡️ ОТПРАВКА ТРЕЙДА (КЛИК ПО КНОПКЕ "ОТПРАВИТЬ") ---
+        const manualSteamSubmitBtn = target.closest('#manual-steam-submit-btn');
+        if (manualSteamSubmitBtn) {
+            event.preventDefault(); // Защита от перезагрузки страницы, если кнопка в <form>
+            
+            const modal = document.getElementById('manual-steam-modal');
+            if (!modal) return;
+            
+            // Читаем контекст, который записали при открытии
+            const isMass = modal.dataset.isMass === 'true';
+            const targetId = modal.dataset.targetId;
+
+            const searchInput = document.getElementById('manual-steam-search');
+            const countInput = document.getElementById('manual-steam-count');
+            const searchQuery = searchInput ? searchInput.value.trim() : '';
+            const count = countInput ? (parseInt(countInput.value) || 1) : 1;
+
+            if (!searchQuery) return tg.showAlert("Введите название предмета!");
+
+            const originalText = manualSteamSubmitBtn.innerHTML;
+            manualSteamSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Отправляем...';
+            manualSteamSubmitBtn.disabled = true;
+
+            const endpoint = isMass ? '/api/v1/admin/twitch_rewards/manual_mass_steam' : '/api/v1/admin/twitch_rewards/inventory_issue';
+            const payload = { search_query: searchQuery, count: count };
+
+            if (isMass) payload.reward_id = parseInt(targetId);
+            else payload.purchase_id = parseInt(targetId);
+
+            try {
+                const res = await makeApiRequest(endpoint, payload, 'POST', true);
+                
+                if (typeof window.closeManualSteamModal === 'function') {
+                    window.closeManualSteamModal();
+                } else {
+                    modal.classList.add('hidden');
+                }
+                
+                tg.showPopup({ message: res.message || 'Трейд успешно отправлен!' });
+                
+                // Перезагрузка или удаление элемента из списка
+                if (isMass) {
+                    document.getElementById('refresh-purchases-btn')?.click();
+                } else {
+                    document.getElementById(`purchase-item-${targetId}`)?.remove();
+                }
+            } catch (e) {
+                tg.showAlert(`Ошибка: ${e.message}`);
+            } finally {
+                manualSteamSubmitBtn.innerHTML = originalText;
+                manualSteamSubmitBtn.disabled = false;
             }
             return;
         }
