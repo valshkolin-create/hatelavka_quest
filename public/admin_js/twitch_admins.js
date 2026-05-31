@@ -330,7 +330,7 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
 
 window.closeManualSteamModal = function() {
     const modal = document.getElementById('manual-steam-modal');
-    if (modal) modal.classList.remove('visible');
+    if (modal) modal.classList.add('hidden');
 };
 
 // --- ЭКСПОРТ ОБРАБОТЧИКОВ (вызывается из admin.js) ---
@@ -664,7 +664,7 @@ window.setupTwitchEventListeners = function() {
             
             if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
             
-            modal.classList.add('visible');
+            modal.classList.remove('hidden');
             
             const newSubmitBtn = submitBtn.cloneNode(true);
             submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
