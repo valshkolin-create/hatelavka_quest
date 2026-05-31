@@ -387,6 +387,9 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
         body.innerHTML = finalHtml;
 
     } catch(e) {
+        body.innerHTML = `<p style='color: var(--danger-color);'>Ошибка загрузки покупок: ${e.message}</p>`;
+    }
+}
 
 window.closeManualSteamModal = function() {
     const modal = document.getElementById('manual-steam-modal');
