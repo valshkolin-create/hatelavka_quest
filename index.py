@@ -13258,7 +13258,7 @@ async def twitch_inventory_issue(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # 1. Достаем покупку и трейд-ссылку (без алиасов, чтобы избежать конфликтов)
-    p_resp = await supabase.get("/twitch_purchases", params={
+    p_resp = await supabase.get("/twitch_reward_purchases", params={
         "id": f"eq.{req.purchase_id}",
         "select": "*, users(trade_link)"
     })
@@ -13350,7 +13350,7 @@ async def twitch_inventory_issue(
         raise HTTPException(status_code=500, detail="Ошибка: Стим не дал отправить ни одного трейда.")
 
     # 6. Закрываем покупку в админке
-    await supabase.patch("/twitch_purchases", params={"id": f"eq.{req.purchase_id}"}, json={
+    await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{req.purchase_id}"}, json={
         "status": "Выдан",
         "rewarded_at": datetime.now(timezone.utc).isoformat(),
         "viewed_by_admin": True,
