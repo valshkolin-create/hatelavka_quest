@@ -76,16 +76,24 @@ async function loadTwitchRewards() {
 }
 
 function openTwitchRewardSettings(reward) {
-    const modal = document.getElementById('twitch-reward-settings-modal');
-    const form = document.getElementById('twitch-reward-settings-form');
-    document.getElementById('twitch-settings-title').textContent = `Настройки: ${reward.title}`;
+    const modal = document.getElementById('twitch-reward-settings-modal');
+    const form = document.getElementById('twitch-reward-settings-form');
+    document.getElementById('twitch-settings-title').textContent = `Настройки: ${reward.title}`;
 
-    form.elements['reward_id'].value = reward.id;
-    form.elements['is_active'].checked = reward.is_active;
-    form.elements['notify_admin'].checked = reward.notify_admin;
-    form.elements['show_user_input'].checked = reward.show_user_input;
-    
-    const legacyWrapper = document.getElementById('legacy-promocode-field-wrapper');
+    form.elements['reward_id'].value = reward.id;
+    form.elements['is_active'].checked = reward.is_active;
+    form.elements['notify_admin'].checked = reward.notify_admin;
+    form.elements['show_user_input'].checked = reward.show_user_input;
+    
+    // Добавлены поля для Steam
+    if (form.elements['auto_steam']) form.elements['auto_steam'].checked = reward.auto_steam || false;
+    if (form.elements['steam_item_name']) form.elements['steam_item_name'].value = reward.steam_item_name || "";
+    if (form.elements['steam_item_count']) form.elements['steam_item_count'].value = reward.steam_item_count || 1;
+
+    const steamWrapper = document.getElementById('steam-automation-wrapper');
+    if (steamWrapper) steamWrapper.style.display = hasAdminAccess ? 'block' : 'none';
+    
+    const legacyWrapper = document.getElementById('legacy-promocode-field-wrapper');
     const adminWrapper = modal.querySelector('.admin-feature-6971'); 
     
     if (hasAdminAccess) {
@@ -138,16 +146,27 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
     refreshBtn.dataset.rewardId = rewardId;
     refreshBtn.dataset.rewardTitle = rewardTitle;
 
-    let deleteAllBtn = headerEl.querySelector('#delete-all-purchases-btn');
-    if (!deleteAllBtn) {
-        deleteAllBtn = document.createElement('button');
-        deleteAllBtn.id = 'delete-all-purchases-btn';
-        deleteAllBtn.className = 'admin-action-btn reject';
-        deleteAllBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Удалить все';
-        headerEl.insertBefore(deleteAllBtn, refreshBtn);
-    }
-    deleteAllBtn.dataset.rewardId = rewardId;
-    deleteAllBtn.disabled = false; 
+    let deleteAllBtn = headerEl.querySelector('#delete-all-purchases-btn');
+    if (!deleteAllBtn) {
+        deleteAllBtn = document.createElement('button');
+        deleteAllBtn.id = 'delete-all-purchases-btn';
+        deleteAllBtn.className = 'admin-action-btn reject';
+        deleteAllBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Удалить все';
+        headerEl.insertBefore(deleteAllBtn, refreshBtn);
+    }
+    deleteAllBtn.dataset.rewardId = rewardId;
+    deleteAllBtn.disabled = false; 
+
+    let massSteamBtn = headerEl.querySelector('#mass-steam-btn');
+    if (!massSteamBtn) {
+        massSteamBtn = document.createElement('button');
+        massSteamBtn.id = 'mass-steam-btn';
+        massSteamBtn.className = 'admin-action-btn';
+        massSteamBtn.style.background = 'var(--action-color, #007aff)'; // Можешь заменить на класс
+        massSteamBtn.innerHTML = '<i class="fa-brands fa-steam"></i> Масс. выдача';
+        headerEl.insertBefore(massSteamBtn, deleteAllBtn);
+    }
+    massSteamBtn.dataset.rewardId = rewardId;
 
     titleEl.textContent = `Покупки: ${rewardTitle}`;
     body.innerHTML = '<i>Загрузка покупок...</i>';
@@ -250,17 +269,24 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                             Выдать ${rewardAmount} 🎟️
                         </button>`;
                     } else if (rewardType === 'promocode') {
-                        issueButtonHtml = `<button 
-                            class="admin-action-btn issue-promo-btn" 
-                            data-purchase-id="${p.id}" 
-                            data-amount="${rewardAmount}">
-                            Выдать ${rewardAmount} ⭐
-                        </button>`;
-                    } else {
-                        issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
-                            <i class="fa-solid fa-file-invoice"></i> Выдача не требуется
-                        </div>`;
-                    }
+                        issueButtonHtml = `<button 
+                            class="admin-action-btn issue-promo-btn" 
+                            data-purchase-id="${p.id}" 
+                            data-amount="${rewardAmount}">
+                            Выдать ${rewardAmount} ⭐
+                        </button>`;
+                    } else if (rewardType === 'steam') {
+                        issueButtonHtml = `<button 
+                            class="admin-action-btn issue-steam-btn" 
+                            data-purchase-id="${p.id}"
+                            style="background: #171a21;">
+                            Выдать Steam <i class="fa-brands fa-steam"></i>
+                        </button>`;
+                    } else {
+                        issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
+                            <i class="fa-solid fa-file-invoice"></i> Выдача не требуется
+                        </div>`;
+                    }
                 } 
 
                 actionButtonsHtml = `
@@ -331,10 +357,13 @@ window.setupTwitchEventListeners = function() {
                 notify_admin: form.elements['notify_admin'].checked,
                 show_user_input: form.elements['show_user_input'].checked,
                 condition_type: form.elements['condition_type'].value || null,
-                target_value: form.elements['target_value'].value ? parseInt(form.elements['target_value'].value) : null
-            };
+                target_value: form.elements['target_value'].value ? parseInt(form.elements['target_value'].value) : null,
+                auto_steam: form.elements['auto_steam'] ? form.elements['auto_steam'].checked : false,
+                steam_item_name: form.elements['steam_item_name'] ? form.elements['steam_item_name'].value : "",
+                steam_item_count: form.elements['steam_item_count'] ? parseInt(form.elements['steam_item_count'].value) : 1
+            };
 
-            if (hasAdminAccess) {
+            if (hasAdminAccess) {
                 payload.reward_type = form.elements['reward_type'].value;
                 if (payload.reward_type === 'none') {
                     payload.reward_amount = 0;
@@ -605,9 +634,52 @@ window.setupTwitchEventListeners = function() {
                             : `<p style="color: var(--warning-color);">⚠️ Не найден в топ-100</p>`;
                     })
                     .catch(e => resultDiv.innerHTML = `<p style="color: var(--danger-color);">Ошибка: ${e.message}</p>`)
-                    .finally(() => checkBtn.disabled = false);
-            }
-            return;
-        }
-    });
+                    .finally(() => checkBtn.disabled = false);
+            }
+            return;
+        }
+
+        // Одиночная выдача Steam
+        const issueSteamBtn = target.closest('.issue-steam-btn');
+        if (issueSteamBtn) {
+            const purchaseId = issueSteamBtn.dataset.purchaseId;
+            showCustomConfirmHTML('Отправить предмет(ы) через Steam бота?', () => {
+                issueSteamBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+                issueSteamBtn.disabled = true;
+                makeApiRequest('/api/v1/admin/twitch_rewards/issue_steam', { purchase_id: parseInt(purchaseId) }, 'POST', true)
+                    .then(res => {
+                        tg.showPopup({ message: res.message || 'Трейд отправлен' });
+                        document.getElementById(`purchase-item-${purchaseId}`)?.remove();
+                    })
+                    .catch(e => {
+                        tg.showAlert(`Ошибка: ${e.message}`);
+                        issueSteamBtn.innerHTML = 'Выдать Steam <i class="fa-brands fa-steam"></i>';
+                        issueSteamBtn.disabled = false;
+                    });
+            }, 'Отправить', '#171a21');
+            return;
+        }
+
+        // Массовая выдача Steam
+        const massSteamBtnAction = target.closest('#mass-steam-btn');
+        if (massSteamBtnAction) {
+            const rId = parseInt(massSteamBtnAction.dataset.rewardId);
+            showCustomConfirmHTML('Запустить массовую рассылку трейдов?', () => {
+                showLoader();
+                makeApiRequest('/api/v1/admin/twitch_rewards/mass_issue_steam', { reward_id: rId }, 'POST', true)
+                    .then(res => {
+                        hideLoader();
+                        tg.showPopup({ message: `Успех: ${res.sent || 0}, Ошибок: ${res.errors || 0}` });
+                        const refreshBtn = document.getElementById('refresh-purchases-btn');
+                        if (refreshBtn) refreshBtn.click();
+                    })
+                    .catch(e => {
+                        hideLoader();
+                        tg.showAlert(`Ошибка: ${e.message}`);
+                    });
+            }, 'Разослать', '#171a21');
+            return;
+        }
+
+    });
 };
