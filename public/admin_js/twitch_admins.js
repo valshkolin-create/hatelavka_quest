@@ -172,9 +172,6 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
     }
     massSteamBtn.dataset.rewardId = rewardId;
 
-    massSteamBtn.dataset.itemName = reward_settings.steam_item_name || "";
-massSteamBtn.dataset.itemCount = reward_settings.steam_item_count || 1;
-
     titleEl.textContent = `Покупки: ${rewardTitle}`;
     body.innerHTML = '<i>Загрузка покупок...</i>';
     modal.classList.remove('hidden');
@@ -188,6 +185,12 @@ massSteamBtn.dataset.itemCount = reward_settings.steam_item_count || 1;
     try {
         const data = await makeApiRequest(`/api/v1/admin/twitch_rewards/${rewardId}/purchases`, {}, 'GET', true);
         let { purchases, reward_settings } = data;
+
+        // ВСТАВЛЯЕМ СЮДА: Назначаем data-атрибуты только когда данные уже получены
+        if (massSteamBtn && reward_settings) {
+            massSteamBtn.dataset.itemName = reward_settings.steam_item_name || "";
+            massSteamBtn.dataset.itemCount = reward_settings.steam_item_count || 1;
+        }
 
         if (!purchases || purchases.length === 0) {
             body.innerHTML = '<p style="text-align: center;">Нет покупок для этой награды.</p>';
