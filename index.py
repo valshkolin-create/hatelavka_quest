@@ -1049,6 +1049,11 @@ class TwitchRewardUpdateRequest(BaseModel):
     reward_type: Optional[str] = None      # 'promocode', 'tickets' ИЛИ 'none'
     reward_amount: Optional[int] = None    # Количество для нового типа
     sort_order: Optional[int] = None       # Порядковый номер
+    # 👇 ДОБАВИТЬ ЭТИ ТРИ СТРОКИ:
+    auto_steam: Optional[bool] = False
+    steam_item_name: Optional[str] = ""
+    steam_item_count: Optional[int] = 1
+
 
 class TwitchRewardIssueRequest(BaseModel):
     initData: str
