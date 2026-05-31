@@ -1,5 +1,5 @@
 // ==========================================
-// ФАЙЛ: admin_js/twitch_admins.js
+// ФАЙЛ: admin_js/twitch_admins.js 
 // ==========================================
 
 async function loadTwitchRewards() {
