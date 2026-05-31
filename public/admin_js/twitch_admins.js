@@ -509,6 +509,52 @@ window.setupTwitchEventListeners = function() {
         });
     }
 
+            // --- 6. Отправка формы ручной выдачи Steam ---
+    const manualSteamSubmitBtn = document.getElementById('manual-steam-submit-btn');
+    if (manualSteamSubmitBtn && !manualSteamSubmitBtn.dataset.listenerAttached) {
+        manualSteamSubmitBtn.dataset.listenerAttached = 'true'; // Защита от двойного навешивания
+        
+        manualSteamSubmitBtn.addEventListener('click', async () => {
+            const modal = document.getElementById('manual-steam-modal');
+            // Достаем контекст из модалки
+            const isMass = modal.dataset.isMass === 'true';
+            const targetId = modal.dataset.targetId;
+
+            const searchQuery = document.getElementById('manual-steam-search').value.trim();
+            const count = parseInt(document.getElementById('manual-steam-count').value) || 1;
+
+            if (!searchQuery) return tg.showAlert("Введите название предмета!");
+
+            const originalText = manualSteamSubmitBtn.innerHTML;
+            manualSteamSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Отправляем...';
+            manualSteamSubmitBtn.disabled = true;
+
+            const endpoint = isMass ? '/api/v1/admin/twitch_rewards/manual_mass_steam' : '/api/v1/admin/twitch_rewards/inventory_issue';
+            const payload = { search_query: searchQuery, count: count };
+
+            if (isMass) payload.reward_id = parseInt(targetId);
+            else payload.purchase_id = parseInt(targetId);
+
+            try {
+                const res = await makeApiRequest(endpoint, payload, 'POST', true);
+                
+                closeManualSteamModal();
+                tg.showPopup({ message: res.message || 'Трейд успешно отправлен!' });
+                
+                if (isMass) {
+                    document.getElementById('refresh-purchases-btn')?.click();
+                } else {
+                    document.getElementById(`purchase-item-${targetId}`)?.remove();
+                }
+            } catch (e) {
+                tg.showAlert(`Ошибка: ${e.message}`);
+            } finally {
+                manualSteamSubmitBtn.innerHTML = originalText;
+                manualSteamSubmitBtn.disabled = false;
+            }
+        });
+    }
+
     // 5. Делегированные клики Twitch
     document.body.addEventListener('click', (event) => {
         const target = event.target;
