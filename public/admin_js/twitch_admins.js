@@ -510,8 +510,8 @@ window.setupTwitchEventListeners = function() {
     }
 
     // 5. Делегированные клики Twitch
-    document.body.addEventListener('click', (event) => {
-        const target = event.target;
+document.body.addEventListener('click', async (event) => {
+    const target = event.target;
 
         // Шестеренка
         const settingsBtn = target.closest('.reward-settings-btn');
