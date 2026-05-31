@@ -10375,143 +10375,6 @@ async def list_twitch_rewards(supabase: httpx.AsyncClient = Depends(get_supabase
         
     return data
 
-
-@app.post("/api/v1/admin/twitch_rewards/inventory_issue")
-async def twitch_inventory_issue(
-    req: TwitchInventoryIssueReq,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info['id'] not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    # 1. Достаем покупку напрямую из twitch_reward_purchases
-    p_resp = await supabase.get("/twitch_reward_purchases", params={
-        "id": f"eq.{req.purchase_id}"
-    })
-    
-    if p_resp.status_code != 200:
-        raise HTTPException(status_code=400, detail=f"Ошибка БД при поиске покупки: {p_resp.text}")
-        
-    data = p_resp.json()
-    if not data or not isinstance(data, list):
-        raise HTTPException(status_code=404, detail="Покупка не найдена")
-    
-    purchase = data[0]
-    
-    # 2. Ищем трейд-ссылку напрямую в покупке
-    trade_link = purchase.get("trade_link")
-    
-    # Если ее там нет, проверяем, не оставил ли пользователь ссылку прямо в сообщении
-    if not trade_link:
-        trade_link = extract_trade_link(purchase.get("user_input", ""))
-                
-    if not trade_link:
-        raise HTTPException(status_code=400, detail="Нет трейд-ссылки у пользователя! Пусть добавит в профиль или напишет в сообщении.")
-
-    # --- НАЧАЛО УМНОГО ЦИКЛА (SELF-HEALING) ---
-    MAX_RETRIES = 3
-    trade_success = False
-    last_error = ""
-    success_count = 0
-
-    for attempt in range(1, MAX_RETRIES + 1):
-        # 3. Идем строго в базу ботов (steam_inventory_cache)
-        # Используем оператор or, чтобы искать и по английскому, и по русскому названию
-        inv_resp = await supabase.get("/steam_inventory_cache", params={
-            "is_reserved": "is.false",
-            "or": f"(market_hash_name.ilike.%{req.search_query}%,name_ru.ilike.%{req.search_query}%)",
-            "limit": "100", # Берем с запасом, чтобы сгруппировать по боту
-            "select": "assetid, account_id"
-        })
-        
-        if inv_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail=f"Ошибка БД при поиске склада: {inv_resp.text}")
-            
-        items = inv_resp.json()
-        
-        if len(items) < req.count:
-            if attempt > 1:
-                raise HTTPException(status_code=400, detail=f"Закончились предметы! Скрипт удалил призраков, но свободных '{req.search_query}' больше не осталось. Последняя ошибка Steam: {last_error}")
-            else:
-                raise HTTPException(status_code=400, detail=f"На складе свободных '{req.search_query}' всего {len(items)} шт. А ты просишь {req.count} шт.")
-
-        # 4. Группируем по аккаунту бота, чтобы отправить с одного аккаунта
-        bots = {}
-        for item in items:
-            acc_id = item["account_id"]
-            if acc_id not in bots:
-                bots[acc_id] = []
-            bots[acc_id].append(item["assetid"])
-
-        # Ищем бота, у которого хватает нужного количества
-        selected_bot = None
-        selected_assets = []
-        
-        for acc_id, assets in bots.items():
-            if len(assets) >= req.count:
-                selected_bot = acc_id
-                selected_assets = assets[:req.count]
-                break
-                
-        if not selected_bot:
-            raise HTTPException(status_code=400, detail="Предметы есть, но они раскиданы по разным ботам. Для одной отправки нужно, чтобы они лежали на одном.")
-
-        # 5. Резервируем предметы в базе, чтобы их не забрал кто-то другой
-        for asset in selected_assets:
-            await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": True})
-
-        # 6. Отправляем трейд
-        try:
-            # Передаем сразу список selected_assets
-            trade_res = await send_steam_trade_offer(
-                account_id=selected_bot,
-                assetids=selected_assets, 
-                trade_url=trade_link,
-                supabase=supabase
-            )
-            
-            if trade_res and isinstance(trade_res, dict) and trade_res.get("success"):
-                success_count = len(selected_assets)
-                trade_success = True
-                break  # Успех, прерываем цикл!
-            else:
-                err_msg = trade_res.get("error", "Steam отклонил запрос") if isinstance(trade_res, dict) else "Пустой ответ"
-                last_error = err_msg
-                
-                # Если Steam выдал Ошибку 26 (предмет не существует) - чистим БД
-                if "(26)" in err_msg:
-                    for asset in selected_assets:
-                        await supabase.delete("/steam_inventory_cache", params={"assetid": f"eq.{asset}"})
-                    continue  # Идем на следующий круг искать новые предметы
-                else:
-                    # Если трейд отменился по другой причине, возвращаем все предметы обратно на склад (снимаем резерв)
-                    for asset in selected_assets:
-                        await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
-                    break  # Выходим из цикла, нет смысла пробовать заново
-                
-        except Exception as e:
-            # Если случился программный сбой, откатываем резерв со склада
-            for asset in selected_assets:
-                await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
-            last_error = f"Сбой отправки: {str(e)}"
-            break  # Выходим из цикла
-            
-    # --- КОНЕЦ ЦИКЛА ---
-
-    if not trade_success:
-        raise HTTPException(status_code=400, detail=f"Steam не принял трейд (попыток: {attempt}): {last_error}")
-
-    # 7. Закрываем покупку в админке
-    await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{req.purchase_id}"}, json={
-        "status": "Выдан",
-        "rewarded_at": datetime.now(timezone.utc).isoformat(),
-        "viewed_by_admin": True,
-        "viewed_by_admin_name": "Выдано со склада"
-    })
-
-    return {"success": True, "message": f"Успешно отправлен 1 трейд на {success_count} шт!"}
-
 @app.post("/api/v1/twitch_rewards/purchase")
 async def create_twitch_reward_purchase(
     request_data: TwitchRewardPurchaseCreate,
@@ -13423,10 +13286,10 @@ async def create_challenge(request_data: ChallengeAdminCreateRequest, supabase: 
     return {"message": "Челлендж успешно создан."}
 
 class TwitchInventoryIssueReq(BaseModel):
-    initData: str
-    purchase_id: int
     search_query: str
     count: int
+    purchase_id: int
+    initData: str
 
 def extract_trade_link(text: str) -> str:
     """Ищет трейд-ссылку в тексте (сообщении твича)"""
