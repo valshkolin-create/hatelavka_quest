@@ -1544,12 +1544,25 @@
             <div id="twitch-purchases-body" class="modal-body"></div>
         </div>
     </div>
-    <div id="twitch-reward-settings-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="twitch-settings-title" class="modal-title">Настройки награды</h2>
-                <button class="modal-close-btn" data-close-modal="twitch-reward-settings-modal">&times;</button>
-            </div>
+  
+    <!-- Настройки для автоматизации Steam -->
+<div id="steam-automation-wrapper" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--divider-glass-color); background: rgba(23, 26, 33, 0.4); padding: 15px; border-radius: 8px;">
+    <h4 style="margin: 0 0 12px; color: #66c0f4; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-brands fa-steam"></i> Настройки Steam
+    </h4>
+    
+    <label style="display: flex; align-items: center; justify-content: space-between; font-size: 13px; margin-bottom: 10px;">
+        Авто-выдача (в разработке)
+        <label class="toggle-switch"><input type="checkbox" name="auto_steam"><span class="toggle-slider"></span></label>
+    </label>
+    
+    <label style="font-size: 12px; color: #aaa;">Предмет по умолчанию</label>
+    <input type="text" name="steam_item_name" class="styled-input" placeholder="Например: Наклейка | ...">
+    
+    <label style="font-size: 12px; color: #aaa; margin-top: 10px;">Количество</label>
+    <input type="number" name="steam_item_count" class="styled-input" value="1" min="1">
+</div>
+  
             <div class="modal-body">
                 <form id="twitch-reward-settings-form" class="admin-form">
                     <input type="hidden" name="reward_id">
@@ -1908,26 +1921,41 @@
                 </div>
         </div>
     </div>
-</div> <div id="manual-steam-modal" class="modal-overlay hidden" style="z-index: 99999;"> <div class="modal-content" style="max-width: 350px;">
-    <div class="modal-content" style="max-width: 350px;">
-        <h3 class="confirm-title" id="manual-steam-title">Выдача со склада</h3>
-        <p class="confirm-subtitle">Берем предметы только из steam_inventory_cache</p>
-        
-        <div class="form-group" style="text-align: left; margin-bottom: 15px;">
-            <label class="form-label" style="color: #8E8E93; font-size: 11px;">Что ищем? (например: Наклейка)</label>
-            <input type="text" id="manual-steam-search" class="p2p-input" value="Наклейка" placeholder="Название предмета">
-        </div>
-        
-        <div class="form-group" style="text-align: left; margin-bottom: 25px;">
-            <label class="form-label" style="color: #8E8E93; font-size: 11px;">Количество на 1 человека</label>
-            <input type="number" id="manual-steam-count" class="p2p-input" value="1" min="1" max="50">
-        </div>
+</div> 
+  
+  <div id="manual-steam-modal" class="modal-overlay hidden" style="z-index: 99999;">
+    <div class="modal-content" style="max-width: 380px; padding: 0; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1);">
+        
+        <!-- Красивая шапка в стиле Steam -->
+        <div style="background: linear-gradient(135deg, #171a21 0%, #1b2838 100%); padding: 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative;">
+            <button class="modal-close-btn" onclick="closeManualSteamModal()" style="position: absolute; top: 15px; right: 15px; color: rgba(255,255,255,0.5);">&times;</button>
+            <i class="fa-brands fa-steam" style="font-size: 38px; color: #66c0f4; margin-bottom: 12px;"></i>
+            <h3 id="manual-steam-title" style="margin: 0; color: white; font-size: 18px; font-weight: 600;">Выдача со склада</h3>
+            <p style="margin: 6px 0 0; color: #8f98a0; font-size: 13px;">Предметы спишутся из steam_inventory_cache</p>
+        </div>
 
-        <div class="confirm-buttons">
-            <button class="confirm-btn btn-cancel-modal" onclick="closeManualSteamModal()">Отмена</button>
-            <button class="confirm-btn btn-yellow-modal" id="manual-steam-submit-btn" style="background: #171a21; color: #fff;">Отправить трейд</button>
-        </div>
-    </div>
+        <!-- Тело формы -->
+        <div class="modal-body" style="padding: 20px;">
+            <div class="admin-form" style="gap: 12px;">
+                <div>
+                    <label style="color: #a0a0a0; font-size: 12px; margin-bottom: 4px;">Название предмета</label>
+                    <input type="text" id="manual-steam-search" class="styled-input" placeholder="Например: Наклейка | ..." style="background: rgba(0,0,0,0.2); font-weight: 500;">
+                </div>
+                <div>
+                    <label style="color: #a0a0a0; font-size: 12px; margin-bottom: 4px;">Количество на одного</label>
+                    <input type="number" id="manual-steam-count" class="styled-input" value="1" min="1" max="50" style="background: rgba(0,0,0,0.2); font-weight: 500;">
+                </div>
+            </div>
+
+            <!-- Кнопки -->
+            <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <button class="admin-action-btn" onclick="closeManualSteamModal()" style="background: rgba(255,255,255,0.1); color: white; flex: 1;">Отмена</button>
+                <button id="manual-steam-submit-btn" class="admin-action-btn" style="background: linear-gradient(90deg, #66c0f4, #1999e3); color: white; flex: 2; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-paper-plane"></i> Отправить
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
   <script>
