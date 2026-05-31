@@ -13257,7 +13257,7 @@ async def twitch_inventory_issue(
     if not user_info or user_info['id'] not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # 1. Достаем только покупку (БЕЗ джоинов, чтобы избежать ошибки PGRST200)
+    # 1. Достаем покупку напрямую из twitch_reward_purchases
     p_resp = await supabase.get("/twitch_reward_purchases", params={
         "id": f"eq.{req.purchase_id}"
     })
@@ -13271,22 +13271,12 @@ async def twitch_inventory_issue(
     
     purchase = data[0]
     
-    # 2. Ищем трейд-ссылку
-    # Сначала проверяем, не оставил ли пользователь ссылку прямо в сообщении
-    trade_link = extract_trade_link(purchase.get("user_input", ""))
+    # 2. Ищем трейд-ссылку напрямую в покупке
+    trade_link = purchase.get("trade_link")
     
-    # Если в сообщении ссылки нет, делаем отдельный запрос в таблицу users
-    user_id = purchase.get("user_id")
-    if not trade_link and user_id:
-        u_resp = await supabase.get("/users", params={
-            "id": f"eq.{user_id}",
-            "select": "trade_link"
-        })
-        
-        if u_resp.status_code == 200:
-            u_data = u_resp.json()
-            if u_data and isinstance(u_data, list) and len(u_data) > 0:
-                trade_link = u_data[0].get("trade_link")
+    # Если ее там нет, проверяем, не оставил ли пользователь ссылку прямо в сообщении
+    if not trade_link:
+        trade_link = extract_trade_link(purchase.get("user_input", ""))
                 
     if not trade_link:
         raise HTTPException(status_code=400, detail="Нет трейд-ссылки у пользователя! Пусть добавит в профиль или напишет в сообщении.")
@@ -13361,7 +13351,7 @@ async def twitch_inventory_issue(
     })
 
     return {"success": True, "message": f"Успешно отправлено {success_count} из {req.count} шт!"}
-
+    
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ УПРАВЛЕНИЯ КАТЕГОРИЯМИ ---
 
 @app.post("/api/v1/admin/twitch_rewards/purchase/mark_viewed")
