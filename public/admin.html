@@ -1910,6 +1910,28 @@
     </div>
 </div>
 
+  <div id="manual-steam-modal" class="custom-modal-overlay">
+    <div class="custom-confirm-box" style="max-width: 350px;">
+        <h3 class="confirm-title" id="manual-steam-title">Выдача со склада</h3>
+        <p class="confirm-subtitle">Берем предметы только из steam_inventory_cache</p>
+        
+        <div class="form-group" style="text-align: left; margin-bottom: 15px;">
+            <label class="form-label" style="color: #8E8E93; font-size: 11px;">Что ищем? (например: Наклейка)</label>
+            <input type="text" id="manual-steam-search" class="p2p-input" value="Наклейка" placeholder="Название предмета">
+        </div>
+        
+        <div class="form-group" style="text-align: left; margin-bottom: 25px;">
+            <label class="form-label" style="color: #8E8E93; font-size: 11px;">Количество на 1 человека</label>
+            <input type="number" id="manual-steam-count" class="p2p-input" value="1" min="1" max="50">
+        </div>
+
+        <div class="confirm-buttons">
+            <button class="confirm-btn btn-cancel-modal" onclick="document.getElementById('manual-steam-modal').classList.remove('visible')">Отмена</button>
+            <button class="confirm-btn btn-yellow-modal" id="manual-steam-submit-btn" style="background: #171a21; color: #fff;">Отправить трейд</button>
+        </div>
+    </div>
+</div>
+
   <script>
     (function() {
         try {
