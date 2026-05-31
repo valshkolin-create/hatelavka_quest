@@ -651,34 +651,48 @@ document.body.addEventListener('click', async (event) => {
         }
 
 // --- 🛡️ РУЧНАЯ ВЫДАЧА STEAM (ОТКРЫТИЕ ОКНА) ---
-        const manualSteamBtn = target.closest('.manual-steam-btn');
-        const massSteamBtnAction = target.closest('#mass-steam-btn');
+const manualSteamBtn = target.closest('.manual-steam-btn');
+const massSteamBtnAction = target.closest('#mass-steam-btn');
 
-        if (manualSteamBtn || massSteamBtnAction) {
-            event.preventDefault(); // Блокируем стандартное поведение на всякий случай
-            const isMass = !!massSteamBtnAction;
-            const targetId = isMass ? massSteamBtnAction.dataset.rewardId : manualSteamBtn.dataset.purchaseId;
-            
-            const modal = document.getElementById('manual-steam-modal');
-            const title = document.getElementById('manual-steam-title');
-            
-            if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
-            
-            if (modal) {
-                // Безопасно записываем контекст
-                modal.dataset.isMass = isMass;
-                modal.dataset.targetId = targetId;
+if (manualSteamBtn || massSteamBtnAction) {
+    event.preventDefault(); 
+    console.log("🔥 [STEAM] Клик пойман! Инициализация окна выдачи...");
 
-                // БЕЗОПАСНАЯ ОЧИСТКА: проверяем, что поля существуют
-                const searchInput = document.getElementById('manual-steam-search');
-                const countInput = document.getElementById('manual-steam-count');
-                if (searchInput) searchInput.value = '';
-                if (countInput) countInput.value = '1';
+    const isMass = !!massSteamBtnAction;
+    console.log(`📦 [STEAM] Режим массовой выдачи? ${isMass}`);
 
-                modal.classList.remove('hidden');
-            }
-            return;
-        }
+    const targetId = isMass ? massSteamBtnAction.dataset.rewardId : manualSteamBtn.dataset.purchaseId;
+    console.log(`🎯 [STEAM] Целевой ID (rewardId / purchaseId): ${targetId}`);
+
+    const modal = document.getElementById('manual-steam-modal');
+    const title = document.getElementById('manual-steam-title');
+
+    if (!modal) {
+        console.error("❌ [STEAM] КРИТИЧЕСКАЯ ОШИБКА: Модальное окно #manual-steam-modal не найдено в DOM!");
+        return;
+    }
+
+    if (title) {
+        title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
+    } else {
+        console.warn("⚠️ [STEAM] Элемент #manual-steam-title не найден, заголовок не изменен.");
+    }
+
+    // Безопасно записываем контекст
+    modal.dataset.isMass = isMass;
+    modal.dataset.targetId = targetId;
+    console.log("💾 [STEAM] Контекст записан в dataset модалки:", modal.dataset);
+
+    const searchInput = document.getElementById('manual-steam-search');
+    const countInput = document.getElementById('manual-steam-count');
+    
+    if (searchInput) searchInput.value = '';
+    if (countInput) countInput.value = '1';
+
+    modal.classList.remove('hidden');
+    console.log("✅ [STEAM] Окно успешно открыто (класс 'hidden' удален).");
+    return;
+}
 
         // --- 🛡️ ОТПРАВКА ТРЕЙДА (КЛИК ПО КНОПКЕ "ОТПРАВИТЬ") ---
         const manualSteamSubmitBtn = target.closest('#manual-steam-submit-btn');
