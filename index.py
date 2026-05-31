@@ -3189,11 +3189,8 @@ async def sync_steam_inventory(
 
     expected_token = os.getenv("CRON_SECRET")
     
-    if not expected_token:
-        raise HTTPException(status_code=500, detail="CRON_SECRET не задан в настройках сервера (Vercel).")
-        
-    if token != expected_token:
-        raise HTTPException(status_code=403, detail="Неверный токен доступа.")
+    if token != CRON_SECRET:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ (Для предметов, которых нет на ботах)
     def guess_backend_rarity(name: str, price: float) -> str:
