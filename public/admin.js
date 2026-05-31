@@ -2564,27 +2564,6 @@ function setupEventListeners() {
             return;
         }
 
-        // 5. Настройки награды Twitch (Шестеренка)
-        const settingsBtn = target.closest('.reward-settings-btn');
-        if (settingsBtn) {
-            const rewardData = JSON.parse(settingsBtn.dataset.reward);
-            if (hasAdminAccess) openTwitchRewardSettings(rewardData);
-            else {
-                afterPasswordCallback = () => openTwitchRewardSettings(rewardData);
-                dom.passwordPromptOverlay.classList.remove('hidden');
-                dom.passwordPromptInput.focus();
-            }
-            return;
-        }
-
-        // 6. Покупки Twitch (Клик по иконке)
-        const purchasesLink = target.closest('.reward-purchases-link');
-        if (purchasesLink) {
-            event.preventDefault();
-            await openTwitchPurchases(purchasesLink.dataset.rewardId, purchasesLink.dataset.rewardTitle);
-            return;
-        }
-
         // 7. Навигация (вкладки, назад, создание)
         const navButton = target.closest('.admin-icon-button, .back-button, #go-create-quest, #go-create-challenge');
         if (navButton && navButton.tagName.toLowerCase() !== 'a' && !target.closest('.reward-settings-btn') && !target.closest('.delete-purchase-btn')) {
