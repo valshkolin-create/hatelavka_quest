@@ -91,7 +91,10 @@ function openTwitchRewardSettings(reward) {
     if (form.elements['steam_item_count']) form.elements['steam_item_count'].value = reward.steam_item_count || 1;
 
     const steamWrapper = document.getElementById('steam-automation-wrapper');
-    if (steamWrapper) steamWrapper.style.display = hasAdminAccess ? 'block' : 'none';
+    if (steamWrapper) {
+    const rewardType = reward.reward_type || 'promocode';
+    steamWrapper.style.display = (hasAdminAccess && rewardType === 'steam') ? 'block' : 'none';
+}
     
     const legacyWrapper = document.getElementById('legacy-promocode-field-wrapper');
     const adminWrapper = modal.querySelector('.admin-feature-6971'); 
@@ -168,6 +171,9 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
         headerEl.insertBefore(massSteamBtn, deleteAllBtn);
     }
     massSteamBtn.dataset.rewardId = rewardId;
+
+    massSteamBtn.dataset.itemName = reward_settings.steam_item_name || "";
+massSteamBtn.dataset.itemCount = reward_settings.steam_item_count || 1;
 
     titleEl.textContent = `Покупки: ${rewardTitle}`;
     body.innerHTML = '<i>Загрузка покупок...</i>';
@@ -263,24 +269,16 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                 let issueButtonHtml = '';
 
                 // Выносим Steam в отдельное условие, чтобы кнопка работала и без привязки
-                if (rewardType === 'steam') {
-                    issueButtonHtml = `<button 
-                        class="admin-action-btn manual-steam-btn" 
-                        data-purchase-id="${p.id}"
-                        style="
-                            display: flex; 
-                            align-items: center; 
-                            justify-content: center; 
-                            flex-grow: 1;
-                            padding: 8px 12px;
-                            background: #171a21; 
-                            color: #fff; 
-                            border: 1px solid rgba(255,255,255,0.1); 
-                            border-radius: 8px;
-                            font-weight: 500;
-                            transition: all 0.2s ease;">
-                        <i class="fa-brands fa-steam" style="margin-right: 6px; font-size: 1.1em;"></i> Выдать со склада
-                    </button>`;
+               if (rewardType === 'steam') {
+    issueButtonHtml = `<button 
+        class="admin-action-btn manual-steam-btn" 
+        data-purchase-id="${p.id}"
+        data-item-name="${escapeHTML(reward_settings.steam_item_name || '')}"
+        data-item-count="${reward_settings.steam_item_count || 1}"
+        style="display: flex; align-items: center; justify-content: center; flex-grow: 1; padding: 8px 12px; background: #171a21; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-weight: 500; transition: all 0.2s ease;">
+        <i class="fa-brands fa-steam" style="margin-right: 6px; font-size: 1.1em;"></i> Выдать
+    </button>`;
+}
                 } else if (p.status !== 'Привязан') {
                     issueButtonHtml = `
                         <div class="rewarded-info" style="flex-grow: 1; color: var(--warning-color);">
@@ -355,6 +353,14 @@ window.setupTwitchEventListeners = function() {
             hideLoader(); 
         });
     }
+
+    const rewardTypeSelect = document.getElementById('reward-type-select');
+if (rewardTypeSelect) {
+    rewardTypeSelect.addEventListener('change', (e) => {
+        const steamWrapper = document.getElementById('steam-automation-wrapper');
+        if (steamWrapper) steamWrapper.style.display = e.target.value === 'steam' ? 'block' : 'none';
+    });
+}
 
     // 2. Форма настроек Twitch
     const twitchRewardSettingsForm = document.getElementById('twitch-reward-settings-form');
@@ -656,44 +662,35 @@ const massSteamBtnAction = target.closest('#mass-steam-btn');
 
 if (manualSteamBtn || massSteamBtnAction) {
     event.preventDefault(); 
-    console.log("🔥 [STEAM] Клик пойман! Инициализация окна выдачи...");
-
+    const targetBtn = manualSteamBtn || massSteamBtnAction; 
+    
     const isMass = !!massSteamBtnAction;
-    console.log(`📦 [STEAM] Режим массовой выдачи? ${isMass}`);
-
     const targetId = isMass ? massSteamBtnAction.dataset.rewardId : manualSteamBtn.dataset.purchaseId;
-    console.log(`🎯 [STEAM] Целевой ID (rewardId / purchaseId): ${targetId}`);
+    
+    // Достаем предзаписанные настройки из кнопки
+    const presetItemName = targetBtn.dataset.itemName || '';
+    const presetItemCount = targetBtn.dataset.itemCount || 1;
 
     const modal = document.getElementById('manual-steam-modal');
     const title = document.getElementById('manual-steam-title');
 
-    if (!modal) {
-        console.error("❌ [STEAM] КРИТИЧЕСКАЯ ОШИБКА: Модальное окно #manual-steam-modal не найдено в DOM!");
-        return;
+    if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача";
+
+    if (modal) {
+        modal.dataset.isMass = isMass;
+        modal.dataset.targetId = targetId;
+
+        const searchInput = document.getElementById('manual-steam-search');
+        const countInput = document.getElementById('manual-steam-count');
+        
+        // Подставляем сохраненные настройки, чтобы не писать руками
+        if (searchInput) searchInput.value = presetItemName;
+        if (countInput) countInput.value = presetItemCount;
+
+        modal.classList.remove('hidden');
     }
-
-    if (title) {
-        title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
-    } else {
-        console.warn("⚠️ [STEAM] Элемент #manual-steam-title не найден, заголовок не изменен.");
-    }
-
-    // Безопасно записываем контекст
-    modal.dataset.isMass = isMass;
-    modal.dataset.targetId = targetId;
-    console.log("💾 [STEAM] Контекст записан в dataset модалки:", modal.dataset);
-
-    const searchInput = document.getElementById('manual-steam-search');
-    const countInput = document.getElementById('manual-steam-count');
-    
-    if (searchInput) searchInput.value = '';
-    if (countInput) countInput.value = '1';
-
-    modal.classList.remove('hidden');
-    console.log("✅ [STEAM] Окно успешно открыто (класс 'hidden' удален).");
     return;
 }
-
         // --- 🛡️ ОТПРАВКА ТРЕЙДА (КЛИК ПО КНОПКЕ "ОТПРАВИТЬ") ---
         const manualSteamSubmitBtn = target.closest('#manual-steam-submit-btn');
         if (manualSteamSubmitBtn) {
