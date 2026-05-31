@@ -662,7 +662,7 @@ async def send_steam_trade_offer(account_id: int, assetids: list[str], trade_url
         "sessionid": cookies_dict['sessionid'],
         "serverid": "1",
         "partner": str(steam64id),
-        "tradeoffermessage": "Твой выигрыш от стримера HATElove_ttv! 🐸",
+        "tradeoffermessage": "Тебе подарочек от стримера HATElove_ttv! тг https://t.me/hatelove_ttv , буду рад подписке (если не подписан)! 🐸",
         "json_tradeoffer": json.dumps({
             "newversion": True, 
             "version": 2, 
