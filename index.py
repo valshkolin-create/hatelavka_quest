@@ -637,7 +637,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     return {"success": False, "error": "out_of_stock", "message": "Нет предмета в наличии"}
 
 # =======================================================
-async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, supabase):
+async def send_steam_trade_offer(account_id: int, assetids: list[str], trade_url: str, supabase):
     match = re.search(r'partner=(\d+)&token=([a-zA-Z0-9_-]+)', trade_url)
     if not match: return {"success": False, "error": "Неверный формат трейд-ссылки"}
     
@@ -655,29 +655,41 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
     if not cookies_dict.get('sessionid') or not cookies_dict.get('steamLoginSecure'):
         return {"success": False, "error": "Куки бота не найдены"}
 
+    # 🔥 ФОРМИРУЕМ МАССИВ ПРЕДМЕТОВ ДЛЯ ОТПРАВКИ (В ОДНОМ ТРЕЙДЕ)
+    assets_list = [{"appid": 730, "contextid": "2", "amount": 1, "assetid": str(asset_id)} for asset_id in assetids]
+
     payload = {
         "sessionid": cookies_dict['sessionid'],
         "serverid": "1",
         "partner": str(steam64id),
         "tradeoffermessage": "Твой выигрыш от стримера HATElove_ttv! 🐸",
-        "json_tradeoffer": json.dumps({"newversion": True, "version": 2, "me": {"assets": [{"appid": 730, "contextid": "2", "amount": 1, "assetid": str(assetid)}], "currency": [], "ready": False}, "them": {"assets": [], "currency": [], "ready": False}}),
+        "json_tradeoffer": json.dumps({
+            "newversion": True, 
+            "version": 2, 
+            "me": {"assets": assets_list, "currency": [], "ready": False}, 
+            "them": {"assets": [], "currency": [], "ready": False}
+        }),
         "captcha": "",
         "trade_offer_create_params": json.dumps({"trade_offer_access_token": token})
     }
 
     headers = {"Referer": trade_url, "Origin": "https://steamcommunity.com", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     
-    # 🔥 ТАЙМАУТ STEAM (Снижен до 10 сек, чтобы уложиться в лимиты Serverless)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post("https://steamcommunity.com/tradeoffer/new/send", data=payload, headers=headers, cookies=cookies_dict)
             
             if resp.status_code == 302 or "login" in str(resp.url):
-                return {"success": False, "error": "Сессия бота устарела."}
+                return {"success": False, "error": "Сессия бота устарела. Обновите куки."}
             
-            resp_json = resp.json()
+            # Безопасная попытка прочитать JSON (на случай если Steam отдаст HTML-страницу с ошибкой 429)
+            try:
+                resp_json = resp.json()
+            except json.JSONDecodeError:
+                return {"success": False, "error": f"Steam вернул не JSON. Статус: HTTP {resp.status_code}"}
+
             if not isinstance(resp_json, dict):
-                return {"success": False, "error": "Steam недоступен или вернул пустой ответ"}
+                return {"success": False, "error": "Steam вернул пустой ответ"}
 
             if "tradeofferid" in resp_json:
                 return {"success": True, "tradeofferid": resp_json['tradeofferid']}
@@ -687,7 +699,8 @@ async def send_steam_trade_offer(account_id: int, assetid: str, trade_url: str, 
     except httpx.TimeoutException:
         return {"success": False, "error": "Steam завис и не отвечает.", "steam_timeout": True}
     except Exception as e:
-        return {"success": False, "error": "Сбой соединения со Steam"}
+        return {"success": False, "error": f"Сбой соединения со Steam: {str(e)}"}
+        
 # --- Pydantic Models ---
 
 class BaseAuthRequest(BaseModel):
@@ -13329,33 +13342,38 @@ async def twitch_inventory_issue(
         await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": True})
 
     # 6. Отправляем трейд
+    trade_errors = []
     success_count = 0
-    trade_errors = [] # <--- Создаем список для сбора ошибок Steam
     
-    for asset in selected_assets:
+    try:
+        # Передаем сразу список selected_assets
         trade_res = await send_steam_trade_offer(
             account_id=selected_bot,
-            assetid=asset,
+            assetids=selected_assets, 
             trade_url=trade_link,
             supabase=supabase
         )
         
-        if trade_res and trade_res.get("success"):
-            success_count += 1
+        if trade_res and isinstance(trade_res, dict) and trade_res.get("success"):
+            success_count = len(selected_assets)
         else:
-            # Если конкретный предмет не ушел - снимаем с него резерв
-            await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
+            # Если трейд отменился, возвращаем все предметы обратно на склад (снимаем резерв)
+            for asset in selected_assets:
+                await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
             
-            # Ловим причину ошибки от Steam (если функция ее возвращает)
-            err_msg = trade_res.get("error", "Неизвестная ошибка отправки") if trade_res else "Функция трейда вернула пустоту"
+            err_msg = trade_res.get("error", "Steam отклонил запрос") if isinstance(trade_res, dict) else "Пустой ответ"
             trade_errors.append(err_msg)
+            
+    except Exception as e:
+        # Если случился программный сбой, откатываем резерв со склада
+        for asset in selected_assets:
+            await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
+        trade_errors.append(f"Сбой отправки: {str(e)}")
 
     if success_count == 0:
-        # Теперь скрипт покажет конкретную ошибку, из-за которой всё сорвалось!
-        detailed_error = trade_errors[0] if trade_errors else "Steam отклонил запрос"
-        raise HTTPException(status_code=500, detail=f"Ошибка Steam: {detailed_error}")
+        raise HTTPException(status_code=400, detail=f"Steam не принял трейд: {trade_errors[0]}")
 
-    # 6. Закрываем покупку в админке
+    # 7. Закрываем покупку в админке
     await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{req.purchase_id}"}, json={
         "status": "Выдан",
         "rewarded_at": datetime.now(timezone.utc).isoformat(),
@@ -13363,7 +13381,7 @@ async def twitch_inventory_issue(
         "viewed_by_admin_name": "Выдано со склада"
     })
 
-    return {"success": True, "message": f"Успешно отправлено {success_count} из {req.count} шт!"}
+    return {"success": True, "message": f"Успешно отправлен 1 трейд на {success_count} шт!"}
     
 # --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ УПРАВЛЕНИЯ КАТЕГОРИЯМИ ---
 
