@@ -3174,7 +3174,6 @@ RARITY_COLOR_MAP = {
     "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
 
-# 🔥 ВОТ ЭТА СТРОЧКА БЫЛА ПОТЕРЯНА 🔥
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
     token: str,
@@ -3189,8 +3188,11 @@ async def sync_steam_inventory(
 
     expected_token = os.getenv("CRON_SECRET")
     
-    if token != CRON_SECRET:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+    if not expected_token:
+        raise HTTPException(status_code=500, detail="CRON_SECRET не задан в настройках сервера (Vercel).")
+        
+    if token != expected_token:
+        raise HTTPException(status_code=403, detail="Неверный токен доступа.")
 
     # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ (Для предметов, которых нет на ботах)
     def guess_backend_rarity(name: str, price: float) -> str:
