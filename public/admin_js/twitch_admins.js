@@ -278,7 +278,7 @@ massSteamBtn.dataset.itemCount = reward_settings.steam_item_count || 1;
         style="display: flex; align-items: center; justify-content: center; flex-grow: 1; padding: 8px 12px; background: #171a21; color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-weight: 500; transition: all 0.2s ease;">
         <i class="fa-brands fa-steam" style="margin-right: 6px; font-size: 1.1em;"></i> Выдать
     </button>`;
-}
+
                 } else if (p.status !== 'Привязан') {
                     issueButtonHtml = `
                         <div class="rewarded-info" style="flex-grow: 1; color: var(--warning-color);">
