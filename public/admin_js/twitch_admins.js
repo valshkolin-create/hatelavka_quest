@@ -659,98 +659,81 @@ document.body.addEventListener('click', async (event) => {
             return;
         }
 
-// --- 🛡️ РУЧНАЯ ВЫДАЧА STEAM (ОТКРЫТИЕ ОКНА) ---
-const manualSteamBtn = target.closest('.manual-steam-btn');
-const massSteamBtnAction = target.closest('#mass-steam-btn');
+// --- 🛡️ РУЧНАЯ ВЫДАЧА STEAM (ПРЯМАЯ ОТПРАВКА) ---
+        const manualSteamBtn = target.closest('.manual-steam-btn');
+        if (manualSteamBtn) {
+            event.preventDefault();
+            const purchaseId = manualSteamBtn.dataset.purchaseId;
+            const itemName = manualSteamBtn.dataset.itemName;
+            const itemCount = parseInt(manualSteamBtn.dataset.itemCount) || 1;
 
-if (manualSteamBtn || massSteamBtnAction) {
-    event.preventDefault(); 
-    const targetBtn = manualSteamBtn || massSteamBtnAction; 
-    
-    const isMass = !!massSteamBtnAction;
-    const targetId = isMass ? massSteamBtnAction.dataset.rewardId : manualSteamBtn.dataset.purchaseId;
-    
-    // Достаем предзаписанные настройки из кнопки
-    const presetItemName = targetBtn.dataset.itemName || '';
-    const presetItemCount = targetBtn.dataset.itemCount || 1;
-
-    const modal = document.getElementById('manual-steam-modal');
-    const title = document.getElementById('manual-steam-title');
-
-    if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача";
-
-    if (modal) {
-        modal.dataset.isMass = isMass;
-        modal.dataset.targetId = targetId;
-
-        const searchInput = document.getElementById('manual-steam-search');
-        const countInput = document.getElementById('manual-steam-count');
-        
-        // Подставляем сохраненные настройки, чтобы не писать руками
-        if (searchInput) searchInput.value = presetItemName;
-        if (countInput) countInput.value = presetItemCount;
-
-        modal.classList.remove('hidden');
-    }
-    return;
-}
-        // --- 🛡️ ОТПРАВКА ТРЕЙДА (КЛИК ПО КНОПКЕ "ОТПРАВИТЬ") ---
-        const manualSteamSubmitBtn = target.closest('#manual-steam-submit-btn');
-        if (manualSteamSubmitBtn) {
-            event.preventDefault(); // Защита от перезагрузки страницы, если кнопка в <form>
-            
-            const modal = document.getElementById('manual-steam-modal');
-            if (!modal) return;
-            
-            // Читаем контекст, который записали при открытии
-            const isMass = modal.dataset.isMass === 'true';
-            const targetId = modal.dataset.targetId;
-
-            const searchInput = document.getElementById('manual-steam-search');
-            const countInput = document.getElementById('manual-steam-count');
-            const searchQuery = searchInput ? searchInput.value.trim() : '';
-            const count = countInput ? (parseInt(countInput.value) || 1) : 1;
-
-            if (!searchQuery) return tg.showAlert("Введите название предмета!");
-
-            const originalText = manualSteamSubmitBtn.innerHTML;
-            manualSteamSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Отправляем...';
-            manualSteamSubmitBtn.disabled = true;
-
-            const endpoint = isMass ? '/api/v1/admin/twitch_rewards/manual_mass_steam' : '/api/v1/admin/twitch_rewards/inventory_issue';
-            const payload = { search_query: searchQuery, count: count };
-
-            if (isMass) payload.reward_id = parseInt(targetId);
-            else payload.purchase_id = parseInt(targetId);
-
-            try {
-                const res = await makeApiRequest(endpoint, payload, 'POST', true);
-                
-                if (typeof window.closeManualSteamModal === 'function') {
-                    window.closeManualSteamModal();
-                } else {
-                    modal.classList.add('hidden');
-                }
-                
-                tg.showPopup({ message: res.message || 'Трейд успешно отправлен!' });
-                
-                // Перезагрузка или удаление элемента из списка
-                if (isMass) {
-                    document.getElementById('refresh-purchases-btn')?.click();
-                } else {
-                    document.getElementById(`purchase-item-${targetId}`)?.remove();
-                }
-            } catch (e) {
-                let errorMsg = `Ошибка: ${e.message}`;
-                // Обрезаем сообщение, чтобы Telegram не падал
-                if (errorMsg.length > 250) {
-                    errorMsg = errorMsg.substring(0, 247) + '...';
-                }
-                tg.showAlert(errorMsg);
-            } finally {
-                manualSteamSubmitBtn.innerHTML = originalText;
-                manualSteamSubmitBtn.disabled = false;
+            if (!itemName) {
+                return tg.showAlert("Предмет не настроен! Зайдите в настройки награды (шестеренка) и укажите название предмета для выдачи.");
             }
+
+            // Быстрое подтверждение без ввода текста
+            showCustomConfirmHTML(`Отправить <b>${itemName}</b> (x${itemCount}) этому пользователю?`, async () => {
+                const originalText = manualSteamBtn.innerHTML;
+                manualSteamBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Выдача...';
+                manualSteamBtn.disabled = true;
+
+                try {
+                    const res = await makeApiRequest('/api/v1/admin/twitch_rewards/inventory_issue', {
+                        search_query: itemName,
+                        count: itemCount,
+                        purchase_id: parseInt(purchaseId)
+                    }, 'POST', true);
+                    
+                    tg.showPopup({ message: res.message || 'Трейд успешно отправлен!' });
+                    document.getElementById(`purchase-item-${purchaseId}`)?.remove();
+                } catch (e) {
+                    let errorMsg = `Ошибка: ${e.message}`;
+                    if (errorMsg.length > 250) errorMsg = errorMsg.substring(0, 247) + '...';
+                    tg.showAlert(errorMsg);
+                } finally {
+                    manualSteamBtn.innerHTML = originalText;
+                    manualSteamBtn.disabled = false;
+                }
+            }, 'Выдать', '#66c0f4');
+            return;
+        }
+
+        // --- 🛡️ МАССОВАЯ ВЫДАЧА STEAM (ПРЯМАЯ ОТПРАВКА) ---
+        const massSteamBtnAction = target.closest('#mass-steam-btn');
+        if (massSteamBtnAction) {
+            event.preventDefault();
+            const rewardId = massSteamBtnAction.dataset.rewardId;
+            const itemName = massSteamBtnAction.dataset.itemName;
+            const itemCount = parseInt(massSteamBtnAction.dataset.itemCount) || 1;
+
+            if (!itemName) {
+                return tg.showAlert("Предмет не настроен! Зайдите в настройки награды (шестеренка) и укажите название предмета.");
+            }
+
+            // Быстрое подтверждение массовой выдачи
+            showCustomConfirmHTML(`Запустить массовую рассылку <b>${itemName}</b> (x${itemCount}) всем ожидающим?`, async () => {
+                const originalText = massSteamBtnAction.innerHTML;
+                massSteamBtnAction.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Выдача...';
+                massSteamBtnAction.disabled = true;
+
+                try {
+                    const res = await makeApiRequest('/api/v1/admin/twitch_rewards/manual_mass_steam', {
+                        search_query: itemName,
+                        count: itemCount,
+                        reward_id: parseInt(rewardId)
+                    }, 'POST', true);
+                    
+                    tg.showPopup({ message: res.message || 'Массовый трейд успешно отправлен!' });
+                    document.getElementById('refresh-purchases-btn')?.click();
+                } catch (e) {
+                    let errorMsg = `Ошибка: ${e.message}`;
+                    if (errorMsg.length > 250) errorMsg = errorMsg.substring(0, 247) + '...';
+                    tg.showAlert(errorMsg);
+                } finally {
+                    massSteamBtnAction.innerHTML = originalText;
+                    massSteamBtnAction.disabled = false;
+                }
+            }, 'Разослать всем', '#66c0f4');
             return;
         }
 
