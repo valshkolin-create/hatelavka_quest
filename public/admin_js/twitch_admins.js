@@ -287,6 +287,7 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                             <i class="fa-solid fa-file-invoice"></i> Выдача не требуется
                         </div>`;
                     }
+                    } // <--- ВОТ ЭТОЙ СКОБКИ НЕ ХВАТАЛО
 
                 actionButtonsHtml = `
                     ${issueButtonHtml}
