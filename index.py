@@ -13257,19 +13257,29 @@ async def twitch_inventory_issue(
     if not user_info or user_info['id'] not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # 1. Достаем покупку и трейд-ссылку
+    # 1. Достаем покупку и трейд-ссылку (без алиасов, чтобы избежать конфликтов)
     p_resp = await supabase.get("/twitch_purchases", params={
         "id": f"eq.{req.purchase_id}",
-        "select": "*, user:users(trade_link)"
+        "select": "*, users(trade_link)"
     })
     
-    if not p_resp.json():
+    # 🚨 Проверяем статус ответа БД, чтобы не словить KeyError при ошибке синтаксиса
+    if p_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Ошибка БД при поиске покупки: {p_resp.text}")
+        
+    data = p_resp.json()
+    if not data or not isinstance(data, list):
         raise HTTPException(status_code=404, detail="Покупка не найдена")
     
-    purchase = p_resp.json()[0]
+    purchase = data[0]
     
-    # Ищем ссылку: сначала в профиле, если нет - в сообщении
-    trade_link = purchase.get("user", {}).get("trade_link")
+    # Ищем ссылку: безопасно проверяем ключи "users" и "user"
+    trade_link = None
+    user_data = purchase.get("users") or purchase.get("user") or {}
+    
+    if isinstance(user_data, dict):
+        trade_link = user_data.get("trade_link")
+        
     if not trade_link:
         trade_link = extract_trade_link(purchase.get("user_input", ""))
         
@@ -13285,7 +13295,12 @@ async def twitch_inventory_issue(
         "select": "id, assetid, account_id"
     })
     
+    # 🚨 Проверяем ответ от базы данных склада
+    if inv_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Ошибка БД при поиске склада: {inv_resp.text}")
+        
     items = inv_resp.json()
+    
     if len(items) < req.count:
         raise HTTPException(status_code=400, detail=f"На складе свободных '{req.search_query}' всего {len(items)} шт. А ты просишь {req.count} шт.")
 
