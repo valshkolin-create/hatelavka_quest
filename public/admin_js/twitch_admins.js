@@ -276,11 +276,11 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
                             Выдать ${rewardAmount} ⭐
                         </button>`;
                     } else if (rewardType === 'steam') {
-                        issueButtonHtml = `<button 
-                            class="admin-action-btn issue-steam-btn" 
+                        issueButtonHtml = `<button 
+                            class="admin-action-btn manual-steam-btn" 
                             data-purchase-id="${p.id}"
-                            style="background: #171a21;">
-                            Выдать Steam <i class="fa-brands fa-steam"></i>
+                            style="background: #171a21; color: #fff; width: 100%; border-radius: 8px;">
+                            <i class="fa-brands fa-steam"></i> Выдать со склада
                         </button>`;
                     } else {
                         issueButtonHtml = `<div class="rewarded-info" style="flex-grow: 1; color: var(--text-color-muted);">
@@ -321,6 +321,10 @@ async function openTwitchPurchases(rewardId, rewardTitle) {
     }
 }
 
+window.closeManualSteamModal = function() {
+    const modal = document.getElementById('manual-steam-modal');
+    if (modal) modal.classList.remove('visible');
+};
 
 // --- ЭКСПОРТ ОБРАБОТЧИКОВ (вызывается из admin.js) ---
 window.setupTwitchEventListeners = function() {
@@ -639,45 +643,56 @@ window.setupTwitchEventListeners = function() {
             return;
         }
 
-        // Одиночная выдача Steam
-        const issueSteamBtn = target.closest('.issue-steam-btn');
-        if (issueSteamBtn) {
-            const purchaseId = issueSteamBtn.dataset.purchaseId;
-            showCustomConfirmHTML('Отправить предмет(ы) через Steam бота?', () => {
-                issueSteamBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-                issueSteamBtn.disabled = true;
-                makeApiRequest('/api/v1/admin/twitch_rewards/issue_steam', { purchase_id: parseInt(purchaseId) }, 'POST', true)
-                    .then(res => {
-                        tg.showPopup({ message: res.message || 'Трейд отправлен' });
-                        document.getElementById(`purchase-item-${purchaseId}`)?.remove();
-                    })
-                    .catch(e => {
-                        tg.showAlert(`Ошибка: ${e.message}`);
-                        issueSteamBtn.innerHTML = 'Выдать Steam <i class="fa-brands fa-steam"></i>';
-                        issueSteamBtn.disabled = false;
-                    });
-            }, 'Отправить', '#171a21');
-            return;
-        }
-
-        // Массовая выдача Steam
+        // --- РУЧНАЯ ВЫДАЧА STEAM (ОДИНОЧНАЯ И МАССОВАЯ) ---
+        const manualSteamBtn = target.closest('.manual-steam-btn');
         const massSteamBtnAction = target.closest('#mass-steam-btn');
-        if (massSteamBtnAction) {
-            const rId = parseInt(massSteamBtnAction.dataset.rewardId);
-            showCustomConfirmHTML('Запустить массовую рассылку трейдов?', () => {
-                showLoader();
-                makeApiRequest('/api/v1/admin/twitch_rewards/mass_issue_steam', { reward_id: rId }, 'POST', true)
-                    .then(res => {
-                        hideLoader();
-                        tg.showPopup({ message: `Успех: ${res.sent || 0}, Ошибок: ${res.errors || 0}` });
-                        const refreshBtn = document.getElementById('refresh-purchases-btn');
-                        if (refreshBtn) refreshBtn.click();
-                    })
-                    .catch(e => {
-                        hideLoader();
-                        tg.showAlert(`Ошибка: ${e.message}`);
-                    });
-            }, 'Разослать', '#171a21');
+
+        if (manualSteamBtn || massSteamBtnAction) {
+            const isMass = !!massSteamBtnAction;
+            const targetId = isMass ? massSteamBtnAction.dataset.rewardId : manualSteamBtn.dataset.purchaseId;
+            
+            const modal = document.getElementById('manual-steam-modal');
+            const submitBtn = document.getElementById('manual-steam-submit-btn');
+            const title = document.getElementById('manual-steam-title');
+            
+            if (title) title.textContent = isMass ? "Массовая выдача со склада" : "Одиночная выдача со склада";
+            
+            modal.classList.add('visible');
+            
+            const newSubmitBtn = submitBtn.cloneNode(true);
+            submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+
+            newSubmitBtn.addEventListener('click', () => {
+                const searchQuery = document.getElementById('manual-steam-search').value.trim();
+                const count = parseInt(document.getElementById('manual-steam-count').value) || 1;
+
+                if (!searchQuery) return tg.showAlert("Введите название предмета!");
+
+                newSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Отправляем...';
+                newSubmitBtn.disabled = true;
+
+                const endpoint = isMass ? '/api/v1/admin/twitch_rewards/manual_mass_steam' : '/api/v1/admin/twitch_rewards/inventory_issue';
+                const payload = { search_query: searchQuery, count: count };
+
+                if (isMass) payload.reward_id = parseInt(targetId);
+                else payload.purchase_id = parseInt(targetId);
+
+                makeApiRequest(endpoint, payload, 'POST', true)
+                .then(res => {
+                    closeManualSteamModal();
+                    tg.showPopup({ message: res.message || 'Трейд успешно отправлен!' });
+                    if (isMass) {
+                        document.getElementById('refresh-purchases-btn')?.click();
+                    } else {
+                        document.getElementById(`purchase-item-${targetId}`)?.remove();
+                    }
+                })
+                .catch(e => {
+                    tg.showAlert(`Ошибка: ${e.message}`);
+                    newSubmitBtn.innerHTML = 'Отправить трейд';
+                    newSubmitBtn.disabled = false;
+                });
+            });
             return;
         }
 
