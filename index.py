@@ -13291,11 +13291,214 @@ class TwitchInventoryIssueReq(BaseModel):
     purchase_id: int
     initData: str
 
+
+class TwitchMassSteamIssueReq(BaseModel):
+    search_query: str
+    count: int
+    reward_id: int
+    initData: str
+
 def extract_trade_link(text: str) -> str:
     """Ищет трейд-ссылку в тексте (сообщении твича)"""
     if not text: return None
     match = re.search(r'(https://steamcommunity\.com/tradeoffer/new/\?partner=\d+&token=[a-zA-Z0-9_-]+)', text)
     return match.group(1) if match else None
+
+
+@app.post("/api/v1/admin/twitch_rewards/manual_mass_steam")
+async def manual_mass_steam_issue(
+    req: TwitchMassSteamIssueReq,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info['id'] not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # 1. Достаем все покупки для этой награды
+    p_resp = await supabase.get("/twitch_reward_purchases", params={
+        "reward_id": f"eq.{req.reward_id}"
+    })
+    
+    if p_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail="Ошибка при получении списка покупок из БД")
+
+    all_purchases = p_resp.json()
+    
+    # 2. Фильтруем: берем только те, что еще не выданы и не отклонены
+    pending_purchases = [
+        p for p in all_purchases 
+        if p.get("status") not in ["Выдан", "Отклонен (Дубликат)", "Отклонен", "Отклонен (Олд)"]
+    ]
+
+    if not pending_purchases:
+        return {"success": True, "message": "Нет ожидающих заявок для этой награды."}
+
+    # Статистика для финального отчета (добавили счетчик олдов)
+    stats = {"success": 0, "duplicates": 0, "olds": 0, "errors": 0}
+
+    # 3. Запускаем конвейер обработки
+    for purchase in pending_purchases:
+        purchase_id = purchase["id"]
+        user_id = purchase.get("user_id")
+        twitch_login = purchase.get("twitch_login")
+
+        # === АНТИ-АБУЗ: ПРОВЕРКА НА ДУБЛИКАТ ===
+        dup_params = {
+            "reward_id": f"eq.{req.reward_id}",
+            "status": "eq.Выдан",
+            "limit": "1"
+        }
+        if user_id:
+            dup_params["user_id"] = f"eq.{user_id}"
+        elif twitch_login:
+            dup_params["twitch_login"] = f"eq.{twitch_login}"
+        else:
+            dup_params = None 
+
+        if dup_params:
+            dup_check = await supabase.get("/twitch_reward_purchases", params=dup_params)
+            if dup_check.status_code == 200 and dup_check.json():
+                # Это дубликат! Отклоняем и идем к следующему
+                await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+                    "status": "Отклонен (Дубликат)",
+                    "viewed_by_admin": True,
+                    "viewed_by_admin_name": "Система (Анти-абуз)"
+                })
+                stats["duplicates"] += 1
+                continue
+        # === КОНЕЦ: АНТИ-АБУЗ ===
+
+        # === НАЧАЛО: ФИЛЬТР "ОЛДОВ" ===
+        if req.reward_id == 29:
+            is_old = False
+            user_params = {"limit": "1"}
+            if user_id:
+                user_params["telegram_id"] = f"eq.{user_id}"
+            elif twitch_login:
+                user_params["twitch_login"] = f"eq.{twitch_login}"
+            else:
+                user_params = None
+                
+            if user_params:
+                user_resp = await supabase.get("/users", params=user_params)
+                if user_resp.status_code == 200 and user_resp.json():
+                    user_data = user_resp.json()[0]
+                    
+                    total_msgs = user_data.get("total_message_count", 0)
+                    monthly_msgs = user_data.get("monthly_message_count", 0)
+                    
+                    total_uptime = user_data.get("total_uptime_minutes", 0)
+                    monthly_uptime = user_data.get("monthly_uptime_minutes", 0)
+                    
+                    LIMIT_MESSAGES = 100
+                    LIMIT_UPTIME = 43200 
+                    
+                    if max(total_msgs, monthly_msgs) > LIMIT_MESSAGES and max(total_uptime, monthly_uptime) > LIMIT_UPTIME:
+                        is_old = True
+            
+            if is_old:
+                # Отклоняем олдов
+                await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+                    "status": "Отклонен (Олд)",
+                    "viewed_by_admin": True,
+                    "viewed_by_admin_name": "Система (Фильтр олдов)"
+                })
+                stats["olds"] += 1
+                continue
+        # === КОНЕЦ: ФИЛЬТР "ОЛДОВ" ===
+
+        # === ПОИСК ТРЕЙД-ССЫЛКИ ===
+        trade_link = purchase.get("trade_link")
+        if not trade_link:
+            trade_link = extract_trade_link(purchase.get("user_input", ""))
+            
+        if not trade_link:
+            stats["errors"] += 1
+            continue
+
+        # === УМНЫЙ ЦИКЛ ВЫДАЧИ (SELF-HEALING) ===
+        trade_success = False
+        for attempt in range(1, 4):  # Максимум 3 попытки
+            inv_resp = await supabase.get("/steam_inventory_cache", params={
+                "is_reserved": "is.false",
+                "or": f"(market_hash_name.ilike.%{req.search_query}%,name_ru.ilike.%{req.search_query}%)",
+                "limit": "100",
+                "select": "assetid, account_id"
+            })
+            
+            if inv_resp.status_code != 200:
+                break
+                
+            items = inv_resp.json()
+            if len(items) < req.count:
+                break  # Не хватает предметов на складе
+
+            bots = {}
+            for item in items:
+                acc_id = item["account_id"]
+                if acc_id not in bots:
+                    bots[acc_id] = []
+                bots[acc_id].append(item["assetid"])
+
+            selected_bot = None
+            selected_assets = []
+            for acc_id, assets in bots.items():
+                if len(assets) >= req.count:
+                    selected_bot = acc_id
+                    selected_assets = assets[:req.count]
+                    break
+                    
+            if not selected_bot:
+                break  # Предметы раскиданы по разным ботам
+
+            # Резервируем
+            for asset in selected_assets:
+                await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": True})
+
+            try:
+                trade_res = await send_steam_trade_offer(
+                    account_id=selected_bot,
+                    assetids=selected_assets, 
+                    trade_url=trade_link,
+                    supabase=supabase
+                )
+                
+                if trade_res and isinstance(trade_res, dict) and trade_res.get("success"):
+                    trade_success = True
+                    break  # Успешно отправлено
+                else:
+                    err_msg = trade_res.get("error", "") if isinstance(trade_res, dict) else ""
+                    if "(26)" in err_msg:
+                        # Удаляем призраков и пробуем еще раз
+                        for asset in selected_assets:
+                            await supabase.delete("/steam_inventory_cache", params={"assetid": f"eq.{asset}"})
+                        continue
+                    else:
+                        # Возвращаем в резерв при другой ошибке
+                        for asset in selected_assets:
+                            await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
+                        break
+            except Exception:
+                for asset in selected_assets:
+                    await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
+                break
+
+        # Записываем результат попытки
+        if trade_success:
+            await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+                "status": "Выдан",
+                "rewarded_at": datetime.now(timezone.utc).isoformat(),
+                "viewed_by_admin": True,
+                "viewed_by_admin_name": "Масс. выдача"
+            })
+            stats["success"] += 1
+        else:
+            stats["errors"] += 1
+
+    # Формируем итоговое сообщение
+    final_message = f"Массовая выдача завершена!\nУспешно: {stats['success']}\nДубликатов: {stats['duplicates']}\nОлдов (отклонено): {stats['olds']}\nОшибок: {stats['errors']}"
+    
+    return {"success": True, "message": final_message}
 
 
 @app.post("/api/v1/admin/twitch_rewards/inventory_issue")
@@ -13353,6 +13556,49 @@ async def twitch_inventory_issue(
                 detail="Пользователь уже получал эту награду ранее! Текущая заявка автоматически отменена как дубликат."
             )
     # === КОНЕЦ: АНТИ-АБУЗ ===
+
+    # === НАЧАЛО: ФИЛЬТР "ОЛДОВ" (Защита стартовых наград) ===
+    if reward_id == 29:
+        is_old = False
+        
+        user_params = {"limit": "1"}
+        if user_id:
+            user_params["telegram_id"] = f"eq.{user_id}"
+        elif twitch_login:
+            user_params["twitch_login"] = f"eq.{twitch_login}"
+        else:
+            user_params = None
+            
+        if user_params:
+            user_resp = await supabase.get("/users", params=user_params)
+            
+            if user_resp.status_code == 200 and user_resp.json():
+                user_data = user_resp.json()[0]
+                
+                total_msgs = user_data.get("total_message_count", 0)
+                monthly_msgs = user_data.get("monthly_message_count", 0)
+                
+                total_uptime = user_data.get("total_uptime_minutes", 0)
+                monthly_uptime = user_data.get("monthly_uptime_minutes", 0)
+                
+                LIMIT_MESSAGES = 100
+                LIMIT_UPTIME = 43200 
+                
+                if max(total_msgs, monthly_msgs) > LIMIT_MESSAGES and max(total_uptime, monthly_uptime) > LIMIT_UPTIME:
+                    is_old = True
+        
+        if is_old:
+            # Бракуем заявку
+            await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{req.purchase_id}"}, json={
+                "status": "Отклонен (Олд)",
+                "viewed_by_admin": True,
+                "viewed_by_admin_name": "Система (Фильтр олдов)"
+            })
+            raise HTTPException(
+                status_code=400, 
+                detail="Пользователь слишком давно на канале (олд) и написал >100 сообщений! Эта награда только для новичков."
+            )
+    # === КОНЕЦ: ФИЛЬТР "ОЛДОВ" ===
 
     
     # 2. Ищем трейд-ссылку напрямую в покупке
