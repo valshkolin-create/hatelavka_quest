@@ -741,7 +741,12 @@ if (manualSteamBtn || massSteamBtnAction) {
                     document.getElementById(`purchase-item-${targetId}`)?.remove();
                 }
             } catch (e) {
-                tg.showAlert(`Ошибка: ${e.message}`);
+                let errorMsg = `Ошибка: ${e.message}`;
+                // Обрезаем сообщение, чтобы Telegram не падал
+                if (errorMsg.length > 250) {
+                    errorMsg = errorMsg.substring(0, 247) + '...';
+                }
+                tg.showAlert(errorMsg);
             } finally {
                 manualSteamSubmitBtn.innerHTML = originalText;
                 manualSteamSubmitBtn.disabled = false;
