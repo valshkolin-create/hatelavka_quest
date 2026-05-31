@@ -13330,6 +13330,7 @@ async def twitch_inventory_issue(
 
     # 6. Отправляем трейд
     success_count = 0
+    trade_errors = [] # <--- Создаем список для сбора ошибок Steam
     
     for asset in selected_assets:
         trade_res = await send_steam_trade_offer(
@@ -13344,11 +13345,17 @@ async def twitch_inventory_issue(
         else:
             # Если конкретный предмет не ушел - снимаем с него резерв
             await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
+            
+            # Ловим причину ошибки от Steam (если функция ее возвращает)
+            err_msg = trade_res.get("error", "Неизвестная ошибка отправки") if trade_res else "Функция трейда вернула пустоту"
+            trade_errors.append(err_msg)
 
     if success_count == 0:
-        raise HTTPException(status_code=500, detail="Ошибка: Стим не дал отправить ни одного трейда.")
+        # Теперь скрипт покажет конкретную ошибку, из-за которой всё сорвалось!
+        detailed_error = trade_errors[0] if trade_errors else "Steam отклонил запрос"
+        raise HTTPException(status_code=500, detail=f"Ошибка Steam: {detailed_error}")
 
-    # 7. Закрываем покупку в админке
+    # 6. Закрываем покупку в админке
     await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{req.purchase_id}"}, json={
         "status": "Выдан",
         "rewarded_at": datetime.now(timezone.utc).isoformat(),
