@@ -3174,6 +3174,7 @@ RARITY_COLOR_MAP = {
     "8847ff": "purple", "d32ce6": "pink", "eb4b4b": "red", "e4ae39": "gold"         
 }
 
+# 🔥 ВОТ ЭТА СТРОЧКА БЫЛА ПОТЕРЯНА 🔥
 @app.get("/api/cron/steam_sync")
 async def sync_steam_inventory(
     token: str,
