@@ -10812,6 +10812,100 @@ async def create_promocodes(
         raise HTTPException(status_code=500, detail="Не удалось добавить промокоды.")
 # --- АДМИНСКИЕ ПРОМОКОДЫ  ---  
 
+import os
+import json
+import httpx
+from fastapi import HTTPException, Query, Depends
+
+# Замените на ваш ID (я взял его из логов: Valentin Shkolin)
+ADMIN_TG_CHAT_ID = 477521935 
+# Токен твоего Telegram бота
+TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN", "8368413531:AAE4yUa3BlyYPXOBmW59C6p-ZDySyo3Y_UA")
+
+async def send_telegram_alert(text: str):
+    """Отправляет уведомление админу в ЛС"""
+    try:
+        url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": ADMIN_TG_CHAT_ID, "text": text, "parse_mode": "HTML"}
+        async with httpx.AsyncClient() as client:
+            await client.post(url, json=payload)
+    except Exception as e:
+        import logging
+        logging.error(f"Не удалось отправить алерт в ТГ: {e}")
+
+async def is_steam_session_valid(cookies_dict: dict) -> bool:
+    """Проверяет, жива ли сессия Steam"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Стучимся на страницу трейдов, куда без авторизации не пускают
+            resp = await client.get(
+                "https://steamcommunity.com/my/tradeoffers/", 
+                cookies=cookies_dict, 
+                follow_redirects=False
+            )
+            
+            # Если нас перекидывает на страницу логина (301/302) — сессия мертва
+            if resp.status_code in (301, 302) and "login" in resp.headers.get("location", "").lower():
+                return False
+                
+            # Иногда Steam отдает 200, но внутри HTML просит логин
+            if 'g_steamID = false;' in resp.text or 'id="global_action_menu"' not in resp.text:
+                return False
+                
+            return True
+    except Exception:
+        # Если Steam временно лежит, считаем сессию пока "живой", чтобы не спамить ложными алертами
+        return True 
+
+@app.get("/api/v1/cron/check_steam_bots")
+async def cron_check_steam_bots(
+    token: str = Query(None),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Секретный токен для проверки
+    EXPECTED_TOKEN = os.getenv("CRON_SECRET", "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890")
+    
+    if token != EXPECTED_TOKEN:
+        raise HTTPException(status_code=401, detail="Неверный токен доступа")
+
+    # 1. Получаем всех ботов со статусом 'active'
+    res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
+    if res.status_code != 200:
+        return {"status": "error", "message": "Не удалось получить ботов"}
+        
+    bots = res.json()
+    dead_bots = []
+    
+    # 2. Проверяем каждого бота
+    for bot in bots:
+        raw_session_data = bot.get('session_data', {})
+        session_data = json.loads(raw_session_data) if isinstance(raw_session_data, str) else raw_session_data
+        cookies = session_data.get('cookies', {})
+        
+        if not await is_steam_session_valid(cookies):
+            dead_bots.append(bot['username'])
+            
+            # Ставим статус, что нужна авторизация, чтобы не пытаться слать с него трейды
+            await supabase.patch(
+                "/steam_accounts", 
+                params={"id": f"eq.{bot['id']}"}, 
+                json={"status": "requires_auth"}
+            )
+            
+    # 3. Если есть умершие боты, бьем тревогу в Telegram
+    if dead_bots:
+        bots_str = ", ".join(dead_bots)
+        alert_text = (
+            f"🚨 <b>Внимание! Упала сессия Steam</b> 🚨\n\n"
+            f"Боты: <b>{bots_str}</b>\n\n"
+            f"Куки протухли. Авто-выдача остановлена.\n"
+            f"Пожалуйста, зайдите в базу данных и обновите <code>session_data</code>, "
+            f"после чего верните статус 'active'."
+        )
+        await send_telegram_alert(alert_text)
+        
+    return {"status": "ok", "checked_bots": len(bots), "dead_bots": len(dead_bots)}
+    
 @app.get("/api/v1/cron/check_tm_trades") 
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
