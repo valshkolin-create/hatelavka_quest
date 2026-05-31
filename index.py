@@ -13286,7 +13286,7 @@ async def twitch_inventory_issue(
         "is_reserved": "is.false",
         "name": f"ilike.%{req.search_query}%",
         "limit": "100", # Берем с запасом, чтобы сгруппировать по боту
-        "select": "id, assetid, account_id"
+        "select": "assetid, account_id" # <--- ИСПРАВЛЕНО
     })
     
     if inv_resp.status_code != 200:
