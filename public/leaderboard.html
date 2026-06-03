@@ -121,18 +121,18 @@
     .period-buttons button.active { background-color: var(--tg-color); color: #fff; border-color: var(--tg-color); }
     .period-buttons.twitch-active button.active { background-color: var(--twitch-color); border-color: var(--twitch-color); }
 
-    /* Ультра-компактный лидерборд */
+/* Ультра-компактный лидерборд */
 table { 
     width: 100%; 
     border-collapse: collapse; 
     background-color: var(--surface-color); 
     border-radius: 8px; 
     overflow: hidden; 
-    font-size: 11px; /* Мелкий, но читаемый шрифт */
+    font-size: 11px; 
 }
 
 th, td { 
-    padding: 4px 6px; /* Минимальные отступы */
+    padding: 4px 6px; 
     text-align: left; 
     border-bottom: 1px solid rgba(255,255,255,0.03); 
 }
@@ -147,17 +147,30 @@ th {
 
 td.rank { width: 24px; text-align: center; font-weight: 900; }
 td.username { max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-td.reward-col { width: 40px; text-align: center; } /* Колонка награды */
+td.reward-col { width: 42px; text-align: center; }
 td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 700; color: var(--accent-green); }
 
-/* Иконка награды */
+/* Иконка награды из базы */
 .leader-reward-img {
-    width: 16px; 
-    height: 16px; 
+    width: 18px; 
+    height: 18px; 
     vertical-align: middle;
     filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.2));
+    border-radius: 4px;
 }
 
+/* Модалка админа */
+.admin-select {
+    width: 100%; 
+    background: #2c2c2e; 
+    color: #fff; 
+    border: 1px solid #444; 
+    padding: 10px; 
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+}
+  
 .first-place { background: rgba(255, 215, 0, 0.03); }
     .second-place { border-left: 4px solid var(--silver-glow); }
     .third-place { border-left: 4px solid var(--bronze-glow); }
@@ -280,14 +293,13 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
     </div>
 
    <table>
-      <thead>
-        <tr>
-          <th style="text-align: center;">#</th>
-          <th>Пользователь</th>
-          <th style="text-align: center;">Награда</th>
-          <th id="table-header-activity" style="text-align: right;">Сообщений</th>
-        </tr>
-      </thead>
+<thead>
+  <tr>
+    <th style="text-align: center;">#</th>
+    <th>Пользователь</th>
+    <th style="text-align: center;">Награда</th> <th id="table-header-activity" style="text-align: right;">Сообщений</th>
+  </tr>
+</thead>
       <tbody id="leaderboardBody"></tbody>
     </table>
     <div id="loader" class="loader">Загрузка данных...</div>
@@ -470,27 +482,21 @@ async function fetchAndRender() {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Ошибка сети`);
       const data = await response.json();
-      
-      // Просто получаем данные, НИКОГО НЕ УДАЛЯЕМ
       const leaderboardData = Array.isArray(data) ? data : data.leaderboard;
 
       let myRealTimeStat = null;
-      let rawTgId = null;
-      if (currentUser) rawTgId = currentUser.telegram_id || currentUser.id;
-      if (!rawTgId && window.Telegram && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
-          rawTgId = Telegram.WebApp.initDataUnsafe.user.id;
-      }
+      let rawTgId = currentUser?.telegram_id || currentUser?.id || Telegram.WebApp.initDataUnsafe.user?.id;
       const myTgIdStr = String(rawTgId); 
       
       if (Array.isArray(leaderboardData)) {
-          const myTwitchLogin = currentUser && currentUser.twitch_login ? currentUser.twitch_login.toLowerCase() : null;
-          const myUsername = currentUser && currentUser.username ? currentUser.username.toLowerCase().replace('@', '') : null;
+          const myTwitchLogin = currentUser?.twitch_login?.toLowerCase();
+          const myUsername = currentUser?.username?.toLowerCase().replace('@', '');
 
           const me = leaderboardData.find(entry => {
               if (state.source === 'telegram') {
                   const entryId = entry.telegram_id || entry.user_id || entry.id;
                   if (entryId && String(entryId) === myTgIdStr) return true;
-                  const entryUser = entry.username ? entry.username.toLowerCase().replace('@', '') : null;
+                  const entryUser = entry.username?.toLowerCase().replace('@', '');
                   if (entryUser && myUsername && entryUser === myUsername) return true;
               }
               if (state.source === 'twitch' && myTwitchLogin) {
@@ -499,23 +505,14 @@ async function fetchAndRender() {
               }
               return false;
           });
-
-          if (me) {
-              myRealTimeStat = me.total_activity ?? me.value ?? me.messages_count ?? 0;
-          }
+          if (me) myRealTimeStat = me.total_activity ?? me.value ?? me.messages_count ?? 0;
       }
       
       updatePersonalStats(myRealTimeStat);
 
-      // 🔥 1. УДАЛЯЕМ СИСТЕМНЫЕ АККАУНТЫ ЦЕЛИКОМ ИЗ СПИСКА 🔥
       const filteredLeaderboard = leaderboardData.filter(entry => {
-          // Обязательно String(), чтобы избежать ошибок
           const rawName = String(entry.full_name || entry.username || entry.user_name || '').toLowerCase().trim();
-          
-          if (rawName === 'channel' || rawName === 'telegram') {
-              return false; // Выбрасываем системки из топа
-          }
-          return true; // Парней оставляем
+          return !(rawName === 'channel' || rawName === 'telegram');
       });
 
       if (!Array.isArray(filteredLeaderboard) || filteredLeaderboard.length === 0) {
@@ -523,71 +520,118 @@ async function fetchAndRender() {
         return;
       }
 
-      // 🔥 2. РИСУЕМ ТАБЛИЦУ НА ОСНОВЕ ОЧИЩЕННОГО МАССИВА 🔥
+      // 🔥 РЕНДЕР СТРОК
       filteredLeaderboard.forEach((entry, index) => {
         const row = document.createElement('tr');
-        
         let rankContent = index + 1;
-        let rewardIconHtml = '';
-
+        
+        // Медали
         if (index === 0) { row.classList.add('first-place'); rankContent = '🥇'; }  
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        if (index < 3) {
-            // Просто показываем, что игроку положен кейс
-            rewardIconHtml = `<img src="https://i.ibb.co/Lzk8tsby/MATRIX.png" class="leader-reward-img">`;
-        } else {
-            rewardIconHtml = `<span style="opacity:0.1">•</span>`;
+        // 🔥 ДИНАМИЧЕСКАЯ НАГРАДА С БЭКЕНДА
+        let rewardHtml = `<span style="opacity:0.05">•</span>`;
+        if (entry.reward && entry.reward.image_url) {
+            rewardHtml = `<img src="${entry.reward.image_url}" class="leader-reward-img" title="${entry.reward.name}">`;
         }
 
-        // 🔥 3. ОЧИЩАЕМ НИК ОТ МУСОРА (БЕЗОПАСНЫЙ МЕТОД) 🔥
-        // Железобетонно делаем строкой, чтобы не словить ошибку
+        // Очистка ника
         let name = String(entry.full_name || entry.username || entry.user_name || '...');
-        
-        // Умная регулярка: 
-        // @[\w_]+ удаляет собачку и всё, что прилеплено к ней (спасет от Lol@ezzzskin)
-        // Остальное удаляет конкретные названия спамеров
         name = name.replace(/@[\w_]+|freeskins|ezzzskin|skinozbot|hatelavka|_bot/gi, '').trim();
-        
-        // Подчищаем висящие запятые или точки по краям (если было "lvl1,@ezzzskin", останется "lvl1")
         name = name.replace(/^[.,\s]+|[.,\s]+$/g, '');
-        
-        // Если ник состоял ТОЛЬКО из спама, даем заглушку, чтобы парень остался в таблице со своими очками
-        if (!name) {
-            name = 'Скрытое имя';
-        }
+        if (!name) name = 'Скрытое имя';
 
-        const entryTgId = String(entry.telegram_id || entry.user_id || entry.id);
-        const isMe = (entryTgId === myTgIdStr);
-
+        const isMe = String(entry.telegram_id || entry.user_id || entry.id) === myTgIdStr;
         let value = entry.total_activity ?? entry.value ?? entry.messages_count ?? 0;
-
-        if (state.source === 'twitch' && state.twitchMetric === 'uptime') {
-            value = formatUptime(value);
-        }
+        if (state.source === 'twitch' && state.twitchMetric === 'uptime') value = formatUptime(value);
 
         row.innerHTML = `
           <td class="rank">${rankContent}</td>
           <td class="username" style="${isMe ? 'color:#FFD700; font-weight:800;' : ''}">
-            ${name} ${isMe ? '<span style="font-size:8px; opacity:0.6;">(ВЫ)</span>' : ''}
+            ${name} ${isMe ? '<span style="font-size:8px; opacity:0.5;">(ВЫ)</span>' : ''}
           </td>
-          <td class="reward-col">${rewardIconHtml}</td>
+          <td class="reward-col">${rewardHtml}</td>
           <td class="count">${value}</td>
         `;
         dom.leaderboardBody.appendChild(row);
       });
       
       dom.loader.style.display = 'none';
-
-      // 🔥 Синхронизируем купоны в фоне, чтобы в магазине сразу появился бесплатный кейс
       if (typeof syncMyPromos === 'function') syncMyPromos();
 
     } catch (error) {
-      console.error('Ошибка:', error);
-      dom.loader.textContent = 'Не удалось загрузить данные.';
+      dom.loader.textContent = 'Ошибка загрузки.';
     }
-  }
+}
+
+// ==========================================
+// ЛОГИКА АДМИНКИ НАГРАД
+// ==========================================
+window.openAdminRewards = async function() {
+    haptic('medium');
+    
+    // Создаем модалку динамически, если её нет
+    if (!document.getElementById('admin-rewards-modal')) {
+        const m = document.createElement('div');
+        m.id = 'admin-rewards-modal';
+        m.className = 'gift-modal-overlay hidden';
+        m.style.zIndex = '100000';
+        m.innerHTML = `
+            <div class="custom-confirm-box" style="width: 90%; max-width: 350px;">
+                <h3 class="confirm-title">Награды ТОП-3</h3>
+                <div style="text-align:left; display:flex; flex-direction:column; gap:12px; margin: 15px 0;">
+                    <div><label style="font-size:9px; color:#888;">1 МЕСТО</label><select id="rew-1" class="admin-select"></select></div>
+                    <div><label style="font-size:9px; color:#888;">2 МЕСТО</label><select id="rew-2" class="admin-select"></select></div>
+                    <div><label style="font-size:9px; color:#888;">3 МЕСТО</label><select id="rew-3" class="admin-select"></select></div>
+                </div>
+                <div class="confirm-buttons">
+                    <button class="confirm-btn btn-cancel-modal" onclick="document.getElementById('admin-rewards-modal').classList.add('hidden')">Отмена</button>
+                    <button class="confirm-btn btn-yellow-modal" onclick="saveAdminRewards()">СОХРАНИТЬ</button>
+                </div>
+            </div>`;
+        document.body.appendChild(m);
+    }
+
+    const modal = document.getElementById('admin-rewards-modal');
+    modal.classList.remove('hidden');
+
+    try {
+        // Берем кейсы из кэша магазина
+        let cases = JSON.parse(localStorage.getItem('shop_items_cache') || '{}')[2716312];
+        if (!cases) cases = await makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true);
+
+        const options = (cases || []).filter(i => !i.is_folder)
+            .map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+
+        [1, 2, 3].forEach(n => {
+            const s = document.getElementById(`rew-${n}`);
+            s.innerHTML = '<option value="">Нет</option>' + options;
+        });
+
+        // Грузим текущий конфиг
+        const cfg = await makeApiRequest('/api/v1/admin/leaderboard/config', {}, 'GET', true);
+        if (cfg) {
+            document.getElementById('rew-1').value = cfg["1"] || "";
+            document.getElementById('rew-2').value = cfg["2"] || "";
+            document.getElementById('rew-3').value = cfg["3"] || "";
+        }
+    } catch (e) { customAlert("Ошибка загрузки"); }
+};
+
+window.saveAdminRewards = async function() {
+    const config = {
+        "1": document.getElementById('rew-1').value,
+        "2": document.getElementById('rew-2').value,
+        "3": document.getElementById('rew-3').value
+    };
+    try {
+        await makeApiRequest('/api/v1/admin/leaderboard/config/save', { config }, 'POST');
+        customAlert("✅ Сохранено!");
+        document.getElementById('admin-rewards-modal').classList.add('hidden');
+        fetchAndRender();
+    } catch (e) {}
+};
   
   // --- ОБРАБОТЧИКИ КНОПОК С ВИБРАЦИЕЙ ---
 
