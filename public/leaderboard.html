@@ -151,25 +151,38 @@ td.reward-col { width: 42px; text-align: center; }
 td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 700; color: var(--accent-green); }
 
 /* Кнопка админа (шестеренка) */
+/* Кнопка админа (шестеренка) - ТЕПЕРЬ МИНИАТЮРНАЯ В ХЕДЕРЕ */
 .admin-gear-btn {
-    position: fixed;
-    bottom: 120px;
-    right: 20px;
-    width: 46px;
-    height: 46px;
-    background: #1c1c1e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    color: #fff;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0 8px;
+    transition: color 0.2s ease-in-out;
+}
+.admin-gear-btn:hover { color: #fff; }
+
+/* Правильное центрирование админ-модалки */
+.gift-modal-overlay {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    z-index: 9999;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    cursor: pointer;
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+    z-index: 100000;
 }
-
+.custom-confirm-box {
+    background: #1c1c1e;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+  
 /* Иконка награды в таблице (без свечения) */
 .leader-reward-img {
     width: 20px; 
@@ -283,10 +296,13 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
         <i class="fa-solid fa-rotate-right"></i>
     </div>
 
-    <div id="info-box-twitch" class="info-box hidden">
+    div id="info-box-twitch" class="info-box hidden">
         <div class="header-controls">
             <h2>Статистика Twitch</h2>
-            <button class="refresh-button"><i class="fas fa-sync-alt"></i></button>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button class="admin-gear-btn hidden admin-gear-icon" onclick="openAdminRewards()"><i class="fa-solid fa-gear"></i></button>
+                <button class="refresh-button"><i class="fas fa-sync-alt"></i></button>
+            </div>
         </div>
         <p>Здесь отображается статистика активности на нашем Twitch канале.</p>
         
@@ -302,7 +318,10 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
     <div id="info-box-telegram" class="info-box">
         <div class="header-controls">
             <h2>Статистика Telegram</h2>
-            <button class="refresh-button"><i class="fas fa-sync-alt"></i></button>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button class="admin-gear-btn hidden admin-gear-icon" onclick="openAdminRewards()"><i class="fa-solid fa-gear"></i></button>
+                <button class="refresh-button"><i class="fas fa-sync-alt"></i></button>
+            </div>
         </div>
         <p>Здесь отображается количество сообщений в нашем Telegram-чате. <a href="https://t.me/hatelovettv" target="_blank">Перейти в чат</a></p>
         
@@ -342,12 +361,12 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
       </div>
     </div>
 
-   <table>
+  <table>
 <thead>
   <tr>
     <th style="text-align: center;">#</th>
     <th>Пользователь</th>
-    <th style="text-align: center;">Награда</th> <th id="table-header-activity" style="text-align: right;">Сообщений</th>
+    <th id="table-header-activity" style="text-align: center;">Сообщений</th> <th style="text-align: right;">Награда</th>
   </tr>
 </thead>
       <tbody id="leaderboardBody"></tbody>
@@ -364,10 +383,6 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
         <img id="prev-img" src="">
         <p id="prev-name">Награда</p>
     </div>
-</div>
-
-<div id="admin-gear" class="admin-gear-btn hidden" onclick="openAdminRewards()">
-    <i class="fa-solid fa-gear"></i>
 </div>
 
 <div id="admin-rewards-modal" class="gift-modal-overlay hidden" style="z-index: 100000;">
@@ -643,8 +658,8 @@ async function fetchAndRender() {
           <td class="username" style="${isMe ? 'color:#FFD700; font-weight:800;' : ''}">
             ${name} ${isMe ? '<span style="font-size:8px; opacity:0.5;">(ВЫ)</span>' : ''}
           </td>
-          <td class="reward-col">${rewardHtml}</td>
-          <td class="count">${value}</td>
+          <td class="count" style="text-align: center;">${value}</td>
+          <td class="reward-col" style="text-align: right;">${rewardHtml}</td>
         `;
         dom.leaderboardBody.appendChild(row);
       });
@@ -654,8 +669,7 @@ async function fetchAndRender() {
 
       // 🔥 ПОКАЗЫВАЕМ ШЕСТЕРЕНКУ ДЛЯ АДМИНА
       if (currentUser && currentUser.is_admin) {
-          const gear = document.getElementById('admin-gear');
-          if (gear) gear.classList.remove('hidden');
+          document.querySelectorAll('.admin-gear-icon').forEach(el => el.classList.remove('hidden'));
       }
 
     } catch (error) {
@@ -663,9 +677,38 @@ async function fetchAndRender() {
     }
 }
 
+  // === ПРЕВЬЮ НАГРАДЫ НА ВЕСЬ ЭКРАН ===
+window.showRewardPreview = function(rank, name, imgUrl) {
+    haptic('light');
+    document.getElementById('prev-rank-title').innerText = rank + " МЕСТО";
+    document.getElementById('prev-name').innerText = name;
+    document.getElementById('prev-img').src = imgUrl;
+    document.getElementById('reward-preview-overlay').classList.remove('hidden');
+};
+
+window.closeRewardPreview = () => {
+    document.getElementById('reward-preview-overlay').classList.add('hidden');
+};
+
 // ==========================================
 // ЛОГИКА АДМИНКИ НАГРАД (КОМПЛЕКСНАЯ)
 // ==========================================
+
+function getCurrentLeaderboardKey() {
+    if (state.source === 'telegram') return `telegram_${state.telegramPeriod}`;
+    return `twitch_${state.twitchMetric}_${state.twitchPeriod}`;
+}
+
+function getCurrentLeaderboardName() {
+    if (state.source === 'telegram') {
+        const p = state.telegramPeriod === 'day' ? 'День' : state.telegramPeriod === 'week' ? 'Неделя' : state.telegramPeriod === 'month' ? 'Месяц' : 'Всё время';
+        return `Telegram (${p})`;
+    }
+    const met = state.twitchMetric === 'message' ? 'Сообщения' : state.twitchMetric === 'uptime' ? 'Время' : 'Ранги';
+    const p = state.twitchPeriod === 'session' ? 'Сессия' : state.twitchPeriod === 'week' ? 'Неделя' : state.twitchPeriod === 'month' ? 'Месяц' : 'Всё время';
+    return `Twitch ${met} (${p})`;
+}
+  
 window.openAdminRewards = async function() {
     haptic('medium');
     
@@ -699,8 +742,13 @@ window.openAdminRewards = async function() {
     const form = document.getElementById('rewards-form');
     modal.classList.remove('hidden');
     form.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+    
+    // Динамический заголовок модалки
+    const titleEl = modal.querySelector('.confirm-title');
+    if (titleEl) titleEl.innerText = `Настройки ТОП-3:\n${getCurrentLeaderboardName()}`;
 
     try {
+        // 2. Получаем список кейсов для выпадающего списка
         // 2. Получаем список кейсов для выпадающего списка
         let cases = JSON.parse(localStorage.getItem('shop_items_cache') || '{}')[2716312];
         if (!cases || cases.length === 0) {
@@ -733,8 +781,9 @@ window.openAdminRewards = async function() {
             `;
         });
 
-        // 4. Загружаем сохраненный конфиг и заполняем поля
-        const cfg = await makeApiRequest('/api/v1/admin/leaderboard/config', {}, 'GET', true);
+        // 4. Загружаем сохраненный конфиг и заполняем поля (ПО УНИКАЛЬНОМУ КЛЮЧУ)
+        const lKey = getCurrentLeaderboardKey();
+        const cfg = await makeApiRequest(`/api/v1/admin/leaderboard/config?key=${lKey}`, {}, 'GET', true);
         if (cfg) {
             [1, 2, 3].forEach(num => {
                 const item = cfg[num.toString()];
@@ -789,7 +838,8 @@ window.saveAdminRewards = async function() {
     if (hasError) return customAlert("Заполните значения для выбранных наград!");
 
     try {
-        await makeApiRequest('/api/v1/admin/leaderboard/config/save', { config }, 'POST');
+        const lKey = getCurrentLeaderboardKey();
+        await makeApiRequest('/api/v1/admin/leaderboard/config/save', { key: lKey, config }, 'POST');
         customAlert("✅ Настройки наград сохранены!");
         document.getElementById('admin-rewards-modal').classList.add('hidden');
         fetchAndRender(); // Обновляем таблицу, чтобы иконки сменились
@@ -822,7 +872,8 @@ window.issueRewardsNow = async function() {
         if (winners.length === 0) return customAlert("У ТОП-3 не настроены награды!");
 
         try {
-            const res = await makeApiRequest('/api/v1/admin/leaderboard/issue', { winners }, 'POST');
+            const lKey = getCurrentLeaderboardKey();
+            const res = await makeApiRequest('/api/v1/admin/leaderboard/issue', { key: lKey, winners }, 'POST');
             if (res.success) {
                 customAlert("✅ Награды успешно выданы!\nЛоги отправлены в админ-чат.");
                 document.getElementById('admin-rewards-modal').classList.add('hidden');
