@@ -11939,101 +11939,20 @@ async def update_submission_status(
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
         
-# --- ВАШ СУЩЕСТВУЮЩИЙ ЭНДПОИНТ (оставьте его без изменений) ---
-@app.get("/api/v1/leaderboard/wizebot")
-async def get_wizebot_leaderboard(
-    sub_type: str = "ALL", 
-    limit: int = 50,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client) # ДОБАВИЛИ supabase
-):
-    if not WIZEBOT_API_KEY:
-        raise HTTPException(status_code=500, detail="Wizebot API is not configured.")
-
-    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/ranks/{sub_type}/{limit}"
-
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(url, timeout=15.0)
-            resp.raise_for_status()
-            data = resp.json()
-
-            formatted_data = [
-                {
-                    "full_name": entry.get("user_name"),
-                    "user_id": entry.get("user_uid"),
-                    "total_activity": int(entry.get("value", 0))
-                }
-                for entry in data.get("list", [])
-            ]
-
-            # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ 🔥
-            formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase)
-            return formatted_data
-
-        except Exception as e:
-            logging.error(f"❌ Ошибка при запросе к Wizebot API: {e}")
-            return JSONResponse(
-                status_code=502,
-                content={"error": "Failed to fetch leaderboard from Wizebot"}
-            )
-
-
-# --- ОБНОВЛЕННЫЙ ЭНДПОИНТ ДЛЯ СТАТИСТИКИ (используйте этот код) ---
-# --- 3. WIZEBOT СТАТИСТИКА (Сообщения/Время) ---
-@app.get("/api/v1/leaderboard/wizebot/stats")
-async def get_wizebot_stats(
-    metric: str = Query("message", enum=["message", "uptime"]), 
-    period: str = Query("week", enum=["session", "week", "month", "global"]),
-    limit: int = 50,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client) # ДОБАВИЛИ supabase
-):
-    if not WIZEBOT_API_KEY:
-        raise HTTPException(status_code=500, detail="Wizebot API is not configured.")
-
-    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/{metric}/{period}/{limit}"
-
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(url, timeout=15.0)
-            resp.raise_for_status()
-            data = resp.json()
-
-            formatted_data = [
-                {
-                    "username": entry.get("user_name"),
-                    "user_id": entry.get("user_uid"),
-                    "value": int(entry.get("value", 0))
-                }
-                for entry in data.get("list", [])
-            ]
-
-            # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ 🔥
-            formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase)
-            return {"metric": metric, "period": period, "leaderboard": formatted_data}
-
-        except httpx.HTTPStatusError as e:
-            logging.error(f"❌ Ошибка от Wizebot API: {e.response.status_code} - {e.response.text}")
-            return JSONResponse(
-                status_code=e.response.status_code,
-                content={"error": "Failed to fetch stats from Wizebot", "detail": e.response.text}
-            )
-        except Exception as e:
-            logging.error(f"❌ Неизвестная ошибка при запросе к Wizebot API: {e}")
-            return JSONResponse(
-                status_code=502,
-                content={"error": "An unexpected error occurred while communicating with Wizebot"}
-            )
-
 # =====================================================================
-# ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (ПОДДЕРЖИВАЕТ КЕЙСЫ, МОНЕТЫ И БИЛЕТЫ)
+# 1. ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (С ДИНАМИЧЕСКИМ КЛЮЧОМ)
 # =====================================================================
-async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.AsyncClient) -> list:
+async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.AsyncClient, leaderboard_key: str) -> list:
+    """
+    Прикрепляет награды к ТОП-3 пользователям на основе динамического ключа leaderboard_key.
+    Например: 'telegram_day', 'twitch_message_week', 'twitch_uptime_month'
+    """
     if not leaderboard_data:
         return leaderboard_data
 
     try:
         settings_resp, shop_cache_resp = await asyncio.gather(
-            supabase.get("/settings", params={"key": "eq.leaderboard_rewards"}),
+            supabase.get("/settings", params={"key": f"eq.{leaderboard_key}"}),
             supabase.get("/shop_cache", params={"category_id": "eq.2716312"})
         )
         
@@ -12089,24 +12008,149 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
     return leaderboard_data
 
 # =====================================================================
-# ЭНДПОИНТЫ АДМИНКИ (СОХРАНЕНИЕ И РУЧНАЯ ВЫДАЧА)
+# 2. ЭНДПОИНТЫ ДАННЫХ ЛИДЕРБОРДА (С ПЕРЕДАЧЕЙ КЛЮЧА НАГРАД)
 # =====================================================================
+
+# --- TELEGRAM ЛИДЕРБОРД ---
+@app.get("/api/v1/leaderboard")
+async def get_leaderboard_data(request: Request, period: str = "day", supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    MSK = timezone(timedelta(hours=3))
+    now = datetime.now(MSK)
+    start_date_str = None
+    
+    if period == "day": start_date_str = now.date().isoformat()
+    elif period == "week": start_date_str = (now.date() - timedelta(days=now.weekday())).isoformat()
+    elif period == "month": start_date_str = now.date().replace(day=1).isoformat()
+    elif period != "all": raise HTTPException(status_code=400, detail="Invalid period")
+    
+    params = {"p_start_date": start_date_str} if start_date_str else {}
+    response = await supabase.post("/rpc/get_leaderboard", json=params)
+    response.raise_for_status()
+    
+    leaderboard_data = response.json()
+    
+    # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ (Динамический ключ) 🔥
+    leaderboard_key = f"telegram_{period}"
+    leaderboard_data = await attach_rewards_to_leaderboard(leaderboard_data, supabase, leaderboard_key)
+    return leaderboard_data
+
+# --- WIZEBOT ОБЩИЙ ЛИДЕРБОРД (Ранги) ---
+@app.get("/api/v1/leaderboard/wizebot")
+async def get_wizebot_leaderboard(
+    sub_type: str = "ALL", 
+    limit: int = 50,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    if not WIZEBOT_API_KEY:
+        raise HTTPException(status_code=500, detail="Wizebot API is not configured.")
+
+    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/ranks/{sub_type}/{limit}"
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            resp.raise_for_status()
+            data = resp.json()
+
+            formatted_data = [
+                {
+                    "full_name": entry.get("user_name"),
+                    "user_id": entry.get("user_uid"),
+                    "total_activity": int(entry.get("value", 0))
+                }
+                for entry in data.get("list", [])
+            ]
+
+            # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ (Динамический ключ - фронтенд по умолчанию шлет session для рангов) 🔥
+            leaderboard_key = "twitch_ranks_session"
+            formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase, leaderboard_key)
+            return formatted_data
+
+        except Exception as e:
+            logging.error(f"❌ Ошибка при запросе к Wizebot API: {e}")
+            return JSONResponse(
+                status_code=502,
+                content={"error": "Failed to fetch leaderboard from Wizebot"}
+            )
+
+# --- WIZEBOT СТАТИСТИКА (Сообщения/Время) ---
+@app.get("/api/v1/leaderboard/wizebot/stats")
+async def get_wizebot_stats(
+    metric: str = Query("message", enum=["message", "uptime", "ranks"]), 
+    period: str = Query("week", enum=["session", "week", "month", "global"]),
+    limit: int = 50,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    if not WIZEBOT_API_KEY:
+        raise HTTPException(status_code=500, detail="Wizebot API is not configured.")
+
+    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/{metric}/{period}/{limit}"
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            resp.raise_for_status()
+            data = resp.json()
+
+            formatted_data = [
+                {
+                    "username": entry.get("user_name"),
+                    "user_id": entry.get("user_uid"),
+                    "value": int(entry.get("value", 0))
+                }
+                for entry in data.get("list", [])
+            ]
+
+            # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ (Динамический ключ) 🔥
+            leaderboard_key = f"twitch_{metric}_{period}"
+            formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase, leaderboard_key)
+            return {"metric": metric, "period": period, "leaderboard": formatted_data}
+
+        except httpx.HTTPStatusError as e:
+            logging.error(f"❌ Ошибка от Wizebot API: {e.response.status_code} - {e.response.text}")
+            return JSONResponse(
+                status_code=e.response.status_code,
+                content={"error": "Failed to fetch stats from Wizebot", "detail": e.response.text}
+            )
+        except Exception as e:
+            logging.error(f"❌ Неизвестная ошибка при запросе к Wizebot API: {e}")
+            return JSONResponse(
+                status_code=502,
+                content={"error": "An unexpected error occurred while communicating with Wizebot"}
+            )
+
+# =====================================================================
+# 3. ЭНДПОИНТЫ АДМИНКИ (СОХРАНЕНИЕ И РУЧНАЯ ВЫДАЧА)
+# =====================================================================
+
 @app.get("/api/v1/admin/leaderboard/config")
-async def get_leaderboard_config(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    res = await supabase.get("/settings", params={"key": "eq.leaderboard_rewards"})
+async def get_leaderboard_config(key: str = Query(...), supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """
+    Получение настроек наград для конкретного лидерборда по ключу (например, 'telegram_day' или 'twitch_message_week')
+    """
+    res = await supabase.get("/settings", params={"key": f"eq.{key}"})
     data = res.json()
     return data[0]["value"] if data else {}
 
 @app.post("/api/v1/admin/leaderboard/config/save")
 async def save_leaderboard_config(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """
+    Сохранение настроек наград с привязкой к конкретному ключу лидерборда.
+    """
     body = await request.json()
     user_info = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(status_code=401)
     
+    # Получаем ключ из запроса (защита от пустого значения)
+    config_key = body.get("key")
+    if not config_key:
+        raise HTTPException(status_code=400, detail="Key is required")
+        
     new_config = body.get("config", {})
+    
     await supabase.post(
         "/settings", 
-        json={"key": "leaderboard_rewards", "value": new_config}, 
+        json={"key": config_key, "value": new_config}, 
         headers={"Prefer": "resolution=merge-duplicates"}
     )
     return {"success": True}
@@ -12114,7 +12158,7 @@ async def save_leaderboard_config(request: Request, supabase: httpx.AsyncClient 
 @app.post("/api/v1/admin/leaderboard/issue")
 async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
-    Эндпоинт для РУЧНОЙ выдачи наград. Фронтенд присылает список победителей.
+    Эндпоинт для РУЧНОЙ выдачи наград. Фронтенд присылает ключ лидерборда и список победителей.
     """
     body = await request.json()
     user_info = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
@@ -12125,6 +12169,7 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
     if not user_res.json()[0].get("is_admin"):
         raise HTTPException(status_code=403, detail="Только для админов")
 
+    config_key = body.get("key", "Неизвестный лидерборд")
     winners = body.get("winners", []) # Формат: [{"telegram_id": 123, "rank": 1, "reward": {"type": "coins", "value": 100}}, ...]
     
     results = []
@@ -12146,7 +12191,7 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
         try:
             if r_type == "coins":
                 # Выдаем монеты через Bot-T
-                await add_balance_to_bott(u_record["bott_internal_id"], float(r_value), "Награда за Топ Лидерборда!")
+                await add_balance_to_bott(u_record["bott_internal_id"], float(r_value), f"Награда за Топ Лидерборда ({config_key})!")
                 results.append(f"ID {tg_id}: Выдано {r_value} монет")
                 
             elif r_type == "tickets":
@@ -12156,10 +12201,10 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
                 results.append(f"ID {tg_id}: Выдано {r_value} билетов")
                 
             elif r_type == "case":
-                # Для кейса просто генерируем запись в ручные выдачи
+                # Для кейса просто генерируем запись в ручные выдачи, добавили ключ в описание!
                 await supabase.post("/manual_rewards", json={
                     "user_id": tg_id, "status": "pending", "source_type": "leaderboard",
-                    "reward_details": r_value, "source_description": "Награда за Топ Лидерборда"
+                    "reward_details": r_value, "source_description": f"Награда за Топ Лидерборда ({config_key})"
                 })
                 results.append(f"ID {tg_id}: Заявка на выдачу кейса {r_value}")
                 
@@ -12167,27 +12212,6 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
             logging.error(f"Ошибка выдачи награды для {tg_id}: {e}")
             
     return {"success": True, "details": results}
-
-@app.get("/api/v1/leaderboard")
-async def get_leaderboard_data(request: Request, period: str = "day", supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    MSK = timezone(timedelta(hours=3))
-    now = datetime.now(MSK)
-    start_date_str = None
-    
-    if period == "day": start_date_str = now.date().isoformat()
-    elif period == "week": start_date_str = (now.date() - timedelta(days=now.weekday())).isoformat()
-    elif period == "month": start_date_str = now.date().replace(day=1).isoformat()
-    elif period != "all": raise HTTPException(status_code=400, detail="Invalid period")
-    
-    params = {"p_start_date": start_date_str} if start_date_str else {}
-    response = await supabase.post("/rpc/get_leaderboard", json=params)
-    response.raise_for_status()
-    
-    leaderboard_data = response.json()
-    
-    # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ 🔥
-    leaderboard_data = await attach_rewards_to_leaderboard(leaderboard_data, supabase)
-    return leaderboard_data
     
 @app.post("/api/v1/user/rewards")
 async def get_user_rewards(
