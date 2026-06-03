@@ -150,26 +150,76 @@ td.username { max-width: 130px; white-space: nowrap; overflow: hidden; text-over
 td.reward-col { width: 42px; text-align: center; }
 td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 700; color: var(--accent-green); }
 
-/* Иконка награды из базы */
+/* Кнопка админа (шестеренка) */
+.admin-gear-btn {
+    position: fixed;
+    bottom: 120px;
+    right: 20px;
+    width: 46px;
+    height: 46px;
+    background: #1c1c1e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    z-index: 9999;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    cursor: pointer;
+}
+
+/* Иконка награды в таблице (без свечения) */
 .leader-reward-img {
-    width: 18px; 
-    height: 18px; 
+    width: 20px; 
+    height: 20px; 
     vertical-align: middle;
-    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.2));
+    cursor: pointer;
     border-radius: 4px;
 }
 
-/* Модалка админа */
-.admin-select {
-    width: 100%; 
-    background: #2c2c2e; 
-    color: #fff; 
-    border: 1px solid #444; 
-    padding: 10px; 
-    border-radius: 8px;
-    font-size: 14px;
-    outline: none;
+/* Модалка превью на весь экран */
+#reward-preview-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.95);
+    z-index: 200000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    transition: opacity 0.3s;
 }
+
+.reward-preview-box {
+    text-align: center;
+    padding: 20px;
+}
+
+.reward-preview-box img {
+    width: 220px;
+    height: 220px;
+    object-fit: contain;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8));
+}
+
+.reward-preview-box h2 { color: #FFD700; font-size: 28px; margin-bottom: 5px; font-weight: 900; text-transform: uppercase; }
+.reward-preview-box p { color: #fff; font-size: 18px; font-weight: 700; }
+
+.close-preview {
+    position: absolute;
+    top: 30px; right: 25px;
+    font-size: 35px; color: #8e8e93; cursor: pointer;
+}
+
+/* Стили для формы админки */
+.admin-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.admin-select, .admin-input { background: #2c2c2e; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 8px; font-size: 12px; outline: none; }
+.admin-select { width: 40%; }
+.admin-input { width: 60%; }
   
 .first-place { background: rgba(255, 215, 0, 0.03); }
     .second-place { border-left: 4px solid var(--silver-glow); }
@@ -305,6 +355,38 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
     <div id="loader" class="loader">Загрузка данных...</div>
   
   </main> 
+
+
+<div id="reward-preview-overlay" class="hidden">
+    <div class="close-preview" onclick="closeRewardPreview()"><i class="fa-solid fa-xmark"></i></div>
+    <div class="reward-preview-box">
+        <h2 id="prev-rank-title">1 МЕСТО</h2>
+        <img id="prev-img" src="">
+        <p id="prev-name">Награда</p>
+    </div>
+</div>
+
+<div id="admin-gear" class="admin-gear-btn hidden" onclick="openAdminRewards()">
+    <i class="fa-solid fa-gear"></i>
+</div>
+
+<div id="admin-rewards-modal" class="gift-modal-overlay hidden" style="z-index: 100000;">
+    <div class="custom-confirm-box" style="width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto;">
+        <h3 class="confirm-title">Настройки Лидерборда</h3>
+        
+        <div id="rewards-form" style="text-align: left; display: flex; flex-direction: column; margin-top: 15px;">
+            </div>
+
+        <div class="confirm-buttons" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+            <button class="confirm-btn btn-buy" onclick="issueRewardsNow()" style="width: 100%; background: #34c759; color: #fff; font-weight: 800;">ВЫДАТЬ НАГРАДЫ ТЕКУЩЕМУ ТОП-3</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="confirm-btn btn-cancel-modal" style="flex:1;" onclick="document.getElementById('admin-rewards-modal').classList.add('hidden')">Отмена</button>
+                <button class="confirm-btn btn-yellow-modal" style="flex:1;" onclick="saveAdminRewards()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+  
   <!-- 🔥 НИЖНИЙ И ВЕРХНИЙ БАР 🔥 -->
   <script src="/top_nav.js" defer></script>
   <script src="/bottom-nav.js"></script>
@@ -520,6 +602,9 @@ async function fetchAndRender() {
         return;
       }
 
+      // 🔥 СОХРАНЯЕМ ДАННЫЕ ДЛЯ ВЫДАЧИ НАГРАД АДМИНОМ
+      window.currentLeaderboardData = filteredLeaderboard;
+
       // 🔥 РЕНДЕР СТРОК
       filteredLeaderboard.forEach((entry, index) => {
         const row = document.createElement('tr');
@@ -530,10 +615,17 @@ async function fetchAndRender() {
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        // 🔥 ДИНАМИЧЕСКАЯ НАГРАДА С БЭКЕНДА
+        // 🔥 ДИНАМИЧЕСКАЯ НАГРАДА
         let rewardHtml = `<span style="opacity:0.05">•</span>`;
         if (entry.reward && entry.reward.image_url) {
-            rewardHtml = `<img src="${entry.reward.image_url}" class="leader-reward-img" title="${entry.reward.name}">`;
+            const r = entry.reward;
+            let displayTitle = r.value;
+            if (r.type === 'coins') displayTitle += ' Монет';
+            if (r.type === 'tickets') displayTitle += ' Билетов';
+            
+            // Награда открывает превью при клике
+            rewardHtml = `<img src="${r.image_url}" class="leader-reward-img" 
+                          onclick="showRewardPreview('${index + 1}', '${displayTitle}', '${r.image_url}')">`;
         }
 
         // Очистка ника
@@ -560,77 +652,183 @@ async function fetchAndRender() {
       dom.loader.style.display = 'none';
       if (typeof syncMyPromos === 'function') syncMyPromos();
 
+      // 🔥 ПОКАЗЫВАЕМ ШЕСТЕРЕНКУ ДЛЯ АДМИНА
+      if (currentUser && currentUser.is_admin) {
+          const gear = document.getElementById('admin-gear');
+          if (gear) gear.classList.remove('hidden');
+      }
+
     } catch (error) {
       dom.loader.textContent = 'Ошибка загрузки.';
     }
 }
 
 // ==========================================
-// ЛОГИКА АДМИНКИ НАГРАД
+// ЛОГИКА АДМИНКИ НАГРАД (КОМПЛЕКСНАЯ)
 // ==========================================
 window.openAdminRewards = async function() {
     haptic('medium');
     
-    // Создаем модалку динамически, если её нет
+    // 1. Создаем модалку динамически, если её нет
     if (!document.getElementById('admin-rewards-modal')) {
         const m = document.createElement('div');
         m.id = 'admin-rewards-modal';
         m.className = 'gift-modal-overlay hidden';
         m.style.zIndex = '100000';
         m.innerHTML = `
-            <div class="custom-confirm-box" style="width: 90%; max-width: 350px;">
-                <h3 class="confirm-title">Награды ТОП-3</h3>
-                <div style="text-align:left; display:flex; flex-direction:column; gap:12px; margin: 15px 0;">
-                    <div><label style="font-size:9px; color:#888;">1 МЕСТО</label><select id="rew-1" class="admin-select"></select></div>
-                    <div><label style="font-size:9px; color:#888;">2 МЕСТО</label><select id="rew-2" class="admin-select"></select></div>
-                    <div><label style="font-size:9px; color:#888;">3 МЕСТО</label><select id="rew-3" class="admin-select"></select></div>
-                </div>
-                <div class="confirm-buttons">
-                    <button class="confirm-btn btn-cancel-modal" onclick="document.getElementById('admin-rewards-modal').classList.add('hidden')">Отмена</button>
-                    <button class="confirm-btn btn-yellow-modal" onclick="saveAdminRewards()">СОХРАНИТЬ</button>
+            <div class="custom-confirm-box" style="width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto;">
+                <h3 class="confirm-title">Настройки ТОП-3</h3>
+                
+                <div id="rewards-form" style="text-align:left; display:flex; flex-direction:column; gap:15px; margin: 15px 0;">
+                    </div>
+
+                <div class="confirm-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="confirm-btn" onclick="issueRewardsNow()" style="background: #34c759; color: #fff; font-weight: 800; border:none; width:100%;">
+                        ВЫДАТЬ ТЕКУЩЕМУ ТОП-3
+                    </button>
+                    <div style="display: flex; gap: 10px; width: 100%;">
+                        <button class="confirm-btn btn-cancel-modal" style="flex:1;" onclick="document.getElementById('admin-rewards-modal').classList.add('hidden')">Отмена</button>
+                        <button class="confirm-btn btn-yellow-modal" style="flex:1;" onclick="saveAdminRewards()">СОХРАНИТЬ</button>
+                    </div>
                 </div>
             </div>`;
         document.body.appendChild(m);
     }
 
     const modal = document.getElementById('admin-rewards-modal');
+    const form = document.getElementById('rewards-form');
     modal.classList.remove('hidden');
+    form.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
 
     try {
-        // Берем кейсы из кэша магазина
+        // 2. Получаем список кейсов для выпадающего списка
         let cases = JSON.parse(localStorage.getItem('shop_items_cache') || '{}')[2716312];
-        if (!cases) cases = await makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true);
+        if (!cases || cases.length === 0) {
+            cases = await makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true);
+        }
+        // Сохраняем опции глобально для функции переключения
+        window.caseOptionsHtml = (cases || []).filter(i => !i.is_folder)
+            .map(i => `<option value="${i.name}">${i.name.replace('Кейс | ', '')}</option>`).join('');
 
-        const options = (cases || []).filter(i => !i.is_folder)
-            .map(i => `<option value="${i.name}">${i.name}</option>`).join('');
-
-        [1, 2, 3].forEach(n => {
-            const s = document.getElementById(`rew-${n}`);
-            s.innerHTML = '<option value="">Нет</option>' + options;
+        // 3. Рендерим пустую форму
+        form.innerHTML = '';
+        [1, 2, 3].forEach(num => {
+            form.innerHTML += `
+                <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 10px; font-weight: 900; color: #FFD700; margin-bottom: 8px; text-transform: uppercase;">
+                        ${num === 1 ? '🥇 Первое' : num === 2 ? '🥈 Второе' : '🥉 Третье'} место
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="rew-type-${num}" onchange="updateRewardInput(${num})" class="admin-select" style="width: 40%;">
+                            <option value="none">Пусто</option>
+                            <option value="case">Кейс</option>
+                            <option value="coins">Монеты</option>
+                            <option value="tickets">Билеты</option>
+                        </select>
+                        <div id="rew-val-container-${num}" style="width: 60%;">
+                            <input type="text" disabled class="admin-input" placeholder="---">
+                        </div>
+                    </div>
+                </div>
+            `;
         });
 
-        // Грузим текущий конфиг
+        // 4. Загружаем сохраненный конфиг и заполняем поля
         const cfg = await makeApiRequest('/api/v1/admin/leaderboard/config', {}, 'GET', true);
         if (cfg) {
-            document.getElementById('rew-1').value = cfg["1"] || "";
-            document.getElementById('rew-2').value = cfg["2"] || "";
-            document.getElementById('rew-3').value = cfg["3"] || "";
+            [1, 2, 3].forEach(num => {
+                const item = cfg[num.toString()];
+                if (item && item.type) {
+                    document.getElementById(`rew-type-${num}`).value = item.type;
+                    updateRewardInput(num, item.value);
+                }
+            });
         }
-    } catch (e) { customAlert("Ошибка загрузки"); }
+    } catch (e) { 
+        customAlert("Ошибка загрузки данных админки"); 
+    }
 };
 
+// Функция для смены инпута (выпадающий список кейсов или ввод числа)
+window.updateRewardInput = function(num, prefillValue = "") {
+    const type = document.getElementById(`rew-type-${num}`).value;
+    const container = document.getElementById(`rew-val-container-${num}`);
+    
+    if (type === "case") {
+        container.innerHTML = `<select id="rew-val-${num}" class="admin-select" style="width:100%; border-color: #9146ff;">${window.caseOptionsHtml}</select>`;
+    } else if (type === "coins" || type === "tickets") {
+        container.innerHTML = `<input type="number" id="rew-val-${num}" class="admin-input" style="width:100%;" placeholder="Кол-во...">`;
+    } else {
+        container.innerHTML = `<input type="text" disabled class="admin-input" placeholder="---">`;
+        return;
+    }
+
+    if (prefillValue) {
+        const valEl = document.getElementById(`rew-val-${num}`);
+        if (valEl) valEl.value = prefillValue;
+    }
+};
+
+// Сохранение визуального конфига
 window.saveAdminRewards = async function() {
-    const config = {
-        "1": document.getElementById('rew-1').value,
-        "2": document.getElementById('rew-2').value,
-        "3": document.getElementById('rew-3').value
-    };
+    const config = {};
+    let hasError = false;
+
+    [1, 2, 3].forEach(num => {
+        const type = document.getElementById(`rew-type-${num}`).value;
+        const valEl = document.getElementById(`rew-val-${num}`);
+        
+        if (type !== "none") {
+            if (!valEl || !valEl.value) { hasError = true; }
+            config[num.toString()] = { type: type, value: valEl.value };
+        } else {
+            config[num.toString()] = { type: "none", value: "" };
+        }
+    });
+
+    if (hasError) return customAlert("Заполните значения для выбранных наград!");
+
     try {
         await makeApiRequest('/api/v1/admin/leaderboard/config/save', { config }, 'POST');
-        customAlert("✅ Сохранено!");
+        customAlert("✅ Настройки наград сохранены!");
         document.getElementById('admin-rewards-modal').classList.add('hidden');
-        fetchAndRender();
+        fetchAndRender(); // Обновляем таблицу, чтобы иконки сменились
     } catch (e) {}
+};
+
+// Реальная выдача наград (Батч-запрос)
+window.issueRewardsNow = async function() {
+    // window.currentLeaderboardData заполняется в fetchAndRender
+    if (!window.currentLeaderboardData || window.currentLeaderboardData.length === 0) {
+        return customAlert("Сначала загрузите данные лидерборда!");
+    }
+
+    customConfirm("ВЫДАТЬ НАГРАДЫ?\n\nЭто начислит баланс/кейсы текущим ТОП-3 игрокам прямо сейчас.", async (ok) => {
+        if (!ok) return;
+
+        const winners = [];
+        // Берем только первых трех
+        for (let i = 0; i < 3; i++) {
+            const entry = window.currentLeaderboardData[i];
+            if (entry && entry.reward) {
+                winners.push({
+                    telegram_id: entry.telegram_id || entry.user_id || entry.id,
+                    rank: i + 1,
+                    reward: entry.reward // Передаем объект с типом и значением
+                });
+            }
+        }
+
+        if (winners.length === 0) return customAlert("У ТОП-3 не настроены награды!");
+
+        try {
+            const res = await makeApiRequest('/api/v1/admin/leaderboard/issue', { winners }, 'POST');
+            if (res.success) {
+                customAlert("✅ Награды успешно выданы!\nЛоги отправлены в админ-чат.");
+                document.getElementById('admin-rewards-modal').classList.add('hidden');
+            }
+        } catch (e) {}
+    });
 };
   
   // --- ОБРАБОТЧИКИ КНОПОК С ВИБРАЦИЕЙ ---
