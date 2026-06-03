@@ -11940,7 +11940,7 @@ async def update_submission_status(
         raise HTTPException(status_code=400, detail="Неверное действие.")
         
 # =====================================================================
-# 1. ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (С ДИНАМИЧЕСКИМ КЛЮЧОМ)
+# 1. ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (С ДИНАМИЧЕСКИМ КЛЮЧОМ И ЗАЩИТОЙ ОТ СТРОК)
 # =====================================================================
 async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.AsyncClient, leaderboard_key: str) -> list:
     """
@@ -11956,57 +11956,89 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
             supabase.get("/shop_cache", params={"category_id": "eq.2716312"})
         )
         
-        # Читаем конфиг: {"1": {"type": "coins", "value": 1000}, ...}
+        # 1. Безопасное чтение конфига наград
         rewards_config = {}
-        settings_data = settings_resp.json()
-        if settings_data and len(settings_data) > 0:
-            rewards_config = settings_data[0].get("value", {})
+        try:
+            settings_data = settings_resp.json()
+            # Проверяем, что вернулся список и внутри есть словарь
+            if isinstance(settings_data, list) and len(settings_data) > 0 and isinstance(settings_data[0], dict):
+                val = settings_data[0].get("value", {})
+                # Если база вернула строку, принудительно парсим её в словарь
+                if isinstance(val, str):
+                    import json
+                    try: val = json.loads(val)
+                    except: val = {}
+                if isinstance(val, dict):
+                    rewards_config = val
+        except Exception as e:
+            import logging
+            logging.warning(f"Не удалось распарсить settings_data: {e}")
 
-        # Читаем картинки кейсов
+        # 2. Безопасное чтение картинок кейсов
         case_images = {}
-        shop_data = shop_cache_resp.json()
-        if shop_data and len(shop_data) > 0:
-            items = shop_data[0].get("data", [])
-            if isinstance(items, str):
-                import json
-                try: items = json.loads(items)
-                except: items = []
-            for item in items:
-                case_images[item["name"]] = item["image_url"]
+        try:
+            shop_data = shop_cache_resp.json()
+            if isinstance(shop_data, list) and len(shop_data) > 0 and isinstance(shop_data[0], dict):
+                items = shop_data[0].get("data", [])
+                if isinstance(items, str):
+                    import json
+                    try: items = json.loads(items)
+                    except: items = []
+                
+                # Записываем картинки, проверяя каждый элемент
+                if isinstance(items, list):
+                    for item in items:
+                        if isinstance(item, dict) and "name" in item and "image_url" in item:
+                            case_images[item["name"]] = item["image_url"]
+        except Exception as e:
+            import logging
+            logging.warning(f"Не удалось распарсить shop_data: {e}")
 
         # Иконки для валют
         COIN_IMG = "https://cdn-icons-png.flaticon.com/512/1490/1490832.png" # Иконка монеты
         TICKET_IMG = "https://cdn-icons-png.flaticon.com/512/32/32339.png"   # Иконка билета
 
-        # Приклеиваем к ТОП-3
+        # 3. Приклеиваем к ТОП-3 (с защитой от кривых типов данных)
         for index, entry in enumerate(leaderboard_data):
+            # Если entry почему-то пришел как строка, пропускаем
+            if not isinstance(entry, dict):
+                continue
+                
             rank_str = str(index + 1)
+            reward_obj = None
+            
             if rank_str in rewards_config:
                 cfg = rewards_config[rank_str]
-                r_type = cfg.get("type", "none")
-                r_value = cfg.get("value", "")
+                
+                # Защита: если конфиг 1-го места сохранился как строка
+                if isinstance(cfg, str):
+                    import json
+                    try: cfg = json.loads(cfg)
+                    except: cfg = {}
+                    
+                if isinstance(cfg, dict):
+                    r_type = cfg.get("type", "none")
+                    r_value = cfg.get("value", "")
 
-                img_url = ""
-                if r_type == "case": img_url = case_images.get(r_value, "https://placehold.co/100?text=Кейс")
-                elif r_type == "coins": img_url = COIN_IMG
-                elif r_type == "tickets": img_url = TICKET_IMG
+                    img_url = ""
+                    if r_type == "case": img_url = case_images.get(r_value, "https://placehold.co/100?text=Кейс")
+                    elif r_type == "coins": img_url = COIN_IMG
+                    elif r_type == "tickets": img_url = TICKET_IMG
 
-                if r_type != "none":
-                    entry["reward"] = {
-                        "type": r_type,
-                        "value": r_value,
-                        "image_url": img_url
-                    }
-                else:
-                    entry["reward"] = None
-            else:
-                entry["reward"] = None
+                    if r_type != "none":
+                        reward_obj = {
+                            "type": r_type,
+                            "value": r_value,
+                            "image_url": img_url
+                        }
+                        
+            entry["reward"] = reward_obj
 
     except Exception as e:
+        import logging
         logging.error(f"Ошибка привязки наград: {e}")
     
     return leaderboard_data
-
 # =====================================================================
 # 2. ЭНДПОИНТЫ ДАННЫХ ЛИДЕРБОРДА (С ПЕРЕДАЧЕЙ КЛЮЧА НАГРАД)
 # =====================================================================
