@@ -12024,90 +12024,161 @@ async def get_wizebot_stats(
                 content={"error": "An unexpected error occurred while communicating with Wizebot"}
             )
 
+Брат, понял тебя. Делаем всё по-взрослому.
+
+Чтобы ты не выдавал дроп «за каждый пук», мы разделим систему: в таблице награда будет просто отображаться (чтобы люди пускали слюни и соревновались), а реальная выдача будет происходить только когда ты, как админ, нажмешь кнопку «Выдать награды» в админке.
+
+Мы добавим монеты (через твой add_balance_to_bott) и билеты (просто прибавляем в users), уберем свечение, добавим шестеренку и сочное превью на весь экран.
+
+Вот пошаговая инструкция. Делай всё по порядку.
+
+ШАГ 1: Обновляем Бэкенд (Python)
+Замени свой старый attach_rewards_to_leaderboard на этот, и добавь новый эндпоинт /issue для выдачи наград.
+
+Python
+# =====================================================================
+# ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (ПОДДЕРЖИВАЕТ КЕЙСЫ, МОНЕТЫ И БИЛЕТЫ)
+# =====================================================================
 async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.AsyncClient) -> list:
     if not leaderboard_data:
         return leaderboard_data
 
     try:
-        # Параллельно запрашиваем конфиг наград и кэш магазина
         settings_resp, shop_cache_resp = await asyncio.gather(
             supabase.get("/settings", params={"key": "eq.leaderboard_rewards"}),
             supabase.get("/shop_cache", params={"category_id": "eq.2716312"})
         )
         
-        # Парсим настройки (какой кейс за какое место)
-        rewards_config = {"1": None, "2": None, "3": None}
+        # Читаем конфиг: {"1": {"type": "coins", "value": 1000}, ...}
+        rewards_config = {}
         settings_data = settings_resp.json()
         if settings_data and len(settings_data) > 0:
-            rewards_config = settings_data[0].get("value", rewards_config)
+            rewards_config = settings_data[0].get("value", {})
 
-        # Парсим картинки из кэша магазина
+        # Читаем картинки кейсов
         case_images = {}
         shop_data = shop_cache_resp.json()
         if shop_data and len(shop_data) > 0:
             items = shop_data[0].get("data", [])
-            # Если база вернула строку, парсим как JSON
             if isinstance(items, str):
-                try:
-                    items = json.loads(items)
-                except Exception:
-                    items = []
-            
+                import json
+                try: items = json.loads(items)
+                except: items = []
             for item in items:
-                if item.get("name") and item.get("image_url"):
-                    case_images[item["name"]] = item["image_url"]
+                case_images[item["name"]] = item["image_url"]
 
-        # Приклеиваем награды к Топ-3
+        # Иконки для валют
+        COIN_IMG = "https://cdn-icons-png.flaticon.com/512/1490/1490832.png" # Иконка монеты
+        TICKET_IMG = "https://cdn-icons-png.flaticon.com/512/32/32339.png"   # Иконка билета
+
+        # Приклеиваем к ТОП-3
         for index, entry in enumerate(leaderboard_data):
             rank_str = str(index + 1)
-            if rank_str in ["1", "2", "3"]:
-                target_name = rewards_config.get(rank_str)
-                if target_name:
+            if rank_str in rewards_config:
+                cfg = rewards_config[rank_str]
+                r_type = cfg.get("type", "none")
+                r_value = cfg.get("value", "")
+
+                img_url = ""
+                if r_type == "case": img_url = case_images.get(r_value, "https://placehold.co/100?text=Кейс")
+                elif r_type == "coins": img_url = COIN_IMG
+                elif r_type == "tickets": img_url = TICKET_IMG
+
+                if r_type != "none":
                     entry["reward"] = {
-                        "name": target_name,
-                        "image_url": case_images.get(target_name, "https://placehold.co/100?text=None")
+                        "type": r_type,
+                        "value": r_value,
+                        "image_url": img_url
                     }
+                else:
+                    entry["reward"] = None
             else:
                 entry["reward"] = None
 
     except Exception as e:
-        logging.error(f"Ошибка привязки наград к лидерборду: {e}")
+        logging.error(f"Ошибка привязки наград: {e}")
     
     return leaderboard_data
 
+# =====================================================================
+# ЭНДПОИНТЫ АДМИНКИ (СОХРАНЕНИЕ И РУЧНАЯ ВЫДАЧА)
+# =====================================================================
 @app.get("/api/v1/admin/leaderboard/config")
 async def get_leaderboard_config(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     res = await supabase.get("/settings", params={"key": "eq.leaderboard_rewards"})
     data = res.json()
-    if data and len(data) > 0:
-        return data[0].get("value", {"1": "", "2": "", "3": ""})
-    return {"1": "", "2": "", "3": ""}
-
+    return data[0]["value"] if data else {}
 
 @app.post("/api/v1/admin/leaderboard/config/save")
 async def save_leaderboard_config(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     body = await request.json()
-    
-    # ПРОВЕРКА АВТОРИЗАЦИИ (используем вашу функцию is_valid_init_data)
     user_info = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
-    if not user_info:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not user_info: raise HTTPException(status_code=401)
     
-    # ПРОВЕРКА НА АДМИНА
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
-    user_data = user_res.json()
-    if not user_data or not user_data[0].get("is_admin"):
-        raise HTTPException(status_code=403, detail="Только для администраторов")
-
     new_config = body.get("config", {})
-    
-    # Сохраняем в таблицу settings (upsert)
     await supabase.post(
         "/settings", 
         json={"key": "leaderboard_rewards", "value": new_config}, 
         headers={"Prefer": "resolution=merge-duplicates"}
     )
     return {"success": True}
+
+@app.post("/api/v1/admin/leaderboard/issue")
+async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """
+    Эндпоинт для РУЧНОЙ выдачи наград. Фронтенд присылает список победителей.
+    """
+    body = await request.json()
+    user_info = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
+    if not user_info: raise HTTPException(status_code=401)
+    
+    # Проверка на админа
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
+    if not user_res.json()[0].get("is_admin"):
+        raise HTTPException(status_code=403, detail="Только для админов")
+
+    winners = body.get("winners", []) # Формат: [{"telegram_id": 123, "rank": 1, "reward": {"type": "coins", "value": 100}}, ...]
+    
+    results = []
+    for w in winners:
+        tg_id = w.get("telegram_id")
+        reward = w.get("reward")
+        
+        if not tg_id or not reward: continue
+        
+        r_type = reward.get("type")
+        r_value = reward.get("value")
+        
+        # Получаем данные юзера
+        u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id, tickets"})
+        u_data = u_resp.json()
+        if not u_data: continue
+        u_record = u_data[0]
+        
+        try:
+            if r_type == "coins":
+                # Выдаем монеты через Bot-T
+                await add_balance_to_bott(u_record["bott_internal_id"], float(r_value), "Награда за Топ Лидерборда!")
+                results.append(f"ID {tg_id}: Выдано {r_value} монет")
+                
+            elif r_type == "tickets":
+                # Выдаем билеты (просто плюсуем в базу)
+                new_tickets = int(u_record["tickets"] or 0) + int(r_value)
+                await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"tickets": new_tickets})
+                results.append(f"ID {tg_id}: Выдано {r_value} билетов")
+                
+            elif r_type == "case":
+                # Для кейса просто генерируем запись в ручные выдачи
+                await supabase.post("/manual_rewards", json={
+                    "user_id": tg_id, "status": "pending", "source_type": "leaderboard",
+                    "reward_details": r_value, "source_description": "Награда за Топ Лидерборда"
+                })
+                results.append(f"ID {tg_id}: Заявка на выдачу кейса {r_value}")
+                
+        except Exception as e:
+            logging.error(f"Ошибка выдачи награды для {tg_id}: {e}")
+            
+    return {"success": True, "details": results}
 
 @app.get("/api/v1/leaderboard")
 async def get_leaderboard_data(request: Request, period: str = "day", supabase: httpx.AsyncClient = Depends(get_supabase_client)):
