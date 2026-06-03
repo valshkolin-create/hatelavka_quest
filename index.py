@@ -12010,11 +12010,19 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
             if rank_str in rewards_config:
                 cfg = rewards_config[rank_str]
                 
-                # Защита: если конфиг 1-го места сохранился как строка
+                # 🔥 ИСПРАВЛЕНИЕ 🔥: Если в базе старый формат (просто название кейса строкой)
                 if isinstance(cfg, str):
                     import json
-                    try: cfg = json.loads(cfg)
-                    except: cfg = {}
+                    try:
+                        parsed_cfg = json.loads(cfg)
+                        if isinstance(parsed_cfg, dict):
+                            cfg = parsed_cfg
+                        else:
+                            # Если это не JSON, значит это старый формат названия кейса
+                            cfg = {"type": "case", "value": cfg}
+                    except:
+                        # Если не парсится вообще, считаем это кейсом
+                        cfg = {"type": "case", "value": cfg}
                     
                 if isinstance(cfg, dict):
                     r_type = cfg.get("type", "none")
@@ -12039,6 +12047,7 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
         logging.error(f"Ошибка привязки наград: {e}")
     
     return leaderboard_data
+
 # =====================================================================
 # 2. ЭНДПОИНТЫ ДАННЫХ ЛИДЕРБОРДА (С ПЕРЕДАЧЕЙ КЛЮЧА НАГРАД)
 # =====================================================================
@@ -12099,6 +12108,7 @@ async def get_wizebot_leaderboard(
             return formatted_data
 
         except Exception as e:
+            import logging
             logging.error(f"❌ Ошибка при запросе к Wizebot API: {e}")
             return JSONResponse(
                 status_code=502,
@@ -12139,12 +12149,14 @@ async def get_wizebot_stats(
             return {"metric": metric, "period": period, "leaderboard": formatted_data}
 
         except httpx.HTTPStatusError as e:
+            import logging
             logging.error(f"❌ Ошибка от Wizebot API: {e.response.status_code} - {e.response.text}")
             return JSONResponse(
                 status_code=e.response.status_code,
                 content={"error": "Failed to fetch stats from Wizebot", "detail": e.response.text}
             )
         except Exception as e:
+            import logging
             logging.error(f"❌ Неизвестная ошибка при запросе к Wizebot API: {e}")
             return JSONResponse(
                 status_code=502,
@@ -12241,6 +12253,7 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
                 results.append(f"ID {tg_id}: Заявка на выдачу кейса {r_value}")
                 
         except Exception as e:
+            import logging
             logging.error(f"Ошибка выдачи награды для {tg_id}: {e}")
             
     return {"success": True, "details": results}
