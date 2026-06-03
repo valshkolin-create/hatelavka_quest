@@ -121,14 +121,44 @@
     .period-buttons button.active { background-color: var(--tg-color); color: #fff; border-color: var(--tg-color); }
     .period-buttons.twitch-active button.active { background-color: var(--twitch-color); border-color: var(--twitch-color); }
 
-    table { width: 100%; border-collapse: collapse; background-color: var(--surface-color); border-radius: 12px; overflow: hidden; }
-    th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #333; }
-    th { background-color: #2a2a2a; font-size: 14px; }
-    td.rank { font-weight: bold; text-align: center; width: 40px; }
-    td.username { font-weight: 600; word-break: break-all; }
-    td.count { font-weight: 600; text-align: right; }
+    /* Ультра-компактный лидерборд */
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    background-color: var(--surface-color); 
+    border-radius: 8px; 
+    overflow: hidden; 
+    font-size: 11px; /* Мелкий, но читаемый шрифт */
+}
 
-    .first-place { border-left: 4px solid var(--gold-glow); }
+th, td { 
+    padding: 4px 6px; /* Минимальные отступы */
+    text-align: left; 
+    border-bottom: 1px solid rgba(255,255,255,0.03); 
+}
+
+th { 
+    background-color: #202022; 
+    color: #8e8e93; 
+    font-size: 9px; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px;
+}
+
+td.rank { width: 24px; text-align: center; font-weight: 900; }
+td.username { max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+td.reward-col { width: 40px; text-align: center; } /* Колонка награды */
+td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 700; color: var(--accent-green); }
+
+/* Иконка награды */
+.leader-reward-img {
+    width: 16px; 
+    height: 16px; 
+    vertical-align: middle;
+    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.2));
+}
+
+.first-place { background: rgba(255, 215, 0, 0.03); }
     .second-place { border-left: 4px solid var(--silver-glow); }
     .third-place { border-left: 4px solid var(--bronze-glow); }
 
@@ -249,11 +279,12 @@
       </div>
     </div>
 
-    <table>
+   <table>
       <thead>
         <tr>
-          <th>#</th>
+          <th style="text-align: center;">#</th>
           <th>Пользователь</th>
+          <th style="text-align: center;">Награда</th>
           <th id="table-header-activity" style="text-align: right;">Сообщений</th>
         </tr>
       </thead>
@@ -495,11 +526,21 @@ async function fetchAndRender() {
       // 🔥 2. РИСУЕМ ТАБЛИЦУ НА ОСНОВЕ ОЧИЩЕННОГО МАССИВА 🔥
       filteredLeaderboard.forEach((entry, index) => {
         const row = document.createElement('tr');
+        
         let rankContent = index + 1;
+        let rewardIconHtml = '';
+
         if (index === 0) { row.classList.add('first-place'); rankContent = '🥇'; }  
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
+        if (index < 3) {
+            // Просто показываем, что игроку положен кейс
+            rewardIconHtml = `<img src="https://i.ibb.co/Lzk8tsby/MATRIX.png" class="leader-reward-img">`;
+        } else {
+            rewardIconHtml = `<span style="opacity:0.1">•</span>`;
+        }
+
         // 🔥 3. ОЧИЩАЕМ НИК ОТ МУСОРА (БЕЗОПАСНЫЙ МЕТОД) 🔥
         // Железобетонно делаем строкой, чтобы не словить ошибку
         let name = String(entry.full_name || entry.username || entry.user_name || '...');
@@ -517,6 +558,9 @@ async function fetchAndRender() {
             name = 'Скрытое имя';
         }
 
+        const entryTgId = String(entry.telegram_id || entry.user_id || entry.id);
+        const isMe = (entryTgId === myTgIdStr);
+
         let value = entry.total_activity ?? entry.value ?? entry.messages_count ?? 0;
 
         if (state.source === 'twitch' && state.twitchMetric === 'uptime') {
@@ -525,12 +569,20 @@ async function fetchAndRender() {
 
         row.innerHTML = `
           <td class="rank">${rankContent}</td>
-          <td class="username">${name}</td>
+          <td class="username" style="${isMe ? 'color:#FFD700; font-weight:800;' : ''}">
+            ${name} ${isMe ? '<span style="font-size:8px; opacity:0.6;">(ВЫ)</span>' : ''}
+          </td>
+          <td class="reward-col">${rewardIconHtml}</td>
           <td class="count">${value}</td>
         `;
         dom.leaderboardBody.appendChild(row);
       });
+      
       dom.loader.style.display = 'none';
+
+      // 🔥 Синхронизируем купоны в фоне, чтобы в магазине сразу появился бесплатный кейс
+      if (typeof syncMyPromos === 'function') syncMyPromos();
+
     } catch (error) {
       console.error('Ошибка:', error);
       dom.loader.textContent = 'Не удалось загрузить данные.';
