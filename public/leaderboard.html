@@ -410,6 +410,44 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
   Telegram.WebApp.ready();
   Telegram.WebApp.expand();
 
+  window.makeApiRequest = async function(url, body = {}, method = 'GET', isSilent = false) {
+    try {
+        // Если это POST-запрос, автоматически подкидываем initData для авторизации на бэкенде
+        if (method !== 'GET' && method !== 'HEAD') {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+                body.initData = window.Telegram.WebApp.initData;
+            }
+        }
+        
+        const options = {
+            method: method,
+            headers: { 
+                'Content-Type': 'application/json',
+                // На всякий случай дублируем initData в заголовки, если ваш Python-бэкенд ждет его там
+                'Authorization': window.Telegram?.WebApp?.initData ? `Bearer ${window.Telegram.WebApp.initData}` : ''
+            }
+        };
+        
+        if (method !== 'GET' && method !== 'HEAD') {
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url, options);
+        
+        if (!response.ok) {
+            throw new Error(`Ошибка HTTP: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error(`🔥 Ошибка запроса к ${url}:`, error);
+        if (!isSilent && window.customAlert) {
+            window.customAlert("Произошла ошибка при обращении к серверу.");
+        }
+        throw error;
+    }
+};
+
   const dom = {
     sourceButtons: document.querySelectorAll('.source-switcher button'),
     leaderboardBody: document.getElementById('leaderboardBody'),
