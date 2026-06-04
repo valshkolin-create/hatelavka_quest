@@ -668,51 +668,66 @@ async function fetchAndRender() {
         else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
         else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
         
-        // 🔥 ДИНАМИЧЕСКАЯ НАГРАДА
-        let rewardHtml = `<span style="opacity:0.05">•</span>`;
-        if (entry.reward && entry.reward.image_url) {
-            const r = entry.reward;
-            let displayTitle = r.value;
-            if (r.type === 'coins') displayTitle += ' Монет';
-            if (r.type === 'tickets') displayTitle += ' Билетов';
-            
-            // Награда открывает превью при клике
-            rewardHtml = `<img src="${r.image_url}" class="leader-reward-img" 
-                          onclick="showRewardPreview('${index + 1}', '${displayTitle}', '${r.image_url}')">`;
-        }
+        /// 🔥 ДИНАМИЧЕСКАЯ НАГРАДА
+      let rewardHtml = `<span style="opacity:0.05">•</span>`;
+      if (entry.reward) {
+          const r = entry.reward;
+          let displayTitle = r.value || '';
+          let modalImgUrl = r.image_url || '';
 
-        // Очистка ника
-        let name = String(entry.full_name || entry.username || entry.user_name || '...');
-        name = name.replace(/@[\w_]+|freeskins|ezzzskin|skinozbot|hatelavka|_bot/gi, '').trim();
-        name = name.replace(/^[.,\s]+|[.,\s]+$/g, '');
-        if (!name) name = 'Скрытое имя';
-
-        const isMe = String(entry.telegram_id || entry.user_id || entry.id) === myTgIdStr;
-        let value = entry.total_activity ?? entry.value ?? entry.messages_count ?? 0;
-        if (state.source === 'twitch' && state.twitchMetric === 'uptime') value = formatUptime(value);
-
-        row.innerHTML = `
-          <td class="rank">${rankContent}</td>
-          <td class="username" style="${isMe ? 'color:#FFD700; font-weight:800;' : ''}">
-            ${name} ${isMe ? '<span style="font-size:8px; opacity:0.5;">(ВЫ)</span>' : ''}
-          </td>
-          <td class="count" style="text-align: center;">${value}</td>
-          <td class="reward-col" style="text-align: right;">${rewardHtml}</td>
-        `;
-        dom.leaderboardBody.appendChild(row);
-      });
-      
-      dom.loader.style.display = 'none';
-      if (typeof syncMyPromos === 'function') syncMyPromos();
-
-      // 🔥 ПОКАЗЫВАЕМ ШЕСТЕРЕНКУ ДЛЯ АДМИНА
-      if (currentUser && currentUser.is_admin) {
-          document.querySelectorAll('.admin-gear-icon').forEach(el => el.classList.remove('hidden'));
+          if (r.type === 'coins') {
+              displayTitle += ' Монет';
+              rewardHtml = `
+                  <div onclick="showRewardPreview('${index + 1}', '${displayTitle}', '${modalImgUrl}')" style="cursor: pointer; color: var(--gold-glow); display: inline-flex; align-items: center; gap: 4px; justify-content: flex-end; width: 100%;">
+                      <span style="font-family: 'SF Mono', monospace; font-weight: 700; font-size: 11px;">${r.value}</span>
+                      <i class="fa-solid fa-coins" style="font-size: 14px;"></i>
+                  </div>`;
+          } else if (r.type === 'tickets') {
+              displayTitle += ' Билетов';
+              rewardHtml = `
+                  <div onclick="showRewardPreview('${index + 1}', '${displayTitle}', '${modalImgUrl}')" style="cursor: pointer; color: var(--tg-color); display: inline-flex; align-items: center; gap: 4px; justify-content: flex-end; width: 100%;">
+                      <span style="font-family: 'SF Mono', monospace; font-weight: 700; font-size: 11px;">${r.value}</span>
+                      <i class="fa-solid fa-ticket" style="font-size: 14px;"></i>
+                  </div>`;
+          } else if (r.image_url) {
+              // Награда открывает превью при клике (для кейсов)
+              rewardHtml = `<img src="${r.image_url}" class="leader-reward-img" 
+                            onclick="showRewardPreview('${index + 1}', '${displayTitle}', '${r.image_url}')">`;
+          }
       }
 
-    } catch (error) {
-      dom.loader.textContent = 'Ошибка загрузки.';
+      // Очистка ника
+      let name = String(entry.full_name || entry.username || entry.user_name || '...');
+      name = name.replace(/@[\w_]+|freeskins|ezzzskin|skinozbot|hatelavka|_bot/gi, '').trim();
+      name = name.replace(/^[.,\s]+|[.,\s]+$/g, '');
+      if (!name) name = 'Скрытое имя';
+
+      const isMe = String(entry.telegram_id || entry.user_id || entry.id) === myTgIdStr;
+      let value = entry.total_activity ?? entry.value ?? entry.messages_count ?? 0;
+      if (state.source === 'twitch' && state.twitchMetric === 'uptime') value = formatUptime(value);
+
+      row.innerHTML = `
+        <td class="rank">${rankContent}</td>
+        <td class="username" style="${isMe ? 'color:#FFD700; font-weight:800;' : ''}">
+          ${name} ${isMe ? '<span style="font-size:8px; opacity:0.5;">(ВЫ)</span>' : ''}
+        </td>
+        <td class="count" style="text-align: center;">${value}</td>
+        <td class="reward-col" style="text-align: right;">${rewardHtml}</td>
+      `;
+      dom.leaderboardBody.appendChild(row);
+    });
+    
+    dom.loader.style.display = 'none';
+    if (typeof syncMyPromos === 'function') syncMyPromos();
+
+    // 🔥 ПОКАЗЫВАЕМ ШЕСТЕРЕНКУ ДЛЯ АДМИНА
+    if (currentUser && currentUser.is_admin) {
+        document.querySelectorAll('.admin-gear-icon').forEach(el => el.classList.remove('hidden'));
     }
+
+  } catch (error) {
+    dom.loader.textContent = 'Ошибка загрузки.';
+  }
 }
 
   // === ПРЕВЬЮ НАГРАДЫ НА ВЕСЬ ЭКРАН ===
