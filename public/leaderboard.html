@@ -811,7 +811,8 @@ window.openAdminRewards = async function() {
             });
         }
     } catch (e) { 
-        if(window.customAlert) customAlert("Ошибка загрузки данных админки"); 
+        console.error("🔥 Ошибка в админке:", e);
+        if(window.customAlert) customAlert("Ошибка загрузки: " + e.message); 
     }
 };
   
