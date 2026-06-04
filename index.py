@@ -11941,14 +11941,18 @@ async def update_submission_status(
 
 CRON_API_KEY = os.getenv("CRON_API_KEY")
 
-# 🔥 СЛОВАРЬ С ТВОИМИ НОВЫМИ ID ЗАДАЧ
+# 🔥 СЛОВАРЬ СО ВСЕМИ 6 ЗАДАЧАМИ
 CRON_JOBS = {
-    "day": "7740202",
-    "week": "7740254",
-    "month": "7740255"
+    "telegram_day": "7740202",
+    "telegram_week": "7740254",
+    "telegram_month": "7740255",
+    "twitch_day": "7740423",
+    "twitch_week": "7740421",
+    "twitch_month": "7740422"
 }
 
 class CronSetupRequest(BaseModel):
+    source: str  # 🔥 Добавили 'telegram' или 'twitch'
     period: str  # 'day', 'week', 'month'
     time: str = "00:00"
     is_enabled: bool = True  # 🔥 Теперь четко передаем: включена задача или нет
@@ -11977,10 +11981,11 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
 
     if not CRON_API_KEY: raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
 
-    # 🔥 НАХОДИМ НУЖНЫЙ ID ПО ПЕРИОДУ
-    job_id = CRON_JOBS.get(req.period)
+    # 🔥 НАХОДИМ НУЖНЫЙ ID ПО ПЛАТФОРМЕ И ПЕРИОДУ
+    target_key = f"{req.source}_{req.period}"
+    job_id = CRON_JOBS.get(target_key)
     if not job_id:
-        raise HTTPException(status_code=400, detail="Неверный период для настройки CRON")
+        raise HTTPException(status_code=400, detail=f"Неверный период для настройки CRON: {target_key}")
 
     # 2. Формируем логику расписания
     try:
@@ -12026,69 +12031,102 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
             raise HTTPException(status_code=500, detail="Не удалось обновить расписание")
 
     status_text = "ВКЛЮЧЕНА" if req.is_enabled else "ВЫКЛЮЧЕНА"
-    return {"success": True, "message": f"Задача {req.period.upper()} ({job_id}) {status_text} на {req.time} МСК"}
+    return {"success": True, "message": f"Задача {target_key.upper()} ({job_id}) {status_text} на {req.time} МСК"}
     
 # Берем полный длинный UUID секрет из переменных окружения Vercel
 # Убедись, что переменная CRON_SECRET добавлена в Vercel!
 VERCEL_CRON_SECRET = os.getenv("CRON_SECRET", "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890")
 
 @app.get("/api/v1/cron/leaderboard")
-async def cron_leaderboard_issue(request: Request, period: str = Query(...), supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+async def cron_leaderboard_issue(request: Request, source: str = Query(...), period: str = Query(...), supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     """
     Автоматическая выдача наград. Вызывается по расписанию от cron-job.org
-    В URL обязательно должен быть передан period (например: ?period=day)
+    Параметры: ?source=telegram&period=day или ?source=twitch&period=day
     """
+    import logging
+    
     # 1. ЗАЩИТА: Проверяем токен от cron-job.org
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {VERCEL_CRON_SECRET}":
         logging.warning(f"🚨 Попытка запуска CRON с неверным ключом: {auth_header}")
         raise HTTPException(status_code=401, detail="Unauthorized CRON call")
 
-    # Формируем целевой ключ (например, "telegram_day")
-    target_leaderboard_key = f"telegram_{period}"
+    # 2. Формируем список ключей для проверки (ТГ или Твич)
+    keys_to_check = []
+    if source == "telegram":
+        keys_to_check = [f"telegram_{period}"]
+    elif source == "twitch":
+        # Для твича сопоставляем 'day' с 'session'
+        t_period = "session" if period == "day" else period
+        keys_to_check = [f"twitch_message_{t_period}", f"twitch_uptime_{t_period}", f"twitch_ranks_{t_period}"]
+    else:
+        raise HTTPException(status_code=400, detail="Invalid source")
 
-    try:
-        # Запрашиваем конфиг наград ТОЛЬКО для этого конкретного лидерборда
-        cfg_resp = await supabase.get("/settings", params={"key": f"eq.{target_leaderboard_key}"})
-        cfg_data = cfg_resp.json()
-        rewards_map = cfg_data[0]["value"] if cfg_data else {}
-        
-        if not rewards_map:
-            return {"success": True, "message": f"Награды для {target_leaderboard_key} не настроены, пропускаем."}
+    processed_boards = []
 
-        # 2. Собираем данные лидерборда (вызываем твою функцию)
-        board_data = await get_leaderboard_data(request=request, period=period, supabase=supabase)
-        
-        # 3. Берем ТОП-3 и выдаем им награды
-        top_3 = board_data[:3] if isinstance(board_data, list) else []
-        issued_for_this_board = []
-        
-        for index, entry in enumerate(top_3):
-            rank_str = str(index + 1)
-            if rank_str not in rewards_map: 
-                continue
-            
-            tg_id = entry.get("telegram_id") or entry.get("user_id") or entry.get("id")
-            reward_cfg = rewards_map[rank_str]
-            
-            if not tg_id or not isinstance(reward_cfg, dict): 
-                continue
-            
-            # 🔥 Вызываем нашего универсального хелпера!
-            res_str = await process_reward_issuance(
-                tg_id=int(tg_id), 
-                r_type=reward_cfg.get("type"), 
-                r_value=reward_cfg.get("value"), 
-                config_key=target_leaderboard_key, 
-                supabase=supabase
-            )
-            issued_for_this_board.append(res_str)
-        
-        return {"success": True, "processed": issued_for_this_board}
+    for l_key in keys_to_check:
+        try:
+            # Запрашиваем конфиг наград для конкретного лидерборда
+            cfg_resp = await supabase.get("/settings", params={"key": f"eq.{l_key}"})
+            cfg_data = cfg_resp.json()
+            if not cfg_data: continue
+                
+            config = cfg_data[0].get("value", {})
+            if isinstance(config, str):
+                import json
+                try: config = json.loads(config)
+                except: config = {}
 
-    except Exception as e:
-        logging.error(f"🔥 Ошибка выполнения CRON для {period}: {e}", exc_info=True)
-        return {"success": False, "error": str(e)}
+            # 🔥 ПРОВЕРЯЕМ ГАЛОЧКУ: Если CRON выключен для этой вкладки - пропускаем
+            auto_issue = config.get("auto_issue", {})
+            if not auto_issue.get("enabled"): continue
+                
+            # 3. Собираем данные в зависимости от платформы
+            board_data = []
+            if source == "telegram":
+                board_data = await get_leaderboard_data(request=request, period=period, supabase=supabase)
+            elif source == "twitch":
+                parts = l_key.split("_")
+                metric = parts[1] # message, uptime, ranks
+                t_period = parts[2] # session, week, month
+                
+                if metric == "ranks":
+                    board_data = await get_wizebot_leaderboard(sub_type="ALL", limit=3, supabase=supabase)
+                else:
+                    stats_resp = await get_wizebot_stats(metric=metric, period=t_period, limit=3, supabase=supabase)
+                    if isinstance(stats_resp, dict):
+                        board_data = stats_resp.get("leaderboard", [])
+
+            # 4. Берем ТОП-3 и выдаем им награды
+            top_3 = board_data[:3] if isinstance(board_data, list) else []
+            issued_for_this_board = []
+            
+            for index, entry in enumerate(top_3):
+                rank_str = str(index + 1)
+                if rank_str not in config: continue
+                
+                tg_id = entry.get("telegram_id") or entry.get("user_id") or entry.get("id")
+                reward_cfg = config[rank_str]
+                
+                if not tg_id or not isinstance(reward_cfg, dict): continue
+                
+                # 🔥 Выдаем награду
+                res_str = await process_reward_issuance(
+                    tg_id=int(tg_id), 
+                    r_type=reward_cfg.get("type"), 
+                    r_value=reward_cfg.get("value"), 
+                    config_key=l_key, 
+                    supabase=supabase
+                )
+                issued_for_this_board.append(res_str)
+            
+            processed_boards.append({l_key: issued_for_this_board})
+
+        except Exception as e:
+            logging.error(f"🔥 Ошибка CRON при обработке {l_key}: {e}", exc_info=True)
+            continue
+
+    return {"success": True, "processed": processed_boards}
     
 async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_key: str, supabase: httpx.AsyncClient) -> str:
     """
