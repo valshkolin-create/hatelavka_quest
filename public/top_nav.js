@@ -307,7 +307,7 @@
             try {
                 if (typeof window.makeApiRequest === 'function') {
                     // Запрашиваем данные юзера тихо, без крутилок
-                    const userData = await window.makeApiRequest('/api/v1/user/me', {}, 'GET', true);
+                    const userData = await window.makeApiRequest('/api/v1/user/me', {}, 'POST', true);
                     if (userData && userData.is_admin) {
                         adminNav.classList.remove('hidden');
                         
