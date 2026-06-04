@@ -11939,12 +11939,19 @@ async def update_submission_status(
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
 
-# Твои ключи
 CRON_API_KEY = os.getenv("CRON_API_KEY")
-CRON_JOB_ID = "7740202"  # 🔥 Исправленный ID твоей задачи
+
+# 🔥 СЛОВАРЬ С ТВОИМИ НОВЫМИ ID ЗАДАЧ
+CRON_JOBS = {
+    "day": "7740202",
+    "week": "7740254",
+    "month": "7740255"
+}
 
 class CronSetupRequest(BaseModel):
-    period: str  # 'day', 'week', 'month', 'off'
+    period: str  # 'day', 'week', 'month'
+    time: str = "00:00"
+    is_enabled: bool = True  # 🔥 Теперь четко передаем: включена задача или нет
     initData: str
 
 @app.post("/api/v1/admin/cron/setup")
@@ -11952,49 +11959,48 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
     """
     Эндпоинт для динамической настройки расписания CRON через API cron-job.org
     """
-    # 1. Проверка прав (только админы)
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not user_info: raise HTTPException(status_code=401, detail="Unauthorized")
         
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
-    if not user_res.json()[0].get("is_admin"):
-        raise HTTPException(status_code=403, detail="Только для админов")
+    if not user_res.json()[0].get("is_admin"): raise HTTPException(status_code=403, detail="Только для админов")
 
-    if not CRON_API_KEY:
-        raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
+    if not CRON_API_KEY: raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
+
+    # 🔥 НАХОДИМ НУЖНЫЙ ID ПО ПЕРИОДУ
+    job_id = CRON_JOBS.get(req.period)
+    if not job_id:
+        raise HTTPException(status_code=400, detail="Неверный период для настройки CRON")
 
     # 2. Формируем логику расписания
-    is_enabled = True
+    try:
+        hour, minute = map(int, req.time.split(":"))
+    except:
+        hour, minute = 0, 0
+
     schedule = {
         "timezone": "Europe/Moscow",
-        "hours": [0],     # В 00 часов
-        "minutes": [0],   # В 00 минут
-        "mdays": [-1],    # Каждый день месяца
-        "months": [-1],   # Каждый месяц
-        "wdays": [-1]     # Каждый день недели
+        "hours": [hour],      
+        "minutes": [minute],  
+        "mdays": [-1],    
+        "months": [-1],   
+        "wdays": [-1]     
     }
 
-    if req.period == "day":
-        pass # Дефолт: каждый день в 00:00
-    elif req.period == "week":
+    if req.period == "week":
         schedule["wdays"] = [1] # Каждый понедельник
     elif req.period == "month":
         schedule["mdays"] = [1] # Каждое 1-е число месяца
-    elif req.period == "off":
-        is_enabled = False # Выключить задачу
-    else:
-        raise HTTPException(status_code=400, detail="Неизвестный период")
 
-    # 3. Отправляем запрос на обновление конкретно в твою задачу 7740202
-    url = f"https://api.cron-job.org/jobs/{CRON_JOB_ID}"
+    # 3. Отправляем запрос КОНКРЕТНО В НУЖНУЮ ЗАДАЧУ
+    url = f"https://api.cron-job.org/jobs/{job_id}"
     headers = {
         "Authorization": f"Bearer {CRON_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
         "job": {
-            "enabled": is_enabled,
+            "enabled": req.is_enabled, # Включаем или выключаем
             "schedule": schedule
         }
     }
@@ -12002,20 +12008,18 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.patch(url, json=payload, headers=headers, timeout=10.0)
-            
             if resp.status_code != 200:
+                import logging
                 logging.error(f"Ошибка API cron-job.org: {resp.text}")
                 raise HTTPException(status_code=502, detail="Ошибка при связи с сервисом CRON")
-                
         except Exception as e:
+            import logging
             logging.error(f"Сетевая ошибка при обновлении CRON: {e}")
             raise HTTPException(status_code=500, detail="Не удалось обновить расписание")
 
-    return {
-        "success": True, 
-        "message": f"CRON задача {CRON_JOB_ID} успешно переключена в режим: {req.period.upper()}"
-    }
-
+    status_text = "ВКЛЮЧЕНА" if req.is_enabled else "ВЫКЛЮЧЕНА"
+    return {"success": True, "message": f"Задача {req.period.upper()} ({job_id}) {status_text} на {req.time} МСК"}
+    
 # Берем полный длинный UUID секрет из переменных окружения Vercel
 # Убедись, что переменная CRON_SECRET добавлена в Vercel!
 VERCEL_CRON_SECRET = os.getenv("CRON_SECRET", "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890")
