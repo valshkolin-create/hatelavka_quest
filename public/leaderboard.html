@@ -828,9 +828,11 @@ window.openAdminRewards = async function() {
             .map(i => `<option value="${i.name}">${i.name.replace('Кейс | ', '')}</option>`).join('');
 
         form.innerHTML = '';
+        
+        // 1. Генерируем поля для 1, 2, 3 места
         [1, 2, 3].forEach(num => {
             form.innerHTML += `
-                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px;">
                     <div style="font-size: 11px; font-weight: 900; color: #FFD700; margin-bottom: 8px; text-transform: uppercase;">
                         ${num === 1 ? '🥇 Первое' : num === 2 ? '🥈 Второе' : '🥉 Третье'} место
                     </div>
@@ -849,9 +851,27 @@ window.openAdminRewards = async function() {
             `;
         });
 
+        // 2. 🔥 ДОБАВЛЯЕМ БЛОК АВТОМАТИКИ (Только для ТГ лидербордов, кроме "Всё время")
+        if (state.source === 'telegram' && state.telegramPeriod !== 'all') {
+            form.innerHTML += `
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); margin-top: 15px;">
+                    <div style="font-size: 11px; font-weight: 900; color: #34c759; margin-bottom: 8px; text-transform: uppercase;">⏰ Авто-выдача (CRON)</div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <label style="color: #fff; font-size: 13px; display: flex; align-items: center; gap: 5px; flex: 1; cursor: pointer;">
+                            <input type="checkbox" id="auto-enabled" style="accent-color: #34c759; width: 18px; height: 18px;"> Включить
+                        </label>
+                        <input type="time" id="auto-time" class="admin-input" style="width: 120px; padding: 10px;" value="00:00">
+                    </div>
+                </div>
+            `;
+        }
+
+        // 3. Подгружаем сохраненные настройки из базы
         const lKey = getCurrentLeaderboardKey();
         const cfg = await makeApiRequest(`/api/v1/admin/leaderboard/config?key=${lKey}`, {}, 'GET', true);
+        
         if (cfg) {
+            // Восстанавливаем награды ТОП-3
             [1, 2, 3].forEach(num => {
                 const item = cfg[num.toString()];
                 if (item && item.type) {
@@ -862,6 +882,12 @@ window.openAdminRewards = async function() {
                     }
                 }
             });
+            
+            // Восстанавливаем настройки времени и галочку
+            if (cfg.auto_issue && document.getElementById('auto-enabled')) {
+                document.getElementById('auto-enabled').checked = cfg.auto_issue.enabled || false;
+                document.getElementById('auto-time').value = cfg.auto_issue.time || "00:00";
+            }
         }
     } catch (e) { 
         console.error("🔥 Ошибка в админке:", e);
@@ -889,7 +915,7 @@ window.updateRewardInput = function(num, prefillValue = "") {
     }
 };
 
-// Сохранение визуального конфига
+/ Сохранение визуального конфига
 window.saveAdminRewards = async function() {
     haptic('medium'); // Добавляем отклик
     const config = {};
@@ -907,6 +933,17 @@ window.saveAdminRewards = async function() {
         }
     });
 
+    // 🔥 ДОБАВЛЯЕМ В КОНФИГ НАСТРОЙКИ ВРЕМЕНИ (Если блок CRON отрендерился)
+    const autoEnabledEl = document.getElementById('auto-enabled');
+    const autoTimeEl = document.getElementById('auto-time');
+    
+    if (autoEnabledEl && autoTimeEl) {
+        config['auto_issue'] = { 
+            enabled: autoEnabledEl.checked, 
+            time: autoTimeEl.value 
+        };
+    }
+
     if (hasError) {
         // Нативный алерт ТГ всегда поверх всего, не перекроется z-index-ами
         return Telegram.WebApp.showAlert("Заполните значения для выбранных наград!");
@@ -914,11 +951,27 @@ window.saveAdminRewards = async function() {
 
     try {
         const lKey = getCurrentLeaderboardKey();
+        
+        // 1. Сохраняем конфиг наград и времени в БД (Supabase)
         await makeApiRequest('/api/v1/admin/leaderboard/config/save', { key: lKey, config }, 'POST');
-        Telegram.WebApp.showAlert("✅ Настройки наград сохранены!");
+        
+        // 2. 🔥 Отправляем расписание в cron-job.org (Только для ТГ День/Неделя/Месяц)
+        if (state.source === 'telegram' && state.telegramPeriod !== 'all') {
+            if (autoEnabledEl && autoTimeEl) {
+                await makeApiRequest('/api/v1/admin/cron/setup', { 
+                    period: state.telegramPeriod, 
+                    time: autoTimeEl.value,
+                    is_enabled: autoEnabledEl.checked
+                }, 'POST');
+            }
+        }
+
+        Telegram.WebApp.showAlert("✅ Настройки и расписание CRON сохранены!");
         document.getElementById('admin-rewards-modal').classList.add('hidden');
         fetchAndRender(); 
-    } catch (e) {}
+    } catch (e) {
+        console.error("Ошибка при сохранении:", e);
+    }
 };
 
 // Реальная выдача наград (Батч-запрос)
