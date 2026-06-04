@@ -955,11 +955,19 @@ window.saveAdminRewards = async function() {
         // 1. Сохраняем конфиг наград и времени в БД (Supabase)
         await makeApiRequest('/api/v1/admin/leaderboard/config/save', { key: lKey, config }, 'POST');
         
-        // 2. 🔥 Отправляем расписание в cron-job.org (Только для ТГ День/Неделя/Месяц)
-        if (state.source === 'telegram' && state.telegramPeriod !== 'all') {
+        // 2. 🔥 Отправляем расписание в cron-job.org (Для ТГ и Твича)
+        const isTgCron = state.source === 'telegram' && state.telegramPeriod !== 'all';
+        const isTwitchCron = state.source === 'twitch' && state.twitchPeriod !== 'global';
+        
+        if (isTgCron || isTwitchCron) {
             if (autoEnabledEl && autoTimeEl) {
+                // Для Твича 'session' приравниваем к 'day', чтобы использовать нашу задачу "День"
+                let cronPeriod = state.source === 'telegram' ? state.telegramPeriod : state.twitchPeriod;
+                if (cronPeriod === 'session') cronPeriod = 'day';
+
                 await makeApiRequest('/api/v1/admin/cron/setup', { 
-                    period: state.telegramPeriod, 
+                    source: state.source, // 🔥 Отправляем платформу (telegram или twitch)
+                    period: cronPeriod, 
                     time: autoTimeEl.value,
                     is_enabled: autoEnabledEl.checked
                 }, 'POST');
