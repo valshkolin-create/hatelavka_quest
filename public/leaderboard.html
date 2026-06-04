@@ -730,7 +730,7 @@ window.openAdminRewards = async function() {
                         ВЫДАТЬ ТЕКУЩЕМУ ТОП-3
                     </button>
                     <div style="display: flex; gap: 10px; width: 100%;">
-                        <button class="confirm-btn btn-cancel-modal" style="flex:1;" onclick="document.getElementById('admin-rewards-modal').classList.add('hidden')">Отмена</button>
+                        <button class="confirm-btn btn-cancel-modal" style="flex:1;" onclick="haptic('light'); document.getElementById('admin-rewards-modal').classList.add('hidden')">Отмена</button>
                         <button class="confirm-btn btn-yellow-modal" style="flex:1;" onclick="saveAdminRewards()">СОХРАНИТЬ</button>
                     </div>
                 </div>
@@ -749,13 +749,16 @@ window.openAdminRewards = async function() {
 
     try {
         // 2. Получаем список кейсов для выпадающего списка
-        // 2. Получаем список кейсов для выпадающего списка
         let cases = JSON.parse(localStorage.getItem('shop_items_cache') || '{}')[2716312];
         if (!cases || cases.length === 0) {
             cases = await makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true);
         }
+        
+        // 🔥 ИСПРАВЛЕНИЕ ТУТ: Безопасный парсинг массива кейсов
+        const safeCases = Array.isArray(cases) ? cases : (cases?.items || []);
+        
         // Сохраняем опции глобально для функции переключения
-        window.caseOptionsHtml = (cases || []).filter(i => !i.is_folder)
+        window.caseOptionsHtml = safeCases.filter(i => !i.is_folder)
             .map(i => `<option value="${i.name}">${i.name.replace('Кейс | ', '')}</option>`).join('');
 
         // 3. Рендерим пустую форму
@@ -797,7 +800,7 @@ window.openAdminRewards = async function() {
         customAlert("Ошибка загрузки данных админки"); 
     }
 };
-
+  
 // Функция для смены инпута (выпадающий список кейсов или ввод числа)
 window.updateRewardInput = function(num, prefillValue = "") {
     const type = document.getElementById(`rew-type-${num}`).value;
@@ -820,6 +823,7 @@ window.updateRewardInput = function(num, prefillValue = "") {
 
 // Сохранение визуального конфига
 window.saveAdminRewards = async function() {
+    haptic('medium'); // Добавляем отклик
     const config = {};
     let hasError = false;
 
@@ -829,56 +833,70 @@ window.saveAdminRewards = async function() {
         
         if (type !== "none") {
             if (!valEl || !valEl.value) { hasError = true; }
-            config[num.toString()] = { type: type, value: valEl.value };
+            config[num.toString()] = { type: type, value: valEl ? valEl.value : "" };
         } else {
             config[num.toString()] = { type: "none", value: "" };
         }
     });
 
-    if (hasError) return customAlert("Заполните значения для выбранных наград!");
+    if (hasError) {
+        // Нативный алерт ТГ всегда поверх всего, не перекроется z-index-ами
+        return Telegram.WebApp.showAlert("Заполните значения для выбранных наград!");
+    }
 
     try {
         const lKey = getCurrentLeaderboardKey();
         await makeApiRequest('/api/v1/admin/leaderboard/config/save', { key: lKey, config }, 'POST');
-        customAlert("✅ Настройки наград сохранены!");
+        Telegram.WebApp.showAlert("✅ Настройки наград сохранены!");
         document.getElementById('admin-rewards-modal').classList.add('hidden');
-        fetchAndRender(); // Обновляем таблицу, чтобы иконки сменились
+        fetchAndRender(); 
     } catch (e) {}
 };
 
 // Реальная выдача наград (Батч-запрос)
 window.issueRewardsNow = async function() {
-    // window.currentLeaderboardData заполняется в fetchAndRender
+    haptic('medium'); // Добавляем отклик
     if (!window.currentLeaderboardData || window.currentLeaderboardData.length === 0) {
-        return customAlert("Сначала загрузите данные лидерборда!");
+        return Telegram.WebApp.showAlert("Сначала загрузите данные лидерборда!");
     }
 
+    // Временно скрываем модалку админки, чтобы confirm не появился под ней
+    document.getElementById('admin-rewards-modal').classList.add('hidden');
+
     customConfirm("ВЫДАТЬ НАГРАДЫ?\n\nЭто начислит баланс/кейсы текущим ТОП-3 игрокам прямо сейчас.", async (ok) => {
-        if (!ok) return;
+        if (!ok) {
+            // Если нажали отмену - возвращаем модалку обратно
+            document.getElementById('admin-rewards-modal').classList.remove('hidden');
+            return;
+        }
 
         const winners = [];
-        // Берем только первых трех
         for (let i = 0; i < 3; i++) {
             const entry = window.currentLeaderboardData[i];
             if (entry && entry.reward) {
                 winners.push({
                     telegram_id: entry.telegram_id || entry.user_id || entry.id,
                     rank: i + 1,
-                    reward: entry.reward // Передаем объект с типом и значением
+                    reward: entry.reward
                 });
             }
         }
 
-        if (winners.length === 0) return customAlert("У ТОП-3 не настроены награды!");
+        if (winners.length === 0) {
+            document.getElementById('admin-rewards-modal').classList.remove('hidden');
+            return Telegram.WebApp.showAlert("У ТОП-3 не настроены награды!");
+        }
 
         try {
             const lKey = getCurrentLeaderboardKey();
             const res = await makeApiRequest('/api/v1/admin/leaderboard/issue', { key: lKey, winners }, 'POST');
             if (res.success) {
-                customAlert("✅ Награды успешно выданы!\nЛоги отправлены в админ-чат.");
-                document.getElementById('admin-rewards-modal').classList.add('hidden');
+                Telegram.WebApp.showAlert("✅ Награды успешно выданы!\nЛоги отправлены в админ-чат.");
+                // Оставляем модалку скрытой
             }
-        } catch (e) {}
+        } catch (e) {
+            document.getElementById('admin-rewards-modal').classList.remove('hidden');
+        }
     });
 };
   
