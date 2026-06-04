@@ -11938,6 +11938,164 @@ async def update_submission_status(
             raise HTTPException(status_code=500, detail="Не удалось одобрить заявку.")
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
+
+Спокойно, услышал тебя! Мой косяк, зациклился на цифрах из предыдущего сообщения.
+
+Меняем ID на правильный — 7740202. Вот исправленный и готовый к деплою код эндпоинта, который будет управлять именно этой задачей.
+
+Обновленный код настройки CRON (/api/v1/admin/cron/setup)
+Python
+import os
+import httpx
+import logging
+from fastapi import APIRouter, Request, HTTPException, Depends
+from pydantic import BaseModel
+
+# Твои ключи
+CRON_API_KEY = os.getenv("CRON_API_KEY")
+CRON_JOB_ID = "7740202"  # 🔥 Исправленный ID твоей задачи
+
+class CronSetupRequest(BaseModel):
+    period: str  # 'day', 'week', 'month', 'off'
+    initData: str
+
+@app.post("/api/v1/admin/cron/setup")
+async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """
+    Эндпоинт для динамической настройки расписания CRON через API cron-job.org
+    """
+    # 1. Проверка прав (только админы)
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
+    if not user_res.json()[0].get("is_admin"):
+        raise HTTPException(status_code=403, detail="Только для админов")
+
+    if not CRON_API_KEY:
+        raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
+
+    # 2. Формируем логику расписания
+    is_enabled = True
+    schedule = {
+        "timezone": "Europe/Moscow",
+        "hours": [0],     # В 00 часов
+        "minutes": [0],   # В 00 минут
+        "mdays": [-1],    # Каждый день месяца
+        "months": [-1],   # Каждый месяц
+        "wdays": [-1]     # Каждый день недели
+    }
+
+    if req.period == "day":
+        pass # Дефолт: каждый день в 00:00
+    elif req.period == "week":
+        schedule["wdays"] = [1] # Каждый понедельник
+    elif req.period == "month":
+        schedule["mdays"] = [1] # Каждое 1-е число месяца
+    elif req.period == "off":
+        is_enabled = False # Выключить задачу
+    else:
+        raise HTTPException(status_code=400, detail="Неизвестный период")
+
+    # 3. Отправляем запрос на обновление конкретно в твою задачу 7740202
+    url = f"https://api.cron-job.org/jobs/{CRON_JOB_ID}"
+    headers = {
+        "Authorization": f"Bearer {CRON_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "job": {
+            "enabled": is_enabled,
+            "schedule": schedule
+        }
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.patch(url, json=payload, headers=headers, timeout=10.0)
+            
+            if resp.status_code != 200:
+                logging.error(f"Ошибка API cron-job.org: {resp.text}")
+                raise HTTPException(status_code=502, detail="Ошибка при связи с сервисом CRON")
+                
+        except Exception as e:
+            logging.error(f"Сетевая ошибка при обновлении CRON: {e}")
+            raise HTTPException(status_code=500, detail="Не удалось обновить расписание")
+
+    return {
+        "success": True, 
+        "message": f"CRON задача {CRON_JOB_ID} успешно переключена в режим: {req.period.upper()}"
+    }
+    
+async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_key: str, supabase: httpx.AsyncClient) -> str:
+    """
+    Универсальная функция выдачи наград. Возвращает строку с результатом для логов.
+    """
+    # Получаем данные юзера
+    u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id, tickets"})
+    u_data = u_resp.json()
+    if not u_data: 
+        return f"ID {tg_id}: Юзер не найден в БД"
+    u_record = u_data[0]
+    
+    try:
+        if r_type == "coins":
+            unique_promo_code = f"LB-COIN-{tg_id}-{uuid.uuid4().hex[:4].upper()}"
+            promo_insert = await supabase.post("/promocodes", json={
+                "code": unique_promo_code,
+                "reward_value": float(r_value),
+                "description": f"Топ Лидерборда: {config_key}",
+                "telegram_id": tg_id,
+                "is_used": False,
+                "auto_is_used": True
+            })
+            if promo_insert.status_code in [200, 201]:
+                promo_data = promo_insert.json()
+                promo_id = promo_data[0].get("id") if isinstance(promo_data, list) else promo_data.get("id")
+                try:
+                    await activate_single_promocode(
+                        promo_id=promo_id,
+                        telegram_id=tg_id,
+                        reward_value=float(r_value),
+                        description=f"Награда за Топ Лидерборда ({config_key})"
+                    )
+                    return f"ID {tg_id}: Выдано {r_value} монет"
+                except Exception as sniper_e:
+                    logging.error(f"Ошибка снайпера: {sniper_e}")
+                    return f"ID {tg_id}: Монеты не начислены (ошибка Bot-T)"
+            else:
+                return f"ID {tg_id}: Ошибка записи промокода"
+                
+        elif r_type == "tickets":
+            new_tickets = int(u_record["tickets"] or 0) + int(r_value)
+            await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"tickets": new_tickets})
+            return f"ID {tg_id}: Выдано {r_value} билетов"
+            
+        elif r_type == "case":
+            unique_code = f"LB-{tg_id}-{uuid.uuid4().hex[:4].upper()}"
+            coupon_res = await supabase.post("/cs_codes", json={
+                "code": unique_code,
+                "max_uses": 1,
+                "current_uses": 0,
+                "is_active": True,
+                "description": f"Авто-код: Топ Лидерборда ({config_key})",
+                "is_copied": False,
+                "assigned_to": tg_id,
+                "assigned_at": datetime.now(timezone.utc).isoformat(),
+                "target_case_name": r_value,
+                "used_by_ids": [],
+                "activated_by_ids": [tg_id],
+                "campaign_id": 888
+            })
+            if coupon_res.status_code in [200, 201]:
+                return f"ID {tg_id}: Выдан кейс '{r_value}'"
+            else:
+                return f"ID {tg_id}: Ошибка выдачи кейса"
+                
+    except Exception as e:
+        logging.error(f"Ошибка выдачи награды {tg_id}: {e}")
+        return f"ID {tg_id}: Системная ошибка выдачи"
         
 # =====================================================================
 # 1. ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (С ДИНАМИЧЕСКИМ КЛЮЧОМ И ЗАЩИТОЙ ОТ СТРОК)
@@ -11945,7 +12103,6 @@ async def update_submission_status(
 async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.AsyncClient, leaderboard_key: str) -> list:
     """
     Прикрепляет награды к ТОП-3 пользователям на основе динамического ключа leaderboard_key.
-    Например: 'telegram_day', 'twitch_message_week', 'twitch_uptime_month'
     """
     if not leaderboard_data:
         return leaderboard_data
@@ -11960,10 +12117,8 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
         rewards_config = {}
         try:
             settings_data = settings_resp.json()
-            # Проверяем, что вернулся список и внутри есть словарь
             if isinstance(settings_data, list) and len(settings_data) > 0 and isinstance(settings_data[0], dict):
                 val = settings_data[0].get("value", {})
-                # Если база вернула строку, принудительно парсим её в словарь
                 if isinstance(val, str):
                     import json
                     try: val = json.loads(val)
@@ -11974,33 +12129,35 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
             import logging
             logging.warning(f"Не удалось распарсить settings_data: {e}")
 
-        # 2. Безопасное чтение картинок кейсов
+        # 2. Безопасное чтение картинок кейсов (ИСПРАВЛЕНО)
         case_images = {}
         try:
             shop_data = shop_cache_resp.json()
             if isinstance(shop_data, list) and len(shop_data) > 0 and isinstance(shop_data[0], dict):
-                items = shop_data[0].get("data", [])
+                # 🔥 Добавлена проверка и на "data", и на "items" (в зависимости от структуры БД)
+                items = shop_data[0].get("data") or shop_data[0].get("items", [])
+                
                 if isinstance(items, str):
                     import json
                     try: items = json.loads(items)
                     except: items = []
                 
-                # Записываем картинки, проверяя каждый элемент
                 if isinstance(items, list):
                     for item in items:
                         if isinstance(item, dict) and "name" in item and "image_url" in item:
-                            case_images[item["name"]] = item["image_url"]
+                            # 🔥 Очищаем название от невидимых пробелов
+                            safe_name = item["name"].strip()
+                            case_images[safe_name] = item["image_url"]
         except Exception as e:
             import logging
             logging.warning(f"Не удалось распарсить shop_data: {e}")
 
         # Иконки для валют
-        COIN_IMG = "https://cdn-icons-png.flaticon.com/512/1490/1490832.png" # Иконка монеты
-        TICKET_IMG = "https://cdn-icons-png.flaticon.com/512/32/32339.png"   # Иконка билета
+        COIN_IMG = "https://cdn-icons-png.flaticon.com/512/1490/1490832.png" 
+        TICKET_IMG = "https://cdn-icons-png.flaticon.com/512/32/32339.png"   
 
-        # 3. Приклеиваем к ТОП-3 (с защитой от кривых типов данных)
+        # 3. Приклеиваем к ТОП-3
         for index, entry in enumerate(leaderboard_data):
-            # Если entry почему-то пришел как строка, пропускаем
             if not isinstance(entry, dict):
                 continue
                 
@@ -12010,7 +12167,6 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
             if rank_str in rewards_config:
                 cfg = rewards_config[rank_str]
                 
-                # 🔥 ИСПРАВЛЕНИЕ 🔥: Если в базе старый формат (просто название кейса строкой)
                 if isinstance(cfg, str):
                     import json
                     try:
@@ -12018,20 +12174,22 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
                         if isinstance(parsed_cfg, dict):
                             cfg = parsed_cfg
                         else:
-                            # Если это не JSON, значит это старый формат названия кейса
                             cfg = {"type": "case", "value": cfg}
                     except:
-                        # Если не парсится вообще, считаем это кейсом
                         cfg = {"type": "case", "value": cfg}
-                    
+                
                 if isinstance(cfg, dict):
                     r_type = cfg.get("type", "none")
-                    r_value = cfg.get("value", "")
+                    r_value = str(cfg.get("value", "")).strip() # 🔥 Очищаем название из конфига
 
                     img_url = ""
-                    if r_type == "case": img_url = case_images.get(r_value, "https://placehold.co/100?text=Кейс")
-                    elif r_type == "coins": img_url = COIN_IMG
-                    elif r_type == "tickets": img_url = TICKET_IMG
+                    if r_type == "case": 
+                        # 🔥 Заменили кириллицу в заглушке на английский, чтобы не ломался URL
+                        img_url = case_images.get(r_value, "https://placehold.co/100?text=Case")
+                    elif r_type == "coins": 
+                        img_url = COIN_IMG
+                    elif r_type == "tickets": 
+                        img_url = TICKET_IMG
 
                     if r_type != "none":
                         reward_obj = {
@@ -12047,6 +12205,9 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
         logging.error(f"Ошибка привязки наград: {e}")
     
     return leaderboard_data
+
+
+
 
 # =====================================================================
 # 2. ЭНДПОИНТЫ ДАННЫХ ЛИДЕРБОРДА (С ПЕРЕДАЧЕЙ КЛЮЧА НАГРАД)
@@ -12201,60 +12362,25 @@ async def save_leaderboard_config(request: Request, supabase: httpx.AsyncClient 
 
 @app.post("/api/v1/admin/leaderboard/issue")
 async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """
-    Эндпоинт для РУЧНОЙ выдачи наград. Фронтенд присылает ключ лидерборда и список победителей.
-    """
     body = await request.json()
     user_info = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(status_code=401)
     
-    # Проверка на админа
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
-    if not user_res.json()[0].get("is_admin"):
-        raise HTTPException(status_code=403, detail="Только для админов")
+    if not user_res.json()[0].get("is_admin"): raise HTTPException(status_code=403, detail="Только для админов")
 
     config_key = body.get("key", "Неизвестный лидерборд")
-    winners = body.get("winners", []) # Формат: [{"telegram_id": 123, "rank": 1, "reward": {"type": "coins", "value": 100}}, ...]
+    winners = body.get("winners", [])
     
     results = []
     for w in winners:
         tg_id = w.get("telegram_id")
         reward = w.get("reward")
-        
         if not tg_id or not reward: continue
         
-        r_type = reward.get("type")
-        r_value = reward.get("value")
-        
-        # Получаем данные юзера
-        u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id, tickets"})
-        u_data = u_resp.json()
-        if not u_data: continue
-        u_record = u_data[0]
-        
-        try:
-            if r_type == "coins":
-                # Выдаем монеты через Bot-T
-                await add_balance_to_bott(u_record["bott_internal_id"], float(r_value), f"Награда за Топ Лидерборда ({config_key})!")
-                results.append(f"ID {tg_id}: Выдано {r_value} монет")
-                
-            elif r_type == "tickets":
-                # Выдаем билеты (просто плюсуем в базу)
-                new_tickets = int(u_record["tickets"] or 0) + int(r_value)
-                await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"tickets": new_tickets})
-                results.append(f"ID {tg_id}: Выдано {r_value} билетов")
-                
-            elif r_type == "case":
-                # Для кейса просто генерируем запись в ручные выдачи, добавили ключ в описание!
-                await supabase.post("/manual_rewards", json={
-                    "user_id": tg_id, "status": "pending", "source_type": "leaderboard",
-                    "reward_details": r_value, "source_description": f"Награда за Топ Лидерборда ({config_key})"
-                })
-                results.append(f"ID {tg_id}: Заявка на выдачу кейса {r_value}")
-                
-        except Exception as e:
-            import logging
-            logging.error(f"Ошибка выдачи награды для {tg_id}: {e}")
+        # 🔥 Вызываем нашего нового хелпера!
+        res_str = await process_reward_issuance(tg_id, reward.get("type"), reward.get("value"), config_key, supabase)
+        results.append(res_str)
             
     return {"success": True, "details": results}
     
