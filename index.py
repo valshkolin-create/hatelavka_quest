@@ -11956,28 +11956,23 @@ class CronSetupRequest(BaseModel):
 
 @app.post("/api/v1/admin/cron/setup")
 async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    import os
     import logging
     
-    # 1. Проверка прав (только админы)
+    # 1. Проверка прав (берем админов из Vercel ENV)
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    tg_id = user_info['id']
+    tg_id = user_info.get('id')
     logging.info(f"🔎 Запрос изменения CRON. Telegram ID: {tg_id}")
-
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "is_admin"})
-    user_data = user_res.json()
     
-    logging.info(f"📦 Ответ от базы Supabase: {user_data}")
+    # Парсим строку из ENV (например: "477521935, 12345678") в список чисел
+    admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "")
+    admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
     
-    # 🔥 БЕЗОПАСНАЯ ПРОВЕРКА С ПОДРОБНЫМ ЛОГИРОВАНИЕМ
-    if not user_data or not isinstance(user_data, list) or len(user_data) == 0:
-        logging.error(f"❌ БД вернула пустой ответ для юзера {tg_id}. Тебя либо нет в БД, либо RLS блокирует доступ!")
-        raise HTTPException(status_code=403, detail="Юзер не найден в БД или мешает RLS")
-        
-    if not user_data[0].get("is_admin"):
-        logging.error(f"❌ Юзер {tg_id} найден, но is_admin = False!")
+    if tg_id not in admin_ids:
+        logging.error(f"❌ Юзер {tg_id} попытался настроить CRON, но его нет в ADMIN_TELEGRAM_IDS!")
         raise HTTPException(status_code=403, detail="Только для админов")
 
     if not CRON_API_KEY: raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
@@ -12024,11 +12019,9 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
         try:
             resp = await client.patch(url, json=payload, headers=headers, timeout=10.0)
             if resp.status_code != 200:
-                import logging
                 logging.error(f"Ошибка API cron-job.org: {resp.text}")
                 raise HTTPException(status_code=502, detail="Ошибка при связи с сервисом CRON")
         except Exception as e:
-            import logging
             logging.error(f"Сетевая ошибка при обновлении CRON: {e}")
             raise HTTPException(status_code=500, detail="Не удалось обновить расписание")
 
@@ -12429,28 +12422,44 @@ async def save_leaderboard_config(request: Request, supabase: httpx.AsyncClient 
 
 @app.post("/api/v1/admin/leaderboard/issue")
 async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    import os
+    import logging
+    
     body = await request.json()
     user_info = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401)
+    if not user_info: 
+        raise HTTPException(status_code=401)
     
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
-    user_data = user_res.json()
+    tg_id = user_info.get('id')
     
-    # 🔥 БЕЗОПАСНАЯ ПРОВЕРКА
-    if not user_data or not isinstance(user_data, list) or len(user_data) == 0 or not user_data[0].get("is_admin"): 
+    # 🔥 1. БЕЗОПАСНАЯ ПРОВЕРКА ЧЕРЕЗ VERCEL ENV
+    admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "")
+    admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
+    
+    if tg_id not in admin_ids:
+        logging.error(f"❌ Юзер {tg_id} попытался выдать награды, но его нет в ADMIN_TELEGRAM_IDS!")
         raise HTTPException(status_code=403, detail="Только для админов")
 
+    # 2. Выдача наград
     config_key = body.get("key", "Неизвестный лидерборд")
     winners = body.get("winners", [])
     
     results = []
     for w in winners:
-        tg_id = w.get("telegram_id")
+        winner_tg_id = w.get("telegram_id")
         reward = w.get("reward")
-        if not tg_id or not reward: continue
         
-        # 🔥 Вызываем нашего нового хелпера!
-        res_str = await process_reward_issuance(tg_id, reward.get("type"), reward.get("value"), config_key, supabase)
+        if not winner_tg_id or not reward: 
+            continue
+        
+        # 🔥 Вызываем нашего универсального хелпера!
+        res_str = await process_reward_issuance(
+            tg_id=winner_tg_id, 
+            r_type=reward.get("type"), 
+            r_value=reward.get("value"), 
+            config_key=config_key, 
+            supabase=supabase
+        )
         results.append(res_str)
             
     return {"success": True, "details": results}
