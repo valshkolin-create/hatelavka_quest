@@ -11956,14 +11956,15 @@ class CronSetupRequest(BaseModel):
 
 @app.post("/api/v1/admin/cron/setup")
 async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """
-    Эндпоинт для динамической настройки расписания CRON через API cron-job.org
-    """
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info: raise HTTPException(status_code=401, detail="Unauthorized")
         
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
-    if not user_res.json()[0].get("is_admin"): raise HTTPException(status_code=403, detail="Только для админов")
+    user_data = user_res.json()
+    
+    # 🔥 БЕЗОПАСНАЯ ПРОВЕРКА: Сначала проверяем, что юзер вообще найден (список не пуст)
+    if not user_data or not isinstance(user_data, list) or len(user_data) == 0 or not user_data[0].get("is_admin"): 
+        raise HTTPException(status_code=403, detail="Только для админов")
 
     if not CRON_API_KEY: raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
 
@@ -12419,7 +12420,11 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
     if not user_info: raise HTTPException(status_code=401)
     
     user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
-    if not user_res.json()[0].get("is_admin"): raise HTTPException(status_code=403, detail="Только для админов")
+    user_data = user_res.json()
+    
+    # 🔥 БЕЗОПАСНАЯ ПРОВЕРКА
+    if not user_data or not isinstance(user_data, list) or len(user_data) == 0 or not user_data[0].get("is_admin"): 
+        raise HTTPException(status_code=403, detail="Только для админов")
 
     config_key = body.get("key", "Неизвестный лидерборд")
     winners = body.get("winners", [])
