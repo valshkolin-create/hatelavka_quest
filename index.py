@@ -11939,18 +11939,6 @@ async def update_submission_status(
     else:
         raise HTTPException(status_code=400, detail="Неверное действие.")
 
-Спокойно, услышал тебя! Мой косяк, зациклился на цифрах из предыдущего сообщения.
-
-Меняем ID на правильный — 7740202. Вот исправленный и готовый к деплою код эндпоинта, который будет управлять именно этой задачей.
-
-Обновленный код настройки CRON (/api/v1/admin/cron/setup)
-Python
-import os
-import httpx
-import logging
-from fastapi import APIRouter, Request, HTTPException, Depends
-from pydantic import BaseModel
-
 # Твои ключи
 CRON_API_KEY = os.getenv("CRON_API_KEY")
 CRON_JOB_ID = "7740202"  # 🔥 Исправленный ID твоей задачи
