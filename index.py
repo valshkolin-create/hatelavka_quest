@@ -12015,6 +12015,88 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
         "success": True, 
         "message": f"CRON задача {CRON_JOB_ID} успешно переключена в режим: {req.period.upper()}"
     }
+
+# Берем полный длинный UUID секрет из переменных окружения Vercel
+# Убедись, что переменная CRON_SECRET добавлена в Vercel!
+VERCEL_CRON_SECRET = os.getenv("CRON_SECRET", "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890")
+
+@app.get("/api/v1/cron/leaderboard")
+async def cron_leaderboard_issue(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    """
+    Автоматическая выдача наград. Вызывается по расписанию от cron-job.org
+    """
+    # 1. СТРОГАЯ ЗАЩИТА: Проверяем, что запрос пришел от cron-job.org с правильным ключом
+    auth_header = request.headers.get("Authorization")
+    if auth_header != f"Bearer {VERCEL_CRON_SECRET}":
+        logging.warning(f"🚨 Попытка запуска CRON с неверным ключом: {auth_header}")
+        raise HTTPException(status_code=401, detail="Unauthorized CRON call")
+
+    cron_results = []
+    try:
+        # 2. Получаем настройки авто-выдачи из БД (ищем ключи вида auto_issue_telegram_day)
+        settings_resp = await supabase.get("/settings", params={"key": "like.auto_issue_%", "select": "key,value"})
+        auto_settings = settings_resp.json()
+        
+        for setting in auto_settings:
+            config = setting.get("value", {})
+            if isinstance(config, str):
+                import json
+                try: config = json.loads(config)
+                except: config = {}
+                
+            # Если автоматика для этого лидерборда Включена
+            if config.get("enabled"):
+                # Вырезаем префикс, чтобы получить чистый ключ (например, "telegram_day")
+                leaderboard_key = setting["key"].replace("auto_issue_", "") 
+                
+                # Запрашиваем конфиг наград (что даем за 1, 2, 3 место в этом лидерборде)
+                cfg_resp = await supabase.get("/settings", params={"key": f"eq.{leaderboard_key}"})
+                cfg_data = cfg_resp.json()
+                rewards_map = cfg_data[0]["value"] if cfg_data else {}
+                
+                if not rewards_map:
+                    continue # Если награды не настроены, пропускаем
+
+                # 3. Собираем данные самого лидерборда (вызываем твою же функцию)
+                if leaderboard_key.startswith("telegram_"):
+                    period = leaderboard_key.split("_")[1] # day, week, month, all
+                    board_data = await get_leaderboard_data(request=request, period=period, supabase=supabase)
+                else:
+                    # Сюда можно добавить логику для twitch (вызов get_wizebot_stats), если нужно
+                    continue 
+                
+                # 4. Берем ТОП-3 и выдаем им награды
+                top_3 = board_data[:3] if isinstance(board_data, list) else []
+                issued_for_this_board = []
+                
+                for index, entry in enumerate(top_3):
+                    rank_str = str(index + 1)
+                    if rank_str not in rewards_map: 
+                        continue
+                    
+                    tg_id = entry.get("telegram_id") or entry.get("user_id") or entry.get("id")
+                    reward_cfg = rewards_map[rank_str]
+                    
+                    if not tg_id or not isinstance(reward_cfg, dict): 
+                        continue
+                    
+                    # 🔥 Вызываем нашего универсального хелпера!
+                    res_str = await process_reward_issuance(
+                        tg_id=int(tg_id), 
+                        r_type=reward_cfg.get("type"), 
+                        r_value=reward_cfg.get("value"), 
+                        config_key=leaderboard_key, 
+                        supabase=supabase
+                    )
+                    issued_for_this_board.append(res_str)
+                
+                cron_results.append({leaderboard_key: issued_for_this_board})
+
+        return {"success": True, "processed": cron_results}
+
+    except Exception as e:
+        logging.error(f"🔥 Ошибка выполнения CRON: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
     
 async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_key: str, supabase: httpx.AsyncClient) -> str:
     """
@@ -12193,8 +12275,6 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
         logging.error(f"Ошибка привязки наград: {e}")
     
     return leaderboard_data
-
-
 
 
 # =====================================================================
