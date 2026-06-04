@@ -851,8 +851,11 @@ window.openAdminRewards = async function() {
             `;
         });
 
-        // 2. 🔥 ДОБАВЛЯЕМ БЛОК АВТОМАТИКИ (Только для ТГ лидербордов, кроме "Всё время")
-        if (state.source === 'telegram' && state.telegramPeriod !== 'all') {
+       // 2. 🔥 ДОБАВЛЯЕМ БЛОК АВТОМАТИКИ (Для ТГ и Твича, кроме "Всё время" / "global")
+        const isTgCron = state.source === 'telegram' && state.telegramPeriod !== 'all';
+        const isTwitchCron = state.source === 'twitch' && state.twitchPeriod !== 'global';
+        
+        if (isTgCron || isTwitchCron) {
             form.innerHTML += `
                 <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); margin-top: 15px;">
                     <div style="font-size: 11px; font-weight: 900; color: #34c759; margin-bottom: 8px; text-transform: uppercase;">⏰ Авто-выдача (CRON)</div>
@@ -955,7 +958,7 @@ window.saveAdminRewards = async function() {
         // 1. Сохраняем конфиг наград и времени в БД (Supabase)
         await makeApiRequest('/api/v1/admin/leaderboard/config/save', { key: lKey, config }, 'POST');
         
-        // 2. 🔥 Отправляем расписание в cron-job.org (Для ТГ и Твича)
+       // 2. 🔥 Отправляем расписание в cron-job.org (Для ТГ и Твича)
         const isTgCron = state.source === 'telegram' && state.telegramPeriod !== 'all';
         const isTwitchCron = state.source === 'twitch' && state.twitchPeriod !== 'global';
         
