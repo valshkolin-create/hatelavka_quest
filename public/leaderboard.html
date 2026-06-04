@@ -712,92 +712,106 @@ function getCurrentLeaderboardName() {
 window.openAdminRewards = async function() {
     haptic('medium');
     
-    // 1. Создаем модалку динамически, если её нет
-    if (!document.getElementById('admin-rewards-modal')) {
-        const m = document.createElement('div');
-        m.id = 'admin-rewards-modal';
-        m.className = 'gift-modal-overlay hidden';
-        m.style.zIndex = '100000';
-        m.innerHTML = `
-            <div class="custom-confirm-box" style="width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto;">
-                <h3 class="confirm-title">Настройки ТОП-3</h3>
-                
-                <div id="rewards-form" style="text-align:left; display:flex; flex-direction:column; gap:15px; margin: 15px 0;">
-                    </div>
+    // 1. ЖЕСТКО УДАЛЯЕМ старую модалку (чтобы убить баг с CSS transform от top_nav.js)
+    const oldModal = document.getElementById('admin-rewards-modal');
+    if (oldModal) oldModal.remove();
 
-                <div class="confirm-buttons" style="display: flex; flex-direction: column; gap: 10px;">
-                    <button class="confirm-btn" onclick="issueRewardsNow()" style="background: #34c759; color: #fff; font-weight: 800; border:none; width:100%;">
-                        ВЫДАТЬ ТЕКУЩЕМУ ТОП-3
-                    </button>
-                    <div style="display: flex; gap: 10px; width: 100%;">
-                        <button class="confirm-btn btn-cancel-modal" style="flex:1;" onclick="haptic('light'); document.getElementById('admin-rewards-modal').classList.add('hidden')">Отмена</button>
-                        <button class="confirm-btn btn-yellow-modal" style="flex:1;" onclick="saveAdminRewards()">СОХРАНИТЬ</button>
-                    </div>
+    // 2. Создаем полностью независимую модалку
+    const m = document.createElement('div');
+    m.id = 'admin-rewards-modal';
+    m.className = 'gift-modal-overlay';
+    m.style.zIndex = '100000';
+    m.innerHTML = `
+        <style>
+            .admin-modal-box {
+                background: #1c1c1e;
+                border-radius: 16px;
+                padding: 24px;
+                text-align: center;
+                border: 1px solid rgba(255,255,255,0.1);
+                width: 90%; 
+                max-width: 360px; 
+                max-height: 85vh; 
+                overflow-y: auto;
+                /* 🔥 ФИКС ДЛЯ IOS: Убираем transform, из-за которого отваливались клики 🔥 */
+                transform: none !important; 
+                pointer-events: auto !important;
+            }
+        </style>
+        <div class="admin-modal-box">
+            <h3 class="confirm-title" id="admin-modal-title" style="color: #fff; font-size: 18px; margin: 0 0 15px; font-weight: 700;">Настройки ТОП-3</h3>
+            
+            <div id="rewards-form" style="text-align:left; display:flex; flex-direction:column; gap:15px; margin-bottom: 20px;">
+            </div>
+
+            <div class="confirm-buttons" style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="confirm-btn" onclick="issueRewardsNow()" style="background: #34c759; color: #fff; font-weight: 800; border:none; width:100%; padding: 14px; border-radius: 10px; cursor: pointer;">
+                    ВЫДАТЬ ТЕКУЩЕМУ ТОП-3
+                </button>
+                <div style="display: flex; gap: 10px; width: 100%;">
+                    <button style="flex:1; padding: 12px; border-radius: 10px; border:none; background: rgba(255,255,255,0.1); color: #fff; font-weight: bold; cursor: pointer;" onclick="haptic('light'); document.getElementById('admin-rewards-modal').remove()">Отмена</button>
+                    <button style="flex:1; padding: 12px; border-radius: 10px; border:none; background: #ffcc00; color: #000; font-weight: bold; cursor: pointer;" onclick="saveAdminRewards()">СОХРАНИТЬ</button>
                 </div>
-            </div>`;
-        document.body.appendChild(m);
-    }
+            </div>
+        </div>`;
+    document.body.appendChild(m);
 
-    const modal = document.getElementById('admin-rewards-modal');
     const form = document.getElementById('rewards-form');
-    modal.classList.remove('hidden');
-    form.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+    form.innerHTML = '<div style="text-align:center; padding:20px; color:#fff;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>';
     
-    // Динамический заголовок модалки
-    const titleEl = modal.querySelector('.confirm-title');
+    // Динамический заголовок
+    const titleEl = document.getElementById('admin-modal-title');
     if (titleEl) titleEl.innerText = `Настройки ТОП-3:\n${getCurrentLeaderboardName()}`;
 
     try {
-        // 2. Получаем список кейсов для выпадающего списка
         let cases = JSON.parse(localStorage.getItem('shop_items_cache') || '{}')[2716312];
         if (!cases || cases.length === 0) {
             cases = await makeApiRequest('/api/v1/shop/goods?category_id=2716312', {}, 'GET', true);
         }
         
-        // 🔥 ИСПРАВЛЕНИЕ ТУТ: Безопасный парсинг массива кейсов
         const safeCases = Array.isArray(cases) ? cases : (cases?.items || []);
         
-        // Сохраняем опции глобально для функции переключения
         window.caseOptionsHtml = safeCases.filter(i => !i.is_folder)
             .map(i => `<option value="${i.name}">${i.name.replace('Кейс | ', '')}</option>`).join('');
 
-        // 3. Рендерим пустую форму
         form.innerHTML = '';
         [1, 2, 3].forEach(num => {
             form.innerHTML += `
-                <div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size: 10px; font-weight: 900; color: #FFD700; margin-bottom: 8px; text-transform: uppercase;">
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 11px; font-weight: 900; color: #FFD700; margin-bottom: 8px; text-transform: uppercase;">
                         ${num === 1 ? '🥇 Первое' : num === 2 ? '🥈 Второе' : '🥉 Третье'} место
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <select id="rew-type-${num}" onchange="updateRewardInput(${num})" class="admin-select" style="width: 40%;">
+                        <select id="rew-type-${num}" onchange="updateRewardInput(${num})" class="admin-select" style="width: 40%; background: #2c2c2e; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 8px; font-size: 12px; outline: none;">
                             <option value="none">Пусто</option>
                             <option value="case">Кейс</option>
                             <option value="coins">Монеты</option>
                             <option value="tickets">Билеты</option>
                         </select>
                         <div id="rew-val-container-${num}" style="width: 60%;">
-                            <input type="text" disabled class="admin-input" placeholder="---">
+                            <input type="text" disabled class="admin-input" placeholder="---" style="width: 100%; box-sizing: border-box; background: #2c2c2e; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 8px; font-size: 12px; outline: none;">
                         </div>
                     </div>
                 </div>
             `;
         });
 
-        // 4. Загружаем сохраненный конфиг и заполняем поля (ПО УНИКАЛЬНОМУ КЛЮЧУ)
         const lKey = getCurrentLeaderboardKey();
         const cfg = await makeApiRequest(`/api/v1/admin/leaderboard/config?key=${lKey}`, {}, 'GET', true);
         if (cfg) {
             [1, 2, 3].forEach(num => {
                 const item = cfg[num.toString()];
                 if (item && item.type) {
-                    document.getElementById(`rew-type-${num}`).value = item.type;
-                    updateRewardInput(num, item.value);
+                    const typeEl = document.getElementById(`rew-type-${num}`);
+                    if (typeEl) {
+                        typeEl.value = item.type;
+                        updateRewardInput(num, item.value);
+                    }
                 }
             });
         }
     } catch (e) { 
-        customAlert("Ошибка загрузки данных админки"); 
+        if(window.customAlert) customAlert("Ошибка загрузки данных админки"); 
     }
 };
   
