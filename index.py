@@ -11956,14 +11956,28 @@ class CronSetupRequest(BaseModel):
 
 @app.post("/api/v1/admin/cron/setup")
 async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    import logging
+    
+    # 1. Проверка прав (только админы)
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info: raise HTTPException(status_code=401, detail="Unauthorized")
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
         
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_info['id']}", "select": "is_admin"})
+    tg_id = user_info['id']
+    logging.info(f"🔎 Запрос изменения CRON. Telegram ID: {tg_id}")
+
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "is_admin"})
     user_data = user_res.json()
     
-    # 🔥 БЕЗОПАСНАЯ ПРОВЕРКА: Сначала проверяем, что юзер вообще найден (список не пуст)
-    if not user_data or not isinstance(user_data, list) or len(user_data) == 0 or not user_data[0].get("is_admin"): 
+    logging.info(f"📦 Ответ от базы Supabase: {user_data}")
+    
+    # 🔥 БЕЗОПАСНАЯ ПРОВЕРКА С ПОДРОБНЫМ ЛОГИРОВАНИЕМ
+    if not user_data or not isinstance(user_data, list) or len(user_data) == 0:
+        logging.error(f"❌ БД вернула пустой ответ для юзера {tg_id}. Тебя либо нет в БД, либо RLS блокирует доступ!")
+        raise HTTPException(status_code=403, detail="Юзер не найден в БД или мешает RLS")
+        
+    if not user_data[0].get("is_admin"):
+        logging.error(f"❌ Юзер {tg_id} найден, но is_admin = False!")
         raise HTTPException(status_code=403, detail="Только для админов")
 
     if not CRON_API_KEY: raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
