@@ -936,7 +936,8 @@ function initRealtime() {
                         let retryCount = 0; // Счетчик попыток
                         
                         const fetchNextWord = () => {
-                            fetch('/api/v1/twitch/obs_next_round?t=' + Date.now())
+                            // ❗️ Указываем абсолютный путь к твоему Vercel
+                            fetch('https://hatelavka-quest.vercel.app/api/v1/twitch/obs_next_round?t=' + Date.now())
                                 .then(res => res.json())
                                 .then(data => {
                                     // Агрессивная повторная попытка, если сервер не отдал success
