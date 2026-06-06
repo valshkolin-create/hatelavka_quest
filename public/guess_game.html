@@ -79,8 +79,8 @@
             transition: width 1s linear; box-shadow: 0 0 25px rgba(255, 77, 77, 1); 
         }
 
-        body.obs-mode .waiting-text {
-            font-size: 4.5rem; font-weight: 900; color: #9146FF; 
+        bbody.obs-mode .waiting-text {
+            font-size: var(--tile-font); font-weight: 900; color: #9146FF; 
             text-shadow: 0 0 30px rgba(145, 70, 255, 0.6); letter-spacing: 4px;
         }
 
@@ -661,6 +661,8 @@
             }
 
             if (state.is_active && state.current_word) {
+                window.isCooldown = state.is_cooldown || false; // 🔥 Ловим сигнал паузы
+                
                 if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
                     currentWord = state.current_word.toUpperCase();
                     currentMode = state.current_mode || "classic";
@@ -857,7 +859,30 @@ function initLeaderboardRealtime() {
                 else if (currentMode === 'edges') {
                     div.innerText = (i === 0 || i === currentWord.length - 1) ? currentWord[i] : '';
                 }
+                
+                // 🔥 ВАЖНО: Если пауза - принудительно открываем буквы и красим в зеленый
+                if (window.isCooldown) {
+                    div.innerText = currentWord[i];
+                    div.style.background = 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)';
+                    div.style.borderColor = 'rgba(40, 167, 69, 0.5)';
+                }
+
                 container.appendChild(div);
+            }
+
+            // 🔥 ПЛАШКА СНИЗУ В OBS
+            if (window.isCooldown && isObs) {
+                const msg = document.createElement('div');
+                msg.style.width = '100%';
+                msg.style.textAlign = 'center';
+                msg.style.marginTop = '40px';
+                msg.className = 'waiting-text animate-pulse';
+                msg.style.fontSize = 'calc(var(--tile-font) * 0.5)'; // Размер зависит от ползунка букв!
+                msg.innerHTML = 'СЛОВО УГАДАНО!<br>СЛЕДУЮЩЕЕ ЧЕРЕЗ 20 СЕК...';
+                container.appendChild(msg);
+                
+                const timerEl = document.querySelector('.timer-container');
+                if (timerEl) timerEl.style.display = 'none'; // Прячем полоску таймера
             }
         }
 
@@ -876,7 +901,8 @@ function initLeaderboardRealtime() {
             setInterval(forceSyncState, 3000); 
 
             setInterval(() => {
-                if (!currentWord || currentMode !== 'classic') return;
+                // Если включилась пауза - таймер не идет
+                if (!currentWord || currentMode !== 'classic' || window.isCooldown) return;
                 timerSeconds--;
                 document.getElementById('timer-progress').style.width = `${(timerSeconds / 30) * 100}%`;
                 
