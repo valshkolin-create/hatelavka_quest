@@ -987,47 +987,77 @@ window.saveAdminRewards = async function() {
 
 // Реальная выдача наград (Батч-запрос)
 window.issueRewardsNow = async function() {
-    haptic('medium'); // Добавляем отклик
+    haptic('medium'); 
+
     if (!window.currentLeaderboardData || window.currentLeaderboardData.length === 0) {
         return Telegram.WebApp.showAlert("Сначала загрузите данные лидерборда!");
     }
 
-    // Временно скрываем модалку админки, чтобы confirm не появился под ней
+    // Временно скрываем модалку
     document.getElementById('admin-rewards-modal').classList.add('hidden');
 
-    customConfirm("ВЫДАТЬ НАГРАДЫ?\n\nЭто начислит баланс/кейсы текущим ТОП-3 игрокам прямо сейчас.", async (ok) => {
+    // Используем нативный Telegram Confirm для 100% надежности
+    Telegram.WebApp.showConfirm("ВЫДАТЬ НАГРАДЫ?\n\nЭто начислит награды ТОП-3 игрокам прямо сейчас, исходя из текущих настроек в окне.", async (ok) => {
         if (!ok) {
-            // Если нажали отмену - возвращаем модалку обратно
             document.getElementById('admin-rewards-modal').classList.remove('hidden');
             return;
         }
 
         const winners = [];
-        for (let i = 0; i < 3; i++) {
-            const entry = window.currentLeaderboardData[i];
-            if (entry && entry.reward) {
+        let hasError = false;
+
+        // 🔥 1. ЧИТАЕМ ДАННЫЕ ПРЯМО ИЗ ФОРМЫ (а не из старого кэша)
+        for (let i = 1; i <= 3; i++) {
+            const typeEl = document.getElementById(`rew-type-${i}`);
+            const valEl = document.getElementById(`rew-val-${i}`);
+            
+            const type = typeEl ? typeEl.value : "none";
+            const value = valEl ? valEl.value : "";
+
+            if (type !== "none" && !value) {
+                hasError = true;
+            }
+
+            const entry = window.currentLeaderboardData[i - 1]; // Индексы 0, 1, 2
+            if (entry && type !== "none" && value) {
                 winners.push({
                     telegram_id: entry.telegram_id || entry.user_id || entry.id,
-                    rank: i + 1,
-                    reward: entry.reward
+                    rank: i,
+                    reward: { type: type, value: value }
                 });
             }
         }
 
+        if (hasError) {
+            document.getElementById('admin-rewards-modal').classList.remove('hidden');
+            return Telegram.WebApp.showAlert("Ошибка: Заполните значения для выбранных наград!");
+        }
+
         if (winners.length === 0) {
             document.getElementById('admin-rewards-modal').classList.remove('hidden');
-            return Telegram.WebApp.showAlert("У ТОП-3 не настроены награды!");
+            return Telegram.WebApp.showAlert("У ТОП-3 не настроены награды в форме!");
         }
 
         try {
             const lKey = getCurrentLeaderboardKey();
+            console.log("🔥 ОТПРАВЛЯЕМ ЗАПРОС НА ВЫДАЧУ:", { key: lKey, winners }); // Лог для проверки
+            
             const res = await makeApiRequest('/api/v1/admin/leaderboard/issue', { key: lKey, winners }, 'POST');
+            
+            console.log("✅ ОТВЕТ СЕРВЕРА:", res); // Смотрим ответ
+
+            // 🔥 2. ПОКАЗЫВАЕМ РЕАЛЬНЫЙ ОТВЕТ БЭКЕНДА
             if (res.success) {
-                Telegram.WebApp.showAlert("✅ Награды успешно выданы!\nЛоги отправлены в админ-чат.");
-                // Оставляем модалку скрытой
+                const detailsText = (res.details && res.details.length > 0) 
+                    ? res.details.join('\n') 
+                    : "Сервер ничего не вернул в details";
+                    
+                Telegram.WebApp.showAlert(`Результат выдачи:\n\n${detailsText}`);
             }
         } catch (e) {
+            console.error("❌ ОШИБКА ВЫДАЧИ:", e);
             document.getElementById('admin-rewards-modal').classList.remove('hidden');
+            Telegram.WebApp.showAlert("Произошла ошибка запроса (см. консоль F12)");
         }
     });
 };
