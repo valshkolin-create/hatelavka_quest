@@ -12132,24 +12132,34 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
     """
     Универсальная функция выдачи наград. Возвращает строку с результатом для логов.
     """
+    import uuid
+    from datetime import datetime, timezone
+    import logging
+
     # Получаем данные юзера
     u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id, tickets"})
     u_data = u_resp.json()
     if not u_data: 
-        return f"ID {tg_id}: Юзер не найден в БД"
+        return f"ID {tg_id}: Юзер не найден в БД (возможно, это Twitch ID без привязки к Telegram)"
     u_record = u_data[0]
     
     try:
         if r_type == "coins":
             unique_promo_code = f"LB-COIN-{tg_id}-{uuid.uuid4().hex[:4].upper()}"
-            promo_insert = await supabase.post("/promocodes", json={
-                "code": unique_promo_code,
-                "reward_value": float(r_value),
-                "description": f"Топ Лидерборда: {config_key}",
-                "telegram_id": tg_id,
-                "is_used": False,
-                "auto_is_used": True
-            })
+            promo_insert = await supabase.post(
+                "/promocodes", 
+                json={
+                    "code": unique_promo_code,
+                    "reward_value": float(r_value),
+                    "description": f"Топ Лидерборда: {config_key}",
+                    "telegram_id": tg_id,
+                    "is_used": False,
+                    "auto_is_used": True
+                },
+                # 🔥 ФИКС: Требуем вернуть созданную строку, иначе .json() крашнет скрипт
+                headers={"Prefer": "return=representation"} 
+            )
+            
             if promo_insert.status_code in [200, 201]:
                 promo_data = promo_insert.json()
                 promo_id = promo_data[0].get("id") if isinstance(promo_data, list) else promo_data.get("id")
@@ -12165,7 +12175,7 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
                     logging.error(f"Ошибка снайпера: {sniper_e}")
                     return f"ID {tg_id}: Монеты не начислены (ошибка Bot-T)"
             else:
-                return f"ID {tg_id}: Ошибка записи промокода"
+                return f"ID {tg_id}: Ошибка записи промокода ({promo_insert.text})"
                 
         elif r_type == "tickets":
             new_tickets = int(u_record["tickets"] or 0) + int(r_value)
@@ -12174,28 +12184,31 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
             
         elif r_type == "case":
             unique_code = f"LB-{tg_id}-{uuid.uuid4().hex[:4].upper()}"
-            coupon_res = await supabase.post("/cs_codes", json={
-                "code": unique_code,
-                "max_uses": 1,
-                "current_uses": 0,
-                "is_active": True,
-                "description": f"Авто-код: Топ Лидерборда ({config_key})",
-                "is_copied": False,
-                "assigned_to": tg_id,
-                "assigned_at": datetime.now(timezone.utc).isoformat(),
-                "target_case_name": r_value,
-                "used_by_ids": [],
-                "activated_by_ids": [tg_id],
-                "campaign_id": 888
-            })
+            coupon_res = await supabase.post(
+                "/cs_codes", 
+                json={
+                    "code": unique_code,
+                    "max_uses": 1,
+                    "current_uses": 0,
+                    "is_active": True,
+                    "description": f"Авто-код: Топ Лидерборда ({config_key})",
+                    "is_copied": False,
+                    "assigned_to": tg_id,
+                    "assigned_at": datetime.now(timezone.utc).isoformat(),
+                    "target_case_name": r_value,
+                    "used_by_ids": [],
+                    "activated_by_ids": [tg_id],
+                    "campaign_id": 888
+                }
+            )
             if coupon_res.status_code in [200, 201]:
                 return f"ID {tg_id}: Выдан кейс '{r_value}'"
             else:
-                return f"ID {tg_id}: Ошибка выдачи кейса"
+                return f"ID {tg_id}: Ошибка выдачи кейса ({coupon_res.text})"
                 
     except Exception as e:
-        logging.error(f"Ошибка выдачи награды {tg_id}: {e}")
-        return f"ID {tg_id}: Системная ошибка выдачи"
+        logging.error(f"Ошибка выдачи награды {tg_id}: {e}", exc_info=True)
+        return f"ID {tg_id}: Системная ошибка выдачи ({str(e)})"
         
 # =====================================================================
 # 1. ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (С ДИНАМИЧЕСКИМ КЛЮЧОМ И ЗАЩИТОЙ ОТ СТРОК)
@@ -12470,7 +12483,7 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
     
     tg_id = user_info.get('id')
     
-    # 🔥 1. БЕЗОПАСНАЯ ПРОВЕРКА ЧЕРЕЗ VERCEL ENV
+    # 1. БЕЗОПАСНАЯ ПРОВЕРКА ЧЕРЕЗ VERCEL ENV
     admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "")
     admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
     
@@ -12484,15 +12497,16 @@ async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClien
     
     results = []
     for w in winners:
-        winner_tg_id = w.get("telegram_id")
+        # 🔥 ФИКС: Добавляем поиск ключа user_id и id для совместимости с Twitch
+        winner_tg_id = w.get("telegram_id") or w.get("user_id") or w.get("id")
         reward = w.get("reward")
         
         if not winner_tg_id or not reward: 
             continue
         
-        # 🔥 Вызываем нашего универсального хелпера!
+        # Вызываем нашего универсального хелпера
         res_str = await process_reward_issuance(
-            tg_id=winner_tg_id, 
+            tg_id=int(winner_tg_id), 
             r_type=reward.get("type"), 
             r_value=reward.get("value"), 
             config_key=config_key, 
