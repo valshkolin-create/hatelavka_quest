@@ -835,7 +835,7 @@
             return arr.join('');
         }
 
-        function renderWord() {
+function renderWord() {
             const container = document.getElementById('word-container');
             if (!container) return;
             container.innerHTML = '';
@@ -860,11 +860,91 @@
                 }
                 container.appendChild(div);
             }
+
+            // ---> НОВОЕ: Текст таймера в OBS <---
+            if (isCooldownActive && isObs) {
+                const timerText = document.createElement('div');
+                timerText.id = 'cooldown-text';
+                timerText.style.width = '100%';
+                timerText.style.textAlign = 'center';
+                timerText.style.marginTop = '20px';
+                timerText.style.fontSize = 'var(--tile-font)'; // Строго размер букв!
+                timerText.style.fontWeight = '900';
+                timerText.style.color = '#22c55e';
+                timerText.style.textShadow = '0 0 20px rgba(34, 197, 94, 0.6)';
+                timerText.innerText = `СМЕНА СЛОВА: ${cooldownTimerSeconds}С`;
+                container.appendChild(timerText);
+            }
         }
 
         // ==========================================
         // ИНИЦИАЛИЗАЦИЯ И РАЗДЕЛЕНИЕ НА OBS/АДМИНКУ
         // ==========================================
+
+        // 🔥 ЕДИНЫЙ ТАЙМЕР ДЛЯ ИГРЫ И КУЛДАУНА 🔥 (Теперь работает везде)
+        setInterval(() => {
+            if (!currentWord || currentMode !== 'classic') return;
+
+            const timerBar = document.getElementById('timer-progress');
+            const timerEl = document.getElementById('obs-timer-container');
+
+            if (isCooldownActive) {
+                // ЛОГИКА ОЖИДАНИЯ СЛЕДУЮЩЕГО СЛОВА
+                cooldownTimerSeconds--;
+                if (timerBar) {
+                    timerBar.style.width = `${(cooldownTimerSeconds / 20) * 100}%`;
+                }
+                
+                // ОБНОВЛЯЕМ ТЕКСТ В OBS
+                const obsText = document.getElementById('cooldown-text');
+                if (obsText) obsText.innerText = `СМЕНА СЛОВА: ${cooldownTimerSeconds}С`;
+
+                // ОБНОВЛЯЕМ ТЕКСТ В АДМИНКЕ
+                const adminWordEl = document.getElementById('admin-current-word');
+                if (adminWordEl && !isObs) {
+                    adminWordEl.innerText = `СМЕНА СЛОВА: ${cooldownTimerSeconds}С`;
+                    adminWordEl.style.color = '#22c55e';
+                }
+                
+                if (cooldownTimerSeconds <= 0) {
+                    isCooldownActive = false;
+                    
+                    // Возвращаем красный цвет таймеру для новой игры
+                    if (timerBar) {
+                        timerBar.style.backgroundColor = '#ff4d4d';
+                        timerBar.style.boxShadow = '0 0 25px rgba(255, 77, 77, 1)';
+                        timerBar.style.width = '100%';
+                    }
+                    
+                    // Запрос за новым словом делает ТОЛЬКО OBS (чтобы не было двойных запросов с админкой)
+                    if (isObs) {
+                        fetch('/api/v1/twitch/obs_next_round').catch(console.error);
+                    }
+                }
+            } else {
+                // ОБЫЧНАЯ ЛОГИКА ОТКРЫТИЯ БУКВ
+                if (timerEl) timerEl.style.display = 'block';
+                
+                timerSeconds--;
+                if (timerBar) {
+                    timerBar.style.width = `${(timerSeconds / 30) * 100}%`;
+                }
+                
+                if (timerSeconds <= 0) {
+                    timerSeconds = 30; 
+                    // Буквы открывает ТОЛЬКО OBS, чтобы не было рассинхрона с админкой
+                    if (currentWord.length - revealedIndices.length > 2 && isObs) {
+                        const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
+                        if (unrevealed.length > 0) {
+                            const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+                            revealedIndices.push(randomIndex);
+                            renderWord();
+                        }
+                    }
+                }
+            }
+        }, 1000);
+
         if (isObs) {
             document.body.classList.add('obs-mode');
             document.getElementById('obs-view').classList.remove('hidden');
@@ -873,56 +953,6 @@
             initRealtime();
             
             setInterval(forceSyncState, 3000); 
-
-            // 🔥 ЕДИНЫЙ ТАЙМЕР ДЛЯ ИГРЫ И КУЛДАУНА 🔥
-            setInterval(() => {
-                if (!currentWord || currentMode !== 'classic') return;
-
-                const timerBar = document.getElementById('timer-progress');
-                const timerEl = document.getElementById('obs-timer-container');
-
-                if (isCooldownActive) {
-                    // ЛОГИКА ОЖИДАНИЯ СЛЕДУЮЩЕГО СЛОВА
-                    cooldownTimerSeconds--;
-                    if (timerBar) {
-                        timerBar.style.width = `${(cooldownTimerSeconds / 20) * 100}%`;
-                    }
-                    
-                    if (cooldownTimerSeconds <= 0) {
-                        isCooldownActive = false;
-                        
-                        // Возвращаем красный цвет таймеру для новой игры
-                        if (timerBar) {
-                            timerBar.style.backgroundColor = '#ff4d4d';
-                            timerBar.style.boxShadow = '0 0 25px rgba(255, 77, 77, 1)';
-                            timerBar.style.width = '100%';
-                        }
-                        
-                        // Делаем запрос к серверу на генерацию нового слова
-                        fetch('/api/v1/admin/guess/next_word', { method: 'POST' }).catch(console.error);
-                    }
-                } else {
-                    // ОБЫЧНАЯ ЛОГИКА ОТКРЫТИЯ БУКВ
-                    if (timerEl) timerEl.style.display = 'block';
-                    
-                    timerSeconds--;
-                    if (timerBar) {
-                        timerBar.style.width = `${(timerSeconds / 30) * 100}%`;
-                    }
-                    
-                    if (timerSeconds <= 0) {
-                        timerSeconds = 30; 
-                        if (currentWord.length - revealedIndices.length > 2) {
-                            const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
-                            if (unrevealed.length > 0) {
-                                const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
-                                revealedIndices.push(randomIndex);
-                                renderWord();
-                            }
-                        }
-                    }
-                }
-            }, 1000);
         } else {
             document.getElementById('auth-view').style.display = 'flex';
             checkAccess();
