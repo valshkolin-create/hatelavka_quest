@@ -1052,7 +1052,13 @@ window.issueRewardsNow = async function() {
                     ? res.details.join('\n') 
                     : "Сервер ничего не вернул в details";
                     
-                Telegram.WebApp.showAlert(`Результат выдачи:\n\n${detailsText}`);
+                // Если текст слишком длинный для ТГ-попапа, используем обычный браузерный алерт
+                const fullMsg = `Результат выдачи:\n\n${detailsText}`;
+                if (fullMsg.length > 200) {
+                    alert(fullMsg); 
+                } else {
+                    Telegram.WebApp.showAlert(fullMsg);
+                }
             }
         } catch (e) {
             console.error("❌ ОШИБКА ВЫДАЧИ:", e);
