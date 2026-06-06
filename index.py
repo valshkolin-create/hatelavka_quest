@@ -23657,60 +23657,52 @@ http_client = httpx.AsyncClient()
 async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     global guess_cache, words_cache
     now = time.time()
-    
-    if guess_cache.get("cooldown_until", 0) > now + 1:
-        return {"status": "cooldown_active"}
+    print(f"DEBUG: Triggered next round at {now}") # ЛОГ 1
 
     try:
         # 1. Получаем стейт
         state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
         current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
         
-        # ЗАЩИТА ОТ ПУСТЫХ ДАННЫХ (NONE)
-        db_current_word = current_state.get("current_word") or ""
-        used_words = current_state.get("used_words") or []
-
-        # 2. Кешируем словарь
+        # 2. Словарь
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word", "limit": "5000"})
             if words_res.status_code == 200:
-                words_cache["list"] = [
-                    w["word"] for w in words_res.json() 
-                    if isinstance(w.get("word"), str) and len(w["word"]) >= 4 and "-" not in w["word"]
-                ]
+                words_cache["list"] = [w["word"] for w in words_res.json() if isinstance(w.get("word"), str)]
                 words_cache["updated_at"] = now
+                print(f"DEBUG: Dictionary loaded, count: {len(words_cache['list'])}") # ЛОГ 2
 
-        # 3. Выбираем следующее слово
-        used_words_upper = {u.upper() for u in used_words if isinstance(u, str)}
-        all_words = [w for w in words_cache["list"] if w.upper() not in used_words_upper and w.upper() != db_current_word.upper()]
+        # 3. Выбор слова
+        all_words = [w for w in words_cache["list"] if w.upper() != current_state.get("current_word", "").upper()]
+        next_word = random.choice(all_words) if all_words else "ТЕСТ"
+        print(f"DEBUG: Chosen word: {next_word}") # ЛОГ 3
+
+        # 4. ОБНОВЛЕНИЕ БАЗЫ (УБРАЛИ ВСЕ ФИЛЬТРЫ, ОСТАВИЛИ ТОЛЬКО ID=1)
+        # Это самое важное место. Если здесь ошибка, мы её увидим в принтах.
+        update_json = {
+            "current_word": next_word, 
+            "revealed_indices": [],
+            "is_active": True
+        }
         
-        if not all_words:
-            used_words = []
-            all_words = [w for w in words_cache["list"] if w.upper() != db_current_word.upper()]
-
-        next_word = random.choice(all_words) if all_words else "КОНЕЦ"
-        if next_word != "КОНЕЦ":
-            used_words.append(next_word)
-
-        # 4. Сохраняем в БД (ГЛАВНЫЙ ФИКС: убрали фильтр по русскому слову, который ломал сохранение)
-        await supabase.patch(
+        patch_res = await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1"}, 
-            json={
-                "current_word": next_word, 
-                "revealed_indices": [],
-                "used_words": used_words
-            },
-            headers={"Prefer": "return=representation"} 
+            json=update_json,
+            headers={"Prefer": "return=representation"}
         )
+        
+        print(f"DEBUG: Supabase PATCH status: {patch_res.status_code}") # ЛОГ 4
+        print(f"DEBUG: Supabase response: {patch_res.text}") # ЛОГ 5
 
-        # 5. Сбрасываем кэш
-        guess_cache["updated_at"] = 0
-
-        return {"status": "success", "next_word": next_word}
+        if patch_res.status_code in [200, 201, 204]:
+            guess_cache["cooldown_until"] = 0 # Сбрасываем кулдаун при успехе
+            return {"status": "success", "next_word": next_word}
+        else:
+            return {"status": "error_db", "code": patch_res.status_code}
 
     except Exception as e:
-        print(f"DEBUG OBS TRIGGER ERROR: {e}")
+        print(f"DEBUG CRITICAL ERROR: {e}")
         return {"status": "error", "message": str(e)}
         
 # --- ФОНОВАЯ ЗАДАЧА: СИГНАЛ В OBS ---
