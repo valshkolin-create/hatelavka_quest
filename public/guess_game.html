@@ -931,11 +931,15 @@
                             fetch('/api/v1/twitch/obs_next_round?t=' + Date.now())
                                 .then(res => res.json())
                                 .then(data => {
-                                    if (data.status === 'cooldown_active') {
+                                    // 🔥 АГРЕССИВНАЯ ПОВТОРНАЯ ПОПЫТКА, если сервер не отдал success
+                                    if (data.status !== 'success') {
                                         setTimeout(fetchNextWord, 1000);
                                     }
                                 })
-                                .catch(console.error);
+                                .catch(err => {
+                                    console.error(err);
+                                    setTimeout(fetchNextWord, 1000); // Повторяем даже при сетевой ошибке
+                                });
                         };
                         fetchNextWord();
                     }
