@@ -23638,7 +23638,8 @@ guess_cache = {
     "word": None,
     "is_active": False,
     "updated_at": 0,
-    "raw_word": ""
+    "raw_word": "",
+    "cooldown_until": 0  # 🔥 Флаг для 20-секундной паузы
 }
 
 words_cache = {
@@ -23646,19 +23647,33 @@ words_cache = {
     "updated_at": 0
 }
 
-# 🔥 ГЛОБАЛЬНЫЙ КЛИЕНТ: Экономит кучу времени на подключении
-http_client = httpx.AsyncClient()
-
-# --- ФОНОВАЯ ЗАДАЧА ---
-async def finish_guess_tasks(supabase: httpx.AsyncClient, twitch_login: str, next_word: str):
+# --- ФОНОВАЯ ЗАДАЧА С ЗАДЕРЖКОЙ ---
+async def finish_guess_tasks(supabase: httpx.AsyncClient, twitch_login: str, next_word: str, target_filter: str, used_words: list):
     try:
-        await asyncio.gather(
-            broadcast_guess_update(supabase, "force-update", {
-                "current_word": next_word,
-                "revealed_indices": []
-            }),
-            supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+        # 1. Мгновенно начисляем очки победителю
+        await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+        
+        # 2. ЖДЕМ 20 СЕКУНД (в это время бэкенд отбивает чат)
+        await asyncio.sleep(20)
+
+        # 3. Сохраняем новое слово в базу
+        await supabase.patch(
+            "/guess_state", 
+            params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
+            json={
+                "current_word": next_word, 
+                "revealed_indices": [],
+                "used_words": used_words
+            },
+            headers={"Prefer": "return=representation"} 
         )
+
+        # 4. Рассылаем бродкаст для OBS (появляется новое слово)
+        await broadcast_guess_update(supabase, "force-update", {
+            "current_word": next_word,
+            "revealed_indices": []
+        })
+
     except Exception as e:
         print(f"DEBUG BACKGROUND ERROR: {e}")
 
@@ -23669,15 +23684,15 @@ async def handle_fossabot_guess(
     background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
-    if not token: 
-        return ""
-
     try:
         global guess_cache, words_cache
         now = time.time()
 
-        # Обновление кэша текущего слова (раз в 10 сек)
+        # 🔥 1. БЛОКИРОВКА ОТ ГОНКИ: Если идет пауза 20 секунд, рубим всё моментально
+        if now < guess_cache.get("cooldown_until", 0):
+            return ""
+
+        # Обновление кэша (раз в 10 сек)
         if now - guess_cache["updated_at"] > 10:
             state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
             if state_res.status_code == 200 and state_res.json():
@@ -23690,77 +23705,60 @@ async def handle_fossabot_guess(
         if not guess_cache["is_active"] or not guess_cache["word"]:
             return ""
 
-        # Идем в API Fossabot за текстом (используем глобальный клиент)
-        fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
-        
-        if fb_res.status_code != 200: return ""
-        message_data = fb_res.json().get("message")
-        if not message_data: return ""
+        # 🔥 2. ЧИТАЕМ ДАННЫЕ ПРЯМО ИЗ URL (по твоей рабочей ссылке)
+        twitch_login = request.query_params.get("user", "").lower()
+        guess_word = request.query_params.get("guess", "").strip().upper()
 
-        twitch_login = message_data["user"]["login"].lower()
-        twitch_display = message_data["user"]["display_name"]
-        guess_word = message_data["content"].strip().upper()
-
-        # Быстрый отсев неверных слов (всё, база отдыхает)
+        # Быстрый отсев неверных слов (отработка за миллисекунды)
         if guess_word != guess_cache["word"]:
             return ""
 
-        # --- СЮДА ДОЙДЕТ ТОЛЬКО ПОБЕДИТЕЛЬ ---
+        # --- СЮДА ДОЙДЕТ ТОЛЬКО ПЕРВЫЙ ПОБЕДИТЕЛЬ ---
+        
+        # 3. Врубаем кулдаун на 20 секунд! 
+        # Все последующие правильные ответы отлетят в проверке выше.
+        guess_cache["cooldown_until"] = now + 20
+        
         target_filter = guess_cache["raw_word"]
         
-        # Получаем свежее состояние игры из базы (чтобы узнать сыгранные слова)
+        # Получаем стейт для истории слов
         state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
         current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
         used_words = current_state.get("used_words", [])
 
+        # Кешируем словарь
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word"})
             if words_res.status_code == 200:
-                # Кэшируем только валидные слова (от 4 знаков, без дефисов)
                 words_cache["list"] = [
                     w["word"] for w in words_res.json() 
                     if len(w["word"]) >= 4 and "-" not in w["word"]
                 ]
                 words_cache["updated_at"] = now
         
-        # Выбираем слова, которые еще НЕ использовались в этом круге и не равны текущему
         all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != guess_cache["word"]]
 
-        # Если все доступные слова в базе закончились — сбрасываем круг истории
         if not all_words:
             used_words = []
             all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
 
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
-
         if next_word != "КОНЕЦ":
             used_words.append(next_word)
 
-        # Меняем слово в базе
-        patch_res = await supabase.patch(
-            "/guess_state", 
-            params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
-            json={
-                "current_word": next_word, 
-                "revealed_indices": [],
-                "used_words": used_words
-            },
-            headers={"Prefer": "return=representation"} 
-        )
+        # 4. Запускаем фоновую задачу
+        background_tasks.add_task(finish_guess_tasks, supabase, twitch_login, next_word, target_filter, used_words)
         
-        if not patch_res.json():
-            return ""
-
-        # Запускаем долгие задачи (Broadcast и Очки) в ФОНЕ!
-        background_tasks.add_task(finish_guess_tasks, supabase, twitch_login, next_word)
+        # Сбрасываем таймер кэша
         guess_cache["updated_at"] = 0 
 
-        return f"🎉 @{twitch_display} угадал слово «{guess_cache['word']}»! Следующее слово на экране."
+        # Отправляем победное сообщение в чат
+        return f"🎉 @{twitch_login} угадал слово «{guess_cache['word']}»! Следующее слово через 20 секунд."
 
     except Exception as e:
         print(f"DEBUG ERROR: {str(e)}")
         return ""
-
+        
 # 1. Единая схема для всех настроек фона (всё делаем Optional)
 class CoversUpdateRequest(BaseModel):
     default_cover_url: Optional[str] = None
