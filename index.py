@@ -12131,12 +12131,13 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
 async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_key: str, supabase: httpx.AsyncClient) -> str:
     """
     Универсальная функция выдачи наград. Ищет юзера по telegram_id ИЛИ twitch_id.
+    После успешного начисления отправляет in-app уведомление «в колокольчик».
     """
     import uuid
     from datetime import datetime, timezone
     import logging
 
-    # 🔥 ФИКС 1: Ищем по обоим столбцам сразу через параметр 'or'
+    # 1. Ищем по обоим столбцам сразу через параметр 'or'
     u_resp = await supabase.get("/users", params={
         "or": f"(telegram_id.eq.{tg_id},twitch_id.eq.{tg_id})",
         "select": "telegram_id, bott_internal_id, tickets"
@@ -12148,10 +12149,29 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
         
     u_record = u_data[0]
     
-    # 🔥 ФИКС 2: Вытаскиваем настоящий telegram_id из базы, чтобы не сломать таблицы промокодов
+    # Вытаскиваем настоящий telegram_id из базы для привязки уведомлений и промокодов
     real_tg_id = u_record.get("telegram_id")
     
+    # Словарь для красивого отображения лидерборда в тексте уведомления
+    board_map = {
+        "telegram_day": "Лидерборд TG (День)",
+        "telegram_week": "Лидерборд TG (Неделя)",
+        "telegram_month": "Лидерборд TG (Месяц)",
+        "telegram_all": "Лидерборд TG (Всё время)",
+        "twitch_message_session": "Twitch Сообщения (Сессия)",
+        "twitch_message_week": "Twitch Сообщения (Неделя)",
+        "twitch_message_month": "Twitch Сообщения (Месяц)",
+        "twitch_message_global": "Twitch Сообщения (Всё время)",
+        "twitch_uptime_session": "Twitch Время (Сессия)",
+        "twitch_uptime_week": "Twitch Время (Неделя)",
+        "twitch_uptime_month": "Twitch Время (Месяц)",
+        "twitch_uptime_global": "Twitch Время (Всё время)",
+        "twitch_ranks_session": "Лидерборд Twitch Рангов"
+    }
+    board_title = board_map.get(config_key, f"Лидерборд ({config_key})")
+    
     try:
+        # --- ВЫДАЧА МОНЕТ ---
         if r_type == "coins":
             unique_promo_code = f"LB-COIN-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
             promo_insert = await supabase.post(
@@ -12177,18 +12197,42 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
                         reward_value=float(r_value),
                         description=f"Награда за Топ ({config_key})"
                     )
+                    
+                    # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК
+                    await create_in_app_notification(
+                        supabase=supabase,
+                        user_id=real_tg_id,
+                        title="🏆 Награда за Лидерборд!",
+                        message=f"Ты занял призовое место в «{board_title}»! Награда в размере {r_value} монет зачислена на твой баланс.",
+                        notif_type="coins"
+                    )
+                    
                     return f"Twitch/TG {tg_id} -> Выдано {r_value} монет"
                 except Exception as sniper_e:
-                    logging.error(f"Ошибка снайпера: {sniper_e}")
+                    logging.error(f"Ошибка снайпера при активации монет: {sniper_e}")
                     return f"ID {tg_id} -> Ошибка начисления Bot-T"
             else:
-                return f"ID {tg_id} -> Ошибка записи БД ({promo_insert.text})"
+                return f"ID {tg_id} -> Ошибка записи БД промокодов ({promo_insert.text})"
                 
+        # --- ВЫДАЧА БИЛЕТОВ ---
         elif r_type == "tickets":
             new_tickets = int(u_record.get("tickets") or 0) + int(r_value)
-            await supabase.patch("/users", params={"telegram_id": f"eq.{real_tg_id}"}, json={"tickets": new_tickets})
-            return f"Twitch/TG {tg_id} -> Выдано {r_value} билетов"
+            res_patch = await supabase.patch("/users", params={"telegram_id": f"eq.{real_tg_id}"}, json={"tickets": new_tickets})
             
+            if res_patch.status_code in [200, 204]:
+                # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК
+                await create_in_app_notification(
+                    supabase=supabase,
+                    user_id=real_tg_id,
+                    title="🏆 Награда за Лидерборд!",
+                    message=f"Ты занял призовое место в «{board_title}»! Тебе успешно начислено {r_value} билетов.",
+                    notif_type="tickets"
+                )
+                return f"Twitch/TG {tg_id} -> Выдано {r_value} билетов"
+            else:
+                return f"ID {tg_id} -> Ошибка обновления билетов в БД"
+                
+        # --- ВЫДАЧА КЕЙСОВ ---
         elif r_type == "case":
             unique_code = f"LB-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
             coupon_res = await supabase.post(
@@ -12209,6 +12253,14 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
                 }
             )
             if coupon_res.status_code in [200, 201]:
+                # 🔥 ДОБАВЛЯЕМ IN-APP УВЕДОМЛЕНИЕ В КОЛОКОЛЬЧИК
+                await create_in_app_notification(
+                    supabase=supabase,
+                    user_id=real_tg_id,
+                    title="🏆 Награда за Лидерборд!",
+                    message=f"Ты занял призовое место в «{board_title}»! Получен {r_value}.",
+                    notif_type="case"
+                )
                 return f"Twitch/TG {tg_id} -> Выдан кейс '{r_value}'"
             else:
                 return f"ID {tg_id} -> Ошибка выдачи кейса ({coupon_res.text})"
