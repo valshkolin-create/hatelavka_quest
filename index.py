@@ -23652,33 +23652,36 @@ words_cache = {
 # 🔥 ГЛОБАЛЬНЫЙ КЛИЕНТ для быстрых запросов к Fossabot
 http_client = httpx.AsyncClient()
 
-# --- ФОНОВАЯ ЗАДАЧА: СМЕНА РАУНДА И OBS ---
-async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, current_word: str):
-    try:
-        # 1. Мгновенно отправляем сигнал в OBS (открыть слово и включить паузу)
-        await broadcast_guess_update(supabase, "force-update", {
-            "current_word": target_filter,
-            "revealed_indices": list(range(len(target_filter))),
-            "is_cooldown": True
-        })
+# 🔥 НОВЫЙ ЭНДПОИНТ ТОЛЬКО ДЛЯ OBS (Генерирует новое слово после кулдауна)
+@app.get("/api/v1/twitch/obs_next_round")
+async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    global guess_cache, words_cache
+    now = time.time()
+    
+    # Защита от спама: не даем сменить слово, если 20 секунд еще не прошло
+    if guess_cache.get("cooldown_until", 0) > now + 1:
+        return {"status": "cooldown_active"}
 
-        # 2. Получаем стейт для истории слов
+    try:
+        current_word = guess_cache.get("word", "")
+        target_filter = guess_cache.get("raw_word", "")
+
+        # 1. Получаем стейт для истории
         state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
         current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
         used_words = current_state.get("used_words", [])
 
-        # 3. Кешируем словарь (раз в час)
-        global words_cache
-        if not words_cache["list"] or (time.time() - words_cache["updated_at"] > 3600):
+        # 2. Кешируем словарь
+        if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word"})
             if words_res.status_code == 200:
                 words_cache["list"] = [
                     w["word"] for w in words_res.json() 
                     if len(w["word"]) >= 4 and "-" not in w["word"]
                 ]
-                words_cache["updated_at"] = time.time()
+                words_cache["updated_at"] = now
 
-        # 4. Выбираем следующее слово
+        # 3. Выбираем следующее слово
         all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != current_word]
         if not all_words:
             used_words = []
@@ -23688,10 +23691,7 @@ async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, cur
         if next_word != "КОНЕЦ":
             used_words.append(next_word)
 
-        # 5. ДОЖИДАЕМСЯ ОКОНЧАНИЯ КУЛДАУНА (18.5 сек)
-        await asyncio.sleep(18.5)
-
-        # 6. Сохраняем новое слово в базу
+        # 4. Сохраняем в БД (Бродкаст для OBS выстрелит сам из базы)
         await supabase.patch(
             "/guess_state", 
             params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
@@ -23703,14 +23703,30 @@ async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, cur
             headers={"Prefer": "return=representation"} 
         )
 
-        # 7. Рассылаем бродкаст для OBS (появляется новое слово)
+        # 5. Сбрасываем кэш
+        guess_cache["updated_at"] = 0
+
+        return {"status": "success", "next_word": next_word}
+
+    except Exception as e:
+        print(f"DEBUG OBS TRIGGER ERROR: {e}")
+        return {"status": "error"}
+
+# --- ФОНОВАЯ ЗАДАЧА: СИГНАЛ В OBS ---
+async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, current_word: str):
+    try:
+        # Мгновенно отправляем сигнал в OBS (открыть слово и включить паузу)
         await broadcast_guess_update(supabase, "force-update", {
-            "current_word": next_word,
-            "revealed_indices": []
+            "current_word": target_filter,
+            "revealed_indices": list(range(len(target_filter))),
+            "is_cooldown": True,
+            "action": "cooldown",  # Сигнал для таймера OBS
+            "delay": 20
         })
         
-        # 8. Сбрасываем кэш
-        guess_cache["updated_at"] = 0 
+        # Мы УДАЛИЛИ отсюда генерацию слова и ожидание 18.5 секунд. 
+        # Эту работу теперь делает OBS и эндпоинт /obs_next_round.
+        # Функция завершается за миллисекунды.
 
     except Exception as e:
         print(f"DEBUG BACKGROUND ERROR: {e}")
@@ -23783,7 +23799,7 @@ async def handle_fossabot_guess(
             
             await asyncio.sleep(1.5)
             
-            # Запускаем тяжелые фоновые задачи
+            # Запускаем отправку бродкаста в фоне (чтобы не тормозить ответ в чат)
             background_tasks.add_task(process_round_end, supabase, target_filter, guess_cache["word"])
 
             winners_str = ", @".join(guess_cache["round_winners"])
