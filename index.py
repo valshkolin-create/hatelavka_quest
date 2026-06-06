@@ -23658,17 +23658,16 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
     global guess_cache, words_cache
     now = time.time()
     
-    # Защита от спама: не даем сменить слово, если 20 секунд еще не прошло
+    # Защита от спама (если рассинхрон, фронт теперь просто повторит запрос)
     if guess_cache.get("cooldown_until", 0) > now + 1:
         return {"status": "cooldown_active"}
 
     try:
-        current_word = guess_cache.get("word", "")
-        target_filter = guess_cache.get("raw_word", "")
-
-        # 1. Получаем стейт для истории
+        # 1. Получаем стейт напрямую из БД (безопаснее, чем брать из кэша)
         state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
         current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
+        
+        db_current_word = current_state.get("current_word", "")
         used_words = current_state.get("used_words", [])
 
         # 2. Кешируем словарь
@@ -23682,19 +23681,19 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
                 words_cache["updated_at"] = now
 
         # 3. Выбираем следующее слово
-        all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != current_word]
+        all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != db_current_word.upper()]
         if not all_words:
             used_words = []
-            all_words = [w for w in words_cache["list"] if w.upper() != current_word]
+            all_words = [w for w in words_cache["list"] if w.upper() != db_current_word.upper()]
 
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
         if next_word != "КОНЕЦ":
             used_words.append(next_word)
 
-        # 4. Сохраняем в БД (Бродкаст для OBS выстрелит сам из базы)
+        # 4. Сохраняем в БД (Патчим строго по актуальному слову из базы)
         await supabase.patch(
             "/guess_state", 
-            params={"id": "eq.1", "current_word": f"eq.{target_filter}"}, 
+            params={"id": "eq.1", "current_word": f"eq.{db_current_word}"}, 
             json={
                 "current_word": next_word, 
                 "revealed_indices": [],
@@ -23711,7 +23710,7 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
     except Exception as e:
         print(f"DEBUG OBS TRIGGER ERROR: {e}")
         return {"status": "error"}
-
+        
 # --- ФОНОВАЯ ЗАДАЧА: СИГНАЛ В OBS ---
 async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, current_word: str):
     try:
