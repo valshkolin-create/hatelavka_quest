@@ -23639,7 +23639,9 @@ guess_cache = {
     "is_active": False,
     "updated_at": 0,
     "raw_word": "",
-    "cooldown_until": 0  # 🔥 Флаг для 20-секундной паузы
+    "cooldown_until": 0,  # 🔥 Глобальный кулдаун (20 сек)
+    "buffer_end": 0,      # 🔥 Окно для сбора остальных победителей (1.5 сек)
+    "round_winners": []   # 🔥 Список победителей текущего раунда
 }
 
 words_cache = {
@@ -23648,13 +23650,12 @@ words_cache = {
 }
 
 # --- ФОНОВАЯ ЗАДАЧА С ЗАДЕРЖКОЙ ---
-async def finish_guess_tasks(supabase: httpx.AsyncClient, twitch_login: str, next_word: str, target_filter: str, used_words: list):
+async def finish_guess_tasks(supabase: httpx.AsyncClient, next_word: str, target_filter: str, used_words: list):
     try:
-        # 1. Мгновенно начисляем очки победителю
-        await supabase.post("/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+        # 1. Очки начисляются мгновенно в основном эндпоинте, чтобы не потерять никого из массива
         
-        # 2. ЖДЕМ 20 СЕКУНД (в это время бэкенд отбивает чат)
-        await asyncio.sleep(20)
+        # 2. ЖДЕМ ОСТАТОК ОТ 20 СЕКУНД (1.5 секунды мы уже прождали при сборе ников)
+        await asyncio.sleep(18.5)
 
         # 3. Сохраняем новое слово в базу
         await supabase.patch(
@@ -23688,8 +23689,8 @@ async def handle_fossabot_guess(
         global guess_cache, words_cache
         now = time.time()
 
-        # 🔥 1. БЛОКИРОВКА ОТ ГОНКИ: Если идет пауза 20 секунд, рубим всё моментально
-        if now < guess_cache.get("cooldown_until", 0):
+        # 🔥 1. БЛОКИРОВКА ОТ ГОНКИ: Если окно сбора (1.5с) закрылось, но идет кулдаун (20с) - рубим
+        if now > guess_cache.get("buffer_end", 0) and now < guess_cache.get("cooldown_until", 0):
             return ""
 
         # Обновление кэша (раз в 10 сек)
@@ -23713,47 +23714,68 @@ async def handle_fossabot_guess(
         if guess_word != guess_cache["word"]:
             return ""
 
-        # --- СЮДА ДОЙДЕТ ТОЛЬКО ПЕРВЫЙ ПОБЕДИТЕЛЬ ---
+        # --- СЮДА ДОХОДЯТ ТОЛЬКО ПРАВИЛЬНЫЕ ОТВЕТЫ ---
         
-        # 3. Врубаем кулдаун на 20 секунд! 
-        # Все последующие правильные ответы отлетят в проверке выше.
-        guess_cache["cooldown_until"] = now + 20
+        is_first_blood = False
         
-        target_filter = guess_cache["raw_word"]
-        
-        # Получаем стейт для истории слов
-        state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
-        current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
-        used_words = current_state.get("used_words", [])
+        # 3. Если это ПЕРВЫЙ правильный ответ в раунде
+        if now > guess_cache.get("cooldown_until", 0):
+            guess_cache["buffer_end"] = now + 1.5       # Открываем окно сбора победителей на 1.5 сек
+            guess_cache["cooldown_until"] = now + 20    # Врубаем глобальный КД на 20 сек
+            guess_cache["round_winners"] = []           # Очищаем список победителей
+            is_first_blood = True
+            
+        # Добавляем в список и сразу начисляем очки фоном (чтобы не тормозить ответ)
+        if twitch_login not in guess_cache["round_winners"]:
+            guess_cache["round_winners"].append(twitch_login)
+            background_tasks.add_task(supabase.post, "/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
 
-        # Кешируем словарь
-        if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
-            words_res = await supabase.get("/guess_words", params={"select": "word"})
-            if words_res.status_code == 200:
-                words_cache["list"] = [
-                    w["word"] for w in words_res.json() 
-                    if len(w["word"]) >= 4 and "-" not in w["word"]
-                ]
-                words_cache["updated_at"] = now
-        
-        all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != guess_cache["word"]]
+        # Если этот запрос был первым, он берет на себя ответственность за ответ в чат и смену слова
+        if is_first_blood:
+            target_filter = guess_cache["raw_word"]
+            
+            # 🔥 ЖДЕМ 1.5 секунды, чтобы собрать остальных "застрявших" победителей
+            await asyncio.sleep(1.5)
+            
+            # Получаем стейт для истории слов
+            state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
+            current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
+            used_words = current_state.get("used_words", [])
 
-        if not all_words:
-            used_words = []
-            all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
+            # Кешируем словарь
+            if not words_cache["list"] or (time.time() - words_cache["updated_at"] > 3600):
+                words_res = await supabase.get("/guess_words", params={"select": "word"})
+                if words_res.status_code == 200:
+                    words_cache["list"] = [
+                        w["word"] for w in words_res.json() 
+                        if len(w["word"]) >= 4 and "-" not in w["word"]
+                    ]
+                    words_cache["updated_at"] = time.time()
+            
+            all_words = [w for w in words_cache["list"] if w not in used_words and w.upper() != guess_cache["word"]]
 
-        next_word = random.choice(all_words) if all_words else "КОНЕЦ"
-        if next_word != "КОНЕЦ":
-            used_words.append(next_word)
+            if not all_words:
+                used_words = []
+                all_words = [w for w in words_cache["list"] if w.upper() != guess_cache["word"]]
 
-        # 4. Запускаем фоновую задачу
-        background_tasks.add_task(finish_guess_tasks, supabase, twitch_login, next_word, target_filter, used_words)
-        
-        # Сбрасываем таймер кэша
-        guess_cache["updated_at"] = 0 
+            next_word = random.choice(all_words) if all_words else "КОНЕЦ"
+            if next_word != "КОНЕЦ":
+                used_words.append(next_word)
 
-        # Отправляем победное сообщение в чат
-        return f"🎉 @{twitch_login} угадал слово «{guess_cache['word']}»! Следующее слово через 20 секунд."
+            # 4. Запускаем фоновую задачу (уже без передачи логина, так как очки всем выдали выше)
+            background_tasks.add_task(finish_guess_tasks, supabase, next_word, target_filter, used_words)
+            
+            # Сбрасываем таймер кэша
+            guess_cache["updated_at"] = 0 
+
+            # Формируем ники и отправляем единое победное сообщение в чат
+            winners_str = ", @".join(guess_cache["round_winners"])
+            return f"🎉 Слово «{guess_cache['word']}» угадано! Очки забирают: @{winners_str}. След. слово через 20с."
+            
+        else:
+            # Те, кто успел в окно 1.5 сек, просто тихо получают пустоту
+            # (очки им уже начислены выше, а ник забрал первый запрос для общего сообщения)
+            return ""
 
     except Exception as e:
         print(f"DEBUG ERROR: {str(e)}")
