@@ -718,11 +718,11 @@
                 (payload) => handleStateChange(payload.new)
             );
 
-            // 🔥 Мгновенный слушатель Broadcast от бэкенда с обработкой кулдауна 🔥
+           // 🔥 Мгновенный слушатель Broadcast от бэкенда с обработкой кулдауна 🔥
             channel.on('broadcast', { event: 'force-update' }, (payload) => {
                 console.log("⚡ Получен мгновенный Broadcast!", payload.payload);
                 
-                if (payload.payload.action === 'cooldown' && isObs) {
+                if (payload.payload.action === 'cooldown') { // УБРАЛИ && isObs
                     // Активируем кулдаун
                     isCooldownActive = true;
                     cooldownTimerSeconds = payload.payload.delay || 20;
@@ -731,7 +731,6 @@
                     revealedIndices = Array.from(Array(currentWord.length).keys());
                     renderWord();
 
-                    // Переключаем таймер в режим кулдауна
                     const timerEl = document.getElementById('obs-timer-container');
                     const timerBar = document.getElementById('timer-progress');
                     if (timerEl && timerBar) {
@@ -881,15 +880,15 @@ function renderWord() {
         // ИНИЦИАЛИЗАЦИЯ И РАЗДЕЛЕНИЕ НА OBS/АДМИНКУ
         // ==========================================
 
-        // 🔥 ЕДИНЫЙ ТАЙМЕР ДЛЯ ИГРЫ И КУЛДАУНА 🔥 (Теперь работает везде)
+       // 🔥 ЕДИНЫЙ ТАЙМЕР ДЛЯ ИГРЫ И КУЛДАУНА 🔥
         setInterval(() => {
-            if (!currentWord || currentMode !== 'classic') return;
+            if (!currentWord) return; // Убрали currentMode !== 'classic', кулдаун нужен во всех режимах!
 
             const timerBar = document.getElementById('timer-progress');
             const timerEl = document.getElementById('obs-timer-container');
 
             if (isCooldownActive) {
-                // ЛОГИКА ОЖИДАНИЯ СЛЕДУЮЩЕГО СЛОВА
+                // ЛОГИКА ОЖИДАНИЯ СЛЕДУЮЩЕГО СЛОВА (Работает везде)
                 cooldownTimerSeconds--;
                 if (timerBar) {
                     timerBar.style.width = `${(cooldownTimerSeconds / 20) * 100}%`;
@@ -916,13 +915,27 @@ function renderWord() {
                         timerBar.style.width = '100%';
                     }
                     
-                    // Запрос за новым словом делает ТОЛЬКО OBS (чтобы не было двойных запросов с админкой)
+                    // Запрос за новым словом делает ТОЛЬКО OBS
                     if (isObs) {
-                        fetch('/api/v1/twitch/obs_next_round').catch(console.error);
+                        const fetchNextWord = () => {
+                            // Добавили ?t=... чтобы сбросить жесткий кэш браузера OBS
+                            fetch('/api/v1/twitch/obs_next_round?t=' + Date.now())
+                                .then(res => res.json())
+                                .then(data => {
+                                    // Если питон отбил запрос из-за микро-рассинхрона, стучимся снова
+                                    if (data.status === 'cooldown_active') {
+                                        setTimeout(fetchNextWord, 1000);
+                                    }
+                                })
+                                .catch(console.error);
+                        };
+                        fetchNextWord();
                     }
                 }
             } else {
                 // ОБЫЧНАЯ ЛОГИКА ОТКРЫТИЯ БУКВ
+                if (currentMode !== 'classic') return; // <-- Обычный таймер игры останавливаем для других режимов здесь
+                
                 if (timerEl) timerEl.style.display = 'block';
                 
                 timerSeconds--;
@@ -932,7 +945,7 @@ function renderWord() {
                 
                 if (timerSeconds <= 0) {
                     timerSeconds = 30; 
-                    // Буквы открывает ТОЛЬКО OBS, чтобы не было рассинхрона с админкой
+                    // Буквы открывает ТОЛЬКО OBS
                     if (currentWord.length - revealedIndices.length > 2 && isObs) {
                         const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
                         if (unrevealed.length > 0) {
