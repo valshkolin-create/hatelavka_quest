@@ -23681,11 +23681,14 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
                 words_cache["updated_at"] = now
 
         # 3. Выбираем следующее слово
+        used_words_upper = {u.upper() for u in used_words}
         all_words = [w for w in words_cache["list"] if w.upper() not in used_words_upper and w.upper() != db_current_word.upper()]
+        
         if not all_words:
             used_words = []
             all_words = [w for w in words_cache["list"] if w.upper() != db_current_word.upper()]
 
+        # 🔥 Вот эти строки случайно удалились при копировании:
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
         if next_word != "КОНЕЦ":
             used_words.append(next_word)
