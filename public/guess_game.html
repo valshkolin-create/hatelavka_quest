@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HATElove | Guess The Word Admin</title>
-    <!-- ПОДКЛЮЧАЕМ TELEGRAM И SUPABASE -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -72,6 +71,8 @@
             width: 100%; max-width: 1000px; background: rgba(0,0,0,0.6); 
             height: 12px; border-radius: 6px; overflow: hidden; margin-top: 30px;
             box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.05);
+            /* Скрыт по умолчанию для OBS, показываем программно */
+            display: none; 
         }
         
         body.obs-mode .timer-bar { 
@@ -79,8 +80,8 @@
             transition: width 1s linear; box-shadow: 0 0 25px rgba(255, 77, 77, 1); 
         }
 
-        bbody.obs-mode .waiting-text {
-            font-size: var(--tile-font); font-weight: 900; color: #9146FF; 
+        body.obs-mode .waiting-text {
+            font-size: 4.5rem; font-weight: 900; color: #9146FF; 
             text-shadow: 0 0 30px rgba(145, 70, 255, 0.6); letter-spacing: 4px;
         }
 
@@ -150,24 +151,20 @@
 </head>
 <body>
 
-    <!-- ================= OBS ОВЕРЛЕЙ ================= -->
     <div id="obs-view" class="hidden">
         <div id="obs-custom-text"></div>
         <div id="word-container" class="flex flex-wrap justify-center mb-6"></div>
-        <div class="timer-container"><div id="timer-progress" class="timer-bar"></div></div>
+        <div class="timer-container" id="obs-timer-container"><div id="timer-progress" class="timer-bar"></div></div>
     </div>
 
-    <!-- ================= АВТОРИЗАЦИЯ ================= -->
     <div id="auth-view" class="hidden flex-col items-center justify-center min-h-screen p-4 text-center">
         <i class="fa-brands fa-twitch twitch-logo animate-pulse"></i>
         <h1>Загрузка<br><span>Guess Word</span></h1>
         <div id="auth-status" class="text-[10px] font-bold text-gray-400 mt-2"><i class="fa-solid fa-spinner fa-spin"></i> Проверка прав...</div>
     </div>
 
-    <!-- ================= АДМИНКА ================= -->
     <div id="admin-view" class="hidden max-w-lg mx-auto p-3 pb-20">
         
-        <!-- Шапка -->
         <div class="flex justify-between items-center mb-3 bg-[rgba(255,255,255,0.02)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
             <div class="flex items-center gap-2">
                 <i class="fa-brands fa-twitch text-xl text-[#9146FF]"></i>
@@ -181,14 +178,12 @@
             </button>
         </div>
 
-        <!-- ТЕКУЩЕЕ СЛОВО ИЛИ СТАТУС СБОРА -->
         <div class="glass-card mb-3" style="background: rgba(145, 70, 255, 0.12); border-color: #9146FF; text-align: center;">
             <div class="text-[9px] text-purple-300 uppercase font-bold mb-1 tracking-widest" id="admin-status-label">Сейчас на стриме:</div>
             <div id="admin-current-word" class="text-2xl font-black text-white uppercase tracking-[4px] drop-shadow-md">...</div>
             <div id="admin-current-mode-label" class="text-[9px] text-gray-300 mt-1 font-bold">Ожидание...</div>
         </div>
 
-        <!-- КНОПКИ МОДАЛОК -->
         <div class="grid grid-cols-2 gap-2 mb-4">
             <button onclick="openModal('modal-leaderboard')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
                 <i class="fa-solid fa-trophy text-[14px] mb-1"></i> Топ
@@ -199,18 +194,15 @@
             <button onclick="openModal('modal-rewards')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
                 <i class="fa-solid fa-gift text-[14px] mb-1"></i> Призы
             </button>
-            <!-- КНОПКА СБОРОВ -->
             <button onclick="openModal('modal-events')" class="btn-custom btn-purple-outline flex-col !py-2 text-[9px]">
                 <i class="fa-solid fa-bullseye text-[14px] mb-1"></i> Сбор на старт
             </button>
         </div>
         
-        <!-- УПРАВЛЕНИЕ ИГРОЙ -->
         <div class="glass-card mb-4">
             <h2>Управление Игрой</h2>
             
             <div class="grid grid-cols-2 gap-2 mb-3">
-                <!-- ВЫБОР РЕЖИМА -->
                 <div>
                     <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Режим:</label>
                     <select id="game-mode-select" class="input-custom" onchange="changeGameMode()">
@@ -219,7 +211,6 @@
                         <option value="edges">↔️ Края</option>
                     </select>
                 </div>
-                <!-- ПОЛЗУНОК РАЗМЕРА БУКВ В OBS -->
                 <div>
                     <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
                         <span>Размер букв (OBS):</span>
@@ -229,7 +220,6 @@
                 </div>
             </div>
 
-            <!-- КАСТОМНЫЙ ТЕКСТ -->
             <div class="mb-3 bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
                 <div class="flex justify-between items-center mb-1">
                     <label class="block text-[9px] text-gray-400 uppercase font-bold">Текст над буквами (OBS):</label>
@@ -244,7 +234,6 @@
                 </div>
             </div>
 
-            <!-- НАСТРОЙКА ОБЛОЖЕК (ПРИЛОЖЕНИЕ) -->
             <div class="mb-3 bg-[rgba(0,0,0,0.3)] p-2 rounded-lg border border-[rgba(255,255,255,0.05)]">
                 <h3 class="text-[9px] text-gray-400 uppercase font-bold mb-2">Обложки (Фон приложения)</h3>
                 <label class="block text-[8px] text-gray-500 uppercase font-bold mb-1">Фон по умолчанию (Без сбора):</label>
@@ -253,7 +242,6 @@
                 <label class="block text-[8px] text-[#9146FF] uppercase font-bold mb-1">Фон во время игры:</label>
                 <input type="text" id="admin-game-cover-input" class="input-custom mb-2" placeholder="https://...">
 
-                <!-- НОВЫЕ ПОЛЗУНКИ ДЛЯ ПОЗИЦИИ И ЗУМА -->
                 <div class="grid grid-cols-1 gap-2 mt-3 mb-3 border-t border-[rgba(255,255,255,0.05)] pt-2">
                     <div>
                         <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1 flex justify-between">
@@ -281,7 +269,6 @@
                 <button onclick="setCovers()" class="btn-custom btn-purple w-full py-2"><i class="fa-solid fa-image"></i> Сохранить ссылки</button>
             </div>
 
-            <!-- ИЗМЕНЕНО: Кнопки обернуты в новую умную функцию -->
             <div class="grid grid-cols-2 gap-2 mb-2">
                 <button onclick="adminAction('/api/v1/admin/guess/start', this)" class="btn-custom btn-green"><i class="fa-solid fa-play"></i> Выдать слово</button>
                 <button onclick="adminAction('/api/v1/admin/guess/skip', this)" class="btn-custom btn-yellow"><i class="fa-solid fa-forward-step"></i> Скип</button>
@@ -290,9 +277,6 @@
         </div>
     </div>
 
-    <!-- ================= МОДАЛЬНЫЕ ОКНА ================= -->
-    
-    <!-- МОДАЛКА: СБОР НА ЗАПУСК -->
     <div id="modal-events" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
         <div class="glass-card w-full max-w-md bg-[#0f0f13] m-0">
             <div class="flex justify-between items-center mb-3 shrink-0">
@@ -302,13 +286,11 @@
             
             <div class="bg-[rgba(0,0,0,0.3)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)] mb-3 shrink-0">
                 <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Название сбора:</label>
-                <!-- Добавлен oninput для автосохранения -->
                 <input type="text" id="ev-title" class="input-custom mb-2" value="Начинаем отгадайку!" oninput="saveEventSettings()">
                 
                 <label class="block text-[9px] text-gray-400 uppercase font-bold mb-1">Обложка сбора (URL или GIF):</label>
                 <input type="text" id="ev-cover" class="input-custom mb-3" placeholder="https://..." oninput="saveEventSettings()">
                 
-                <!-- ОБНОВЛЕННАЯ СЕТКА: Цель, Цена, Дает Очков -->
                 <div class="grid grid-cols-3 gap-2 mb-3">
                     <div>
                         <label class="block text-[8px] text-gray-400 uppercase font-bold mb-1">Цель:</label>
@@ -324,7 +306,6 @@
                     </div>
                 </div>
 
-                <!-- НАСТРОЙКИ НАЧИСЛЕНИЙ -->
                 <div class="bg-[rgba(255,255,255,0.02)] p-2 rounded border border-[rgba(255,255,255,0.1)] mb-3">
                     <label class="block text-[9px] text-gray-400 uppercase font-bold mb-2 text-center">Очки за валюту бота</label>
                     <div class="grid grid-cols-2 gap-2">
@@ -348,7 +329,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА: ЛИДЕРБОРД -->
     <div id="modal-leaderboard" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
         <div class="glass-card w-full max-w-md max-h-[85vh] flex flex-col bg-[#0f0f13] m-0">
             <div class="flex justify-between items-center mb-3 shrink-0">
@@ -361,7 +341,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА: СЛОВАРЬ -->
     <div id="modal-dictionary" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
         <div class="glass-card w-full max-w-md bg-[#0f0f13] m-0">
             <div class="flex justify-between items-center mb-3">
@@ -374,7 +353,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА: НАГРАДЫ -->
     <div id="modal-rewards" class="fixed inset-0 bg-black/80 modal-overlay hidden z-50 flex items-center justify-center p-3">
         <div class="glass-card w-full max-w-md max-h-[90vh] flex flex-col bg-[#0f0f13] m-0">
             <div class="flex justify-between items-center mb-3 shrink-0">
@@ -441,6 +419,10 @@
         let scrambledWord = ""; 
         let rewardsConfig = [];
 
+        // 🔥 НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ТАЙМЕРА КУЛДАУНА 🔥
+        let isCooldownActive = false;
+        let cooldownTimerSeconds = 20;
+
         function saveEventSettings() {
             const settings = {
                 title: document.getElementById('ev-title').value,
@@ -486,8 +468,6 @@
             }
         }
 
-        // 🔥 НОВОЕ: Функция для принудительного и мгновенного получения стейта из БД
-        // Это убивает рассинхрон между ПУ и OBS
         async function forceSyncState() {
             try {
                 const { data, error } = await supabaseClient.from('guess_state').select('*').eq('id', 1).single();
@@ -499,7 +479,6 @@
             }
         }
 
-        // 🔥 НОВОЕ: Умные функции для кнопок, чтобы они мгновенно обновляли интерфейс
         async function adminAction(endpoint, btnEl) {
             const origHTML = btnEl.innerHTML;
             btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -661,8 +640,6 @@
             }
 
             if (state.is_active && state.current_word) {
-                window.isCooldown = state.is_cooldown || false; // 🔥 Ловим сигнал паузы
-                
                 if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
                     currentWord = state.current_word.toUpperCase();
                     currentMode = state.current_mode || "classic";
@@ -671,8 +648,11 @@
                     
                     if (currentMode === 'anagram') scrambledWord = shuffleString(currentWord);
                     
-                    const timerEl = document.querySelector('.timer-container');
-                    if (timerEl) timerEl.style.display = (currentMode === 'anagram') ? 'none' : 'block';
+                    // Показываем таймер игры только в классике и когда нет кулдауна
+                    const timerEl = document.getElementById('obs-timer-container');
+                    if (timerEl) {
+                        timerEl.style.display = (currentMode === 'classic' && !isCooldownActive) ? 'block' : 'none';
+                    }
                     
                     renderWord();
                 } else {
@@ -691,7 +671,6 @@
                     document.getElementById('admin-current-mode-label').innerText = `Режим: ${currentMode}`;
                 }
             } else {
-                // 🔥 ЗАЩИТА: Сбрасываем текст только если игра действительно была активна
                 if (currentWord !== "") {
                     currentWord = "";
                     if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
@@ -734,20 +713,38 @@
         function initRealtime() {
             const channel = supabaseClient.channel('guess-state-changes');
 
-            // 1. Стандартный слушатель базы данных (резервный)
             channel.on('postgres_changes', 
                 { event: 'UPDATE', schema: 'public', table: 'guess_state', filter: 'id=eq.1' }, 
                 (payload) => handleStateChange(payload.new)
             );
 
-            // 🔥 2. НОВОЕ: Мгновенный слушатель Broadcast от бэкенда 🔥
+            // 🔥 Мгновенный слушатель Broadcast от бэкенда с обработкой кулдауна 🔥
             channel.on('broadcast', { event: 'force-update' }, (payload) => {
                 console.log("⚡ Получен мгновенный Broadcast!", payload.payload);
-                // Имитируем payload от базы данных, чтобы интерфейс обновился сразу
-                handleStateChange(payload.payload); 
                 
-                // На всякий случай запрашиваем полный стейт, чтобы подтянуть размеры/настройки
-                setTimeout(forceSyncState, 500); 
+                if (payload.payload.action === 'cooldown' && isObs) {
+                    // Активируем кулдаун
+                    isCooldownActive = true;
+                    cooldownTimerSeconds = payload.payload.delay || 20;
+                    
+                    // Показываем угаданное слово (открываем все буквы)
+                    revealedIndices = Array.from(Array(currentWord.length).keys());
+                    renderWord();
+
+                    // Переключаем таймер в режим кулдауна
+                    const timerEl = document.getElementById('obs-timer-container');
+                    const timerBar = document.getElementById('timer-progress');
+                    if (timerEl && timerBar) {
+                        timerEl.style.display = 'block';
+                        timerBar.style.backgroundColor = '#9146FF'; // Фиолетовый цвет для кулдауна
+                        timerBar.style.boxShadow = '0 0 25px rgba(145, 70, 255, 1)';
+                        timerBar.style.width = '100%';
+                    }
+                } else {
+                    // Обычное обновление
+                    handleStateChange(payload.payload); 
+                    setTimeout(forceSyncState, 500); 
+                }
             });
 
             channel.subscribe(async (status) => {
@@ -757,35 +754,32 @@
                 }
             });
 
-            // Сборы
             supabaseClient.channel('admin-events-changes').on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'community_events' }, 
                 () => checkEventStatus() 
             ).subscribe();
         }
 
-        let leaderboardTimeout = null; // Глобальная переменная для таймера
+        let leaderboardTimeout = null; 
 
-function initLeaderboardRealtime() {
-    supabaseClient
-        .channel('leaderboard-changes')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'guess_leaderboard' }, 
-            () => {
-                // Если прилетело еще одно изменение, отменяем старый запрос
-                if (leaderboardTimeout) {
-                    clearTimeout(leaderboardTimeout);
-                }
-                // Ждем 500мс после ПОСЛЕДНЕГО изменения в БД, и только потом делаем 1 запрос
-                leaderboardTimeout = setTimeout(() => {
-                    fetchLeaderboard();
-                }, 500);
-            }
-        )
-        .subscribe();
-        
-    fetchLeaderboard();
-}
+        function initLeaderboardRealtime() {
+            supabaseClient
+                .channel('leaderboard-changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'guess_leaderboard' }, 
+                    () => {
+                        if (leaderboardTimeout) {
+                            clearTimeout(leaderboardTimeout);
+                        }
+                        leaderboardTimeout = setTimeout(() => {
+                            fetchLeaderboard();
+                        }, 500);
+                    }
+                )
+                .subscribe();
+                
+            fetchLeaderboard();
+        }
 
         async function fetchLeaderboard() {
             try {
@@ -851,6 +845,11 @@ function initLeaderboardRealtime() {
                 div.className = 'letter-tile';
                 
                 if (currentMode === 'classic') {
+                    // Если кулдаун активен - подсвечиваем плитку зеленым (угадано)
+                    if (isCooldownActive) {
+                        div.style.background = 'linear-gradient(135deg, #22c55e 0%, #166534 100%)';
+                        div.style.boxShadow = '0 10px 30px rgba(34, 197, 94, 0.5)';
+                    }
                     div.innerText = revealedIndices.includes(i) ? currentWord[i] : '';
                 } 
                 else if (currentMode === 'anagram') {
@@ -859,30 +858,7 @@ function initLeaderboardRealtime() {
                 else if (currentMode === 'edges') {
                     div.innerText = (i === 0 || i === currentWord.length - 1) ? currentWord[i] : '';
                 }
-                
-                // 🔥 ВАЖНО: Если пауза - принудительно открываем буквы и красим в зеленый
-                if (window.isCooldown) {
-                    div.innerText = currentWord[i];
-                    div.style.background = 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)';
-                    div.style.borderColor = 'rgba(40, 167, 69, 0.5)';
-                }
-
                 container.appendChild(div);
-            }
-
-            // 🔥 ПЛАШКА СНИЗУ В OBS
-            if (window.isCooldown && isObs) {
-                const msg = document.createElement('div');
-                msg.style.width = '100%';
-                msg.style.textAlign = 'center';
-                msg.style.marginTop = '40px';
-                msg.className = 'waiting-text animate-pulse';
-                msg.style.fontSize = 'calc(var(--tile-font) * 0.5)'; // Размер зависит от ползунка букв!
-                msg.innerHTML = 'СЛОВО УГАДАНО!<br>СЛЕДУЮЩЕЕ ЧЕРЕЗ 20 СЕК...';
-                container.appendChild(msg);
-                
-                const timerEl = document.querySelector('.timer-container');
-                if (timerEl) timerEl.style.display = 'none'; // Прячем полоску таймера
             }
         }
 
@@ -893,27 +869,56 @@ function initLeaderboardRealtime() {
             document.body.classList.add('obs-mode');
             document.getElementById('obs-view').classList.remove('hidden');
             
-            // 🔥 Забираем стейт мгновенно без морганий
             forceSyncState(); 
             initRealtime();
             
-            // 🔥 Пуллинг каждые 3 секунды, чтобы ничего не зависало
             setInterval(forceSyncState, 3000); 
 
+            // 🔥 ЕДИНЫЙ ТАЙМЕР ДЛЯ ИГРЫ И КУЛДАУНА 🔥
             setInterval(() => {
-                // Если включилась пауза - таймер не идет
-                if (!currentWord || currentMode !== 'classic' || window.isCooldown) return;
-                timerSeconds--;
-                document.getElementById('timer-progress').style.width = `${(timerSeconds / 30) * 100}%`;
-                
-                if (timerSeconds <= 0) {
-                    timerSeconds = 30; 
-                    if (currentWord.length - revealedIndices.length > 2) {
-                        const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
-                        if (unrevealed.length > 0) {
-                            const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
-                            revealedIndices.push(randomIndex);
-                            renderWord();
+                if (!currentWord || currentMode !== 'classic') return;
+
+                const timerBar = document.getElementById('timer-progress');
+                const timerEl = document.getElementById('obs-timer-container');
+
+                if (isCooldownActive) {
+                    // ЛОГИКА ОЖИДАНИЯ СЛЕДУЮЩЕГО СЛОВА
+                    cooldownTimerSeconds--;
+                    if (timerBar) {
+                        timerBar.style.width = `${(cooldownTimerSeconds / 20) * 100}%`;
+                    }
+                    
+                    if (cooldownTimerSeconds <= 0) {
+                        isCooldownActive = false;
+                        
+                        // Возвращаем красный цвет таймеру для новой игры
+                        if (timerBar) {
+                            timerBar.style.backgroundColor = '#ff4d4d';
+                            timerBar.style.boxShadow = '0 0 25px rgba(255, 77, 77, 1)';
+                            timerBar.style.width = '100%';
+                        }
+                        
+                        // Делаем запрос к серверу на генерацию нового слова
+                        fetch('/api/v1/admin/guess/next_word', { method: 'POST' }).catch(console.error);
+                    }
+                } else {
+                    // ОБЫЧНАЯ ЛОГИКА ОТКРЫТИЯ БУКВ
+                    if (timerEl) timerEl.style.display = 'block';
+                    
+                    timerSeconds--;
+                    if (timerBar) {
+                        timerBar.style.width = `${(timerSeconds / 30) * 100}%`;
+                    }
+                    
+                    if (timerSeconds <= 0) {
+                        timerSeconds = 30; 
+                        if (currentWord.length - revealedIndices.length > 2) {
+                            const unrevealed = Array.from(Array(currentWord.length).keys()).filter(i => !revealedIndices.includes(i));
+                            if (unrevealed.length > 0) {
+                                const randomIndex = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+                                revealedIndices.push(randomIndex);
+                                renderWord();
+                            }
                         }
                     }
                 }
@@ -932,14 +937,12 @@ function initLeaderboardRealtime() {
                     
                     loadEventSettings(); 
 
-                    // 🔥 Сначала ждем точный стейт из базы, а потом уже чекаем статус
                     await forceSyncState();
                     checkEventStatus();
 
                     initRealtime(); 
                     initLeaderboardRealtime(); 
                     
-                    // 🔥 Пуллинг для админки (чтобы она не отставала от OBS)
                     setInterval(forceSyncState, 3000); 
                     
                     loadCases();
