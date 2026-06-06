@@ -23658,17 +23658,17 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
     global guess_cache, words_cache
     now = time.time()
     
-    # Защита от спама (если рассинхрон, фронт теперь просто повторит запрос)
     if guess_cache.get("cooldown_until", 0) > now + 1:
         return {"status": "cooldown_active"}
 
     try:
-        # 1. Получаем стейт напрямую из БД (безопаснее, чем брать из кэша)
+        # 1. Получаем стейт
         state_res = await supabase.get("/guess_state", params={"id": "eq.1"})
         current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
         
-        db_current_word = current_state.get("current_word", "")
-        used_words = current_state.get("used_words", [])
+        # ЗАЩИТА ОТ ПУСТЫХ ДАННЫХ (NONE)
+        db_current_word = current_state.get("current_word") or ""
+        used_words = current_state.get("used_words") or []
 
         # 2. Кешируем словарь
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
@@ -23676,27 +23676,26 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
             if words_res.status_code == 200:
                 words_cache["list"] = [
                     w["word"] for w in words_res.json() 
-                    if len(w["word"]) >= 4 and "-" not in w["word"]
+                    if isinstance(w.get("word"), str) and len(w["word"]) >= 4 and "-" not in w["word"]
                 ]
                 words_cache["updated_at"] = now
 
         # 3. Выбираем следующее слово
-        used_words_upper = {u.upper() for u in used_words}
+        used_words_upper = {u.upper() for u in used_words if isinstance(u, str)}
         all_words = [w for w in words_cache["list"] if w.upper() not in used_words_upper and w.upper() != db_current_word.upper()]
         
         if not all_words:
             used_words = []
             all_words = [w for w in words_cache["list"] if w.upper() != db_current_word.upper()]
 
-        # 🔥 Вот эти строки случайно удалились при копировании:
         next_word = random.choice(all_words) if all_words else "КОНЕЦ"
         if next_word != "КОНЕЦ":
             used_words.append(next_word)
 
-        # 4. Сохраняем в БД (Патчим строго по актуальному слову из базы)
+        # 4. Сохраняем в БД (ГЛАВНЫЙ ФИКС: убрали фильтр по русскому слову, который ломал сохранение)
         await supabase.patch(
             "/guess_state", 
-            params={"id": "eq.1", "current_word": f"eq.{db_current_word}"}, 
+            params={"id": "eq.1"}, 
             json={
                 "current_word": next_word, 
                 "revealed_indices": [],
@@ -23712,7 +23711,7 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
 
     except Exception as e:
         print(f"DEBUG OBS TRIGGER ERROR: {e}")
-        return {"status": "error"}
+        return {"status": "error", "message": str(e)}
         
 # --- ФОНОВАЯ ЗАДАЧА: СИГНАЛ В OBS ---
 async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, current_word: str):
