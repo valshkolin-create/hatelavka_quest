@@ -23672,7 +23672,7 @@ async def obs_trigger_next_round(supabase: httpx.AsyncClient = Depends(get_supab
 
         # 2. Кешируем словарь
         if not words_cache["list"] or (now - words_cache["updated_at"] > 3600):
-            words_res = await supabase.get("/guess_words", params={"select": "word"})
+            words_res = await supabase.get("/guess_words", params={"select": "word", "limit": "5000"})
             if words_res.status_code == 200:
                 words_cache["list"] = [
                     w["word"] for w in words_res.json() 
