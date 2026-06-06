@@ -12247,7 +12247,7 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
                     "assigned_to": real_tg_id,
                     "assigned_at": datetime.now(timezone.utc).isoformat(),
                     "target_case_name": r_value,
-                    "used_by_ids": [],
+                    "used_by_ids": [real_tg_id], # <--- Сразу кладем ID юзера сюда!
                     "activated_by_ids": [], # 🔥 ВОТ ТУТ СДЕЛАЙ ПУСТО 🔥
                     "campaign_id": 888
                 }
