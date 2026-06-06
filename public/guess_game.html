@@ -927,23 +927,30 @@
                     
                     // Запрос за новым словом делает ТОЛЬКО OBS
                     if (isObs) {
+                        let retryCount = 0; // Счетчик попыток
+                        
                         const fetchNextWord = () => {
                             fetch('/api/v1/twitch/obs_next_round?t=' + Date.now())
                                 .then(res => res.json())
                                 .then(data => {
-                                    // 🔥 АГРЕССИВНАЯ ПОВТОРНАЯ ПОПЫТКА, если сервер не отдал success
                                     if (data.status !== 'success') {
-                                        setTimeout(fetchNextWord, 1000);
+                                        retryCount++;
+                                        // Максимум 5 попыток спасти ситуацию, чтобы не убить лимиты Vercel
+                                        if (retryCount <= 5) {
+                                            setTimeout(fetchNextWord, 2000);
+                                        }
                                     }
                                 })
                                 .catch(err => {
-                                    console.error(err);
-                                    setTimeout(fetchNextWord, 1000); // Повторяем даже при сетевой ошибке
+                                    console.error("Сетевая ошибка при запросе слова:", err);
+                                    retryCount++;
+                                    if (retryCount <= 5) {
+                                        setTimeout(fetchNextWord, 2000);
+                                    }
                                 });
                         };
                         fetchNextWord();
                     }
-                }
             } else {
                 // ОБЫЧНАЯ ЛОГИКА ОТКРЫТИЯ БУКВ
                 if (currentMode !== 'classic') return; 
