@@ -933,9 +933,9 @@
                             fetch('/api/v1/twitch/obs_next_round?t=' + Date.now())
                                 .then(res => res.json())
                                 .then(data => {
+                                    // Агрессивная повторная попытка, если сервер не отдал success
                                     if (data.status !== 'success') {
                                         retryCount++;
-                                        // Максимум 5 попыток спасти ситуацию, чтобы не убить лимиты Vercel
                                         if (retryCount <= 5) {
                                             setTimeout(fetchNextWord, 2000);
                                         }
@@ -951,6 +951,7 @@
                         };
                         fetchNextWord();
                     }
+                }
             } else {
                 // ОБЫЧНАЯ ЛОГИКА ОТКРЫТИЯ БУКВ
                 if (currentMode !== 'classic') return; 
@@ -976,7 +977,7 @@
                 }
             }
         }, 1000);
-
+        
         if (isObs) {
             document.body.classList.add('obs-mode');
             document.getElementById('obs-view').classList.remove('hidden');
