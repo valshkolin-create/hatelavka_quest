@@ -741,7 +741,7 @@
                         timerBar.style.width = '100%';
                     }
                 } else {
-                    // Обычное обновление
+                    // Обычное обновление (смена слова или открытие буквы)
                     handleStateChange(payload.payload); 
                     setTimeout(forceSyncState, 500); 
                 }
@@ -759,7 +759,7 @@
                 () => checkEventStatus() 
             ).subscribe();
         }
-
+        
         let leaderboardTimeout = null; 
 
         function initLeaderboardRealtime() {
