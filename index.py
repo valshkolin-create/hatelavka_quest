@@ -23649,6 +23649,9 @@ words_cache = {
     "updated_at": 0
 }
 
+# 🔥 ГЛОБАЛЬНЫЙ КЛИЕНТ для быстрых запросов к Fossabot
+http_client = httpx.AsyncClient()
+
 # --- ФОНОВАЯ ЗАДАЧА: СМЕНА РАУНДА И OBS ---
 async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, current_word: str):
     try:
@@ -23664,7 +23667,7 @@ async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, cur
         current_state = state_res.json()[0] if state_res.status_code == 200 and state_res.json() else {}
         used_words = current_state.get("used_words", [])
 
-        # 3. Кешируем словарь (только если нужно)
+        # 3. Кешируем словарь (раз в час)
         global words_cache
         if not words_cache["list"] or (time.time() - words_cache["updated_at"] > 3600):
             words_res = await supabase.get("/guess_words", params={"select": "word"})
@@ -23685,7 +23688,7 @@ async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, cur
         if next_word != "КОНЕЦ":
             used_words.append(next_word)
 
-        # 5. ДОЖИДАЕМСЯ ОКОНЧАНИЯ КУЛДАУНА (остаток от 20 сек, т.к. 1.5 мы уже прождали)
+        # 5. ДОЖИДАЕМСЯ ОКОНЧАНИЯ КУЛДАУНА (18.5 сек)
         await asyncio.sleep(18.5)
 
         # 6. Сохраняем новое слово в базу
@@ -23706,7 +23709,7 @@ async def process_round_end(supabase: httpx.AsyncClient, target_filter: str, cur
             "revealed_indices": []
         })
         
-        # 8. Сбрасываем кэш, чтобы эндпойнт сразу подхватил новое слово для след. раунда
+        # 8. Сбрасываем кэш
         guess_cache["updated_at"] = 0 
 
     except Exception as e:
@@ -23719,11 +23722,16 @@ async def handle_fossabot_guess(
     background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
+    # 🔥 Возвращаем чтение токена!
+    token = request.headers.get("x-fossabot-customapitoken") or request.query_params.get("token")
+    if not token: 
+        return ""
+
     try:
         global guess_cache, words_cache
         now = time.time()
 
-        # 🔥 1. БЛОКИРОВКА ОТ ГОНКИ: Если окно сбора закрылось, но идет кулдаун
+        # 1. БЛОКИРОВКА ОТ ГОНКИ
         if now > guess_cache.get("buffer_end", 0) and now < guess_cache.get("cooldown_until", 0):
             return ""
 
@@ -23740,9 +23748,15 @@ async def handle_fossabot_guess(
         if not guess_cache["is_active"] or not guess_cache["word"]:
             return ""
 
-        # 🔥 2. ЧИТАЕМ ДАННЫЕ ПРЯМО ИЗ URL
-        twitch_login = request.query_params.get("user", "").lower()
-        guess_word = request.query_params.get("guess", "").strip().upper()
+        # 🔥 2. ИДЕМ В FOSSABOT ЗА ТЕКСТОМ ПО ТОКЕНУ (как ты и просил)
+        fb_res = await http_client.get(f"https://api.fossabot.com/v2/customapi/context/{token}", timeout=3.0)
+        if fb_res.status_code != 200: return ""
+        message_data = fb_res.json().get("message")
+        if not message_data: return ""
+
+        twitch_login = message_data["user"]["login"].lower()
+        twitch_display = message_data["user"]["display_name"]
+        guess_word = message_data["content"].strip().upper()
 
         # Быстрый отсев неверных слов
         if guess_word != guess_cache["word"]:
@@ -23759,26 +23773,19 @@ async def handle_fossabot_guess(
             is_first_blood = True
             
         # Начисляем очки всем, кто угадал в окне
-        if twitch_login not in guess_cache["round_winners"]:
-            guess_cache["round_winners"].append(twitch_login)
+        if twitch_display not in guess_cache["round_winners"]:
+            guess_cache["round_winners"].append(twitch_display) # Сохраняем красивый ник
             background_tasks.add_task(supabase.post, "/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
 
-        # Если этот запрос был первым, он берет на себя ответственность за ответ в чат
+        # Первый запрос ждет 1.5с и отвечает в чат
         if is_first_blood:
             target_filter = guess_cache["raw_word"]
             
-            # 🔥 ЖДЕМ 1.5 секунды, чтобы собрать остальных "застрявших" победителей
             await asyncio.sleep(1.5)
             
-            # ЗАПУСКАЕМ ВСЮ ТЯЖЕЛУЮ ЛОГИКУ В ФОНЕ (БД, OBS, генерация слова)
-            background_tasks.add_task(
-                process_round_end, 
-                supabase, 
-                target_filter, 
-                guess_cache["word"]
-            )
+            # Запускаем тяжелые фоновые задачи
+            background_tasks.add_task(process_round_end, supabase, target_filter, guess_cache["word"])
 
-            # Отдаем ответ Fossabot-у СРАЗУ ПОСЛЕ ПАУЗЫ (уложимся в тайм-аут!)
             winners_str = ", @".join(guess_cache["round_winners"])
             return f"🎉 Слово «{guess_cache['word']}» угадано! Очки забирают: @{winners_str}. След. слово через 20с."
             
