@@ -23762,7 +23762,14 @@ async def handle_fossabot_guess(
             if next_word != "КОНЕЦ":
                 used_words.append(next_word)
 
-            # 4. Запускаем фоновую задачу (уже без передачи логина, так как очки всем выдали выше)
+            # 🔥 ОТПРАВЛЯЕМ СИГНАЛ В OBS (открыть все буквы и включить паузу)
+            await broadcast_guess_update(supabase, "force-update", {
+                "current_word": target_filter,
+                "revealed_indices": list(range(len(target_filter))),
+                "is_cooldown": True
+            })
+
+            # 4. Запускаем фоновую задачу
             background_tasks.add_task(finish_guess_tasks, supabase, next_word, target_filter, used_words)
             
             # Сбрасываем таймер кэша
