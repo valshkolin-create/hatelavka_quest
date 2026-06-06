@@ -468,7 +468,12 @@
 
         async function forceSyncState() {
             try {
-                const { data, error } = await supabaseClient.from('guess_state').select('*').eq('id', 1).single();
+                const { data, error } = await supabaseClient
+                    .from('guess_state')
+                    .select('*')
+                    .eq('id', 1)
+                    .single();
+                
                 if (data && !error) {
                     handleStateChange(data);
                 }
@@ -720,7 +725,7 @@
             } catch(e) {}
         }
 
-        function initRealtime() {
+function initRealtime() {
             const channel = supabaseClient.channel('guess-state-changes');
 
             channel.on('postgres_changes', 
