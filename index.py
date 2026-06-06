@@ -23786,14 +23786,22 @@ async def handle_fossabot_guess(
             guess_cache["round_winners"].append(twitch_display) # Сохраняем красивый ник
             background_tasks.add_task(supabase.post, "/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
 
-        # Первый запрос ждет 1.5с и отвечает в чат
+        # Первый запрос кидает бродкаст и отвечает в чат
         if is_first_blood:
             target_filter = guess_cache["raw_word"]
             
-            await asyncio.sleep(1.5)
-            
-            # Запускаем отправку бродкаста в фоне (чтобы не тормозить ответ в чат)
-            background_tasks.add_task(process_round_end, supabase, target_filter, guess_cache["word"])
+            # ❗️ ОТПРАВЛЯЕМ БРОДКАСТ СИНХРОННО (без background_tasks)
+            # Иначе Vercel убьет процесс на return и сигнал не уйдет
+            try:
+                await broadcast_guess_update(supabase, "force-update", {
+                    "current_word": target_filter,
+                    "revealed_indices": list(range(len(target_filter))),
+                    "is_cooldown": True,
+                    "action": "cooldown",
+                    "delay": 20
+                })
+            except Exception as e:
+                print(f"DEBUG BROADCAST ERROR: {e}")
 
             winners_str = ", @".join(guess_cache["round_winners"])
             return f"🎉 Слово «{guess_cache['word']}» угадано! Очки забирают: @{winners_str}. След. слово через 20с."
