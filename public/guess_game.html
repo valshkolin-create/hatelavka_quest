@@ -590,111 +590,126 @@
         }
 
         function handleStateChange(state) {
-    const obsTextEl = document.getElementById('obs-custom-text');
-    if (obsTextEl) {
-        if (state.custom_text) {
-            obsTextEl.style.display = 'block';
-            obsTextEl.innerText = state.custom_text;
-        } else {
-            obsTextEl.style.display = 'none';
-        }
-    }
-    if (!isObs && document.getElementById('custom-text-input').value === '' && state.custom_text) {
-        document.getElementById('custom-text-input').value = state.custom_text;
-    }
+            const obsTextEl = document.getElementById('obs-custom-text');
+            if (obsTextEl) {
+                if (state.custom_text) {
+                    obsTextEl.style.display = 'block';
+                    obsTextEl.innerText = state.custom_text;
+                } else {
+                    obsTextEl.style.display = 'none';
+                }
+            }
+            if (!isObs && document.getElementById('custom-text-input').value === '' && state.custom_text) {
+                document.getElementById('custom-text-input').value = state.custom_text;
+            }
 
-    if (state.text_size) {
-        document.documentElement.style.setProperty('--custom-text-font', state.text_size + 'rem');
-        if (!isObs) {
-            const slider = document.getElementById('text-size-slider');
-            if (slider) slider.value = state.text_size;
-            const valEl = document.getElementById('text-size-val');
-            if (valEl) valEl.innerText = state.text_size;
-        }
-    }
+            if (state.text_size) {
+                document.documentElement.style.setProperty('--custom-text-font', state.text_size + 'rem');
+                if (!isObs) {
+                    const slider = document.getElementById('text-size-slider');
+                    if (slider) slider.value = state.text_size;
+                    const valEl = document.getElementById('text-size-val');
+                    if (valEl) valEl.innerText = state.text_size;
+                }
+            }
 
-    if (state.letter_size) {
-        document.documentElement.style.setProperty('--tile-size', state.letter_size + 'rem');
-        document.documentElement.style.setProperty('--tile-font', (state.letter_size * 0.7) + 'rem');
-        if (!isObs) {
-            document.getElementById('letter-size-slider').value = state.letter_size;
-            document.getElementById('letter-size-val').innerText = state.letter_size;
-        }
-    }
-    
-    if (state.default_cover_url && !isObs && document.getElementById('admin-default-cover-input').value === '') {
-        document.getElementById('admin-default-cover-input').value = state.default_cover_url;
-    }
-    if (state.game_cover_url && !isObs && document.getElementById('admin-game-cover-input').value === '') {
-        document.getElementById('admin-game-cover-input').value = state.game_cover_url;
-    }
-
-    if (state.cover_offset_x !== undefined && !isObs) {
-        document.getElementById('cover-x-slider').value = state.cover_offset_x;
-        document.getElementById('cover-x-val').innerText = state.cover_offset_x + '%';
-    }
-    if (state.cover_offset_y !== undefined && !isObs) {
-        document.getElementById('cover-y-slider').value = state.cover_offset_y;
-        document.getElementById('cover-y-val').innerText = state.cover_offset_y + '%';
-    }
-    if (state.cover_zoom !== undefined && !isObs) {
-        document.getElementById('cover-zoom-slider').value = state.cover_zoom;
-        document.getElementById('cover-zoom-val').innerText = state.cover_zoom + '%';
-    }
-
-    // 🔥 ЗАЩИТА: Если идет кулдаун, не даем базе перетереть наше слово раньше времени
-    if (isCooldownActive && state.current_word && state.current_word.toUpperCase() === currentWord) {
-        return;
-    }
-
-    if (state.is_active && state.current_word) {
-        if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
-            currentWord = state.current_word.toUpperCase();
-            currentMode = state.current_mode || "classic";
-            revealedIndices = state.revealed_indices || [];
-            timerSeconds = 30;
-            
-            // 🔥 СБРОС КУЛДАУНА ТОЛЬКО ПРИ СМЕНЕ СЛОВА 🔥
-            isCooldownActive = false;
-            
-            if (currentMode === 'anagram') scrambledWord = shuffleString(currentWord);
-            
-            const timerEl = document.getElementById('obs-timer-container');
-            if (timerEl) {
-                timerEl.style.display = (currentMode === 'classic') ? 'block' : 'none';
+            if (state.letter_size) {
+                document.documentElement.style.setProperty('--tile-size', state.letter_size + 'rem');
+                document.documentElement.style.setProperty('--tile-font', (state.letter_size * 0.7) + 'rem');
+                if (!isObs) {
+                    document.getElementById('letter-size-slider').value = state.letter_size;
+                    document.getElementById('letter-size-val').innerText = state.letter_size;
+                }
             }
             
-            renderWord();
-        } else {
-            let serverIndices = state.revealed_indices || [];
-            if (typeof serverIndices === 'string') {
-                try { serverIndices = JSON.parse(serverIndices); } catch(e) { serverIndices = []; }
+            if (state.default_cover_url && !isObs && document.getElementById('admin-default-cover-input').value === '') {
+                document.getElementById('admin-default-cover-input').value = state.default_cover_url;
             }
-            if (serverIndices.length > revealedIndices.length) {
-                revealedIndices = serverIndices;
+            if (state.game_cover_url && !isObs && document.getElementById('admin-game-cover-input').value === '') {
+                document.getElementById('admin-game-cover-input').value = state.game_cover_url;
+            }
+
+            if (state.cover_offset_x !== undefined && !isObs) {
+                document.getElementById('cover-x-slider').value = state.cover_offset_x;
+                document.getElementById('cover-x-val').innerText = state.cover_offset_x + '%';
+            }
+            if (state.cover_offset_y !== undefined && !isObs) {
+                document.getElementById('cover-y-slider').value = state.cover_offset_y;
+                document.getElementById('cover-y-val').innerText = state.cover_offset_y + '%';
+            }
+            if (state.cover_zoom !== undefined && !isObs) {
+                document.getElementById('cover-zoom-slider').value = state.cover_zoom;
+                document.getElementById('cover-zoom-val').innerText = state.cover_zoom + '%';
+            }
+
+            // Защита от перетирания слова во время кулдауна
+            if (isCooldownActive && state.current_word && state.current_word.toUpperCase() === currentWord) {
+                return;
+            }
+
+            if (state.is_active && state.current_word) {
+                let serverIndices = state.revealed_indices || [];
+                if (typeof serverIndices === 'string') {
+                    try { serverIndices = JSON.parse(serverIndices); } catch(e) { serverIndices = []; }
+                }
+
+                if (state.current_word.toUpperCase() !== currentWord || state.current_mode !== currentMode) {
+                    currentWord = state.current_word.toUpperCase();
+                    currentMode = state.current_mode || "classic";
+                    revealedIndices = serverIndices; // СРАЗУ берем индексы с сервера
+                    timerSeconds = 30;
+                    isCooldownActive = false;
+                    
+                    if (currentMode === 'anagram') scrambledWord = shuffleString(currentWord);
+                    
+                    const timerEl = document.getElementById('obs-timer-container');
+                    if (timerEl) {
+                        timerEl.style.display = (currentMode === 'classic') ? 'block' : 'none';
+                    }
+                } else {
+                    if (serverIndices.length > revealedIndices.length) {
+                        revealedIndices = serverIndices;
+                    }
+                }
+
+                // 🔥 УНИВЕРСАЛЬНЫЙ ТРИГГЕР ПОБЕДЫ И КУЛДАУНА 🔥
+                // Проверяем всегда, даже если обновили страницу, а сокеты отвалились
+                if (revealedIndices.length === currentWord.length && !isCooldownActive) {
+                    isCooldownActive = true;
+                    cooldownTimerSeconds = 20;
+                    
+                    const timerEl = document.getElementById('obs-timer-container');
+                    const timerBar = document.getElementById('timer-progress');
+                    if (timerEl && timerBar) {
+                        timerEl.style.display = 'block';
+                        timerBar.style.backgroundColor = '#9146FF';
+                        timerBar.style.boxShadow = '0 0 25px rgba(145, 70, 255, 1)';
+                        timerBar.style.width = '100%';
+                    }
+                }
+
                 renderWord();
+
+                const wordEl = document.getElementById('admin-current-word');
+                if (wordEl) {
+                    wordEl.innerText = currentWord;
+                    wordEl.style.color = '#fff';
+                    
+                    const statusLabel = document.getElementById('admin-status-label');
+                    if (statusLabel) statusLabel.innerText = "Сейчас загадано:";
+                    
+                    const modeLabel = document.getElementById('admin-current-mode-label');
+                    if (modeLabel) modeLabel.innerText = `Режим: ${currentMode}`;
+                }
+            } else {
+                if (currentWord !== "") {
+                    currentWord = "";
+                    if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
+                    checkEventStatus();
+                }
             }
         }
-
-        const wordEl = document.getElementById('admin-current-word');
-        if (wordEl) {
-            wordEl.innerText = currentWord;
-            wordEl.style.color = '#fff';
-            
-            const statusLabel = document.getElementById('admin-status-label');
-            if (statusLabel) statusLabel.innerText = "Сейчас загадано:";
-            
-            const modeLabel = document.getElementById('admin-current-mode-label');
-            if (modeLabel) modeLabel.innerText = `Режим: ${currentMode}`;
-        }
-    } else {
-        if (currentWord !== "") {
-            currentWord = "";
-            if (isObs) document.getElementById('word-container').innerHTML = '<div class="waiting-text">ОЖИДАНИЕ...</div>';
-            checkEventStatus();
-        }
-    }
-}
+        
         async function checkEventStatus() {
             try {
                 const res = await fetch('/api/v1/events/current?t=' + Date.now()); 
