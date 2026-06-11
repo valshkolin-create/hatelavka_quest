@@ -234,9 +234,22 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
 .admin-select { width: 40%; }
 .admin-input { width: 60%; }
   
-.first-place { background: rgba(255, 215, 0, 0.03); }
-    .second-place { border-left: 4px solid var(--silver-glow); }
-    .third-place { border-left: 4px solid var(--bronze-glow); }
+/* === 🏆 CS:GO RARITY ТОП-6 === */
+/* Мягкий градиент слева направо + цветная рамка */
+#leaderboardBody tr.top-1 { background: linear-gradient(90deg, rgba(255, 215, 0, 0.15) 0%, transparent 70%); border-left: 3px solid #ffd700; } /* Золотое */
+#leaderboardBody tr.top-2 { background: linear-gradient(90deg, rgba(235, 75, 75, 0.12) 0%, transparent 70%); border-left: 3px solid #eb4b4b; } /* Тайное (Красное) */
+#leaderboardBody tr.top-3 { background: linear-gradient(90deg, rgba(211, 44, 230, 0.10) 0%, transparent 70%); border-left: 3px solid #d32ce6; } /* Засекреченное (Розовое) */
+#leaderboardBody tr.top-4 { background: linear-gradient(90deg, rgba(136, 71, 255, 0.08) 0%, transparent 70%); border-left: 3px solid #8847ff; } /* Запрещенное (Фиолетовое) */
+#leaderboardBody tr.top-5 { background: linear-gradient(90deg, rgba(75, 105, 255, 0.06) 0%, transparent 70%); border-left: 3px solid #4b69ff; } /* Армейское (Синее) */
+#leaderboardBody tr.top-6 { background: linear-gradient(90deg, rgba(94, 152, 217, 0.04) 0%, transparent 70%); border-left: 3px solid #5e98d9; } /* Промышленное (Голубое) */
+
+/* Подкрашиваем сами цифры/медали и даем легкое свечение для ТОП-3 */
+#leaderboardBody tr.top-1 .rank { color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.4); }
+#leaderboardBody tr.top-2 .rank { color: #eb4b4b; text-shadow: 0 0 8px rgba(235, 75, 75, 0.4); }
+#leaderboardBody tr.top-3 .rank { color: #d32ce6; text-shadow: 0 0 8px rgba(211, 44, 230, 0.4); }
+#leaderboardBody tr.top-4 .rank { color: #8847ff; font-weight: 800; }
+#leaderboardBody tr.top-5 .rank { color: #4b69ff; font-weight: 800; }
+#leaderboardBody tr.top-6 .rank { color: #5e98d9; font-weight: 800; }
 
     .loader { margin-top: 30px; color: #888; text-align: center; }
 
@@ -663,10 +676,13 @@ async function fetchAndRender() {
         const row = document.createElement('tr');
         let rankContent = index + 1;
         
-        // Медали
-        if (index === 0) { row.classList.add('first-place'); rankContent = '🥇'; }  
-        else if (index === 1) { row.classList.add('second-place'); rankContent = '🥈'; }  
-        else if (index === 2) { row.classList.add('third-place'); rankContent = '🥉'; }
+        // Медали и CS цвета (ТОП-6)
+        if (index === 0) { row.classList.add('top-1'); rankContent = '🥇'; }  
+        else if (index === 1) { row.classList.add('top-2'); rankContent = '🥈'; }  
+        else if (index === 2) { row.classList.add('top-3'); rankContent = '🥉'; }
+        else if (index === 3) { row.classList.add('top-4'); }
+        else if (index === 4) { row.classList.add('top-5'); }
+        else if (index === 5) { row.classList.add('top-6'); }
         
         /// 🔥 ДИНАМИЧЕСКАЯ НАГРАДА
       let rewardHtml = `<span style="opacity:0.05">•</span>`;
