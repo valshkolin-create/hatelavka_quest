@@ -23185,8 +23185,10 @@ async def handle_fossabot_claim(
         
         extracted_code = match.group(1)
 
-        # --- ШАГ 3: АНТИ-ФЛУД СИСТЕМА (3 попытки за 5 минут) ---
-        five_min_ago = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+        # ==========================================
+        # 3. АНТИ-ФЛУД СИСТЕМА (3 попытки за 5 минут)
+        # ==========================================
+        five_min_ago = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
         spam_res = await supabase.get("/twitch_clicks", params={
             "twitch_name": f"eq.{twitch_display_name}",
             "created_at": f"gte.{five_min_ago}",
@@ -23200,7 +23202,52 @@ async def handle_fossabot_claim(
             print(f"DEBUG: МУТ за флуд: {twitch_display_name}")
             return f"/timeout {twitch_user} 300 | @{twitch_display_name}, ты исчерпал 3 попытки за 5 минут! Отдохни 5 минут. ⛔"
         
-        # 4. Поиск кода в БД
+        # Записываем "холостой" клик (campaign_id = 0), чтобы сжечь попытку спамера
+        await supabase.post("/twitch_clicks", json={
+            "campaign_id": 0,
+            "twitch_name": twitch_display_name,
+            "is_winner": False
+        })
+
+        # ==========================================
+        # 4. ЕДИНЫЙ ЗАПРОС ЮЗЕРА (Регистрация, Бан, Сообщения)
+        # ==========================================
+        user_res = await supabase.get(
+            "/users", 
+            params={
+                "twitch_login": f"ilike.{twitch_user}", 
+                "select": "telegram_id,is_banned,weekly_message_count"
+            }
+        )
+        
+        if user_res.status_code != 200 or not user_res.json():
+            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в ТГ бота @HATElavka_bot и привяжи его в профиле."
+        
+        user_data = user_res.json()[0]
+
+        if user_data.get("is_banned") is True:
+            return f"@{twitch_display_name}, твой аккаунт заблокирован ⛔ Напиши в ТГ админку для выяснения причины: @hatelove_twitch"
+
+        tg_id_int = int(user_data["telegram_id"])
+        msg_count = user_data.get("weekly_message_count", 0)
+
+        # ==========================================
+        # 5. ЛЕСЕНКА АКТИВНОСТИ
+        # ==========================================
+        msk_tz = timezone(timedelta(hours=3))
+        current_weekday = datetime.now(msk_tz).weekday() # 0=Пн, 1=Вт... 4=Пт, 5=Сб, 6=Вс
+
+        thresholds = {1: 0, 2: 30, 3: 60, 4: 100, 5: 100}
+        min_messages_required = thresholds.get(current_weekday, 100)
+
+        if min_messages_required > 0 and msg_count < min_messages_required:
+            messages_left = min_messages_required - msg_count
+            print(f"DEBUG: {twitch_display_name} отсеян. Не хватает {messages_left} сообщений.")
+            return f"@{twitch_display_name}, тебе не хватает {messages_left} сообщений в чате за неделю! 💬 Общайся и вводи код снова!"
+
+        # ==========================================
+        # 6. ПРОВЕРКА КОДА И КАМПАНИИ
+        # ==========================================
         code_res = await supabase.get("/cs_codes", params={"code": f"eq.{extracted_code}", "is_active": "is.true"})
         if code_res.status_code != 200 or not code_res.json():
             return f"@{twitch_display_name}, код «{extracted_code}» не найден или не активен! (Попытка {attempts_count + 1}/3) 🔍"
@@ -23208,7 +23255,6 @@ async def handle_fossabot_claim(
         cs_code = code_res.json()[0]
         campaign_id = cs_code.get("campaign_id")
         
-        # 5. Проверка кампании и ТАЙМЕРА (Lazy Evaluation)
         camp_res = await supabase.get("/twitch_campaigns", params={"id": f"eq.{campaign_id}", "is_active": "is.true"})
         if camp_res.status_code != 200 or not camp_res.json():
             return f"@{twitch_display_name}, раздача по этому коду уже завершена. ⌛"
@@ -23222,21 +23268,9 @@ async def handle_fossabot_claim(
                 await supabase.patch("/twitch_campaigns", params={"id": f"eq.{campaign_id}"}, json={"is_active": False})
                 return f"@{twitch_display_name}, время действия этого кода уже истекло! ⏰"
 
-        # 6. Проверка привязки юзера и БАНА
-        # 🔥 Запрашиваем is_banned вместе с telegram_id
-        user_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_user}", "select": "telegram_id,is_banned"})
-        if user_res.status_code != 200 or not user_res.json():
-            return f"@{twitch_display_name}, твой Twitch не привязан! 🛑 Зайди в ТГ бота @HATElavka_bot и привяжи его в профиле."
-        
-        user_data = user_res.json()[0]
-
-        # 🔥 ПРОВЕРКА НА БАН
-        if user_data.get("is_banned") is True:
-            return f"@{twitch_display_name}, твой аккаунт заблокирован ⛔ Напиши в ТГ админку для выяснения причины: @hatelove_twitch"
-
-        tg_id_int = int(user_data["telegram_id"])
-
-        # 7. Вызов RPC (обработка клика)
+        # ==========================================
+        # 7. ВЫЗОВ RPC (ОБРАБОТКА КЛИКА)
+        # ==========================================
         rpc_res = await supabase.post("/rpc/process_twitch_claim_v3", json={
             "p_campaign_id": campaign_id,
             "p_telegram_id": tg_id_int,
@@ -23247,33 +23281,37 @@ async def handle_fossabot_claim(
         rpc_data_raw = rpc_res.json()
         res_data = rpc_data_raw[0] if isinstance(rpc_data_raw, list) and rpc_data_raw else rpc_data_raw
 
-        # --- ОБРАБОТКА ДУБЛИКАТА ---
         if res_data.get('is_duplicate'):
             return f"@{twitch_display_name}, ты уже участвуешь в этом дропе! Зайди в лавку чтобы его там найти!."
 
         is_winner = res_data.get('is_winner')
         is_leader = res_data.get('is_leader')
 
-        # 8. Награда победителя (Пуш в ТГ)
+        # ==========================================
+        # 8. НАГРАДА ПОБЕДИТЕЛЯ
+        # ==========================================
         if is_winner:
             await supabase.post("/rpc/add_twitch_winner", json={
                 "p_code": extracted_code, 
                 "p_user_id": tg_id_int
             })
             
-            # Фоновое уведомление
             await create_in_app_notification(
                 supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
                 message=f"Бесплатное открытие для «{campaign['target_case_name']}» уже ждет тебя!", notif_type="system" 
             )
 
-        # 9. Только ЛИДЕР отвечает в чат за всю группу
+        # ==========================================
+        # 9. СБОРКА СООБЩЕНИЯ (ТОЛЬКО ЛИДЕР)
+        # ==========================================
         if not is_leader:
             return ""
 
-        # Ждем сборку «пачки»
-        print(f"DEBUG: Лидер {twitch_display_name} собирает пачку...")
-        await asyncio.sleep(1.0)
+        print(f"DEBUG: Лидер {twitch_display_name} ждет сборки пачки...")
+        
+        # 🔥 Увеличиваем задержку до 2.5 секунд, чтобы база гарантированно 
+        # успела записать все параллельные клики от других зрителей!
+        await asyncio.sleep(2.5)
 
         batch_clicks_res = await supabase.get("/twitch_clicks", params={
             "campaign_id": f"eq.{campaign_id}",
