@@ -23147,6 +23147,18 @@ import httpx
 from fastapi import Request, Depends
 from fastapi.responses import PlainTextResponse
 
+# Функция-помощник для падежей
+def get_plural(number: int, one: str, two: str, five: str) -> str:
+    n = abs(number) % 100
+    n1 = n % 10
+    if 11 <= n <= 19:
+        return five
+    if n1 == 1:
+        return one
+    if 2 <= n1 <= 4:
+        return two
+    return five
+
 # ==========================================
 # 6. FOSSABOT (ULTIMATE VERSION: ANTI-SPAM + DROPS)
 # ==========================================
@@ -23242,8 +23254,12 @@ async def handle_fossabot_claim(
 
         if min_messages_required > 0 and msg_count < min_messages_required:
             messages_left = min_messages_required - msg_count
-            print(f"DEBUG: {twitch_display_name} отсеян. Не хватает {messages_left} сообщений.")
-            return f"@{twitch_display_name}, тебе не хватает {messages_left} сообщений в чате за неделю! 💬 Общайся и вводи код снова!"
+            
+            # Вызываем нашу функцию для правильного окончания
+            word_form = get_plural(messages_left, "сообщение", "сообщения", "сообщений")
+            
+            print(f"DEBUG: {twitch_display_name} отсеян. Не хватает {messages_left} {word_form}.")
+            return f"@{twitch_display_name}, тебе не хватает {messages_left} {word_form} в чате за неделю! 💬 Общайся и вводи код снова!"
 
         # ==========================================
         # 6. ПРОВЕРКА КОДА И КАМПАНИИ
