@@ -34,33 +34,63 @@
             background-color: var(--bg-color); 
             color: var(--text-main); 
             margin: 0; 
-            padding: 0 0 140px 0; /* Увеличен отступ для плавающих табов и нижнего бара */
+            padding: 0 0 80px 0; 
             min-height: 100vh;
         }
 
-        /* --- Герой-блок (Шапка) --- */
+        /* --- Верхние табы (Переключатель) --- */
+        .top-tabs-wrapper {
+            display: flex;
+            background: rgba(10, 10, 12, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px 15px;
+            gap: 10px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        .top-tab {
+            flex: 1;
+            padding: 8px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            background: var(--surface-bg);
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .top-tab.active {
+            background: var(--primary-glow);
+            color: var(--primary);
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+
+        /* --- Герой-блок (Шапка - Компактная) --- */
         .bp-hero {
             position: relative;
-            padding: 40px 20px 30px;
+            padding: 20px 15px;
             background-color: #1a1a1c;
-            background-image: radial-gradient(circle at top, rgba(255, 215, 0, 0.15) 0%, transparent 70%);
             background-size: cover;
             background-position: center;
             background-blend-mode: overlay;
             border-bottom: 1px solid var(--surface-border);
             text-align: center;
-            min-height: 220px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
         }
 
-        /* Затемнение для читаемости текста на баннере */
         .bp-hero::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(0deg, var(--bg-color) 0%, rgba(10,10,12,0.4) 100%);
+            background: linear-gradient(0deg, var(--bg-color) 0%, rgba(10,10,12,0.6) 100%);
             z-index: 1;
         }
 
@@ -71,132 +101,97 @@
             background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(5px);
             color: var(--primary);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 9px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             border: 1px solid var(--primary-glow);
-            align-self: center;
+        }
+        
+        .bp-season-badge.inactive {
+            color: var(--danger);
+            border-color: rgba(255, 69, 58, 0.3);
+            background: rgba(255, 69, 58, 0.1);
         }
 
         .bp-title {
-            font-size: 28px;
+            font-size: 20px;
             font-weight: 800;
-            margin: 0 0 20px 0;
+            margin: 0 0 15px 0;
             text-transform: uppercase;
-            letter-spacing: -0.5px;
             text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
 
-        /* Прогресс бар EXP */
-        .progress-container {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(10px);
+        /* Прогресс бар EXP - Компактный */
+        .mini-progress {
+            background: rgba(0, 0, 0, 0.5);
             border: 1px solid var(--surface-border);
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 15px;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
         }
 
-        .progress-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
-        .exp-counter { font-size: 24px; font-weight: 800; color: var(--primary); line-height: 1; }
-        .exp-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-        .progress-track { height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden; position: relative; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #ffaa00, var(--primary)); border-radius: 4px; width: 0%; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px var(--primary-glow); }
+        .mini-progress-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 8px; 
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .mini-progress-header b {
+            font-size: 16px;
+            color: var(--primary);
+        }
+
+        .progress-track { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #ffaa00, var(--primary)); border-radius: 3px; width: 0%; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
 
         /* Кнопки под шапкой */
-        .hero-actions { display: flex; gap: 10px; justify-content: center; }
-        .btn-rules { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid var(--surface-border); color: var(--text-main); padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .hero-actions { display: flex; gap: 8px; justify-content: center; }
+        .btn-rules { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid var(--surface-border); color: var(--text-main); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; flex: 1; justify-content: center; }
         .btn-rules:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
 
-        /* --- Плавающие табы (Награды / Задания) --- */
-        .floating-tabs-wrapper {
-            position: fixed;
-            bottom: 85px; /* Выше нижнего меню приложения */
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100;
-            background: rgba(20, 20, 25, 0.85);
-            backdrop-filter: blur(15px);
-            border: 1px solid var(--surface-border);
-            border-radius: 30px;
-            padding: 4px;
-            display: flex;
-            gap: 5px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-
-        .floating-tab {
-            padding: 10px 24px;
-            border-radius: 25px;
-            border: none;
-            background: transparent;
-            color: var(--text-muted);
-            font-weight: 700;
-            font-size: 13px;
-            cursor: pointer;
-            transition: 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .floating-tab.active {
-            background: var(--primary);
-            color: #000;
-            box-shadow: 0 4px 10px var(--primary-glow);
-        }
-
         /* --- Контентные блоки --- */
-        .view-section { display: none; padding: 20px 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s ease; }
+        .view-section { display: none; padding: 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s ease; }
         .view-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* --- Сетка наград (Идеальное выравнивание) --- */
+        /* --- Сетка наград --- */
         .track-headers {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 40px; /* Отступ для центрального кружка */
-            margin-bottom: 25px;
-            position: sticky;
-            top: 0;
-            background: rgba(10, 10, 12, 0.9);
-            backdrop-filter: blur(10px);
-            padding: 10px 0;
-            z-index: 10;
+            gap: 40px; 
+            margin-bottom: 20px;
         }
 
+        /* Убрали фон у заголовков */
         .track-header-title {
             text-align: center;
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--text-muted);
-            padding: 8px;
-            border-radius: 8px;
-            background: var(--surface-bg);
-            border: 1px solid var(--surface-border);
+            color: var(--text-main);
+            padding: 5px;
         }
 
-        .track-header-title.premium {
-            color: var(--primary);
-            background: rgba(255, 215, 0, 0.05);
-            border-color: rgba(255, 215, 0, 0.3);
-        }
+        .track-header-title.premium { color: var(--primary); }
 
         .tier-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 40px; /* Отступ для кружка */
+            gap: 40px; 
             margin-bottom: 25px;
             position: relative;
         }
 
-        /* Линия по центру */
         .tier-line {
             position: absolute;
             left: 50%;
@@ -209,21 +204,20 @@
         }
         .tier-row:last-child .tier-line { display: none; }
 
-        /* Кружок по центру */
         .tier-number {
             position: absolute;
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             background: #1a1a1c;
             border: 2px solid var(--surface-border);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 800;
             z-index: 2;
             color: var(--text-muted);
@@ -241,22 +235,21 @@
             background: var(--surface-bg);
             border: 1px solid var(--surface-border);
             border-radius: 14px;
-            padding: 12px 10px;
+            padding: 10px;
             text-align: center;
             display: flex;
             flex-direction: column;
             align-items: center;
             position: relative;
             overflow: hidden;
-            transition: 0.3s;
         }
 
         .reward-card.premium { background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%); border-color: rgba(255, 215, 0, 0.2); }
-        .reward-icon-wrapper { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 10px; margin-bottom: 10px; font-size: 24px; color: var(--text-muted); }
+        .reward-icon-wrapper { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 8px; font-size: 20px; color: var(--text-muted); }
         .reward-card.premium .reward-icon-wrapper { color: var(--primary); box-shadow: inset 0 0 15px rgba(255,215,0,0.1); }
-        .reward-name { font-size: 11px; font-weight: 700; line-height: 1.3; margin-bottom: auto; min-height: 28px; color: var(--text-main); display: flex; align-items: center; justify-content: center; }
+        .reward-name { font-size: 10px; font-weight: 700; line-height: 1.3; margin-bottom: auto; min-height: 26px; color: var(--text-main); display: flex; align-items: center; justify-content: center; }
 
-        .btn-claim { width: 100%; padding: 8px 0; margin-top: 10px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
+        .btn-claim { width: 100%; padding: 8px 0; margin-top: 8px; border-radius: 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
         .btn-claim.locked { background: rgba(255,255,255,0.05); color: var(--text-muted); pointer-events: none; }
         .btn-claim.ready { background: var(--primary); color: #000; box-shadow: 0 4px 10px var(--primary-glow); }
         .btn-claim.ready:active { transform: scale(0.95); }
@@ -267,43 +260,33 @@
         .quest-card {
             background: var(--surface-bg);
             border: 1px solid var(--surface-border);
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 12px;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 15px;
+            gap: 12px;
         }
-
         .quest-info { flex: 1; }
-        .quest-title { font-size: 14px; font-weight: 700; margin: 0 0 4px 0; }
-        .quest-desc { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4; }
-        
-        .quest-reward {
-            background: rgba(255, 215, 0, 0.1);
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            color: var(--primary);
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            flex-shrink: 0;
-        }
+        .quest-title { font-size: 13px; font-weight: 700; margin: 0 0 4px 0; }
+        .quest-desc { font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4; }
+        .quest-reward { background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: var(--primary); padding: 6px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
         /* --- Модалки --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .modal-active { display: flex !important; }
-        .modal-content { background: #1c1c1e; width: 100%; max-width: 350px; border-radius: 20px; border: 1px solid var(--surface-border); overflow: hidden; }
-        .modal-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--surface-border); }
-        .modal-header h3 { margin: 0; font-size: 16px; }
-        .modal-close { background: none; border: none; color: var(--text-muted); font-size: 24px; padding: 0; cursor: pointer; }
-        .modal-body { padding: 20px; font-size: 13px; line-height: 1.5; color: #ccc; }
-        .modal-body h4 { color: white; margin: 0 0 10px 0; }
-        .modal-body p { margin: 0 0 15px 0; }
+        
+        .modal-content { background: #1c1c1e; width: 100%; max-width: 320px; border-radius: 16px; border: 1px solid var(--surface-border); overflow: hidden; max-height: 75vh; display: flex; flex-direction: column; }
+        .modal-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--surface-border); }
+        .modal-header h3 { margin: 0; font-size: 15px; }
+        .modal-close { background: none; border: none; color: var(--text-muted); font-size: 22px; padding: 0; cursor: pointer; }
+        
+        /* Текст по центру в правилах */
+        .modal-body { padding: 20px 15px; font-size: 12px; line-height: 1.5; color: #ccc; text-align: center; overflow-y: auto; }
+        .modal-body h4 { color: white; margin: 15px 0 5px 0; font-size: 14px; }
+        .modal-body h4:first-child { margin-top: 0; }
+        .modal-body p { margin: 0; }
 
         .loader-overlay { position: fixed; inset: 0; background: var(--bg-color); z-index: 9999; display: flex; align-items: center; justify-content: center; }
         .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
@@ -316,14 +299,23 @@
         <div class="spinner"></div>
     </div>
 
+    <div class="top-tabs-wrapper">
+        <button class="top-tab active" onclick="switchBPView('rewards')">
+            <i class="fa-solid fa-gift"></i> Награды
+        </button>
+        <button class="top-tab" onclick="switchBPView('quests')">
+            <i class="fa-solid fa-list-check"></i> Задания
+        </button>
+    </div>
+
     <div class="bp-hero" id="bp-hero">
         <div class="bp-season-badge" id="season-status-badge">СЕЗОН АКТИВЕН</div>
         <h1 class="bp-title" id="season-title">Загрузка...</h1>
         
-        <div class="progress-container">
-            <div class="progress-header">
-                <div class="exp-label">Мой прогресс</div>
-                <div class="exp-counter"><span id="user-stars">0</span> <i class="fa-solid fa-star" style="font-size: 16px;"></i></div>
+        <div class="mini-progress">
+            <div class="mini-progress-header">
+                <span>Прогресс</span>
+                <span><b id="user-stars">0</b> <i class="fa-solid fa-star"></i></span>
             </div>
             <div class="progress-track">
                 <div class="progress-fill" id="progress-fill"></div>
@@ -340,15 +332,6 @@
         </div>
     </div>
 
-    <div class="floating-tabs-wrapper">
-        <button class="floating-tab active" onclick="switchBPView('rewards')">
-            <i class="fa-solid fa-gift"></i> Награды
-        </button>
-        <button class="floating-tab" onclick="switchBPView('quests')">
-            <i class="fa-solid fa-list-check"></i> Задания
-        </button>
-    </div>
-
     <div id="view-rewards" class="view-section active">
         <div class="track-headers">
             <div class="track-header-title">Free</div>
@@ -361,11 +344,6 @@
     </div>
 
     <div id="view-quests" class="view-section">
-        <h3 style="margin: 0 0 15px 0; font-size: 18px; text-align: center;">Доступные задания</h3>
-        <p style="text-align: center; font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
-            Выполняй эти задания, чтобы получать Звезды (EXP) и открывать уровни.
-        </p>
-
         <div id="quests-container">
             <p style="text-align: center; color: var(--text-muted); margin-top: 40px;">Загрузка заданий...</p>
         </div>
@@ -390,16 +368,14 @@
 
 <script>
 // Глобальная функция для переключения вкладок
-function switchBPView(viewId) {
+window.switchBPView = function(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.floating-tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.top-tab').forEach(el => el.classList.remove('active'));
     
     document.getElementById(`view-${viewId}`).classList.add('active');
-    event.currentTarget.classList.add('active');
-    
-    // Прокрутка наверх при переключении
-    window.scrollTo({ top: document.getElementById('bp-hero').offsetHeight, behavior: 'smooth' });
-}
+    const btn = document.querySelector(`.top-tab[onclick*="${viewId}"]`);
+    if(btn) btn.classList.add('active');
+};
 
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
@@ -409,6 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dom = {
         loader: document.getElementById('loader-overlay'),
         hero: document.getElementById('bp-hero'),
+        seasonStatusBadge: document.getElementById('season-status-badge'),
         seasonTitle: document.getElementById('season-title'),
         userStars: document.getElementById('user-stars'),
         progressFill: document.getElementById('progress-fill'),
@@ -419,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let bpData = null;
     let userData = null;
-    let allQuests = []; // Сюда подтянем список всех квестов системы
+    let allQuests = [];
 
     function getIconForType(type) {
         switch(type) {
@@ -445,11 +422,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initialize() {
         try {
-            // Запрашиваем юзера, статус БП и параллельно список всех квестов
             const [userRes, bpRes, questsRes] = await Promise.all([
                 fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
                 fetch('/api/v1/checkpoint/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
-                fetch('/api/v1/quests/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }).catch(() => ({ json: () => [] })) // Fallback если нет роута
+                fetch('/api/v1/quests/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }).catch(() => ({ json: () => [] }))
             ]);
 
             userData = await userRes.json();
@@ -467,17 +443,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderBP() {
-        if (!bpData || !bpData.is_active) {
-            dom.seasonTitle.textContent = "Сезон завершен";
-            dom.rewardsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">В данный момент нет активного сезона.</p>';
-            dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Задания недоступны.</p>';
-            return;
-        }
+        dom.seasonTitle.textContent = bpData?.title || "Марафон Наград";
 
-        dom.seasonTitle.textContent = bpData.title || "Марафон Наград";
+        if (!bpData || !bpData.is_active) {
+            dom.seasonStatusBadge.textContent = "СЕЗОН ЗАВЕРШЕН";
+            dom.seasonStatusBadge.classList.add('inactive');
+        } else {
+            dom.seasonStatusBadge.textContent = "СЕЗОН АКТИВЕН";
+            dom.seasonStatusBadge.classList.remove('inactive');
+        }
         
-        // Установка баннера
-        if (bpData.banner_url) {
+        if (bpData && bpData.banner_url) {
             dom.hero.style.backgroundImage = `radial-gradient(circle at top, rgba(255, 215, 0, 0.15) 0%, transparent 70%), url('${bpData.banner_url}')`;
         }
         
@@ -494,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.buyPremiumBtn.style.opacity = '0.5';
         }
 
-        const tiers = bpData.tiers || [];
+        const tiers = bpData?.tiers || [];
         if (tiers.length === 0) {
             dom.rewardsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Награды еще не добавлены.</p>';
             return;
@@ -516,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (isFreeEmpty) freeBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
             else if (isFreeClaimed) freeBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-            else if (isUnlocked) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">Забрать</button>`;
+            else if (isUnlocked && bpData.is_active) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">Забрать</button>`;
             else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
 
             // PREMIUM
@@ -526,8 +502,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isPremEmpty) premBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
             else if (isPremClaimed) premBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-            else if (isUnlocked && hasPremium) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">Забрать</button>`;
-            else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" onclick="tg.showAlert('Нужен Premium пропуск!')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
+            else if (isUnlocked && hasPremium && bpData.is_active) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">Забрать</button>`;
+            else if (isUnlocked && !hasPremium && bpData.is_active) premBtnHtml = `<button class="btn-claim locked" onclick="tg.showAlert('Нужен Premium пропуск!')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
             else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
 
             const row = document.createElement('div');
@@ -563,7 +539,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.questsContainer.innerHTML = '';
         
         bpData.quests_config.forEach(cfg => {
-            // Ищем детали квеста в общем массиве
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
             const desc = questDetails && questDetails.description ? questDetails.description : "Выполняй активность, чтобы получить EXP.";
@@ -612,6 +587,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     dom.buyPremiumBtn.addEventListener('click', () => {
+        if (!bpData || !bpData.is_active) {
+            tg.showAlert("Сезон завершен, покупка недоступна.");
+            return;
+        }
+
         tg.showConfirm(`Купить Premium статус за ${bpData.premium_price || 0} монет?`, async (ok) => {
             if (ok) {
                 tg.MainButton.showProgress();
