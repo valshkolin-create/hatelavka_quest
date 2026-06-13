@@ -15097,12 +15097,60 @@ async def update_checkpoint_content(
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
 
 
+@app.post("/api/v1/admin/checkpoint/update")
+async def update_checkpoint_content(
+    request_data: CheckpointUpdateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обновляет контент страницы 'Чекпоинт' и перезаписывает уровни в БД."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        config = request_data.config
+        tiers = config.pop("tiers", []) # Вытаскиваем уровни из общего конфига
+
+        # 1. Сохраняем общие настройки (название, даты, цену, квесты) в JSON
+        await supabase.patch(
+            "/pages_content",
+            params={"page_name": "eq.checkpoint"},
+            json={"content": config}
+        )
+
+        # 2. Очищаем старые уровни (используем level >= 0 для надежного удаления всех записей)
+        await supabase.delete("/checkpoint_tiers", params={"level": "gte.0"})
+        
+        # 3. Записываем новые уровни в реляционную таблицу
+        if tiers:
+            tier_records = []
+            for t in tiers:
+                tier_records.append({
+                    "level": t.get("level"),
+                    "required_stars": t.get("required_stars"),
+                    "free_reward_type": t.get("free_reward", {}).get("type", "none"),
+                    "free_reward_value": str(t.get("free_reward", {}).get("value", "")),
+                    "premium_reward_type": t.get("premium_reward", {}).get("type", "none"),
+                    "premium_reward_value": str(t.get("premium_reward", {}).get("value", ""))
+                })
+            # Массовая вставка (Bulk Insert)
+            resp = await supabase.post("/checkpoint_tiers", json=tier_records)
+            resp.raise_for_status()
+
+        return {"message": "Контент марафона и уровни успешно обновлены."}
+    except Exception as e:
+        logging.error(f"Ошибка при обновлении контента Чекпоинта: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
+
+
+# Добавлен недостающий эндпоинт для админки интерфейса MAX
+@app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
 async def get_checkpoint_status(
     request_data: dict,  # Принимает initData, но пока отдаем статус всем
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Возвращает настройки Чекпоинта и склеивает их с уровнями из БД."""
+    """Возвращает настройки Чекпоинта и склеивает их с уровнями из БД, подтягивая картинки наград."""
     try:
         # 1. Получаем базовый конфиг
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"})
@@ -15114,14 +15162,64 @@ async def get_checkpoint_status(
         tiers_resp.raise_for_status()
         tiers_data = tiers_resp.json()
 
+        # --- НАЧАЛО ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
+        skin_names = set()
+        case_names = set()
+
+        for t in tiers_data:
+            for prefix in ["free_reward", "premium_reward"]:
+                rtype = t.get(f"{prefix}_type")
+                rval = t.get(f"{prefix}_value")
+                if rtype == "cs2_skin" and rval:
+                    skin_names.add(rval)
+                elif rtype in ["case", "case_coupon"] and rval:
+                    case_names.add(rval)
+
+        skin_images = {}
+        case_images = {}
+
+        # Запрашиваем картинки скинов из кэша маркета
+        if skin_names:
+            formatted_skin_names = ",".join([f'"{name}"' for name in skin_names])
+            skins_resp = await supabase.get("/market_cache", params={"market_hash_name": f"in.({formatted_skin_names})", "select": "market_hash_name,image_url"})
+            if skins_resp.is_success:
+                for s in skins_resp.json():
+                    skin_images[s["market_hash_name"]] = s.get("image_url")
+
+        # Запрашиваем картинки кейсов
+        if case_names:
+            formatted_case_names = ",".join([f'"{name}"' for name in case_names])
+            cases_resp = await supabase.get("/twitch_cases", params={"name": f"in.({formatted_case_names})", "select": "name,image_url"})
+            if cases_resp.is_success:
+                for c in cases_resp.json():
+                    case_images[c["name"]] = c.get("image_url")
+        # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
+
         # 3. Собираем массив уровней в том виде, который ждет фронтенд
         formatted_tiers = []
         for t in tiers_data:
+            
+            # Функция для безопасного извлечения URL картинки
+            def get_image_for_reward(r_type, r_value):
+                if r_type == "cs2_skin":
+                    return skin_images.get(r_value, "")
+                elif r_type in ["case", "case_coupon"]:
+                    return case_images.get(r_value, "")
+                return ""
+
             formatted_tiers.append({
                 "level": t["level"],
                 "required_stars": t["required_stars"],
-                "free_reward": {"type": t["free_reward_type"], "value": t["free_reward_value"]},
-                "premium_reward": {"type": t["premium_reward_type"], "value": t["premium_reward_value"]}
+                "free_reward": {
+                    "type": t["free_reward_type"], 
+                    "value": t["free_reward_value"],
+                    "image_url": get_image_for_reward(t["free_reward_type"], t["free_reward_value"])
+                },
+                "premium_reward": {
+                    "type": t["premium_reward_type"], 
+                    "value": t["premium_reward_value"],
+                    "image_url": get_image_for_reward(t["premium_reward_type"], t["premium_reward_value"])
+                }
             })
         
         base_config["tiers"] = formatted_tiers
@@ -15130,6 +15228,110 @@ async def get_checkpoint_status(
     except Exception as e:
         logging.error(f"Ошибка получения статуса Чекпоинта: {e}")
         raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
+
+
+@app.post("/api/v1/checkpoint/claim")
+async def claim_checkpoint_reward(
+    request_data: CheckpointClaimRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Выдает награду (Free или Premium), проверяет EXP и защищает от двойного получения."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Invalid authentication data.")
+
+    telegram_id = user_info["id"]
+    level_to_claim = request_data.level
+    track_type = request_data.type # 'free' или 'premium'
+    user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "No name")
+
+    if track_type not in ['free', 'premium']:
+        raise HTTPException(status_code=400, detail="Неверный тип линии наград.")
+
+    try:
+        # 1. Проверяем баланс Звезд и наличие Премиума у юзера
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "checkpoint_stars, has_cp_premium"})
+        user_resp.raise_for_status()
+        if not user_resp.json():
+             raise HTTPException(status_code=404, detail="Пользователь не найден.")
+             
+        user_db = user_resp.json()[0]
+        user_stars = user_db.get("checkpoint_stars", 0)
+        has_premium = user_db.get("has_cp_premium", False)
+
+        if track_type == 'premium' and not has_premium:
+            raise HTTPException(status_code=403, detail="Для этой награды требуется Premium статус.")
+
+        # 2. Получаем требования и саму награду для этого Уровня
+        tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{level_to_claim}"})
+        tier_resp.raise_for_status()
+        if not tier_resp.json():
+            raise HTTPException(status_code=404, detail="Уровень не найден.")
+            
+        tier_data = tier_resp.json()[0]
+
+        if user_stars < tier_data["required_stars"]:
+            raise HTTPException(status_code=400, detail="Недостаточно EXP для этого уровня.")
+
+        reward_type = tier_data[f"{track_type}_reward_type"]
+        reward_value = tier_data[f"{track_type}_reward_value"]
+
+        if reward_type == 'none':
+            raise HTTPException(status_code=400, detail="На этом уровне нет награды.")
+
+        # 3. Проверяем, не забирал ли он уже эту награду (Через таблицу claims)
+        claim_check = await supabase.get("/user_checkpoint_claims", params={
+            "telegram_id": f"eq.{telegram_id}",
+            "level": f"eq.{level_to_claim}",
+            "reward_track": f"eq.{track_type}"
+        })
+        if claim_check.json():
+            raise HTTPException(status_code=400, detail="Награда уже получена.")
+
+        # 4. ВЫДАЧА НАГРАДЫ (Логика в зависимости от типа)
+        if reward_type == 'coins':
+            # Логика выдачи монет (RPC или PATCH таблицы users)
+            await supabase.post("/rpc/add_user_balance", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
+        elif reward_type == 'tickets':
+            # Логика выдачи билетов
+            await supabase.post("/rpc/add_user_tickets", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
+        elif reward_type in ['cs2_skin', 'case', 'case_coupon']:
+            # Создаем ручную заявку для админов
+            payload = {
+                "user_id": telegram_id,
+                "status": "pending",
+                "reward_details": reward_value,
+                "source_description": f"Чекпоинт (Уровень {level_to_claim}, {track_type.upper()})"
+            }
+            manual_resp = await supabase.post("/manual_rewards", json=payload)
+            manual_resp.raise_for_status()
+
+            # Уведомление в админский чат
+            if ADMIN_NOTIFY_CHAT_ID:
+                await safe_send_message(
+                    ADMIN_NOTIFY_CHAT_ID,
+                    f"🔔 <b>Заявка на предмет из Чекпоинта!</b>\n\n"
+                    f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
+                    f"<b>Награда:</b> {reward_value}\n"
+                    f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}\n\n"
+                    f"Заявка ждет подтверждения в админ-панели."
+                )
+
+        # 5. Записываем в базу, что юзер забрал награду
+        await supabase.post("/user_checkpoint_claims", json={
+            "telegram_id": telegram_id,
+            "level": level_to_claim,
+            "reward_track": track_type
+        })
+
+        return {"message": "Награда успешно получена!"}
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json().get("message", "Сбой при выдаче награды.")
+        raise HTTPException(status_code=400, detail=error_details)
+    except Exception as e:
+        logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 
 @app.post("/api/v1/checkpoint/claim")
