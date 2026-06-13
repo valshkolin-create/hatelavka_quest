@@ -218,17 +218,18 @@
             transition: height 0.4s ease;
         }
 
-        /* ПРОЗРАЧНЫЙ КРУЖОЧЕК БЕЗ ОБВОДКИ */
+        /* ТЕПЕРЬ ЭТО АККУРАТНЫЙ КРУЖОЧЕК */
         .tier-number {
             position: absolute;
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            width: 24px;
-            height: 24px;
-            background: transparent; 
+            width: 28px; /* Чуть увеличили для двузначных чисел */
+            height: 28px;
+            background: var(--bg-color); /* Темный фон перекроет линию под цифрой */
             color: var(--text-muted);
-            border: none; 
+            border: 2px solid var(--surface-border); /* Добавили рамку */
+            border-radius: 50%; /* Делаем круглым */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -239,10 +240,11 @@
         }
         
         .tier-row.unlocked .tier-number {
-            background: transparent; 
-            border: none; 
+            background: var(--bg-color); 
+            border-color: var(--primary); /* Желтая рамка для открытых уровней */
             color: var(--primary); 
-            text-shadow: 0 0 10px var(--primary-glow); 
+            text-shadow: none; 
+            box-shadow: 0 0 10px var(--primary-glow); /* Приятное свечение вокруг кружочка */
         }
 
         /* СТИЛИ ПЕРВОГО УРОВНЯ */
