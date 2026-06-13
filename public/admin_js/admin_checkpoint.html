@@ -745,7 +745,7 @@
                 const weekNum = parseInt(weekBlock.dataset.week);
                 weekBlock.querySelectorAll('.cp-quest-row').forEach(row => {
                     const qId = parseInt(row.querySelector('.cp-quest-id-select').value);
-                    const exp = parseInt(row.querySelector('.cp-quest-exp').value);
+                    const exp = parseFloat(row.querySelector('.cp-quest-exp').value);
                     if (!isNaN(qId) && !isNaN(exp) && exp > 0) {
                         flatQuests.push({ quest_id: qId, exp_reward: exp, week: weekNum });
                     }
@@ -771,7 +771,7 @@
                 </select>
                 <div style="flex: 1 1 100px; display: flex; align-items: center; gap: 5px; min-width: 100px;">
                     <i class="fa-solid fa-star" style="color: #ffd700;"></i>
-                    <input type="number" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
+                    <input type="number" step="0.1" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
                 </div>
                 <button type="button" class="remove-cp-quest-btn" style="width: 40px; height: 40px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; flex-shrink:0;">
                     <i class="fa-solid fa-trash"></i>
