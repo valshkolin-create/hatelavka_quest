@@ -9307,8 +9307,8 @@ async def get_current_user_data(
             # A. Основные данные профиля (RPC-функция в базе)
             supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
             
-            # B. Статус привязки Twitch
-            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, twitch_login"}),
+            # B. Статус привязки Twitch + ДОБАВИЛИ ЧЕКПОИНТ
+            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, twitch_login, checkpoint_stars, checkpoint_level"}),
             
             # C. Настройки игры (Гринд) - берем из кэша или быстро из БД
             get_grind_settings_async_global(),
@@ -9368,13 +9368,21 @@ async def get_current_user_data(
         final_response['event_participations'] = data.get('event_participations', {})
         final_response['is_admin'] = telegram_id in ADMIN_IDS
 
-        # --- [B] Обработка Twitch ---
+        # --- [B] Обработка Twitch и Чекпоинта ---
         twitch_status = None
+        checkpoint_stars = 0
+        checkpoint_level = 0
+        
         if not isinstance(twitch_resp, Exception) and twitch_resp.status_code == 200:
             tw_data = twitch_resp.json()
             if tw_data:
                 twitch_status = tw_data[0].get('twitch_status')
+                checkpoint_stars = tw_data[0].get('checkpoint_stars', 0)
+                checkpoint_level = tw_data[0].get('checkpoint_level', 0)
+                
         final_response['twitch_status'] = twitch_status
+        final_response['checkpoint_stars'] = checkpoint_stars
+        final_response['checkpoint_level'] = checkpoint_level
 
         # --- [C] Обработка Настроек Гринда ---
         # Превращаем объект настроек в словарь
@@ -9415,7 +9423,7 @@ async def get_current_user_data(
         # Логируем ошибку, но стараемся не пугать пользователя
         logging.error(f"Ошибка в /user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки профиля")
-
+        
 # --- ГЛОБАЛЬНЫЙ КЭШ ---
 HEARTBEAT_DB_CACHE = {}
 DB_WRITE_INTERVAL = 45 
