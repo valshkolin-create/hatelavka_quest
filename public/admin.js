@@ -3002,7 +3002,8 @@ function setupEventListeners() {
 
             adminUserSearchDebounceTimer = setTimeout(async () => {
                 try {
-                    const users = await makeApiRequest('/api/v1/admin/users/search', { search_term: searchTerm }, 'POST', true);
+                    // ✅ ИСПРАВЛЕНО: теперь ключ в JSON совпадает с Pydantic на бэке
+                    const users = await makeApiRequest('/api/v1/admin/users/search', { query: searchTerm }, 'POST', true);
                     renderAdminSearchResults(users); // Используем новую функцию
                 } catch (e) {
                     dom.adminUserSearchResults.innerHTML = `<p class="error-message">Ошибка поиска: ${e.message}</p>`;
