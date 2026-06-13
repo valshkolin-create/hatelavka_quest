@@ -670,12 +670,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const claimedPremium = userData.cp_claimed_premium || [];
 
         const tiers = bpData?.tiers || [];
-        let currentLevel = 0;
-        tiers.forEach(t => {
-            if (userStars >= t.required_stars) currentLevel = t.level;
-        });
 
-        dom.uiLevel.textContent = currentLevel;
+        // Просто берем готовый уровень из базы данных!
+        dom.uiLevel.textContent = userData.checkpoint_level || 0;
 
         if (hasPremium) {
             dom.buyPremiumBtn.innerHTML = '<i class="fa-solid fa-check"></i> Premium Активен';
