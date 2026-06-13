@@ -962,14 +962,15 @@
             });
             tiers.sort((a, b) => a.level - b.level);
 
-            const startDate = document.getElementById('cp_start_date').value;
-            const endDate = document.getElementById('cp_end_date').value;
+            const startDateInput = document.getElementById('cp_start_date').value;
+            const endDateInput = document.getElementById('cp_end_date').value;
 
-            const payload = {
+            // Формируем конфиг без лишней обертки, прямо как ждет бэкенд в config
+            const configPayload = {
                 is_active: document.getElementById('cp_is_active').checked,
                 title: document.getElementById('cp_title').value,
-                start_date: startDate ? new Date(startDate).toISOString() : null,
-                end_date: endDate ? new Date(endDate).toISOString() : null,
+                start_date: startDateInput ? new Date(startDateInput).toISOString() : null,
+                end_date: endDateInput ? new Date(endDateInput).toISOString() : null,
                 premium_price: parseInt(document.getElementById('cp_premium_price').value) || 0,
                 banner_url: document.getElementById('cp_banner_url').value,
                 tiers: tiers,
@@ -978,7 +979,12 @@
 
             tg.MainButton.showProgress();
             try {
-                await fetchApi('/api/v1/admin/checkpoint/update', { config: payload });
+                // Добавляем параметр platform, как того требует Pydantic модель!
+                await fetchApi('/api/v1/admin/checkpoint/update', { 
+                    config: configPayload,
+                    platform: "tg" // <--- ВОТ ОНО!
+                });
+                
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 showCustomAlert('Успех', 'Настройки Чекпоинта успешно сохранены!');
                 hideSaveBtn();
