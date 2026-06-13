@@ -29,6 +29,12 @@
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
+        html, body {
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+        }
+
         body { 
             font-family: 'Montserrat', sans-serif; 
             background-color: var(--bg-color); 
@@ -76,9 +82,8 @@
             padding: 10px 15px;
             gap: 10px;
             position: sticky;
-            top: 35px; /* С учетом высоты бейджа статуса */
+            top: 35px;
             z-index: 100;
-            /* Убрали border-bottom для монолитности фона */
         }
 
         .top-tab {
@@ -105,34 +110,67 @@
         }
 
         /* --- Герой-блок (Баннер) --- */
+        /* Сделали его плавающей карточкой, чтобы не резал единый фон */
         .bp-hero {
             position: relative;
+            margin: 10px 15px;
+            border-radius: 20px;
             padding: 20px 15px;
-            background-color: var(--bg-color);
+            background-color: var(--surface-bg);
             background-size: cover;
             background-position: center;
             text-align: center;
-            min-height: 180px;
+            min-height: 160px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            /* Убрали border-bottom для монолитности фона */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            border: 1px solid var(--surface-border);
+            overflow: hidden;
         }
 
-        /* Кнопки под баннером */
-        .hero-actions { display: flex; gap: 8px; justify-content: center; margin-top: 15px; }
-        .btn-rules { background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); border: 1px solid var(--surface-border); color: var(--text-main); padding: 10px 15px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; flex: 1; }
+        /* Затемнение баннера снизу для читаемости кнопок */
+        .bp-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(10,10,12,0.9) 0%, transparent 100%);
+            z-index: 1;
+        }
+
+        .hero-actions { 
+            display: flex; 
+            gap: 8px; 
+            justify-content: center; 
+            margin-top: 15px; 
+            position: relative;
+            z-index: 2; /* Поверх градиента */
+        }
+        .btn-rules { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid var(--surface-border); color: var(--text-main); padding: 10px 15px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; flex: 1; }
         .btn-rules:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
+
+        /* --- Инфо юзера (Уровень и EXP) --- */
+        .user-stats-bar {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px;
+            padding: 15px;
+            background: var(--surface-bg);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .user-stats-bar .highlight { color: var(--primary); font-size: 15px; margin-left: 5px; }
 
         /* --- Свайп контейнер --- */
         .swipe-container {
             position: relative;
-            overflow: hidden;
             width: 100%;
+            overflow-x: hidden; /* Важно: разрешаем Y-скролл, скрываем только X */
         }
 
-        /* --- Контентные блоки --- */
-        .view-section { display: none; padding: 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s ease; }
+        .view-section { display: none; padding: 0 15px 15px 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s ease; }
         .view-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
@@ -167,15 +205,15 @@
         .tier-line {
             position: absolute;
             left: 50%;
-            top: 50%;
-            bottom: -25px;
+            top: 20px; /* Отступ от центра кружка вниз */
+            bottom: -50px; /* Линия пробивает до талого (с запасом вниз) */
             width: 3px;
             background: var(--surface-border);
             transform: translateX(-50%);
             z-index: 1;
             transition: 0.4s ease;
         }
-        .tier-row:last-child .tier-line { display: none; }
+        /* Убрали обрыв линии на последнем элементе! */
         .tier-line.filled { background: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
 
         /* Кружок уровня */
@@ -221,7 +259,7 @@
         .reward-card.premium { background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%); border-color: rgba(255, 215, 0, 0.2); }
         .reward-card.locked { opacity: 0.5; filter: grayscale(80%); }
 
-        /* Картинка награды вместо иконки */
+        /* Картинка награды */
         .reward-image {
             width: 100%;
             height: auto;
@@ -230,6 +268,7 @@
             border-radius: 10px;
             background: rgba(0,0,0,0.3);
             margin-bottom: 5px;
+            cursor: pointer; /* Показываем, что кликабельно */
         }
 
         .btn-claim { width: 100%; padding: 10px 0; margin-top: 5px; border-radius: 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
@@ -267,6 +306,15 @@
         .modal-body h4:first-child { margin-top: 0; }
         .modal-body p { margin: 0; }
 
+        /* Новая модалка для фулл-скрин картинок */
+        #image-modal img {
+            max-width: 90vw;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+
         .loader-overlay { position: fixed; inset: 0; background: var(--bg-color); z-index: 9999; display: flex; align-items: center; justify-content: center; }
         .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -302,8 +350,12 @@
         </div>
     </div>
 
+    <div class="user-stats-bar" id="user-stats-bar">
+        <div><i class="fa-solid fa-ranking-star"></i> Твой уровень: <span id="ui-current-level" class="highlight">0</span></div>
+        <div><i class="fa-solid fa-star"></i> Звезд: <span id="ui-current-exp" class="highlight">0</span></div>
+    </div>
+
     <div class="swipe-container" id="swipe-area">
-        
         <div id="view-rewards" class="view-section active">
             <div class="track-headers">
                 <div class="track-header-title">Free</div>
@@ -320,7 +372,6 @@
                 <p style="text-align: center; color: var(--text-muted); margin-top: 40px;">Загрузка заданий...</p>
             </div>
         </div>
-
     </div>
 
     <div id="rules-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('modal-active')">
@@ -333,11 +384,15 @@
                 <h4>Что такое Battle Pass?</h4>
                 <p>Выполняй задания, проявляй активность на Twitch и в Telegram, чтобы копить звезды (EXP).</p>
                 <h4>Как забрать награды?</h4>
-                <p>Как только ты накапливаешь нужное количество звезд для уровня, кнопка "Забрать" становится активной.</p>
+                <p>Как только ты накапливаешь нужное количество звезд для уровня, кнопка становится активной.</p>
                 <h4>Premium статус</h4>
                 <p>Владельцы Premium пропуска забирают награды из обеих колонок одновременно!</p>
             </div>
         </div>
+    </div>
+
+    <div id="image-modal" class="modal-overlay" onclick="this.classList.remove('modal-active')">
+        <img id="enlarged-image" src="" alt="Enlarged Reward">
     </div>
 
 <script>
@@ -349,6 +404,13 @@ window.switchBPView = function(viewId) {
     document.getElementById(`view-${viewId}`).classList.add('active');
     const btn = document.querySelector(`.top-tab[onclick*="${viewId}"]`);
     if(btn) btn.classList.add('active');
+};
+
+// Глобальная функция для увеличения картинки
+window.openImageModal = function(src) {
+    if (!src || src.includes('text=')) return; // Не открываем заглушки
+    document.getElementById('enlarged-image').src = src;
+    document.getElementById('image-modal').classList.add('modal-active');
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -363,28 +425,30 @@ document.addEventListener('DOMContentLoaded', () => {
         rewardsContainer: document.getElementById('rewards-container'),
         questsContainer: document.getElementById('quests-container'),
         buyPremiumBtn: document.getElementById('buy-premium-btn'),
-        swipeArea: document.getElementById('swipe-area')
+        swipeArea: document.getElementById('swipe-area'),
+        uiLevel: document.getElementById('ui-current-level'),
+        uiExp: document.getElementById('ui-current-exp')
     };
 
     let bpData = null;
     let userData = null;
     let allQuests = [];
 
-    // Принимает целиком объект reward от бэкенда (например, tier.free_reward)
+    // Принимает целиком объект reward от бэкенда
     function getRewardImageHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         
-        // Если бэкенд нашел и передал картинку - используем ее
+        let src = '';
         if (reward.image_url && reward.image_url.startsWith('http')) {
-            return `<img src="${reward.image_url}" class="reward-image" alt="Reward">`;
+            src = reward.image_url;
+        } else {
+            // Фолбэки
+            src = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
+            if (reward.type === 'coins') src = 'https://placehold.co/150x150/2a2a2c/ffd700?text=COINS';
+            if (reward.type === 'tickets') src = 'https://placehold.co/150x150/2a2a2c/ffd700?text=TICKETS';
         }
-        
-        // Фолбэки для стандартных типов наград
-        let fallbackSrc = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
-        if (reward.type === 'coins') fallbackSrc = 'https://placehold.co/150x150/2a2a2c/ffd700?text=COINS';
-        if (reward.type === 'tickets') fallbackSrc = 'https://placehold.co/150x150/2a2a2c/ffd700?text=TICKETS';
 
-        return `<img src="${fallbackSrc}" class="reward-image" alt="Reward">`;
+        return `<img src="${src}" class="reward-image" alt="Reward" onclick="openImageModal('${src}')">`;
     }
 
     async function initialize() {
@@ -411,13 +475,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderBP() {
-        // Проверяем, активен ли сезон
         const isSeasonActive = bpData && bpData.is_active;
 
         if (!isSeasonActive) {
             dom.seasonStatusBadge.textContent = "СЕЗОН ЗАВЕРШЕН";
             dom.seasonStatusBadge.classList.add('inactive');
-            // Убрали очистку контейнера и return! Теперь награды рендерятся в любом случае.
         } else {
             dom.seasonStatusBadge.textContent = "СЕЗОН АКТИВЕН";
             dom.seasonStatusBadge.classList.remove('inactive');
@@ -434,13 +496,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const claimedFree = userData.cp_claimed_free || [];
         const claimedPremium = userData.cp_claimed_premium || [];
 
+        // Вычисляем текущий уровень на основе количества звезд
+        const tiers = bpData?.tiers || [];
+        let currentLevel = 0;
+        tiers.forEach(t => {
+            if (userStars >= t.required_stars) {
+                currentLevel = t.level;
+            }
+        });
+
+        // Заполняем плашку пользователя
+        dom.uiLevel.textContent = currentLevel;
+        dom.uiExp.textContent = userStars;
+
         if (hasPremium) {
             dom.buyPremiumBtn.innerHTML = '<i class="fa-solid fa-check"></i> Premium Активен';
             dom.buyPremiumBtn.style.pointerEvents = 'none';
             dom.buyPremiumBtn.style.opacity = '0.5';
         }
 
-        const tiers = bpData?.tiers || [];
         if (tiers.length === 0) {
             dom.rewardsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Награды еще не добавлены.</p>';
             return;
@@ -450,7 +524,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tiers.forEach((tier, index) => {
             const isUnlocked = userStars >= tier.required_stars;
-            
             const nextTier = tiers[index + 1];
             const isNextUnlocked = nextTier ? userStars >= nextTier.required_stars : false;
             
@@ -461,9 +534,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (isFreeEmpty) freeBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
             else if (isFreeClaimed) freeBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-            else if (isUnlocked && isSeasonActive) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">Забрать</button>`;
+            else if (isUnlocked && isSeasonActive) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">ЗАБРАТЬ</button>`;
             else if (isUnlocked && !isSeasonActive) freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> Завершен</button>`;
-            else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
+            else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
 
             // PREMIUM
             const isPremClaimed = claimedPremium.includes(tier.level);
@@ -472,15 +545,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isPremEmpty) premBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
             else if (isPremClaimed) premBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-            else if (isUnlocked && hasPremium && isSeasonActive) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">Забрать</button>`;
+            else if (isUnlocked && hasPremium && isSeasonActive) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">ЗАБРАТЬ</button>`;
             else if (isUnlocked && hasPremium && !isSeasonActive) premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> Завершен</button>`;
             else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" onclick="tg.showAlert('Нужен Premium пропуск!')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
-            else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
+            else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
 
             const row = document.createElement('div');
             row.className = `tier-row ${isUnlocked ? 'unlocked' : ''}`;
             
-            // Заметь: теперь мы передаем весь объект tier.free_reward в getRewardImageHtml
             row.innerHTML = `
                 <div class="tier-line ${isNextUnlocked ? 'filled' : ''}"></div>
                 <div class="tier-number">${tier.level}</div>
@@ -589,28 +661,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- Обработка свайпов (Мышь и Сенсор) ---
+    // --- Обработка свайпов (Мышь и Сенсор) - ИСПРАВЛЕНА ДЛЯ НОРМАЛЬНОГО СКРОЛЛА ---
     function setupSwipe() {
         let startX = 0;
-        let currentX = 0;
+        let startY = 0;
         let isSwiping = false;
 
         const handleStart = (e) => {
             startX = e.touches ? e.touches[0].clientX : e.clientX;
+            startY = e.touches ? e.touches[0].clientY : e.clientY;
             isSwiping = true;
         };
 
-        const handleMove = (e) => {
-            if (!isSwiping) return;
-            currentX = e.touches ? e.touches[0].clientX : e.clientX;
-        };
-
-        const handleEnd = () => {
+        const handleEnd = (e) => {
             if (!isSwiping) return;
             isSwiping = false;
             
+            let currentX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+            let currentY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+
             const diffX = startX - currentX;
-            if (Math.abs(diffX) > 70) { // Порог свайпа
+            const diffY = startY - currentY;
+
+            // Триггерим свайп вкладок только если движение больше по горизонтали (ось X), 
+            // чем по вертикали (ось Y). Это не ломает обычный скролл страницы!
+            if (Math.abs(diffX) > 70 && Math.abs(diffX) > Math.abs(diffY)) { 
                 if (diffX > 0) {
                     switchBPView('quests'); // Свайп влево
                 } else {
@@ -620,12 +695,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         dom.swipeArea.addEventListener('touchstart', handleStart, {passive: true});
-        dom.swipeArea.addEventListener('touchmove', handleMove, {passive: true});
         dom.swipeArea.addEventListener('touchend', handleEnd);
 
         dom.swipeArea.addEventListener('mousedown', handleStart);
-        dom.swipeArea.addEventListener('mousemove', handleMove);
-        window.addEventListener('mouseup', handleEnd); // Ловим отпускание мыши везде
+        window.addEventListener('mouseup', handleEnd);
     }
 
     initialize();
