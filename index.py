@@ -15143,11 +15143,13 @@ async def update_checkpoint_content(
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
 
 
-# Добавлен недостающий эндпоинт для админки интерфейса MAX
+# ==========================================
+# 1. ОБНОВЛЕННЫЙ ЭНДПОИНТ СТАТУСА (С КАРТИНКАМИ)
+# ==========================================
 @app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
 async def get_checkpoint_status(
-    request_data: dict,  # Принимает initData, но пока отдаем статус всем
+    request_data: dict,  # Принимает initData
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """Возвращает настройки Чекпоинта и склеивает их с уровнями из БД, подтягивая картинки наград."""
@@ -15186,13 +15188,27 @@ async def get_checkpoint_status(
                 for s in skins_resp.json():
                     skin_images[s["market_hash_name"]] = s.get("image_url")
 
-        # Запрашиваем картинки кейсов
+        # Запрашиваем картинки кейсов из shop_cache
         if case_names:
-            formatted_case_names = ",".join([f'"{name}"' for name in case_names])
-            cases_resp = await supabase.get("/twitch_cases", params={"name": f"in.({formatted_case_names})", "select": "name,image_url"})
-            if cases_resp.is_success:
-                for c in cases_resp.json():
-                    case_images[c["name"]] = c.get("image_url")
+            cases_category_id = 2716312
+            cases_resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{cases_category_id}", "select": "data"})
+            if cases_resp.is_success and cases_resp.json():
+                row_data = cases_resp.json()[0].get("data")
+                
+                # Парсим JSONB данные (в базе может быть строкой или уже массивом)
+                if isinstance(row_data, str):
+                    try:
+                        cases_list = json.loads(row_data)
+                    except json.JSONDecodeError:
+                        cases_list = []
+                else:
+                    cases_list = row_data or []
+                
+                # Ищем картинки по названию кейса
+                for c in cases_list:
+                    name = c.get("name")
+                    if name in case_names:
+                        case_images[name] = c.get("image_url")
         # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
 
         # 3. Собираем массив уровней в том виде, который ждет фронтенд
@@ -15226,8 +15242,42 @@ async def get_checkpoint_status(
         return base_config
 
     except Exception as e:
-        logging.error(f"Ошибка получения статуса Чекпоинта: {e}")
+        logging.error(f"Ошибка получения статуса Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
+
+
+# ==========================================
+# 2. ЭНДПОИНТ ДЛЯ ЗАГРУЗКИ СПИСКА КЕЙСОВ В АДМИНКЕ
+# ==========================================
+@app.get("/api/v1/admin/twitch_campaigns/cases")
+async def get_cases_list(
+    initData: str,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Отдает список кейсов для модалки склада (и Дропов, и Баттл-пасса) из shop_cache."""
+    # Здесь можно добавить проверку initData и админских прав, если нужно
+    
+    cases_category_id = 2716312
+    try:
+        cases_resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{cases_category_id}", "select": "data"})
+        
+        if cases_resp.is_success and cases_resp.json():
+            row_data = cases_resp.json()[0].get("data")
+            
+            if isinstance(row_data, str):
+                try:
+                    cases_list = json.loads(row_data)
+                except json.JSONDecodeError:
+                    cases_list = []
+            else:
+                cases_list = row_data or []
+                
+            return cases_list
+            
+        return []
+    except Exception as e:
+        logging.error(f"Ошибка при получении списка кейсов: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Сбой загрузки кэша кейсов")
 
 
 @app.post("/api/v1/checkpoint/claim")
