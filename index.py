@@ -23033,6 +23033,16 @@ async def get_available_cases(
 # ==========================================
 # 3. СОЗДАНИЕ И ПУБЛИКАЦИЯ
 # ==========================================
+
+def get_today_message_requirement() -> int:
+    """Возвращает требуемое количество сообщений для текущего дня по МСК."""
+    msk_tz = timezone(timedelta(hours=3))
+    current_weekday = datetime.now(msk_tz).weekday() # 0=Пн, 1=Вт, 2=Ср, 3=Чт, 4=Пт, 5=Сб, 6=Вс
+    
+    # Твои пороги: Вт(1)=0, Ср(2)=30, Чт(3)=60, Пт(4)=100, Сб(5)=100. Пн(0) и Вс(6) = 100 по умолчанию.
+    thresholds = {1: 0, 2: 30, 3: 60, 4: 100, 5: 100}
+    return thresholds.get(current_weekday, 100)
+
 @app.post("/api/v1/admin/twitch_campaigns/create")
 async def create_twitch_campaign(
     req: TwitchCampaignCreate,
@@ -23097,15 +23107,24 @@ async def create_twitch_campaign(
         ]
     )
 
+    # Высчитываем порог сообщений на сегодня и стилизуем под остальной текст
+    min_msg = get_today_message_requirement()
+    msg_condition_text = ""
+    if min_msg > 0:
+        word_form = get_plural(min_msg, "сообщение", "сообщения", "сообщений")
+        msg_condition_text = f"💬 Для участия нужно написать минимум <b>{min_msg} {word_form}</b> в чате за неделю.\n\n"
+
     full_post_text = (
-    f"{req.post_text}\n\n"
-    
-    f"🔥 Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
-    
-    f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
-    
-    f"🎁 Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче): <code>{unique_code}</code>"
-)
+        f"{req.post_text}\n\n"
+        
+        f"🔥 Первые <b>{req.winners_limit}</b> зрителей, кто напишет код на стриме, получат <b>«{req.target_case_name}»</b>!\n\n"
+        
+        f"{msg_condition_text}"
+        
+        f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
+        
+        f"🎁 Код (нажми, чтобы скопировать. Его нужно написать в чат на твиче): <code>{unique_code}</code>"
+    )
 
     try:
         sent_message = await bot.send_photo(
@@ -23117,7 +23136,7 @@ async def create_twitch_campaign(
         return {"status": "warning", "message": f"Создано, но пост не вышел: {e}"}
 
     return {"status": "success", "message": "Раздача запущена!"}
-
+    
 # ==========================================
 # 4.5 ИНФОРМАЦИЯ ДЛЯ ФРОНТЕНДА (MINI APP)
 # ==========================================
@@ -23178,11 +23197,19 @@ async def edit_twitch_campaign_post(
     code_res = await supabase.get("/cs_codes", params={"campaign_id": f"eq.{req.campaign_id}"})
     unique_code = code_res.json()[0]["code"] if (code_res.status_code == 200 and code_res.json()) else "СЕКРЕТ"
 
-    # 3. Собираем текст в одну строку (код + описание)
+    min_msg = get_today_message_requirement()
+    msg_condition_text = ""
+    if min_msg > 0:
+        word_form = get_plural(min_msg, "сообщение", "сообщения", "сообщений")
+        msg_condition_text = f"💬 Для участия нужно написать минимум <b>{min_msg} {word_form}</b> в чате за неделю.\n\n"
+
+    # Собираем текст в одну строку (код + описание)
     full_new_text = (
         f"{req.new_post_text}\n\n"
         
         f"🔥 Первые <b>{campaign['winners_limit']}</b> зрителей, кто напишет код на стриме, получат <b>«{campaign['target_case_name']}»</b>!\n\n"
+        
+        f"{msg_condition_text}"
         
         f"❕ Остальные участники получат по <b>5 билетов</b>.\n\n"
         
