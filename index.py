@@ -1155,8 +1155,8 @@ class TwitchRewardIdRequest(BaseModel):
 
 class AdminUserSearchRequest(BaseModel):
     initData: str
-    platform: str = "tg"  # <--- Добавлено!
-    search_term: str
+    query: str  # Изменили search_term на query
+    platform: str = "tg"
 
 class AdminForceCompleteRequest(BaseModel):
     initData: str
@@ -13701,7 +13701,7 @@ async def admin_search_users(
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    term = request_data.search_term.strip()
+    term = request_data.query.strip() # Стало: используем query
     if len(term) < 2: # Не ищем по слишком коротким запросам
         return []
 
