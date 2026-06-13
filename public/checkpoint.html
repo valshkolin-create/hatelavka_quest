@@ -467,6 +467,26 @@
         .loader-overlay { position: fixed; inset: 0; background: var(--bg-color); z-index: 9999; display: flex; align-items: center; justify-content: center; }
         .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* =========================================
+   УБИРАЕМ ФОНЫ У ВЕРХНЕГО И НИЖНЕГО БАРА
+   ========================================= */
+
+/* Делаем нижний бар полностью прозрачным */
+.floating-bottom-bar {
+    background: transparent !important;
+    border: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+}
+
+/* Убираем фон у верхнего бара (если он там генерировался) */
+.top-header {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
     </style>
 </head>
 <body>
