@@ -194,8 +194,8 @@
         .tier-line {
             position: absolute;
             left: 50%;
-            top: 15px;
-            bottom: -15px; /* Идеально соединяется со следующим рядом */
+            top: 0;          /* Пускаем линию от самого верха карточки */
+            bottom: -35px;   /* Увеличиваем вылет вниз, чтобы она гарантированно заходила на следующий уровень */
             width: 3px;
             background: var(--surface-border);
             transform: translateX(-50%);
