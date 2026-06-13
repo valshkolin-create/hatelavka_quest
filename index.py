@@ -15342,9 +15342,9 @@ async def admin_grant_level(
     request_data: GrantLevelRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Выдает пользователю уровень (путем начисления нужного количества Звезд)."""
+    """Выдает пользователю уровень, просто умножая желаемый уровень на 10 EXP."""
     
-    # 1. Проверяем, что запрос делает Админ
+    # 1. Проверяем админа
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
@@ -15353,15 +15353,8 @@ async def admin_grant_level(
     target_level = request_data.level
 
     try:
-        # 2. Узнаем, сколько Звезд требуется для желаемого уровня
-        tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{target_level}"})
-        tier_resp.raise_for_status()
-        tier_data = tier_resp.json()
-
-        if not tier_data:
-            raise HTTPException(status_code=404, detail=f"Уровень {target_level} не настроен в базе. Сначала создай его.")
-
-        required_stars = tier_data[0].get("required_stars", 0)
+        # 2. ЖЕСТКАЯ МАТЕМАТИКА: 1 уровень = 10 EXP
+        required_stars = target_level * 10.0
 
         # 3. Находим пользователя и смотрим его текущие Звезды
         user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{target_id}", "select": "checkpoint_stars"})
@@ -15371,12 +15364,14 @@ async def admin_grant_level(
         if not user_db_data:
             raise HTTPException(status_code=404, detail="Пользователь не найден.")
 
-        current_stars = user_db_data[0].get("checkpoint_stars", 0)
+        # Достаем текущие звезды (превращаем во float, так как у нас теперь дробные числа)
+        current_stars = float(user_db_data[0].get("checkpoint_stars") or 0)
 
-        # Берем максимум, чтобы случайно не откатить прогресс (например, у него уже 150 звезд, а мы выдаем уровень, где нужно 100)
+        # 4. Берем максимум, чтобы не откатить прогресс
+        # (Например, если у него 60 звезд, а мы выдаем 5 уровень (50 звезд), останется 60)
         new_stars = max(current_stars, required_stars)
 
-        # 4. Выдаем Звезды
+        # 5. Записываем Звезды в базу
         update_resp = await supabase.patch(
             "/users",
             params={"telegram_id": f"eq.{target_id}"},
@@ -15384,7 +15379,7 @@ async def admin_grant_level(
         )
         update_resp.raise_for_status()
 
-        return {"message": f"Успешно! Пользователю начислено {new_stars} Звезд (Уровень {target_level})."}
+        return {"message": f"Успешно! Выдан Уровень {target_level} (установлен баланс: {new_stars} EXP)."}
 
     except httpx.HTTPStatusError as e:
         logging.error(f"HTTP ошибка базы данных при выдаче уровня: {e.response.text}")
