@@ -226,23 +226,25 @@
     <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
         <div class="bottom-sheet">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0">Склад ботов</h3>
+                <h3 style="margin:0">Склад</h3>
                 <button onclick="closeModal('modal-library')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="admin-form" style="margin-top: 15px;">
                 <input type="text" id="lib-search-inp" placeholder="Название (AK-47)..." oninput="debounceSearch()">
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 8px; font-size: 12px;">
-                    <span style="color: var(--text-sec);">Фильтр по цене:</span>
-                    <div style="background: rgba(255, 215, 0, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: 700; cursor: pointer;" onclick="setMaxPriceToBalance()">
-                        <i class="fa-solid fa-wallet"></i> <span id="modal-balance-val">Загрузка...</span>
+                <div id="lib-filters">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 8px; font-size: 12px;">
+                        <span style="color: var(--text-sec);">Фильтр по цене:</span>
+                        <div style="background: rgba(255, 215, 0, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: 700; cursor: pointer;" onclick="setMaxPriceToBalance()">
+                            <i class="fa-solid fa-wallet"></i> <span id="modal-balance-val">Загрузка...</span>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="tier-grid">
-                    <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" oninput="debounceSearch()">
-                    <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" oninput="debounceSearch()">
+                    
+                    <div class="tier-grid">
+                        <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" oninput="debounceSearch()">
+                        <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" oninput="debounceSearch()">
+                    </div>
                 </div>
             </div>
 
@@ -424,13 +426,26 @@
         // ==========================================
         function openLibraryForTarget(btnElement) {
             activeSkinTargetInput = btnElement.previousElementSibling;
+            const rewardType = btnElement.dataset.rewardType || 'cs2_skin';
             document.getElementById('modal-library').classList.add('modal-active');
-            document.getElementById('lib-search-inp').value = '';
-            document.getElementById('lib-price-min').value = '';
-            document.getElementById('lib-price-max').value = '';
-            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>';
-            currentOffset = 0; hasMoreItems = true;
-            updateModalBalance();
+            
+            if (rewardType === 'case') {
+                // Интерфейс для кейсов
+                document.getElementById('lib-search-inp').style.display = 'none';
+                document.getElementById('lib-filters').style.display = 'none';
+                document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка кейсов...</div>';
+                loadCasesIntoLibrary();
+            } else {
+                // Интерфейс для маркета (скины)
+                document.getElementById('lib-search-inp').style.display = 'block';
+                document.getElementById('lib-filters').style.display = 'block';
+                document.getElementById('lib-search-inp').value = '';
+                document.getElementById('lib-price-min').value = '';
+                document.getElementById('lib-price-max').value = '';
+                document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>';
+                currentOffset = 0; hasMoreItems = true;
+                updateModalBalance();
+            }
         }
 
         async function updateModalBalance() {
@@ -535,6 +550,48 @@
             }
         }
 
+        async function loadCasesIntoLibrary() {
+            const cont = document.getElementById('lib-results');
+            hasMoreItems = false; // Блокируем скролл пагинацию для кейсов
+            
+            try {
+                const res = await fetch(`/api/v1/admin/twitch_campaigns/cases?initData=${encodeURIComponent(tg.initData)}`);
+                if (!res.ok) throw new Error();
+                const cases = await res.json();
+                
+                cont.innerHTML = '';
+                if(cases.length === 0) {
+                    cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Кейсы не найдены в кэше</div>';
+                    return;
+                }
+                
+                cases.forEach(c => {
+                    const safeName = escapeHTML(c.name);
+                    const encodedName = encodeURIComponent(c.name);
+                    cont.innerHTML += `
+                    <div class="search-item" style="border-left: 3px solid var(--primary);">
+                        <div class="search-info">
+                            <div style="font-weight:700; font-size:14px; color:#fff;">${safeName}</div>
+                        </div>
+                        <button class="search-btn" onclick="selectCaseFromCache('${encodedName}')">ВЫБРАТЬ</button>
+                    </div>`;
+                });
+            } catch (e) {
+                cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка загрузки кэша</div>';
+            }
+        }
+
+        function selectCaseFromCache(encodedName) {
+            const caseName = decodeURIComponent(encodedName);
+            closeModal('modal-library');
+            if (activeSkinTargetInput) {
+                activeSkinTargetInput.value = caseName;
+                activeSkinTargetInput = null;
+                showSaveBtn();
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
         // ==========================================
         // ЛОГИКА CHECKPOINT
         // ==========================================
@@ -544,6 +601,7 @@
                 { val: 'coins', text: 'Монеты' },
                 { val: 'tickets', text: 'Билеты' },
                 { val: 'cs2_skin', text: 'CS2 Скин (Маркет)' },
+                { val: 'case', text: 'Кейс' },
                 { val: 'case_coupon', text: 'Купон на кейс' },
                 { val: 'grind_vip', text: 'Grind VIP' }
             ];
@@ -604,7 +662,8 @@
                     const searchBtn = container.querySelector('.skin-search-btn');
                     
                     container.style.display = sel.value === 'none' ? 'none' : 'flex';
-                    searchBtn.style.display = sel.value === 'cs2_skin' ? 'flex' : 'none';
+                    searchBtn.style.display = (sel.value === 'cs2_skin' || sel.value === 'case') ? 'flex' : 'none';
+                    searchBtn.dataset.rewardType = sel.value;
                 };
                 select.addEventListener('change', (e) => { toggleUI(e.target); showSaveBtn(); });
                 toggleUI(select);
