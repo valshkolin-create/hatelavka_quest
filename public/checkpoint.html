@@ -29,7 +29,6 @@
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        /* ВАЖНО: Стили html и body управляются top_nav.js. Мы их тут не трогаем, чтобы не сломать скролл */
         body { 
             font-family: 'Montserrat', sans-serif; 
             background-color: var(--bg-color); 
@@ -49,8 +48,8 @@
             min-height: 200px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* ПРИЖИМАЕМ К ВЕРХУ */
-            padding: 20px 15px; /* Убрали огромный отступ сверху */
+            justify-content: flex-start;
+            padding: 20px 15px;
         }
 
         .bp-hero::after {
@@ -61,7 +60,6 @@
             z-index: 1;
         }
 
-        /* Кнопки и статус сезона на самом верху баннера */
         .hero-top-controls {
             display: flex;
             flex-direction: column;
@@ -140,7 +138,7 @@
             border-color: rgba(255, 215, 0, 0.3);
         }
 
-        /* --- Минималистичный Уровень (Без фона и обводки) --- */
+        /* --- Минималистичный Уровень --- */
         .level-text-container {
             margin: 5px 0 15px 0;
             text-align: center;
@@ -190,7 +188,6 @@
             position: relative;
         }
 
-        /* Прогресс линия по центру (до талого) */
         .tier-line {
             position: absolute;
             left: 50%;
@@ -204,7 +201,6 @@
         }
         .tier-line.filled { background: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
 
-        /* Кружок уровня */
         .tier-number {
             position: absolute;
             left: 50%;
@@ -231,7 +227,6 @@
             box-shadow: 0 0 10px var(--primary-glow);
         }
 
-        /* Карточка награды */
         .reward-card {
             background: var(--surface-bg);
             border: 1px solid var(--surface-border);
@@ -247,7 +242,6 @@
         .reward-card.premium { background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%); border-color: rgba(255, 215, 0, 0.2); }
         .reward-card.locked { opacity: 0.5; filter: grayscale(80%); }
 
-        /* КАРТИНКА БЕЗ ФОНА, УВЕЛИЧЕННАЯ */
         .reward-image {
             width: 80px;
             height: 80px;
@@ -257,7 +251,6 @@
             cursor: pointer;
         }
 
-        /* Название предмета под картинкой */
         .reward-title {
             font-size: 10px;
             font-weight: 700;
@@ -273,7 +266,6 @@
             line-height: 1.2;
         }
 
-        /* Кнопка действия */
         .btn-claim { width: 100%; padding: 8px 0; margin-top: auto; border-radius: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
         .btn-claim.locked { background: rgba(255,255,255,0.05); color: var(--text-muted); pointer-events: none; }
         .btn-claim.ready { background: var(--primary); color: #000; box-shadow: 0 4px 10px var(--primary-glow); }
@@ -343,9 +335,10 @@
         }
         .week-content-inner { padding-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
 
-        /* --- Модалки --- */
+        /* --- Модалки (Общие) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
-        .modal-active { display: flex !important; }
+        .modal-active { display: flex !important; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         
         .modal-content { background: #1c1c1e; width: 100%; max-width: 320px; border-radius: 16px; border: 1px solid var(--surface-border); overflow: hidden; max-height: 75vh; display: flex; flex-direction: column; }
         .modal-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--surface-border); }
@@ -356,24 +349,80 @@
         .modal-body h4:first-child { margin-top: 0; }
         .modal-body p { margin: 0; }
 
-        .image-modal-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 400px; }
-        .image-modal-close { 
-            position: absolute; 
-            top: -50px; 
-            right: 0; 
-            background: rgba(255,255,255,0.1); 
-            border: 1px solid rgba(255,255,255,0.2); 
-            color: #fff; 
-            width: 36px; 
-            height: 36px; 
-            border-radius: 50%; 
-            font-size: 18px; 
-            cursor: pointer; 
+        /* --- КРАСИВАЯ МОДАЛКА ПОКУПКИ PREMIUM --- */
+        .premium-modal-content {
+            background: #1c1c1e; 
+            width: 100%; 
+            max-width: 320px; 
+            border-radius: 20px; 
+            border: 1px solid var(--primary-glow);
+            overflow: hidden; 
             display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            backdrop-filter: blur(5px);
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(255, 215, 0, 0.15);
         }
+        
+        .premium-modal-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 10;
+            color: #fff;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .premium-modal-header-img {
+            height: 140px;
+            /* Заглушка картинки. Потом просто поменяй URL на свою */
+            background: linear-gradient(180deg, rgba(255,215,0,0.1) 0%, #1c1c1e 100%), url('https://placehold.co/320x140/2a2a2c/ffd700?text=Premium+Banner') center/cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .premium-modal-body { padding: 15px 20px 25px 20px; text-align: center; }
+        .premium-modal-body h3 { margin: 0 0 8px 0; font-size: 22px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
+        .premium-modal-body p { margin: 0 0 20px 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+        
+        .premium-price-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .premium-price { font-size: 26px; font-weight: 800; color: #fff; }
+        
+        .btn-buy-premium-confirm {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(90deg, #ffd700, #ffaa00);
+            color: #000;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            transition: 0.2s;
+        }
+        .btn-buy-premium-confirm:active { transform: scale(0.96); box-shadow: 0 2px 5px var(--primary-glow); }
+
+        /* Модалка увеличенной картинки */
+        .image-modal-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 400px; }
+        .image-modal-close { position: absolute; top: -50px; right: 0; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         #enlarged-image { max-width: 100%; max-height: 60vh; object-fit: contain; border-radius: 16px; }
         #enlarged-title { margin-top: 15px; font-size: 16px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; text-align: center; }
 
@@ -440,6 +489,7 @@
         </div>
 
     </div>
+
     <div id="rules-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('modal-active')">
         <div class="modal-content">
             <div class="modal-header">
@@ -453,6 +503,28 @@
                 <p>Как только ты накапливаешь нужное количество звезд для уровня, кнопка становится активной.</p>
                 <h4>Premium статус</h4>
                 <p>Владельцы Premium пропуска забирают награды из обеих колонок одновременно!</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('modal-active')">
+        <div class="premium-modal-content">
+            <button class="premium-modal-close" onclick="document.getElementById('premium-buy-modal').classList.remove('modal-active')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="premium-modal-header-img">
+                </div>
+            <div class="premium-modal-body">
+                <h3>Premium Статус</h3>
+                <p>Открой доступ ко всем эксклюзивным наградам сезона. Собирай лут сразу из обеих колонок, получай больше опыта и выделяйся среди остальных!</p>
+                
+                <div class="premium-price-box">
+                    <div class="premium-price">199 ₽</div>
+                </div>
+
+                <button class="btn-buy-premium-confirm" id="confirm-buy-premium-btn">
+                    Приобрести
+                </button>
             </div>
         </div>
     </div>
@@ -484,7 +556,6 @@ window.openImageModal = function(src, title) {
     document.getElementById('image-modal').classList.add('modal-active');
 };
 
-// Функция переключения аккордеона
 window.toggleWeek = function(headerElement) {
     const isLocked = headerElement.parentElement.classList.contains('locked');
     if (isLocked) return;
@@ -515,14 +586,17 @@ document.addEventListener('DOMContentLoaded', () => {
         questsContainer: document.getElementById('quests-container'),
         buyPremiumBtn: document.getElementById('buy-premium-btn'),
         swipeArea: document.getElementById('swipe-area'),
-        uiLevel: document.getElementById('ui-current-level')
+        uiLevel: document.getElementById('ui-current-level'),
+        
+        // Новые элементы модалки
+        premiumBuyModal: document.getElementById('premium-buy-modal'),
+        confirmBuyPremiumBtn: document.getElementById('confirm-buy-premium-btn')
     };
 
     let bpData = null;
     let userData = null;
     let allQuests = [];
 
-    // Получаем HTML картинки (БЕЗ ФОНА)
     function getRewardImageHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         
@@ -539,7 +613,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<img src="${src}" class="reward-image" alt="Reward" onclick="openImageModal('${src}', '${safeTitle}')">`;
     }
 
-    // Получаем HTML названия (под картинку)
     function getRewardTitleHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         let title = reward.value ? reward.value.toString() : '';
@@ -622,7 +695,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextTier = tiers[index + 1];
             const isNextUnlocked = nextTier ? userStars >= nextTier.required_stars : false;
             
-            // FREE
             const isFreeClaimed = claimedFree.includes(tier.level);
             const isFreeEmpty = tier.free_reward.type === 'none';
             let freeBtnHtml = '';
@@ -632,7 +704,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (isUnlocked && isSeasonActive) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">ЗАБРАТЬ</button>`;
             else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
 
-            // PREMIUM
             const isPremClaimed = claimedPremium.includes(tier.level);
             const isPremEmpty = tier.premium_reward.type === 'none';
             let premBtnHtml = '';
@@ -675,7 +746,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.questsContainer.innerHTML = '';
         
-        // Подготовка данных для разбивки на недели
         const questsWithWeeks = bpData.quests_config.map(q => ({...q, week: q.week || 1}));
         const maxWeek = Math.max(...questsWithWeeks.map(q => q.week));
         
@@ -716,7 +786,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const weekBlock = document.createElement('div');
             weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
             
-            // HTML Шапка недели
             const headerHtml = `
                 <div class="week-header ${isExpanded ? 'expanded' : ''}" onclick="toggleWeek(this)">
                     <div class="week-title-box">
@@ -735,7 +804,6 @@ document.addEventListener('DOMContentLoaded', () => {
             weekBlock.innerHTML = headerHtml;
             const contentInner = weekBlock.querySelector('.week-content-inner');
 
-            // Наполняем карточками
             weekQuests.forEach(cfg => {
                 const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
                 const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
@@ -786,37 +854,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- ЛОГИКА ОТКРЫТИЯ НОВОЙ МОДАЛКИ ПОКУПКИ ---
     dom.buyPremiumBtn.addEventListener('click', () => {
         if (!bpData || !bpData.is_active) {
             tg.showAlert("Сезон завершен, покупка недоступна.");
             return;
         }
+        
+        // Открываем кастомную модалку, вместо нативного алерта Telegram
+        dom.premiumBuyModal.classList.add('modal-active');
+    });
 
-        tg.showConfirm(`Купить Premium статус за ${bpData.premium_price || 0} монет?`, async (ok) => {
-            if (ok) {
-                tg.MainButton.showProgress();
-                try {
-                    const res = await fetch('/api/v1/checkpoint/buy_premium', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData: tg.initData })
-                    });
-                    if (res.ok) {
-                        tg.HapticFeedback.notificationOccurred('success');
-                        tg.showAlert('Premium успешно активирован!');
-                        userData.has_cp_premium = true;
-                        renderBP();
-                    } else {
-                        const data = await res.json();
-                        tg.showAlert(data.detail || 'Недостаточно средств или ошибка.');
-                    }
-                } catch (e) {
-                    tg.showAlert('Ошибка соединения.');
-                } finally {
-                    tg.MainButton.hideProgress();
-                }
+    // --- ЛОГИКА САМОЙ ПОКУПКИ ПРИ НАЖАТИИ "ПРИОБРЕСТИ" ---
+    dom.confirmBuyPremiumBtn.addEventListener('click', async () => {
+        // Сразу скрываем модалку, чтобы не мешала
+        dom.premiumBuyModal.classList.remove('modal-active');
+        
+        tg.MainButton.showProgress();
+        try {
+            const res = await fetch('/api/v1/checkpoint/buy_premium', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData })
+            });
+            if (res.ok) {
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.showAlert('Premium успешно активирован!');
+                userData.has_cp_premium = true;
+                renderBP();
+            } else {
+                const data = await res.json();
+                tg.showAlert(data.detail || 'Недостаточно средств или ошибка.');
             }
-        });
+        } catch (e) {
+            tg.showAlert('Ошибка соединения.');
+        } finally {
+            tg.MainButton.hideProgress();
+        }
     });
 
     function setupSwipe() {
