@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Admin Checkpoint</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -157,11 +157,11 @@
             <div class="tier-grid" style="margin-top: 10px; margin-bottom: 0;">
                 <div>
                     <label>Начало (UTC)</label>
-                    <input type="datetime-local" id="cp_start_date" oninput="showSaveBtn()">
+                    <input type="datetime-local" id="cp_start_date" onchange="generateWeeks(); showSaveBtn()">
                 </div>
                 <div>
                     <label>Конец (UTC)</label>
-                    <input type="datetime-local" id="cp_end_date" oninput="showSaveBtn()">
+                    <input type="datetime-local" id="cp_end_date" onchange="generateWeeks(); showSaveBtn()">
                 </div>
             </div>
 
@@ -186,10 +186,17 @@
         <div class="section-box" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
             <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-user-astronaut"></i> Управление игроками</h3>
             
-            <label>Telegram ID пользователя</label>
-            <input type="number" id="grant-level-user-id" placeholder="Например: 123456789">
+            <label>Поиск пользователя (TG ник, имя или Twitch)</label>
+            <div style="position: relative;">
+                <input type="text" id="user-search-inp" placeholder="Начни вводить никнейм..." oninput="debounceUserSearch()" autocomplete="off">
+                
+                <div id="user-search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1c1c1e; border: 1px solid var(--surface-border); border-radius: 12px; margin-top: 5px; max-height: 200px; overflow-y: auto; z-index: 10; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+                </div>
+            </div>
             
-            <label style="margin-top: 10px;">Выдать Уровень</label>
+            <input type="hidden" id="grant-level-user-id">
+            
+            <label style="margin-top: 15px;">Выдать Уровень</label>
             <input type="number" id="grant-level-value" placeholder="Например: 10">
             
             <button type="button" class="admin-action-btn" onclick="grantLevelToUser()" style="width: 100%; background: #64b5ef; color: #000; padding: 12px; border-radius: 12px; margin-top: 15px; font-weight: 800;">
@@ -213,10 +220,17 @@
     </div>
 
     <div id="tab-quests" class="tab-content hidden admin-form">
-        <div id="cp-quests-container" style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 class="sec-title" style="margin: 0;"><i class="fa-solid fa-calendar-week"></i> Задания по неделям</h3>
+            <button type="button" class="icon-btn btn-view" onclick="generateWeeks()" title="Сгенерировать недели по датам" style="width: 36px; height: 36px;">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+        </div>
+        <p style="font-size: 11px; color: var(--text-sec); margin-top: -5px; margin-bottom: 20px; line-height: 1.4;">Количество недель рассчитывается автоматически на основе даты старта и конца в "Настройках".</p>
+
+        <div id="cp-quests-container" style="display: flex; flex-direction: column; gap: 15px;">
             <div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>
         </div>
-        <button class="action-add-btn" onclick="addQuest()"><i class="fa-solid fa-plus"></i> ПРИВЯЗАТЬ ЗАДАНИЕ</button>
     </div>
 
     <button id="floating-save-btn" class="floating-save-btn" onclick="saveCheckpointData()">
@@ -280,10 +294,8 @@
         let currentOffset = 0;
         let isFetching = false;
         let hasMoreItems = true;
+        let currentQuestsConfig = []; // Глобальная переменная для конфига заданий
 
-        // ==========================================
-        // БАЗОВЫЕ UI ФУНКЦИИ
-        // ==========================================
         function goBack() { window.location.href = '/admin'; }
         
         function switchTab(t) {
@@ -332,6 +344,71 @@
             return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
         }
 
+        // --- ПОИСК ПОЛЬЗОВАТЕЛЕЙ ---
+        let userSearchTimeout = null;
+        
+        async function doUserSearch() {
+            const q = document.getElementById('user-search-inp').value.trim();
+            const resBox = document.getElementById('user-search-results');
+            
+            if (q.length < 2) {
+                resBox.style.display = 'none';
+                return;
+            }
+            
+            resBox.style.display = 'block';
+            resBox.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-sec); font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i> Поиск...</div>';
+            
+            try {
+                const res = await fetchApi('/api/v1/admin/users/search', { query: q });
+                resBox.innerHTML = '';
+                
+                if (!res || res.length === 0) {
+                    resBox.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-sec); font-size: 12px;">Пользователь не найден</div>';
+                    return;
+                }
+                
+                res.forEach(u => {
+                    const tgName = escapeHTML(u.full_name || u.username || 'Без имени');
+                    const twName = u.twitch_login ? escapeHTML(u.twitch_login) : 'Нет Twitch';
+                    const avatar = u.photo_url || 'https://placehold.co/40';
+                    
+                    resBox.innerHTML += `
+                        <div style="padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s;" onclick="selectUserToGrant(${u.telegram_id}, '${tgName.replace(/'/g, "\\'")}')">
+                            <img src="${avatar}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-size: 13px; font-weight: bold; color: #fff;">${tgName}</span>
+                                <span style="font-size: 10px; color: #9146FF; margin-top: 2px;"><i class="fa-brands fa-twitch"></i> ${twName}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                resBox.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--danger); font-size: 12px;">Ошибка поиска</div>';
+            }
+        }
+
+        function debounceUserSearch() {
+            clearTimeout(userSearchTimeout);
+            document.getElementById('grant-level-user-id').value = ''; 
+            userSearchTimeout = setTimeout(doUserSearch, 500);
+        }
+
+        function selectUserToGrant(id, name) {
+            document.getElementById('grant-level-user-id').value = id;
+            document.getElementById('user-search-inp').value = `${name} (${id})`;
+            document.getElementById('user-search-results').style.display = 'none';
+            if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#user-search-results') && e.target.id !== 'user-search-inp') {
+                const resBox = document.getElementById('user-search-results');
+                if(resBox) resBox.style.display = 'none';
+            }
+        });
+
+
         // ==========================================
         // ИНТЕГРАЦИЯ КАРТИНКИ (БАННЕРА)
         // ==========================================
@@ -348,7 +425,6 @@
             formData.append('file', file);
 
             try {
-                // Используем тот же эндпоинт, что и везде
                 const res = await fetch('/api/v1/upload', {
                     method: 'POST',
                     body: formData
@@ -369,7 +445,7 @@
             } finally {
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
-                input.value = ''; // Сбрасываем инпут
+                input.value = ''; 
             }
         }
 
@@ -386,22 +462,18 @@
             }
         }
 
-        // ==========================================
-        // УПРАВЛЕНИЕ: ВЫДАТЬ УРОВЕНЬ
-        // ==========================================
         function grantLevelToUser() {
             const userId = document.getElementById('grant-level-user-id').value;
             const level = document.getElementById('grant-level-value').value;
 
             if (!userId || !level) {
-                showCustomAlert('Внимание', 'Заполните оба поля: Telegram ID и Уровень.');
+                showCustomAlert('Внимание', 'Заполните оба поля: Telegram ID (через поиск) и Уровень.');
                 return;
             }
 
             showConfirm('Выдача уровня', `Точно выдать уровень ${level} пользователю ${userId}?`, async () => {
                 tg.MainButton.showProgress();
                 try {
-                    // Используем общий обработчик для API запросов
                     await fetchApi('/api/v1/admin/checkpoint/grant_level', {
                         target_user_id: parseInt(userId),
                         level: parseInt(level)
@@ -410,7 +482,7 @@
                     if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                     showCustomAlert('Успех', `Уровень ${level} успешно выдан!`);
                     
-                    // Очищаем форму
+                    document.getElementById('user-search-inp').value = '';
                     document.getElementById('grant-level-user-id').value = '';
                     document.getElementById('grant-level-value').value = '';
                 } catch (e) {
@@ -421,22 +493,17 @@
             });
         }
 
-        // ==========================================
-        // ИНТЕГРАЦИЯ СКЛАДА
-        // ==========================================
         function openLibraryForTarget(btnElement) {
             activeSkinTargetInput = btnElement.previousElementSibling;
             const rewardType = btnElement.dataset.rewardType || 'cs2_skin';
             document.getElementById('modal-library').classList.add('modal-active');
             
             if (rewardType === 'case') {
-                // Интерфейс для кейсов
                 document.getElementById('lib-search-inp').style.display = 'none';
                 document.getElementById('lib-filters').style.display = 'none';
                 document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка кейсов...</div>';
                 loadCasesIntoLibrary();
             } else {
-                // Интерфейс для маркета (скины)
                 document.getElementById('lib-search-inp').style.display = 'block';
                 document.getElementById('lib-filters').style.display = 'block';
                 document.getElementById('lib-search-inp').value = '';
@@ -552,7 +619,7 @@
 
         async function loadCasesIntoLibrary() {
             const cont = document.getElementById('lib-results');
-            hasMoreItems = false; // Блокируем скролл пагинацию для кейсов
+            hasMoreItems = false; 
             
             try {
                 const res = await fetch(`/api/v1/admin/twitch_campaigns/cases?initData=${encodeURIComponent(tg.initData)}`);
@@ -592,9 +659,6 @@
             }
         }
 
-        // ==========================================
-        // ЛОГИКА CHECKPOINT
-        // ==========================================
         function getRewardTypeSelectHtml(selectedValue, namePrefix) {
             const types = [
                 { val: 'none', text: 'Пусто (Нет награды)' },
@@ -673,6 +737,23 @@
             return wrapper;
         }
 
+        // --- ЛОГИКА НЕДЕЛЬ ---
+
+        function extractQuestsData() {
+            const flatQuests = [];
+            document.querySelectorAll('.week-block').forEach(weekBlock => {
+                const weekNum = parseInt(weekBlock.dataset.week);
+                weekBlock.querySelectorAll('.cp-quest-row').forEach(row => {
+                    const qId = parseInt(row.querySelector('.cp-quest-id-select').value);
+                    const exp = parseInt(row.querySelector('.cp-quest-exp').value);
+                    if (!isNaN(qId) && !isNaN(exp) && exp > 0) {
+                        flatQuests.push({ quest_id: qId, exp_reward: exp, week: weekNum });
+                    }
+                });
+            });
+            return flatQuests;
+        }
+
         function createCpQuestRow(mapping = null) {
             const data = mapping || { quest_id: '', exp_reward: 10 };
             const wrapper = document.createElement('div');
@@ -703,19 +784,86 @@
             return wrapper;
         }
 
+        function generateWeeks() {
+            const startVal = document.getElementById('cp_start_date').value;
+            const endVal = document.getElementById('cp_end_date').value;
+            const container = document.getElementById('cp-quests-container');
+            
+            if (!startVal || !endVal) {
+                container.innerHTML = '<p style="text-align: center; color: var(--danger); padding: 20px;">Сначала укажите дату старта и конца сезона во вкладке "Настройки".</p>';
+                return;
+            }
+
+            const start = new Date(startVal);
+            const end = new Date(endVal);
+            
+            if (end <= start) {
+                container.innerHTML = '<p style="text-align: center; color: var(--danger); padding: 20px;">Дата конца должна быть позже даты старта!</p>';
+                return;
+            }
+
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const totalWeeks = Math.ceil(diffDays / 7) || 1; 
+
+            let existingData = extractQuestsData(); 
+            if (existingData.length === 0) existingData = currentQuestsConfig;
+
+            container.innerHTML = '';
+            
+            for (let i = 1; i <= totalWeeks; i++) {
+                let weekStart = new Date(start.getTime() + (i - 1) * 7 * 24 * 60 * 60 * 1000);
+                let weekEnd = new Date(start.getTime() + i * 7 * 24 * 60 * 60 * 1000 - 1000);
+                if (weekEnd > end) weekEnd = end;
+
+                const startDateStr = weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
+                const endDateStr = weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
+
+                const weekBlock = document.createElement('div');
+                weekBlock.className = 'section-box week-block';
+                weekBlock.dataset.week = i;
+                weekBlock.style.borderColor = 'rgba(255, 215, 0, 0.3)';
+                weekBlock.style.background = 'rgba(255, 215, 0, 0.02)';
+                
+                weekBlock.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; color: var(--primary); font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-calendar-day"></i> Неделя ${i}
+                        </h4>
+                        <span style="font-size: 10px; color: var(--text-sec); font-weight: bold; background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 6px;">${startDateStr} - ${endDateStr}</span>
+                    </div>
+                    <div class="week-quests-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                    </div>
+                    <button type="button" class="action-add-btn" style="padding: 10px; font-size: 11px; margin-top: 0; width: 100%; border-style: dotted;" onclick="addQuestToWeek(this)">
+                        <i class="fa-solid fa-plus"></i> Добавить задание
+                    </button>
+                `;
+
+                const questsList = weekBlock.querySelector('.week-quests-list');
+                const weekQuests = existingData.filter(q => q.week === i);
+                
+                weekQuests.forEach(q => {
+                    questsList.appendChild(createCpQuestRow(q));
+                });
+
+                container.appendChild(weekBlock);
+            }
+            if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+        }
+
+        function addQuestToWeek(btn) {
+            const list = btn.previousElementSibling;
+            list.appendChild(createCpQuestRow());
+            showSaveBtn();
+            btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+
         function addTier() {
             const container = document.getElementById('cp-tiers-container');
             if (container.querySelector('.fa-spinner') || container.querySelector('p')) container.innerHTML = '';
             const currentIndex = container.querySelectorAll('.cp-tier-row').length;
             container.appendChild(createCpTierRow(null, currentIndex));
-            showSaveBtn();
-            setTimeout(() => container.lastElementChild?.scrollIntoView({ behavior: 'smooth' }), 100);
-        }
-
-        function addQuest() {
-            const container = document.getElementById('cp-quests-container');
-            if (container.querySelector('.fa-spinner') || container.querySelector('p')) container.innerHTML = '';
-            container.appendChild(createCpQuestRow());
             showSaveBtn();
             setTimeout(() => container.lastElementChild?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
@@ -755,7 +903,7 @@
                 document.getElementById('cp_end_date').value = formatDateToInput(checkpointData.end_date);
                 document.getElementById('cp_premium_price').value = checkpointData.premium_price || 0;
                 document.getElementById('cp_banner_url').value = checkpointData.banner_url || '';
-                updateBannerPreview(); // Вызываем для показа при загрузке
+                updateBannerPreview();
 
                 const tiersContainer = document.getElementById('cp-tiers-container');
                 tiersContainer.innerHTML = '';
@@ -763,11 +911,30 @@
                 if (tiers.length === 0) tiersContainer.innerHTML = '<p style="text-align: center; color: var(--text-sec); padding: 20px;">Уровни не созданы.</p>';
                 else tiers.forEach((t, i) => tiersContainer.appendChild(createCpTierRow(t, i)));
 
+                // --- Загрузка и инициализация недель квестов ---
                 const questsContainer = document.getElementById('cp-quests-container');
                 questsContainer.innerHTML = '';
                 const questsConfig = checkpointData.quests_config || [];
-                if (questsConfig.length === 0) questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-sec); padding: 20px;">Задания не привязаны.</p>';
-                else questsConfig.forEach(q => questsContainer.appendChild(createCpQuestRow(q)));
+                
+                let parsedConfig = questsConfig;
+                if (questsConfig.length > 0 && questsConfig[0].quest_id !== undefined && questsConfig[0].week === undefined) {
+                    parsedConfig = questsConfig.map(q => ({...q, week: 1}));
+                }
+
+                currentQuestsConfig = parsedConfig; // Сохраняем в глобальную для generateWeeks
+                
+                const maxWeek = Math.max(...parsedConfig.map(q => q.week || 1), 1);
+                for(let i=1; i<=maxWeek; i++) {
+                    const weekBlock = document.createElement('div');
+                    weekBlock.className = 'week-block hidden'; 
+                    weekBlock.dataset.week = i;
+                    parsedConfig.filter(q => (q.week || 1) === i).forEach(q => {
+                        weekBlock.appendChild(createCpQuestRow(q));
+                    });
+                    questsContainer.appendChild(weekBlock);
+                }
+
+                generateWeeks();
 
             } catch (e) {
                 showCustomAlert("Ошибка", "Не удалось загрузить данные чекпоинта");
@@ -795,13 +962,6 @@
             });
             tiers.sort((a, b) => a.level - b.level);
 
-            const questsConfig = [];
-            document.querySelectorAll('.cp-quest-row').forEach(row => {
-                const qId = parseInt(row.querySelector('.cp-quest-id-select').value);
-                const exp = parseInt(row.querySelector('.cp-quest-exp').value);
-                if (!isNaN(qId) && !isNaN(exp) && exp > 0) questsConfig.push({ quest_id: qId, exp_reward: exp });
-            });
-
             const startDate = document.getElementById('cp_start_date').value;
             const endDate = document.getElementById('cp_end_date').value;
 
@@ -813,7 +973,7 @@
                 premium_price: parseInt(document.getElementById('cp_premium_price').value) || 0,
                 banner_url: document.getElementById('cp_banner_url').value,
                 tiers: tiers,
-                quests_config: questsConfig
+                quests_config: extractQuestsData() 
             };
 
             tg.MainButton.showProgress();
@@ -844,7 +1004,6 @@
             });
         }
 
-        // Запуск
         initCheckpoint();
     </script>
 </body>
