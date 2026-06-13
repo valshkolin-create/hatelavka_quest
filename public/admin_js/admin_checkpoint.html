@@ -868,13 +868,16 @@
             setTimeout(() => container.lastElementChild?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
 
-        // ==========================================
+       // ==========================================
         // API ВЗАИМОДЕЙСТВИЕ
         // ==========================================
         async function fetchApi(url, bodyData = {}) {
             bodyData.initData = tg.initData;
+            bodyData.platform = "tg"; // <--- ВОТ ЭТА СТРОЧКА ИСПРАВИТ ВСЕ 422 ОШИБКИ!
+
             const res = await fetch(url, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bodyData)
             });
             if (!res.ok) {
