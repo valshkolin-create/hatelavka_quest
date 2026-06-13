@@ -188,12 +188,12 @@
             position: relative;
         }
 
-        /* Обновленные линии наград с заливкой */
+        /* ИДЕАЛЬНО СЦЕПЛЕННАЯ ЛИНИЯ НАГРАД */
         .tier-line {
             position: absolute;
             left: 50%;
-            top: 0;
-            bottom: -15px; /* Соединяется со следующим блоком напрямую */
+            top: 50%; /* Начинается ровно из центра */
+            height: calc(100% + 15px); /* Тянется ровно до центра следующего ряда */
             width: 4px;
             background: var(--surface-border);
             transform: translateX(-50%);
@@ -211,32 +211,31 @@
             transition: height 0.4s ease;
         }
 
-        /* Уменьшенный и перекрашенный кружок */
+        /* ПРОЗРАЧНЫЙ КРУЖОЧЕК БЕЗ ОБВОДКИ */
         .tier-number {
             position: absolute;
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            width: 20px; /* Уменьшили */
-            height: 20px; /* Уменьшили */
-            background: var(--primary); /* Если закрыт - желтый фон */
-            color: #000; /* Чёрный текст */
-            border: none;
-            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            background: transparent; /* Полностью прозрачный */
+            color: var(--text-muted);
+            border: none; /* Убрали рамку */
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 800;
             z-index: 2;
             transition: 0.3s;
         }
         
         .tier-row.unlocked .tier-number {
-            background: #0a0a0c; /* Если открыт - черный фон */
-            border: 2px solid var(--primary); /* Желтая обводка */
-            color: var(--primary); /* Желтый текст */
-            box-shadow: 0 0 10px var(--primary-glow);
+            background: transparent; /* Остается прозрачным */
+            border: none; /* Без рамки */
+            color: var(--primary); /* Текст желтый */
+            text-shadow: 0 0 10px var(--primary-glow); /* Свечение, чтобы лучше читалось поверх линии */
         }
 
         .reward-card {
@@ -682,7 +681,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tiers = bpData?.tiers || [];
 
-        // Вывод Уровня и EXP
         dom.uiLevel.textContent = userData.checkpoint_level || 0;
         const xpText = document.getElementById('ui-current-xp');
         if (xpText) xpText.textContent = `${userStars} EXP`;
@@ -706,7 +704,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const nextTier = tiers[index + 1];
             
-            // ЛОГИКА ЗАПОЛНЕНИЯ ЛИНИИ НАГРАД
             let fillPercentage = 0;
             if (nextTier) {
                 const nextReq = parseFloat(nextTier.required_stars) || 0;
