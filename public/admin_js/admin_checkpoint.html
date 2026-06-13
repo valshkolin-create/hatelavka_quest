@@ -25,7 +25,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0; padding: 20px;
             -webkit-tap-highlight-color: transparent;
-            padding-bottom: 120px; /* Отступ для плавающей кнопки */
+            padding-bottom: 120px;
         }
 
         /* --- Header & Tabs --- */
@@ -46,7 +46,7 @@
         }
         .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
         
-        .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); position: relative; box-sizing: border-box; }
         .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
         
         /* Toggles */
@@ -59,13 +59,21 @@
         input:checked + .slider:before { transform: translateX(18px); }
 
         /* --- Custom Buttons --- */
-        .icon-btn { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+        .icon-btn { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; text-decoration: none; box-sizing: border-box; }
         .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
         
+        /* Исправление длинного текста в кнопках */
+        .action-add-btn, .admin-action-btn { 
+            white-space: normal; /* Позволяет тексту переноситься */
+            line-height: 1.4;
+            box-sizing: border-box;
+        }
+
         .action-add-btn { background: rgba(255, 215, 0, 0.1); color: var(--primary); border: 1px dashed var(--primary); width: 100%; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; }
         .action-add-btn:active { transform: scale(0.98); background: rgba(255, 215, 0, 0.2); }
 
         .btn-danger { background: rgba(255, 77, 77, 0.1); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); }
+        .btn-view { background: rgba(100, 181, 239, 0.15); color: #64b5ef; border: 1px solid rgba(100, 181, 239, 0.3); }
         
         /* Floating Save Button */
         .floating-save-btn {
@@ -73,38 +81,41 @@
             background: var(--accent); color: #fff; border: none; padding: 16px 30px; border-radius: 20px;
             font-size: 16px; font-weight: 800; box-shadow: 0 10px 20px rgba(40, 167, 69, 0.4);
             cursor: pointer; z-index: 100; opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex; align-items: center; gap: 10px; width: 85%; justify-content: center;
+            display: flex; align-items: center; gap: 10px; width: 85%; justify-content: center; box-sizing: border-box;
         }
         .floating-save-btn.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
         .floating-save-btn:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 5px 10px rgba(40, 167, 69, 0.4); }
 
         /* --- Specific CP Styles --- */
-        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .reward-box { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); }
+        /* Flex-wrap для резиновой сетки на мобилках */
+        .tier-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+        .tier-grid > div { flex: 1 1 120px; min-width: 120px; }
+        
+        .reward-box { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); box-sizing: border-box; }
         .reward-box.premium { border-color: rgba(255, 71, 87, 0.4); background: rgba(255, 71, 87, 0.05); }
         .reward-box h4 { margin: 0 0 10px 0; font-size: 12px; text-align: center; color: var(--text-sec); }
         .reward-box.premium h4 { color: #ff4757; }
         .remove-btn-abs { position: absolute; top: 15px; right: 15px; width: 30px; height: 30px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        .quest-row { display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); margin-bottom: 10px; }
+        .quest-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); margin-bottom: 10px; box-sizing: border-box; }
 
         /* --- Modals & Alert --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-overlay.center { align-items: center; }
         .modal-active { display: flex; }
         
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 85vh; display: flex; flex-direction: column; }
-        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); }
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); box-sizing: border-box; }
         .alert-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-        .alert-msg { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; }
-        .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
+        .alert-msg { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; line-height: 1.4; }
+        .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; box-sizing: border-box; }
         .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
 
         /* Warehouse Items */
         .search-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; }
         .search-img { width: 40px; height: 30px; object-fit: contain; }
         .search-info { flex: 1; min-width: 0; }
-        .search-btn { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .search-btn { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
 
         .hidden { display: none !important; }
     </style>
@@ -114,7 +125,15 @@
     <div class="page-header">
         <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
         <h1 class="page-title">Battle Pass</h1>
-        <button onclick="resetSeason()" class="icon-btn btn-danger" style="width: 36px; height: 36px;"><i class="fa-solid fa-skull"></i></button>
+        
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <a href="/checkpoint.html" class="icon-btn btn-view" title="Просмотр пользовательской страницы">
+                <i class="fa-solid fa-eye"></i>
+            </a>
+            <button onclick="resetSeason()" class="icon-btn btn-danger" title="Опасная зона: Сброс">
+                <i class="fa-solid fa-skull"></i>
+            </button>
+        </div>
     </div>
 
     <div class="tabs">
@@ -140,39 +159,47 @@
 
             <div class="tier-grid" style="margin-top: 10px; margin-bottom: 0;">
                 <div>
-                    <label>Начало</label>
+                    <label>Начало (UTC)</label>
                     <input type="datetime-local" id="cp_start_date" oninput="showSaveBtn()">
                 </div>
                 <div>
-                    <label>Конец</label>
+                    <label>Конец (UTC)</label>
                     <input type="datetime-local" id="cp_end_date" oninput="showSaveBtn()">
                 </div>
             </div>
 
-            <label>Цена Premium (Stars)</label>
+            <label style="margin-top: 15px;">Цена Premium пропуска (в монетах)</label>
             <input type="number" id="cp_premium_price" placeholder="0" oninput="showSaveBtn()">
+            <p style="font-size: 11px; color: var(--text-sec); margin: 4px 0 10px;">Если 0 — премиум можно выдать только руками.</p>
 
             <label>Ссылка на баннер</label>
             <input type="text" id="cp_banner_url" placeholder="https://..." oninput="showSaveBtn()">
         </div>
+        
+        <div class="section-box" style="border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05);">
+            <h3 class="sec-title" style="color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Опасная зона</h3>
+            <button type="button" onclick="resetSeason()" class="admin-action-btn reject" style="width: 100%; background: rgba(255,77,77,0.1); color: var(--danger); border: 1px solid rgba(255,77,77,0.3); padding: 12px; border-radius: 12px; cursor: pointer;">
+                Сбросить сезон<br><span style="font-size: 11px; opacity: 0.8;">(Обнулить EXP и прогресс у ВСЕХ)</span>
+            </button>
+        </div>
     </div>
 
     <div id="tab-tiers" class="tab-content hidden admin-form">
-        <div id="cp-tiers-container">
+        <div id="cp-tiers-container" style="display: flex; flex-direction: column; gap: 15px;">
             <div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>
         </div>
         <button class="action-add-btn" onclick="addTier()"><i class="fa-solid fa-plus"></i> ДОБАВИТЬ УРОВЕНЬ</button>
     </div>
 
     <div id="tab-quests" class="tab-content hidden admin-form">
-        <div id="cp-quests-container">
+        <div id="cp-quests-container" style="display: flex; flex-direction: column; gap: 10px;">
             <div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>
         </div>
         <button class="action-add-btn" onclick="addQuest()"><i class="fa-solid fa-plus"></i> ПРИВЯЗАТЬ ЗАДАНИЕ</button>
     </div>
 
     <button id="floating-save-btn" class="floating-save-btn" onclick="saveCheckpointData()">
-        <i class="fa-solid fa-floppy-disk"></i> СОХРАНИТЬ ИЗМЕНЕНИЯ
+        <i class="fa-solid fa-floppy-disk"></i> СОХРАНИТЬ
     </button>
 
     <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
@@ -183,7 +210,7 @@
             </div>
             
             <div class="admin-form" style="margin-top: 15px;">
-                <input type="text" id="lib-search-inp" class="form-input" placeholder="Название (AK-47)..." oninput="debounceSearch()">
+                <input type="text" id="lib-search-inp" placeholder="Название (AK-47)..." oninput="debounceSearch()">
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 8px; font-size: 12px;">
                     <span style="color: var(--text-sec);">Фильтр по цене:</span>
@@ -192,7 +219,7 @@
                     </div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="tier-grid">
                     <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" oninput="debounceSearch()">
                     <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" oninput="debounceSearch()">
                 </div>
@@ -227,7 +254,7 @@
         // ГЛОБАЛЬНЫЕ ДАННЫЕ
         // ==========================================
         let availableCpQuests = [];
-        let activeSkinTargetInput = null; // Хранит инпут, в который нужно вставить скин
+        let activeSkinTargetInput = null;
         let currentMarketBalance = 0;
         let searchTimeout = null;
         let currentOffset = 0;
@@ -286,10 +313,10 @@
         }
 
         // ==========================================
-        // ИНТЕГРАЦИЯ СКЛАДА (WAREHOUSE)
+        // ИНТЕГРАЦИЯ СКЛАДА
         // ==========================================
         function openLibraryForTarget(btnElement) {
-            activeSkinTargetInput = btnElement.previousElementSibling; // Инпут значения
+            activeSkinTargetInput = btnElement.previousElementSibling;
             document.getElementById('modal-library').classList.add('modal-active');
             document.getElementById('lib-search-inp').value = '';
             document.getElementById('lib-price-min').value = '';
@@ -394,7 +421,6 @@
             const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
             closeModal('modal-library');
             if (activeSkinTargetInput) {
-                // Вставляем полное название скина (как в базе) для Чекпоинта
                 activeSkinTargetInput.value = item.market_hash_name;
                 activeSkinTargetInput = null;
                 showSaveBtn();
@@ -424,7 +450,7 @@
             const data = tier || { level: index + 1, required_stars: 0, free_reward: { type: 'none', value: '' }, premium_reward: { type: 'none', value: '' } };
             const wrapper = document.createElement('div');
             wrapper.className = 'section-box cp-tier-row'; 
-            wrapper.style.paddingTop = '40px'; // Место под кнопку крестика и заголовок
+            wrapper.style.paddingTop = '40px'; 
 
             wrapper.innerHTML = `
                 <div style="position: absolute; top: -10px; left: 15px; background: var(--primary); color: #000; padding: 2px 10px; border-radius: 8px; font-weight: 800; font-size: 14px; z-index: 2;">УРОВЕНЬ ${data.level}</div>
@@ -464,7 +490,6 @@
 
             wrapper.querySelector('.remove-tier-btn').addEventListener('click', () => { wrapper.remove(); showSaveBtn(); });
 
-            // Логика переключения полей ввода значения и кнопки склада
             wrapper.querySelectorAll('.reward-type-select').forEach(select => {
                 const toggleUI = (sel) => {
                     const container = sel.nextElementSibling;
@@ -494,12 +519,12 @@
             });
 
             wrapper.innerHTML = `
-                <select class="cp-quest-id-select" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border);" required>
+                <select class="cp-quest-id-select" style="flex: 1 1 200px; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;" required>
                     ${optionsHtml}
                 </select>
-                <div style="display: flex; align-items: center; gap: 5px; width: 100px;">
+                <div style="flex: 1 1 100px; display: flex; align-items: center; gap: 5px; min-width: 100px;">
                     <i class="fa-solid fa-star" style="color: #ffd700;"></i>
-                    <input type="number" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border);">
+                    <input type="number" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
                 </div>
                 <button type="button" class="remove-cp-quest-btn" style="width: 40px; height: 40px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; flex-shrink:0;">
                     <i class="fa-solid fa-trash"></i>
@@ -545,19 +570,16 @@
         async function initCheckpoint() {
             tg.MainButton.showProgress();
             try {
-                // 1. Грузим квесты
                 try {
                     const questsList = await fetchApi('/api/v1/quests/list');
                     if (Array.isArray(questsList)) availableCpQuests = questsList;
                 } catch(e) { console.warn("Failed to load quests list"); }
 
-                // 2. Грузим статус чекпоинта
                 let checkpointData = {};
                 try {
                     checkpointData = await fetchApi('/api/v1/admin/checkpoint/status');
-                } catch(e) { console.warn("Failed to load checkpoint status, using empty config"); }
+                } catch(e) { console.warn("Failed to load checkpoint status"); }
                 
-                // Заполняем Таб 1
                 document.getElementById('cp_is_active').checked = checkpointData.is_active || false;
                 document.getElementById('cp_title').value = checkpointData.title || '';
                 document.getElementById('cp_start_date').value = formatDateToInput(checkpointData.start_date);
@@ -565,14 +587,12 @@
                 document.getElementById('cp_premium_price').value = checkpointData.premium_price || 0;
                 document.getElementById('cp_banner_url').value = checkpointData.banner_url || '';
 
-                // Заполняем Таб 2 (Тиры)
                 const tiersContainer = document.getElementById('cp-tiers-container');
                 tiersContainer.innerHTML = '';
                 const tiers = checkpointData.tiers || [];
                 if (tiers.length === 0) tiersContainer.innerHTML = '<p style="text-align: center; color: var(--text-sec); padding: 20px;">Уровни не созданы.</p>';
                 else tiers.forEach((t, i) => tiersContainer.appendChild(createCpTierRow(t, i)));
 
-                // Заполняем Таб 3 (Квесты)
                 const questsContainer = document.getElementById('cp-quests-container');
                 questsContainer.innerHTML = '';
                 const questsConfig = checkpointData.quests_config || [];
