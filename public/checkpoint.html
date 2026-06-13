@@ -29,14 +29,7 @@
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        body { 
-            font-family: 'Montserrat', sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-main); 
-            margin: 0; 
-            padding: 0 0 140px 0; 
-            min-height: 100vh;
-        }
+        /* ВАЖНО: Стили html и body управляются top_nav.js. Мы их тут не трогаем, чтобы не сломать скролл */
 
         /* --- Герой-блок (Баннер) --- */
         .bp-hero {
@@ -45,40 +38,47 @@
             background-size: cover;
             background-position: center;
             text-align: center;
-            min-height: 240px;
+            min-height: 220px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
-            padding: 50px 15px 20px 15px;
+            align-items: center;
+            /* Отступ сверху для шапки top_nav.js */
+            padding: 80px 15px 20px 15px; 
         }
 
         .bp-hero::after {
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom, transparent 30%, var(--bg-color) 100%);
+            background: linear-gradient(to bottom, rgba(10,10,12,0.8) 0%, rgba(10,10,12,0.4) 50%, var(--bg-color) 100%);
             z-index: 1;
         }
 
-        /* Кнопки теперь над бейджем */
+        .bp-hero > * {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+        }
+
+        /* --- Кнопки и статус (САМЫЙ ВЕРХ) --- */
+        .hero-top-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: auto; /* Выталкиваем всё остальное вниз */
+        }
+
         .hero-actions { 
             display: flex; 
-            gap: 8px; 
+            gap: 10px; 
+            width: 100%;
+            max-width: 320px;
             justify-content: center; 
-            position: relative;
-            z-index: 2; 
-            margin-bottom: 12px;
         }
         
         .btn-rules { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid var(--surface-border); color: var(--text-main); padding: 10px 15px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; flex: 1; }
         .btn-rules:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
-
-        /* Статус Сезона (Снизу от кнопок) */
-        .season-status-container {
-            text-align: center;
-            position: relative;
-            z-index: 2;
-        }
 
         .bp-season-badge {
             display: inline-block;
@@ -99,6 +99,21 @@
             border-color: rgba(255, 69, 58, 0.3);
             background: rgba(255, 69, 58, 0.2);
         }
+
+        /* --- Минималистичный Уровень --- */
+        .level-text-container {
+            margin-top: 15px;
+            text-align: center;
+        }
+        .level-text {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .level-text span { color: var(--primary); font-size: 18px; margin-left: 4px; }
 
         /* --- Верхние табы --- */
         .top-tabs-wrapper {
@@ -134,22 +149,6 @@
             border-color: rgba(255, 215, 0, 0.3);
         }
 
-        /* --- Индикатор уровня (Просто текст, сжатые отступы) --- */
-        .level-badge-container {
-            text-align: center;
-            margin-bottom: 12px;
-            margin-top: 5px;
-        }
-        .level-badge {
-            display: inline-block;
-            font-size: 13px;
-            font-weight: 800;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .level-badge span { color: var(--primary); font-size: 15px; margin-left: 4px; }
-
         /* --- Свайп контейнер --- */
         .swipe-container {
             position: relative;
@@ -164,7 +163,7 @@
         .track-headers {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 15px; 
             margin-bottom: 15px;
         }
 
@@ -182,16 +181,16 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px; 
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             position: relative;
         }
 
-        /* Прогресс линия по центру */
+        /* Прогресс линия по центру (до талого) */
         .tier-line {
             position: absolute;
             left: 50%;
-            top: 10px;
-            bottom: -20px; 
+            top: 15px;
+            bottom: -15px; /* Идеально соединяется со следующим рядом */
             width: 3px;
             background: var(--surface-border);
             transform: translateX(-50%);
@@ -214,7 +213,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 800;
             z-index: 2;
             color: var(--text-muted);
@@ -231,8 +230,8 @@
         .reward-card {
             background: var(--surface-bg);
             border: 1px solid var(--surface-border);
-            border-radius: 12px;
-            padding: 8px;
+            border-radius: 16px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -243,24 +242,23 @@
         .reward-card.premium { background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%); border-color: rgba(255, 215, 0, 0.2); }
         .reward-card.locked { opacity: 0.5; filter: grayscale(80%); }
 
-        /* Увеличенная картинка награды */
+        /* КАРТИНКА БЕЗ ФОНА, УВЕЛИЧЕННАЯ */
         .reward-image {
-            width: 76px;
-            height: 76px;
-            object-fit: cover;
-            border-radius: 8px;
-            background: rgba(0,0,0,0.3);
+            width: 80px;
+            height: 80px;
+            object-fit: contain; /* Чтобы оружие влезало целиком */
+            background: transparent; /* Фона нет! */
             margin-bottom: 6px;
             cursor: pointer;
         }
 
-        /* Название предмета (новое) */
+        /* Название предмета под картинкой */
         .reward-title {
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 700;
             color: var(--text-main);
             text-align: center;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             width: 100%;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -271,7 +269,7 @@
         }
 
         /* Кнопка действия */
-        .btn-claim { width: 100%; padding: 6px 0; margin-top: auto; border-radius: 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
+        .btn-claim { width: 100%; padding: 8px 0; margin-top: auto; border-radius: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
         .btn-claim.locked { background: rgba(255,255,255,0.05); color: var(--text-muted); pointer-events: none; }
         .btn-claim.ready { background: var(--primary); color: #000; box-shadow: 0 4px 10px var(--primary-glow); }
         .btn-claim.ready:active { transform: scale(0.95); }
@@ -326,7 +324,7 @@
             justify-content: center; 
             backdrop-filter: blur(5px);
         }
-        #enlarged-image { max-width: 100%; max-height: 60vh; object-fit: contain; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+        #enlarged-image { max-width: 100%; max-height: 60vh; object-fit: contain; border-radius: 16px; }
         #enlarged-title { margin-top: 15px; font-size: 16px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; text-align: center; }
 
         .loader-overlay { position: fixed; inset: 0; background: var(--bg-color); z-index: 9999; display: flex; align-items: center; justify-content: center; }
@@ -343,16 +341,22 @@
     <div class="main-content-scrollable">
 
         <div class="bp-hero" id="bp-hero">
-            <div class="hero-actions">
-                <button class="btn-rules" onclick="document.getElementById('rules-modal').classList.add('modal-active')">
-                    <i class="fa-solid fa-book-open"></i> Правила
-                </button>
-                <button class="btn-rules" id="buy-premium-btn" style="color: var(--primary); border-color: var(--primary-glow);">
-                    <i class="fa-solid fa-crown"></i> Premium
-                </button>
+            <div class="hero-top-controls">
+                <div class="hero-actions">
+                    <button class="btn-rules" onclick="document.getElementById('rules-modal').classList.add('modal-active')">
+                        <i class="fa-solid fa-book-open"></i> Правила
+                    </button>
+                    <button class="btn-rules" id="buy-premium-btn" style="color: var(--primary); border-color: var(--primary-glow);">
+                        <i class="fa-solid fa-crown"></i> Premium
+                    </button>
+                </div>
+                <div class="season-status-container">
+                    <div class="bp-season-badge" id="season-status-badge">СЕЗОН АКТИВЕН</div>
+                </div>
             </div>
-            <div class="season-status-container">
-                <div class="bp-season-badge" id="season-status-badge">СЕЗОН АКТИВЕН</div>
+
+            <div class="level-text-container">
+                <div class="level-text">Уровень <span id="ui-current-level">0</span></div>
             </div>
         </div>
 
@@ -367,10 +371,6 @@
 
         <div class="swipe-container" id="swipe-area">
             <div id="view-rewards" class="view-section active">
-                
-                <div class="level-badge-container">
-                    <div class="level-badge">Уровень <span id="ui-current-level">0</span></div>
-                </div>
 
                 <div class="track-headers">
                     <div class="track-header-title">Free</div>
@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let userData = null;
     let allQuests = [];
 
-    // Получаем HTML картинки
+    // Получаем HTML картинки (БЕЗ ФОНА)
     function getRewardImageHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         
@@ -688,6 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Обработка свайпов (безопасная для скролла)
     function setupSwipe() {
         let startX = 0;
         let startY = 0;
@@ -709,16 +710,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const diffX = startX - currentX;
             const diffY = startY - currentY;
 
-            if (Math.abs(diffX) > 70 && Math.abs(diffX) > Math.abs(diffY)) { 
+            if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) { 
                 if (diffX > 0) switchBPView('quests');
                 else switchBPView('rewards');
             }
         };
 
         dom.swipeArea.addEventListener('touchstart', handleStart, {passive: true});
-        dom.swipeArea.addEventListener('touchend', handleEnd);
-        dom.swipeArea.addEventListener('mousedown', handleStart);
-        window.addEventListener('mouseup', handleEnd);
+        dom.swipeArea.addEventListener('touchend', handleEnd, {passive: true});
     }
 
     initialize();
