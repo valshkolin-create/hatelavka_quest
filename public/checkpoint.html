@@ -34,7 +34,7 @@
             background-color: var(--bg-color); 
             color: var(--text-main); 
             margin: 0; 
-            padding: 0 0 80px 0; 
+            padding: 0 0 140px 0; /* Увеличен отступ для плавающих табов и нижнего бара */
             min-height: 100vh;
         }
 
@@ -42,14 +42,34 @@
         .bp-hero {
             position: relative;
             padding: 40px 20px 30px;
-            background: radial-gradient(circle at top, rgba(255, 215, 0, 0.1) 0%, transparent 70%);
+            background-color: #1a1a1c;
+            background-image: radial-gradient(circle at top, rgba(255, 215, 0, 0.15) 0%, transparent 70%);
+            background-size: cover;
+            background-position: center;
+            background-blend-mode: overlay;
             border-bottom: 1px solid var(--surface-border);
             text-align: center;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
         }
+
+        /* Затемнение для читаемости текста на баннере */
+        .bp-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(0deg, var(--bg-color) 0%, rgba(10,10,12,0.4) 100%);
+            z-index: 1;
+        }
+
+        .bp-hero > * { position: relative; z-index: 2; }
 
         .bp-season-badge {
             display: inline-block;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
             color: var(--primary);
             padding: 4px 12px;
             border-radius: 20px;
@@ -59,6 +79,7 @@
             letter-spacing: 1px;
             margin-bottom: 10px;
             border: 1px solid var(--primary-glow);
+            align-self: center;
         }
 
         .bp-title {
@@ -67,91 +88,79 @@
             margin: 0 0 20px 0;
             text-transform: uppercase;
             letter-spacing: -0.5px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
 
         /* Прогресс бар EXP */
         .progress-container {
-            background: rgba(0, 0, 0, 0.4);
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
             border: 1px solid var(--surface-border);
             border-radius: 16px;
             padding: 15px;
             margin-bottom: 15px;
         }
 
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 10px;
-        }
-
-        .exp-counter {
-            font-size: 24px;
-            font-weight: 800;
-            color: var(--primary);
-            line-height: 1;
-        }
-
-        .exp-label {
-            font-size: 11px;
-            color: var(--text-muted);
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .progress-track {
-            height: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ffaa00, var(--primary));
-            border-radius: 4px;
-            width: 0%;
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 10px var(--primary-glow);
-        }
+        .progress-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+        .exp-counter { font-size: 24px; font-weight: 800; color: var(--primary); line-height: 1; }
+        .exp-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .progress-track { height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden; position: relative; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #ffaa00, var(--primary)); border-radius: 4px; width: 0%; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px var(--primary-glow); }
 
         /* Кнопки под шапкой */
-        .hero-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-
-        .btn-rules {
-            background: var(--surface-bg);
-            border: 1px solid var(--surface-border);
-            color: var(--text-main);
-            padding: 10px 20px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: 0.2s;
-        }
-
+        .hero-actions { display: flex; gap: 10px; justify-content: center; }
+        .btn-rules { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid var(--surface-border); color: var(--text-main); padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
         .btn-rules:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
 
-        /* --- Таймлайн (Сетка наград) --- */
-        .bp-timeline {
-            padding: 20px 15px;
-            max-width: 600px;
-            margin: 0 auto;
+        /* --- Плавающие табы (Награды / Задания) --- */
+        .floating-tabs-wrapper {
+            position: fixed;
+            bottom: 85px; /* Выше нижнего меню приложения */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(20, 20, 25, 0.85);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--surface-border);
+            border-radius: 30px;
+            padding: 4px;
+            display: flex;
+            gap: 5px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
 
+        .floating-tab {
+            padding: 10px 24px;
+            border-radius: 25px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .floating-tab.active {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 4px 10px var(--primary-glow);
+        }
+
+        /* --- Контентные блоки --- */
+        .view-section { display: none; padding: 20px 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Сетка наград (Идеальное выравнивание) --- */
         .track-headers {
             display: grid;
-            grid-template-columns: 40px 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px; /* Отступ для центрального кружка */
+            margin-bottom: 25px;
             position: sticky;
             top: 0;
             background: rgba(10, 10, 12, 0.9);
@@ -167,46 +176,45 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-muted);
-            padding: 6px;
+            padding: 8px;
             border-radius: 8px;
             background: var(--surface-bg);
+            border: 1px solid var(--surface-border);
         }
 
         .track-header-title.premium {
             color: var(--primary);
-            background: var(--primary-glow);
-            border: 1px solid rgba(255, 215, 0, 0.3);
+            background: rgba(255, 215, 0, 0.05);
+            border-color: rgba(255, 215, 0, 0.3);
         }
 
-        /* Ряд одного уровня */
         .tier-row {
             display: grid;
-            grid-template-columns: 40px 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px; /* Отступ для кружка */
+            margin-bottom: 25px;
             position: relative;
         }
 
-        /* Линия и кружок уровня */
-        .tier-level-col {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            position: relative;
-        }
-
+        /* Линия по центру */
         .tier-line {
             position: absolute;
-            top: 30px;
-            bottom: -20px;
+            left: 50%;
+            top: 50%;
+            bottom: -25px;
             width: 2px;
             background: var(--surface-border);
+            transform: translateX(-50%);
             z-index: 1;
         }
+        .tier-row:last-child .tier-line { display: none; }
 
-        .tier-row:last-child .tier-line { display: none; } /* Убираем линию у последнего */
-
+        /* Кружок по центру */
         .tier-number {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
             width: 32px;
             height: 32px;
             background: #1a1a1c;
@@ -229,7 +237,6 @@
             box-shadow: 0 0 10px var(--primary-glow);
         }
 
-        /* Карточка награды */
         .reward-card {
             background: var(--surface-bg);
             border: 1px solid var(--surface-border);
@@ -244,65 +251,52 @@
             transition: 0.3s;
         }
 
-        .reward-card.premium {
-            background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%);
-            border-color: rgba(255, 215, 0, 0.2);
-        }
+        .reward-card.premium { background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%); border-color: rgba(255, 215, 0, 0.2); }
+        .reward-icon-wrapper { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 10px; margin-bottom: 10px; font-size: 24px; color: var(--text-muted); }
+        .reward-card.premium .reward-icon-wrapper { color: var(--primary); box-shadow: inset 0 0 15px rgba(255,215,0,0.1); }
+        .reward-name { font-size: 11px; font-weight: 700; line-height: 1.3; margin-bottom: auto; min-height: 28px; color: var(--text-main); display: flex; align-items: center; justify-content: center; }
 
-        .reward-icon-wrapper {
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.3);
-            border-radius: 10px;
-            margin-bottom: 10px;
-            font-size: 24px;
-            color: var(--text-muted);
-        }
-
-        .reward-card.premium .reward-icon-wrapper {
-            color: var(--primary);
-            box-shadow: inset 0 0 15px rgba(255,215,0,0.1);
-        }
-
-        .reward-name {
-            font-size: 11px;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: auto;
-            min-height: 28px;
-            color: var(--text-main);
-        }
-
-        /* Кнопки в карточках */
-        .btn-claim {
-            width: 100%;
-            padding: 8px 0;
-            margin-top: 10px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            border: none;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        /* Состояния кнопок */
+        .btn-claim { width: 100%; padding: 8px 0; margin-top: 10px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
         .btn-claim.locked { background: rgba(255,255,255,0.05); color: var(--text-muted); pointer-events: none; }
         .btn-claim.ready { background: var(--primary); color: #000; box-shadow: 0 4px 10px var(--primary-glow); }
         .btn-claim.ready:active { transform: scale(0.95); }
         .btn-claim.claimed { background: transparent; border: 1px solid var(--success); color: var(--success); pointer-events: none; }
-
-        /* Фильтр для недоступных наград */
         .reward-card.locked .reward-icon-wrapper { opacity: 0.5; filter: grayscale(100%); }
+
+        /* --- Вкладка Заданий --- */
+        .quest-card {
+            background: var(--surface-bg);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .quest-info { flex: 1; }
+        .quest-title { font-size: 14px; font-weight: 700; margin: 0 0 4px 0; }
+        .quest-desc { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4; }
+        
+        .quest-reward {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-shrink: 0;
+        }
 
         /* --- Модалки --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .modal-active { display: flex !important; }
-        
         .modal-content { background: #1c1c1e; width: 100%; max-width: 350px; border-radius: 20px; border: 1px solid var(--surface-border); overflow: hidden; }
         .modal-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--surface-border); }
         .modal-header h3 { margin: 0; font-size: 16px; }
@@ -314,8 +308,6 @@
         .loader-overlay { position: fixed; inset: 0; background: var(--bg-color); z-index: 9999; display: flex; align-items: center; justify-content: center; }
         .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -324,7 +316,7 @@
         <div class="spinner"></div>
     </div>
 
-    <div class="bp-hero">
+    <div class="bp-hero" id="bp-hero">
         <div class="bp-season-badge" id="season-status-badge">СЕЗОН АКТИВЕН</div>
         <h1 class="bp-title" id="season-title">Загрузка...</h1>
         
@@ -340,22 +332,42 @@
 
         <div class="hero-actions">
             <button class="btn-rules" onclick="document.getElementById('rules-modal').classList.add('modal-active')">
-                <i class="fa-solid fa-book-open"></i> Как играть?
+                <i class="fa-solid fa-book-open"></i> Правила
             </button>
             <button class="btn-rules" id="buy-premium-btn" style="color: var(--primary); border-color: var(--primary-glow);">
-                <i class="fa-solid fa-crown"></i> Купить Premium
+                <i class="fa-solid fa-crown"></i> Premium
             </button>
         </div>
     </div>
 
-    <div class="bp-timeline">
+    <div class="floating-tabs-wrapper">
+        <button class="floating-tab active" onclick="switchBPView('rewards')">
+            <i class="fa-solid fa-gift"></i> Награды
+        </button>
+        <button class="floating-tab" onclick="switchBPView('quests')">
+            <i class="fa-solid fa-list-check"></i> Задания
+        </button>
+    </div>
+
+    <div id="view-rewards" class="view-section active">
         <div class="track-headers">
-            <div></div> <div class="track-header-title">Free</div>
-            <div class="track-header-title premium">Premium</div>
+            <div class="track-header-title">Free</div>
+            <div class="track-header-title premium"><i class="fa-solid fa-crown"></i> Premium</div>
         </div>
 
         <div id="rewards-container">
             <p style="text-align: center; color: var(--text-muted); margin-top: 40px;">Загрузка наград...</p>
+        </div>
+    </div>
+
+    <div id="view-quests" class="view-section">
+        <h3 style="margin: 0 0 15px 0; font-size: 18px; text-align: center;">Доступные задания</h3>
+        <p style="text-align: center; font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
+            Выполняй эти задания, чтобы получать Звезды (EXP) и открывать уровни.
+        </p>
+
+        <div id="quests-container">
+            <p style="text-align: center; color: var(--text-muted); margin-top: 40px;">Загрузка заданий...</p>
         </div>
     </div>
 
@@ -377,6 +389,18 @@
     </div>
 
 <script>
+// Глобальная функция для переключения вкладок
+function switchBPView(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.floating-tab').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(`view-${viewId}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+    
+    // Прокрутка наверх при переключении
+    window.scrollTo({ top: document.getElementById('bp-hero').offsetHeight, behavior: 'smooth' });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
     tg.ready();
@@ -384,17 +408,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const dom = {
         loader: document.getElementById('loader-overlay'),
+        hero: document.getElementById('bp-hero'),
         seasonTitle: document.getElementById('season-title'),
         userStars: document.getElementById('user-stars'),
         progressFill: document.getElementById('progress-fill'),
         rewardsContainer: document.getElementById('rewards-container'),
+        questsContainer: document.getElementById('quests-container'),
         buyPremiumBtn: document.getElementById('buy-premium-btn')
     };
 
     let bpData = null;
     let userData = null;
+    let allQuests = []; // Сюда подтянем список всех квестов системы
 
-    // Вспомогательная функция для иконок в зависимости от типа
     function getIconForType(type) {
         switch(type) {
             case 'coins': return '<i class="fa-solid fa-coins"></i>';
@@ -407,12 +433,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Форматирование названия награды
     function formatRewardName(type, value) {
         if (type === 'none') return 'Пусто';
         if (type === 'coins') return `${value} Монет`;
         if (type === 'tickets') return `${value} Билетов`;
-        if (type === 'cs2_skin') return value; // Название скина
+        if (type === 'cs2_skin') return value;
         if (type === 'case_coupon') return 'Купон на кейс';
         if (type === 'grind_vip') return 'Grind VIP';
         return value;
@@ -420,17 +445,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initialize() {
         try {
-            // Загружаем инфу о юзере (звезды, наличие премиума, какие уровни забраны)
-            // И загружаем структуру BP (tiers)
-            const [userRes, bpRes] = await Promise.all([
+            // Запрашиваем юзера, статус БП и параллельно список всех квестов
+            const [userRes, bpRes, questsRes] = await Promise.all([
                 fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
-                fetch('/api/v1/checkpoint/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) })
+                fetch('/api/v1/checkpoint/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
+                fetch('/api/v1/quests/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }).catch(() => ({ json: () => [] })) // Fallback если нет роута
             ]);
 
             userData = await userRes.json();
-            bpData = await bpRes.json(); // Ожидаем новую структуру с tiers!
+            bpData = await bpRes.json();
+            allQuests = Array.isArray(questsRes) ? questsRes : await questsRes.json(); 
 
             renderBP();
+            renderQuests();
         } catch (e) {
             console.error(e);
             tg.showAlert("Ошибка загрузки Battle Pass");
@@ -443,12 +470,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!bpData || !bpData.is_active) {
             dom.seasonTitle.textContent = "Сезон завершен";
             dom.rewardsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">В данный момент нет активного сезона.</p>';
+            dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Задания недоступны.</p>';
             return;
         }
 
         dom.seasonTitle.textContent = bpData.title || "Марафон Наград";
         
-        // Мок данных для отображения, если бэкенд не вернул нужные массивы (для страховки)
+        // Установка баннера
+        if (bpData.banner_url) {
+            dom.hero.style.backgroundImage = `radial-gradient(circle at top, rgba(255, 215, 0, 0.15) 0%, transparent 70%), url('${bpData.banner_url}')`;
+        }
+        
         const userStars = userData.checkpoint_stars || 0;
         const hasPremium = userData.has_cp_premium || false;
         const claimedFree = userData.cp_claimed_free || [];
@@ -457,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.userStars.textContent = userStars;
 
         if (hasPremium) {
-            dom.buyPremiumBtn.innerHTML = '<i class="fa-solid fa-check"></i> Premium Куплен';
+            dom.buyPremiumBtn.innerHTML = '<i class="fa-solid fa-check"></i> Premium Активен';
             dom.buyPremiumBtn.style.pointerEvents = 'none';
             dom.buyPremiumBtn.style.opacity = '0.5';
         }
@@ -468,7 +500,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Вычисляем прогресс бар (процент от макс уровня)
         const maxStars = Math.max(...tiers.map(t => t.required_stars));
         const progressPercent = maxStars > 0 ? Math.min((userStars / maxStars) * 100, 100) : 0;
         setTimeout(() => dom.progressFill.style.width = `${progressPercent}%`, 100);
@@ -478,48 +509,42 @@ document.addEventListener('DOMContentLoaded', () => {
         tiers.forEach((tier) => {
             const isUnlocked = userStars >= tier.required_stars;
             
-            // Логика кнопок FREE
+            // FREE
             const isFreeClaimed = claimedFree.includes(tier.level);
             const isFreeEmpty = tier.free_reward.type === 'none';
             let freeBtnHtml = '';
             
             if (isFreeEmpty) freeBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
-            else if (isFreeClaimed) freeBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i></button>`;
+            else if (isFreeClaimed) freeBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
             else if (isUnlocked) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">Забрать</button>`;
-            else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i></button>`;
+            else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
 
-            // Логика кнопок PREMIUM
+            // PREMIUM
             const isPremClaimed = claimedPremium.includes(tier.level);
             const isPremEmpty = tier.premium_reward.type === 'none';
             let premBtnHtml = '';
 
             if (isPremEmpty) premBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
-            else if (isPremClaimed) premBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i></button>`;
+            else if (isPremClaimed) premBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
             else if (isUnlocked && hasPremium) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">Забрать</button>`;
             else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" onclick="tg.showAlert('Нужен Premium пропуск!')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
-            else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i></button>`;
+            else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
 
             const row = document.createElement('div');
             row.className = `tier-row ${isUnlocked ? 'unlocked' : ''}`;
             
             row.innerHTML = `
-                <div class="tier-level-col">
-                    <div class="tier-number">${tier.level}</div>
-                    <div class="tier-line"></div>
-                </div>
+                <div class="tier-line"></div>
+                <div class="tier-number">${tier.level}</div>
                 
                 <div class="reward-card ${!isUnlocked || isFreeEmpty ? 'locked' : ''}">
-                    <div class="reward-icon-wrapper">
-                        ${getIconForType(tier.free_reward.type)}
-                    </div>
+                    <div class="reward-icon-wrapper">${getIconForType(tier.free_reward.type)}</div>
                     <div class="reward-name">${formatRewardName(tier.free_reward.type, tier.free_reward.value)}</div>
                     ${freeBtnHtml}
                 </div>
 
                 <div class="reward-card premium ${!isUnlocked || isPremEmpty ? 'locked' : ''}">
-                    <div class="reward-icon-wrapper">
-                        ${getIconForType(tier.premium_reward.type)}
-                    </div>
+                    <div class="reward-icon-wrapper">${getIconForType(tier.premium_reward.type)}</div>
                     <div class="reward-name">${formatRewardName(tier.premium_reward.type, tier.premium_reward.value)}</div>
                     ${premBtnHtml}
                 </div>
@@ -529,14 +554,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Глобальная функция для кнопок
+    function renderQuests() {
+        if (!bpData || !bpData.quests_config || bpData.quests_config.length === 0) {
+            dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Задания для Чекпоинта пока не привязаны.</p>';
+            return;
+        }
+
+        dom.questsContainer.innerHTML = '';
+        
+        bpData.quests_config.forEach(cfg => {
+            // Ищем детали квеста в общем массиве
+            const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
+            const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
+            const desc = questDetails && questDetails.description ? questDetails.description : "Выполняй активность, чтобы получить EXP.";
+
+            const questCard = document.createElement('div');
+            questCard.className = 'quest-card';
+            questCard.innerHTML = `
+                <div class="quest-info">
+                    <h4 class="quest-title">${title}</h4>
+                    <p class="quest-desc">${desc}</p>
+                </div>
+                <div class="quest-reward">
+                    +${cfg.exp_reward} <i class="fa-solid fa-star"></i>
+                </div>
+            `;
+            dom.questsContainer.appendChild(questCard);
+        });
+    }
+
     window.claimReward = async function(level, type) {
         tg.MainButton.showProgress();
         try {
             const res = await fetch('/api/v1/checkpoint/claim', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, level: level, type: type }) // Отправляем type (free/premium)
+                body: JSON.stringify({ initData: tg.initData, level: level, type: type })
             });
             const data = await res.json();
             
@@ -544,7 +597,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 tg.HapticFeedback.notificationOccurred('success');
                 tg.showAlert('Награда успешно получена!');
                 
-                // Перезапрашиваем данные юзера, чтобы обновить кнопки
                 const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
                 userData = await userRes.json();
                 renderBP(); 
