@@ -29,6 +29,7 @@
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
+        /* ВАЖНО: Стили html и body управляются top_nav.js. Мы их тут не трогаем, чтобы не сломать скролл */
         body { 
             font-family: 'Montserrat', sans-serif; 
             background-color: var(--bg-color); 
@@ -49,6 +50,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            /* Отступ сверху для шапки top_nav.js */
             padding: 80px 15px 20px 15px; 
         }
 
@@ -72,7 +74,7 @@
             flex-direction: column;
             gap: 12px;
             align-items: center;
-            margin-bottom: auto; 
+            margin-bottom: auto; /* Выталкиваем всё остальное вниз */
         }
 
         .hero-actions { 
@@ -197,12 +199,12 @@
             position: relative;
         }
 
-        /* Прогресс линия по центру */
+        /* Прогресс линия по центру (до талого) */
         .tier-line {
             position: absolute;
             left: 50%;
-            top: 15px;
-            bottom: -15px; 
+            top: 0;
+            bottom: -30px; 
             width: 3px;
             background: var(--surface-border);
             transform: translateX(-50%);
@@ -254,6 +256,7 @@
         .reward-card.premium { background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%); border-color: rgba(255, 215, 0, 0.2); }
         .reward-card.locked { opacity: 0.5; filter: grayscale(80%); }
 
+        /* КАРТИНКА БЕЗ ФОНА, УВЕЛИЧЕННАЯ */
         .reward-image {
             width: 80px;
             height: 80px;
@@ -263,6 +266,7 @@
             cursor: pointer;
         }
 
+        /* Название предмета под картинкой */
         .reward-title {
             font-size: 10px;
             font-weight: 700;
@@ -278,11 +282,29 @@
             line-height: 1.2;
         }
 
+        /* Кнопка действия */
         .btn-claim { width: 100%; padding: 8px 0; margin-top: auto; border-radius: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
         .btn-claim.locked { background: rgba(255,255,255,0.05); color: var(--text-muted); pointer-events: none; }
         .btn-claim.ready { background: var(--primary); color: #000; box-shadow: 0 4px 10px var(--primary-glow); }
         .btn-claim.ready:active { transform: scale(0.95); }
         .btn-claim.claimed { background: transparent; border: 1px solid var(--success); color: var(--success); pointer-events: none; }
+
+        /* --- Вкладка Заданий --- */
+        .quest-card {
+            background: var(--surface-bg);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .quest-info { flex: 1; }
+        .quest-title { font-size: 12px; font-weight: 700; margin: 0 0 4px 0; }
+        .quest-desc { font-size: 10px; color: var(--text-muted); margin: 0; line-height: 1.4; }
+        .quest-reward { background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: var(--primary); padding: 6px 10px; border-radius: 10px; font-weight: 800; font-size: 12px; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
         /* --- АККОРДЕОН ЗАДАНИЙ (НЕДЕЛИ) --- */
         .week-accordion {
@@ -329,21 +351,6 @@
             padding: 0 16px;
         }
         .week-content-inner { padding-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
-
-        .quest-card {
-            background: rgba(0,0,0,0.2);
-            border: 1px solid rgba(255,255,255,0.04);
-            border-radius: 12px;
-            padding: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-        }
-        .quest-info { flex: 1; }
-        .quest-title { font-size: 12px; font-weight: 700; margin: 0 0 4px 0; }
-        .quest-desc { font-size: 10px; color: var(--text-muted); margin: 0; line-height: 1.4; }
-        .quest-reward { background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: var(--primary); padding: 6px 10px; border-radius: 10px; font-weight: 800; font-size: 12px; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
         /* --- Модалки --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
@@ -524,6 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let userData = null;
     let allQuests = [];
 
+    // Получаем HTML картинки (БЕЗ ФОНА)
     function getRewardImageHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         
@@ -540,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<img src="${src}" class="reward-image" alt="Reward" onclick="openImageModal('${src}', '${safeTitle}')">`;
     }
 
+    // Получаем HTML названия (под картинку)
     function getRewardTitleHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         let title = reward.value ? reward.value.toString() : '';
