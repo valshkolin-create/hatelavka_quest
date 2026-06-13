@@ -16,7 +16,7 @@
     
     <style>
         :root {
-            --bg-color: #0a0a0c;
+            --bg-color: #000000; /* Было #0a0a0c, ставим чисто черный */
             --surface-bg: rgba(255, 255, 255, 0.03);
             --surface-border: rgba(255, 255, 255, 0.08);
             --primary: #ffd700;
@@ -54,7 +54,7 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom, rgba(10,10,12,0.8) 0%, rgba(10,10,12,0.4) 50%, var(--bg-color) 100%);
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, var(--bg-color) 100%);
             z-index: 1;
         }
 
@@ -154,6 +154,7 @@
         .swipe-container {
             position: relative;
             width: 100%;
+            padding-bottom: 130px; /* Добавили отступ, чтобы можно было доскроллить до конца */
         }
 
         .view-section { display: none; padding: 0 15px 15px 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s ease; }
