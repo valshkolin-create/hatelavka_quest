@@ -15048,54 +15048,10 @@ async def get_checkpoint_content(supabase: httpx.AsyncClient = Depends(get_supab
     except Exception as e:
         logging.error(f"Ошибка при получении контента Чекпоинта: {e}")
         raise HTTPException(status_code=500, detail="Не удалось загрузить контент страницы.")
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-@app.post("/api/v1/admin/checkpoint/update")
-async def update_checkpoint_content(
-    request_data: CheckpointUpdateRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """Обновляет контент страницы 'Чекпоинт' и перезаписывает уровни в БД."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    try:
-        config = request_data.config
-        tiers = config.pop("tiers", []) # Вытаскиваем уровни из общего конфига
-
-        # 1. Сохраняем общие настройки (название, даты, цену, квесты) в JSON
-        await supabase.patch(
-            "/pages_content",
-            params={"page_name": "eq.checkpoint"},
-            json={"content": config}
-        )
-
-        # 2. Очищаем старые уровни
-        await supabase.delete("/checkpoint_tiers", params={"id": "gt.0"})
         
-        # 3. Записываем новые уровни в реляционную таблицу
-        if tiers:
-            tier_records = []
-            for t in tiers:
-                tier_records.append({
-                    "level": t.get("level"),
-                    "required_stars": t.get("required_stars"),
-                    "free_reward_type": t.get("free_reward", {}).get("type", "none"),
-                    "free_reward_value": str(t.get("free_reward", {}).get("value", "")),
-                    "premium_reward_type": t.get("premium_reward", {}).get("type", "none"),
-                    "premium_reward_value": str(t.get("premium_reward", {}).get("value", ""))
-                })
-            # Массовая вставка (Bulk Insert)
-            resp = await supabase.post("/checkpoint_tiers", json=tier_records)
-            resp.raise_for_status()
-
-        return {"message": "Контент марафона и уровни успешно обновлены."}
-    except Exception as e:
-        logging.error(f"Ошибка при обновлении контента Чекпоинта: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
-
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 @app.post("/api/v1/admin/checkpoint/update")
 async def update_checkpoint_content(
@@ -15143,9 +15099,6 @@ async def update_checkpoint_content(
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
 
 
-# ==========================================
-# 1. ОБНОВЛЕННЫЙ ЭНДПОИНТ СТАТУСА (С КАРТИНКАМИ)
-# ==========================================
 @app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
 async def get_checkpoint_status(
@@ -15246,17 +15199,12 @@ async def get_checkpoint_status(
         raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
 
 
-# ==========================================
-# 2. ЭНДПОИНТ ДЛЯ ЗАГРУЗКИ СПИСКА КЕЙСОВ В АДМИНКЕ
-# ==========================================
 @app.get("/api/v1/admin/twitch_campaigns/cases")
 async def get_cases_list(
     initData: str,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """Отдает список кейсов для модалки склада (и Дропов, и Баттл-пасса) из shop_cache."""
-    # Здесь можно добавить проверку initData и админских прав, если нужно
-    
     cases_category_id = 2716312
     try:
         cases_resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{cases_category_id}", "select": "data"})
@@ -15340,10 +15288,8 @@ async def claim_checkpoint_reward(
 
         # 4. ВЫДАЧА НАГРАДЫ (Логика в зависимости от типа)
         if reward_type == 'coins':
-            # Логика выдачи монет (RPC или PATCH таблицы users)
             await supabase.post("/rpc/add_user_balance", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
         elif reward_type == 'tickets':
-            # Логика выдачи билетов
             await supabase.post("/rpc/add_user_tickets", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
         elif reward_type in ['cs2_skin', 'case', 'case_coupon']:
             # Создаем ручную заявку для админов
@@ -15361,110 +15307,6 @@ async def claim_checkpoint_reward(
                 await safe_send_message(
                     ADMIN_NOTIFY_CHAT_ID,
                     f"🔔 <b>Заявка на предмет из Чекпоинта!</b>\n\n"
-                    f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
-                    f"<b>Награда:</b> {reward_value}\n"
-                    f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}\n\n"
-                    f"Заявка ждет подтверждения в админ-панели."
-                )
-
-        # 5. Записываем в базу, что юзер забрал награду
-        await supabase.post("/user_checkpoint_claims", json={
-            "telegram_id": telegram_id,
-            "level": level_to_claim,
-            "reward_track": track_type
-        })
-
-        return {"message": "Награда успешно получена!"}
-
-    except httpx.HTTPStatusError as e:
-        error_details = e.response.json().get("message", "Сбой при выдаче награды.")
-        raise HTTPException(status_code=400, detail=error_details)
-    except Exception as e:
-        logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-
-
-@app.post("/api/v1/checkpoint/claim")
-async def claim_checkpoint_reward(
-    request_data: CheckpointClaimRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """Выдает награду (Free или Premium), проверяет EXP и защищает от двойного получения."""
-    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
-    if not user_info:
-        raise HTTPException(status_code=401, detail="Invalid authentication data.")
-
-    telegram_id = user_info["id"]
-    level_to_claim = request_data.level
-    track_type = request_data.type # 'free' или 'premium'
-    user_full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or user_info.get("username", "No name")
-
-    if track_type not in ['free', 'premium']:
-        raise HTTPException(status_code=400, detail="Неверный тип линии наград.")
-
-    try:
-        # 1. Проверяем баланс Звезд и наличие Премиума у юзера
-        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "checkpoint_stars, has_cp_premium"})
-        user_resp.raise_for_status()
-        if not user_resp.json():
-             raise HTTPException(status_code=404, detail="Пользователь не найден.")
-             
-        user_db = user_resp.json()[0]
-        user_stars = user_db.get("checkpoint_stars", 0)
-        has_premium = user_db.get("has_cp_premium", False)
-
-        if track_type == 'premium' and not has_premium:
-            raise HTTPException(status_code=403, detail="Для этой награды требуется Premium статус.")
-
-        # 2. Получаем требования и саму награду для этого Уровня
-        tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{level_to_claim}"})
-        tier_resp.raise_for_status()
-        if not tier_resp.json():
-            raise HTTPException(status_code=404, detail="Уровень не найден.")
-            
-        tier_data = tier_resp.json()[0]
-
-        if user_stars < tier_data["required_stars"]:
-            raise HTTPException(status_code=400, detail="Недостаточно EXP для этого уровня.")
-
-        reward_type = tier_data[f"{track_type}_reward_type"]
-        reward_value = tier_data[f"{track_type}_reward_value"]
-
-        if reward_type == 'none':
-            raise HTTPException(status_code=400, detail="На этом уровне нет награды.")
-
-        # 3. Проверяем, не забирал ли он уже эту награду (Через таблицу claims)
-        claim_check = await supabase.get("/user_checkpoint_claims", params={
-            "telegram_id": f"eq.{telegram_id}",
-            "level": f"eq.{level_to_claim}",
-            "reward_track": f"eq.{track_type}"
-        })
-        if claim_check.json():
-            raise HTTPException(status_code=400, detail="Награда уже получена.")
-
-        # 4. ВЫДАЧА НАГРАДЫ (Логика в зависимости от типа)
-        if reward_type == 'coins':
-            # Логика выдачи монет (RPC или PATCH таблицы users)
-            await supabase.post("/rpc/add_user_balance", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
-        elif reward_type == 'tickets':
-            # Логика выдачи билетов
-            await supabase.post("/rpc/add_user_tickets", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
-        elif reward_type == 'cs2_skin':
-            # Создаем ручную заявку для админов
-            payload = {
-                "user_id": telegram_id,
-                "status": "pending",
-                "reward_details": reward_value,
-                "source_description": f"Чекпоинт (Уровень {level_to_claim}, {track_type.upper()})"
-            }
-            manual_resp = await supabase.post("/manual_rewards", json=payload)
-            manual_resp.raise_for_status()
-
-            # Уведомление в админский чат
-            if ADMIN_NOTIFY_CHAT_ID:
-                await safe_send_message(
-                    ADMIN_NOTIFY_CHAT_ID,
-                    f"🔔 <b>Заявка на скин из Чекпоинта!</b>\n\n"
                     f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
                     f"<b>Награда:</b> {reward_value}\n"
                     f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}\n\n"
