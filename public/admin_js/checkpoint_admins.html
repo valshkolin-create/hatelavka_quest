@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Checkpoint</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #ffd700;
+            --accent: #28a745;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+            --text-sec: #aaaaaa;
+            --blur: 10px;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 20px;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: 120px; /* Отступ для плавающей кнопки */
+        }
+
+        /* --- Header & Tabs --- */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .back-btn:active { color: var(--text); transform: scale(0.95); }
+        .page-title { font-size: 20px; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; overflow-x: auto; }
+        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; }
+        .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+
+        /* --- Forms & Inputs --- */
+        .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
+        .admin-form input, .admin-form select, .admin-form textarea {
+            width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
+            color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
+        }
+        .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
+        
+        .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); position: relative; }
+        .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        
+        /* Toggles */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid var(--card-border); }
+        .toggle-switch { position: relative; width: 40px; height: 22px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* --- Custom Buttons --- */
+        .icon-btn { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+        .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
+        
+        .action-add-btn { background: rgba(255, 215, 0, 0.1); color: var(--primary); border: 1px dashed var(--primary); width: 100%; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .action-add-btn:active { transform: scale(0.98); background: rgba(255, 215, 0, 0.2); }
+
+        .btn-danger { background: rgba(255, 77, 77, 0.1); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); }
+        
+        /* Floating Save Button */
+        .floating-save-btn {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: var(--accent); color: #fff; border: none; padding: 16px 30px; border-radius: 20px;
+            font-size: 16px; font-weight: 800; box-shadow: 0 10px 20px rgba(40, 167, 69, 0.4);
+            cursor: pointer; z-index: 100; opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; align-items: center; gap: 10px; width: 85%; justify-content: center;
+        }
+        .floating-save-btn.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+        .floating-save-btn:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 5px 10px rgba(40, 167, 69, 0.4); }
+
+        /* --- Specific CP Styles --- */
+        .tier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .reward-box { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); }
+        .reward-box.premium { border-color: rgba(255, 71, 87, 0.4); background: rgba(255, 71, 87, 0.05); }
+        .reward-box h4 { margin: 0 0 10px 0; font-size: 12px; text-align: center; color: var(--text-sec); }
+        .reward-box.premium h4 { color: #ff4757; }
+        .remove-btn-abs { position: absolute; top: 15px; right: 15px; width: 30px; height: 30px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .quest-row { display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); margin-bottom: 10px; }
+
+        /* --- Modals & Alert --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-overlay.center { align-items: center; }
+        .modal-active { display: flex; }
+        
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; max-height: 85vh; display: flex; flex-direction: column; }
+        .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); }
+        .alert-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .alert-msg { font-size: 14px; color: var(--text-sec); margin-bottom: 20px; }
+        .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
+        .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
+
+        /* Warehouse Items */
+        .search-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; }
+        .search-img { width: 40px; height: 30px; object-fit: contain; }
+        .search-info { flex: 1; min-width: 0; }
+        .search-btn { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="page-header">
+        <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
+        <h1 class="page-title">Battle Pass</h1>
+        <button onclick="resetSeason()" class="icon-btn btn-danger" style="width: 36px; height: 36px;"><i class="fa-solid fa-skull"></i></button>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('settings')">Настройки</button>
+        <button class="tab" onclick="switchTab('tiers')">Уровни</button>
+        <button class="tab" onclick="switchTab('quests')">Задания</button>
+    </div>
+
+    <div id="tab-settings" class="tab-content admin-form">
+        <div class="section-box">
+            <h3 class="sec-title"><i class="fa-solid fa-gear"></i> Основные настройки</h3>
+            
+            <div class="toggle-row" style="margin-top:0; margin-bottom:15px;">
+                <span style="font-size: 13px; font-weight: 600;">🟢 Включить сезон BP</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="cp_is_active" onchange="showSaveBtn()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <label>Название сезона</label>
+            <input type="text" id="cp_title" placeholder="Operation Vanguard" oninput="showSaveBtn()">
+
+            <div class="tier-grid" style="margin-top: 10px; margin-bottom: 0;">
+                <div>
+                    <label>Начало</label>
+                    <input type="datetime-local" id="cp_start_date" oninput="showSaveBtn()">
+                </div>
+                <div>
+                    <label>Конец</label>
+                    <input type="datetime-local" id="cp_end_date" oninput="showSaveBtn()">
+                </div>
+            </div>
+
+            <label>Цена Premium (Stars)</label>
+            <input type="number" id="cp_premium_price" placeholder="0" oninput="showSaveBtn()">
+
+            <label>Ссылка на баннер</label>
+            <input type="text" id="cp_banner_url" placeholder="https://..." oninput="showSaveBtn()">
+        </div>
+    </div>
+
+    <div id="tab-tiers" class="tab-content hidden admin-form">
+        <div id="cp-tiers-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>
+        </div>
+        <button class="action-add-btn" onclick="addTier()"><i class="fa-solid fa-plus"></i> ДОБАВИТЬ УРОВЕНЬ</button>
+    </div>
+
+    <div id="tab-quests" class="tab-content hidden admin-form">
+        <div id="cp-quests-container">
+            <div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>
+        </div>
+        <button class="action-add-btn" onclick="addQuest()"><i class="fa-solid fa-plus"></i> ПРИВЯЗАТЬ ЗАДАНИЕ</button>
+    </div>
+
+    <button id="floating-save-btn" class="floating-save-btn" onclick="saveCheckpointData()">
+        <i class="fa-solid fa-floppy-disk"></i> СОХРАНИТЬ ИЗМЕНЕНИЯ
+    </button>
+
+    <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
+        <div class="bottom-sheet">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0">Склад ботов</h3>
+                <button onclick="closeModal('modal-library')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="admin-form" style="margin-top: 15px;">
+                <input type="text" id="lib-search-inp" class="form-input" placeholder="Название (AK-47)..." oninput="debounceSearch()">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 8px; font-size: 12px;">
+                    <span style="color: var(--text-sec);">Фильтр по цене:</span>
+                    <div style="background: rgba(255, 215, 0, 0.15); color: var(--primary); padding: 4px 10px; border-radius: 8px; font-weight: 700; cursor: pointer;" onclick="setMaxPriceToBalance()">
+                        <i class="fa-solid fa-wallet"></i> <span id="modal-balance-val">Загрузка...</span>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="number" id="lib-price-min" placeholder="Мин. цена ₽" oninput="debounceSearch()">
+                    <input type="number" id="lib-price-max" placeholder="Макс. цена ₽" oninput="debounceSearch()">
+                </div>
+            </div>
+
+            <div id="lib-results" style="flex:1; overflow-y: auto; margin-top:10px;" onscroll="handleScroll(this)">
+                <div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-alert" class="modal-overlay center">
+        <div class="alert-box">
+            <div class="alert-title" id="alert-title">Title</div>
+            <div class="alert-msg" id="alert-msg">Message</div>
+            <button class="alert-btn" id="alert-ok">OK</button>
+            <button class="alert-btn cancel hidden" id="alert-cancel">Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
+            if (document.getElementById('modal-library').classList.contains('modal-active')) { closeModal('modal-library'); return; }
+            if (document.getElementById('modal-alert').classList.contains('modal-active')) { closeModal('modal-alert'); return; }
+            window.location.href = '/admin';
+        });
+
+        // ==========================================
+        // ГЛОБАЛЬНЫЕ ДАННЫЕ
+        // ==========================================
+        let availableCpQuests = [];
+        let activeSkinTargetInput = null; // Хранит инпут, в который нужно вставить скин
+        let currentMarketBalance = 0;
+        let searchTimeout = null;
+        let currentOffset = 0;
+        let isFetching = false;
+        let hasMoreItems = true;
+
+        // ==========================================
+        // БАЗОВЫЕ UI ФУНКЦИИ
+        // ==========================================
+        function goBack() { window.location.href = '/admin'; }
+        
+        function switchTab(t) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+            document.getElementById('tab-' + t).classList.remove('hidden');
+            
+            const tabs = document.querySelectorAll('.tab');
+            if(t === 'settings') tabs[0].classList.add('active');
+            if(t === 'tiers') tabs[1].classList.add('active');
+            if(t === 'quests') tabs[2].classList.add('active');
+        }
+
+        function showSaveBtn() { document.getElementById('floating-save-btn').classList.add('show'); }
+        function hideSaveBtn() { document.getElementById('floating-save-btn').classList.remove('show'); }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
+        
+        function showCustomAlert(title, msg) {
+            const m = document.getElementById('modal-alert');
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            document.getElementById('alert-ok').onclick = () => m.classList.remove('modal-active');
+            document.getElementById('alert-cancel').classList.add('hidden');
+            m.classList.add('modal-active');
+        }
+
+        function showConfirm(title, msg, onYes) {
+            const m = document.getElementById('modal-alert');
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = msg;
+            const cBtn = document.getElementById('alert-cancel');
+            cBtn.classList.remove('hidden');
+            cBtn.onclick = () => m.classList.remove('modal-active');
+            document.getElementById('alert-ok').onclick = () => { onYes(); m.classList.remove('modal-active'); };
+            m.classList.add('modal-active');
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+        }
+
+        function formatDateToInput(dateString) {
+            if (!dateString) return '';
+            const d = new Date(dateString);
+            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        }
+
+        // ==========================================
+        // ИНТЕГРАЦИЯ СКЛАДА (WAREHOUSE)
+        // ==========================================
+        function openLibraryForTarget(btnElement) {
+            activeSkinTargetInput = btnElement.previousElementSibling; // Инпут значения
+            document.getElementById('modal-library').classList.add('modal-active');
+            document.getElementById('lib-search-inp').value = '';
+            document.getElementById('lib-price-min').value = '';
+            document.getElementById('lib-price-max').value = '';
+            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск...</div>';
+            currentOffset = 0; hasMoreItems = true;
+            updateModalBalance();
+        }
+
+        async function updateModalBalance() {
+            const balEl = document.getElementById('modal-balance-val');
+            balEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const res = await fetch('/api/v1/admin/market/status', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.market_success) {
+                        currentMarketBalance = parseFloat(data.balance);
+                        balEl.innerText = currentMarketBalance.toFixed(2) + ' ₽';
+                    } else balEl.innerText = 'Ошибка API';
+                } else balEl.innerText = 'Сбой';
+            } catch (e) { balEl.innerText = '---'; }
+        }
+
+        function setMaxPriceToBalance() {
+            if (currentMarketBalance > 0) {
+                document.getElementById('lib-price-max').value = Math.floor(currentMarketBalance);
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+                debounceSearch(); 
+            }
+        }
+
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            currentOffset = 0; hasMoreItems = true;
+            searchTimeout = setTimeout(() => doSearch(true), 500);
+        }
+
+        function handleScroll(el) {
+            if (el.scrollHeight - el.scrollTop <= el.clientHeight + 50) {
+                if (!isFetching && hasMoreItems) { currentOffset += 30; doSearch(false); }
+            }
+        }
+
+        async function doSearch(isNewSearch) {
+            if (isFetching || !hasMoreItems) return;
+            const q = document.getElementById('lib-search-inp').value.trim();
+            const minP = parseFloat(document.getElementById('lib-price-min').value) || 0;
+            const maxP = parseFloat(document.getElementById('lib-price-max').value) || 9999999;
+            const cont = document.getElementById('lib-results');
+            
+            if (q.length < 2 && minP === 0 && maxP === 9999999) {
+                if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Введите название или цену...</div>';
+                return;
+            }
+            
+            isFetching = true;
+            if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Ищем...</div>';
+            else cont.insertAdjacentHTML('beforeend', '<div id="scroll-loader" style="text-align:center; padding:10px; color:var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i></div>');
+
+            try {
+                const res = await fetch('/api/v1/admin/cases/search_cache', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ query: q, min_price: minP, max_price: maxP, offset: currentOffset })
+                });
+
+                let items = await res.json();
+                if (isNewSearch) cont.innerHTML = '';
+                else { const l = document.getElementById('scroll-loader'); if (l) l.remove(); }
+
+                if (!items || items.length === 0) {
+                    hasMoreItems = false;
+                    if (isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ничего не найдено 😔</div>';
+                    return;
+                }
+
+                if (items.length < 30) hasMoreItems = false;
+
+                items.forEach(item => {
+                    const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
+                    const rColor = {'common': '#b0c3d9', 'industrial': '#5e98d9', 'blue': '#4b69ff', 'purple': '#8847ff', 'pink': '#d32ce6', 'red': '#eb4b4b', 'gold': '#ffd700'}[item.rarity?.toLowerCase()] || '#4b69ff';
+
+                    cont.innerHTML += `
+                    <div class="search-item" style="border-left: 3px solid ${rColor};">
+                        <img src="${item.image_url}" class="search-img" onerror="this.src='https://placehold.co/40'">
+                        <div class="search-info">
+                            <div style="font-weight:700; font-size:12px; color:#fff;">${item.market_hash_name}</div>
+                            <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
+                        </div>
+                        <button class="search-btn" onclick="selectFromCache('${safeJson}')">ВЫБРАТЬ</button>
+                    </div>`;
+                });
+            } catch(e) { 
+                if(isNewSearch) cont.innerHTML = '<div style="text-align:center;color:var(--danger);">Ошибка поиска</div>';
+            } finally { isFetching = false; }
+        }
+
+        function selectFromCache(jsonStr) {
+            const item = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
+            closeModal('modal-library');
+            if (activeSkinTargetInput) {
+                // Вставляем полное название скина (как в базе) для Чекпоинта
+                activeSkinTargetInput.value = item.market_hash_name;
+                activeSkinTargetInput = null;
+                showSaveBtn();
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
+        // ==========================================
+        // ЛОГИКА CHECKPOINT
+        // ==========================================
+        function getRewardTypeSelectHtml(selectedValue, namePrefix) {
+            const types = [
+                { val: 'none', text: 'Пусто (Нет награды)' },
+                { val: 'coins', text: 'Монеты' },
+                { val: 'tickets', text: 'Билеты' },
+                { val: 'cs2_skin', text: 'CS2 Скин (Маркет)' },
+                { val: 'case_coupon', text: 'Купон на кейс' },
+                { val: 'grind_vip', text: 'Grind VIP' }
+            ];
+            let html = `<select class="reward-type-select" name="${namePrefix}_type" style="margin-bottom: 5px;">`;
+            types.forEach(t => { html += `<option value="${t.val}" ${t.val === selectedValue ? 'selected' : ''}>${t.text}</option>`; });
+            html += `</select>`;
+            return html;
+        }
+
+        function createCpTierRow(tier = null, index = 0) {
+            const data = tier || { level: index + 1, required_stars: 0, free_reward: { type: 'none', value: '' }, premium_reward: { type: 'none', value: '' } };
+            const wrapper = document.createElement('div');
+            wrapper.className = 'section-box cp-tier-row'; 
+            wrapper.style.paddingTop = '40px'; // Место под кнопку крестика и заголовок
+
+            wrapper.innerHTML = `
+                <div style="position: absolute; top: -10px; left: 15px; background: var(--primary); color: #000; padding: 2px 10px; border-radius: 8px; font-weight: 800; font-size: 14px; z-index: 2;">УРОВЕНЬ ${data.level}</div>
+                <button type="button" class="remove-btn-abs remove-tier-btn"><i class="fa-solid fa-xmark"></i></button>
+                
+                <div class="tier-grid">
+                    <div>
+                        <label>Level (Tier)</label>
+                        <input type="number" class="tier-level" value="${data.level}" required style="font-weight: bold; font-size: 16px;">
+                    </div>
+                    <div>
+                        <label>Требуется Звезд</label>
+                        <input type="number" class="tier-stars" value="${data.required_stars}" required>
+                    </div>
+                </div>
+
+                <div class="tier-grid">
+                    <div class="reward-box">
+                        <h4>FREE Награда</h4>
+                        ${getRewardTypeSelectHtml(data.free_reward.type, 'free')}
+                        <div class="reward-val-container" style="display:flex; gap:5px; margin-top:5px;">
+                            <input type="text" class="reward-value-input free-val" placeholder="Значение" value="${escapeHTML(String(data.free_reward.value))}">
+                            <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="reward-box premium">
+                        <h4>PREMIUM Награда</h4>
+                        ${getRewardTypeSelectHtml(data.premium_reward.type, 'premium')}
+                        <div class="reward-val-container" style="display:flex; gap:5px; margin-top:5px;">
+                            <input type="text" class="reward-value-input premium-val" placeholder="Значение" value="${escapeHTML(String(data.premium_reward.value))}">
+                            <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            wrapper.querySelector('.remove-tier-btn').addEventListener('click', () => { wrapper.remove(); showSaveBtn(); });
+
+            // Логика переключения полей ввода значения и кнопки склада
+            wrapper.querySelectorAll('.reward-type-select').forEach(select => {
+                const toggleUI = (sel) => {
+                    const container = sel.nextElementSibling;
+                    const input = container.querySelector('.reward-value-input');
+                    const searchBtn = container.querySelector('.skin-search-btn');
+                    
+                    container.style.display = sel.value === 'none' ? 'none' : 'flex';
+                    searchBtn.style.display = sel.value === 'cs2_skin' ? 'flex' : 'none';
+                };
+                select.addEventListener('change', (e) => { toggleUI(e.target); showSaveBtn(); });
+                toggleUI(select);
+            });
+
+            wrapper.addEventListener('input', showSaveBtn);
+            return wrapper;
+        }
+
+        function createCpQuestRow(mapping = null) {
+            const data = mapping || { quest_id: '', exp_reward: 10 };
+            const wrapper = document.createElement('div');
+            wrapper.className = 'quest-row cp-quest-row';
+
+            let optionsHtml = '<option value="">-- Выберите задание --</option>';
+            availableCpQuests.forEach(q => {
+                const selected = (String(q.id) === String(data.quest_id)) ? 'selected' : '';
+                optionsHtml += `<option value="${q.id}" ${selected}>[ID:${q.id}] ${escapeHTML(q.title)}</option>`;
+            });
+
+            wrapper.innerHTML = `
+                <select class="cp-quest-id-select" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border);" required>
+                    ${optionsHtml}
+                </select>
+                <div style="display: flex; align-items: center; gap: 5px; width: 100px;">
+                    <i class="fa-solid fa-star" style="color: #ffd700;"></i>
+                    <input type="number" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border);">
+                </div>
+                <button type="button" class="remove-cp-quest-btn" style="width: 40px; height: 40px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; flex-shrink:0;">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            `;
+
+            wrapper.querySelector('.remove-cp-quest-btn').addEventListener('click', () => { wrapper.remove(); showSaveBtn(); });
+            wrapper.addEventListener('change', showSaveBtn);
+            wrapper.addEventListener('input', showSaveBtn);
+            return wrapper;
+        }
+
+        function addTier() {
+            const container = document.getElementById('cp-tiers-container');
+            if (container.querySelector('.fa-spinner') || container.querySelector('p')) container.innerHTML = '';
+            const currentIndex = container.querySelectorAll('.cp-tier-row').length;
+            container.appendChild(createCpTierRow(null, currentIndex));
+            showSaveBtn();
+            setTimeout(() => container.lastElementChild?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+
+        function addQuest() {
+            const container = document.getElementById('cp-quests-container');
+            if (container.querySelector('.fa-spinner') || container.querySelector('p')) container.innerHTML = '';
+            container.appendChild(createCpQuestRow());
+            showSaveBtn();
+            setTimeout(() => container.lastElementChild?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+
+        // ==========================================
+        // API ВЗАИМОДЕЙСТВИЕ
+        // ==========================================
+        async function fetchApi(url, bodyData = {}) {
+            bodyData.initData = tg.initData;
+            const res = await fetch(url, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyData)
+            });
+            if (!res.ok) throw new Error(`API Error: ${res.status}`);
+            return await res.json();
+        }
+
+        async function initCheckpoint() {
+            tg.MainButton.showProgress();
+            try {
+                // 1. Грузим квесты
+                try {
+                    const questsList = await fetchApi('/api/v1/quests/list');
+                    if (Array.isArray(questsList)) availableCpQuests = questsList;
+                } catch(e) { console.warn("Failed to load quests list"); }
+
+                // 2. Грузим статус чекпоинта
+                let checkpointData = {};
+                try {
+                    checkpointData = await fetchApi('/api/v1/admin/checkpoint/status');
+                } catch(e) { console.warn("Failed to load checkpoint status, using empty config"); }
+                
+                // Заполняем Таб 1
+                document.getElementById('cp_is_active').checked = checkpointData.is_active || false;
+                document.getElementById('cp_title').value = checkpointData.title || '';
+                document.getElementById('cp_start_date').value = formatDateToInput(checkpointData.start_date);
+                document.getElementById('cp_end_date').value = formatDateToInput(checkpointData.end_date);
+                document.getElementById('cp_premium_price').value = checkpointData.premium_price || 0;
+                document.getElementById('cp_banner_url').value = checkpointData.banner_url || '';
+
+                // Заполняем Таб 2 (Тиры)
+                const tiersContainer = document.getElementById('cp-tiers-container');
+                tiersContainer.innerHTML = '';
+                const tiers = checkpointData.tiers || [];
+                if (tiers.length === 0) tiersContainer.innerHTML = '<p style="text-align: center; color: var(--text-sec); padding: 20px;">Уровни не созданы.</p>';
+                else tiers.forEach((t, i) => tiersContainer.appendChild(createCpTierRow(t, i)));
+
+                // Заполняем Таб 3 (Квесты)
+                const questsContainer = document.getElementById('cp-quests-container');
+                questsContainer.innerHTML = '';
+                const questsConfig = checkpointData.quests_config || [];
+                if (questsConfig.length === 0) questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-sec); padding: 20px;">Задания не привязаны.</p>';
+                else questsConfig.forEach(q => questsContainer.appendChild(createCpQuestRow(q)));
+
+            } catch (e) {
+                showCustomAlert("Ошибка", "Не удалось загрузить данные чекпоинта");
+            } finally {
+                tg.MainButton.hideProgress();
+                hideSaveBtn();
+            }
+        }
+
+        async function saveCheckpointData() {
+            const tiers = [];
+            document.querySelectorAll('.cp-tier-row').forEach(row => {
+                tiers.push({
+                    level: parseInt(row.querySelector('.tier-level').value) || 0,
+                    required_stars: parseInt(row.querySelector('.tier-stars').value) || 0,
+                    free_reward: {
+                        type: row.querySelector('select[name="free_type"]').value,
+                        value: row.querySelector('.free-val').value
+                    },
+                    premium_reward: {
+                        type: row.querySelector('select[name="premium_type"]').value,
+                        value: row.querySelector('.premium-val').value
+                    }
+                });
+            });
+            tiers.sort((a, b) => a.level - b.level);
+
+            const questsConfig = [];
+            document.querySelectorAll('.cp-quest-row').forEach(row => {
+                const qId = parseInt(row.querySelector('.cp-quest-id-select').value);
+                const exp = parseInt(row.querySelector('.cp-quest-exp').value);
+                if (!isNaN(qId) && !isNaN(exp) && exp > 0) questsConfig.push({ quest_id: qId, exp_reward: exp });
+            });
+
+            const startDate = document.getElementById('cp_start_date').value;
+            const endDate = document.getElementById('cp_end_date').value;
+
+            const payload = {
+                is_active: document.getElementById('cp_is_active').checked,
+                title: document.getElementById('cp_title').value,
+                start_date: startDate ? new Date(startDate).toISOString() : null,
+                end_date: endDate ? new Date(endDate).toISOString() : null,
+                premium_price: parseInt(document.getElementById('cp_premium_price').value) || 0,
+                banner_url: document.getElementById('cp_banner_url').value,
+                tiers: tiers,
+                quests_config: questsConfig
+            };
+
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/checkpoint/update', { config: payload });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                showCustomAlert('Успех', 'Настройки Чекпоинта успешно сохранены!');
+                hideSaveBtn();
+            } catch (error) {
+                showCustomAlert('Ошибка сохранения', error.message);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        }
+
+        function resetSeason() {
+            showConfirm('ОБНУЛИТЬ СЕЗОН?', 'Это обнулит звезды и сбросит массив полученных наград у ВСЕХ пользователей. Вы уверены?', async () => {
+                tg.MainButton.showProgress();
+                try {
+                    await fetchApi('/api/v1/admin/checkpoint/reset_season');
+                    if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    showCustomAlert('Успех', 'Сезон успешно сброшен!');
+                } catch (error) {
+                    showCustomAlert('Ошибка сброса', error.message);
+                } finally {
+                    tg.MainButton.hideProgress();
+                }
+            });
+        }
+
+        // Запуск
+        initCheckpoint();
+    </script>
+</body>
+</html>
