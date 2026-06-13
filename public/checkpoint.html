@@ -166,7 +166,7 @@
         .track-headers {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px; 
+            gap: 35px; 
             margin-bottom: 15px;
         }
 
@@ -183,7 +183,7 @@
         .tier-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px; 
+            gap: 35px; 
             margin-bottom: 15px;
             position: relative;
         }
@@ -193,7 +193,7 @@
             position: absolute;
             left: 50%;
             top: 50%; /* Начинается ровно из центра */
-            height: calc(100% + 15px); /* Тянется ровно до центра следующего ряда */
+            height: calc(100% + 35px); /* Тянется ровно до центра следующего ряда (с учетом нового gap) */
             width: 4px;
             background: var(--surface-border);
             transform: translateX(-50%);
@@ -201,6 +201,13 @@
             border-radius: 2px;
             overflow: hidden;
         }
+
+        /* Специфичная линия для самого первого уровня */
+        .tier-line.first-line {
+            top: 20px;
+            height: calc(150% + 15px); 
+        }
+
         .tier-line-fill {
             position: absolute;
             top: 0;
@@ -219,9 +226,9 @@
             transform: translate(-50%, -50%);
             width: 24px;
             height: 24px;
-            background: transparent; /* Полностью прозрачный */
+            background: transparent; 
             color: var(--text-muted);
-            border: none; /* Убрали рамку */
+            border: none; 
             display: flex;
             align-items: center;
             justify-content: center;
@@ -232,10 +239,29 @@
         }
         
         .tier-row.unlocked .tier-number {
-            background: transparent; /* Остается прозрачным */
-            border: none; /* Без рамки */
-            color: var(--primary); /* Текст желтый */
-            text-shadow: 0 0 10px var(--primary-glow); /* Свечение, чтобы лучше читалось поверх линии */
+            background: transparent; 
+            border: none; 
+            color: var(--primary); 
+            text-shadow: 0 0 10px var(--primary-glow); 
+        }
+
+        /* СТИЛИ ПЕРВОГО УРОВНЯ */
+        .tier-number.first-tier {
+            top: 20px; /* На уровне создания карточек */
+            transform: translate(-50%, 0);
+            width: 18px;
+            height: 18px;
+            background: var(--surface-bg);
+            border: 2px solid var(--surface-border);
+            border-radius: 50%;
+            font-size: 10px;
+        }
+
+        .tier-row.unlocked .tier-number.first-tier {
+            background: var(--bg-color);
+            border-color: var(--primary);
+            text-shadow: none;
+            box-shadow: 0 0 8px var(--primary-glow);
         }
 
         .reward-card {
@@ -716,9 +742,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            const isFirst = index === 0;
             const isLast = index === tiers.length - 1;
+            
             const lineHtml = isLast ? '' : `
-                <div class="tier-line">
+                <div class="tier-line ${isFirst ? 'first-line' : ''}">
                     <div class="tier-line-fill" style="height: ${fillPercentage}%;"></div>
                 </div>
             `;
@@ -739,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isPremEmpty) premBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
             else if (isPremClaimed) premBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
             else if (isUnlocked && hasPremium && isSeasonActive) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">ЗАБРАТЬ</button>`;
-            else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" onclick="tg.showAlert('Нужен Premium пропуск!')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
+            else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" style="pointer-events: auto;" onclick="document.getElementById('premium-buy-modal').classList.add('modal-active')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
             else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
 
             const row = document.createElement('div');
@@ -747,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             row.innerHTML = `
                 ${lineHtml}
-                <div class="tier-number">${tier.level}</div>
+                <div class="${isFirst ? 'tier-number first-tier' : 'tier-number'}">${tier.level}</div>
                 
                 <div class="reward-card ${!isUnlocked || isFreeEmpty ? 'locked' : ''}">
                     ${getRewardImageHtml(tier.free_reward)}
