@@ -16,7 +16,7 @@
     
     <style>
         :root {
-            --bg-color: #000000; /* Было #0a0a0c, ставим чисто черный */
+            --bg-color: #121212; /* Тот самый цвет из верхнего бара */
             --surface-bg: rgba(255, 255, 255, 0.03);
             --surface-border: rgba(255, 255, 255, 0.08);
             --primary: #ffd700;
@@ -54,7 +54,8 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, var(--bg-color) 100%);
+            /* Используем RGB (18, 18, 18) для идеального слияния */
+            background: linear-gradient(to bottom, rgba(18,18,18,0.8) 0%, rgba(18,18,18,0.4) 50%, var(--bg-color) 100%);
             z-index: 1;
         }
 
@@ -480,15 +481,15 @@
         <div class="bp-hero" id="bp-hero">
             <div class="hero-top-controls">
                 <div class="hero-actions">
-                    <button class="btn-rules" onclick="document.getElementById('rules-modal').classList.add('modal-active')">
+                    <button class="btn-rules" onclick="haptic('light'); document.getElementById('rules-modal').classList.add('modal-active')">
                         <i class="fa-solid fa-book-open"></i> Правила
                     </button>
                     <button class="btn-rules" id="buy-premium-btn" style="color: var(--primary); border-color: var(--primary-glow);">
                         <i class="fa-solid fa-crown"></i> Premium
                     </button>
                 </div>
-                <div class="season-status-container">
-                    <div class="bp-season-badge" id="season-status-badge">СЕЗОН АКТИВЕН</div>
+                <div class="season-status-container" id="season-status-container" style="display: none;">
+                    <div class="bp-season-badge" id="season-status-badge"></div>
                 </div>
             </div>
         </div>
@@ -529,11 +530,11 @@
 
     </div>
 
-    <div id="rules-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('modal-active')">
+    <div id="rules-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Правила Чекпоинта</h3>
-                <button class="modal-close" onclick="document.getElementById('rules-modal').classList.remove('modal-active')">&times;</button>
+                <button class="modal-close" onclick="haptic('light'); document.getElementById('rules-modal').classList.remove('modal-active')">&times;</button>
             </div>
             <div class="modal-body" id="rules-content">
                 <h4>Что такое Battle Pass?</h4>
@@ -546,9 +547,9 @@
         </div>
     </div>
 
-    <div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('modal-active')">
+    <div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-modal-content">
-            <button class="premium-modal-close" onclick="document.getElementById('premium-buy-modal').classList.remove('modal-active')">
+            <button class="premium-modal-close" onclick="haptic('light'); document.getElementById('premium-buy-modal').classList.remove('modal-active')">
                 <i class="fa-solid fa-xmark"></i>
             </button>
             <div class="premium-modal-header-img">
@@ -568,9 +569,9 @@
         </div>
     </div>
 
-    <div id="image-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('modal-active')">
+    <div id="image-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="image-modal-wrapper">
-            <button class="image-modal-close" onclick="document.getElementById('image-modal').classList.remove('modal-active')">
+            <button class="image-modal-close" onclick="haptic('light'); document.getElementById('image-modal').classList.remove('modal-active')">
                 <i class="fa-solid fa-xmark"></i>
             </button>
             <img id="enlarged-image" src="" alt="Reward">
@@ -579,7 +580,14 @@
     </div>
 
 <script>
+window.haptic = function(style = 'light') {
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred(style);
+    }
+};
+
 window.switchBPView = function(viewId) {
+    haptic('light');
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.top-tab').forEach(el => el.classList.remove('active'));
     
@@ -590,6 +598,7 @@ window.switchBPView = function(viewId) {
 
 window.openImageModal = function(src, title) {
     if (!src || src.includes('text=')) return; 
+    haptic('light');
     document.getElementById('enlarged-image').src = src;
     document.getElementById('enlarged-title').textContent = title || '';
     document.getElementById('image-modal').classList.add('modal-active');
@@ -598,6 +607,8 @@ window.openImageModal = function(src, title) {
 window.toggleWeek = function(headerElement) {
     const isLocked = headerElement.parentElement.classList.contains('locked');
     if (isLocked) return;
+
+    haptic('light');
 
     const content = headerElement.nextElementSibling;
     const isExpanded = headerElement.classList.contains('expanded');
@@ -609,7 +620,6 @@ window.toggleWeek = function(headerElement) {
         content.style.maxHeight = content.scrollHeight + 50 + 'px';
         headerElement.classList.add('expanded');
     }
-    if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -689,10 +699,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const isSeasonActive = bpData && bpData.is_active;
 
         if (!isSeasonActive) {
+            document.getElementById('season-status-container').style.display = 'block';
             dom.seasonStatusBadge.textContent = "СЕЗОН ЗАВЕРШЕН";
             dom.seasonStatusBadge.classList.add('inactive');
         } else {
-            dom.seasonStatusBadge.textContent = "СЕЗОН АКТИВЕН";
+            document.getElementById('season-status-container').style.display = 'none';
             dom.seasonStatusBadge.classList.remove('inactive');
         }
         
@@ -913,6 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     dom.buyPremiumBtn.addEventListener('click', () => {
+        haptic('medium');
         if (!bpData || !bpData.is_active) {
             tg.showAlert("Сезон завершен, покупка недоступна.");
             return;
@@ -971,6 +983,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.5) { 
                 if (diffX > 0) switchBPView('quests');
                 else switchBPView('rewards');
+                haptic('light');
             }
         };
 
