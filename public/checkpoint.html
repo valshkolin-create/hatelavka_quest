@@ -664,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.hero.style.backgroundImage = 'none';
         }
         
-        const userStars = userData.checkpoint_stars || 0;
+        const userStars = parseFloat(userData.checkpoint_stars) || 0; // Принудительно делаем числом
         const hasPremium = userData.has_cp_premium || false;
         const claimedFree = userData.cp_claimed_free || [];
         const claimedPremium = userData.cp_claimed_premium || [];
@@ -691,9 +691,11 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.rewardsContainer.innerHTML = '';
 
         tiers.forEach((tier, index) => {
-            const isUnlocked = userStars >= tier.required_stars;
+            const reqStars = parseFloat(tier.required_stars) || 0;
+            const isUnlocked = userStars >= reqStars;
+
             const nextTier = tiers[index + 1];
-            const isNextUnlocked = nextTier ? userStars >= nextTier.required_stars : false;
+            const isNextUnlocked = nextTier ? userStars >= (parseFloat(nextTier.required_stars) || 0) : false;
             
             const isFreeClaimed = claimedFree.includes(tier.level);
             const isFreeEmpty = tier.free_reward.type === 'none';
