@@ -29,7 +29,6 @@
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        /* ВАЖНО: Стили html и body управляются top_nav.js. Мы их тут не трогаем, чтобы не сломать скролл */
         body { 
             font-family: 'Montserrat', sans-serif; 
             background-color: var(--bg-color); 
@@ -46,11 +45,11 @@
             background-size: cover;
             background-position: center;
             text-align: center;
-            min-height: 200px;
+            min-height: 240px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* ПРИЖИМАЕМ К ВЕРХУ */
-            padding: 20px 15px; /* Убрали огромный отступ сверху */
+            align-items: center;
+            padding: 80px 15px 20px 15px; 
         }
 
         .bp-hero::after {
@@ -61,14 +60,19 @@
             z-index: 1;
         }
 
-        /* Кнопки и статус сезона на самом верху баннера */
+        .bp-hero > * {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+        }
+
+        /* --- Кнопки и статус (САМЫЙ ВЕРХ) --- */
         .hero-top-controls {
             display: flex;
             flex-direction: column;
             gap: 12px;
             align-items: center;
-            position: relative;
-            z-index: 2;
+            margin-bottom: auto; 
         }
 
         .hero-actions { 
@@ -84,6 +88,8 @@
 
         .season-status-container {
             text-align: center;
+            position: relative;
+            z-index: 2;
         }
 
         .bp-season-badge {
@@ -105,6 +111,21 @@
             border-color: rgba(255, 69, 58, 0.3);
             background: rgba(255, 69, 58, 0.2);
         }
+
+        /* --- Минималистичный Уровень --- */
+        .level-text-container {
+            margin-top: 15px;
+            text-align: center;
+        }
+        .level-text {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .level-text span { color: var(--primary); font-size: 18px; margin-left: 4px; }
 
         /* --- Верхние табы --- */
         .top-tabs-wrapper {
@@ -139,20 +160,6 @@
             color: var(--primary);
             border-color: rgba(255, 215, 0, 0.3);
         }
-
-        /* --- Минималистичный Уровень (Без фона и обводки) --- */
-        .level-text-container {
-            margin: 5px 0 15px 0;
-            text-align: center;
-        }
-        .level-text {
-            font-size: 14px;
-            font-weight: 800;
-            color: var(--text-main);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .level-text span { color: var(--primary); font-size: 18px; margin-left: 4px; }
 
         /* --- Свайп контейнер --- */
         .swipe-container {
@@ -190,12 +197,12 @@
             position: relative;
         }
 
-        /* Прогресс линия по центру (до талого) */
+        /* Прогресс линия по центру */
         .tier-line {
             position: absolute;
             left: 50%;
-            top: 0;          /* Пускаем линию от самого верха карточки */
-            bottom: -35px;   /* Увеличиваем вылет вниз, чтобы она гарантированно заходила на следующий уровень */
+            top: 15px;
+            bottom: -15px; 
             width: 3px;
             background: var(--surface-border);
             transform: translateX(-50%);
@@ -247,17 +254,15 @@
         .reward-card.premium { background: linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%); border-color: rgba(255, 215, 0, 0.2); }
         .reward-card.locked { opacity: 0.5; filter: grayscale(80%); }
 
-        /* КАРТИНКА БЕЗ ФОНА, УВЕЛИЧЕННАЯ */
         .reward-image {
             width: 80px;
             height: 80px;
-            object-fit: contain; /* Чтобы оружие влезало целиком */
-            background: transparent; /* Фона нет! */
+            object-fit: contain; 
+            background: transparent; 
             margin-bottom: 6px;
             cursor: pointer;
         }
 
-        /* Название предмета под картинкой */
         .reward-title {
             font-size: 10px;
             font-weight: 700;
@@ -273,20 +278,63 @@
             line-height: 1.2;
         }
 
-        /* Кнопка действия */
         .btn-claim { width: 100%; padding: 8px 0; margin-top: auto; border-radius: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: none; cursor: pointer; transition: 0.2s; }
         .btn-claim.locked { background: rgba(255,255,255,0.05); color: var(--text-muted); pointer-events: none; }
         .btn-claim.ready { background: var(--primary); color: #000; box-shadow: 0 4px 10px var(--primary-glow); }
         .btn-claim.ready:active { transform: scale(0.95); }
         .btn-claim.claimed { background: transparent; border: 1px solid var(--success); color: var(--success); pointer-events: none; }
 
-        /* --- Вкладка Заданий --- */
-        .quest-card {
+        /* --- АККОРДЕОН ЗАДАНИЙ (НЕДЕЛИ) --- */
+        .week-accordion {
             background: var(--surface-bg);
             border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: 0.3s ease;
+        }
+        .week-accordion.locked {
+            opacity: 0.6;
+            pointer-events: none;
+            background: rgba(255, 255, 255, 0.01);
+        }
+        .week-header {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            background: transparent;
+            transition: 0.2s;
+        }
+        .week-header:active { background: rgba(255,255,255,0.05); }
+        
+        .week-title-box { display: flex; flex-direction: column; gap: 6px; }
+        .week-title { font-size: 14px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .week-dates { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+        
+        .week-status { font-size: 9px; font-weight: 900; padding: 4px 8px; border-radius: 8px; text-transform: uppercase; }
+        .status-active { background: rgba(50, 215, 75, 0.15); color: var(--success); border: 1px solid rgba(50, 215, 75, 0.3); }
+        .status-past { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .status-locked { background: rgba(255, 69, 58, 0.1); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.2); }
+        
+        .week-chevron { color: var(--text-muted); font-size: 14px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .week-header.expanded .week-chevron { transform: rotate(180deg); }
+        
+        .week-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0 16px;
+        }
+        .week-content-inner { padding-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+
+        .quest-card {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.04);
             border-radius: 12px;
             padding: 12px;
-            margin-bottom: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -310,7 +358,6 @@
         .modal-body h4:first-child { margin-top: 0; }
         .modal-body p { margin: 0; }
 
-        /* Нативная модалка картинки */
         .image-modal-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 400px; }
         .image-modal-close { 
             position: absolute; 
@@ -359,6 +406,10 @@
                     <div class="bp-season-badge" id="season-status-badge">СЕЗОН АКТИВЕН</div>
                 </div>
             </div>
+
+            <div class="level-text-container">
+                <div class="level-text">Уровень <span id="ui-current-level">0</span></div>
+            </div>
         </div>
 
         <div class="top-tabs-wrapper">
@@ -372,10 +423,6 @@
 
         <div class="swipe-container" id="swipe-area">
             <div id="view-rewards" class="view-section active">
-
-                <div class="level-text-container">
-                    <div class="level-text">Уровень <span id="ui-current-level">0</span></div>
-                </div>
 
                 <div class="track-headers">
                     <div class="track-header-title">Free</div>
@@ -439,6 +486,24 @@ window.openImageModal = function(src, title) {
     document.getElementById('image-modal').classList.add('modal-active');
 };
 
+// Функция переключения аккордеона
+window.toggleWeek = function(headerElement) {
+    const isLocked = headerElement.parentElement.classList.contains('locked');
+    if (isLocked) return;
+
+    const content = headerElement.nextElementSibling;
+    const isExpanded = headerElement.classList.contains('expanded');
+    
+    if (isExpanded) {
+        content.style.maxHeight = '0px';
+        headerElement.classList.remove('expanded');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 50 + 'px';
+        headerElement.classList.add('expanded');
+    }
+    if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
     tg.ready();
@@ -459,7 +524,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let userData = null;
     let allQuests = [];
 
-    // Получаем HTML картинки (БЕЗ ФОНА)
     function getRewardImageHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         
@@ -476,7 +540,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<img src="${src}" class="reward-image" alt="Reward" onclick="openImageModal('${src}', '${safeTitle}')">`;
     }
 
-    // Получаем HTML названия (под картинку)
     function getRewardTitleHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         let title = reward.value ? reward.value.toString() : '';
@@ -612,24 +675,87 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.questsContainer.innerHTML = '';
         
-        bpData.quests_config.forEach(cfg => {
-            const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
-            const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
-            const desc = questDetails && questDetails.description ? questDetails.description : "Выполняй активность, чтобы получить EXP.";
+        // Подготовка данных для разбивки на недели
+        const questsWithWeeks = bpData.quests_config.map(q => ({...q, week: q.week || 1}));
+        const maxWeek = Math.max(...questsWithWeeks.map(q => q.week));
+        
+        const startDate = bpData.start_date ? new Date(bpData.start_date) : new Date();
+        const endDate = bpData.end_date ? new Date(bpData.end_date) : new Date(startDate.getTime() + 30*24*60*60*1000);
+        const now = new Date();
 
-            const questCard = document.createElement('div');
-            questCard.className = 'quest-card';
-            questCard.innerHTML = `
-                <div class="quest-info">
-                    <h4 class="quest-title">${title}</h4>
-                    <p class="quest-desc">${desc}</p>
+        for (let i = 1; i <= maxWeek; i++) {
+            const weekQuests = questsWithWeeks.filter(q => q.week === i);
+            if (weekQuests.length === 0) continue; 
+
+            let weekStart = new Date(startDate.getTime() + (i - 1) * 7 * 24 * 60 * 60 * 1000);
+            let weekEnd = new Date(startDate.getTime() + i * 7 * 24 * 60 * 60 * 1000 - 1000);
+            if (weekEnd > endDate) weekEnd = endDate;
+
+            const startStr = weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
+            const endStr = weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
+
+            let statusClass = '';
+            let statusText = '';
+            let isLocked = false;
+            let isExpanded = false;
+
+            if (now < weekStart) {
+                const diffDays = Math.ceil((weekStart - now) / (1000*60*60*24));
+                statusClass = 'status-locked';
+                statusText = `Через ${diffDays} дн.`;
+                isLocked = true;
+            } else if (now >= weekStart && now <= weekEnd) {
+                statusClass = 'status-active';
+                statusText = 'Текущая';
+                isExpanded = true; 
+            } else {
+                statusClass = 'status-past';
+                statusText = 'Доступна';
+            }
+
+            const weekBlock = document.createElement('div');
+            weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
+            
+            // HTML Шапка недели
+            const headerHtml = `
+                <div class="week-header ${isExpanded ? 'expanded' : ''}" onclick="toggleWeek(this)">
+                    <div class="week-title-box">
+                        <div class="week-title">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span></div>
+                        <div class="week-dates"><i class="fa-regular fa-calendar"></i> ${startStr} - ${endStr}</div>
+                    </div>
+                    <div class="week-chevron">
+                        ${isLocked ? '<i class="fa-solid fa-lock" style="color:var(--text-muted)"></i>' : '<i class="fa-solid fa-chevron-down"></i>'}
+                    </div>
                 </div>
-                <div class="quest-reward">
-                    +${cfg.exp_reward} <i class="fa-solid fa-star"></i>
+                <div class="week-content" style="max-height: ${isExpanded ? '2000px' : '0px'};">
+                    <div class="week-content-inner"></div>
                 </div>
             `;
-            dom.questsContainer.appendChild(questCard);
-        });
+            
+            weekBlock.innerHTML = headerHtml;
+            const contentInner = weekBlock.querySelector('.week-content-inner');
+
+            // Наполняем карточками
+            weekQuests.forEach(cfg => {
+                const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
+                const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
+                const desc = questDetails && questDetails.description ? questDetails.description : "Выполняй активность, чтобы получить EXP.";
+
+                contentInner.innerHTML += `
+                    <div class="quest-card">
+                        <div class="quest-info">
+                            <h4 class="quest-title">${title}</h4>
+                            <p class="quest-desc">${desc}</p>
+                        </div>
+                        <div class="quest-reward">
+                            +${cfg.exp_reward} <i class="fa-solid fa-star"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            dom.questsContainer.appendChild(weekBlock);
+        }
     }
 
     window.claimReward = async function(level, type) {
