@@ -217,10 +217,12 @@
             <span>Ивент "Котел"</span>
         </div>
         
-        <div class="admin-icon-button" data-view="view-admin-checkpoint">
-            <div class="icon-wrapper" style="color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i></div>
-            <span>Чекпоинт</span>
-        </div>
+        <a href="/admin_checkpoint.html" class="admin-icon-button" style="text-decoration: none;">
+    <div class="icon-wrapper" style="color: #ff4757; border-color: rgba(255, 71, 87, 0.3);">
+        <i class="fa-solid fa-flag-checkered"></i>
+    </div>
+    <span>Чекпоинт</span>
+</a>
         
         <a href="/admin_auctions.html" class="admin-icon-button" style="text-decoration: none;">
             <div class="icon-wrapper" style="color: #AC87C5; border-color: rgba(172, 135, 197, 0.3);">
@@ -1329,116 +1331,7 @@
             </div>
         </div>
 
-        <div id="view-admin-checkpoint" class="view hidden">
-            <div class="page-header">
-                <button class="back-button" data-view="view-admin-main"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                <h1 class="page-header-title">Battle Pass "Чекпоинт"</h1>
-                <div style="width: 60px;"></div>
-            </div>
-
-            <!-- Панель управления (Вкл/Выкл) -->
-            <div class="event-control-panel" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin-top:0; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Управление сезоном</h3>
-                <div class="control-row">
-                    <div class="control-info">
-                        <span class="control-title">Сезон Активен</span>
-                        <span class="control-desc">Вкл = пользователи видят Чекпоинт и копят EXP</span>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-cp-visible">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Табы Чекпоинта -->
-            <div class="tabs-container" id="checkpoint-tabs">
-                <button class="tab-button active" data-tab="cp-settings">Настройки</button>
-                <button class="tab-button" data-tab="cp-tiers">Уровни (Награды)</button>
-                <button class="tab-button" data-tab="cp-quests">Фарм EXP</button>
-            </div>
-
-            <form id="checkpoint-settings-form">
-                
-                <!-- Вкладка 1: Основные настройки -->
-               <div id="tab-content-cp-settings" class="tab-content active">
-    <div class="quest-card admin-form">
-        <label>Название Сезона</label>
-        <input type="text" name="cp_title" placeholder="Например: Операция Снегопад" required style="width: 100%; box-sizing: border-box;">
-
-        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-            <div style="flex: 1 1 140px;">
-                <label>Дата начала (UTC)</label>
-                <input type="datetime-local" name="cp_start_date" style="width: 100%; box-sizing: border-box;">
-            </div>
-            <div style="flex: 1 1 140px;">
-                <label>Дата окончания (UTC)</label>
-                <input type="datetime-local" name="cp_end_date" style="width: 100%; box-sizing: border-box;">
-            </div>
-        </div>
-
-        <label style="margin-top: 15px;">Цена Premium пропуска (в монетах)</label>
-        <input type="number" name="cp_premium_price" placeholder="Например: 5000" value="0" style="width: 100%; box-sizing: border-box;">
-        <p class="form-hint">Если 0 — премиум можно выдать только руками.</p>
-
-        <label>URL главного баннера</label>
-        <input type="text" name="cp_banner_url" placeholder="https://..." style="width: 100%; box-sizing: border-box;">
-    </div>
-
-    <div class="quest-card" style="margin-top: 20px;">
-        <h3 style="margin-top: 0; color: var(--danger-color);">Опасная зона</h3>
-        <button type="button" id="reset-cp-season-btn" class="admin-action-btn reject" style="width: 100%;">
-            Сбросить сезон (Обнулить EXP и прогресс у ВСЕХ)
-        </button>
-    </div>
-</div>
-
-                <!-- Вкладка 2: Уровни (Тиры) -->
-                <div id="tab-content-cp-tiers" class="tab-content hidden">
-                    <div class="quest-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h3 style="margin: 0;">Шкала наград</h3>
-                            <button type="button" id="add-cp-tier-btn" class="admin-menu-button" style="width: auto; background-color: var(--action-color);">
-                                <i class="fa-solid fa-plus"></i> Добавить Уровень
-                            </button>
-                        </div>
-                        <div id="cp-tiers-container" style="display: flex; flex-direction: column; gap: 15px;">
-                            <!-- Сюда JS будет рендерить уровни -->
-                            <p style="text-align: center; color: var(--text-color-muted);">Загрузка уровней...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Вкладка 3: Гибкая настройка заданий (Фарм EXP) -->
-                <div id="tab-content-cp-quests" class="tab-content hidden">
-                    <div class="quest-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <div>
-                                <h3 style="margin: 0;">Источники EXP (Звезд)</h3>
-                                <p class="form-hint" style="margin: 2px 0 0;">Привяжи задания и укажи, сколько EXP они дают.</p>
-                            </div>
-                            <button type="button" id="add-cp-quest-btn" class="admin-menu-button" style="width: auto; background-color: var(--primary-color);">
-                                <i class="fa-solid fa-plus"></i> Привязать задание
-                            </button>
-                        </div>
-                        
-                        <div id="cp-quests-container" style="display: flex; flex-direction: column; gap: 10px;">
-                            <!-- Сюда JS будет рендерить привязанные квесты -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Плавающая кнопка сохранения -->
-                <button type="submit" id="floating-save-cp-btn" class="admin-action-btn approve" style="
-                    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
-                    z-index: 9999; padding: 12px 24px; border-radius: 30px; opacity: 0; pointer-events: none;
-                    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: linear-gradient(90deg, #ff4757, #ff6b81); border: 1px solid #ff4757; box-shadow: 0 10px 25px rgba(255, 71, 87, 0.4);
-                ">
-                    <i class="fa-solid fa-floppy-disk"></i> Сохранить Battle Pass
-                </button>
-            </form>
-        </div>
-      
+        
         </main>
   
     <div id="weekly-goal-entity-select-modal" class="modal-overlay hidden">
