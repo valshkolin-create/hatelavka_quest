@@ -62,9 +62,8 @@
         .icon-btn { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; text-decoration: none; box-sizing: border-box; }
         .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
         
-        /* Исправление длинного текста в кнопках */
         .action-add-btn, .admin-action-btn { 
-            white-space: normal; /* Позволяет тексту переноситься */
+            white-space: normal; 
             line-height: 1.4;
             box-sizing: border-box;
         }
@@ -87,7 +86,6 @@
         .floating-save-btn:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 5px 10px rgba(40, 167, 69, 0.4); }
 
         /* --- Specific CP Styles --- */
-        /* Flex-wrap для резиновой сетки на мобилках */
         .tier-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
         .tier-grid > div { flex: 1 1 120px; min-width: 120px; }
         
@@ -111,7 +109,6 @@
         .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; box-sizing: border-box; }
         .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
 
-        /* Warehouse Items */
         .search-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; }
         .search-img { width: 40px; height: 30px; object-fit: contain; }
         .search-info { flex: 1; min-width: 0; }
@@ -172,8 +169,32 @@
             <input type="number" id="cp_premium_price" placeholder="0" oninput="showSaveBtn()">
             <p style="font-size: 11px; color: var(--text-sec); margin: 4px 0 10px;">Если 0 — премиум можно выдать только руками.</p>
 
-            <label>Ссылка на баннер</label>
-            <input type="text" id="cp_banner_url" placeholder="https://..." oninput="showSaveBtn()">
+            <label>Ссылка на баннер главной</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="cp_banner_url" placeholder="https://..." oninput="updateBannerPreview(); showSaveBtn();" style="flex: 1;">
+                <button type="button" class="icon-btn" onclick="document.getElementById('banner-upload-input').click()" style="background: var(--card-bg);" title="Загрузить картинку">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </button>
+                <input type="file" id="banner-upload-input" hidden accept="image/*" onchange="uploadBannerImage(this)">
+            </div>
+            
+            <div id="banner-preview-container" style="margin-top: 10px; text-align: center; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; display: none;">
+                <img id="banner-preview-img" src="" style="max-width: 100%; max-height: 120px; border-radius: 6px; object-fit: contain;">
+            </div>
+        </div>
+
+        <div class="section-box" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
+            <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-user-astronaut"></i> Управление игроками</h3>
+            
+            <label>Telegram ID пользователя</label>
+            <input type="number" id="grant-level-user-id" placeholder="Например: 123456789">
+            
+            <label style="margin-top: 10px;">Выдать Уровень</label>
+            <input type="number" id="grant-level-value" placeholder="Например: 10">
+            
+            <button type="button" class="admin-action-btn" onclick="grantLevelToUser()" style="width: 100%; background: #64b5ef; color: #000; padding: 12px; border-radius: 12px; margin-top: 15px; font-weight: 800;">
+                <i class="fa-solid fa-bolt"></i> ВЫДАТЬ УРОВЕНЬ
+            </button>
         </div>
         
         <div class="section-box" style="border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05);">
@@ -250,9 +271,6 @@
             window.location.href = '/admin';
         });
 
-        // ==========================================
-        // ГЛОБАЛЬНЫЕ ДАННЫЕ
-        // ==========================================
         let availableCpQuests = [];
         let activeSkinTargetInput = null;
         let currentMarketBalance = 0;
@@ -310,6 +328,95 @@
             if (!dateString) return '';
             const d = new Date(dateString);
             return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        }
+
+        // ==========================================
+        // ИНТЕГРАЦИЯ КАРТИНКИ (БАННЕРА)
+        // ==========================================
+        async function uploadBannerImage(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const btn = input.previousElementSibling;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // Используем тот же эндпоинт, что и везде
+                const res = await fetch('/api/v1/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('cp_banner_url').value = data.url;
+                    updateBannerPreview();
+                    showSaveBtn();
+                    if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                } else {
+                    showCustomAlert('Ошибка', 'Не удалось загрузить картинку на сервер');
+                }
+            } catch (e) {
+                console.error(e);
+                showCustomAlert('Ошибка сети', 'Сбой при загрузке картинки');
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                input.value = ''; // Сбрасываем инпут
+            }
+        }
+
+        function updateBannerPreview() {
+            const url = document.getElementById('cp_banner_url').value;
+            const container = document.getElementById('banner-preview-container');
+            const img = document.getElementById('banner-preview-img');
+            
+            if (url && url.startsWith('http')) {
+                img.src = url;
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        // ==========================================
+        // УПРАВЛЕНИЕ: ВЫДАТЬ УРОВЕНЬ
+        // ==========================================
+        function grantLevelToUser() {
+            const userId = document.getElementById('grant-level-user-id').value;
+            const level = document.getElementById('grant-level-value').value;
+
+            if (!userId || !level) {
+                showCustomAlert('Внимание', 'Заполните оба поля: Telegram ID и Уровень.');
+                return;
+            }
+
+            showConfirm('Выдача уровня', `Точно выдать уровень ${level} пользователю ${userId}?`, async () => {
+                tg.MainButton.showProgress();
+                try {
+                    // Используем общий обработчик для API запросов
+                    await fetchApi('/api/v1/admin/checkpoint/grant_level', {
+                        target_user_id: parseInt(userId),
+                        level: parseInt(level)
+                    });
+                    
+                    if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    showCustomAlert('Успех', `Уровень ${level} успешно выдан!`);
+                    
+                    // Очищаем форму
+                    document.getElementById('grant-level-user-id').value = '';
+                    document.getElementById('grant-level-value').value = '';
+                } catch (e) {
+                    showCustomAlert('Ошибка', e.message || 'Сбой при выдаче уровня');
+                } finally {
+                    tg.MainButton.hideProgress();
+                }
+            });
         }
 
         // ==========================================
@@ -563,7 +670,10 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bodyData)
             });
-            if (!res.ok) throw new Error(`API Error: ${res.status}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || `API Error: ${res.status}`);
+            }
             return await res.json();
         }
 
@@ -586,6 +696,7 @@
                 document.getElementById('cp_end_date').value = formatDateToInput(checkpointData.end_date);
                 document.getElementById('cp_premium_price').value = checkpointData.premium_price || 0;
                 document.getElementById('cp_banner_url').value = checkpointData.banner_url || '';
+                updateBannerPreview(); // Вызываем для показа при загрузке
 
                 const tiersContainer = document.getElementById('cp-tiers-container');
                 tiersContainer.innerHTML = '';
