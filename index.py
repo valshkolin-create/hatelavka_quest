@@ -15329,6 +15329,70 @@ async def claim_checkpoint_reward(
         logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
+# Обязательно добавь модель данных, если её еще нет (в начале файла)
+class GrantLevelRequest(BaseModel):
+    initData: str
+    platform: str = "tg"
+    target_user_id: int
+    level: int
+
+# Сам эндпоинт
+@app.post("/api/v1/admin/checkpoint/grant_level")
+async def admin_grant_level(
+    request_data: GrantLevelRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Выдает пользователю уровень (путем начисления нужного количества Звезд)."""
+    
+    # 1. Проверяем, что запрос делает Админ
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    target_id = request_data.target_user_id
+    target_level = request_data.level
+
+    try:
+        # 2. Узнаем, сколько Звезд требуется для желаемого уровня
+        tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{target_level}"})
+        tier_resp.raise_for_status()
+        tier_data = tier_resp.json()
+
+        if not tier_data:
+            raise HTTPException(status_code=404, detail=f"Уровень {target_level} не настроен в базе. Сначала создай его.")
+
+        required_stars = tier_data[0].get("required_stars", 0)
+
+        # 3. Находим пользователя и смотрим его текущие Звезды
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{target_id}", "select": "checkpoint_stars"})
+        user_resp.raise_for_status()
+        user_db_data = user_resp.json()
+
+        if not user_db_data:
+            raise HTTPException(status_code=404, detail="Пользователь не найден.")
+
+        current_stars = user_db_data[0].get("checkpoint_stars", 0)
+
+        # Берем максимум, чтобы случайно не откатить прогресс (например, у него уже 150 звезд, а мы выдаем уровень, где нужно 100)
+        new_stars = max(current_stars, required_stars)
+
+        # 4. Выдаем Звезды
+        update_resp = await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{target_id}"},
+            json={"checkpoint_stars": new_stars}
+        )
+        update_resp.raise_for_status()
+
+        return {"message": f"Успешно! Пользователю начислено {new_stars} Звезд (Уровень {target_level})."}
+
+    except httpx.HTTPStatusError as e:
+        logging.error(f"HTTP ошибка базы данных при выдаче уровня: {e.response.text}")
+        raise HTTPException(status_code=400, detail="Ошибка при записи в базу данных.")
+    except Exception as e:
+        logging.error(f"Критическая ошибка в /grant_level: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
