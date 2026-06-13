@@ -78,7 +78,7 @@
             position: sticky;
             top: 35px; /* С учетом высоты бейджа статуса */
             z-index: 100;
-            border-bottom: 1px solid var(--surface-border);
+            /* Убрали border-bottom для монолитности фона */
         }
 
         .top-tab {
@@ -116,7 +116,7 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            border-bottom: 1px solid var(--surface-border);
+            /* Убрали border-bottom для монолитности фона */
         }
 
         /* Кнопки под баннером */
@@ -370,17 +370,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let userData = null;
     let allQuests = [];
 
-    // Возвращает картинку-заглушку. Ты можешь заменить src на реальные картинки с сервера
-    function getRewardImageHtml(type, value) {
-        if (type === 'none') return '';
-        // Временная заглушка. Бэкенд пока отдает только text. 
-        // Здесь можно будет подставить реальный URL, если вы начнете сохранять его в БД.
-        const fallbackSrc = 'https://placehold.co/150x150/2a2a2c/ffd700?text=IMG';
+    // Принимает целиком объект reward от бэкенда (например, tier.free_reward)
+    function getRewardImageHtml(reward) {
+        if (!reward || reward.type === 'none') return '';
         
-        // Если ты в поле "value" (в админке) будешь вставлять URL картинки, этот код его поймает:
-        const src = (value && value.startsWith('http')) ? value : fallbackSrc;
+        // Если бэкенд нашел и передал картинку - используем ее
+        if (reward.image_url && reward.image_url.startsWith('http')) {
+            return `<img src="${reward.image_url}" class="reward-image" alt="Reward">`;
+        }
         
-        return `<img src="${src}" class="reward-image" alt="Reward">`;
+        // Фолбэки для стандартных типов наград
+        let fallbackSrc = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
+        if (reward.type === 'coins') fallbackSrc = 'https://placehold.co/150x150/2a2a2c/ffd700?text=COINS';
+        if (reward.type === 'tickets') fallbackSrc = 'https://placehold.co/150x150/2a2a2c/ffd700?text=TICKETS';
+
+        return `<img src="${fallbackSrc}" class="reward-image" alt="Reward">`;
     }
 
     async function initialize() {
@@ -407,19 +411,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderBP() {
-        if (!bpData || !bpData.is_active) {
+        // Проверяем, активен ли сезон
+        const isSeasonActive = bpData && bpData.is_active;
+
+        if (!isSeasonActive) {
             dom.seasonStatusBadge.textContent = "СЕЗОН ЗАВЕРШЕН";
             dom.seasonStatusBadge.classList.add('inactive');
-            dom.rewardsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">В данный момент нет активного сезона.</p>';
-            dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Задания недоступны.</p>';
-            return;
+            // Убрали очистку контейнера и return! Теперь награды рендерятся в любом случае.
+        } else {
+            dom.seasonStatusBadge.textContent = "СЕЗОН АКТИВЕН";
+            dom.seasonStatusBadge.classList.remove('inactive');
         }
-
-        dom.seasonStatusBadge.textContent = "СЕЗОН АКТИВЕН";
-        dom.seasonStatusBadge.classList.remove('inactive');
         
         if (bpData && bpData.banner_url) {
             dom.hero.style.backgroundImage = `url('${bpData.banner_url}')`;
+        } else {
+            dom.hero.style.backgroundImage = 'none';
         }
         
         const userStars = userData.checkpoint_stars || 0;
@@ -444,7 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
         tiers.forEach((tier, index) => {
             const isUnlocked = userStars >= tier.required_stars;
             
-            // Проверка: заполнять ли прогресс-линию до СЛЕДУЮЩЕГО уровня
             const nextTier = tiers[index + 1];
             const isNextUnlocked = nextTier ? userStars >= nextTier.required_stars : false;
             
@@ -455,7 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (isFreeEmpty) freeBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
             else if (isFreeClaimed) freeBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-            else if (isUnlocked && bpData.is_active) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">Забрать</button>`;
+            else if (isUnlocked && isSeasonActive) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">Забрать</button>`;
+            else if (isUnlocked && !isSeasonActive) freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> Завершен</button>`;
             else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
 
             // PREMIUM
@@ -465,24 +472,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isPremEmpty) premBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
             else if (isPremClaimed) premBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-            else if (isUnlocked && hasPremium && bpData.is_active) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">Забрать</button>`;
-            else if (isUnlocked && !hasPremium && bpData.is_active) premBtnHtml = `<button class="btn-claim locked" onclick="tg.showAlert('Нужен Premium пропуск!')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
+            else if (isUnlocked && hasPremium && isSeasonActive) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">Забрать</button>`;
+            else if (isUnlocked && hasPremium && !isSeasonActive) premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> Завершен</button>`;
+            else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" onclick="tg.showAlert('Нужен Premium пропуск!')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
             else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> ${tier.required_stars} EXP</button>`;
 
             const row = document.createElement('div');
             row.className = `tier-row ${isUnlocked ? 'unlocked' : ''}`;
             
+            // Заметь: теперь мы передаем весь объект tier.free_reward в getRewardImageHtml
             row.innerHTML = `
                 <div class="tier-line ${isNextUnlocked ? 'filled' : ''}"></div>
                 <div class="tier-number">${tier.level}</div>
                 
                 <div class="reward-card ${!isUnlocked || isFreeEmpty ? 'locked' : ''}">
-                    ${getRewardImageHtml(tier.free_reward.type, tier.free_reward.value)}
+                    ${getRewardImageHtml(tier.free_reward)}
                     ${freeBtnHtml}
                 </div>
 
                 <div class="reward-card premium ${!isUnlocked || isPremEmpty ? 'locked' : ''}">
-                    ${getRewardImageHtml(tier.premium_reward.type, tier.premium_reward.value)}
+                    ${getRewardImageHtml(tier.premium_reward)}
                     ${premBtnHtml}
                 </div>
             `;
