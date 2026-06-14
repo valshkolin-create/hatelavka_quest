@@ -9331,6 +9331,12 @@ async def get_current_user_data(
             # F. Статус стрима (Онлайн/Оффлайн)
             supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
             
+            # G. Прогресс квестов Баттл-пасса <--- ВСТАВИТЬ ЭТО
+            supabase.get("/user_bp_quests", params={
+                "user_id": f"eq.{telegram_id}",
+                "select": "quest_id, current_amount, target_amount, is_completed, is_claimed"
+            }),
+            
             # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
         )
@@ -15164,6 +15170,75 @@ async def update_checkpoint_content(
     except Exception as e:
         logging.error(f"Ошибка при обновлении контента Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
+
+class QuestClaimRequest(BaseModel):
+    initData: str
+    quest_id: int
+
+@app.post("/api/v1/checkpoint/quest/claim")
+async def claim_bp_quest(
+    req: QuestClaimRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Авторизация
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    tg_id = user_info["id"]
+
+    try:
+        # 2. Проверяем статус квеста в БД
+        quest_res = await supabase.get("/user_bp_quests", params={
+            "user_id": f"eq.{tg_id}", 
+            "quest_id": f"eq.{req.quest_id}"
+        })
+        if not quest_res.json():
+            raise HTTPException(status_code=400, detail="Задание еще не начато")
+            
+        quest_data = quest_res.json()[0]
+
+        if not quest_data.get("is_completed"):
+            raise HTTPException(status_code=400, detail="Задание еще не выполнено")
+            
+        if quest_data.get("is_claimed"):
+            raise HTTPException(status_code=400, detail="Награда уже получена")
+
+        # 3. Достаем EXP за это задание из конфига марафона
+        cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+        config = cp_res.json()[0].get("content", {})
+        
+        # Ищем квест в конфиге, чтобы узнать сколько EXP давать
+        exp_reward = 0
+        for q in config.get("quests_config", []):
+            if q["quest_id"] == req.quest_id:
+                exp_reward = q.get("exp_reward", 0)
+                break
+                
+        if exp_reward <= 0:
+            raise HTTPException(status_code=400, detail="Ошибка конфигурации награды")
+
+        # 4. Обновляем статус квеста на claimed
+        await supabase.patch("/user_bp_quests", params={
+            "user_id": f"eq.{tg_id}", 
+            "quest_id": f"eq.{req.quest_id}"
+        }, json={"is_claimed": True})
+
+        # 5. Начисляем EXP юзеру
+        # Берем текущие EXP и прибавляем
+        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
+        current_stars = float(user_res.json()[0].get("checkpoint_stars") or 0)
+        
+        await supabase.patch("/users", params={
+            "telegram_id": f"eq.{tg_id}"
+        }, json={"checkpoint_stars": current_stars + exp_reward})
+
+        return {"status": "success", "earned_exp": exp_reward}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Ошибка получения награды за квест: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
 @app.post("/api/v1/admin/checkpoint/status")
