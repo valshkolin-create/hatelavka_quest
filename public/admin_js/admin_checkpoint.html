@@ -745,10 +745,12 @@
                 const weekNum = parseInt(weekBlock.dataset.week);
                 weekBlock.querySelectorAll('.cp-quest-row').forEach(row => {
                     const qId = parseInt(row.querySelector('.cp-quest-id-select').value);
-                    const target = parseInt(row.querySelector('.cp-quest-target').value); // Извлекаем N
+                    const isAccumulative = row.querySelector('.is-accumulative-cb').checked;
+                    
+                    // Если чекбокс выключен, принудительно ставим цель 1
+                    const target = isAccumulative ? parseInt(row.querySelector('.cp-quest-target').value) : 1;
                     const exp = parseFloat(row.querySelector('.cp-quest-exp').value);
                     
-                    // Добавлена валидация target
                     if (!isNaN(qId) && !isNaN(exp) && exp > 0 && !isNaN(target) && target > 0) {
                         flatQuests.push({ quest_id: qId, target_amount: target, exp_reward: exp, week: weekNum });
                     }
@@ -757,8 +759,7 @@
             return flatQuests;
         }
         
-        function createCpQuestRow(mapping = null) {
-            // Добавлено значение по умолчанию target_amount: 1
+       function createCpQuestRow(mapping = null) {
             const data = mapping || { quest_id: '', target_amount: 1, exp_reward: 10 };
             const wrapper = document.createElement('div');
             wrapper.className = 'quest-row cp-quest-row';
@@ -769,23 +770,51 @@
                 optionsHtml += `<option value="${q.id}" ${selected}>[ID:${q.id}] ${escapeHTML(q.title)}</option>`;
             });
 
-            // Добавлен новый div с input.cp-quest-target между select и EXP
+            // Определяем, было ли задание накопительным при загрузке
+            const isAccumulative = data.target_amount > 1;
+
             wrapper.innerHTML = `
-                <select class="cp-quest-id-select" style="flex: 1 1 200px; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;" required>
-                    ${optionsHtml}
-                </select>
-                <div style="flex: 0 1 90px; display: flex; align-items: center; gap: 5px; min-width: 80px;">
-                    <i class="fa-solid fa-crosshairs" style="color: #64b5ef;"></i>
-                    <input type="number" class="cp-quest-target" placeholder="N" value="${data.target_amount || 1}" min="1" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;" title="Количество выполнений">
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; width: 100%; align-items: center;">
+                    <select class="cp-quest-id-select" style="flex: 1 1 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;" required>
+                        ${optionsHtml}
+                    </select>
+                    
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-sec); font-size: 11px; flex-shrink: 0; background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--card-border);">
+                        <input type="checkbox" class="is-accumulative-cb" ${isAccumulative ? 'checked' : ''} style="margin: 0; accent-color: var(--primary);">
+                        Прогресс (N)
+                    </label>
+
+                    <div class="target-input-container" style="display: ${isAccumulative ? 'flex' : 'none'}; align-items: center; gap: 5px; flex: 1 1 60px;">
+                        <i class="fa-solid fa-crosshairs" style="color: #64b5ef; font-size: 12px;"></i>
+                        <input type="number" class="cp-quest-target" placeholder="N" value="${data.target_amount || 1}" min="1" required style="width: 100%; padding: 8px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
+                    </div>
+
+                    <div style="flex: 1 1 80px; display: flex; align-items: center; gap: 5px;">
+                        <i class="fa-solid fa-star" style="color: #ffd700; font-size: 12px;"></i>
+                        <input type="number" step="0.1" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 8px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
+                    </div>
+
+                    <button type="button" class="remove-cp-quest-btn" style="width: 36px; height: 36px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; flex-shrink:0;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
                 </div>
-                <div style="flex: 1 1 100px; display: flex; align-items: center; gap: 5px; min-width: 100px;">
-                    <i class="fa-solid fa-star" style="color: #ffd700;"></i>
-                    <input type="number" step="0.1" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
-                </div>
-                <button type="button" class="remove-cp-quest-btn" style="width: 40px; height: 40px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; flex-shrink:0;">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
             `;
+
+            // Логика переключения видимости
+            const cb = wrapper.querySelector('.is-accumulative-cb');
+            const targetContainer = wrapper.querySelector('.target-input-container');
+            const targetInput = wrapper.querySelector('.cp-quest-target');
+
+            cb.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    targetContainer.style.display = 'flex';
+                    if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+                } else {
+                    targetContainer.style.display = 'none';
+                    targetInput.value = 1; // Сбрасываем в 1, если отключили
+                }
+                showSaveBtn();
+            });
 
             wrapper.querySelector('.remove-cp-quest-btn').addEventListener('click', () => { wrapper.remove(); showSaveBtn(); });
             wrapper.addEventListener('change', showSaveBtn);
