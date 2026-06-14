@@ -745,17 +745,21 @@
                 const weekNum = parseInt(weekBlock.dataset.week);
                 weekBlock.querySelectorAll('.cp-quest-row').forEach(row => {
                     const qId = parseInt(row.querySelector('.cp-quest-id-select').value);
+                    const target = parseInt(row.querySelector('.cp-quest-target').value); // Извлекаем N
                     const exp = parseFloat(row.querySelector('.cp-quest-exp').value);
-                    if (!isNaN(qId) && !isNaN(exp) && exp > 0) {
-                        flatQuests.push({ quest_id: qId, exp_reward: exp, week: weekNum });
+                    
+                    // Добавлена валидация target
+                    if (!isNaN(qId) && !isNaN(exp) && exp > 0 && !isNaN(target) && target > 0) {
+                        flatQuests.push({ quest_id: qId, target_amount: target, exp_reward: exp, week: weekNum });
                     }
                 });
             });
             return flatQuests;
         }
-
+        
         function createCpQuestRow(mapping = null) {
-            const data = mapping || { quest_id: '', exp_reward: 10 };
+            // Добавлено значение по умолчанию target_amount: 1
+            const data = mapping || { quest_id: '', target_amount: 1, exp_reward: 10 };
             const wrapper = document.createElement('div');
             wrapper.className = 'quest-row cp-quest-row';
 
@@ -765,10 +769,15 @@
                 optionsHtml += `<option value="${q.id}" ${selected}>[ID:${q.id}] ${escapeHTML(q.title)}</option>`;
             });
 
+            // Добавлен новый div с input.cp-quest-target между select и EXP
             wrapper.innerHTML = `
                 <select class="cp-quest-id-select" style="flex: 1 1 200px; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;" required>
                     ${optionsHtml}
                 </select>
+                <div style="flex: 0 1 90px; display: flex; align-items: center; gap: 5px; min-width: 80px;">
+                    <i class="fa-solid fa-crosshairs" style="color: #64b5ef;"></i>
+                    <input type="number" class="cp-quest-target" placeholder="N" value="${data.target_amount || 1}" min="1" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;" title="Количество выполнений">
+                </div>
                 <div style="flex: 1 1 100px; display: flex; align-items: center; gap: 5px; min-width: 100px;">
                     <i class="fa-solid fa-star" style="color: #ffd700;"></i>
                     <input type="number" step="0.1" class="cp-quest-exp" placeholder="EXP" value="${data.exp_reward}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
@@ -783,7 +792,7 @@
             wrapper.addEventListener('input', showSaveBtn);
             return wrapper;
         }
-
+        
         function generateWeeks() {
             const startVal = document.getElementById('cp_start_date').value;
             const endVal = document.getElementById('cp_end_date').value;
