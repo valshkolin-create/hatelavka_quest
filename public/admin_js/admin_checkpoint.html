@@ -26,6 +26,8 @@
             margin: 0; padding: 20px;
             -webkit-tap-highlight-color: transparent;
             padding-bottom: 120px;
+            
+            zoom: 0.85; /* УМЕНЬШИТ ВСЁ НА 15% */
         }
 
         /* --- Header & Tabs --- */
@@ -35,14 +37,24 @@
         .page-title { font-size: 20px; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
         .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; overflow-x: auto; }
-        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; }
+        .tab { 
+            flex: 1; border: none; background: none; color: var(--text-sec); 
+            padding: 8px; /* БЫЛО: 10px */
+            font-size: 11px; /* БЫЛО: 13px */
+            border-radius: 8px; /* БЫЛО: 10px */
+            font-weight: 600; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; 
+        }
         .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
         /* --- Forms & Inputs --- */
         .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
         .admin-form input, .admin-form select, .admin-form textarea {
             width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
-            color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
+            color: var(--text); 
+            padding: 8px 12px; /* БЫЛО: 12px */
+            border-radius: 8px; /* БЫЛО: 12px */
+            font-size: 12px; /* БЫЛО: 14px */
+            outline: none; transition: 0.2s;
         }
         .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
         
@@ -59,16 +71,28 @@
         input:checked + .slider:before { transform: translateX(18px); }
 
         /* --- Custom Buttons --- */
-        .icon-btn { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; text-decoration: none; box-sizing: border-box; }
+        .icon-btn { 
+            width: 32px; /* БЫЛО: 40px */
+            height: 32px; /* БЫЛО: 40px */
+            border-radius: 8px; /* БЫЛО: 12px */
+            background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; text-decoration: none; box-sizing: border-box; 
+            font-size: 14px; /* Размер самой иконки */
+        }
         .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
         
-        .action-add-btn, .admin-action-btn { 
-            white-space: normal; 
-            line-height: 1.4;
-            box-sizing: border-box;
+        .action-add-btn, .admin-action-btn {
+            padding: 10px; /* БЫЛО: 12px */
+            font-size: 12px;
+            border-radius: 8px;
         }
-
-        .action-add-btn { background: rgba(255, 215, 0, 0.1); color: var(--primary); border: 1px dashed var(--primary); width: 100%; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        
+        .action-add-btn { 
+            background: rgba(255, 215, 0, 0.1); color: var(--primary); border: 1px dashed var(--primary); width: 100%; 
+            padding: 10px; /* БЫЛО: 15px */
+            border-radius: 8px; /* БЫЛО: 12px */
+            font-size: 11px; /* Сделали шрифт чуть меньше */
+            font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; 
+        }
         .action-add-btn:active { transform: scale(0.98); background: rgba(255, 215, 0, 0.2); }
 
         .btn-danger { background: rgba(255, 77, 77, 0.1); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); }
@@ -77,8 +101,11 @@
         /* Floating Save Button */
         .floating-save-btn {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
-            background: var(--accent); color: #fff; border: none; padding: 16px 30px; border-radius: 20px;
-            font-size: 16px; font-weight: 800; box-shadow: 0 10px 20px rgba(40, 167, 69, 0.4);
+            background: var(--accent); color: #fff; border: none; 
+            padding: 12px 20px; /* БЫЛО: 16px 30px */
+            border-radius: 14px; /* БЫЛО: 20px */
+            font-size: 14px; /* БЫЛО: 16px */
+            font-weight: 800; box-shadow: 0 10px 20px rgba(40, 167, 69, 0.4);
             cursor: pointer; z-index: 100; opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex; align-items: center; gap: 10px; width: 85%; justify-content: center; box-sizing: border-box;
         }
