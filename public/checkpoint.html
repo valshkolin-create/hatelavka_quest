@@ -677,7 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const [userRes, bpRes, questsRes] = await Promise.all([
                 fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
                 fetch('/api/v1/checkpoint/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }),
-                fetch('/api/v1/quests/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }).catch(() => ({ json: () => [] }))
+                fetch('/api/v1/checkpoint/quests_meta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) }).catch(() => ({ json: () => [] }))
             ]);
 
             userData = await userRes.json();
