@@ -15061,6 +15061,65 @@ async def get_checkpoint_content(supabase: httpx.AsyncClient = Depends(get_supab
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
+    """
+    Фоновый обработчик: ищет активное задание БП на текущей неделе по ключевому слову 
+    в названии (например, 'Отгадай' или 'подарков') и обновляет прогресс.
+    """
+    try:
+        # 1. Если передали только twitch_login (из отгадайки), находим TG ID
+        if not tg_id and twitch_login:
+            u_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_login}", "select": "telegram_id"})
+            if u_res.status_code == 200 and u_res.json():
+                tg_id = u_res.json()[0]["telegram_id"]
+        
+        if not tg_id: return  # Пользователь не привязал Twitch
+
+        # 2. Получаем конфиг Чекпоинта (БП)
+        cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+        if cp_res.status_code != 200 or not cp_res.json(): return
+        
+        config = cp_res.json()[0].get("content", {})
+        if not config.get("is_active") or not config.get("start_date"): return
+        
+        # 3. Вычисляем текущую неделю БП
+        start_date = datetime.fromisoformat(config["start_date"].replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        if now < start_date: return
+        
+        current_week = ((now - start_date).days // 7) + 1
+        
+        # Ищем квесты, которые активны именно на этой неделе
+        week_quests = [q for q in config.get("quests_config", []) if q.get("week") == current_week]
+        if not week_quests: return
+        
+        quest_ids = [str(q["quest_id"]) for q in week_quests]
+        
+        # 4. Проверяем названия заданий в БД, чтобы найти нужное
+        quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,title"})
+        if quests_res.status_code != 200: return
+        
+        target_quest_id = None
+        for q_db in quests_res.json():
+            if keyword.lower() in q_db["title"].lower():
+                target_quest_id = q_db["id"]
+                break
+                
+        if not target_quest_id: return  # На этой неделе такого задания нет
+        
+        # 5. Достаем N (сколько нужно сделать) из конфига
+        target_amount = next((q.get("target_amount", 1) for q in week_quests if q["quest_id"] == target_quest_id), 1)
+        
+        # 6. Вызываем наш SQL RPC для атомарного зачисления прогресса!
+        await supabase.post("/rpc/increment_bp_quest", json={
+            "p_user_id": tg_id,
+            "p_quest_id": target_quest_id,
+            "p_target_amount": target_amount
+        })
+        
+    except Exception as e:
+        logging.error(f"Ошибка в авто-квесте БП ({keyword}): {e}")
+
 @app.post("/api/v1/admin/checkpoint/update")
 async def update_checkpoint_content(
     request_data: CheckpointUpdateRequest,
@@ -23382,6 +23441,7 @@ def get_plural(number: int, one: str, two: str, five: str) -> str:
 @app.get("/api/v1/twitch/fossabot_claim", response_class=PlainTextResponse)
 async def handle_fossabot_claim(
     request: Request,
+    background_tasks: BackgroundTasks, # <--- ВОТ ЭТО ДОБАВИТЬ
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     # Достаем токен Fossabot для авторизации
@@ -23533,6 +23593,9 @@ async def handle_fossabot_claim(
                 supabase=supabase, user_id=tg_id_int, title="🎁 Twitch Дроп!",
                 message=f"Бесплатное открытие для «{campaign['target_case_name']}» уже ждет тебя!", notif_type="system" 
             )
+
+            # 🔥 НОВОЕ: Прогресс задания БП (Ищем слово 'подар' в названии задания)
+            background_tasks.add_task(process_bp_auto_quest, supabase, "подар", tg_id_int, None)
 
         # ==========================================
         # 9. СБОРКА СООБЩЕНИЯ (ТОЛЬКО ЛИДЕР)
@@ -24056,6 +24119,8 @@ async def handle_fossabot_guess(
         if twitch_display not in guess_cache["round_winners"]:
             guess_cache["round_winners"].append(twitch_display) # Сохраняем красивый ник
             background_tasks.add_task(supabase.post, "/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
+            # 🔥 НОВОЕ: Прогресс задания БП (Ищем слово 'отгадай' в названии задания)
+            background_tasks.add_task(process_bp_auto_quest, supabase, "отгадай", None, twitch_login)
 
        # Первый запрос обновляет базу и отвечает в чат
         if is_first_blood:
