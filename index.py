@@ -9355,39 +9355,41 @@ async def get_current_user_data(
                 "user_id": f"eq.{telegram_id}",
                 "select": "quest_id, current_amount, target_amount, is_completed, is_claimed"
             }),
+
+            # H. Старые выполненные квесты (TikTok, Telegram и т.д.)
+            supabase.get("/quest_submissions", params={
+                "user_id": f"eq.{telegram_id}",
+                "status": "eq.approved",
+                "select": "quest_id"
+            }),
             
             # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
         )
 
-        # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен!)
-        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp) = results
+       # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен!)
+        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp) = results
 
         # --- [A] Обработка Профиля ---
         data = None
-        # Проверяем, что запрос прошел успешно и не вернул ошибку
         if not isinstance(rpc_resp, Exception) and rpc_resp.status_code == 200:
             data = rpc_resp.json()
 
-        # Если профиля нет — создаем нового пользователя (Авто-регистрация)
         if not data or not data.get('profile'):
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
             
-            # Создаем запись в БД
             await supabase.post("/users", json={
                  "telegram_id": telegram_id, 
                  "username": user_info.get("username"), 
                  "full_name": full_name_tg
             }, headers={"Prefer": "resolution=merge-duplicates"})
             
-            # Пробуем получить данные еще раз (теперь точно должны быть)
             retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
             data = retry_resp.json()
 
         if not data: 
             raise HTTPException(status_code=500, detail="Не удалось загрузить профиль")
 
-        # Формируем базовый ответ
         final_response = data.get('profile', {})
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
@@ -9410,13 +9412,11 @@ async def get_current_user_data(
         final_response['checkpoint_level'] = checkpoint_level
 
         # --- [C] Обработка Настроек Гринда ---
-        # Превращаем объект настроек в словарь
         final_response['grind_settings'] = grind_settings.dict() if hasattr(grind_settings, 'dict') else {}
 
         # --- [D] Обработка Рефералов ---
         ref_count = 0
         if not isinstance(ref_resp, Exception):
-            # Supabase возвращает количество в заголовке Content-Range
             content_range = ref_resp.headers.get("Content-Range")
             if content_range:
                 try:
@@ -9437,15 +9437,33 @@ async def get_current_user_data(
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
 
+        # --- [G & H] СЛИЯНИЕ ПРОГРЕССА КВЕСТОВ (Баттл-пасс + Старая система) ---
+        bp_quests_data = bp_quests_resp.json() if not isinstance(bp_quests_resp, Exception) and bp_quests_resp.status_code == 200 else []
+        old_quests_data = old_quests_resp.json() if not isinstance(old_quests_resp, Exception) and old_quests_resp.status_code == 200 else []
+        
+        # Собираем ID квестов, которые уже начаты в БП
+        existing_bp_ids = {q["quest_id"] for q in bp_quests_data}
+        
+        # Если юзер выполнял квесты в старой системе, добавляем их как выполненные
+        for old_q in old_quests_data:
+            old_id = old_q["quest_id"]
+            if old_id not in existing_bp_ids:
+                bp_quests_data.append({
+                    "quest_id": old_id,
+                    "current_amount": 1,
+                    "target_amount": 1,
+                    "is_completed": True,
+                    "is_claimed": False
+                })
+
+        final_response['bp_quests'] = bp_quests_data
+
         # --- Дополнительные вычисляемые поля ---
-        # Если есть дата активации рефералки — значит подписан
         final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
 
-        # Отправляем готовый JSON
         return JSONResponse(content=final_response)
 
     except Exception as e:
-        # Логируем ошибку, но стараемся не пугать пользователя
         logging.error(f"Ошибка в /user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки профиля")
         
@@ -15219,50 +15237,54 @@ async def claim_bp_quest(
     tg_id = user_info["id"]
 
     try:
-        # 2. Проверяем статус квеста в БД
-        quest_res = await supabase.get("/user_bp_quests", params={
-            "user_id": f"eq.{tg_id}", 
-            "quest_id": f"eq.{req.quest_id}"
-        })
-        if not quest_res.json():
-            raise HTTPException(status_code=400, detail="Задание еще не начато")
-            
-        quest_data = quest_res.json()[0]
-
-        if not quest_data.get("is_completed"):
+        # 2. ИЩЕМ ПРОГРЕСС
+        quest_res = await supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"})
+        
+        is_completed = False
+        is_claimed = False
+        is_retroactive = False # Флаг: квест выполнен в старой системе
+        
+        if quest_res.status_code == 200 and quest_res.json():
+            # Прогресс найден в новой системе БП
+            quest_data = quest_res.json()[0]
+            is_completed = quest_data.get("is_completed")
+            is_claimed = quest_data.get("is_claimed")
+        else:
+            # 🚀 ФИШКА: Ищем в старой классической системе квестов!
+            subs_res = await supabase.get("/quest_submissions", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}", "status": "eq.approved"})
+            if subs_res.status_code == 200 and subs_res.json():
+                is_completed = True
+                is_claimed = False
+                is_retroactive = True
+                
+        if not is_completed:
             raise HTTPException(status_code=400, detail="Задание еще не выполнено")
-            
-        if quest_data.get("is_claimed"):
+        if is_claimed:
             raise HTTPException(status_code=400, detail="Награда уже получена")
 
-        # 3. Достаем EXP за это задание из конфига марафона
+        # 3. Достаем EXP из конфига марафона
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
         config = cp_res.json()[0].get("content", {})
         
-        # Ищем квест в конфиге, чтобы узнать сколько EXP давать
-        exp_reward = 0
-        for q in config.get("quests_config", []):
-            if q["quest_id"] == req.quest_id:
-                exp_reward = q.get("exp_reward", 0)
-                break
-                
+        exp_reward = next((q.get("exp_reward", 0) for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id), 0)
         if exp_reward <= 0:
             raise HTTPException(status_code=400, detail="Ошибка конфигурации награды")
 
-        # 4. Обновляем статус квеста на claimed
-        await supabase.patch("/user_bp_quests", params={
-            "user_id": f"eq.{tg_id}", 
-            "quest_id": f"eq.{req.quest_id}"
-        }, json={"is_claimed": True})
+        # 4. Сохраняем статус "Получено"
+        if is_retroactive:
+            # Если квеста вообще не было в таблице БП, создаем его сразу как выполненный
+            await supabase.post("/user_bp_quests", json={
+                "user_id": tg_id, "quest_id": req.quest_id, "current_amount": 1, "target_amount": 1, 
+                "is_completed": True, "is_claimed": True
+            })
+        else:
+            # Иначе просто обновляем существующий
+            await supabase.patch("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"}, json={"is_claimed": True})
 
-        # 5. Начисляем EXP юзеру
-        # Берем текущие EXP и прибавляем
+        # 5. Выдаем EXP
         user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
         current_stars = float(user_res.json()[0].get("checkpoint_stars") or 0)
-        
-        await supabase.patch("/users", params={
-            "telegram_id": f"eq.{tg_id}"
-        }, json={"checkpoint_stars": current_stars + exp_reward})
+        await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"checkpoint_stars": current_stars + exp_reward})
 
         return {"status": "success", "earned_exp": exp_reward}
 
