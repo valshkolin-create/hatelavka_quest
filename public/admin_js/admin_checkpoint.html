@@ -956,7 +956,7 @@
             tg.MainButton.showProgress();
             try {
                 try {
-                    const questsList = await fetchApi('/api/v1/quests/list');
+                    const questsList = await fetchApi('/api/v1/admin/quests/catalog');
                     if (Array.isArray(questsList)) availableCpQuests = questsList;
                 } catch(e) { console.warn("Failed to load quests list"); }
 
