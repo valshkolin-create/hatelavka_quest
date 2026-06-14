@@ -8328,6 +8328,7 @@ async def get_quests_categories(request_data: InitDataRequest, supabase: httpx.A
     resp.raise_for_status()
     return resp.json()
     
+    
 @app.post("/api/v1/quests/list")
 async def get_public_quests(request_data: InitDataRequest):
     """
@@ -15143,6 +15144,19 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
     except Exception as e:
         logging.error(f"Ошибка в авто-квесте БП ({keyword}): {e}")
+
+@app.post("/api/v1/checkpoint/quests_meta")
+async def get_checkpoint_quests_meta(
+    request_data: dict, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Отдает просто словарь 'id, title, description' для отрисовки Баттл-пасса."""
+    try:
+        res = await supabase.get("/quests", params={"select": "id,title,description"})
+        return res.json() if res.status_code == 200 else []
+    except Exception as e:
+        logging.error(f"Ошибка получения меты квестов: {e}")
+        return []
 
 @app.post("/api/v1/admin/checkpoint/update")
 async def update_checkpoint_content(
