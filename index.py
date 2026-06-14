@@ -8356,10 +8356,13 @@ async def get_public_quests(request_data: InitDataRequest):
         else:
             available_quests = available_quests_raw
 
-        # Просто добавляем технические поля, не фильтруя список
         processed_quests = []
         for quest_data in available_quests:
             if isinstance(quest_data, dict):
+                # 🛑 ПРЯЧЕМ ЗАДАНИЯ БАТТЛ-ПАССА ОТ ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ
+                if quest_data.get('quest_type') == 'battle_pass_only':
+                    continue
+                    
                 quest_data['is_completed'] = False
                 processed_quests.append(quest_data)
 
@@ -8368,6 +8371,21 @@ async def get_public_quests(request_data: InitDataRequest):
     except Exception as e:
         logging.error(f"Ошибка при получении квестов RPC: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось получить список квестов.")
+
+@app.post("/api/v1/admin/quests/catalog")
+async def admin_get_quests_catalog(request_data: InitDataRequest):
+    """Отдает полный список заданий (включая battle_pass_only) для выпадающего списка в админке БП."""
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Забираем только нужные поля всех активных заданий
+        response = supabase.table("quests").select("id,title,description,quest_type").eq("is_active", True).order("id", desc=True).execute()
+        return response.data if response.data else []
+    except Exception as e:
+        logging.error(f"Ошибка каталога квестов админки: {e}")
+        return []
         
 
 @app.get("/api/v1/auth/twitch_oauth")
