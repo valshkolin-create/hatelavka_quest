@@ -877,12 +877,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
                 const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
                 const desc = questDetails && questDetails.description ? questDetails.description : "Выполняй активность, чтобы получить EXP.";
-                const isRepeatable = questDetails ? questDetails.is_repeatable : false; // Узнаем тип задания
+                
+                // Проверяем тип задания из меты
+                const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
                 // 1. Достаем сырой прогресс из базы
                 const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id));
                 
-                // 2. Клонируем его, чтобы можно было безопасно менять на фронте
+                // 2. Клонируем его, чтобы безопасно менять визуал
                 let userProgress = rawProgress ? { ...rawProgress } : {
                     current_amount: 0,
                     target_amount: cfg.target_amount || 1,
@@ -890,23 +892,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     is_claimed: false
                 };
 
-                // 🚀 3. ГЛАВНЫЙ ФИКС: Сбрасываем визуал для многоразовых заданий
+                // 🚀 3. ГЛАВНЫЙ ФИКС ВИЗУАЛА: Сбрасываем кнопку для многоразовых старых заданий
                 if (userProgress.is_completed && isRepeatable) {
                     const timeStr = userProgress.updated_at || userProgress.created_at;
                     if (timeStr) {
                         const completedAt = new Date(timeStr);
-                        // Если дата выполнения меньше даты старта ЭТОЙ недели — обнуляем
+                        // Если дата выполнения меньше даты старта ЭТОЙ недели — обнуляем визуал
                         if (completedAt < weekStart) {
                             userProgress.is_completed = false;
                             userProgress.is_claimed = false;
                             userProgress.current_amount = 0;
                         }
+                    } else {
+                        // Если времени нет в базе вообще — сбрасываем ради безопасности, 
+                        // иначе кнопка будет висеть, а бэкенд ее отклонит.
+                        userProgress.is_completed = false;
+                        userProgress.is_claimed = false;
+                        userProgress.current_amount = 0;
                     }
                 }
 
                 let actionHtml = '';
                 
-                // 4. ЛОГИКА ОТОБРАЖЕНИЯ СТАТУСА/КНОПКИ (теперь опирается на исправленный userProgress)
+                // 4. Отрисовка кнопки
                 if (userProgress.is_claimed) {
                     actionHtml = `<div style="color: var(--success); font-size: 10px; font-weight: 800;"><i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО</div>`;
                 } else if (userProgress.is_completed) {
@@ -930,6 +938,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             });
+
+            // ВОТ ЭТИХ СТРОК ТЕБЕ НЕ ХВАТАЛО!
+            dom.questsContainer.appendChild(weekBlock);
+        }
+    }
             
     window.claimReward = async function(level, type) {
         tg.MainButton.showProgress();
