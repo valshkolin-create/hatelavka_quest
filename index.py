@@ -15237,21 +15237,73 @@ async def claim_bp_quest(
     tg_id = user_info["id"]
 
     try:
-        # 2. ИЩЕМ ПРОГРЕСС
+        # 2. ДОСТАЕМ КОНФИГ СРАЗУ (чтобы узнать дату старта недели)
+        cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+        if cp_res.status_code != 200 or not cp_res.json():
+            raise HTTPException(status_code=400, detail="Баттл-пасс не найден")
+            
+        config = cp_res.json()[0].get("content", {})
+        
+        # Ищем этот квест в конфиге БП
+        quest_config = next((q for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id), None)
+        if not quest_config:
+            raise HTTPException(status_code=400, detail="Квест не найден в текущем БП")
+
+        exp_reward = quest_config.get("exp_reward", 0)
+        if exp_reward <= 0:
+            raise HTTPException(status_code=400, detail="Ошибка конфигурации награды")
+
+        quest_week = quest_config.get("week", 1)
+        
+        # ВЫЧИСЛЯЕМ СТАРТ НЕДЕЛИ КВЕСТА
+        bp_start_date_str = config.get("start_date")
+        if not bp_start_date_str:
+            raise HTTPException(status_code=400, detail="Баттл-пасс не настроен (нет даты старта)")
+            
+        bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
+        # Прибавляем дни: для 1 недели +0 дней, для 2 недели +7 дней и т.д.
+        week_start_date = bp_start_date + timedelta(days=(quest_week - 1) * 7)
+        week_start_iso = week_start_date.isoformat()
+
+        # 2.5 УЗНАЕМ ТИП КВЕСТА (Разовый или Многоразовый)
+        q_db_res = await supabase.get("/quests", params={"id": f"eq.{req.quest_id}", "select": "is_repeatable"})
+        is_repeatable = False
+        if q_db_res.status_code == 200 and q_db_res.json():
+            is_repeatable = q_db_res.json()[0].get("is_repeatable", False)
+
+        # 3. ИЩЕМ ПРОГРЕСС
         quest_res = await supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"})
         
         is_completed = False
         is_claimed = False
-        is_retroactive = False # Флаг: квест выполнен в старой системе
+        is_retroactive = False
         
         if quest_res.status_code == 200 and quest_res.json():
-            # Прогресс найден в новой системе БП
             quest_data = quest_res.json()[0]
             is_completed = quest_data.get("is_completed")
             is_claimed = quest_data.get("is_claimed")
+            
+            # Защита: если квест многоразовый, а выполнение старое — сбрасываем статус
+            updated_at_str = quest_data.get("updated_at") or quest_data.get("created_at")
+            if updated_at_str and is_repeatable:
+                updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+                if updated_at < week_start_date:
+                    is_completed = False
+                    is_claimed = False
         else:
-            # 🚀 ФИШКА: Ищем в старой классической системе квестов!
-            subs_res = await supabase.get("/quest_submissions", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}", "status": "eq.approved"})
+            # 🚀 Ищем в старой классической системе квестов с УМНЫМ ФИЛЬТРОМ
+            query_params = {
+                "user_id": f"eq.{tg_id}", 
+                "quest_id": f"eq.{req.quest_id}", 
+                "status": "eq.approved"
+            }
+            
+            # Добавляем фильтр по дате ТОЛЬКО для многоразовых заданий
+            if is_repeatable:
+                query_params["created_at"] = f"gte.{week_start_iso}"
+                
+            subs_res = await supabase.get("/quest_submissions", params=query_params)
+            
             if subs_res.status_code == 200 and subs_res.json():
                 is_completed = True
                 is_claimed = False
@@ -15262,23 +15314,13 @@ async def claim_bp_quest(
         if is_claimed:
             raise HTTPException(status_code=400, detail="Награда уже получена")
 
-        # 3. Достаем EXP из конфига марафона
-        cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
-        config = cp_res.json()[0].get("content", {})
-        
-        exp_reward = next((q.get("exp_reward", 0) for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id), 0)
-        if exp_reward <= 0:
-            raise HTTPException(status_code=400, detail="Ошибка конфигурации награды")
-
         # 4. Сохраняем статус "Получено"
         if is_retroactive:
-            # Если квеста вообще не было в таблице БП, создаем его сразу как выполненный
             await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id, "quest_id": req.quest_id, "current_amount": 1, "target_amount": 1, 
                 "is_completed": True, "is_claimed": True
             })
         else:
-            # Иначе просто обновляем существующий
             await supabase.patch("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"}, json={"is_claimed": True})
 
         # 5. Выдаем EXP
@@ -15291,9 +15333,8 @@ async def claim_bp_quest(
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Ошибка получения награды за квест: {e}")
+        logging.error(f"Ошибка получения награды за квест: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-
 
 @app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
