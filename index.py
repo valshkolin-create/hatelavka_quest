@@ -15168,9 +15168,9 @@ async def get_checkpoint_quests_meta(
     request_data: dict, 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Отдает просто словарь 'id, title, description' для отрисовки Баттл-пасса."""
     try:
-        res = await supabase.get("/quests", params={"select": "id,title,description"})
+        # ДОБАВЛЕНО is_repeatable в select 👇
+        res = await supabase.get("/quests", params={"select": "id,title,description,is_repeatable"})
         return res.json() if res.status_code == 200 else []
     except Exception as e:
         logging.error(f"Ошибка получения меты квестов: {e}")
