@@ -1056,40 +1056,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
       // Предварительно обрабатываем и мапим прогресс квестов для этой недели
+        // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
-            const isRepeatable = questDetails ? questDetails.is_repeatable : false; // <--- ВЕРНУЛИ
+            const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
             // Теперь ищем строго совпадение по quest_id И по week
-            cconst rawProgress = (userData.bp_quests || []).find(q => {
-            if (String(q.quest_id) !== String(cfg.quest_id)) return false;
-            
-            // 👇 ИСПРАВЛЕНО: Приводим к String, чтобы "1" и 1 совпадали
-            if (String(q.week) === String(cfg.week)) return true;
-            
-            // 2. Если недели нет (старая заслуга из quest_submissions)
-            if (q.week == null) {
-                // Если это одноразовый квест (TikTok) — он активен для любой недели
-                if (!isRepeatable) return true;
+            const rawProgress = (userData.bp_quests || []).find(q => {
+                if (String(q.quest_id) !== String(cfg.quest_id)) return false;
                 
-                // Если многоразовый (Ассисты) — проверяем, что он выполнен именно в даты этой недели
-                const timeStr = q.updated_at || q.created_at;
-                if (timeStr) {
-                    const progressDate = new Date(timeStr);
-                    return progressDate >= weekStart && progressDate <= weekEnd;
+                // 1. Сравниваем недели как строки (защита от "1" !== 1)
+                if (String(q.week) === String(cfg.week)) return true;
+                
+                // 2. Если недели нет (старая заслуга из quest_submissions)
+                if (q.week == null) {
+                    if (!isRepeatable) return true;
+                    
+                    const timeStr = q.updated_at || q.created_at;
+                    if (timeStr) {
+                        const progressDate = new Date(timeStr);
+                        return progressDate >= weekStart && progressDate <= weekEnd;
+                    }
                 }
-            }
-            return false;
-        });
+                return false;
+            });
+
+            // 👇 ИСПРАВЛЕНИЕ: Ищем правильную цель. Сначала target_value из базы, потом из конфига БП
+            const actualTarget = cfg.target_value || (questDetails ? questDetails.target_value : null) || cfg.target_amount || 1;
+
             let userProgress = rawProgress ? { ...rawProgress } : {
                 current_amount: 0,
-                target_amount: cfg.target_amount || 1,
+                target_amount: actualTarget,
                 is_completed: false,
                 is_claimed: false
             };
 
-            // ✅ ПРАВИЛЬНАЯ ЛОГИКА: Сбрасываем ТОЛЬКО многоразовые задания!
+            // Если бэкенд почему-то прислал target_amount = 1, а реальная цель больше (например 200), чиним:
+            if (userProgress.target_amount === 1 && actualTarget > 1) {
+                userProgress.target_amount = actualTarget;
+            }
+
+            // Защита: если квест многоразовый, а выполнение старое — сбрасываем статус
             if (userProgress.is_completed && isRepeatable) {
                 const timeStr = userProgress.updated_at || userProgress.created_at;
                 if (timeStr) {
