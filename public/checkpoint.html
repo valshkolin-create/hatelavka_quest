@@ -1055,32 +1055,33 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.questsContainer.appendChild(noticeBox);
         }
         
-     // Предварительно обрабатываем и мапим прогресс квестов для этой недели
+    // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
             const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
-            // 1. Ищем СТРОГОЕ совпадение по неделе (Приоритет №1)
-            let rawProgress = (userData.bp_quests || []).find(q => 
-                String(q.quest_id) === String(cfg.quest_id) && String(q.week) === String(cfg.week)
-            );
+            // Ищем все записи для этого квеста в профиле юзера
+            const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
 
-            // 2. Если идеального совпадения нет, проверяем старые записи (week == null)
-            if (!rawProgress) {
-                const oldProgress = (userData.bp_quests || []).find(q => 
-                    String(q.quest_id) === String(cfg.quest_id) && q.week == null
-                );
-                
-                if (oldProgress) {
-                    if (!isRepeatable) {
-                        rawProgress = oldProgress;
-                    } else {
-                        const timeStr = oldProgress.updated_at || oldProgress.created_at;
+            let rawProgress = null;
+
+            if (!isRepeatable) {
+                // 1. ОДНОРАЗОВЫЕ (Ютуб): Берем любую запись. Если хоть раз делал за всё время — засчитано.
+                rawProgress = allUserProgress.length > 0 ? allUserProgress[0] : null;
+            } else {
+                // 2. МНОГОРАЗОВЫЕ (Ассисты): Ищем СТРОГО запись этой недели
+                rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
+
+                // Если записи с номером недели нет, проверяем старые записи (week == null) строго по датам
+                if (!rawProgress) {
+                    const oldNullProgress = allUserProgress.find(q => q.week == null);
+                    if (oldNullProgress) {
+                        const timeStr = oldNullProgress.updated_at || oldNullProgress.created_at;
                         if (timeStr) {
                             const progressDate = new Date(timeStr);
                             if (progressDate >= weekStart && progressDate <= weekEnd) {
-                                rawProgress = oldProgress;
+                                rawProgress = oldNullProgress;
                             }
                         }
                     }
@@ -1102,30 +1103,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 userProgress.target_amount = actualTarget;
             }
 
-            // 4. Сброс для многоразовых заданий
-            if (userProgress.is_completed && isRepeatable) {
-                const timeStr = userProgress.updated_at || userProgress.created_at;
-                if (timeStr) {
-                    const progressDate = new Date(timeStr);
-                    progressDate.setHours(0, 0, 0, 0);
-                    const weekStartDate = new Date(weekStart);
-                    weekStartDate.setHours(0, 0, 0, 0);
-
-                    if (progressDate < weekStartDate) {
-                        userProgress.is_completed = false;
-                        userProgress.is_claimed = false;
-                        userProgress.current_amount = 0;
-                    }
-                } else {
-                    userProgress.is_completed = false;
-                    userProgress.is_claimed = false;
-                    userProgress.current_amount = 0;
-                }
-            }
+            // Никаких дополнительных сбросов! Если нашли данные — верим им.
             return { cfg, title, userProgress };
         });
         
-
         // Считаем, есть ли в этой неделе задания, готовые к выдаче награды
         const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed);
 
