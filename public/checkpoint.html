@@ -1062,7 +1062,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const isRepeatable = questDetails ? questDetails.is_repeatable : false; // <--- ВЕРНУЛИ
 
             // Теперь ищем строго совпадение по quest_id И по week
-            const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id) && (q.week === cfg.week || q.week == null));
+            const rawProgress = (userData.bp_quests || []).find(q => {
+            if (String(q.quest_id) !== String(cfg.quest_id)) return false;
+            
+            // 1. Если неделя совпадает — это точное совпадение из новой системы БП
+            if (q.week === cfg.week) return true;
+            
+            // 2. Если недели нет (старая заслуга из quest_submissions)
+            if (q.week == null) {
+                // Если это одноразовый квест (TikTok) — он активен для любой недели
+                if (!isRepeatable) return true;
+                
+                // Если многоразовый (Ассисты) — проверяем, что он выполнен именно в даты этой недели
+                const timeStr = q.updated_at || q.created_at;
+                if (timeStr) {
+                    const progressDate = new Date(timeStr);
+                    return progressDate >= weekStart && progressDate <= weekEnd;
+                }
+            }
+            return false;
+        });
             let userProgress = rawProgress ? { ...rawProgress } : {
                 current_amount: 0,
                 target_amount: cfg.target_amount || 1,
