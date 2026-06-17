@@ -9354,7 +9354,7 @@ async def get_current_user_data(
             # G. Прогресс квестов Баттл-пасса
             supabase.get("/user_bp_quests", params={
                 "user_id": f"eq.{telegram_id}",
-                "select": "quest_id, current_amount, target_amount, is_completed, is_claimed, updated_at, created_at"
+                "select": "quest_id, week, current_amount, target_amount, is_completed, is_claimed, updated_at, created_at"
             }),
 
             # H. Старые выполненные квесты (TikTok, Telegram и т.д.)
@@ -15376,6 +15376,7 @@ async def update_checkpoint_content(
 class QuestClaimRequest(BaseModel):
     initData: str
     quest_id: int
+    week: int  # <--- ДОБАВИЛИ НЕДЕЛЮ
 
 @app.post("/api/v1/checkpoint/quest/claim")
 async def claim_bp_quest(
@@ -15396,10 +15397,10 @@ async def claim_bp_quest(
             
         config = cp_res.json()[0].get("content", {})
         
-        # Ищем этот квест в конфиге БП
-        quest_config = next((q for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id), None)
+        # 🚀 ИЩЕМ КВЕСТ СТРОГО ПО ID И НЕДЕЛЕ ИЗ ЗАПРОСА
+        quest_config = next((q for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id and q.get("week", 1) == req.week), None)
         if not quest_config:
-            raise HTTPException(status_code=400, detail="Квест не найден в текущем БП")
+            raise HTTPException(status_code=400, detail="Квест не найден на этой неделе текущего БП")
 
         exp_reward = quest_config.get("exp_reward", 0)
         if exp_reward <= 0:
@@ -15423,8 +15424,12 @@ async def claim_bp_quest(
         if q_db_res.status_code == 200 and q_db_res.json():
             is_repeatable = q_db_res.json()[0].get("is_repeatable", False)
 
-        # 3. ИЩЕМ ПРОГРЕСС
-        quest_res = await supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"})
+        # 3. ИЩЕМ ПРОГРЕСС СТРОГО ДЛЯ ТЕКУЩЕЙ НЕДЕЛИ
+        quest_res = await supabase.get("/user_bp_quests", params={
+            "user_id": f"eq.{tg_id}", 
+            "quest_id": f"eq.{req.quest_id}",
+            "week": f"eq.{req.week}" # <--- Добавили строгий фильтр недели
+        })
         
         is_completed = False
         is_claimed = False
@@ -15466,14 +15471,23 @@ async def claim_bp_quest(
         if is_claimed:
             raise HTTPException(status_code=400, detail="Награда уже получена")
 
-        # 4. Сохраняем статус "Получено"
+        # 4. Сохраняем статус "Получено" с привязкой к конкретной неделе
         if is_retroactive:
             await supabase.post("/user_bp_quests", json={
-                "user_id": tg_id, "quest_id": req.quest_id, "current_amount": 1, "target_amount": 1, 
-                "is_completed": True, "is_claimed": True
+                "user_id": tg_id, 
+                "quest_id": req.quest_id, 
+                "week": req.week, # <--- Записываем неделю для новой строки
+                "current_amount": 1, 
+                "target_amount": 1, 
+                "is_completed": True, 
+                "is_claimed": True
             })
         else:
-            await supabase.patch("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"}, json={"is_claimed": True})
+            await supabase.patch("/user_bp_quests", params={
+                "user_id": f"eq.{tg_id}", 
+                "quest_id": f"eq.{req.quest_id}",
+                "week": f"eq.{req.week}" # <--- Обновляем запись строго этой недели
+            }, json={"is_claimed": True})
 
         # 5. Выдаем EXP
         user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
@@ -15487,6 +15501,7 @@ async def claim_bp_quest(
     except Exception as e:
         logging.error(f"Ошибка получения награды за квест: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    
 
 @app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
