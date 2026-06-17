@@ -24496,8 +24496,10 @@ async def handle_fossabot_guess(
         if is_first_blood:
             target_filter = guess_cache["raw_word"]
             
+            # 🚀 ВОТ ОНА ПРОПАЖА! Отправляем сигнал в OBS для запуска таймера и смены слова!
+            background_tasks.add_task(process_round_end, supabase, target_filter, guess_cache["raw_word"])
+            
             # 🔥 ЖЕЛЕЗОБЕТОННЫЙ ТРИГГЕР: Открываем все буквы в базе!
-            # Фронтенд увидит это и сам запустит кулдаун.
             all_indices = list(range(len(target_filter)))
             try:
                 await supabase.patch(
