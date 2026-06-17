@@ -709,24 +709,35 @@
         </div>
     </div>
 
-    <div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+<div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-modal-content">
             <button class="premium-modal-close" onclick="haptic('light'); document.getElementById('premium-buy-modal').classList.remove('modal-active')">
                 <i class="fa-solid fa-xmark"></i>
             </button>
-            <div class="premium-modal-header-img">
-                </div>
+            <div class="premium-modal-header-img"></div>
             <div class="premium-modal-body">
                 <h3>Premium Статус</h3>
                 <p>Открой доступ ко всем эксклюзивным наградам сезона. Собирай лут сразу из обеих колонок, получай больше опыта и выделяйся среди остальных!</p>
                 
-                <div class="premium-price-box">
-                    <div class="premium-price">199 ₽</div>
+                <!-- Две кнопки покупки -->
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                    <!-- Оплата Рублями (Выделенная) -->
+                    <button id="buy-premium-rub-btn" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: #fff; border: none; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.3); display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform 0.2s;">
+                        <i class="fa-solid fa-credit-card"></i> Купить за 199 ₽
+                    </button>
+
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin: 2px 0;">
+                        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                        <span style="font-size: 10px; color: #888; text-transform: uppercase; font-weight: 700;">или</span>
+                        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                    </div>
+
+                    <!-- Оплата Монетами -->
+                    <button id="buy-premium-coins-btn" style="background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.05);">
+                        Приобрести за <span id="premium-coins-price-text">...</span> <i class="fa-solid fa-coins"></i>
+                    </button>
                 </div>
 
-                <button class="btn-buy-premium-confirm" id="confirm-buy-premium-btn">
-                    Приобрести
-                </button>
             </div>
         </div>
     </div>
@@ -875,7 +886,13 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.hero.style.backgroundImage = 'none';
         }
         
-        const userStars = parseFloat(userData.checkpoint_stars) || 0; 
+        // Вписываем цену в монетах прямо на кнопку
+        const coinsPriceText = document.getElementById('premium-coins-price-text');
+        if (coinsPriceText && bpData.premium_price) {
+            coinsPriceText.textContent = bpData.premium_price;
+        }
+        
+        const userStars = parseFloat(userData.checkpoint_stars) || 0;
         const hasPremium = userData.has_cp_premium || false;
         const claimedFree = userData.cp_claimed_free || [];
         const claimedPremium = userData.cp_claimed_premium || [];
@@ -1289,31 +1306,69 @@ window.claimQuestReward = async function(questId, week) {
         dom.premiumBuyModal.classList.add('modal-active');
     });
 
-    dom.confirmBuyPremiumBtn.addEventListener('click', async () => {
-        dom.premiumBuyModal.classList.remove('modal-active');
-        
-        tg.MainButton.showProgress();
-        try {
-            const res = await fetch('/api/v1/checkpoint/buy_premium', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData })
-            });
-            if (res.ok) {
-                tg.HapticFeedback.notificationOccurred('success');
-                tg.showAlert('Premium успешно активирован!');
-                userData.has_cp_premium = true;
-                renderBP();
-            } else {
+    const rubBtn = document.getElementById('buy-premium-rub-btn');
+    const coinsBtn = document.getElementById('buy-premium-coins-btn');
+
+    // КЛИК: ОПЛАТА РУБЛЯМИ
+    if (rubBtn) {
+        rubBtn.addEventListener('click', () => {
+            haptic('medium');
+            dom.premiumBuyModal.classList.remove('modal-active');
+            
+            // Здесь будет логика генерации ссылки на оплату или вызов кассы.
+            // Пока оставляем заглушку.
+            tg.showAlert("Оплата рублями в данный момент подключается! Используйте монеты.");
+        });
+    }
+
+    // КЛИК: ОПЛАТА МОНЕТАМИ
+    if (coinsBtn) {
+        coinsBtn.addEventListener('click', async () => {
+            haptic('medium');
+            
+            // Защита от двойного клика на кнопку
+            if (coinsBtn.disabled) return;
+            
+            const originalHtml = coinsBtn.innerHTML;
+            coinsBtn.disabled = true;
+            coinsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Обработка...';
+            
+            tg.MainButton.showProgress();
+            
+            try {
+                // Вызываем бэкенд, который мы написали (списывает баланс через subtract_bott_balance)
+                const res = await fetch('/api/v1/checkpoint/buy_premium', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                
                 const data = await res.json();
-                tg.showAlert(data.detail || 'Недостаточно средств или ошибка.');
+                
+                if (res.ok) {
+                    dom.premiumBuyModal.classList.remove('modal-active');
+                    tg.HapticFeedback.notificationOccurred('success');
+                    tg.showAlert('Premium успешно активирован!');
+                    
+                    // Обновляем фронтенд
+                    userData.has_cp_premium = true;
+                    renderBP();
+                    
+                    // Если есть фоновое обновление баланса — вызываем его
+                    if (typeof checkBalance === 'function') checkBalance(true);
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    tg.showAlert(data.detail || 'Недостаточно средств или ошибка.');
+                }
+            } catch (e) {
+                tg.showAlert('Ошибка соединения с сервером.');
+            } finally {
+                tg.MainButton.hideProgress();
+                coinsBtn.disabled = false;
+                coinsBtn.innerHTML = originalHtml;
             }
-        } catch (e) {
-            tg.showAlert('Ошибка соединения.');
-        } finally {
-            tg.MainButton.hideProgress();
-        }
-    });
+        });
+    }
 
     function setupSwipe() {
         let startX = 0;
