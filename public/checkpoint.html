@@ -1055,10 +1055,11 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.questsContainer.appendChild(noticeBox);
         }
         
-       // Предварительно обрабатываем и мапим прогресс квестов для этой недели
+      // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
+            const isRepeatable = questDetails ? questDetails.is_repeatable : false; // <--- ВЕРНУЛИ
 
             const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id));
             let userProgress = rawProgress ? { ...rawProgress } : {
@@ -1068,9 +1069,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_claimed: false
             };
 
-            // 🚀 ИСПРАВЛЕНИЕ: Убрали зависимость от isRepeatable. 
-            // Если квест выполнен ДО старта этой недели — жестко сбрасываем визуал в 0.
-            if (userProgress.is_completed) {
+            // ✅ ПРАВИЛЬНАЯ ЛОГИКА: Сбрасываем ТОЛЬКО многоразовые задания!
+            if (userProgress.is_completed && isRepeatable) {
                 const timeStr = userProgress.updated_at || userProgress.created_at;
                 if (timeStr) {
                     const progressDate = new Date(timeStr);
@@ -1083,6 +1083,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         userProgress.is_claimed = false;
                         userProgress.current_amount = 0;
                     }
+                } else {
+                    userProgress.is_completed = false;
+                    userProgress.is_claimed = false;
+                    userProgress.current_amount = 0;
                 }
             }
             return { cfg, title, userProgress };
