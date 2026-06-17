@@ -819,24 +819,38 @@ window.openImageModal = function(src, title) {
 
     window.scrollToTop = function() {
     haptic('medium');
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-    });
+    // Вместо слепого скролла окна, прицельно скроллим к главному баннеру
+    const topElement = document.getElementById('bp-hero');
+    if (topElement) {
+        topElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 };
 
-// Отслеживаем скролл, чтобы показывать/скрывать кнопку
-window.addEventListener('scroll', () => {
+// Функция, которая проверит скролл и покажет кнопку
+function checkScroll(e) {
     const scrollBtn = document.getElementById('scroll-to-top');
     if (!scrollBtn) return;
     
-    // Показываем кнопку, если проскроллили больше 300 пикселей вниз
-    if (window.scrollY > 300) {
+    // Берем позицию скролла либо у элемента (если скроллится div), либо у окна
+    const scrollTop = e.target.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
+    
+    if (scrollTop > 300) {
         scrollBtn.classList.add('visible');
     } else {
         scrollBtn.classList.remove('visible');
     }
-}, { passive: true });
+}
+
+// Вешаем слушатель на само окно
+window.addEventListener('scroll', checkScroll, { passive: true });
+
+// И на всякий случай вешаем слушатель на твой главный контейнер после загрузки
+document.addEventListener('DOMContentLoaded', () => {
+    const scrollableDiv = document.querySelector('.main-content-scrollable');
+    if (scrollableDiv) {
+        scrollableDiv.addEventListener('scroll', checkScroll, { passive: true });
+    }
+});
 
 window.toggleWeek = function(headerElement) {
     const isLocked = headerElement.parentElement.classList.contains('locked');
