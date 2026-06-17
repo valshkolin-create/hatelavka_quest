@@ -9442,20 +9442,19 @@ async def get_current_user_data(
         bp_quests_data = bp_quests_resp.json() if not isinstance(bp_quests_resp, Exception) and bp_quests_resp.status_code == 200 else []
         old_quests_data = old_quests_resp.json() if not isinstance(old_quests_resp, Exception) and old_quests_resp.status_code == 200 else []
         
-        # Собираем ID квестов, которые уже начаты в БП
-        # 👇 ДОБАВЛЕНО str(), чтобы избежать конфликта типов (число/строка)
+        # Собираем ID квестов, которые уже начаты в БП (ОБЯЗАТЕЛЬНО СТРОКОЙ)
         existing_bp_ids = {str(q["quest_id"]) for q in bp_quests_data}
         
         # Если юзер выполнял квесты в старой системе, добавляем их как выполненные
         for old_q in old_quests_data:
-            old_id = str(old_q["quest_id"]) # 👇 Тоже приводим к строке
+            old_id = str(old_q["quest_id"]) # ТОЖЕ СТРОКОЙ
             if old_id not in existing_bp_ids:
                 bp_quests_data.append({
-                    "quest_id": old_q["quest_id"], # Оставляем оригинальный для отправки
+                    "quest_id": old_q["quest_id"], # Оригинал оставляем для фронта
                     "current_amount": 1,
                     "target_amount": 1,
                     "is_completed": True,
-                    "is_claimed": False, # Из-за ошибки типа раньше всегда добавлялась эта строка!
+                    "is_claimed": False, 
                     "created_at": old_q.get("created_at"),
                     "updated_at": old_q.get("created_at") 
                 })
@@ -15111,10 +15110,8 @@ async def get_checkpoint_content(supabase: httpx.AsyncClient = Depends(get_supab
 async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClient):
     """
     Синхронизирует прогресс автоматических заданий БП методом "Водопада".
-    Открывает доступ к прошлым неделям, но требует последовательного выполнения заданий.
     """
     try:
-        # 1. Получаем конфиг БП
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
         if not cp_res.is_success or not cp_res.json(): return
         
@@ -15125,22 +15122,20 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         now = datetime.now(timezone.utc)
         if now < bp_start_date: return
         
-        # Текущая неделя БП
         current_week = ((now - bp_start_date).days // 7) + 1
         
-        # 2. Берем квесты С 1 НЕДЕЛИ ПО ТЕКУЩУЮ (Лояльная система)
         active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
         if not active_quests: return
         
-        # Сортируем квесты по неделям, чтобы заполнять их строго по очереди (1 -> 2 -> 3)
         active_quests.sort(key=lambda x: x.get("week", 1))
         quest_ids = [str(q["quest_id"]) for q in active_quests]
         
         quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,quest_type,target_value"})
         if not quests_res.is_success or not quests_res.json(): return
-        quests_meta = {q["id"]: q for q in quests_res.json()}
         
-        # 3. Делаем запрос к таблице активности ЗА ВЕСЬ СЕЗОН
+        # ЗАЩИТА: ключи строго строки
+        quests_meta = {str(q["id"]): q for q in quests_res.json()}
+        
         start_str = bp_start_date.strftime('%Y-%m-%d')
         today_str = now.strftime('%Y-%m-%d')
 
@@ -15148,12 +15143,11 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             "/user_daily_activity", 
             params={
                 "user_id": f"eq.{user_id}",
-                "date": f"gte.{start_str}", # Берем всё с начала сезона!
+                "date": f"gte.{start_str}", 
                 "select": "date,twitch_messages,twitch_uptime" 
             }
         )
         
-        # Считаем стату за ВЕСЬ сезон и отдельно за СЕГОДНЯ
         season_msgs = 0
         season_uptime = 0
         today_msgs = 0
@@ -15171,26 +15165,25 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     today_msgs += msgs
                     today_uptime += uptime
 
-        # 4. Получаем текущий записанный прогресс юзера
         bp_quests_res = await supabase.get(
             "/user_bp_quests", 
             params={"user_id": f"eq.{user_id}", "quest_id": f"in.({','.join(quest_ids)})"}
         )
-        # 🚀 ИСПРАВЛЕНИЕ 1: Теперь ключ словаря — это кортеж (quest_id, week), чтобы не слеплять квесты разных недель!
-        existing_progress = {(q["quest_id"], q.get("week", 1)): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
+        
+        # ЗАЩИТА: Кортеж ключей тоже состоит ТОЛЬКО ИЗ СТРОК (quest_id, week)
+        existing_progress = {(str(q["quest_id"]), str(q.get("week", 1))): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
-        # 5. КАСКАДНАЯ СИСТЕМА (Водопад)
         rem_week_msgs = season_msgs
         rem_week_uptime = season_uptime
         rem_today_msgs = today_msgs
         rem_today_uptime = today_uptime
 
         for wq in active_quests:
-            q_id = wq["quest_id"]
-            q_week = wq.get("week", 1) # 🚀 ИСПРАВЛЕНИЕ 2: Достаем неделю квеста из конфига
+            q_id_str = str(wq["quest_id"])
+            q_week_str = str(wq.get("week", 1))
             
-            meta = quests_meta.get(q_id)
-            if not meta: continue
+            meta = quests_meta.get(q_id_str)
+            if not meta: continue 
             
             q_type = meta.get("quest_type", "")
             target = wq.get("target_amount", 1)
@@ -15202,15 +15195,14 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             is_auto = False
             current_amount = 0
             
-            # Распределяем остатки (Ограничиваем вливаемый прогресс целью)
             if "twitch_messages_week" in q_type:
-                allocate = min(rem_week_msgs, target)
+                allocate = min(rem_week_msgs, target) 
                 current_amount = allocate
-                rem_week_msgs -= allocate
+                rem_week_msgs -= allocate 
                 is_auto = True
                 
             elif "twitch_messages_session" in q_type:
-                existing = existing_progress.get((q_id, q_week))
+                existing = existing_progress.get((q_id_str, q_week_str))
                 if existing and existing.get("is_completed"):
                     current_amount = existing.get("current_amount", target)
                 else:
@@ -15226,7 +15218,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             elif "twitch_uptime_session" in q_type:
-                existing = existing_progress.get((q_id, q_week))
+                existing = existing_progress.get((q_id_str, q_week_str))
                 if existing and existing.get("is_completed"):
                     current_amount = existing.get("current_amount", target)
                 else:
@@ -15236,9 +15228,9 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             if is_auto:
-                existing = existing_progress.get((q_id, q_week)) # 🚀 ИСПРАВЛЕНИЕ 3: Ищем по ключу (quest_id, week)
+                existing = existing_progress.get((q_id_str, q_week_str))
                 if existing and existing.get("is_claimed"):
-                    continue # Если награду уже забрали, не трогаем
+                    continue 
                 
                 is_completed = current_amount >= target
                 
@@ -15246,19 +15238,18 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     "current_amount": current_amount,
                     "target_amount": target,
                     "is_completed": is_completed,
-                    "week": q_week # 🚀 ИСПРАВЛЕНИЕ 4: Железно прокидываем неделю в базу!
+                    "week": int(q_week_str) 
                 }
                 
                 if existing:
-                    # Обязательно фильтруем UPDATE по неделе, чтобы не перезаписать соседние
                     await supabase.patch(
                         "/user_bp_quests", 
-                        params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{q_id}", "week": f"eq.{q_week}"}, 
+                        params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{q_id_str}", "week": f"eq.{q_week_str}"}, 
                         json=payload
                     )
                 else:
                     payload["user_id"] = user_id
-                    payload["quest_id"] = q_id
+                    payload["quest_id"] = int(q_id_str)
                     payload["is_claimed"] = False
                     await supabase.post("/user_bp_quests", json=payload)
                     
