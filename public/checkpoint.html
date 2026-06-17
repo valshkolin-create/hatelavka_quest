@@ -458,6 +458,62 @@
         }
         .btn-buy-premium-confirm:active { transform: scale(0.96); box-shadow: 0 2px 5px var(--primary-glow); }
 
+        /* ⚡️ СВЕРХКОМПАКТНАЯ ВКЛАДКА ЗАДАНИЙ (УМЕНЬШЕНО В 2 РАЗА) ⚡️ */
+#view-quests .week-accordion { border-radius: 10px; margin-bottom: 8px; }
+#view-quests .week-header { padding: 8px 12px; }
+#view-quests .week-title { font-size: 12px; }
+#view-quests .week-dates { font-size: 9px; }
+#view-quests .week-status { font-size: 8px; padding: 2px 6px; border-radius: 5px; }
+#view-quests .week-content { padding: 0 10px; }
+#view-quests .week-content-inner { padding-bottom: 10px; gap: 4px; }
+
+.quest-card {
+    background: var(--surface-bg);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+/* Тусклый стиль для завершенных заданий */
+.quest-card.dimmed {
+    opacity: 0.35;
+    filter: grayscale(60%);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.quest-info { flex: 1; min-width: 0; }
+.quest-title { font-size: 11px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quest-reward { background: rgba(255, 215, 0, 0.07); border: 1px solid rgba(255, 215, 0, 0.2); color: var(--primary); padding: 2px 6px; border-radius: 6px; font-weight: 800; font-size: 10px; display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+
+#view-quests .btn-claim.ready {
+    padding: 4px 10px;
+    width: auto;
+    font-size: 9px;
+    border-radius: 6px;
+    margin-top: 0;
+}
+
+/* Надпись о доступности прошлых недель со стрелочкой */
+.past-weeks-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--primary);
+    opacity: 0.8;
+    padding: 4px 0;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
         /* Модалка увеличенной картинки */
         .image-modal-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 400px; }
         .image-modal-close { position: absolute; top: -50px; right: 0; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
@@ -508,7 +564,7 @@
 
                 <div class="level-text-container">
                     <div class="level-text">Уровень <span id="ui-current-level">0</span></div>
-                    <div id="ui-current-xp" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">0 EXP</div>
+                    <div id="ui-current-xp" style="font-size: 13px; color: var(--text-main); margin-top: 4px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px;">0 <i class="fa-solid fa-star" style="color: var(--primary);"></i></div>
                 </div>
 
                 <div class="track-headers">
@@ -722,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.uiLevel.textContent = userData.checkpoint_level || 0;
         const xpText = document.getElementById('ui-current-xp');
-        if (xpText) xpText.textContent = `${userStars} EXP`;
+        if (xpText) xpText.innerHTML = `${userStars} <i class="fa-solid fa-star" style="color: var(--primary); font-size: 13px;"></i>`;
 
         if (hasPremium) {
             dom.buyPremiumBtn.innerHTML = '<i class="fa-solid fa-check"></i> Premium Активен';
@@ -808,141 +864,151 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderQuests() {
-        if (!bpData || !bpData.quests_config || bpData.quests_config.length === 0) {
-            dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Задания для Чекпоинта пока не привязаны.</p>';
-            return;
-        }
+    if (!bpData || !bpData.quests_config || bpData.quests_config.length === 0) {
+        dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Задания для Чекпоинта пока не привязаны.</p>';
+        return;
+    }
 
-        dom.questsContainer.innerHTML = '';
-        
-        const questsWithWeeks = bpData.quests_config.map(q => ({...q, week: q.week || 1}));
-        const maxWeek = Math.max(...questsWithWeeks.map(q => q.week));
-        
-        const startDate = bpData.start_date ? new Date(bpData.start_date) : new Date();
-        const endDate = bpData.end_date ? new Date(bpData.end_date) : new Date(startDate.getTime() + 30*24*60*60*1000);
-        const now = new Date();
+    dom.questsContainer.innerHTML = '';
+    
+    const questsWithWeeks = bpData.quests_config.map(q => ({...q, week: q.week || 1}));
+    const maxWeek = Math.max(...questsWithWeeks.map(q => q.week));
+    
+    const startDate = bpData.start_date ? new Date(bpData.start_date) : new Date();
+    const endDate = bpData.end_date ? new Date(bpData.end_date) : new Date(startDate.getTime() + 30*24*60*60*1000);
+    const now = new Date();
 
-        for (let i = 1; i <= maxWeek; i++) {
-            const weekQuests = questsWithWeeks.filter(q => q.week === i);
-            if (weekQuests.length === 0) continue; 
+    let hasPastWeeksAvailable = false;
 
-            let weekStart = new Date(startDate.getTime() + (i - 1) * 7 * 24 * 60 * 60 * 1000);
-            let weekEnd = new Date(startDate.getTime() + i * 7 * 24 * 60 * 60 * 1000 - 1000);
-            if (weekEnd > endDate) weekEnd = endDate;
-
-            const startStr = weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
-            const endStr = weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'});
-
-            let statusClass = '';
-            let statusText = '';
-            let isLocked = false;
-            let isExpanded = false;
-
-            if (now < weekStart) {
-                const diffDays = Math.ceil((weekStart - now) / (1000*60*60*24));
-                statusClass = 'status-locked';
-                statusText = `Через ${diffDays} дн.`;
-                isLocked = true;
-            } else if (now >= weekStart && now <= weekEnd) {
-                statusClass = 'status-active';
-                statusText = 'Текущая';
-                isExpanded = true; 
-            } else {
-                statusClass = 'status-past';
-                statusText = 'Доступна';
-            }
-
-            const weekBlock = document.createElement('div');
-            weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
-            
-            const headerHtml = `
-                <div class="week-header ${isExpanded ? 'expanded' : ''}" onclick="toggleWeek(this)">
-                    <div class="week-title-box">
-                        <div class="week-title">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span></div>
-                        <div class="week-dates"><i class="fa-regular fa-calendar"></i> ${startStr} - ${endStr}</div>
-                    </div>
-                    <div class="week-chevron">
-                        ${isLocked ? '<i class="fa-solid fa-lock" style="color:var(--text-muted)"></i>' : '<i class="fa-solid fa-chevron-down"></i>'}
-                    </div>
-                </div>
-                <div class="week-content" style="max-height: ${isExpanded ? '2000px' : '0px'};">
-                    <div class="week-content-inner"></div>
-                </div>
-            `;
-            
-            weekBlock.innerHTML = headerHtml;
-            const contentInner = weekBlock.querySelector('.week-content-inner');
-
-            weekQuests.forEach(cfg => {
-                const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
-                const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
-                const desc = questDetails && questDetails.description ? questDetails.description : "Выполняй активность, чтобы получить EXP.";
-                
-                // Проверяем тип задания из меты
-                const isRepeatable = questDetails ? questDetails.is_repeatable : false;
-
-                // 1. Достаем сырой прогресс из базы
-                const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id));
-                
-                // 2. Клонируем его, чтобы безопасно менять визуал
-                let userProgress = rawProgress ? { ...rawProgress } : {
-                    current_amount: 0,
-                    target_amount: cfg.target_amount || 1,
-                    is_completed: false,
-                    is_claimed: false
-                };
-
-                // 🚀 3. ГЛАВНЫЙ ФИКС ВИЗУАЛА: Сбрасываем кнопку для многоразовых старых заданий
-                if (userProgress.is_completed && isRepeatable) {
-                    const timeStr = userProgress.updated_at || userProgress.created_at;
-                    if (timeStr) {
-                        const completedAt = new Date(timeStr);
-                        // Если дата выполнения меньше даты старта ЭТОЙ недели — обнуляем визуал
-                        if (completedAt < weekStart) {
-                            userProgress.is_completed = false;
-                            userProgress.is_claimed = false;
-                            userProgress.current_amount = 0;
-                        }
-                    } else {
-                        // Если времени нет в базе вообще — сбрасываем ради безопасности, 
-                        // иначе кнопка будет висеть, а бэкенд ее отклонит.
-                        userProgress.is_completed = false;
-                        userProgress.is_claimed = false;
-                        userProgress.current_amount = 0;
-                    }
-                }
-
-                let actionHtml = '';
-                
-                // 4. Отрисовка кнопки
-                if (userProgress.is_claimed) {
-                    actionHtml = `<div style="color: var(--success); font-size: 10px; font-weight: 800;"><i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО</div>`;
-                } else if (userProgress.is_completed) {
-                    actionHtml = `<button class="btn-claim ready" style="padding: 6px 12px; margin-top: 0; width: auto;" onclick="claimQuestReward(${cfg.quest_id})">ЗАБРАТЬ</button>`;
-                } else {
-                    actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
-                }
-
-                contentInner.innerHTML += `
-                    <div class="quest-card">
-                        <div class="quest-info">
-                            <h4 class="quest-title">${title}</h4>
-                            <p class="quest-desc">${desc}</p>
-                        </div>
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                            <div class="quest-reward">
-                                +${cfg.exp_reward} <i class="fa-solid fa-star"></i>
-                            </div>
-                            ${actionHtml}
-                        </div>
-                    </div>
-                `;
-            });
-
-            // ВОТ ЭТИХ СТРОК ТЕБЕ НЕ ХВАТАЛО!
-            dom.questsContainer.appendChild(weekBlock);
+    // Проверяем, есть ли в принципе прошлые недели
+    for (let i = 1; i <= maxWeek; i++) {
+        let weekEnd = new Date(startDate.getTime() + i * 7 * 24 * 60 * 60 * 1000 - 1000);
+        if (weekEnd > endDate) weekEnd = endDate;
+        if (now > weekEnd) {
+            hasPastWeeksAvailable = true;
         }
     }
+
+    for (let i = 1; i <= maxWeek; i++) {
+        const weekQuests = questsWithWeeks.filter(q => q.week === i);
+        if (weekQuests.length === 0) continue; 
+
+        let weekStart = new Date(startDate.getTime() + (i - 1) * 7 * 24 * 60 * 60 * 1000);
+        let weekEnd = new Date(startDate.getTime() + i * 7 * 24 * 60 * 60 * 1000 - 1000);
+        if (weekEnd > endDate) weekEnd = endDate;
+
+        let statusClass = '';
+        let statusText = '';
+        let isLocked = false;
+        let isExpanded = false;
+
+        if (now < weekStart) {
+            const diffDays = Math.ceil((weekStart - now) / (1000*60*60*24));
+            statusClass = 'status-locked';
+            statusText = `Через ${diffDays} дн.`;
+            isLocked = true;
+        } else if (now >= weekStart && now <= weekEnd) {
+            statusClass = 'status-active';
+            statusText = 'Текущая';
+            isExpanded = true; // Открыта только актуальная неделя
+        } else {
+            statusClass = 'status-past';
+            statusText = 'Доступна';
+            isExpanded = false; // Прошлые недели свернуты
+        }
+
+        // Если это текущая неделя и до неё были прошлые — выводим надпись со стрелочкой вверх
+        if (isExpanded && hasPastWeeksAvailable) {
+            const noticeBox = document.createElement('div');
+            noticeBox.className = 'past-weeks-notice';
+            noticeBox.innerHTML = '<i class="fa-solid fa-arrow-up"></i> Доступны задания других недель ↑';
+            dom.questsContainer.appendChild(noticeBox);
+        }
+
+        const weekBlock = document.createElement('div');
+        weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
+        
+        weekBlock.innerHTML = `
+            <div class="week-header ${isExpanded ? 'expanded' : ''}" onclick="toggleWeek(this)">
+                <div class="week-title-box">
+                    <div class="week-title">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span></div>
+                    <div class="week-dates"><i class="fa-regular fa-calendar"></i> ${weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})} - ${weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})}</div>
+                </div>
+                <div class="week-chevron">
+                    ${isLocked ? '<i class="fa-solid fa-lock" style="color:var(--text-muted)"></i>' : '<i class="fa-solid fa-chevron-down"></i>'}
+                </div>
+            </div>
+            <div class="week-content" style="max-height: ${isExpanded ? '2000px' : '0px'};">
+                <div class="week-content-inner"></div>
+            </div>
+        `;
+        
+        const contentInner = weekBlock.querySelector('.week-content-inner');
+
+        // Мапим прогресс
+        const processedQuests = weekQuests.map(cfg => {
+            const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
+            const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
+            const isRepeatable = questDetails ? questDetails.is_repeatable : false;
+
+            const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id));
+            let userProgress = rawProgress ? { ...rawProgress } : {
+                current_amount: 0,
+                target_amount: cfg.target_amount || 1,
+                is_completed: false,
+                is_claimed: false
+            };
+
+            if (userProgress.is_completed && isRepeatable) {
+                const timeStr = userProgress.updated_at || userProgress.created_at;
+                if (timeStr && new Date(timeStr) < weekStart) {
+                    userProgress.is_completed = false;
+                    userProgress.is_claimed = false;
+                    userProgress.current_amount = 0;
+                }
+            }
+            return { cfg, title, userProgress };
+        });
+
+        // Сортировка: выполненные и забранные квесты опускаем на дно списка недели
+        processedQuests.sort((a, b) => {
+            const aDone = a.userProgress.is_claimed ? 2 : (a.userProgress.is_completed ? 1 : 0);
+            const bDone = b.userProgress.is_claimed ? 2 : (b.userProgress.is_completed ? 1 : 0);
+            return aDone - bDone;
+        });
+
+        // Отрисовка без описаний (p.quest-desc удален)
+        processedQuests.forEach(({ cfg, title, userProgress }) => {
+            let actionHtml = '';
+            let cardClass = 'quest-card';
+            
+            if (userProgress.is_claimed) {
+                actionHtml = `<div style="color: var(--success); font-size: 10px; font-weight: 800;"><i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО</div>`;
+                cardClass += ' dimmed';
+            } else if (userProgress.is_completed) {
+                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id})">ЗАБРАТЬ</button>`;
+            } else {
+                actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
+            }
+
+            contentInner.innerHTML += `
+                <div class="${cardClass}">
+                    <div class="quest-info">
+                        <h4 class="quest-title">${title}</h4>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="quest-reward">
+                            +${cfg.exp_reward} <i class="fa-solid fa-star"></i>
+                        </div>
+                        ${actionHtml}
+                    </div>
+                </div>
+            `;
+        });
+
+        dom.questsContainer.appendChild(weekBlock);
+    }
+}
             
     window.claimReward = async function(level, type) {
         tg.MainButton.showProgress();
