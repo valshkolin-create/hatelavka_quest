@@ -1062,11 +1062,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const isRepeatable = questDetails ? questDetails.is_repeatable : false; // <--- ВЕРНУЛИ
 
             // Теперь ищем строго совпадение по quest_id И по week
-            const rawProgress = (userData.bp_quests || []).find(q => {
+            cconst rawProgress = (userData.bp_quests || []).find(q => {
             if (String(q.quest_id) !== String(cfg.quest_id)) return false;
             
-            // 1. Если неделя совпадает — это точное совпадение из новой системы БП
-            if (q.week === cfg.week) return true;
+            // 👇 ИСПРАВЛЕНО: Приводим к String, чтобы "1" и 1 совпадали
+            if (String(q.week) === String(cfg.week)) return true;
             
             // 2. Если недели нет (старая заслуга из quest_submissions)
             if (q.week == null) {
