@@ -59,15 +59,14 @@
             z-index: 1;
         }
 
-        .hero-top-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            align-items: center;
-            position: relative;
-            z-index: 2;
+        .hero-actions { 
+            display: flex; 
+            gap: 8px; /* Чуть уменьшили расстояние между кнопками */
+            width: 100%;
+            max-width: 200px; /* Было 320px. Теперь кнопки не будут длинными */
+            justify-content: center; 
         }
-
+        
         .hero-actions { 
             display: flex; 
             gap: 10px; 
@@ -76,8 +75,27 @@
             justify-content: center; 
         }
         
-        .btn-rules { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid var(--surface-border); color: var(--text-main); padding: 10px 15px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; flex: 1; }
-        .btn-rules:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
+       .btn-rules { 
+            background: rgba(0,0,0,0.6); 
+            backdrop-filter: blur(10px); 
+            border: 1px solid var(--surface-border); 
+            color: var(--text-main); 
+            padding: 5px 8px; /* Было 10px 15px. Уменьшили высоту и ширину */
+            border-radius: 8px; /* Сделали углы чуть острее для баланса */
+            font-size: 9px; /* Было 12px. Уменьшили текст и иконки */
+            font-weight: 700; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 4px; /* Придвинули иконку к тексту */
+            transition: 0.2s; 
+            flex: 1; 
+        }
+        .btn-rules:active { 
+            transform: scale(0.95); 
+            background: rgba(255,255,255,0.1); 
+        }
 
         .season-status-container {
             text-align: center;
