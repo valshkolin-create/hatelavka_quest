@@ -627,6 +627,40 @@
     50%, 90% { opacity: 1; transform: scale(1); text-shadow: 0 0 8px var(--primary-glow); } 
     100% { opacity: 0; transform: scale(0.9); } 
 }
+        /* --- Кнопка "Наверх" --- */
+        .scroll-to-top-btn {
+            position: fixed;
+            bottom: 90px; /* Отступ снизу, чтобы не перекрывать bottom-nav */
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #000;
+            border: none;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 900;
+            /* Плавное появление */
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.9);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .scroll-to-top-btn.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .scroll-to-top-btn:active {
+            transform: scale(0.85);
+        }
 
     </style>
 </head>
@@ -754,6 +788,10 @@
         </div>
     </div>
 
+    <button id="scroll-to-top" class="scroll-to-top-btn" onclick="scrollToTop()">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
 <script>
 window.haptic = function(style = 'light') {
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
@@ -778,6 +816,27 @@ window.openImageModal = function(src, title) {
     document.getElementById('enlarged-title').textContent = title || '';
     document.getElementById('image-modal').classList.add('modal-active');
 };
+
+    window.scrollToTop = function() {
+    haptic('medium');
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+};
+
+// Отслеживаем скролл, чтобы показывать/скрывать кнопку
+window.addEventListener('scroll', () => {
+    const scrollBtn = document.getElementById('scroll-to-top');
+    if (!scrollBtn) return;
+    
+    // Показываем кнопку, если проскроллили больше 300 пикселей вниз
+    if (window.scrollY > 300) {
+        scrollBtn.classList.add('visible');
+    } else {
+        scrollBtn.classList.remove('visible');
+    }
+}, { passive: true });
 
 window.toggleWeek = function(headerElement) {
     const isLocked = headerElement.parentElement.classList.contains('locked');
