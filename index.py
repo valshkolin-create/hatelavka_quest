@@ -9356,15 +9356,15 @@ async def get_current_user_data(
             # G. Прогресс квестов Баттл-пасса <--- ВСТАВИТЬ ЭТО
             supabase.get("/user_bp_quests", params={
                 "user_id": f"eq.{telegram_id}",
-                "select": "quest_id, current_amount, target_amount, is_completed, is_claimed"
+                "select": "quest_id, current_amount, target_amount, is_completed, is_claimed, updated_at, created_at"
             }),
 
             # H. Старые выполненные квесты (TikTok, Telegram и т.д.)
             supabase.get("/quest_submissions", params={
                 "user_id": f"eq.{telegram_id}",
                 "status": "eq.approved",
-                "select": "quest_id"
-            }),
+                "select": "quest_id, created_at"
+            }),,
             
             # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
@@ -9456,7 +9456,9 @@ async def get_current_user_data(
                     "current_amount": 1,
                     "target_amount": 1,
                     "is_completed": True,
-                    "is_claimed": False
+                    "is_claimed": False,
+                    "created_at": old_q.get("created_at"),
+                    "updated_at": old_q.get("created_at") # Дублируем для совместимости
                 })
 
         final_response['bp_quests'] = bp_quests_data
