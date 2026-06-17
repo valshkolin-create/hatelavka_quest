@@ -15259,7 +15259,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
 async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
     """
     Фоновый обработчик: ищет активное задание БП на текущей неделе по ключевому слову 
-    в названии (например, 'Отгадай' или 'подарков') и обновляет прогресс.
+    в названии (например, 'отгадай') и обновляет прогресс напрямую в БД.
     """
     try:
         # 1. Если передали только twitch_login (из отгадайки), находим TG ID
@@ -15305,13 +15305,38 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         # 5. Достаем N (сколько нужно сделать) из конфига
         target_amount = next((q.get("target_amount", 1) for q in week_quests if q["quest_id"] == target_quest_id), 1)
         
-        # 6. Вызываем наш SQL RPC для атомарного зачисления прогресса!
-        await supabase.post("/rpc/increment_bp_quest", json={
-            "p_user_id": tg_id,
-            "p_quest_id": target_quest_id,
-            "p_target_amount": target_amount
+        # 🔥 6. ОБНОВЛЯЕМ ПРОГРЕСС ПРЯМО В ПИТОНЕ (УБИЛИ RPC)
+        prog_res = await supabase.get("/user_bp_quests", params={
+            "user_id": f"eq.{tg_id}",
+            "quest_id": f"eq.{target_quest_id}",
+            "week": f"eq.{current_week}"
         })
         
+        if prog_res.status_code == 200 and prog_res.json():
+            # Запись уже существует (юзер уже угадывал слова)
+            q_data = prog_res.json()[0]
+            if q_data["is_completed"]: return # Квест уже сделан 3/3, не трогаем
+            
+            new_amount = q_data["current_amount"] + 1
+            is_completed = new_amount >= target_amount
+            
+            await supabase.patch("/user_bp_quests", params={"id": f"eq.{q_data['id']}"}, json={
+                "current_amount": new_amount,
+                "is_completed": is_completed
+            })
+        else:
+            # Это самое первое угаданное слово на этой неделе!
+            is_completed = 1 >= target_amount
+            await supabase.post("/user_bp_quests", json={
+                "user_id": tg_id,
+                "quest_id": target_quest_id,
+                "week": current_week,
+                "current_amount": 1,
+                "target_amount": target_amount,
+                "is_completed": is_completed,
+                "is_claimed": False
+            })
+            
     except Exception as e:
         logging.error(f"Ошибка в авто-квесте БП ({keyword}): {e}")
 
@@ -24460,7 +24485,7 @@ async def handle_fossabot_guess(
             guess_cache["round_winners"].append(twitch_display) # Сохраняем красивый ник
             background_tasks.add_task(supabase.post, "/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
             # 🔥 НОВОЕ: Прогресс задания БП (Ищем слово 'отгадай' в названии задания)
-            background_tasks.add_task(process_bp_auto_quest, supabase, "отгадай", None, twitch_login)
+            background_tasks.add_task(process_bp_auto_quest, supabase, "отгадай", twitch_login=twitch_login)
 
        # Первый запрос обновляет базу и отвечает в чат
         if is_first_blood:
