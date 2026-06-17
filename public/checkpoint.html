@@ -326,7 +326,21 @@
         .quest-info { flex: 1; }
         .quest-title { font-size: 12px; font-weight: 700; margin: 0 0 4px 0; }
         .quest-desc { font-size: 10px; color: var(--text-muted); margin: 0; line-height: 1.4; }
-        .quest-reward { background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: var(--primary); padding: 6px 10px; border-radius: 10px; font-weight: 800; font-size: 12px; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .quest-reward { 
+    background: rgba(255, 215, 0, 0.07); 
+    border: 1px solid rgba(255, 215, 0, 0.2); 
+    color: var(--primary); 
+    padding: 2px 6px; 
+    border-radius: 6px; 
+    font-weight: 800; 
+    font-size: 10px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 3px; 
+    flex-shrink: 0; 
+    min-width: 48px; /* Звездочки больше не бегают, строгий столбец! */
+}
 
         /* --- АККОРДЕОН ЗАДАНИЙ (НЕДЕЛИ) --- */
         .week-accordion {
@@ -487,7 +501,20 @@
 }
 
 .quest-info { flex: 1; min-width: 0; }
-.quest-title { font-size: 11px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 1. Текст в 2 ряда, чуть меньше и с переносом */
+.quest-title { 
+    font-size: 10px; 
+    font-weight: 600; 
+    margin: 0; 
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Ровно 2 строки */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal; /* Разрешаем перенос */
+    line-height: 1.3;
+    padding-right: 5px;
+}
 .quest-reward { background: rgba(255, 215, 0, 0.07); border: 1px solid rgba(255, 215, 0, 0.2); color: var(--primary); padding: 2px 6px; border-radius: 6px; font-weight: 800; font-size: 10px; display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
 
 #view-quests .btn-claim.ready {
@@ -537,13 +564,19 @@
 }
 
 /* Жесткое выравнивание правой части, чтобы убрать "лесенку" */
+/* 2. Правая часть теперь с фиксированными зонами */
 .quest-right-side {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 10px;
-    min-width: 125px; /* Фиксирует ширину правой части, выравнивая всё по линеечке */
+    gap: 8px;
     flex-shrink: 0;
+}
+
+.quest-action-box {
+    min-width: 65px; /* Фиксируем ширину, чтобы текст не дергал соседей */
+    display: flex;
+    justify-content: flex-end; /* Прижимаем к награде */
 }
 
 /* Текст-уведомление в шапке недели, если внутри есть что забрать */
@@ -637,7 +670,7 @@
 
                 <div class="level-text-container">
                     <div class="level-text">Уровень <span id="ui-current-level">0</span></div>
-                    <div id="ui-current-xp" style="font-size: 13px; color: var(--text-main); margin-top: 4px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px;">0 <i class="fa-solid fa-star" style="color: var(--primary);"></i></div>
+                    <div id="ui-current-xp" style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 6px;"></div>
                 </div>
 
                 <div class="track-headers">
@@ -850,8 +883,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const tiers = bpData?.tiers || [];
 
         dom.uiLevel.textContent = userData.checkpoint_level || 0;
+        
+        // Вычисляем, сколько нужно до следующего уровня
+        let nextTierReq = null;
+        for (let i = 0; i < Tiers.length; i++) {
+            if (parseFloat(Tiers[i].required_stars) > userStars) {
+                nextTierReq = parseFloat(Tiers[i].required_stars);
+                break;
+            }
+        }
+
         const xpText = document.getElementById('ui-current-xp');
-        if (xpText) xpText.innerHTML = `${userStars} <i class="fa-solid fa-star" style="color: var(--primary); font-size: 13px;"></i>`;
+        if (xpText) {
+            // Первая строчка: всего собрано (с маленькой звездочкой)
+            let textHtml = `<div style="font-size: 11px; color: var(--text-main); font-weight: 600;">Собрано: <span style="color: var(--primary); font-weight: 800;">${userStars}</span> <i class="fa-solid fa-star" style="color: var(--primary); font-size: 10px;"></i></div>`;
+            
+            // Вторая строчка: сколько осталось до следующего
+            if (nextTierReq !== null) {
+                let xpLeft = Math.round((nextTierReq - userStars) * 10) / 10; // Округляем на всякий случай
+                textHtml += `<div style="font-size: 9px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">До след. уровня: <span style="color: #fff;">${xpLeft}</span> <i class="fa-solid fa-star" style="font-size: 8px; opacity: 0.7;"></i></div>`;
+            } else {
+                textHtml += `<div style="font-size: 9px; color: var(--success); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Максимальный уровень 🏆</div>`;
+            }
+            
+            xpText.innerHTML = textHtml;
+        }
 
         if (hasPremium) {
             dom.buyPremiumBtn.innerHTML = '<i class="fa-solid fa-check"></i> Premium Активен';
@@ -1068,29 +1124,33 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (userProgress.is_claimed) {
                 actionHtml = `<div style="color: var(--text-muted); font-size: 10px; font-weight: 700;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
-                cardClass += ' dimmed'; // Падает вниз и блекнет
+                cardClass += ' dimmed';
             } else if (userProgress.is_completed) {
-                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id})">ЗАБРАТЬ</button>`;
-                cardClass += ' ready-to-claim'; // Взлетает вверх и пульсирует
+                // Добавили margin: 0, чтобы кнопка не уезжала
+                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id})" style="margin: 0;">ЗАБРАТЬ</button>`;
+                cardClass += ' ready-to-claim';
             } else {
                 actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
             }
 
-            // Класс quest-right-side гарантирует ровную вертикальную сетку
+            // Поменяли местами награду и условие
             contentInner.innerHTML += `
                 <div class="${cardClass}">
                     <div class="quest-info">
                         <h4 class="quest-title">${title}</h4>
                     </div>
                     <div class="quest-right-side">
+                        <div class="quest-action-box">
+                            ${actionHtml}
+                        </div>
                         <div class="quest-reward">
                             +${cfg.exp_reward} <i class="fa-solid fa-star"></i>
                         </div>
-                        ${actionHtml}
                     </div>
                 </div>
             `;
         });
+        
 
         dom.questsContainer.appendChild(weekBlock);
     }
