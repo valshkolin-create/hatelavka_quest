@@ -1070,8 +1070,23 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             if (userProgress.is_completed && isRepeatable) {
+                // Строго берем последнюю дату обновления прогресса
                 const timeStr = userProgress.updated_at || userProgress.created_at;
-                if (timeStr && new Date(timeStr) < weekStart) {
+                
+                if (timeStr) {
+                    const progressDate = new Date(timeStr);
+                    // Сбрасываем миллисекунды, чтобы сравнивать только дни
+                    progressDate.setHours(0, 0, 0, 0);
+                    const weekStartDate = new Date(weekStart);
+                    weekStartDate.setHours(0, 0, 0, 0);
+
+                    if (progressDate < weekStartDate) {
+                        userProgress.is_completed = false;
+                        userProgress.is_claimed = false;
+                        userProgress.current_amount = 0;
+                    }
+                } else {
+                    // Защита: если даты вообще нет, считаем старым
                     userProgress.is_completed = false;
                     userProgress.is_claimed = false;
                     userProgress.current_amount = 0;
