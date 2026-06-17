@@ -886,9 +886,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Вычисляем, сколько нужно до следующего уровня
         let nextTierReq = null;
-        for (let i = 0; i < Tiers.length; i++) {
-            if (parseFloat(Tiers[i].required_stars) > userStars) {
-                nextTierReq = parseFloat(Tiers[i].required_stars);
+        for (let i = 0; i < tiers.length; i++) {
+            if (parseFloat(tiers[i].required_stars) > userStars) {
+                nextTierReq = parseFloat(tiers[i].required_stars);
                 break;
             }
         }
