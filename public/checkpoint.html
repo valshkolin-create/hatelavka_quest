@@ -949,7 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             
-            const isFreeClaimed = claimedFree.includes(tier.level);
+            const isFreeClaimed = claimedFree.some(l => String(l) === String(tier.level));
             const isFreeEmpty = tier.free_reward.type === 'none';
             let freeBtnHtml = '';
             
@@ -958,7 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (isUnlocked && isSeasonActive) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">ЗАБРАТЬ</button>`;
             else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
 
-            const isPremClaimed = claimedPremium.includes(tier.level);
+            const isPremClaimed = claimedPremium.some(l => String(l) === String(tier.level));
             const isPremEmpty = tier.premium_reward.type === 'none';
             let premBtnHtml = '';
 
@@ -1196,33 +1196,46 @@ document.addEventListener('DOMContentLoaded', () => {
 }
             
     window.claimReward = async function(level, type) {
-        tg.MainButton.showProgress();
-        try {
-            const res = await fetch('/api/v1/checkpoint/claim', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, level: level, type: type })
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                tg.HapticFeedback.notificationOccurred('success');
-                tg.showAlert('Награда успешно получена!');
-                
-                const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
-                userData = await userRes.json();
-                renderBP(); 
-            } else {
-                tg.HapticFeedback.notificationOccurred('error');
-                tg.showAlert(data.detail || 'Ошибка при получении награды');
-            }
-        } catch (e) {
-            tg.showAlert('Сбой сети. Попробуйте позже.');
-        } finally {
-            tg.MainButton.hideProgress();
-        }
-    };
+    const lockKey = `bp_${level}_${type}`;
+    if (window.isClaiming[lockKey]) return; // 🛡 Жестко блокируем двойные клики
+    window.isClaiming[lockKey] = true;
 
+    haptic('medium');
+    tg.MainButton.showProgress();
+    
+    try {
+        const res = await fetch('/api/v1/checkpoint/claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: tg.initData, level: level, type: type })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('Награда успешно получена!');
+        } else {
+            tg.HapticFeedback.notificationOccurred('error');
+            tg.showAlert(data.detail || 'Ошибка при получении награды');
+        }
+
+        // 🚀 ГЛАВНЫЙ ФИКС: Запрашиваем новые данные В ЛЮБОМ СЛУЧАЕ!
+        const userRes = await fetch('/api/v1/user/me', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ initData: tg.initData }) 
+        });
+        userData = await userRes.json();
+        renderBP(); 
+        
+    } catch (e) {
+        tg.showAlert('Сбой сети. Попробуйте позже.');
+    } finally {
+        window.isClaiming[lockKey] = false; // Снимаем замок
+        tg.MainButton.hideProgress();
+    }
+};
+    
    window.isClaiming = window.isClaiming || {}; // Глобальный замок
 
 window.claimQuestReward = async function(questId, week) {
