@@ -627,19 +627,22 @@
     50%, 90% { opacity: 1; transform: scale(1); text-shadow: 0 0 8px var(--primary-glow); } 
     100% { opacity: 0; transform: scale(0.9); } 
 }
-        /* --- Кнопка "Наверх" --- */
+        /* --- Кнопка "Наверх" (Уменьшенная версия) --- */
         .scroll-to-top-btn {
             position: fixed;
             bottom: 90px; /* Отступ снизу, чтобы не перекрывать bottom-nav */
             right: 20px;
-            width: 44px;
-            height: 44px;
+            
+            /* 🔴 УМЕНЬШИЛИ РАЗМЕРЫ В ДВА РАЗА 🔴 */
+            width: 30px;
+            height: 30px;
+            font-size: 12px; /* Сделали саму стрелочку внутри меньше */
+            
             border-radius: 50%;
             background: var(--primary);
             color: #000;
             border: none;
-            box-shadow: 0 4px 15px var(--primary-glow);
-            font-size: 18px;
+            box-shadow: 0 4px 10px var(--primary-glow);
             display: flex;
             align-items: center;
             justify-content: center;
