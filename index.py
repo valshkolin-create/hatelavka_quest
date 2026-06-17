@@ -24480,12 +24480,17 @@ async def handle_fossabot_guess(
             guess_cache["round_winners"] = []           
             is_first_blood = True
             
-        # Начисляем очки всем, кто угадал в окне
+       # Начисляем очки всем, кто угадал в окне
         if twitch_display not in guess_cache["round_winners"]:
             guess_cache["round_winners"].append(twitch_display) # Сохраняем красивый ник
             background_tasks.add_task(supabase.post, "/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
-            # 🔥 НОВОЕ: Прогресс задания БП (Ищем слово 'отгадай' в названии задания)
-            background_tasks.add_task(process_bp_auto_quest, supabase, "отгадай", twitch_login=twitch_login)
+            
+            # 🔥 НОВОЕ: Безопасный вызов авто-квеста БП
+            try:
+                # Передаем None вместо tg_id, чтобы позиции аргументов точно совпали
+                background_tasks.add_task(process_bp_auto_quest, supabase, "отгадай", None, twitch_login)
+            except Exception as e:
+                print(f"DEBUG CRITICAL TASK ERROR: {e}")
 
        # Первый запрос обновляет базу и отвечает в чат
         if is_first_blood:
