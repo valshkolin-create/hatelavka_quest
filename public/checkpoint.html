@@ -186,6 +186,8 @@
             gap: 35px; 
             margin-bottom: 15px;
             position: relative;
+            /* 👇 ВОТ ЭТА СТРОЧКА ОТВЕЧАЕТ ЗА КАЛИБРОВКУ 👇 */
+            scroll-margin-top: 130px; /* Отступ от верхнего края при скролле */
         }
 
         /* ИДЕАЛЬНО СЦЕПЛЕННАЯ ЛИНИЯ НАГРАД */
@@ -1007,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             dom.rewardsContainer.appendChild(row);
         });
-       // 👇 ДОБАВЬ ЭТОТ БЛОК КОДА 👇
+       // 👇 ОБНОВЛЕННЫЙ БЛОК С РАБОЧИМ СКРОЛЛОМ 👇
         setTimeout(() => {
             const unlockedRows = dom.rewardsContainer.querySelectorAll('.tier-row.unlocked');
             
@@ -1015,20 +1017,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const lastUnlocked = unlockedRows[unlockedRows.length - 1];
                 const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
                 
-                // Вычисляем абсолютную позицию элемента на странице
-                const elementPosition = targetRow.getBoundingClientRect().top + window.scrollY;
-                
-                // 🎯 КАЛИБРОВКА ОТСТУПА (в пикселях)
-                // Чем БОЛЬШЕ это число, тем НИЖЕ на экране окажется элемент (скролл остановится раньше)
-                // Твои верхние табы занимают около 40-50px, 150px оставит приятный зазор.
-                const offset = 150; 
-                
-                window.scrollTo({
-                    top: elementPosition - offset,
-                    behavior: 'smooth'
-                });
+                // block: 'start' прижимает элемент к верху, 
+                // но CSS scroll-margin-top не даст ему залететь под табы!
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
-        }, 150);
+        }, 300); // Чуть увеличил таймаут до 300мс, чтобы картинки и DOM точно успели прогрузиться
         }
    function renderQuests() {
 
