@@ -1055,33 +1055,39 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.questsContainer.appendChild(noticeBox);
         }
         
-      // Предварительно обрабатываем и мапим прогресс квестов для этой недели
+     // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
             const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
-            // Теперь ищем строго совпадение по quest_id И по week
-            const rawProgress = (userData.bp_quests || []).find(q => {
-                if (String(q.quest_id) !== String(cfg.quest_id)) return false;
+            // 1. Ищем СТРОГОЕ совпадение по неделе (Приоритет №1)
+            let rawProgress = (userData.bp_quests || []).find(q => 
+                String(q.quest_id) === String(cfg.quest_id) && String(q.week) === String(cfg.week)
+            );
+
+            // 2. Если идеального совпадения нет, проверяем старые записи (week == null)
+            if (!rawProgress) {
+                const oldProgress = (userData.bp_quests || []).find(q => 
+                    String(q.quest_id) === String(cfg.quest_id) && q.week == null
+                );
                 
-                // ПРОТИРАЕМ ОЧКИ: Сравниваем недели как строки (защита от "1" !== 1)
-                if (String(q.week) === String(cfg.week)) return true;
-                
-                // Если недели нет (старая заслуга из quest_submissions)
-                if (q.week == null) {
-                    if (!isRepeatable) return true;
-                    
-                    const timeStr = q.updated_at || q.created_at;
-                    if (timeStr) {
-                        const progressDate = new Date(timeStr);
-                        return progressDate >= weekStart && progressDate <= weekEnd;
+                if (oldProgress) {
+                    if (!isRepeatable) {
+                        rawProgress = oldProgress;
+                    } else {
+                        const timeStr = oldProgress.updated_at || oldProgress.created_at;
+                        if (timeStr) {
+                            const progressDate = new Date(timeStr);
+                            if (progressDate >= weekStart && progressDate <= weekEnd) {
+                                rawProgress = oldProgress;
+                            }
+                        }
                     }
                 }
-                return false;
-            });
+            }
 
-            // ДОСТАЕМ РЕАЛЬНУЮ ЦЕЛЬ (чтобы было 200, а не 1)
+            // 3. ДОСТАЕМ РЕАЛЬНУЮ ЦЕЛЬ
             const actualTarget = cfg.target_value || (questDetails ? questDetails.target_value : null) || cfg.target_amount || 1;
 
             let userProgress = rawProgress ? { ...rawProgress } : {
@@ -1091,12 +1097,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_claimed: false
             };
 
-            // Если бэкенд почему-то прислал target_amount = 1, а реальная цель больше, чиним:
+            // Чиним цель, если бэкенд прислал дефолтную 1
             if (userProgress.target_amount === 1 && actualTarget > 1) {
                 userProgress.target_amount = actualTarget;
             }
 
-            // Защита: если квест многоразовый, а выполнение старое — сбрасываем статус
+            // 4. Сброс для многоразовых заданий
             if (userProgress.is_completed && isRepeatable) {
                 const timeStr = userProgress.updated_at || userProgress.created_at;
                 if (timeStr) {
