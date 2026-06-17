@@ -15107,6 +15107,68 @@ async def get_checkpoint_content(supabase: httpx.AsyncClient = Depends(get_supab
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+class BuyPremiumRequest(BaseModel):
+    initData: str
+
+@app.post("/api/v1/checkpoint/buy_premium")
+async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Авторизация
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    tg_id = user_info["id"]
+
+    # 2. Достаем конфиг Чекпоинта (БП) из БД
+    cp_res = await supabase.get("/settings", params={"key": "eq.checkpoint_config"})
+    if not cp_res.json():
+        raise HTTPException(status_code=400, detail="Настройки БП не найдены")
+    
+    config = cp_res.json()[0].get("value", {})
+    if isinstance(config, str):
+        import json
+        config = json.loads(config)
+
+    if not config.get("is_active"):
+        raise HTTPException(status_code=400, detail="Сезон БП сейчас не активен")
+
+    # Берем цену, которую ты указал в админке!
+    premium_price = int(config.get("premium_price", 0))
+    if premium_price <= 0:
+        raise HTTPException(status_code=400, detail="Покупка Premium отключена (цена 0)")
+
+    # 3. Проверяем юзера (монеты и наличие према)
+    u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id, has_cp_premium"})
+    user_data = u_res.json()
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    user = user_data[0]
+    if user.get("has_cp_premium"):
+        raise HTTPException(status_code=400, detail="У вас уже куплен Premium-статус!")
+
+    bott_id = user.get("bott_internal_id")
+    if not bott_id:
+        raise HTTPException(status_code=400, detail="Ошибка аккаунта: ID бота не найден")
+
+    # 4. Списываем монетки через нашу умную функцию
+    try:
+        await subtract_bott_balance(
+            bott_internal_id=bott_id, 
+            amount=premium_price, 
+            comment="Покупка HATElavka Premium (Battle Pass)"
+        )
+    except HTTPException as e:
+        # Прокидываем ошибку (например, "Недостаточно монет на балансе")
+        raise e
+    except Exception as e:
+        logging.error(f"Ошибка списания за Премиум БП: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при списании баланса")
+
+    # 5. Выдаем Premium юзеру
+    await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"has_cp_premium": True})
+
+    return {"status": "success", "message": "Premium успешно активирован!"}
+
 async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClient):
     """
     Синхронизирует прогресс автоматических заданий БП методом "Водопада".
