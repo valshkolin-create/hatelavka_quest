@@ -192,9 +192,17 @@
                 </div>
             </div>
 
-            <label style="margin-top: 15px;">Цена Premium пропуска (в монетах)</label>
-            <input type="number" id="cp_premium_price" placeholder="0" oninput="showSaveBtn()">
-            <p style="font-size: 11px; color: var(--text-sec); margin: 4px 0 10px;">Если 0 — премиум можно выдать только руками.</p>
+            <div style="display: flex; gap: 15px; margin-top: 15px;">
+                <div style="flex: 1;">
+                    <label>Цена Premium (Монеты)</label>
+                    <input type="number" id="cp_premium_price" placeholder="0" oninput="showSaveBtn()">
+                </div>
+                <div style="flex: 1;">
+                    <label style="color: var(--danger);">Цена Premium (Рубли)</label>
+                    <input type="number" id="cp_premium_price_rub" placeholder="0" oninput="showSaveBtn()">
+                </div>
+            </div>
+            <p style="font-size: 11px; color: var(--text-sec); margin: 4px 0 10px;">Если 0 — кнопка покупки за эту валюту будет скрыта.</p>
 
             <label>Ссылка на баннер главной</label>
             <div style="display: flex; gap: 8px; align-items: center;">
@@ -970,6 +978,7 @@
                 document.getElementById('cp_start_date').value = formatDateToInput(checkpointData.start_date);
                 document.getElementById('cp_end_date').value = formatDateToInput(checkpointData.end_date);
                 document.getElementById('cp_premium_price').value = checkpointData.premium_price || 0;
+                document.getElementById('cp_premium_price_rub').value = checkpointData.premium_price_rub || 0;
                 document.getElementById('cp_banner_url').value = checkpointData.banner_url || '';
                 updateBannerPreview();
 
@@ -1033,18 +1042,19 @@
             const startDateInput = document.getElementById('cp_start_date').value;
             const endDateInput = document.getElementById('cp_end_date').value;
 
-            // Формируем конфиг без лишней обертки, прямо как ждет бэкенд в config
+           // Формируем конфиг без лишней обертки, прямо как ждет бэкенд в config
             const configPayload = {
                 is_active: document.getElementById('cp_is_active').checked,
                 title: document.getElementById('cp_title').value,
                 start_date: startDateInput ? new Date(startDateInput).toISOString() : null,
                 end_date: endDateInput ? new Date(endDateInput).toISOString() : null,
                 premium_price: parseInt(document.getElementById('cp_premium_price').value) || 0,
+                premium_price_rub: parseFloat(document.getElementById('cp_premium_price_rub').value) || 0,
                 banner_url: document.getElementById('cp_banner_url').value,
                 tiers: tiers,
                 quests_config: extractQuestsData() 
             };
-
+            
             tg.MainButton.showProgress();
             try {
                 // Добавляем параметр platform, как того требует Pydantic модель!
