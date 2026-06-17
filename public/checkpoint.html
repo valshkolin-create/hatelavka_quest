@@ -1056,7 +1056,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
       // Предварительно обрабатываем и мапим прогресс квестов для этой недели
-        // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
@@ -1066,10 +1065,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawProgress = (userData.bp_quests || []).find(q => {
                 if (String(q.quest_id) !== String(cfg.quest_id)) return false;
                 
-                // 1. Сравниваем недели как строки (защита от "1" !== 1)
+                // ПРОТИРАЕМ ОЧКИ: Сравниваем недели как строки (защита от "1" !== 1)
                 if (String(q.week) === String(cfg.week)) return true;
                 
-                // 2. Если недели нет (старая заслуга из quest_submissions)
+                // Если недели нет (старая заслуга из quest_submissions)
                 if (q.week == null) {
                     if (!isRepeatable) return true;
                     
@@ -1082,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             });
 
-            // 👇 ИСПРАВЛЕНИЕ: Ищем правильную цель. Сначала target_value из базы, потом из конфига БП
+            // ДОСТАЕМ РЕАЛЬНУЮ ЦЕЛЬ (чтобы было 200, а не 1)
             const actualTarget = cfg.target_value || (questDetails ? questDetails.target_value : null) || cfg.target_amount || 1;
 
             let userProgress = rawProgress ? { ...rawProgress } : {
@@ -1092,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_claimed: false
             };
 
-            // Если бэкенд почему-то прислал target_amount = 1, а реальная цель больше (например 200), чиним:
+            // Если бэкенд почему-то прислал target_amount = 1, а реальная цель больше, чиним:
             if (userProgress.target_amount === 1 && actualTarget > 1) {
                 userProgress.target_amount = actualTarget;
             }
