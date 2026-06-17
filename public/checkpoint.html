@@ -562,6 +562,37 @@
     gap: 3px;
 }
 
+        /* --- Анимация вкладки Заданий --- */
+.quest-tab-label {
+    display: inline-grid;
+    place-items: center;
+}
+.quest-tab-label > span {
+    grid-area: 1 / 1; /* Накладываем тексты друг на друга */
+    transition: opacity 0.4s;
+    font-weight: 700;
+}
+.label-reward { 
+    opacity: 0; 
+    color: var(--primary); 
+}
+
+/* Класс, который JS повесит на кнопку, если есть награды */
+.has-rewards-anim .label-normal { animation: fade-normal 3.5s infinite; }
+.has-rewards-anim .label-reward { animation: fade-reward 3.5s infinite; }
+.has-rewards-anim { border-color: rgba(255, 215, 0, 0.3) !important; background: rgba(255, 215, 0, 0.05) !important; }
+
+@keyframes fade-normal { 
+    0%, 40% { opacity: 1; transform: scale(1); } 
+    50%, 90% { opacity: 0; transform: scale(0.9); } 
+    100% { opacity: 1; transform: scale(1); } 
+}
+@keyframes fade-reward { 
+    0%, 40% { opacity: 0; transform: scale(1.1); } 
+    50%, 90% { opacity: 1; transform: scale(1); text-shadow: 0 0 8px var(--primary-glow); } 
+    100% { opacity: 0; transform: scale(0.9); } 
+}
+
     </style>
 </head>
 <body>
@@ -590,10 +621,14 @@
 
         <div class="top-tabs-wrapper">
             <button class="top-tab active" onclick="switchBPView('rewards')">
-                <i class="fa-solid fa-gift"></i> Награды
+                <i class="fa-solid fa-crown"></i> BattlePass
             </button>
-            <button class="top-tab" onclick="switchBPView('quests')">
-                <i class="fa-solid fa-list-check"></i> Задания
+            <button class="top-tab" id="tab-quests-btn" onclick="switchBPView('quests')">
+                <i class="fa-solid fa-list-check"></i> 
+                <div class="quest-tab-label">
+                    <span class="label-normal">Задания</span>
+                    <span class="label-reward">Есть награда</span>
+                </div>
             </button>
         </div>
 
@@ -902,6 +937,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
    function renderQuests() {
+
+    let globalHasRewards = false; // <--- ДОБАВИТЬ ЭТУ СТРОКУ
     if (!bpData || !bpData.quests_config || bpData.quests_config.length === 0) {
         dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); margin-top: 4px;">Задания для Чекпоинта пока не привязаны.</p>';
         return;
@@ -937,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let statusClass = '';
         let statusText = '';
         let isLocked = false;
-        let isExpanded = false;
+        let isExpanded = false; // Всегда false по умолчанию
 
         if (now < weekStart) {
             const diffDays = Math.ceil((weekStart - now) / (1000*60*60*24));
@@ -947,20 +984,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (now >= weekStart && now <= weekEnd) {
             statusClass = 'status-active';
             statusText = 'Текущая';
-            isExpanded = true;
+            // isExpanded = true; <-- УБРАЛИ, теперь текущая неделя тоже закрыта
         } else {
             statusClass = 'status-past';
             statusText = 'Доступна';
-            isExpanded = false;
         }
 
-        if (isExpanded && hasPastWeeksAvailable) {
+        // 🚀 ИСПРАВЛЕНИЕ: Плашка о прошлых неделях теперь показывается над "Текущей", 
+        // даже если она свернута (раньше она была привязана к isExpanded)
+        if (statusClass === 'status-active' && hasPastWeeksAvailable) {
             const noticeBox = document.createElement('div');
             noticeBox.className = 'past-weeks-notice';
             noticeBox.innerHTML = '<i class="fa-solid fa-arrow-up"></i> Доступны задания других недель ↑';
             dom.questsContainer.appendChild(noticeBox);
         }
-
+        
         // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
@@ -988,6 +1026,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Считаем, есть ли в этой неделе задания, готовые к выдаче награды
         const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed);
+
+        if (hasRewardsToClaim) globalHasRewards = true; // <--- ДОБАВИТЬ ЭТУ СТРОКУ
         
         // Маленький динамический текст-индикатор для шапки аккордеона
         const rewardAlertHtml = (hasRewardsToClaim && !isLocked) ? `<span class="week-claim-alert"><i class="fa-solid fa-gift"></i> Есть награда</span>` : '';
@@ -1054,6 +1094,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.questsContainer.appendChild(weekBlock);
     }
+       // <--- ДОБАВИТЬ ЭТОТ БЛОК В КОНЕЦ ФУНКЦИИ --->
+    const questsBtn = document.getElementById('tab-quests-btn');
+    if (questsBtn) {
+        if (globalHasRewards) {
+            questsBtn.classList.add('has-rewards-anim');
+        } else {
+            questsBtn.classList.remove('has-rewards-anim');
+        }
+    }
+    // <--- КОНЕЦ ВСТАВКИ --->
 }
             
     window.claimReward = async function(level, type) {
