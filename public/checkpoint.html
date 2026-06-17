@@ -59,14 +59,11 @@
             z-index: 1;
         }
 
-        .hero-actions { 
+        hero-actions { 
             display: flex; 
-            gap: 10px; 
-            width: 100%;
-            max-width: 220px; /* Чуть-чуть добавили ширины для комфорта */
-            justify-content: center; 
-            
-            /* 👇 ВЫТАСКИВАЕМ ПОВЕРХ ВООБЩЕ ВСЕХ СЛОЕВ 👇 */
+            width: 100%; /* Контейнер занимает всю ширину */
+            justify-content: space-between; /* Жестко расталкиваем одну влево, другую вправо */
+            align-items: center; /* Идеально центрируем их по вертикали */
             position: relative;
             z-index: 20; 
         }
@@ -76,9 +73,7 @@
             backdrop-filter: blur(10px); 
             border: 1px solid var(--surface-border); 
             color: var(--text-main); 
-            
-            /* 👇 Оптимальный размер для тапа на телефоне */
-            padding: 8px 10px; 
+            padding: 8px 12px; /* Чуть добавил боковых отступов, чтобы они не казались квадратами */
             border-radius: 10px; 
             font-size: 10px; 
             font-weight: 700; 
@@ -88,17 +83,15 @@
             justify-content: center; 
             gap: 5px; 
             transition: 0.2s; 
-            flex: 1; 
-            
-            /* 👇 Строго разрешаем клики 👇 */
             pointer-events: auto;
+            /* ВАЖНО: мы убрали 'flex: 1', поэтому теперь их размер зависит только от текста и отступов */
         }
         
         .btn-rules:active { 
             transform: scale(0.95); 
             background: rgba(255,255,255,0.1); 
         }
-
+        
         .season-status-container {
             text-align: center;
         }
