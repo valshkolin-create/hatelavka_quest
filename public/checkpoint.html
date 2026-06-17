@@ -524,6 +524,44 @@
         .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* Мягкое неоновое свечение для готовых к забиранию квестов */
+@keyframes quest-pulse {
+    0% { border-color: rgba(50, 215, 75, 0.2); box-shadow: 0 0 4px rgba(50, 215, 75, 0.05); }
+    50% { border-color: rgba(50, 215, 75, 0.6); box-shadow: 0 0 10px rgba(50, 215, 75, 0.2); }
+    100% { border-color: rgba(50, 215, 75, 0.2); box-shadow: 0 0 4px rgba(50, 215, 75, 0.05); }
+}
+
+.quest-card.ready-to-claim {
+    animation: quest-pulse 2s infinite ease-in-out;
+    background: linear-gradient(90deg, rgba(50, 215, 75, 0.02) 0%, rgba(50, 215, 75, 0.05) 100%);
+}
+
+/* Жесткое выравнивание правой части, чтобы убрать "лесенку" */
+.quest-right-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    min-width: 125px; /* Фиксирует ширину правой части, выравнивая всё по линеечке */
+    flex-shrink: 0;
+}
+
+/* Текст-уведомление в шапке недели, если внутри есть что забрать */
+.week-claim-alert {
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+    background: rgba(255, 215, 0, 0.15);
+    color: var(--primary);
+    padding: 2px 6px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
     </style>
 </head>
 <body>
@@ -863,9 +901,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderQuests() {
+   function renderQuests() {
     if (!bpData || !bpData.quests_config || bpData.quests_config.length === 0) {
-        dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Задания для Чекпоинта пока не привязаны.</p>';
+        dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); margin-top: 4px;">Задания для Чекпоинта пока не привязаны.</p>';
         return;
     }
 
@@ -880,7 +918,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let hasPastWeeksAvailable = false;
 
-    // Проверяем, есть ли в принципе прошлые недели
     for (let i = 1; i <= maxWeek; i++) {
         let weekEnd = new Date(startDate.getTime() + i * 7 * 24 * 60 * 60 * 1000 - 1000);
         if (weekEnd > endDate) weekEnd = endDate;
@@ -910,14 +947,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (now >= weekStart && now <= weekEnd) {
             statusClass = 'status-active';
             statusText = 'Текущая';
-            isExpanded = true; // Открыта только актуальная неделя
+            isExpanded = true;
         } else {
             statusClass = 'status-past';
             statusText = 'Доступна';
-            isExpanded = false; // Прошлые недели свернуты
+            isExpanded = false;
         }
 
-        // Если это текущая неделя и до неё были прошлые — выводим надпись со стрелочкой вверх
         if (isExpanded && hasPastWeeksAvailable) {
             const noticeBox = document.createElement('div');
             noticeBox.className = 'past-weeks-notice';
@@ -925,27 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.questsContainer.appendChild(noticeBox);
         }
 
-        const weekBlock = document.createElement('div');
-        weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
-        
-        weekBlock.innerHTML = `
-            <div class="week-header ${isExpanded ? 'expanded' : ''}" onclick="toggleWeek(this)">
-                <div class="week-title-box">
-                    <div class="week-title">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span></div>
-                    <div class="week-dates"><i class="fa-regular fa-calendar"></i> ${weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})} - ${weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})}</div>
-                </div>
-                <div class="week-chevron">
-                    ${isLocked ? '<i class="fa-solid fa-lock" style="color:var(--text-muted)"></i>' : '<i class="fa-solid fa-chevron-down"></i>'}
-                </div>
-            </div>
-            <div class="week-content" style="max-height: ${isExpanded ? '2000px' : '0px'};">
-                <div class="week-content-inner"></div>
-            </div>
-        `;
-        
-        const contentInner = weekBlock.querySelector('.week-content-inner');
-
-        // Мапим прогресс
+        // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
@@ -970,33 +986,63 @@ document.addEventListener('DOMContentLoaded', () => {
             return { cfg, title, userProgress };
         });
 
-        // Сортировка: выполненные и забранные квесты опускаем на дно списка недели
+        // Считаем, есть ли в этой неделе задания, готовые к выдаче награды
+        const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed);
+        
+        // Маленький динамический текст-индикатор для шапки аккордеона
+        const rewardAlertHtml = (hasRewardsToClaim && !isLocked) ? `<span class="week-claim-alert"><i class="fa-solid fa-gift"></i> Есть награда</span>` : '';
+
+        // 🚀 СОРТИРОВКА: ЗАБРАТЬ (0) -> В ПРОЦЕССЕ (1) -> ПОЛУЧЕНО (2)
         processedQuests.sort((a, b) => {
-            const aDone = a.userProgress.is_claimed ? 2 : (a.userProgress.is_completed ? 1 : 0);
-            const bDone = b.userProgress.is_claimed ? 2 : (b.userProgress.is_completed ? 1 : 0);
-            return aDone - bDone;
+            const getPriority = (p) => {
+                if (p.is_completed && !p.is_claimed) return 0; // Сверху
+                if (!p.is_completed && !p.is_claimed) return 1; // Середина
+                return 2; // Снизу
+            };
+            return getPriority(a.userProgress) - getPriority(b.userProgress);
         });
 
-        // Отрисовка без описаний (p.quest-desc удален)
+        const weekBlock = document.createElement('div');
+        weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
+        
+        weekBlock.innerHTML = `
+            <div class="week-header ${isExpanded ? 'expanded' : ''}" onclick="toggleWeek(this)">
+                <div class="week-title-box">
+                    <div class="week-title">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span> ${rewardAlertHtml}</div>
+                    <div class="week-dates"><i class="fa-regular fa-calendar"></i> ${weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})} - ${weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})}</div>
+                </div>
+                <div class="week-chevron">
+                    ${isLocked ? '<i class="fa-solid fa-lock" style="color:var(--text-muted)"></i>' : '<i class="fa-solid fa-chevron-down"></i>'}
+                </div>
+            </div>
+            <div class="week-content" style="max-height: ${isExpanded ? '2000px' : '0px'};">
+                <div class="week-content-inner"></div>
+            </div>
+        `;
+        
+        const contentInner = weekBlock.querySelector('.week-content-inner');
+
         processedQuests.forEach(({ cfg, title, userProgress }) => {
             let actionHtml = '';
             let cardClass = 'quest-card';
             
             if (userProgress.is_claimed) {
-                actionHtml = `<div style="color: var(--success); font-size: 10px; font-weight: 800;"><i class="fa-solid fa-check-double"></i> ПОЛУЧЕНО</div>`;
-                cardClass += ' dimmed';
+                actionHtml = `<div style="color: var(--text-muted); font-size: 10px; font-weight: 700;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
+                cardClass += ' dimmed'; // Падает вниз и блекнет
             } else if (userProgress.is_completed) {
                 actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id})">ЗАБРАТЬ</button>`;
+                cardClass += ' ready-to-claim'; // Взлетает вверх и пульсирует
             } else {
                 actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
             }
 
+            // Класс quest-right-side гарантирует ровную вертикальную сетку
             contentInner.innerHTML += `
                 <div class="${cardClass}">
                     <div class="quest-info">
                         <h4 class="quest-title">${title}</h4>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="quest-right-side">
                         <div class="quest-reward">
                             +${cfg.exp_reward} <i class="fa-solid fa-star"></i>
                         </div>
