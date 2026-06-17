@@ -1007,24 +1007,28 @@ document.addEventListener('DOMContentLoaded', () => {
             
             dom.rewardsContainer.appendChild(row);
         });
-        // 👇 ДОБАВЬ ЭТОТ БЛОК КОДА 👇
+       // 👇 ДОБАВЬ ЭТОТ БЛОК КОДА 👇
         setTimeout(() => {
-            // Находим все разблокированные уровни
             const unlockedRows = dom.rewardsContainer.querySelectorAll('.tier-row.unlocked');
             
             if (unlockedRows.length > 0) {
-                // Берем самый последний открытый уровень
                 const lastUnlocked = unlockedRows[unlockedRows.length - 1];
-                
-                // Целимся на следующий (закрытый) уровень, чтобы игрок видел, к чему стремиться.
-                // Если открыты все уровни — скроллим к самому последнему.
                 const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
                 
-                // Плавно прокручиваем, центрируя элемент на экране
-                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Вычисляем абсолютную позицию элемента на странице
+                const elementPosition = targetRow.getBoundingClientRect().top + window.scrollY;
+                
+                // 🎯 КАЛИБРОВКА ОТСТУПА (в пикселях)
+                // Чем БОЛЬШЕ это число, тем НИЖЕ на экране окажется элемент (скролл остановится раньше)
+                // Твои верхние табы занимают около 40-50px, 150px оставит приятный зазор.
+                const offset = 150; 
+                
+                window.scrollTo({
+                    top: elementPosition - offset,
+                    behavior: 'smooth'
+                });
             }
-        }, 150); // Таймаут нужен, чтобы браузер успел отрисовать новые элементы в DOM
-    }
+        }, 150);
 
    function renderQuests() {
 
