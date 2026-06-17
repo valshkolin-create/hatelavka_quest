@@ -1103,7 +1103,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 userProgress.target_amount = actualTarget;
             }
 
-            // Никаких дополнительных сбросов! Если нашли данные — верим им.
+            // 🛑 ВЫРЕЗАЛИ ЗЛОСЧАСТНЫЙ СБРОС ДАТ! 
+            // Теперь мы просто верим базе: если rawProgress найден и там is_completed = true, кнопка 100% будет зеленой.
+            
             return { cfg, title, userProgress };
         });
         
@@ -1221,38 +1223,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.claimQuestReward = async function(questId, week) { // <--- ДОБАВИЛИ НЕДЕЛЮ
-        haptic('medium');
-        tg.MainButton.showProgress();
-        try {
-            const res = await fetch('/api/v1/checkpoint/quest/claim', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, quest_id: questId, week: week }) // <--- ОТПРАВЛЯЕМ НЕДЕЛЮ
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                tg.HapticFeedback.notificationOccurred('success');
-                tg.showAlert(`Отлично! Получено +${data.earned_exp} EXP`);
-                
-                // Перезапрашиваем данные юзера, чтобы обновить EXP и интерфейс
-                const userRes = await fetch('/api/v1/user/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData }) });
-                userData = await userRes.json();
-                
-                renderBP();     // Обновляем шкалу уровней
-                renderQuests(); // Обновляем статусы заданий
-            } else {
-                tg.HapticFeedback.notificationOccurred('error');
-                tg.showAlert(data.detail || 'Ошибка при получении награды');
-            }
-        } catch (e) {
-            tg.showAlert('Сбой сети. Попробуйте позже.');
-        } finally {
-            tg.MainButton.hideProgress();
-        }
-    };
+   window.isClaiming = window.isClaiming || {}; // Глобальный замок
 
+window.claimQuestReward = async function(questId, week) {
+    if (window.isClaiming[questId]) return; // 🛡 Жестко блокируем двойные клики
+    window.isClaiming[questId] = true;
+    
+    haptic('medium');
+    tg.MainButton.showProgress();
+    try {
+        const res = await fetch('/api/v1/checkpoint/quest/claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: tg.initData, quest_id: questId, week: week }) 
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert(`Отлично! Получено +${data.earned_exp} EXP`);
+        } else {
+            tg.HapticFeedback.notificationOccurred('error');
+            tg.showAlert(data.detail || 'Ошибка при получении награды');
+        }
+
+        // 🚀 ГЛАВНЫЙ ФИКС: Запрашиваем новые данные В ЛЮБОМ СЛУЧАЕ!
+        // Даже если вылезла ошибка 400, мы должны обновить фронтенд актуальными данными из БД
+        const userRes = await fetch('/api/v1/user/me', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ initData: tg.initData }) 
+        });
+        userData = await userRes.json();
+        
+        renderBP();     // Обновляем шкалу уровней
+        renderQuests(); // Обновляем статусы заданий (кнопка станет серой)
+
+    } catch (e) {
+        tg.showAlert('Сбой сети. Попробуйте позже.');
+    } finally {
+        window.isClaiming[questId] = false; // Снимаем замок
+        tg.MainButton.hideProgress();
+    }
+};
     dom.buyPremiumBtn.addEventListener('click', () => {
         haptic('medium');
         if (!bpData || !bpData.is_active) {
