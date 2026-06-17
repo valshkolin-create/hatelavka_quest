@@ -61,37 +61,39 @@
 
         .hero-actions { 
             display: flex; 
-            gap: 8px; /* Чуть уменьшили расстояние между кнопками */
-            width: 100%;
-            max-width: 200px; /* Было 320px. Теперь кнопки не будут длинными */
-            justify-content: center; 
-        }
-        
-        .hero-actions { 
-            display: flex; 
             gap: 10px; 
             width: 100%;
-            max-width: 320px;
+            max-width: 220px; /* Чуть-чуть добавили ширины для комфорта */
             justify-content: center; 
+            
+            /* 👇 ВЫТАСКИВАЕМ ПОВЕРХ ВООБЩЕ ВСЕХ СЛОЕВ 👇 */
+            position: relative;
+            z-index: 20; 
         }
         
-       .btn-rules { 
+        .btn-rules { 
             background: rgba(0,0,0,0.6); 
             backdrop-filter: blur(10px); 
             border: 1px solid var(--surface-border); 
             color: var(--text-main); 
-            padding: 5px 8px; /* Было 10px 15px. Уменьшили высоту и ширину */
-            border-radius: 8px; /* Сделали углы чуть острее для баланса */
-            font-size: 9px; /* Было 12px. Уменьшили текст и иконки */
+            
+            /* 👇 Оптимальный размер для тапа на телефоне */
+            padding: 8px 10px; 
+            border-radius: 10px; 
+            font-size: 10px; 
             font-weight: 700; 
             cursor: pointer; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            gap: 4px; /* Придвинули иконку к тексту */
+            gap: 5px; 
             transition: 0.2s; 
             flex: 1; 
+            
+            /* 👇 Строго разрешаем клики 👇 */
+            pointer-events: auto;
         }
+        
         .btn-rules:active { 
             transform: scale(0.95); 
             background: rgba(255,255,255,0.1); 
