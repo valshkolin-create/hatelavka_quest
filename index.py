@@ -15414,7 +15414,6 @@ async def claim_bp_quest(
             raise HTTPException(status_code=400, detail="Баттл-пасс не настроен (нет даты старта)")
             
         bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
-        # Прибавляем дни: для 1 недели +0 дней, для 2 недели +7 дней и т.д.
         week_start_date = bp_start_date + timedelta(days=(quest_week - 1) * 7)
         week_start_iso = week_start_date.isoformat()
 
@@ -15424,12 +15423,15 @@ async def claim_bp_quest(
         if q_db_res.status_code == 200 and q_db_res.json():
             is_repeatable = q_db_res.json()[0].get("is_repeatable", False)
 
-        # 3. ИЩЕМ ПРОГРЕСС СТРОГО ДЛЯ ТЕКУЩЕЙ НЕДЕЛИ
-        quest_res = await supabase.get("/user_bp_quests", params={
+        # 3. ИЩЕМ ПРОГРЕСС (🔥 УМНЫЙ ФИЛЬТР БЕЗ ЖЕСТКОЙ НЕДЕЛИ ДЛЯ РАЗОВЫХ)
+        query_params = {
             "user_id": f"eq.{tg_id}", 
-            "quest_id": f"eq.{req.quest_id}",
-            "week": f"eq.{req.week}" # <--- Добавили строгий фильтр недели
-        })
+            "quest_id": f"eq.{req.quest_id}"
+        }
+        if is_repeatable:
+            query_params["week"] = f"eq.{req.week}"
+            
+        quest_res = await supabase.get("/user_bp_quests", params=query_params)
         
         is_completed = False
         is_claimed = False
@@ -15449,17 +15451,15 @@ async def claim_bp_quest(
                     is_claimed = False
         else:
             # 🚀 Ищем в старой классической системе квестов с УМНЫМ ФИЛЬТРОМ
-            query_params = {
+            subs_query = {
                 "user_id": f"eq.{tg_id}", 
                 "quest_id": f"eq.{req.quest_id}", 
                 "status": "eq.approved"
             }
-            
-            # Добавляем фильтр по дате ТОЛЬКО для многоразовых заданий
             if is_repeatable:
-                query_params["created_at"] = f"gte.{week_start_iso}"
+                subs_query["created_at"] = f"gte.{week_start_iso}"
                 
-            subs_res = await supabase.get("/quest_submissions", params=query_params)
+            subs_res = await supabase.get("/quest_submissions", params=subs_query)
             
             if subs_res.status_code == 200 and subs_res.json():
                 is_completed = True
@@ -15471,23 +15471,26 @@ async def claim_bp_quest(
         if is_claimed:
             raise HTTPException(status_code=400, detail="Награда уже получена")
 
-        # 4. Сохраняем статус "Получено" с привязкой к конкретной неделе
+        # 4. СОХРАНЯЕМ СТАТУС (🔥 УМНОЕ ОБНОВЛЕНИЕ)
         if is_retroactive:
             await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id, 
                 "quest_id": req.quest_id, 
-                "week": req.week, # <--- Записываем неделю для новой строки
+                "week": req.week if is_repeatable else None, # <--- Разовым ставим null
                 "current_amount": 1, 
                 "target_amount": 1, 
                 "is_completed": True, 
                 "is_claimed": True
             })
         else:
-            await supabase.patch("/user_bp_quests", params={
+            patch_params = {
                 "user_id": f"eq.{tg_id}", 
-                "quest_id": f"eq.{req.quest_id}",
-                "week": f"eq.{req.week}" # <--- Обновляем запись строго этой недели
-            }, json={"is_claimed": True})
+                "quest_id": f"eq.{req.quest_id}"
+            }
+            if is_repeatable:
+                patch_params["week"] = f"eq.{req.week}"
+
+            await supabase.patch("/user_bp_quests", params=patch_params, json={"is_claimed": True})
 
         # 5. Выдаем EXP
         user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
