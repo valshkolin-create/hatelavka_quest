@@ -484,10 +484,22 @@
                         displayName = displayName.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '');
                     }
                     
+                    // 🔥 ДОБАВЛЕНО: Считываем статус и выбираем цвет/иконку
+                    const isSecret = t.is_secret;
+                    const eyeIcon = isSecret ? 'fa-eye-slash' : 'fa-eye';
+                    const eyeColor = isSecret ? 'color: var(--danger);' : 'color: var(--text-sec);';
+                    
                     const div = document.createElement('div');
                     div.className = 'case-folder';
+                    div.style.position = 'relative'; // 🔥 ДОБАВЛЕНО: Для позиционирования глазика
                     div.onclick = () => openCaseView(t.name);
+                    
+                    // 🔥 ДОБАВЛЕНО: Кнопка с глазиком внутри innerHTML
                     div.innerHTML = `
+                        <button onclick="toggleCaseSecret(event, '${t.name.replace(/'/g, "\\'")}')" 
+                                style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.4); border: none; ${eyeColor} font-size: 12px; cursor: pointer; z-index: 10; padding: 6px; border-radius: 6px; transition: 0.2s;">
+                            <i class="fa-solid ${eyeIcon}"></i>
+                        </button>
                         <div class="folder-icon"><i class="fa-solid fa-briefcase"></i></div>
                         <div class="folder-name">${displayName}</div>
                         <div class="folder-count">${t.count} скинов</div>
@@ -1053,6 +1065,50 @@
             }
             btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i>';
         }
+        // --- ПЕРЕКЛЮЧЕНИЕ СЕКРЕТНОСТИ КЕЙСА ---
+        window.toggleCaseSecret = async function(event, caseName) {
+            event.stopPropagation(); // Чтобы при клике на глазик не открывалась сама папка кейса
+            
+            const btn = event.currentTarget;
+            const icon = btn.querySelector('i');
+            
+            // Включаем крутилку загрузки
+            icon.className = 'fa-solid fa-spinner fa-spin';
+            icon.style.color = 'var(--text-sec)';
+            
+            try {
+                const res = await fetch('/api/v1/admin/cases/toggle_secret', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        initData: tg.initData, 
+                        case_name: caseName 
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    // Меняем иконку на основе того, что вернул бэкенд
+                    if (data.is_secret) {
+                        icon.className = 'fa-solid fa-eye-slash';
+                        btn.style.color = 'var(--danger)';
+                    } else {
+                        icon.className = 'fa-solid fa-eye';
+                        btn.style.color = 'var(--text-sec)';
+                    }
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                        Telegram.WebApp.HapticFeedback.selectionChanged();
+                    }
+                } else {
+                    // Если бэкенд выдал ошибку, просто перерисовываем все кейсы как было
+                    loadCases();
+                }
+            } catch (e) {
+                console.error("Ошибка при скрытии кейса:", e);
+                loadCases(); 
+            }
+        };
     </script>
 </body>
 </html>
