@@ -24480,7 +24480,7 @@ async def handle_fossabot_guess(
             guess_cache["round_winners"] = []           
             is_first_blood = True
             
-       # Начисляем очки всем, кто угадал в окне
+        # Начисляем очки всем, кто угадал в окне
         if twitch_display not in guess_cache["round_winners"]:
             guess_cache["round_winners"].append(twitch_display) # Сохраняем красивый ник
             background_tasks.add_task(supabase.post, "/rpc/increment_guess_score", json={"p_twitch_login": twitch_login})
