@@ -9443,22 +9443,23 @@ async def get_current_user_data(
         old_quests_data = old_quests_resp.json() if not isinstance(old_quests_resp, Exception) and old_quests_resp.status_code == 200 else []
         
         # Собираем ID квестов, которые уже начаты в БП
-        existing_bp_ids = {q["quest_id"] for q in bp_quests_data}
+        # 👇 ДОБАВЛЕНО str(), чтобы избежать конфликта типов (число/строка)
+        existing_bp_ids = {str(q["quest_id"]) for q in bp_quests_data}
         
         # Если юзер выполнял квесты в старой системе, добавляем их как выполненные
         for old_q in old_quests_data:
-            old_id = old_q["quest_id"]
+            old_id = str(old_q["quest_id"]) # 👇 Тоже приводим к строке
             if old_id not in existing_bp_ids:
                 bp_quests_data.append({
-                    "quest_id": old_id,
+                    "quest_id": old_q["quest_id"], # Оставляем оригинальный для отправки
                     "current_amount": 1,
                     "target_amount": 1,
                     "is_completed": True,
-                    "is_claimed": False,
+                    "is_claimed": False, # Из-за ошибки типа раньше всегда добавлялась эта строка!
                     "created_at": old_q.get("created_at"),
-                    "updated_at": old_q.get("created_at") # Дублируем для совместимости
+                    "updated_at": old_q.get("created_at") 
                 })
-
+                
         final_response['bp_quests'] = bp_quests_data
 
         # --- Дополнительные вычисляемые поля ---
