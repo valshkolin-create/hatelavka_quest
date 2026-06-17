@@ -17801,6 +17801,20 @@ async def fetch_and_cache_goods_background(category_id: int):
                         items_list.extend(sub_cats)
 
         # ==========================================
+        # 🛡️ СПАСАЕМ ФЛАГИ СЕКРЕТНОСТИ ПЕРЕД ПЕРЕЗАПИСЬЮ
+        # ==========================================
+        secret_names = set()
+        try:
+            async with httpx.AsyncClient(base_url=f"{SUPABASE_URL}/rest/v1", headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}) as sb_client:
+                old_cache = await sb_client.get("/shop_cache", params={"category_id": f"eq.{category_id}"})
+                if old_cache.status_code == 200 and old_cache.json():
+                    old_items = old_cache.json()[0].get("data", [])
+                    # Собираем названия всех скрытых кейсов из старой БД
+                    secret_names = {i.get("name") for i in old_items if i.get("is_secret")}
+        except Exception as e:
+            logging.error(f"[BG_SHOP] Не удалось прочитать старый кэш для спасения флагов: {e}")
+
+        # ==========================================
         # 🛡️ ПАРСИМ И ФИЛЬТРУЕМ РЕЗУЛЬТАТ
         # ==========================================
         mapped_items = []
@@ -17842,7 +17856,8 @@ async def fetch_and_cache_goods_background(category_id: int):
                 "price": price,
                 "image_url": image_url,
                 "is_folder": is_folder,
-                "count": count 
+                "count": count,
+                "is_secret": name in secret_names  # 🔥 ВОТ ОНО! Сохраняем скрытость, если кейс уже был скрыт
             })
 
         # ==========================================
@@ -17869,17 +17884,15 @@ RAM_CACHE_TTL = 600  # 10 минут
 # 🔥 ИЗМЕНЕНО: @app.post заменен на @app.get
 @app.get("/api/v1/shop/goods")
 async def get_bott_goods_proxy(
-    response: Response,             # 🔥 ИЗМЕНЕНО: Добавлен объект response для заголовков
-    category_id: int = Query(...),  # 🔥 ИЗМЕНЕНО: Теперь берем ID из URL
+    response: Response,             
+    category_id: int = Query(...),  
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     # 🔥 МАГИЯ VERCEL: Включаем Edge-кэш на 60 секунд. 
-    # Vercel сам будет отдавать этот ответ, не дергая ваш сервер
     response.headers["Cache-Control"] = "public, s-maxage=60, stale-while-revalidate=120"
 
     current_time = time.time()
     
-    # --- ВЕСЬ ОСТАЛЬНОЙ КОД ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ ---
     # 1. Читаем из ОЗУ
     if category_id in RAM_SHOP_CACHE:
         cache_entry = RAM_SHOP_CACHE[category_id]
@@ -17898,9 +17911,13 @@ async def get_bott_goods_proxy(
 
     if db_data:
         row = db_data[0]
-        cached_goods = row.get("data") or []
+        all_goods = row.get("data") or []
+        
+        # 🔥 ВОТ ОНА МАГИЯ СЕКРЕТНОСТИ 🔥
+        # Фильтруем массив: оставляем только те элементы, у которых is_secret не равно True
+        cached_goods = [item for item in all_goods if not item.get("is_secret")]
 
-    # 3. Сохраняем в ОЗУ для следующих быстрых запросов
+    # 3. Сохраняем в ОЗУ для следующих быстрых запросов (УЖЕ ОТФИЛЬТРОВАННЫЕ ДАННЫЕ)
     if cached_goods:
         RAM_SHOP_CACHE[category_id] = {
             'time': current_time,
@@ -17911,37 +17928,90 @@ async def get_bott_goods_proxy(
 
 # --- БРОНЕБОЙНЫЙ ПАРСЕР ТОВАРОВ И ПАПОК ---
 async def fetch_and_cache_goods_background(category_id: int, supabase_client=None):
-    """Фоновая задача: Скачивает товары с Bot-t (PUBLIC API) и сохраняет в Supabase"""
+    """Фоновая задача: Скачивает товары с Bot-t (Private API) и сохраняет в Supabase (shop_cache)"""
     
-    # 🔥 ИСПОЛЬЗУЕМ ПУБЛИЧНЫЙ API (Он отдает идеальную структуру витрины)
-    url = "https://api.bot-t.com/v1/shoppublic/category/view"
-    
-    payload = {
-        "bot_id": int(BOTT_BOT_ID),
-        "public_key": BOTT_PUBLIC_KEY,
-        "category_id": category_id 
+    params = {
+        "botToken": BOTT_BOT_TOKEN,
+        "secretKey": BOTT_SECRET_KEY
     }
     headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
     
+    items_list = []
+
     try:
-        # Таймаут 30 секунд (в фоне это не страшно, юзер этого не ждет)
-        async with httpx.AsyncClient(timeout=30.0) as client: 
-            resp = await client.post(url, json=payload, headers=headers)
+        # ==========================================
+        # 1. ЗАПРАШИВАЕМ СВЕЖИЕ ДАННЫЕ ИЗ BOT-T
+        # ==========================================
+        async with httpx.AsyncClient(timeout=15.0) as client: 
+            if category_id == 0:
+                # ГЛАВНАЯ СТРАНИЦА (КОРЕНЬ МАГАЗИНА)
+                url = "https://api.bot-t.com/v1/shop/category/index"
+                payload = {"bot_id": int(BOTT_BOT_ID)}
+                
+                resp = await client.post(url, params=params, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    items_list.extend(data if isinstance(data, list) else [])
+            else:
+                # ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ)
+                payload = {"bot_id": int(BOTT_BOT_ID), "id": int(category_id)}
+                
+                url_products = "https://api.bot-t.com/v1/shop/category/view-products"
+                url_view = "https://api.bot-t.com/v1/shop/category/view"
+                
+                # 🔥 МАГИЯ СКОРОСТИ: Запрашиваем товары и подпапки ОДНОВРЕМЕННО 🔥
+                resp_prod, resp_view = await asyncio.gather(
+                    client.post(url_products, params=params, json=payload, headers=headers),
+                    client.post(url_view, params=params, json=payload, headers=headers),
+                    return_exceptions=True
+                )
+                
+                # Разбираем ТОВАРЫ (скины, ключи и тд)
+                if isinstance(resp_prod, httpx.Response) and resp_prod.status_code == 200:
+                    prod_data = resp_prod.json().get("data", [])
+                    if isinstance(prod_data, list):
+                        items_list.extend(prod_data)
+                
+                # Разбираем ПОДПАПКИ
+                if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
+                    view_data = resp_view.json().get("data", {})
+                    if isinstance(view_data, dict):
+                        sub_cats = view_data.get("children", []) or view_data.get("categories", [])
+                        items_list.extend(sub_cats)
+
+        if not items_list:
+            return []
+
+        # ==========================================
+        # 2. 🔥 ДОСТАЕМ СТАРЫЙ КЭШ ИЗ БД, ЧТОБЫ СПАСТИ ФЛАГ is_secret 🔥
+        # ==========================================
+        client_sb = supabase_client
+        close_sb = False
+        if not client_sb:
+            # Если клиент не передали, создаем локальный
+            client_sb = httpx.AsyncClient(
+                base_url=f"{SUPABASE_URL}/rest/v1", 
+                headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+            )
+            close_sb = True
             
-        if resp.status_code != 200:
-            logging.error(f"[BG_SHOP] Ошибка Bot-t: {resp.status_code}")
-            return []
+        old_cache = await client_sb.get("/shop_cache", params={"category_id": f"eq.{category_id}"})
+        secret_names = set()
+        
+        # Вытаскиваем названия всех скрытых кейсов перед перезаписью
+        if old_cache.status_code == 200 and old_cache.json():
+            old_items = old_cache.json()[0].get("data", [])
+            secret_names = {item.get("name") for item in old_items if item.get("is_secret")}
 
-        # Публичный API отдает готовый массив: папки + товары нужной категории
-        data = resp.json().get("data", [])
-        if not data:
-            return []
 
+        # ==========================================
+        # 3. ПАРСИНГ ПОД НАШ ЕДИНЫЙ ФОРМАТ
+        # ==========================================
         mapped_items = []
-
-        # Наш мощный парсер, который достанет всё
-        for item in data:
-            is_folder = (item.get("type") == 0)
+        
+        for item in items_list:
+            # У Bot-t папки обычно имеют 'type' == 0 или массивы 'children'/'categories'
+            is_folder = (item.get("type") == 0) or ("children" in item) or ("categories" in item)
             
             # --- Поиск картинки ---
             image_url = "https://placehold.co/150?text=No+Image"
@@ -17985,16 +18055,13 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
                 "price": price,
                 "image_url": image_url,
                 "is_folder": is_folder,
-                "count": count 
+                "count": count,
+                "is_secret": name in secret_names  # 🔥 ТУТ МЫ НАКЛАДЫВАЕМ НАШУ БРОНЮ!
             })
 
-        # Пишем в БД (Supabase)
-        client_sb = supabase_client
-        close_sb = False
-        if not client_sb:
-            client_sb = httpx.AsyncClient(base_url=f"{SUPABASE_URL}/rest/v1", headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"})
-            close_sb = True
-            
+        # ==========================================
+        # 4. СОХРАНЕНИЕ В SUPABASE
+        # ==========================================
         await client_sb.post(
             "/shop_cache",
             json={
@@ -18004,7 +18071,9 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
             },
             headers={"Prefer": "resolution=merge-duplicates"}
         )
-        if close_sb: await client_sb.aclose()
+        
+        if close_sb: 
+            await client_sb.aclose()
         
         return mapped_items
 
@@ -26068,9 +26137,46 @@ async def cancel_tg_challenge_paid(request: Request):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
 
-# =====================================================
+# ====================================================
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
-# =====================================================
+# ====================================================
+
+@app.post("/api/v1/admin/cases/toggle_secret")
+async def toggle_case_secret(
+    request: Request, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client) # Или как ты получаешь клиент
+):
+    data = await request.json()
+    case_name = data.get("case_name")
+    category_id = 2716312
+
+    try:
+        # 1. Достаем текущий кэш магазина
+        res = await supabase.get("/shop_cache", params={"category_id": f"eq.{category_id}"})
+        shop_data = res.json()[0].get("data", []) if res.json() else []
+        
+        # 2. Ищем нужный кейс и инвертируем флаг
+        new_status = False
+        for item in shop_data:
+            if item.get("name") == case_name:
+                item["is_secret"] = not item.get("is_secret", False)
+                new_status = item["is_secret"]
+                break
+                
+        # 3. Сохраняем обновленный массив обратно в базу
+        await supabase.patch(
+            "/shop_cache", 
+            params={"category_id": f"eq.{category_id}"}, 
+            json={"data": shop_data}
+        )
+        
+        # 4. Сбрасываем ОЗУ-кэш, чтобы работяги сразу увидели/не увидели кейс
+        if category_id in RAM_SHOP_CACHE:
+            del RAM_SHOP_CACHE[category_id]
+            
+        return {"status": "ok", "is_secret": new_status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # 1. Добавили нужные поля из фронтенда
 class SearchCacheRequest(BaseModel):
@@ -26270,16 +26376,23 @@ async def admin_clone_case_item(request: Request):
 @app.post("/api/v1/admin/cases/list_tags")
 async def admin_get_case_tags(request: Request):
     try:
-        # Берем данные из таблицы СВЯЗЕЙ
+        # 1. Твоя оригинальная логика подсчета скинов
         res = supabase.table("cs_case_contents").select("case_tag").execute()
-        
         tags = {}
         for row in res.data:
             tag = row.get("case_tag")
             if tag:
                 tags[tag] = tags.get(tag, 0) + 1
-        
-        result = [{"name": k, "count": v} for k, v in tags.items()]
+                
+        # 2. 🔥 ДОБАВЛЕНО: Читаем shop_cache, чтобы узнать, какие скрыты
+        cache_res = supabase.table("shop_cache").select("data").eq("category_id", 2716312).execute()
+        secret_cases = set()
+        if cache_res.data:
+            shop_data = cache_res.data[0].get("data", [])
+            secret_cases = {item.get("name") for item in shop_data if item.get("is_secret")}
+
+        # Отдаем на фронт инфу вместе с флагом is_secret
+        result = [{"name": k, "count": v, "is_secret": k in secret_cases} for k, v in tags.items()]
         return result
     except Exception as e:
         print(f"List Tags Error: {e}")
