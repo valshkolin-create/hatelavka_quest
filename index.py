@@ -9322,8 +9322,6 @@ async def get_current_user_data(
         await sync_current_week_bp_progress(telegram_id, supabase)
         
         # 3. 🚀 ТУРБО-РЕЖИМ: ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ОДНОВРЕМЕННО
-        # Мы не ждем каждый ответ по очереди. Мы запускаем их "пачкой".
-        # Это снижает время загрузки с 600мс до ~150мс.
         results = await asyncio.gather(
             
             # A. Основные данные профиля (RPC-функция в базе)
@@ -9353,7 +9351,7 @@ async def get_current_user_data(
             # F. Статус стрима (Онлайн/Оффлайн)
             supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
             
-            # G. Прогресс квестов Баттл-пасса <--- ВСТАВИТЬ ЭТО
+            # G. Прогресс квестов Баттл-пасса
             supabase.get("/user_bp_quests", params={
                 "user_id": f"eq.{telegram_id}",
                 "select": "quest_id, current_amount, target_amount, is_completed, is_claimed, updated_at, created_at"
@@ -9364,12 +9362,12 @@ async def get_current_user_data(
                 "user_id": f"eq.{telegram_id}",
                 "status": "eq.approved",
                 "select": "quest_id, created_at"
-            }),,
+            }), # <--- ТУТ БЫЛА ЛИШНЯЯ ЗАПЯТАЯ
             
             # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
         )
-
+        
        # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен!)
         (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp) = results
 
