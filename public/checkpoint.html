@@ -1061,7 +1061,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
             const isRepeatable = questDetails ? questDetails.is_repeatable : false; // <--- ВЕРНУЛИ
 
-            const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id));
+            // Теперь ищем строго совпадение по quest_id И по week
+            const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id) && q.week === cfg.week);
             let userProgress = rawProgress ? { ...rawProgress } : {
                 current_amount: 0,
                 target_amount: cfg.target_amount || 1,
@@ -1139,8 +1140,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionHtml = `<div style="color: var(--text-muted); font-size: 10px; font-weight: 700;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
                 cardClass += ' dimmed';
             } else if (userProgress.is_completed) {
-                // Добавили margin: 0, чтобы кнопка не уезжала
-                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id})" style="margin: 0;">ЗАБРАТЬ</button>`;
+                // ПЕРЕДАЕМ НЕДЕЛЮ (cfg.week) ВТОРЫМ ПАРАМЕТРОМ!
+                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id}, ${cfg.week})" style="margin: 0;">ЗАБРАТЬ</button>`;
                 cardClass += ' ready-to-claim';
             } else {
                 actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
@@ -1207,14 +1208,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.claimQuestReward = async function(questId) {
+    window.claimQuestReward = async function(questId, week) { // <--- ДОБАВИЛИ НЕДЕЛЮ
         haptic('medium');
         tg.MainButton.showProgress();
         try {
             const res = await fetch('/api/v1/checkpoint/quest/claim', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, quest_id: questId })
+                body: JSON.stringify({ initData: tg.initData, quest_id: questId, week: week }) // <--- ОТПРАВЛЯЕМ НЕДЕЛЮ
             });
             const data = await res.json();
             
