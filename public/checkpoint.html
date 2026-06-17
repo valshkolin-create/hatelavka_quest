@@ -1055,11 +1055,10 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.questsContainer.appendChild(noticeBox);
         }
         
-        // Предварительно обрабатываем и мапим прогресс квестов для этой недели
+       // Предварительно обрабатываем и мапим прогресс квестов для этой недели
         const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
-            const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
             const rawProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(cfg.quest_id));
             let userProgress = rawProgress ? { ...rawProgress } : {
@@ -1069,13 +1068,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_claimed: false
             };
 
-            if (userProgress.is_completed && isRepeatable) {
-                // Строго берем последнюю дату обновления прогресса
+            // 🚀 ИСПРАВЛЕНИЕ: Убрали зависимость от isRepeatable. 
+            // Если квест выполнен ДО старта этой недели — жестко сбрасываем визуал в 0.
+            if (userProgress.is_completed) {
                 const timeStr = userProgress.updated_at || userProgress.created_at;
-                
                 if (timeStr) {
                     const progressDate = new Date(timeStr);
-                    // Сбрасываем миллисекунды, чтобы сравнивать только дни
                     progressDate.setHours(0, 0, 0, 0);
                     const weekStartDate = new Date(weekStart);
                     weekStartDate.setHours(0, 0, 0, 0);
@@ -1085,15 +1083,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         userProgress.is_claimed = false;
                         userProgress.current_amount = 0;
                     }
-                } else {
-                    // Защита: если даты вообще нет, считаем старым
-                    userProgress.is_completed = false;
-                    userProgress.is_claimed = false;
-                    userProgress.current_amount = 0;
                 }
             }
             return { cfg, title, userProgress };
         });
+        
 
         // Считаем, есть ли в этой неделе задания, готовые к выдаче награды
         const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed);
