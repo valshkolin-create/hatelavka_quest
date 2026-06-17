@@ -15176,7 +15176,8 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             "/user_bp_quests", 
             params={"user_id": f"eq.{user_id}", "quest_id": f"in.({','.join(quest_ids)})"}
         )
-        existing_progress = {q["quest_id"]: q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
+        # 🚀 ИСПРАВЛЕНИЕ 1: Теперь ключ словаря — это кортеж (quest_id, week), чтобы не слеплять квесты разных недель!
+        existing_progress = {(q["quest_id"], q.get("week", 1)): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
         # 5. КАСКАДНАЯ СИСТЕМА (Водопад)
         rem_week_msgs = season_msgs
@@ -15186,6 +15187,8 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
 
         for wq in active_quests:
             q_id = wq["quest_id"]
+            q_week = wq.get("week", 1) # 🚀 ИСПРАВЛЕНИЕ 2: Достаем неделю квеста из конфига
+            
             meta = quests_meta.get(q_id)
             if not meta: continue
             
@@ -15201,15 +15204,14 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             
             # Распределяем остатки (Ограничиваем вливаемый прогресс целью)
             if "twitch_messages_week" in q_type:
-                allocate = min(rem_week_msgs, target) # Берем не больше, чем нужно квесту
+                allocate = min(rem_week_msgs, target)
                 current_amount = allocate
-                rem_week_msgs -= allocate # Вычитаем потраченное из общей кучи
+                rem_week_msgs -= allocate
                 is_auto = True
                 
             elif "twitch_messages_session" in q_type:
-                existing = existing_progress.get(q_id)
+                existing = existing_progress.get((q_id, q_week))
                 if existing and existing.get("is_completed"):
-                    # Если сессионный квест уже был выполнен (вчера), не тратим на него сегодняшние сообщения
                     current_amount = existing.get("current_amount", target)
                 else:
                     allocate = min(rem_today_msgs, target)
@@ -15224,7 +15226,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             elif "twitch_uptime_session" in q_type:
-                existing = existing_progress.get(q_id)
+                existing = existing_progress.get((q_id, q_week))
                 if existing and existing.get("is_completed"):
                     current_amount = existing.get("current_amount", target)
                 else:
@@ -15234,7 +15236,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             if is_auto:
-                existing = existing_progress.get(q_id)
+                existing = existing_progress.get((q_id, q_week)) # 🚀 ИСПРАВЛЕНИЕ 3: Ищем по ключу (quest_id, week)
                 if existing and existing.get("is_claimed"):
                     continue # Если награду уже забрали, не трогаем
                 
@@ -15243,11 +15245,17 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 payload = {
                     "current_amount": current_amount,
                     "target_amount": target,
-                    "is_completed": is_completed
+                    "is_completed": is_completed,
+                    "week": q_week # 🚀 ИСПРАВЛЕНИЕ 4: Железно прокидываем неделю в базу!
                 }
                 
                 if existing:
-                    await supabase.patch("/user_bp_quests", params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{q_id}"}, json=payload)
+                    # Обязательно фильтруем UPDATE по неделе, чтобы не перезаписать соседние
+                    await supabase.patch(
+                        "/user_bp_quests", 
+                        params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{q_id}", "week": f"eq.{q_week}"}, 
+                        json=payload
+                    )
                 else:
                     payload["user_id"] = user_id
                     payload["quest_id"] = q_id
