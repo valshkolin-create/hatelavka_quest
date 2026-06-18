@@ -409,101 +409,114 @@
         }
         .week-content-inner { padding-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
 
-        /* --- Модалки (Общие) --- */
+       /* --- ПРЕМИАЛЬНЫЕ МОДАЛКИ (ОБЩАЯ БАЗА) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
-        .modal-active { display: flex !important; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .modal-active { display: flex !important; animation: popIn 0.4s cubic-bezier(0.19, 1, 0.22, 1); }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         
-        .premium-modal-content {
-    background: #1c1c1e; 
-    width: 100%; 
-    max-width: 320px; 
-    border-radius: 20px; 
-    border: 1px solid var(--primary-glow);
-    overflow: hidden; 
-    display: flex; 
-    flex-direction: column;
-    position: relative;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(255, 215, 0, 0.15);
-    margin-bottom: 80px; /* 👈 ДОБАВИТЬ ЭТО */
-}
-        .modal-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--surface-border); }
-        .modal-header h3 { margin: 0; font-size: 15px; }
-        .modal-close { background: none; border: none; color: var(--text-muted); font-size: 22px; padding: 0; cursor: pointer; }
-        .modal-body { padding: 20px 15px; font-size: 12px; line-height: 1.5; color: #ccc; text-align: center; overflow-y: auto; }
-        .modal-body h4 { color: white; margin: 15px 0 5px 0; font-size: 14px; }
-        .modal-body h4:first-child { margin-top: 0; }
-        .modal-body p { margin: 0; }
-
-        /* --- КРАСИВАЯ МОДАЛКА ПОКУПКИ PREMIUM --- */
-        .premium-modal-content {
-            background: #1c1c1e; 
-            width: 100%; 
-            max-width: 320px; 
-            border-radius: 20px; 
-            border: 1px solid var(--primary-glow);
-            overflow: hidden; 
-            display: flex; 
+        .premium-panel {
+            background: linear-gradient(145deg, #1c1c1e 0%, #121212 100%);
+            width: 100%;
+            max-width: 340px;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            display: flex;
             flex-direction: column;
             position: relative;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(255, 215, 0, 0.15);
         }
-        
-        .premium-modal-close {
+
+        /* Золотое свечение для окна Premium */
+        .premium-panel.gold-glow { border: 1px solid var(--primary-glow); box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(255, 215, 0, 0.1); }
+
+        /* Унифицированный крестик */
+        .unified-close-btn {
             position: absolute;
-            top: 12px;
-            right: 12px;
+            top: 14px;
+            right: 14px;
             z-index: 10;
             color: #fff;
             background: rgba(0,0,0,0.4);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 50%;
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
-            backdrop-filter: blur(5px);
-            font-size: 18px;
+            backdrop-filter: blur(8px);
+            font-size: 16px;
             cursor: pointer;
-        }
-
-        .premium-modal-header-img {
-            height: 140px;
-            background: linear-gradient(180deg, rgba(255,215,0,0.1) 0%, #1c1c1e 100%), url('https://placehold.co/320x140/2a2a2c/ffd700?text=Premium+Banner') center/cover;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .premium-modal-body { padding: 15px 20px 25px 20px; text-align: center; }
-        .premium-modal-body h3 { margin: 0 0 8px 0; font-size: 22px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
-        .premium-modal-body p { margin: 0 0 20px 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
-        
-        .premium-price-box {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-        .premium-price { font-size: 26px; font-weight: 800; color: #fff; }
-        
-        .btn-buy-premium-confirm {
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
-            border: none;
-            background: linear-gradient(90deg, #ffd700, #ffaa00);
-            color: #000;
-            font-size: 14px;
-            font-weight: 800;
-            text-transform: uppercase;
-            cursor: pointer;
-            box-shadow: 0 4px 15px var(--primary-glow);
             transition: 0.2s;
         }
-        .btn-buy-premium-confirm:active { transform: scale(0.96); box-shadow: 0 2px 5px var(--primary-glow); }
+        .unified-close-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
+
+        /* Шапки модалок */
+        .premium-modal-header-img {
+            height: 140px;
+            background: linear-gradient(180deg, rgba(255,215,0,0.15) 0%, #1c1c1e 100%), url('https://placehold.co/340x140/2a2a2c/ffd700?text=Premium+Banner') center/cover;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .inst-modal-header {
+            padding: 25px 20px 15px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: rgba(255,255,255,0.02);
+        }
+        .inst-modal-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+        .inst-modal-header p { margin: 6px 0 0 0; font-size: 11px; color: var(--text-muted); }
+
+        .premium-modal-body { padding: 20px; text-align: center; max-height: 60vh; overflow-y: auto; }
+        .premium-modal-body h3 { margin: 0 0 8px 0; font-size: 20px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
+        .premium-modal-body p { margin: 0 0 20px 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+        /* --- АККОРДЕОНЫ ИНСТРУКЦИИ --- */
+        .inst-accordion {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 14px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            transition: 0.3s;
+            text-align: left;
+        }
+        .inst-header {
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            background: transparent;
+        }
+        .inst-header:active { background: rgba(255,255,255,0.05); }
+        .inst-title { font-size: 12px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .inst-title i { color: var(--primary); font-size: 14px; }
+        .inst-chevron { color: var(--text-muted); font-size: 12px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .inst-accordion.expanded .inst-chevron { transform: rotate(180deg); }
+        .inst-accordion.expanded { border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.02); }
+        
+        .inst-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0 16px;
+        }
+        .inst-content-inner {
+            padding-bottom: 16px;
+            font-size: 11px;
+            line-height: 1.6;
+            color: #ccc;
+        }
+        .inst-content-inner strong { color: #fff; }
+        .inst-content-inner ul { margin: 8px 0 0 0; padding-left: 20px; }
+        .inst-content-inner li { margin-bottom: 4px; }
+
+        /* Выравнивание смещения окон */
+        #instruction-modal .premium-panel { transform: translateY(-15px) !important; }
+        #premium-buy-modal .premium-panel { transform: translateY(-5px) !important; }
+        #image-modal .image-modal-wrapper { transform: translateY(-10px) !important; }
 
         /* ⚡️ СВЕРХКОМПАКТНАЯ ВКЛАДКА ЗАДАНИЙ (УМЕНЬШЕНО В 2 РАЗА) ⚡️ */
 #view-quests .week-accordion { border-radius: 10px; margin-bottom: 8px; }
@@ -725,8 +738,8 @@
             <div class="hero-top-controls">
     
     <!-- Кнопка Правила (Слева) -->
-    <button class="btn-rules" style="position: absolute; top: 20px; left: 15px; z-index: 20;" onclick="haptic('light'); document.getElementById('rules-modal').classList.add('modal-active')">
-        <i class="fa-solid fa-book-open"></i> Правила
+<button class="btn-rules" style="position: absolute; top: 20px; left: 15px; z-index: 20;" onclick="haptic('light'); document.getElementById('instruction-modal').classList.add('modal-active')">
+        <i class="fa-solid fa-book-open"></i> Инструкция
     </button>
 
     <!-- Кнопка Premium (Справа) -->
@@ -780,36 +793,77 @@
 
     </div>
 
-    <div id="rules-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Правила Чекпоинта</h3>
-                <button class="modal-close" onclick="haptic('light'); document.getElementById('rules-modal').classList.remove('modal-active')">&times;</button>
+    <div id="instruction-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel">
+            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('instruction-modal').classList.remove('modal-active')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="inst-modal-header">
+                <h3>Инструкция</h3>
+                <p>Как работают награды и задания</p>
             </div>
-            <div class="modal-body" id="rules-content">
-                <h4>Что такое Battle Pass?</h4>
-                <p>Выполняй задания, проявляй активность на Twitch и в Telegram, чтобы копить звезды.</p>
-                <h4>Как забрать награды?</h4>
-                <p>Как только ты накапливаешь нужное количество звезд для уровня, кнопка становится активной.</p>
-                <h4>Premium статус</h4>
-                <p>Владельцы Premium пропуска забирают награды из обеих колонок одновременно!</p>
+
+            <div class="premium-modal-body">
+                
+                <div class="inst-accordion" onclick="toggleInst(this)">
+                    <div class="inst-header">
+                        <span class="inst-title"><i class="fa-solid fa-gift"></i> Базовые правила</span>
+                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
+                    </div>
+                    <div class="inst-content">
+                        <div class="inst-content-inner">
+                            Выполняй задания, проявляй активность на <strong>Twitch</strong> и в <strong>Telegram</strong>, чтобы копить звезды. Как только накопишь нужное количество — кнопка станет активной.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="inst-accordion" onclick="toggleInst(this)">
+                    <div class="inst-header">
+                        <span class="inst-title"><i class="fa-solid fa-star"></i> Награда: VIP Статус</span>
+                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
+                    </div>
+                    <div class="inst-content">
+                        <div class="inst-content-inner">
+                            Для получения этой награды нужно:
+                            <ul>
+                                <li>Посмотреть 5 трансляций</li>
+                                <li>Написать 10 сообщений в чат</li>
+                            </ul>
+                            Выдается автоматически после нажатия кнопки "Забрать".
+                        </div>
+                    </div>
+                </div>
+
+                <div class="inst-accordion" onclick="toggleInst(this)">
+                    <div class="inst-header">
+                        <span class="inst-title"><i class="fa-solid fa-ticket"></i> Награда: Билеты</span>
+                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
+                    </div>
+                    <div class="inst-content">
+                        <div class="inst-content-inner">
+                            Билеты используются для участия в аукционах и эксклюзивных розыгрышах. Копи их, чтобы повысить шансы на победу!
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 
-<div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
-        <div class="premium-modal-content">
-            <button class="premium-modal-close" onclick="haptic('light'); document.getElementById('premium-buy-modal').classList.remove('modal-active')">
+    <div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel gold-glow">
+            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('premium-buy-modal').classList.remove('modal-active')">
                 <i class="fa-solid fa-xmark"></i>
             </button>
+            
             <div class="premium-modal-header-img"></div>
+            
             <div class="premium-modal-body">
                 <h3>Premium Статус</h3>
-                <p>Открой доступ ко всем эксклюзивным наградам сезона. Собирай лут сразу из обеих колонок, получай больше опыта и выделяйся среди остальных!</p>
+                <p>Открой доступ ко всем эксклюзивным наградам сезона. Собирай лут сразу из обеих колонок!</p>
                 
-                <!-- Две кнопки покупки -->
                 <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-                    <!-- Оплата Рублями (Выделенная) -->
                     <button id="buy-premium-rub-btn" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: #fff; border: none; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.3); display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform 0.2s;">
                         <i class="fa-solid fa-credit-card"></i> Купить за 199 ₽
                     </button>
@@ -820,12 +874,10 @@
                         <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
                     </div>
 
-                    <!-- Оплата Монетами -->
                     <button id="buy-premium-coins-btn" style="background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.05);">
                         Приобрести за <span id="premium-coins-price-text">...</span> <i class="fa-solid fa-coins"></i>
                     </button>
                 </div>
-
             </div>
         </div>
     </div>
@@ -919,6 +971,28 @@ window.toggleWeek = function(headerElement) {
     } else {
         content.style.maxHeight = content.scrollHeight + 50 + 'px';
         headerElement.classList.add('expanded');
+    }
+};
+
+window.toggleInst = function(element) {
+    haptic('light');
+    const content = element.querySelector('.inst-content');
+    const isExpanded = element.classList.contains('expanded');
+    
+    // Закрываем все остальные открытые вкладки (если хочешь, чтобы открывалась только одна)
+    document.querySelectorAll('.inst-accordion.expanded').forEach(el => {
+        if (el !== element) {
+            el.classList.remove('expanded');
+            el.querySelector('.inst-content').style.maxHeight = '0px';
+        }
+    });
+
+    if (isExpanded) {
+        content.style.maxHeight = '0px';
+        element.classList.remove('expanded');
+    } else {
+        content.style.maxHeight = content.scrollHeight + 20 + 'px';
+        element.classList.add('expanded');
     }
 };
 
