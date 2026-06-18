@@ -697,14 +697,16 @@
 
         <div class="bp-hero" id="bp-hero">
             <div class="hero-top-controls">
-                <div class="hero-actions">
-                    <button class="btn-rules" onclick="haptic('light'); document.getElementById('rules-modal').classList.add('modal-active')">
-                        <i class="fa-solid fa-book-open"></i> Правила
-                    </button>
-                    <button class="btn-rules" id="buy-premium-btn" style="color: var(--primary); border-color: var(--primary-glow);">
-                        <i class="fa-solid fa-crown"></i> Premium
-                    </button>
-                </div>
+    
+    <button class="btn-rules" id="buy-premium-btn" style="position: absolute; top: 20px; right: 15px; z-index: 20; width: max-content; color: var(--primary); border-color: var(--primary-glow);">
+        <i class="fa-solid fa-crown"></i> Premium
+    </button>
+
+    <div class="hero-actions">
+        <button class="btn-rules" onclick="haptic('light'); document.getElementById('rules-modal').classList.add('modal-active')">
+            <i class="fa-solid fa-book-open"></i> Правила
+        </button>
+    </div>
                 <div class="season-status-container" id="season-status-container" style="display: none;">
                     <div class="bp-season-badge" id="season-status-badge"></div>
                 </div>
