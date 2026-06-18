@@ -7841,6 +7841,42 @@ async def admin_reset_auction(
         logging.error(f"❌ ОШИБКА при сбросе аукциона {auction_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сбросе.")
 
+class UpdateRulesRequest(BaseModel):
+    initData: str
+    rules: list
+
+@app.post("/api/v1/admin/checkpoint/rules_update")
+async def update_checkpoint_rules(
+    req: UpdateRulesRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """Обновляет только массив правил (инструкций) Чекпоинта."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Достаем текущий конфиг
+        resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+        if resp.status_code != 200 or not resp.json():
+            raise HTTPException(status_code=404, detail="Страница не найдена")
+            
+        config = resp.json()[0].get("content", {})
+        
+        # Обновляем только правила
+        config["rules"] = req.rules
+        
+        # Сохраняем обратно
+        await supabase.patch(
+            "/pages_content",
+            params={"page_name": "eq.checkpoint"},
+            json={"content": config}
+        )
+        return {"message": "Инструкция успешно обновлена!"}
+    except Exception as e:
+        logging.error(f"Ошибка сохранения правил: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПРИЗОВ ЧЕКПОИНТА ---
 @app.post("/api/v1/admin/checkpoint_rewards/details")
 async def get_checkpoint_rewards_details_for_admin( # Новое имя функции
