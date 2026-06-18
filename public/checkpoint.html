@@ -414,7 +414,19 @@
         .modal-active { display: flex !important; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         
-        .modal-content { background: #1c1c1e; width: 100%; max-width: 320px; border-radius: 16px; border: 1px solid var(--surface-border); overflow: hidden; max-height: 75vh; display: flex; flex-direction: column; }
+        .premium-modal-content {
+    background: #1c1c1e; 
+    width: 100%; 
+    max-width: 320px; 
+    border-radius: 20px; 
+    border: 1px solid var(--primary-glow);
+    overflow: hidden; 
+    display: flex; 
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(255, 215, 0, 0.15);
+    margin-bottom: 80px; /* 👈 ДОБАВИТЬ ЭТО */
+}
         .modal-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--surface-border); }
         .modal-header h3 { margin: 0; font-size: 15px; }
         .modal-close { background: none; border: none; color: var(--text-muted); font-size: 22px; padding: 0; cursor: pointer; }
