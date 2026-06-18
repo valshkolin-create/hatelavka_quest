@@ -15818,7 +15818,7 @@ async def claim_checkpoint_reward(
 
         # 3. Проверяем, не забирал ли он уже эту награду (Через таблицу claims)
         claim_check = await supabase.get("/user_checkpoint_claims", params={
-            "telegram_id": f"eq.{telegram_id}",
+            "user_id": f"eq.{telegram_id}",  # 🔥 ИСПРАВЛЕНО: telegram_id -> user_id
             "level": f"eq.{level_to_claim}",
             "reward_track": f"eq.{track_type}"
         })
@@ -15854,7 +15854,7 @@ async def claim_checkpoint_reward(
 
         # 5. Записываем в базу, что юзер забрал награду
         await supabase.post("/user_checkpoint_claims", json={
-            "telegram_id": telegram_id,
+            "user_id": telegram_id, # 🔥 ИСПРАВЛЕНО: telegram_id -> user_id
             "level": level_to_claim,
             "reward_track": track_type
         })
