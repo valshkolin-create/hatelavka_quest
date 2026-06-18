@@ -409,7 +409,7 @@
         }
         .week-content-inner { padding-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
 
-       /* --- ПРЕМИАЛЬНЫЕ МОДАЛКИ (ОБЩАЯ БАЗА) --- */
+/* --- ПРЕМИАЛЬНЫЕ МОДАЛКИ (ОБЩАЯ БАЗА) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .modal-active { display: flex !important; animation: popIn 0.4s cubic-bezier(0.19, 1, 0.22, 1); }
         @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -427,10 +427,8 @@
             position: relative;
         }
 
-        /* Золотое свечение для окна Premium */
         .premium-panel.gold-glow { border: 1px solid var(--primary-glow); box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(255, 215, 0, 0.1); }
 
-        /* Унифицированный крестик */
         .unified-close-btn {
             position: absolute;
             top: 14px;
@@ -452,7 +450,6 @@
         }
         .unified-close-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
 
-        /* Шапки модалок */
         .premium-modal-header-img {
             height: 140px;
             background: linear-gradient(180deg, rgba(255,215,0,0.15) 0%, #1c1c1e 100%), url('https://placehold.co/340x140/2a2a2c/ffd700?text=Premium+Banner') center/cover;
@@ -492,28 +489,18 @@
         }
         .inst-header:active { background: rgba(255,255,255,0.05); }
         .inst-title { font-size: 12px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
-        .inst-title i { color: var(--primary); font-size: 14px; }
+        .inst-title i { color: var(--primary); font-size: 14px; width: 16px; text-align: center; }
         .inst-chevron { color: var(--text-muted); font-size: 12px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .inst-accordion.expanded .inst-chevron { transform: rotate(180deg); }
         .inst-accordion.expanded { border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.02); }
         
-        .inst-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            padding: 0 16px;
-        }
-        .inst-content-inner {
-            padding-bottom: 16px;
-            font-size: 11px;
-            line-height: 1.6;
-            color: #ccc;
-        }
+        .inst-content { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 0 16px; }
+        .inst-content-inner { padding-bottom: 16px; font-size: 11px; line-height: 1.6; color: #ccc; }
         .inst-content-inner strong { color: #fff; }
         .inst-content-inner ul { margin: 8px 0 0 0; padding-left: 20px; }
         .inst-content-inner li { margin-bottom: 4px; }
 
-        /* Выравнивание смещения окон */
+        /* Выравнивание окон */
         #instruction-modal .premium-panel { transform: translateY(-15px) !important; }
         #premium-buy-modal .premium-panel { transform: translateY(-5px) !important; }
         #image-modal .image-modal-wrapper { transform: translateY(-10px) !important; }
@@ -709,21 +696,6 @@
             transform: scale(0.85);
         }
 
-        /* 📖 Окно Правил */
-#rules-modal .modal-content {
-    transform: translateY(-25px) !important; /* Было -25px, опустили на 10px ниже */
-}
-
-/* 👑 Окно Премиума */
-#premium-buy-modal .premium-modal-content {
-    transform: translateY(5px) !important;  /* Было -15px, почти строгий центр */
-}
-
-/* 🖼 Окно увеличенной картинки награды */
-#image-modal .image-modal-wrapper {
-    transform: translateY(-10px) !important;
-}
-        
     </style>
 </head>
 <body>
@@ -793,7 +765,7 @@
 
     </div>
 
-    <div id="instruction-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+   <div id="instruction-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-panel">
             <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('instruction-modal').classList.remove('modal-active')">
                 <i class="fa-solid fa-xmark"></i>
@@ -804,50 +776,10 @@
                 <p>Как работают награды и задания</p>
             </div>
 
-            <div class="premium-modal-body">
-                
-                <div class="inst-accordion" onclick="toggleInst(this)">
-                    <div class="inst-header">
-                        <span class="inst-title"><i class="fa-solid fa-gift"></i> Базовые правила</span>
-                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
-                    </div>
-                    <div class="inst-content">
-                        <div class="inst-content-inner">
-                            Выполняй задания, проявляй активность на <strong>Twitch</strong> и в <strong>Telegram</strong>, чтобы копить звезды. Как только накопишь нужное количество — кнопка станет активной.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="inst-accordion" onclick="toggleInst(this)">
-                    <div class="inst-header">
-                        <span class="inst-title"><i class="fa-solid fa-star"></i> Награда: VIP Статус</span>
-                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
-                    </div>
-                    <div class="inst-content">
-                        <div class="inst-content-inner">
-                            Для получения этой награды нужно:
-                            <ul>
-                                <li>Посмотреть 5 трансляций</li>
-                                <li>Написать 10 сообщений в чат</li>
-                            </ul>
-                            Выдается автоматически после нажатия кнопки "Забрать".
-                        </div>
-                    </div>
-                </div>
-
-                <div class="inst-accordion" onclick="toggleInst(this)">
-                    <div class="inst-header">
-                        <span class="inst-title"><i class="fa-solid fa-ticket"></i> Награда: Билеты</span>
-                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
-                    </div>
-                    <div class="inst-content">
-                        <div class="inst-content-inner">
-                            Билеты используются для участия в аукционах и эксклюзивных розыгрышах. Копи их, чтобы повысить шансы на победу!
-                        </div>
-                    </div>
-                </div>
-
+            <div class="premium-modal-body" id="instructions-container">
+                <p style="color: var(--text-muted); font-size: 11px;">Загрузка инструкций...</p>
             </div>
+            
         </div>
     </div>
 
@@ -1060,6 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             renderBP();
             renderQuests();
+            renderRules();
             setupSwipe();
         } catch (e) {
             console.error(e);
@@ -1424,6 +1357,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // <--- КОНЕЦ ВСТАВКИ --->
 }
+
+    function renderRules() {
+        const container = document.getElementById('instructions-container');
+        
+        // Если в базе еще нет массива rules или он пустой
+        if (!bpData || !bpData.rules || bpData.rules.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-muted); font-size: 11px; margin-top: 10px;">Инструкции скоро появятся.</p>';
+            return;
+        }
+
+        container.innerHTML = ''; // Очищаем текст "Загрузка..."
+
+        // Рисуем аккордеоны из базы данных
+        bpData.rules.forEach(rule => {
+            container.innerHTML += `
+                <div class="inst-accordion" onclick="toggleInst(this)">
+                    <div class="inst-header">
+                        <span class="inst-title"><i class="fa-solid ${rule.icon || 'fa-circle-info'}"></i> ${rule.title}</span>
+                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
+                    </div>
+                    <div class="inst-content">
+                        <div class="inst-content-inner">
+                            ${rule.text}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
             
     window.claimReward = async function(level, type) {
     const lockKey = `bp_${level}_${type}`;
