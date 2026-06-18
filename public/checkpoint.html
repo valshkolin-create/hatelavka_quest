@@ -696,6 +696,23 @@
             transform: scale(0.85);
         }
 
+        /* --- РЕДАКТОР ПРАВИЛ (АДМИН) --- */
+        .editor-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 35px 12px 12px 12px; margin-bottom: 12px; position: relative; text-align: left; }
+        .editor-input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; outline: none; }
+        .editor-input:focus { border-color: var(--primary); }
+        .editor-textarea { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 12px; min-height: 80px; resize: vertical; margin-bottom: 8px; font-family: inherit; outline: none; }
+        .editor-textarea:focus { border-color: var(--primary); }
+        
+        .editor-btn-small { background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 10px; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+        .editor-btn-small:active { transform: scale(0.9); }
+        
+        .editor-btn-delete { position: absolute; top: 8px; right: 8px; background: rgba(255,69,58,0.15); color: var(--danger); border: 1px solid rgba(255,69,58,0.3); width: 24px; height: 24px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: 0.2s; }
+        .editor-btn-delete:active { transform: scale(0.8); }
+        
+        .editor-add-btn { width: 100%; padding: 12px; background: rgba(255,215,0,0.1); border: 1px dashed var(--primary); color: var(--primary); border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+        .editor-add-btn:active { background: rgba(255,215,0,0.2); }
+        .editor-actions { display: flex; gap: 10px; margin-top: 15px; }
+
     </style>
 </head>
 <body>
@@ -771,6 +788,11 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
             
+            <!-- КНОПКА РЕДАКТИРОВАНИЯ (Скрыта по умолчанию) -->
+            <button id="admin-edit-rules-btn" class="unified-close-btn hidden" style="right: 50px;" onclick="openRulesEditor()">
+                <i class="fa-solid fa-pen"></i>
+            </button>
+            
             <div class="inst-modal-header">
                 <h3>Инструкция</h3>
                 <p>Как работают награды и задания</p>
@@ -808,6 +830,34 @@
 
                     <button id="buy-premium-coins-btn" style="background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.05);">
                         Приобрести за <span id="premium-coins-price-text">...</span> <i class="fa-solid fa-coins"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ОКНО РЕДАКТОРА ПРАВИЛ (АДМИН) -->
+    <div id="rules-editor-modal" class="modal-overlay" style="z-index: 10000;" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel" style="max-height: 85vh; transform: translateY(0) !important;">
+            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('rules-editor-modal').classList.remove('modal-active')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="inst-modal-header">
+                <h3>Редактор Инструкции</h3>
+                <p>Добавляй и изменяй аккордеоны</p>
+            </div>
+
+            <div class="premium-modal-body" style="padding-bottom: 20px;">
+                <div id="editor-items-container"></div>
+                
+                <button class="editor-add-btn" onclick="addEditorItem()">
+                    <i class="fa-solid fa-plus"></i> ДОБАВИТЬ АККОРДЕОН
+                </button>
+                
+                <div class="editor-actions">
+                    <button class="btn-buy-premium-confirm" onclick="saveRules()" style="margin-top: 0;">
+                        <i class="fa-solid fa-floppy-disk"></i> Сохранить
                     </button>
                 </div>
             </div>
@@ -987,6 +1037,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ]);
 
             userData = await userRes.json();
+            // Если юзер админ - показываем карандаш
+            if (userData.is_admin) {
+                document.getElementById('admin-edit-rules-btn').classList.remove('hidden');
+            }
             bpData = await bpRes.json();
             allQuests = Array.isArray(questsRes) ? questsRes : await questsRes.json(); 
 
@@ -1576,6 +1630,115 @@ window.claimQuestReward = async function(questId, week) {
         dom.swipeArea.addEventListener('touchstart', handleStart, {passive: true});
         dom.swipeArea.addEventListener('touchend', handleEnd, {passive: true});
     }
+
+    // --- ЛОГИКА РЕДАКТОРА ПРАВИЛ ---
+
+// Открыть редактор и заполнить поля
+window.openRulesEditor = function() {
+    haptic('medium');
+    document.getElementById('instruction-modal').classList.remove('modal-active'); // Закрываем просмотр
+    
+    const container = document.getElementById('editor-items-container');
+    container.innerHTML = '';
+    
+    const rules = (bpData && bpData.rules) ? bpData.rules : [];
+    
+    if (rules.length === 0) {
+        addEditorItem(); // Создаем пустой, если ничего нет
+    } else {
+        rules.forEach(rule => addEditorItem(rule.title, rule.icon, rule.text));
+    }
+    
+    document.getElementById('rules-editor-modal').classList.add('modal-active');
+};
+
+// Добавить новый блок в редактор
+window.addEditorItem = function(title = '', icon = 'fa-star', text = '') {
+    haptic('light');
+    const container = document.getElementById('editor-items-container');
+    const id = 'rule_' + Date.now() + Math.random().toString(36).substr(2, 9);
+    
+    const div = document.createElement('div');
+    div.className = 'editor-item';
+    div.id = id;
+    
+    div.innerHTML = `
+        <button class="editor-btn-delete" onclick="document.getElementById('${id}').remove(); haptic('light');"><i class="fa-solid fa-trash"></i></button>
+        <input type="text" class="editor-input rule-title" placeholder="Заголовок (напр. VIP Статус)" value="${title}">
+        <input type="text" class="editor-input rule-icon" placeholder="Иконка (напр. fa-gift)" value="${icon}">
+        
+        <div>
+            <button class="editor-btn-small" onclick="insertLink(this)" style="margin-bottom: 5px;">
+                <i class="fa-solid fa-link"></i> Вставить ссылку
+            </button>
+        </div>
+        <textarea class="editor-textarea rule-text" placeholder="Текст инструкции (можно использовать HTML)">${text}</textarea>
+    `;
+    container.appendChild(div);
+};
+
+// Хелпер: вставить ссылку в текстовое поле
+window.insertLink = function(btn) {
+    const textarea = btn.parentElement.nextElementSibling;
+    const url = prompt("Введите ссылку (начиная с https://):", "https://t.me/...");
+    if (!url) return;
+    const text = prompt("Введите текст, который будет кликабельным:", "Нажми сюда");
+    if (!text) return;
+    
+    // Красивая ссылка в золотом цвете
+    const linkHtml = `<a href="${url}" target="_blank" style="color: #ffd700; text-decoration: underline;">${text}</a>`;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.value = textarea.value.substring(0, start) + linkHtml + textarea.value.substring(end);
+    textarea.focus();
+};
+
+// Сохранить на бэкенд
+window.saveRules = async function() {
+    haptic('medium');
+    const items = document.querySelectorAll('.editor-item');
+    const newRules = [];
+    
+    items.forEach(item => {
+        const title = item.querySelector('.rule-title').value.trim();
+        const icon = item.querySelector('.rule-icon').value.trim();
+        const text = item.querySelector('.rule-text').value.trim();
+        
+        if (title || text) {
+            newRules.append({ title: title, icon: icon, text: text });
+        }
+    });
+    
+    tg.MainButton.showProgress();
+    
+    try {
+        const res = await fetch('/api/v1/admin/checkpoint/rules_update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: tg.initData, rules: newRules })
+        });
+        
+        if (res.ok) {
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert('Правила успешно сохранены!');
+            
+            // Обновляем локальные данные и перерисовываем
+            bpData.rules = newRules;
+            renderRules();
+            
+            document.getElementById('rules-editor-modal').classList.remove('modal-active');
+        } else {
+            const err = await res.json();
+            tg.showAlert('Ошибка: ' + (err.detail || 'Не удалось сохранить'));
+            tg.HapticFeedback.notificationOccurred('error');
+        }
+    } catch (e) {
+        tg.showAlert('Ошибка соединения с сервером.');
+    } finally {
+        tg.MainButton.hideProgress();
+    }
+};
 
     initialize();
 });
