@@ -1698,15 +1698,17 @@ window.insertLink = function(btn) {
 window.saveRules = async function() {
     haptic('medium');
     const items = document.querySelectorAll('.editor-item');
-    const newRules = [];
+    const newRules = []; // Пустой массив для обновленных правил
     
+    // Собираем данные со всех открытых блоков
     items.forEach(item => {
         const title = item.querySelector('.rule-title').value.trim();
         const icon = item.querySelector('.rule-icon').value.trim();
         const text = item.querySelector('.rule-text').value.trim();
         
+        // Если заголовок или текст не пустые — добавляем в массив
         if (title || text) {
-            newRules.append({ title: title, icon: icon, text: text });
+            newRules.push({ title: title, icon: icon, text: text }); // <-- ИСПОЛЬЗУЕМ PUSH
         }
     });
     
@@ -1721,9 +1723,9 @@ window.saveRules = async function() {
         
         if (res.ok) {
             tg.HapticFeedback.notificationOccurred('success');
-            tg.showAlert('Правила успешно сохранены!');
+            tg.showAlert('Инструкция успешно сохранена!');
             
-            // Обновляем локальные данные и перерисовываем
+            // Обновляем данные в памяти и перерисовываем аккордеоны
             bpData.rules = newRules;
             renderRules();
             
@@ -1739,7 +1741,7 @@ window.saveRules = async function() {
         tg.MainButton.hideProgress();
     }
 };
-
+    
     initialize();
 });
 </script>
