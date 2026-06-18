@@ -21,22 +21,29 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-        html, body {
-            width: 100vw; height: 100vh; height: var(--tg-viewport-height, 100vh); 
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            overflow: hidden; background-color: var(--bg-main); color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow-x: hidden;
-            overscroll-behavior-x: none !important;
-        }
+html, body {
+    width: 100vw; height: 100vh; height: var(--tg-viewport-height, 100vh); 
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    overflow: hidden; background-color: var(--bg-main); color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+    overscroll-behavior-x: none !important;
+    
+    /* 👇 ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ 👇 */
+    display: flex;
+    flex-direction: column;
+}
 
         .hidden { display: none !important; }
 
         .main-content-scrollable {
-            height: 100%; overflow-y: auto; overflow-x: hidden;
-            -webkit-overflow-scrolling: touch; padding-bottom: 0; 
-            overscroll-behavior-x: none !important;
-        }
+    flex: 1;
+    height: auto; 
+    
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; padding-bottom: 0; 
+    overscroll-behavior-x: none !important;
+}
         .main-content-scrollable::after {
             content: ''; display: block; height: 160px; width: 100%; flex-shrink: 0; pointer-events: none;
         }
