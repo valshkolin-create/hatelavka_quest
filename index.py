@@ -15429,7 +15429,16 @@ async def update_checkpoint_content(
         config = request_data.config
         tiers = config.pop("tiers", []) # Вытаскиваем уровни из общего конфига
 
-        # 1. Сохраняем общие настройки (название, даты, цену, квесты) в JSON
+        # 👇 ДОБАВЛЯЕМ ЗАЩИТУ: Достаем старый конфиг из базы
+        old_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+        if old_resp.status_code == 200 and old_resp.json():
+            old_config = old_resp.json()[0].get("content", {})
+            # Если в старом были правила, а фронт их не прислал - сохраняем их!
+            if "rules" in old_config and "rules" not in config:
+                config["rules"] = old_config["rules"]
+        # 👆 КОНЕЦ ЗАЩИТЫ
+
+        # 1. Сохраняем общие настройки (название, даты, цену, квесты + спасенные rules) в JSON
         await supabase.patch(
             "/pages_content",
             params={"page_name": "eq.checkpoint"},
