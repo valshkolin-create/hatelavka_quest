@@ -15766,7 +15766,6 @@ async def get_cases_list(
         logging.error(f"Ошибка при получении списка кейсов: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Сбой загрузки кэша кейсов")
 
-
 @app.post("/api/v1/checkpoint/claim")
 async def claim_checkpoint_reward(
     request_data: CheckpointClaimRequest,
@@ -15786,15 +15785,16 @@ async def claim_checkpoint_reward(
         raise HTTPException(status_code=400, detail="Неверный тип линии наград.")
 
     try:
-        # 1. Проверяем баланс Звезд и наличие Премиума у юзера
-        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "checkpoint_stars, has_cp_premium"})
+        # 1. Проверяем баланс Звезд, наличие Премиума и достаем текущие билеты
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "checkpoint_stars, has_cp_premium, tickets"})
         user_resp.raise_for_status()
         if not user_resp.json():
              raise HTTPException(status_code=404, detail="Пользователь не найден.")
              
         user_db = user_resp.json()[0]
-        user_stars = user_db.get("checkpoint_stars", 0)
+        user_stars = float(user_db.get("checkpoint_stars") or 0)
         has_premium = user_db.get("has_cp_premium", False)
+        current_tickets = int(user_db.get("tickets") or 0) # <--- ТЕКУЩИЕ БИЛЕТЫ
 
         if track_type == 'premium' and not has_premium:
             raise HTTPException(status_code=403, detail="Для этой награды требуется Premium статус.")
@@ -15818,7 +15818,7 @@ async def claim_checkpoint_reward(
 
         # 3. Проверяем, не забирал ли он уже эту награду (Через таблицу claims)
         claim_check = await supabase.get("/user_checkpoint_claims", params={
-            "user_id": f"eq.{telegram_id}",  # 🔥 ИСПРАВЛЕНО: telegram_id -> user_id
+            "user_id": f"eq.{telegram_id}",  
             "level": f"eq.{level_to_claim}",
             "reward_track": f"eq.{track_type}"
         })
@@ -15828,9 +15828,38 @@ async def claim_checkpoint_reward(
         # 4. ВЫДАЧА НАГРАДЫ (Логика в зависимости от типа)
         if reward_type == 'coins':
             await supabase.post("/rpc/add_user_balance", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
+            
+        # 🔥 ПРОСТО ПРИБАВЛЯЕМ БИЛЕТЫ И ОБНОВЛЯЕМ В БД
         elif reward_type == 'tickets':
-            await supabase.post("/rpc/add_user_tickets", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
-        elif reward_type in ['cs2_skin', 'case', 'case_coupon']:
+            new_tickets = current_tickets + int(reward_value)
+            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"tickets": new_tickets})
+            
+        # 🔥 АВТО-КУПОНЫ ДЛЯ КЕЙСОВ
+        elif reward_type in ['case', 'case_coupon']:
+            unique_code = f"BP-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+            coupon_res = await supabase.post(
+                "/cs_codes", 
+                json={
+                    "code": unique_code,
+                    "max_uses": 1,
+                    "current_uses": 0,
+                    "is_active": True,
+                    "description": f"Авто-код: Награда Battle Pass (Уровень {level_to_claim}, {track_type.upper()})",
+                    "is_copied": False,
+                    "assigned_to": telegram_id,
+                    "assigned_at": datetime.now(timezone.utc).isoformat(),
+                    "target_case_name": reward_value,
+                    "used_by_ids": [],
+                    "activated_by_ids": [str(telegram_id)], 
+                    "campaign_id": 999 # Привязываем к БП
+                }
+            )
+            if coupon_res.status_code not in [200, 201]:
+                logging.error(f"Ошибка БД при выдаче кейса БП: {coupon_res.text}")
+                raise HTTPException(status_code=500, detail="Ошибка генерации купона.")
+
+        # ⚡ РУЧНАЯ ВЫДАЧА ДЛЯ СКИНОВ
+        elif reward_type == 'cs2_skin':
             # Создаем ручную заявку для админов
             payload = {
                 "user_id": telegram_id,
@@ -15854,7 +15883,7 @@ async def claim_checkpoint_reward(
 
         # 5. Записываем в базу, что юзер забрал награду
         await supabase.post("/user_checkpoint_claims", json={
-            "user_id": telegram_id, # 🔥 ИСПРАВЛЕНО: telegram_id -> user_id
+            "user_id": telegram_id, 
             "level": level_to_claim,
             "reward_track": track_type
         })
@@ -15867,7 +15896,7 @@ async def claim_checkpoint_reward(
     except Exception as e:
         logging.error(f"Критическая ошибка в /api/v1/checkpoint/claim: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
-
+        
 # Обязательно добавь модель данных, если её еще нет (в начале файла)
 class GrantLevelRequest(BaseModel):
     initData: str
