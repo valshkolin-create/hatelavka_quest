@@ -15858,27 +15858,72 @@ async def claim_checkpoint_reward(
                 logging.error(f"Ошибка БД при выдаче кейса БП: {coupon_res.text}")
                 raise HTTPException(status_code=500, detail="Ошибка генерации купона.")
 
-        # ⚡ РУЧНАЯ ВЫДАЧА ДЛЯ СКИНОВ
+        # ⚡ АВТО-ВЫДАЧА СКИНОВ В ИНВЕНТАРЬ (КАК В АУКЦИОНЕ)
         elif reward_type == 'cs2_skin':
-            # Создаем ручную заявку для админов
-            payload = {
-                "user_id": telegram_id,
-                "status": "pending",
-                "reward_details": reward_value,
-                "source_description": f"Чекпоинт (Уровень {level_to_claim}, {track_type.upper()})"
-            }
-            manual_resp = await supabase.post("/manual_rewards", json=payload)
-            manual_resp.raise_for_status()
+            market_hash_name = reward_value
+            
+            # 1. Ищем актуальную цену и картинку в market_cache
+            market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+            market_data_db = market_res.json() if market_res.status_code == 200 else []
+            price_rub = float(market_data_db[0].get('price_rub', 0)) if market_data_db else 0.0
+            image_url = market_data_db[0].get('image_url', 'https://placehold.co/150') if market_data_db else 'https://placehold.co/150'
 
-            # Уведомление в админский чат
+            # 2. Ищем скин в cs_items или создаем новый
+            item_id = None
+            item_res = await supabase.get("/cs_items", params={"market_hash_name": f"eq.{market_hash_name}", "select": "id", "limit": 1})
+            item_data_list = item_res.json() if item_res.status_code == 200 else []
+            
+            if item_data_list:
+                item_id = item_data_list[0]['id']
+            else:
+                # Парсим название и износ из market_hash_name
+                base_name = market_hash_name.split(' (')[0] if ' (' in market_hash_name else market_hash_name
+                condition = market_hash_name.split('(')[-1].replace(')','') if '(' in market_hash_name else None
+
+                new_item = {
+                    "name": base_name,
+                    "market_hash_name": market_hash_name,
+                    "price_rub": price_rub,
+                    "price": str(int(price_rub)) if price_rub else "0",
+                    "rarity": "mythical",
+                    "condition": condition,
+                    "image_url": image_url,
+                    "is_active": False,
+                    "chance_weight": "0",
+                    "quantity": 0
+                }
+                create_res = await supabase.post("/cs_items", json=new_item, headers={"Prefer": "return=representation"})
+                if create_res.status_code in (200, 201):
+                    item_id = create_res.json()[0]['id']
+
+            # 3. Кладём в инвентарь пользователя (cs_history)
+            if item_id:
+                await supabase.post("/cs_history", json={
+                    "user_id": telegram_id,
+                    "item_id": item_id,
+                    "case_name": f"Battle Pass Ур.{level_to_claim}",
+                    "status": "available", 
+                    "details": f"Награда БП ({track_type.upper()})",
+                    "source": "checkpoint"
+                })
+
+            # 4. In-App Уведомление пользователю
+            await create_in_app_notification(
+                supabase=supabase,
+                user_id=telegram_id,
+                title="🎁 Награда Battle Pass!",
+                message=f"Скин «{market_hash_name}» добавлен в ваш инвентарь!",
+                notif_type="system" 
+            )
+
+            # 5. Уведомление в админский чат (логирование)
             if ADMIN_NOTIFY_CHAT_ID:
                 await safe_send_message(
                     ADMIN_NOTIFY_CHAT_ID,
-                    f"🔔 <b>Заявка на предмет из Чекпоинта!</b>\n\n"
+                    f"✅ <b>Авто-выдача из Чекпоинта!</b>\n\n"
                     f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
-                    f"<b>Награда:</b> {reward_value}\n"
-                    f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}\n\n"
-                    f"Заявка ждет подтверждения в админ-панели."
+                    f"<b>Скин:</b> {market_hash_name}\n"
+                    f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}"
                 )
 
         # 5. Записываем в базу, что юзер забрал награду
