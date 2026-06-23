@@ -6,6 +6,10 @@
     <title>Редактор Профилей | HATElavka</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Идеальная круглая заглушка, если аватарка сломана
+        const defaultAvatar = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%232c2c2e%22/%3E%3Cpath d=%22M50 55a22 22 0 1 0 0-44 22 22 0 0 0 0 44zm0 5c-15.3 0-45 7.6-45 23v9h90v-9c0-15.4-29.7-23-45-23z%22 fill=%22%238e8e93%22/%3E%3C/svg%3E";
+    </script>
     <style>
         :root {
             --bg: #0f0f0f;
@@ -27,6 +31,14 @@
             -webkit-tap-highlight-color: transparent;
             padding-bottom: 140px; 
             zoom: 0.85; 
+        }
+
+        /* 🔥 ЛОКАЛЬНЫЙ ФИКС НИЖНЕГО БАРА (компенсирует zoom: 0.85) 🔥 */
+        body .floating-bottom-bar {
+            left: 0 !important;
+            right: 0 !important;
+            margin: 0 auto !important;
+            transform: none !important;
         }
 
         /* --- Header --- */
@@ -78,7 +90,7 @@
         /* --- Модальные окна (Bottom Sheet) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; }
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); }
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         
         .admin-action-btn { background: #64b5ef; color: #000; padding: 12px; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 15px; transition: 0.2s; }
@@ -95,6 +107,7 @@
         <h1 class="page-title">Редактор профиля</h1>
     </div>
 
+    <!-- БЛОК ПОИСКА И БАНОВ -->
     <div id="searchView">
         <div class="section-box admin-form" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
             <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-magnifying-glass"></i> Поиск игрока</h3>
@@ -113,11 +126,13 @@
         </div>
     </div>
 
+    <!-- ЛОАДЕР ЗАГРУЗКИ ПРОФИЛЯ -->
     <div id="mainLoader" class="hidden" style="text-align: center; padding: 40px; color: var(--text-sec);">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p style="margin-top: 10px; font-size: 13px;">Сбор данных...</p>
     </div>
 
+    <!-- КАРТОЧКА ПРОФИЛЯ -->
     <div id="profileContainer" class="profile-container hidden">
         <button class="inner-back-btn" onclick="closeProfile()">
             <i class="fa-solid fa-arrow-left"></i> Назад к списку
@@ -125,7 +140,7 @@
 
         <div class="section-box">
             <div class="profile-card">
-                <img id="userAvatar" src="" alt="Avatar" class="profile-avatar" onerror="this.onerror=null; this.src='https://placehold.co/100?text=👤';">
+                <img id="userAvatar" src="" alt="Avatar" class="profile-avatar" onerror="this.onerror=null; this.src=defaultAvatar;">
                 <div class="profile-info">
                     <div id="userName" class="profile-name">Загрузка...</div>
                     <div style="font-size: 12px; color: var(--text-sec); margin-top: 4px; font-weight: 600;">ID: <span id="userId" style="color: #fff;"></span></div>
@@ -144,6 +159,16 @@
                     <span>Билеты</span>
                     <small id="statTickets">...</small>
                 </button>
+                <button class="action-btn" onclick="openModal('cpModal')" style="border-color: rgba(255, 71, 87, 0.3); background: rgba(255, 71, 87, 0.05);">
+                    <i class="fa-solid fa-flag-checkered" style="color: #ff4757;"></i>
+                    <span>Battle Pass</span>
+                    <small id="statCpLevel">...</small>
+                </button>
+                <button class="action-btn" onclick="openModal('grindModal')" style="border-color: rgba(255, 149, 0, 0.3); background: rgba(255, 149, 0, 0.05);">
+                    <i class="fa-solid fa-fire" style="color: #ff9500;"></i>
+                    <span>Гринд</span>
+                    <small id="statGrind">...</small>
+                </button>
                 <button class="action-btn" onclick="openModal('trustModal')" style="border-color: rgba(175, 82, 222, 0.3); background: rgba(175, 82, 222, 0.05);">
                     <i class="fa-solid fa-shield-heart" style="color: #af52de;"></i>
                     <span>Траст Фактор</span>
@@ -158,6 +183,8 @@
         </div>
     </div>
 
+    <!-- МОДАЛКИ (BOTTOM SHEETS) -->
+
     <div id="coinsModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
@@ -170,7 +197,7 @@
                 <option value="subtract">Списать (-)</option>
             </select>
             <label>Количество</label>
-            <input type="number" id="coinsAmount" placeholder="Например: 100" min="1">
+            <input type="number" step="0.01" id="coinsAmount" placeholder="Например: 100" min="0.01">
             <button class="admin-action-btn" onclick="submitCoins()" style="background: var(--primary);">Применить</button>
         </div>
     </div>
@@ -184,6 +211,40 @@
             <label>Количество билетов для выдачи</label>
             <input type="number" id="ticketsAmount" placeholder="Например: 50" min="1">
             <button class="admin-action-btn" onclick="submitTickets()">Выдать билеты</button>
+        </div>
+    </div>
+
+    <div id="cpModal" class="modal-overlay" onclick="closeOnDim(event)">
+        <div class="bottom-sheet admin-form">
+            <div class="modal-header">
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Уровни Battle Pass</h3>
+                <button class="back-btn" onclick="closeModal('cpModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
+            </div>
+            <label>Действие</label>
+            <select id="cpAction">
+                <option value="add">Добавить уровни (+)</option>
+                <option value="subtract">Забрать уровни (-)</option>
+            </select>
+            <label>Количество уровней</label>
+            <input type="number" id="cpAmount" placeholder="Например: 5" min="1">
+            <button class="admin-action-btn" onclick="submitCp()" style="background: #ff4757; color: #fff;">Применить</button>
+        </div>
+    </div>
+
+    <div id="grindModal" class="modal-overlay" onclick="closeOnDim(event)">
+        <div class="bottom-sheet admin-form">
+            <div class="modal-header">
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff9500;"><i class="fa-solid fa-fire"></i> Гринд Статус</h3>
+                <button class="back-btn" onclick="closeModal('grindModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
+            </div>
+            <label>Доступ к Ивентам (Гринд)</label>
+            <select id="hasEventsAccess">
+                <option value="true">Открыт (Участвует)</option>
+                <option value="false">Закрыт</option>
+            </select>
+            <label>Страйк (Дней подряд)</label>
+            <input type="number" id="streakDays" placeholder="Например: 3" min="0">
+            <button class="admin-action-btn" onclick="submitGrind()" style="background: #ff9500; color: #fff;">Сохранить Гринд</button>
         </div>
     </div>
 
@@ -307,11 +368,11 @@
                 }
 
                 listObj.innerHTML = users.map(u => {
-                    const avatar = u.photo_url || 'https://placehold.co/40';
+                    const avatar = u.photo_url || defaultAvatar;
                     const name = escapeHTML(u.full_name || u.username || 'Без имени');
                     return `
                         <div class="search-item" style="border-left-color: var(--danger);" onclick="loadUser(${u.telegram_id})">
-                            <img src="${avatar}" class="search-img" onerror="this.onerror=null; this.src='https://placehold.co/40?text=👤';">
+                            <img src="${avatar}" class="search-img" onerror="this.onerror=null; this.src=defaultAvatar;">
                             <div class="search-info">
                                 <div style="font-weight:700; font-size:12px; color:#fff;">${name}</div>
                                 <div style="font-size:10px; color:var(--text-sec); margin-top:2px;">ID: ${u.telegram_id}</div>
@@ -345,12 +406,12 @@
                         return;
                     }
                     searchResults.innerHTML = users.map(u => {
-                        const avatar = u.photo_url || 'https://placehold.co/40';
+                        const avatar = u.photo_url || defaultAvatar;
                         const name = escapeHTML(u.full_name || u.username || 'Без имени');
                         const twitch = u.twitch_login ? escapeHTML(u.twitch_login) : 'нет';
                         return `
                             <div class="search-item" style="border-left-color: #64b5ef;" onclick="loadUser(${u.telegram_id})">
-                                <img src="${avatar}" class="search-img" onerror="this.onerror=null; this.src='https://placehold.co/40?text=👤';">
+                                <img src="${avatar}" class="search-img" onerror="this.onerror=null; this.src=defaultAvatar;">
                                 <div class="search-info">
                                     <div style="font-weight:700; font-size:12px; color:#fff;">${name}</div>
                                     <div style="font-size:10px; color:var(--text-sec); margin-top:2px;">ID: ${u.telegram_id} | <i class="fa-brands fa-twitch"></i> ${twitch}</div>
@@ -378,23 +439,27 @@
                 currentUser = await fetchApi(`/api/v1/admin/users/${id}/full_profile`, null, 'GET');
                 
                 // Заполняем UI
-                document.getElementById('userAvatar').src = currentUser.photo_url || 'https://placehold.co/100';
+                document.getElementById('userAvatar').src = currentUser.photo_url || defaultAvatar;
                 document.getElementById('userName').textContent = currentUser.full_name || 'Без имени';
                 document.getElementById('userId').textContent = currentUser.telegram_id;
 
                 // Бейджи
                 let badgesHTML = '';
-                if (currentUser.is_banned) badgesHTML += '<span class="badge red">BANNED</span>';
+                if (currentUser.is_banned) badgesHTML += '<span class="badge red">ЗАБАНЕН</span>';
                 if (currentUser.has_cp_premium) badgesHTML += '<span class="badge premium">PREMIUM</span>';
-                if (currentUser.trust_level === 'red') badgesHTML += '<span class="badge red">LOW TRUST</span>';
-                if (currentUser.trust_level === 'green') badgesHTML += '<span class="badge green">HIGH TRUST</span>';
+                if (currentUser.trust_level === 'red') badgesHTML += '<span class="badge red">КРАСНЫЙ ТРАСТ</span>';
+                if (currentUser.trust_level === 'green') badgesHTML += '<span class="badge green">ЗЕЛЕНЫЙ ТРАСТ</span>';
                 document.getElementById('userBadges').innerHTML = badgesHTML;
 
-                // Статистика на кнопках
-                document.getElementById('statCoins').textContent = `${currentUser.bot_t_coins || 0} 🪙`;
-                document.getElementById('statTickets').textContent = `${currentUser.tickets || 0} 🎟️`;
+                // Статистика на кнопках (Bot-t монеты делим на 100 для красивого вида)
+                const coinsDisplay = ((currentUser.bot_t_coins || 0) / 100).toFixed(2);
+                document.getElementById('statCoins').innerHTML = `${coinsDisplay} <i class="fa-solid fa-coins" style="color:var(--text-sec); font-size:10px;"></i>`;
+                
+                document.getElementById('statTickets').innerHTML = `${currentUser.tickets || 0} <i class="fa-solid fa-ticket" style="color:var(--text-sec); font-size:10px;"></i>`;
                 document.getElementById('statTrust').textContent = `Score: ${currentUser.trust_score || 0}`;
                 document.getElementById('statStatus').textContent = currentUser.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН';
+                document.getElementById('statCpLevel').textContent = `LVL: ${currentUser.checkpoint_level || 0}`;
+                document.getElementById('statGrind').textContent = currentUser.has_events_access ? `Страйк: ${currentUser.streak_days || 0} дн.` : 'ЗАКРЫТ';
 
                 // Заполняем инпуты модалок заранее
                 document.getElementById('trustLevel').value = currentUser.trust_level || 'green';
@@ -402,6 +467,8 @@
                 document.getElementById('penaltyPoints').value = currentUser.penalty_points || 0;
                 document.getElementById('isBanned').value = currentUser.is_banned ? "true" : "false";
                 document.getElementById('hasPremium').value = currentUser.has_cp_premium ? "true" : "false";
+                document.getElementById('hasEventsAccess').value = currentUser.has_events_access ? "true" : "false";
+                document.getElementById('streakDays').value = currentUser.streak_days || 0;
 
                 document.getElementById('mainLoader').classList.add('hidden');
                 document.getElementById('profileContainer').classList.remove('hidden');
@@ -421,36 +488,35 @@
         function closeOnDim(e) { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('modal-active'); }
 
         // --- API ДЕЙСТВИЯ (ОТПРАВКА) ---
-       async function submitCoins() {
-    const amount = parseFloat(document.getElementById('coinsAmount').value);
-    const action = document.getElementById('coinsAction').value;
-    if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму");
-    
-    tg.MainButton.showProgress();
-    try {
-        await fetchApi('/api/v1/admin/users/manage-coins', { user_id: currentUser.telegram_id, amount: amount, action_type: action });
-        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        tg.showPopup({message: 'Баланс обновлен!'});
-        closeModal('coinsModal');
-        
-        // Оптимистично обновляем баланс прямо в интерфейсе
-        let currentBalance = parseFloat(currentUser.bot_t_coins || 0);
-        if (action === 'add') {
-            currentBalance += amount;
-        } else {
-            currentBalance -= amount;
+        async function submitCoins() {
+            const amount = parseFloat(document.getElementById('coinsAmount').value);
+            const action = document.getElementById('coinsAction').value;
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму");
+            
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/manage-coins', { user_id: currentUser.telegram_id, amount: amount, action_type: action });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Баланс обновлен!'});
+                closeModal('coinsModal');
+                
+                // Оптимистично обновляем баланс (в центах)
+                let currentBalanceCents = parseFloat(currentUser.bot_t_coins || 0);
+                const amountCents = amount * 100;
+                if (action === 'add') {
+                    currentBalanceCents += amountCents;
+                } else {
+                    currentBalanceCents -= amountCents;
+                }
+                currentUser.bot_t_coins = currentBalanceCents; 
+                document.getElementById('statCoins').innerHTML = `${(currentBalanceCents / 100).toFixed(2)} <i class="fa-solid fa-coins" style="color:var(--text-sec); font-size:10px;"></i>`;
+                
+                document.getElementById('coinsAmount').value = '';
+            } catch (err) { 
+                tg.showAlert(err.message); 
+            }
+            finally { tg.MainButton.hideProgress(); }
         }
-        currentUser.bot_t_coins = currentBalance; // Обновляем в локальном кэше
-        document.getElementById('statCoins').textContent = `${currentBalance} 🪙`; // Рисуем новую цифру
-        
-        document.getElementById('coinsAmount').value = '';
-    } catch (err) { 
-        tg.showAlert(err.message); 
-    }
-    finally { 
-        tg.MainButton.hideProgress(); 
-    }
-}
 
         async function submitTickets() {
             const amount = parseInt(document.getElementById('ticketsAmount').value);
@@ -463,6 +529,42 @@
                 tg.showPopup({message: 'Билеты выданы!'});
                 closeModal('ticketsModal');
                 document.getElementById('ticketsAmount').value = '';
+                loadUser(currentUser.telegram_id);
+            } catch (err) { tg.showAlert(err.message); }
+            finally { tg.MainButton.hideProgress(); }
+        }
+
+        async function submitCp() {
+            const amount = parseInt(document.getElementById('cpAmount').value);
+            const action = document.getElementById('cpAction').value;
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректное число уровней");
+
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/manage-cp', { user_id: currentUser.telegram_id, action_type: action, amount: amount });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Уровни обновлены!'});
+                closeModal('cpModal');
+                document.getElementById('cpAmount').value = '';
+                loadUser(currentUser.telegram_id);
+            } catch (err) { tg.showAlert(err.message); }
+            finally { tg.MainButton.hideProgress(); }
+        }
+
+        async function submitGrind() {
+            const hasAccess = document.getElementById('hasEventsAccess').value === 'true';
+            const streak = parseInt(document.getElementById('streakDays').value);
+            
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/manage-grind', { 
+                    user_id: currentUser.telegram_id, 
+                    has_events_access: hasAccess, 
+                    streak_days: streak >= 0 ? streak : 0 
+                });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Гринд статус сохранен!'});
+                closeModal('grindModal');
                 loadUser(currentUser.telegram_id);
             } catch (err) { tg.showAlert(err.message); }
             finally { tg.MainButton.hideProgress(); }
@@ -501,6 +603,7 @@
                 tg.showPopup({message: 'Статусы обновлены!'});
                 closeModal('statusModal');
                 loadUser(currentUser.telegram_id);
+                loadBannedUsers();
             } catch (err) { tg.showAlert(err.message); }
             finally { tg.MainButton.hideProgress(); }
         }
