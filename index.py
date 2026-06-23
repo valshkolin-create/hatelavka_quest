@@ -18817,8 +18817,8 @@ async def buy_bott_item_proxy(
     bott_secret_key = user_record.get("bott_secret_key")
     # Преобразуем балансы в числа, чтобы избежать ошибок типов
     current_balance_kopecks = float(user_record.get("bot_t_coins", 0))
-    current_tickets = int(user_record.get("tickets", 0))
-    current_trust = user_record.get("trust_level", "gray") # <-- ДОБАВИЛИ ЭТУ СТРОКУ
+    current_tickets = float(user_record.get("tickets", 0)) # 🔥 МЕНЯЕМ int НА float 🔥
+    current_trust = user_record.get("trust_level", "gray")
 
     if not bott_internal_id or not bott_secret_key:
          raise HTTPException(status_code=400, detail="Ошибка авторизации. Перезайдите в бот.")
@@ -18956,14 +18956,14 @@ async def buy_bott_item_proxy(
                     logging.error(f"[SHOP] Ошибка синхронизации с Bot-T перед покупкой: {e}")
 
 
-        # =========================================================================
+# =========================================================================
         # 2. ЖЕСТКАЯ ПРОВЕРКА БАЛАНСА И АТОМАРНОЕ СПИСАНИЕ (ЗАЩИТА ОТ DOUBLE-CLICK)
         # =========================================================================
         if currency == 'tickets':
-            if current_tickets < final_price: # <-- ТУТ final_price
-                raise HTTPException(status_code=400, detail=f"Недостаточно билетов! Цена для вас: {int(final_price)}")
-            # 🔥 ПРЕВРАЩАЕМ В ЦЕЛОЕ ЧИСЛО 🔥
-            new_balance = int(current_tickets - final_price) # <-- ТУТ final_price
+            if current_tickets < final_price:
+                raise HTTPException(status_code=400, detail=f"Недостаточно билетов! Цена для вас: {final_price}") # 🔥 УБРАЛИ int() ИЗ ТЕКСТА ОШИБКИ 🔥
+            # 🔥 ОКРУГЛЯЕМ ДО 2 ЗНАКОВ ВМЕСТО int() 🔥
+            new_balance = round(current_tickets - float(final_price), 2)
             update_col = "tickets"
             old_balance = current_tickets # 🔥 Запоминаем старый баланс для проверки
         else:
