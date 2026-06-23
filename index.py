@@ -27466,6 +27466,27 @@ async def admin_manage_trust(
         logging.error(f"Ошибка изменения траста: {e}")
         raise HTTPException(status_code=500, detail="Ошибка при сохранении траста.")
 
+@app.get("/api/v1/admin/users/banned")
+async def admin_get_banned_users(
+    initData: str = Query(...),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Получает список всех заблокированных пользователей."""
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        resp = await supabase.get(
+            "/users", 
+            params={"is_banned": "is.true", "select": "telegram_id,full_name,username,photo_url"}
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        logging.error(f"Ошибка получения списка забаненных: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных.")
+
 @app.post("/api/v1/admin/users/manage-status")
 async def admin_manage_status(
     req: AdminProfileActionRequest,
