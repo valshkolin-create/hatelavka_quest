@@ -14,11 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
         .floating-bottom-bar {
             font-family: 'Montserrat', sans-serif;
             
-            /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
+           /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
             position: fixed; 
             bottom: calc(15px + ${androidPadding}); 
-            left: 50vw; 
-            transform: translateX(-50%); 
+            left: 0; 
+            right: 0; 
+            margin: 0 auto; 
             width: 85vw; 
             max-width: 360px;
             box-sizing: border-box;
