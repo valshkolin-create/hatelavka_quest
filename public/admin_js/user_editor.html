@@ -119,6 +119,7 @@
         <h1 class="page-title">Редактор профиля</h1>
     </div>
 
+    <!-- БЛОК ПОИСКА И БАНОВ -->
     <div id="searchView">
         <div class="section-box admin-form" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
             <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-magnifying-glass"></i> Поиск игрока</h3>
@@ -137,11 +138,13 @@
         </div>
     </div>
 
+    <!-- ЛОАДЕР ЗАГРУЗКИ ПРОФИЛЯ -->
     <div id="mainLoader" class="hidden" style="text-align: center; padding: 40px; color: var(--text-sec);">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p style="margin-top: 10px; font-size: 13px;">Сбор данных...</p>
     </div>
 
+    <!-- КАРТОЧКА ПРОФИЛЯ -->
     <div id="profileContainer" class="profile-container hidden">
         <button class="inner-back-btn" onclick="closeProfile()">
             <i class="fa-solid fa-arrow-left"></i> Назад к списку
@@ -160,7 +163,7 @@
             <div class="actions-grid">
                 <button class="action-btn" onclick="openModal('coinsModal')" style="border-color: rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05);">
                     <i class="fa-solid fa-coins" style="color: var(--primary);"></i>
-                    <span>Монеты</span>
+                    <span>Bot-t Монеты</span>
                     <small id="statCoins">...</small>
                 </button>
                 <button class="action-btn" onclick="openModal('ticketsModal')" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
@@ -175,7 +178,7 @@
                 </button>
                 <button class="action-btn" onclick="openModal('grindModal')" style="border-color: rgba(255, 149, 0, 0.3); background: rgba(255, 149, 0, 0.05);">
                     <i class="fa-solid fa-fire" style="color: #ff9500;"></i>
-                    <span>Гринд</span>
+                    <span>Гринд (Твич)</span>
                     <small id="statGrind">...</small>
                 </button>
                 <button class="action-btn" onclick="openModal('trustModal')" style="border-color: rgba(175, 82, 222, 0.3); background: rgba(175, 82, 222, 0.05);">
@@ -192,10 +195,12 @@
         </div>
     </div>
 
+    <!-- МОДАЛКИ (BOTTOM SHEETS) -->
+
     <div id="coinsModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
-                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: var(--primary);"><i class="fa-solid fa-coins"></i> Управление Монетами</h3>
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: var(--primary);"><i class="fa-solid fa-coins"></i> Управление Bot-t Монетами</h3>
                 <button class="back-btn" onclick="closeModal('coinsModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
             <label>Действие</label>
@@ -241,16 +246,33 @@
     <div id="grindModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
-                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff9500;"><i class="fa-solid fa-fire"></i> Гринд Статус</h3>
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff9500;"><i class="fa-solid fa-fire"></i> Гринд & Twitch</h3>
                 <button class="back-btn" onclick="closeModal('grindModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
-            <label>Доступ к Ивентам (Гринд)</label>
-            <select id="hasEventsAccess">
-                <option value="true">Открыт (Участвует)</option>
-                <option value="false">Закрыт</option>
+            
+            <p style="font-size: 12px; color: var(--text-sec); margin-top: -5px; margin-bottom: 10px;">
+                Последний сбор: <strong id="lastGrindHours" style="color: #ff9500;">...</strong>
+            </p>
+
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label>Гринд Монеты</label>
+                    <input type="number" step="0.1" id="grindCoins" placeholder="Например: 15.5" min="0">
+                </div>
+                <div style="flex: 1;">
+                    <label>Страйк (Дней)</label>
+                    <input type="number" id="streakDays" placeholder="Например: 3" min="0">
+                </div>
+            </div>
+
+            <label>Twitch Статус</label>
+            <select id="twitchStatus">
+                <option value="none">Нет статуса</option>
+                <option value="follower">Follower</option>
+                <option value="subscriber">Subscriber</option>
+                <option value="vip">VIP</option>
             </select>
-            <label>Страйк (Дней подряд)</label>
-            <input type="number" id="streakDays" placeholder="Например: 3" min="0">
+            
             <button class="admin-action-btn" onclick="submitGrind()" style="background: #ff9500; color: #fff;">Сохранить Гринд</button>
         </div>
     </div>
@@ -458,24 +480,37 @@
                 if (currentUser.trust_level === 'green') badgesHTML += '<span class="badge green">ЗЕЛЕНЫЙ ТРАСТ</span>';
                 document.getElementById('userBadges').innerHTML = badgesHTML;
 
-                // Статистика на кнопках (Bot-t монеты делим на 100 для красивого вида)
+                // Статистика на кнопках
                 const coinsDisplay = ((currentUser.bot_t_coins || 0) / 100).toFixed(2);
                 document.getElementById('statCoins').innerHTML = `${coinsDisplay} <i class="fa-solid fa-coins" style="color:var(--text-sec); font-size:10px;"></i>`;
-                
                 document.getElementById('statTickets').innerHTML = `${currentUser.tickets || 0} <i class="fa-solid fa-ticket" style="color:var(--text-sec); font-size:10px;"></i>`;
                 document.getElementById('statTrust').textContent = `Score: ${currentUser.trust_score || 0}`;
                 document.getElementById('statStatus').textContent = currentUser.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН';
                 document.getElementById('statCpLevel').textContent = `LVL: ${currentUser.checkpoint_level || 0}`;
-                document.getElementById('statGrind').textContent = currentUser.has_events_access ? `Страйк: ${currentUser.streak_days || 0} дн.` : 'ЗАКРЫТ';
+                
+                // Расчет времени для Гринда
+                let hoursAgoText = "Никогда";
+                if (currentUser.last_grind_at) {
+                    const diffMs = new Date() - new Date(currentUser.last_grind_at.replace(' ', 'T') + (currentUser.last_grind_at.includes('+') ? '' : 'Z'));
+                    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                    hoursAgoText = `${diffHrs} ч. назад`;
+                }
 
-                // Заполняем инпуты модалок заранее
+                // Вывод на кнопке гринда
+                document.getElementById('statGrind').innerHTML = `Стрик: ${currentUser.streak_days || 0} | <span style="font-size:10px;">${hoursAgoText}</span>`;
+                
+                // Заполняем инпуты модалки Гринда
+                document.getElementById('grindCoins').value = currentUser.coins || 0;
+                document.getElementById('streakDays').value = currentUser.streak_days || 0;
+                document.getElementById('twitchStatus').value = currentUser.twitch_status || 'none';
+                document.getElementById('lastGrindHours').textContent = hoursAgoText;
+
+                // Остальные инпуты
                 document.getElementById('trustLevel').value = currentUser.trust_level || 'green';
                 document.getElementById('trustScore').value = currentUser.trust_score || 0;
                 document.getElementById('penaltyPoints').value = currentUser.penalty_points || 0;
                 document.getElementById('isBanned').value = currentUser.is_banned ? "true" : "false";
                 document.getElementById('hasPremium').value = currentUser.has_cp_premium ? "true" : "false";
-                document.getElementById('hasEventsAccess').value = currentUser.has_events_access ? "true" : "false";
-                document.getElementById('streakDays').value = currentUser.streak_days || 0;
 
                 document.getElementById('mainLoader').classList.add('hidden');
                 document.getElementById('profileContainer').classList.remove('hidden');
@@ -507,7 +542,6 @@
                 tg.showPopup({message: 'Баланс обновлен!'});
                 closeModal('coinsModal');
                 
-                // Оптимистично обновляем баланс (в центах)
                 let currentBalanceCents = parseFloat(currentUser.bot_t_coins || 0);
                 const amountCents = amount * 100;
                 if (action === 'add') {
@@ -559,15 +593,18 @@
         }
 
         async function submitGrind() {
-            const hasAccess = document.getElementById('hasEventsAccess').value === 'true';
             const streak = parseInt(document.getElementById('streakDays').value);
+            const coins = parseFloat(document.getElementById('grindCoins').value);
+            let twitch = document.getElementById('twitchStatus').value;
+            if (twitch === 'none') twitch = null;
             
             tg.MainButton.showProgress();
             try {
                 await fetchApi('/api/v1/admin/users/manage-grind', { 
                     user_id: currentUser.telegram_id, 
-                    has_events_access: hasAccess, 
-                    streak_days: streak >= 0 ? streak : 0 
+                    streak_days: streak >= 0 ? streak : 0,
+                    coins: coins >= 0 ? coins : 0,
+                    twitch_status: twitch
                 });
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 tg.showPopup({message: 'Гринд статус сохранен!'});
