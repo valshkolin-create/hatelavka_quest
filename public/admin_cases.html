@@ -203,6 +203,24 @@
         .search-info { flex: 1; min-width: 0; }
         .search-btn { background: var(--action); color: #fff; border: none; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
 
+        /* ТУМБЛЕРЫ (СВИТЧИ) */
+        .toggle-switch {
+            position: relative; width: 44px; height: 24px;
+        }
+        .toggle-switch input { display: none; }
+        .toggle-slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 24px;
+            border: 1px solid var(--card-border);
+        }
+        .toggle-slider:before {
+            position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        .toggle-switch input:checked + .toggle-slider { background-color: var(--r-pink); border-color: var(--r-pink); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+
     </style>
 </head>
 <body>
@@ -214,9 +232,12 @@
     </div>
 
     <div id="view-cases" class="view-section active">
-        <div style="margin-bottom: 15px;">
-            <button onclick="calibrateAllPrices()" class="admin-action-btn btn-reroll" style="width: 100%; padding: 12px; border: 1px dashed var(--primary); background: rgba(255, 215, 0, 0.05);">
-                <i class="fa-solid fa-scale-balanced"></i> КАЛИБРОВКА ЦЕН (Во всех кейсах 1/2)
+        <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <button onclick="calibrateAllPrices()" class="admin-action-btn btn-reroll" style="flex: 1; padding: 12px; border: 1px dashed var(--primary); background: rgba(255, 215, 0, 0.05);">
+                <i class="fa-solid fa-scale-balanced"></i> КАЛИБРОВКА (1/2)
+            </button>
+            <button onclick="openGlobalReskinModal()" class="admin-action-btn" style="flex: 1; padding: 12px; border: 1px dashed var(--r-pink); color: var(--r-pink); background: rgba(211, 44, 230, 0.05);">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> АВТО-РЕСКИН
             </button>
         </div>
         
@@ -245,6 +266,45 @@
         </div>
         <div class="fab-main" onclick="toggleFab()">
             <i class="fa-solid fa-plus"></i>
+        </div>
+    </div>
+
+    <div id="modal-global-reskin" class="center-modal">
+        <div class="center-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h3 style="margin:0; color:var(--r-pink); font-size: 16px;"><i class="fa-solid fa-wand-magic-sparkles"></i> Массовый Рескин</h3>
+                <button onclick="closeGlobalReskinModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 15px; text-align: center; line-height: 1.4;">
+                Бот найдет на складе случайные скины за <b>ту же цену</b> для всех предметов во всех кейсах. Цены и шансы останутся без изменений.
+            </div>
+            
+            <div class="toggle-row">
+                <span style="font-size: 12px; font-weight: 600; color: #fff;">Включать Наклейки</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="reskin-allow-stickers">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span style="font-size: 12px; font-weight: 600; color: #fff;">Включать Граффити / Патчи</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="reskin-allow-graffiti">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span style="font-size: 12px; font-weight: 600; color: #fff;">Разрешить Battle-Scarred (BS)</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="reskin-allow-bs">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <button onclick="executeGlobalReskin()" class="admin-action-btn btn-save" style="margin-top: 15px; padding: 16px; width: 100%; background: linear-gradient(135deg, #d32ce6, #8847ff); box-shadow: 0 4px 15px rgba(211, 44, 230, 0.3); color: white;">
+                ЗАПУСТИТЬ ЗАМЕНУ
+            </button>
         </div>
     </div>
 
@@ -435,6 +495,61 @@
         let preservedWeight = null; // 🔥 Память для шанса при замене
 
         loadCases();
+
+        // 🔥 ЛОГИКА ГЛОБАЛЬНОГО РЕСКИНА 🔥
+        function openGlobalReskinModal() {
+            document.getElementById('modal-global-reskin').classList.add('active');
+        }
+
+        function closeGlobalReskinModal() {
+            document.getElementById('modal-global-reskin').classList.remove('active');
+        }
+
+        async function executeGlobalReskin() {
+            const allowStickers = document.getElementById('reskin-allow-stickers').checked;
+            const allowGraffiti = document.getElementById('reskin-allow-graffiti').checked;
+            const allowBs = document.getElementById('reskin-allow-bs').checked;
+
+            closeGlobalReskinModal();
+
+            tg.showConfirm("ВНИМАНИЕ! Это полностью заменит внешний вид всех скинов во всех кейсах.\nЦены и шансы останутся без изменений. Вы уверены?", async (ok) => {
+                if (!ok) return;
+
+                const btn = document.querySelector('button[onclick="openGlobalReskinModal()"]');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ЗАМЕНА...';
+                btn.disabled = true;
+
+                try {
+                    const res = await fetch('/api/v1/admin/cases/global_reskin', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ 
+                            initData: tg.initData,
+                            allow_stickers: allowStickers,
+                            allow_graffiti: allowGraffiti,
+                            allow_bs: allowBs
+                        })
+                    });
+                    
+                    if (res.ok) {
+                        if(window.Telegram?.WebApp?.HapticFeedback) {
+                            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                        }
+                        tg.showAlert("Успех! База скинов обновлена случайными предметами.");
+                        loadCases(); 
+                    } else {
+                        const data = await res.json();
+                        tg.showAlert("Ошибка: " + (data.detail || "Не удалось обновить базу"));
+                    }
+                } catch(e) {
+                    tg.showAlert("Сбой сервера при вызове рескина");
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            });
+        }
 
         // 🔥 ЛОГИКА КАЛИБРОВКИ ВСЕХ ЦЕН 🔥
         async function calibrateAllPrices() {
@@ -1107,6 +1222,7 @@
             }
             btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i>';
         }
+        
         // --- ПЕРЕКЛЮЧЕНИЕ СЕКРЕТНОСТИ КЕЙСА ---
         window.toggleCaseSecret = async function(event, caseName) {
             event.stopPropagation(); // Чтобы при клике на глазик не открывалась сама папка кейса
