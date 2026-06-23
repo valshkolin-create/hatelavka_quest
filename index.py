@@ -4782,8 +4782,16 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         return
         
 
-    elif event_type == "stream.offline":
+elif event_type == "stream.offline":
         logging.info("⚫ Стрим OFFLINE.")
+        
+        # 🔥 [НОВОЕ] ВЫДАЕМ НАГРАДЫ ЗА СЕССИЮ (до сброса счетчиков)
+        try:
+            logging.info("🏆 Запуск проверки наград за сессию...")
+            await trigger_stream_end_rewards(supabase)
+        except Exception as e:
+            logging.error(f"⚠️ Ошибка вызова trigger_stream_end_rewards: {e}")
+
         await supabase.post("/settings", json={"key": "twitch_stream_status", "value": False}, headers={"Prefer": "resolution=merge-duplicates"})
         # 🔥 [НОВОЕ] ВЫКЛЮЧАЕМ CRON-ЗАДАЧУ
         await toggle_cron_job(False)
@@ -12062,7 +12070,6 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
     tg_id = user_info.get('id')
     logging.info(f"🔎 Запрос изменения CRON. Telegram ID: {tg_id}")
     
-    # Парсим строку из ENV (например: "477521935, 12345678") в список чисел
     admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "")
     admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
     
@@ -12070,9 +12077,13 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
         logging.error(f"❌ Юзер {tg_id} попытался настроить CRON, но его нет в ADMIN_TELEGRAM_IDS!")
         raise HTTPException(status_code=403, detail="Только для админов")
 
+    # 🔥 ПЕРЕХВАТЧИК ДЛЯ КОНЦА СТРИМА 🔥
+    if req.time == "on_stream_end" or req.period == "stream_end":
+        status_text = "ВКЛЮЧЕНА" if req.is_enabled else "ВЫКЛЮЧЕНА"
+        return {"success": True, "message": f"Авто-выдача по окончанию стрима {status_text}!"}
+
     if not CRON_API_KEY: raise HTTPException(status_code=500, detail="CRON_API_KEY не настроен на сервере")
 
-    # 🔥 НАХОДИМ НУЖНЫЙ ID ПО ПЛАТФОРМЕ И ПЕРИОДУ
     target_key = f"{req.source}_{req.period}"
     job_id = CRON_JOBS.get(target_key)
     if not job_id:
@@ -12094,9 +12105,9 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
     }
 
     if req.period == "week":
-        schedule["wdays"] = [1] # Каждый понедельник
+        schedule["wdays"] = [1]
     elif req.period == "month":
-        schedule["mdays"] = [1] # Каждое 1-е число месяца
+        schedule["mdays"] = [1]
 
     # 3. Отправляем запрос КОНКРЕТНО В НУЖНУЮ ЗАДАЧУ
     url = f"https://api.cron-job.org/jobs/{job_id}"
@@ -12106,7 +12117,7 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
     }
     payload = {
         "job": {
-            "enabled": req.is_enabled, # Включаем или выключаем
+            "enabled": req.is_enabled, 
             "schedule": schedule
         }
     }
@@ -12218,6 +12229,73 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
             continue
 
     return {"success": True, "processed": processed_boards}
+
+async def trigger_stream_end_rewards(supabase: httpx.AsyncClient):
+    """
+    Вызывается автоматически, когда стрим заканчивается (stream.offline).
+    Проверяет настройки авто-выдачи для сессионного Твича.
+    """
+    import logging
+    
+    leaderboards_to_check = [
+        {"key": "twitch_message_session", "db_col": "daily_message_count"},
+        {"key": "twitch_uptime_session", "db_col": "daily_uptime_minutes"}
+    ]
+    
+    for board in leaderboards_to_check:
+        try:
+            # 1. Проверяем, включена ли авто-выдача для этого лидерборда
+            cfg_resp = await supabase.get("/leaderboard_configs", params={"leaderboard_key": f"eq.{board['key']}"})
+            cfg_data = cfg_resp.json()
+            if not cfg_data:
+                continue
+                
+            config = cfg_data[0].get("config", {})
+            auto_issue = config.get("auto_issue", {})
+            
+            if not auto_issue.get("enabled"):
+                continue
+                
+            logging.info(f"🎬 Запуск авто-выдачи наград для {board['key']} (Конец стрима)")
+            
+            # 2. Получаем ТОП-3 из таблицы users
+            top_resp = await supabase.get(
+                "/users",
+                params={
+                    "order": f"{board['db_col']}.desc",
+                    "limit": "3",
+                    "select": f"telegram_id, twitch_login, {board['db_col']}"
+                }
+            )
+            top_data = top_resp.json()
+            
+            # 3. Раздаем награды
+            for i, user in enumerate(top_data):
+                # Если у юзера 0 активаности, пропускаем
+                if not user.get(board['db_col']) or user.get(board['db_col']) <= 0:
+                    continue
+
+                rank = str(i + 1)
+                reward_cfg = config.get(rank)
+                
+                if not reward_cfg or reward_cfg.get("type") == "none":
+                    continue
+                    
+                telegram_id = user.get("telegram_id")
+                if not telegram_id:
+                    continue
+                    
+                # Вызываем твою готовую функцию
+                await process_reward_issuance(
+                    tg_id=telegram_id,
+                    r_type=reward_cfg["type"],
+                    r_value=reward_cfg["value"],
+                    config_key=board["key"],
+                    supabase=supabase
+                )
+                
+        except Exception as e:
+            logging.error(f"❌ Ошибка авто-выдачи наград после стрима ({board['key']}): {e}")
     
 async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_key: str, supabase: httpx.AsyncClient) -> str:
     """
