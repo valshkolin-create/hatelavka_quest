@@ -25,8 +25,8 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0; padding: 20px;
             -webkit-tap-highlight-color: transparent;
-            padding-bottom: 120px;
-            zoom: 0.85; /* Как ты и просил */
+            padding-bottom: 140px; /* Увеличен отступ, чтобы нижний бар не перекрывал контент */
+            zoom: 0.85; 
         }
 
         /* --- Header --- */
@@ -53,7 +53,7 @@
         .search-info { flex: 1; min-width: 0; }
 
         /* --- Карточка профиля --- */
-        .profile-container { display: none; animation: fadeIn 0.3s ease; }
+        .profile-container { animation: fadeIn 0.3s ease; }
         .profile-card { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
         .profile-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--card-border); }
         .profile-name { font-size: 18px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -62,6 +62,10 @@
         .badge.red { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: 1px solid rgba(255,77,77,0.3); }
         .badge.green { background: rgba(40, 167, 69, 0.15); color: var(--accent); border: 1px solid rgba(40,167,69,0.3); }
         .badge.premium { background: rgba(255, 215, 0, 0.15); color: var(--primary); border: 1px solid rgba(255,215,0,0.3); }
+
+        /* Внутренняя кнопка "Назад к поиску" */
+        .inner-back-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text); padding: 8px 15px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; margin-bottom: 15px; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .inner-back-btn:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
 
         /* --- Сетка кнопок действий --- */
         .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 15px; }
@@ -74,7 +78,7 @@
         /* --- Модальные окна (Bottom Sheet) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; }
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 40px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); }
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         
         .admin-action-btn { background: #64b5ef; color: #000; padding: 12px; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 15px; transition: 0.2s; }
@@ -90,29 +94,40 @@
     <div class="page-header">
         <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
         <h1 class="page-title">Редактор профиля</h1>
-        <div style="width: 16px;"></div> </div>
-
-    <div class="section-box admin-form" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
-        <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-magnifying-glass"></i> Поиск игрока</h3>
-        <input type="text" id="searchInput" placeholder="Telegram ID, @ник или Twitch..." autocomplete="off">
-        <div id="searchResults" style="display: none; margin-top: 10px; max-height: 200px; overflow-y: auto;"></div>
+        <div style="width: 16px;"></div> 
     </div>
 
-    <div class="section-box" id="bannedSection" style="border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05);">
-        <h3 class="sec-title" style="color: var(--danger);">
-            <i class="fa-solid fa-ban"></i> В бане (<span id="bannedCount">0</span>)
-        </h3>
-        <div id="bannedList" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column;">
-            <div style="font-size: 12px; color: var(--text-sec); text-align: center; padding: 10px;">Загрузка...</div>
+    <!-- БЛОК ПОИСКА И БАНОВ (Скрывается при открытии профиля) -->
+    <div id="searchView">
+        <div class="section-box admin-form" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
+            <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-magnifying-glass"></i> Поиск игрока</h3>
+            <input type="text" id="searchInput" placeholder="Telegram ID, @ник или Twitch..." autocomplete="off">
+            <div id="searchResults" style="display: none; margin-top: 10px; max-height: 250px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="section-box" id="bannedSection" style="border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05);">
+            <h3 class="sec-title" style="color: var(--danger); justify-content: space-between; cursor: pointer; margin: 0;" onclick="toggleBanned()">
+                <span><i class="fa-solid fa-ban"></i> В бане (<span id="bannedCount">0</span>)</span>
+                <i id="bannedChevron" class="fa-solid fa-chevron-down" style="transition: transform 0.3s ease;"></i>
+            </h3>
+            <div id="bannedList" style="display: none; max-height: 250px; overflow-y: auto; flex-direction: column; margin-top: 15px;">
+                <div style="font-size: 12px; color: var(--text-sec); text-align: center; padding: 10px;">Загрузка...</div>
+            </div>
         </div>
     </div>
 
+    <!-- ЛОАДЕР ЗАГРУЗКИ ПРОФИЛЯ -->
     <div id="mainLoader" class="hidden" style="text-align: center; padding: 40px; color: var(--text-sec);">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p style="margin-top: 10px; font-size: 13px;">Сбор данных...</p>
     </div>
 
-    <div id="profileContainer" class="profile-container">
+    <!-- КАРТОЧКА ПРОФИЛЯ -->
+    <div id="profileContainer" class="profile-container hidden">
+        <button class="inner-back-btn" onclick="closeProfile()">
+            <i class="fa-solid fa-arrow-left"></i> Назад к списку
+        </button>
+
         <div class="section-box">
             <div class="profile-card">
                 <img id="userAvatar" src="" alt="Avatar" class="profile-avatar">
@@ -147,6 +162,8 @@
             </div>
         </div>
     </div>
+
+    <!-- МОДАЛКИ (BOTTOM SHEETS) -->
 
     <div id="coinsModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
@@ -236,12 +253,37 @@
         let searchTimeout = null;
 
         function goBack() { 
-            // Если открыта модалка, закрываем её, иначе уходим в меню
             const openModal = document.querySelector('.modal-overlay.modal-active');
             if (openModal) {
                 openModal.classList.remove('modal-active');
             } else {
                 window.location.href = '/admin'; 
+            }
+        }
+
+        // Кнопка "Назад к поиску"
+        function closeProfile() {
+            if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+            document.getElementById('profileContainer').classList.add('hidden');
+            document.getElementById('searchView').classList.remove('hidden');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').style.display = 'none';
+            currentUser = null;
+            loadBannedUsers(); // Обновим баны на всякий случай
+        }
+
+        // Раскрывающийся список банов
+        function toggleBanned() {
+            if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+            const list = document.getElementById('bannedList');
+            const chev = document.getElementById('bannedChevron');
+            
+            if(list.style.display === 'none' || list.style.display === '') {
+                list.style.display = 'flex';
+                chev.style.transform = 'rotate(180deg)';
+            } else {
+                list.style.display = 'none';
+                chev.style.transform = 'rotate(0deg)';
             }
         }
 
@@ -334,8 +376,9 @@
         // --- ЗАГРУЗКА И РЕНДЕР ПРОФИЛЯ ---
         async function loadUser(id) {
             if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
-            searchInput.value = '';
-            searchResults.style.display = 'none';
+            
+            // Прячем меню поиска и показываем лоадер
+            document.getElementById('searchView').classList.add('hidden');
             document.getElementById('profileContainer').classList.add('hidden');
             document.getElementById('mainLoader').classList.remove('hidden');
 
@@ -371,11 +414,11 @@
                 document.getElementById('mainLoader').classList.add('hidden');
                 document.getElementById('profileContainer').classList.remove('hidden');
 
-                // Плавный скролл к карточке
-                setTimeout(() => document.getElementById('profileContainer').scrollIntoView({ behavior: 'smooth' }), 100);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
 
             } catch (err) {
                 document.getElementById('mainLoader').classList.add('hidden');
+                document.getElementById('searchView').classList.remove('hidden');
                 tg.showAlert(`Ошибка: ${err.message}`);
             }
         }
@@ -452,7 +495,6 @@
                 tg.showPopup({message: 'Статусы обновлены!'});
                 closeModal('statusModal');
                 loadUser(currentUser.telegram_id);
-                loadBannedUsers(); // Обновляем список банов, вдруг кого-то разбанили/забанили
             } catch (err) { tg.showAlert(err.message); }
             finally { tg.MainButton.hideProgress(); }
         }
