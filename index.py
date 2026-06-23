@@ -27366,6 +27366,133 @@ async def commit_tg_slider(
 # --- НОВЫЙ ЭНДПОИНТ: ПРОВЕРКА ПОДПИСКИ (CHECK SUBSCRIPTION) ---
 
 # =========================================================================
+# 🎛 УГОЛОК РЕДАКТОРА ПРОФИЛЕЙ (USER EDITOR ENDPOINTS)
+# =========================================================================
+
+class AdminProfileActionRequest(BaseModel):
+    initData: str
+    user_id: int
+    amount: Optional[float] = None
+    action_type: Optional[str] = None # для монет: 'add' или 'subtract'
+    trust_level: Optional[str] = None
+    trust_score: Optional[float] = None
+    penalty_points: Optional[float] = None
+    is_banned: Optional[bool] = None
+    has_cp_premium: Optional[bool] = None
+
+@app.get("/api/v1/admin/users/{user_id}/full_profile")
+async def admin_get_full_profile(
+    user_id: int,
+    initData: str = Query(...),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Получает полный JSON профиля пользователя."""
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            raise HTTPException(status_code=404, detail="Пользователь не найден.")
+        return data[0]
+    except Exception as e:
+        logging.error(f"Ошибка получения профиля: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных.")
+
+@app.post("/api/v1/admin/users/manage-coins")
+async def admin_manage_coins(
+    req: AdminProfileActionRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Начисление или списание монет через Bot-t."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Получаем внутренний ID Bot-t
+        u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{req.user_id}", "select": "bott_internal_id"})
+        u_data = u_resp.json()
+        bott_id = u_data[0].get("bott_internal_id") if u_data else None
+
+        if not bott_id:
+            raise HTTPException(status_code=400, detail="У пользователя нет кошелька Bot-t.")
+
+        if req.action_type == "add":
+            success = await add_balance_to_bott(bott_id, req.amount, "Начисление от Администратора")
+        else:
+            success = await subtract_bott_balance(bott_id, req.amount, "Списание Администратором")
+
+        if not success:
+            raise HTTPException(status_code=400, detail="Bot-t отклонил транзакцию.")
+
+        return {"message": "Баланс успешно изменен!"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Ошибка управления монетами: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/admin/users/manage-trust")
+async def admin_manage_trust(
+    req: AdminProfileActionRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Изменение траста с генерацией фейковой активности."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        update_data = {
+            "trust_level": req.trust_level,
+            "trust_score": req.trust_score,
+            "penalty_points": req.penalty_points,
+            # Искусственно накручиваем активность, чтобы штрафы не сняли траст
+            "monthly_message_count": 10000, 
+            "monthly_uptime_minutes": 5000,
+            "prev_monthly_message_count": 10000,
+            "prev_monthly_uptime_minutes": 5000
+        }
+
+        resp = await supabase.patch("/users", params={"telegram_id": f"eq.{req.user_id}"}, json=update_data)
+        resp.raise_for_status()
+
+        return {"message": "Траст изменен! Искусственная активность добавлена."}
+    except Exception as e:
+        logging.error(f"Ошибка изменения траста: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении траста.")
+
+@app.post("/api/v1/admin/users/manage-status")
+async def admin_manage_status(
+    req: AdminProfileActionRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Бан/Разбан и выдача Premium."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        update_data = {}
+        if req.is_banned is not None:
+            update_data["is_banned"] = req.is_banned
+        if req.has_cp_premium is not None:
+            update_data["has_cp_premium"] = req.has_cp_premium
+
+        resp = await supabase.patch("/users", params={"telegram_id": f"eq.{req.user_id}"}, json=update_data)
+        resp.raise_for_status()
+
+        return {"message": "Статусы успешно обновлены!"}
+    except Exception as e:
+        logging.error(f"Ошибка изменения статусов: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных.")
+
+
+# =========================================================================
 # 🏆 СИСТЕМА ТРАСТА (ФУНКЦИЯ ПЕРЕСЧЕТА И ЭНДПОИНТ ДЛЯ АДМИНА)
 # =========================================================================
 async def sync_all_users_trust(supabase: httpx.AsyncClient):
