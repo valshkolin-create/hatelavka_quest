@@ -114,7 +114,7 @@
         /* ЦЕНТРОВАННОЕ МОДАЛЬНОЕ ОКНО */
         .center-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         .center-modal.active { display: flex; }
-        .center-box { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); }
+        .center-box { background: #1c1c1e; width: 90%; max-width: 360px; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; max-height: 90vh; }
 
         .form-label { font-size: 11px; color: var(--text-sec); margin-bottom: 4px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         
@@ -204,9 +204,7 @@
         .search-btn { background: var(--action); color: #fff; border: none; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
 
         /* ТУМБЛЕРЫ (СВИТЧИ) */
-        .toggle-switch {
-            position: relative; width: 44px; height: 24px;
-        }
+        .toggle-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
         .toggle-switch input { display: none; }
         .toggle-slider {
             position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
@@ -220,6 +218,9 @@
         .toggle-switch input:checked + .toggle-slider { background-color: var(--r-pink); border-color: var(--r-pink); }
         .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
         .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+
+        /* ЧЕКБОКСЫ ДЛЯ КЕЙСОВ */
+        .reskin-case-cb { accent-color: var(--r-pink); width: 16px; height: 16px; cursor: pointer; }
 
     </style>
 </head>
@@ -276,33 +277,39 @@
                 <button onclick="closeGlobalReskinModal()" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 15px; text-align: center; line-height: 1.4;">
-                Бот найдет на складе случайные скины за <b>ту же цену</b> для всех предметов во всех кейсах. Цены и шансы останутся без изменений.
-            </div>
-            
-            <div class="toggle-row">
-                <span style="font-size: 12px; font-weight: 600; color: #fff;">Включать Наклейки</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="reskin-allow-stickers">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="toggle-row">
-                <span style="font-size: 12px; font-weight: 600; color: #fff;">Включать Граффити / Патчи</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="reskin-allow-graffiti">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="toggle-row">
-                <span style="font-size: 12px; font-weight: 600; color: #fff;">Разрешить Battle-Scarred (BS)</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="reskin-allow-bs">
-                    <span class="toggle-slider"></span>
-                </label>
+            <div style="overflow-y: auto; padding-right: 5px; margin-bottom: 15px;">
+                <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 15px; text-align: center; line-height: 1.4;">
+                    Бот найдет на складе случайные скины за <b>ту же цену</b>. Цены и шансы останутся без изменений.
+                </div>
+                
+                <div class="toggle-row">
+                    <span style="font-size: 12px; font-weight: 600; color: #fff;">Включать Наклейки</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="reskin-allow-stickers">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <span style="font-size: 12px; font-weight: 600; color: #fff;">Включать Граффити / Патчи</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="reskin-allow-graffiti">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <span style="font-size: 12px; font-weight: 600; color: #fff;">Разрешить Battle-Scarred (BS)</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="reskin-allow-bs">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="form-label" style="margin-top: 15px; text-align: center;">Применить к кейсам (пусто = ко всем)</div>
+                <div id="reskin-cases-list" style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                    </div>
             </div>
 
-            <button onclick="executeGlobalReskin()" class="admin-action-btn btn-save" style="margin-top: 15px; padding: 16px; width: 100%; background: linear-gradient(135deg, #d32ce6, #8847ff); box-shadow: 0 4px 15px rgba(211, 44, 230, 0.3); color: white;">
+            <button onclick="executeGlobalReskin()" class="admin-action-btn btn-save" style="margin-top: 5px; padding: 16px; width: 100%; background: linear-gradient(135deg, #d32ce6, #8847ff); box-shadow: 0 4px 15px rgba(211, 44, 230, 0.3); color: white; flex-shrink: 0;">
                 ЗАПУСТИТЬ ЗАМЕНУ
             </button>
         </div>
@@ -473,10 +480,24 @@
 
                 <input type="hidden" name="case_tag">
 
-                <div class="btn-action-row">
-                    <button type="button" id="btn-delete" class="admin-action-btn btn-delete" onclick="deleteItem()"><i class="fa-solid fa-trash"></i></button>
-                    <button type="button" id="btn-reroll" class="admin-action-btn btn-reroll" onclick="rerollSingleItem()"><i class="fa-solid fa-bolt"></i> ЗАМЕНА</button>
-                    <button type="submit" class="admin-action-btn btn-save"><i class="fa-solid fa-check"></i> ГОТОВО</button>
+                <div class="btn-action-row" style="flex-wrap: wrap;">
+                    <div style="display: flex; gap: 8px; width: 100%;">
+                        <button type="button" id="btn-delete" class="admin-action-btn btn-delete" style="flex: 0 0 45px;" onclick="deleteItem()">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                        
+                        <button type="button" id="btn-autopick" class="admin-action-btn" onclick="autoPickSkin()" style="background: rgba(211, 44, 230, 0.15); color: var(--r-pink); border: 1px dashed var(--r-pink);">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> АВТО-РЕСКИН
+                        </button>
+                        
+                        <button type="button" id="btn-reroll" class="admin-action-btn btn-reroll" onclick="rerollSingleItem()">
+                            <i class="fa-solid fa-magnifying-glass"></i> СКЛАД
+                        </button>
+                    </div>
+                    
+                    <button type="submit" class="admin-action-btn btn-save" style="width: 100%;">
+                        <i class="fa-solid fa-check"></i> СОХРАНИТЬ С НАСТРОЙКАМИ
+                    </button>
                 </div>
             </form>
         </div>
@@ -496,7 +517,7 @@
 
         loadCases();
 
-        // 🔥 ЛОГИКА ГЛОБАЛЬНОГО РЕСКИНА 🔥
+        // 🔥 ЛОГИКА ГЛОБАЛЬНОГО РЕСКИНА С ВЫБОРОМ КЕЙСОВ 🔥
         function openGlobalReskinModal() {
             document.getElementById('modal-global-reskin').classList.add('active');
         }
@@ -510,9 +531,21 @@
             const allowGraffiti = document.getElementById('reskin-allow-graffiti').checked;
             const allowBs = document.getElementById('reskin-allow-bs').checked;
 
+            // 🔥 Собираем названия выбранных кейсов
+            const caseCheckboxes = document.querySelectorAll('.reskin-case-cb:checked');
+            const selectedCases = Array.from(caseCheckboxes).map(cb => cb.value);
+
             closeGlobalReskinModal();
 
-            tg.showConfirm("ВНИМАНИЕ! Это полностью заменит внешний вид всех скинов во всех кейсах.\nЦены и шансы останутся без изменений. Вы уверены?", async (ok) => {
+            let confirmText = "ВНИМАНИЕ! Это полностью заменит внешний вид скинов ";
+            if (selectedCases.length === 0) {
+                confirmText += "ВО ВСЕХ кейсах.";
+            } else {
+                confirmText += `в ${selectedCases.length} выбранных кейсах.`;
+            }
+            confirmText += "\nЦены и шансы останутся без изменений. Вы уверены?";
+
+            tg.showConfirm(confirmText, async (ok) => {
                 if (!ok) return;
 
                 const btn = document.querySelector('button[onclick="openGlobalReskinModal()"]');
@@ -528,15 +561,17 @@
                             initData: tg.initData,
                             allow_stickers: allowStickers,
                             allow_graffiti: allowGraffiti,
-                            allow_bs: allowBs
+                            allow_bs: allowBs,
+                            target_cases: selectedCases // 🔥 Передаем список кейсов
                         })
                     });
                     
                     if (res.ok) {
+                        const data = await res.json();
                         if(window.Telegram?.WebApp?.HapticFeedback) {
                             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                         }
-                        tg.showAlert("Успех! База скинов обновлена случайными предметами.");
+                        tg.showAlert(data.message || "Успех! База скинов обновлена случайными предметами.");
                         loadCases(); 
                     } else {
                         const data = await res.json();
@@ -549,6 +584,59 @@
                     btn.disabled = false;
                 }
             });
+        }
+
+        // 🔥 ОДИНОЧНЫЙ АВТО-РЕСКИН ДЛЯ РЕДАКТОРА 🔥
+        async function autoPickSkin() {
+            const form = document.getElementById('edit-form');
+            const targetPrice = parseFloat(form.price_rub.value);
+            
+            if (!targetPrice || targetPrice <= 0) {
+                tg.showAlert("Сначала укажи Реал. (Руб) цену в поле выше, чтобы бот знал, за сколько искать скин!");
+                return;
+            }
+
+            const btn = document.getElementById('btn-autopick');
+            const oldHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            
+            try {
+                const res = await fetch('/api/v1/admin/cases/get_random_skin', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ target_price: targetPrice })
+                });
+                const data = await res.json();
+                
+                if (data.status === 'ok') {
+                    const skin = data.skin;
+                    
+                    form.name.value = skin.market_hash_name;
+                    form.market_hash_name.value = skin.market_hash_name;
+                    form.image_url.value = skin.image_url;
+                    
+                    const rarityMap = {
+                        'common': 'common', 'industrial': 'blue', 'milspec': 'blue', 'blue': 'blue',
+                        'restricted': 'purple', 'purple': 'purple',
+                        'classified': 'pink', 'pink': 'pink',
+                        'covert': 'red', 'red': 'red',
+                        'gold': 'gold', 'knife': 'gold', 'contraband': 'gold'
+                    };
+                    form.rarity.value = rarityMap[(skin.rarity || 'blue').toLowerCase()] || 'blue';
+                    
+                    updatePreview();
+                    
+                    if(window.Telegram?.WebApp?.HapticFeedback) {
+                        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
+                } else {
+                    tg.showAlert("Ошибка: " + data.message);
+                }
+            } catch (e) {
+                tg.showAlert("Ошибка сети при подборе.");
+            } finally {
+                btn.innerHTML = oldHtml;
+            }
         }
 
         // 🔥 ЛОГИКА КАЛИБРОВКИ ВСЕХ ЦЕН 🔥
@@ -634,6 +722,10 @@
                 `;
                 grid.appendChild(addDiv);
 
+                // 🔥 Очищаем список кейсов для модалки Рескина
+                const reskinList = document.getElementById('reskin-cases-list');
+                reskinList.innerHTML = '';
+
                 data.forEach(t => {
                     if (!t.name) return;
                     let displayName = t.name;
@@ -641,17 +733,24 @@
                         displayName = displayName.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '');
                     }
                     
-                    // 🔥 ДОБАВЛЕНО: Считываем статус и выбираем цвет/иконку
+                    // 🔥 Заполняем список кейсов в модалке Рескина
+                    reskinList.innerHTML += `
+                        <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #fff; cursor: pointer; padding: 4px 0;">
+                            <input type="checkbox" class="reskin-case-cb" value="${t.name}">
+                            ${displayName}
+                        </label>
+                    `;
+
+                    // Отрисовка самих папок кейсов
                     const isSecret = t.is_secret;
                     const eyeIcon = isSecret ? 'fa-eye-slash' : 'fa-eye';
                     const eyeColor = isSecret ? 'color: var(--danger);' : 'color: var(--text-sec);';
                     
                     const div = document.createElement('div');
                     div.className = 'case-folder';
-                    div.style.position = 'relative'; // 🔥 ДОБАВЛЕНО: Для позиционирования глазика
+                    div.style.position = 'relative'; 
                     div.onclick = () => openCaseView(t.name);
                     
-                    // 🔥 ДОБАВЛЕНО: Кнопка с глазиком внутри innerHTML
                     div.innerHTML = `
                         <button onclick="toggleCaseSecret(event, '${t.name.replace(/'/g, "\\'")}')" 
                                 style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.4); border: none; ${eyeColor} font-size: 12px; cursor: pointer; z-index: 10; padding: 6px; border-radius: 6px; transition: 0.2s;">
