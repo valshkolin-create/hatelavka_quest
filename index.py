@@ -26410,6 +26410,203 @@ async def cancel_tg_challenge_paid(request: Request):
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
 # ====================================================
 
+# ==========================================
+# МОДЕЛИ ЗАПРОСОВ
+# ==========================================
+
+class RandomSkinRequest(BaseModel):
+    target_price: float
+
+class GlobalReskinRequest(BaseModel):
+    initData: str = None
+    allow_stickers: bool = False
+    allow_graffiti: bool = False
+    allow_bs: bool = False
+
+# ==========================================
+# 1. ОДИНОЧНЫЙ АВТО-РЕСКИН (ДЛЯ РЕДАКТОРА)
+# ==========================================
+@app.post("/api/v1/admin/cases/get_random_skin")
+async def get_random_skin(
+    req: RandomSkinRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    price = req.target_price
+    
+    # Ищем скины в диапазоне ±15% от нужной цены
+    min_p = price * 0.85
+    max_p = price * 1.15
+    
+    try:
+        res = await supabase.get("/market_cache", params={
+            "select": "market_hash_name,image_url,rarity,price_rub",
+            "price_rub": f"gte.{min_p}",
+            "price_rub": f"lte.{max_p}",
+            "is_available": "eq.true",
+            # Всегда исключаем сувениры и кейсы, так как они ломают визуал
+            "market_hash_name": "not.ilike.*Souvenir*",
+            "limit": "150"
+        })
+        items = res.json()
+        
+        # ФОЛБЭК: Если за эту цену ничего нет, берем просто из ближайших по базе
+        if not isinstance(items, list) or not items:
+            res_fb = await supabase.get("/market_cache", params={
+                "select": "market_hash_name,image_url,rarity,price_rub",
+                "is_available": "eq.true",
+                "market_hash_name": "not.ilike.*Souvenir*",
+                "limit": "400"
+            })
+            fb_items = res_fb.json()
+            if not isinstance(fb_items, list) or not fb_items:
+                return {"status": "error", "message": "Склад пуст."}
+            
+            # Сортируем все скины по тому, насколько их цена близка к желаемой
+            fb_items.sort(key=lambda x: abs(x.get("price_rub", 0) - price))
+            items = fb_items[:15] # Берем 15 самых близких к цене
+            
+        # Еще раз сортируем найденное по близости цены
+        items.sort(key=lambda x: abs(x.get("price_rub", 0) - price))
+        
+        # Выбираем случайный скин из ТОП-5 самых подходящих по цене
+        chosen = random.choice(items[:5]) 
+        
+        return {"status": "ok", "skin": chosen}
+        
+    except Exception as e:
+        logging.error(f"Ошибка одиночного авто-подбора скина: {e}")
+        return {"status": "error", "message": "Сбой базы данных"}
+
+
+# ==========================================
+# 2. ГЛОБАЛЬНЫЙ МАССОВЫЙ РЕСКИН (ВСЯ БАЗА)
+# ==========================================
+@app.post("/api/v1/admin/cases/global_reskin")
+async def admin_global_reskin(
+    req: GlobalReskinRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Строгая проверка на администратора
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # Получаем все уникальные предметы из cs_items
+        res = await supabase.get("/cs_items", params={"select": "id, price_rub"})
+        if res.status_code >= 400:
+            raise Exception(f"Ошибка получения cs_items: {res.text}")
+        
+        cs_items = res.json()
+        if not cs_items:
+            return {"status": "ok", "message": "База пуста"}
+
+        updated_count = 0
+        used_names = set() # Чтобы не повторяться скинами, если это возможно
+        
+        for item in cs_items:
+            price = float(item.get("price_rub", 0))
+            if price <= 0:
+                continue
+                
+            # Ищем замену в коридоре ±15% от текущей цены скина
+            min_p = price * 0.85
+            max_p = price * 1.15
+            
+            # Базовые параметры фильтрации
+            market_params = [
+                ("select", "market_hash_name,image_url,rarity,price_rub"),
+                ("price_rub", f"gte.{min_p}"),
+                ("price_rub", f"lte.{max_p}"),
+                ("is_available", "eq.true"),
+                ("market_hash_name", "not.ilike.*Souvenir*"),
+                ("market_hash_name", "not.ilike.*Сувенир*"),
+                ("market_hash_name", "not.ilike.*Case*"),
+                ("market_hash_name", "not.ilike.*Кейс*"),
+                ("market_hash_name", "not.ilike.*Capsule*"),
+                ("market_hash_name", "not.ilike.*Капсула*"),
+                ("market_hash_name", "not.ilike.*Package*"),
+                ("market_hash_name", "not.ilike.*Пакет*"),
+                ("limit", "80")
+            ]
+            
+            # Умные тумблеры от фронтенда
+            if not req.allow_stickers:
+                market_params.append(("market_hash_name", "not.ilike.*Sticker*"))
+                market_params.append(("market_hash_name", "not.ilike.*Наклейка*"))
+            
+            if not req.allow_graffiti:
+                market_params.append(("market_hash_name", "not.ilike.*Graffiti*"))
+                market_params.append(("market_hash_name", "not.ilike.*Граффити*"))
+                market_params.append(("market_hash_name", "not.ilike.*Patch*"))
+                market_params.append(("market_hash_name", "not.ilike.*Патч*"))
+                
+            if not req.allow_bs:
+                market_params.append(("market_hash_name", "not.ilike.*Battle-Scarred*"))
+                market_params.append(("market_hash_name", "not.ilike.*Закаленное в боях*"))
+
+            # Отправляем запрос на склад
+            market_res = await supabase.get("/market_cache", params=market_params)
+            candidates = market_res.json() if market_res.status_code == 200 else []
+            
+            # Фолбэк: если при жестких фильтрах ничего не нашлось, расширяем поиск до ±35%
+            if not candidates:
+                fallback_params = market_params.copy()
+                fallback_params[1] = ("price_rub", f"gte.{price * 0.65}")
+                fallback_params[2] = ("price_rub", f"lte.{price * 1.35}")
+                fallback_res = await supabase.get("/market_cache", params=fallback_params)
+                candidates = fallback_res.json() if fallback_res.status_code == 200 else []
+
+            if not candidates:
+                continue # Если вообще пусто (очень редкий кейс для ножей), оставляем скин как есть
+
+            # Пытаемся выбрать предмет, которого еще не было
+            fresh_candidates = [c for c in candidates if c["market_hash_name"] not in used_names]
+            if not fresh_candidates:
+                fresh_candidates = candidates # Разрешаем повтор, если уникальных больше нет
+            
+            # Сортируем по максимальной близости цены
+            fresh_candidates.sort(key=lambda x: abs(x.get("price_rub", 0) - price))
+            
+            # Выбираем случайный из топ-3 самых близких
+            chosen = random.choice(fresh_candidates[:3])
+            used_names.add(chosen["market_hash_name"])
+            
+            raw_name = chosen["market_hash_name"]
+            clean_name = raw_name
+            condition = "-"
+            
+            # Красиво парсим износ для базы (MW, FT, FN и т.д.)
+            cond_match = re.search(r"(.*?)\s+\(([^)]+)\)$", raw_name)
+            if cond_match:
+                clean_name = cond_match.group(1).strip()
+                raw_cond = cond_match.group(2)
+                cond_map = {"Factory New": "FN", "Minimal Wear": "MW", "Field-Tested": "FT", "Well-Worn": "WW", "Battle-Scarred": "BS"}
+                condition = cond_map.get(raw_cond, raw_cond)
+
+            # Собираем данные для обновления ТОЛЬКО внешки скина
+            update_payload = {
+                "name": clean_name,
+                "market_hash_name": raw_name,
+                "image_url": chosen["image_url"],
+                "rarity": chosen.get("rarity", "blue"),
+                "condition": condition
+                # ВАЖНО: price, price_rub и chance_weight здесь нет! Они остаются оригинальными.
+            }
+            
+            # Отправляем PATCH запрос для обновления конкретного скина
+            patch_res = await supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json=update_payload)
+            if patch_res.status_code < 400:
+                updated_count += 1
+            
+        logging.info(f"Админ {user_info.get('id')} запустил массовый рескин. Успешно заменено: {updated_count}")
+        return {"status": "ok", "message": f"Успешно заменено {updated_count} скинов"}
+
+    except Exception as e:
+        logging.error(f"Глобальный Рескин - Критическая ошибка: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось обновить базу скинов")
+    
+
 # Модель для принятия данных от Telegram WebApp
 class CalibrateRequest(BaseModel):
     initData: str
