@@ -391,7 +391,7 @@
                 document.getElementById('userBadges').innerHTML = badgesHTML;
 
                 // Статистика на кнопках
-                document.getElementById('statCoins').textContent = `${currentUser.coins || 0} ⭐️`;
+                document.getElementById('statCoins').textContent = `${currentUser.bot_t_coins || 0} 🪙`;
                 document.getElementById('statTickets').textContent = `${currentUser.tickets || 0} 🎟️`;
                 document.getElementById('statTrust').textContent = `Score: ${currentUser.trust_score || 0}`;
                 document.getElementById('statStatus').textContent = currentUser.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН';
@@ -421,22 +421,36 @@
         function closeOnDim(e) { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('modal-active'); }
 
         // --- API ДЕЙСТВИЯ (ОТПРАВКА) ---
-        async function submitCoins() {
-            const amount = parseFloat(document.getElementById('coinsAmount').value);
-            const action = document.getElementById('coinsAction').value;
-            if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму");
-            
-            tg.MainButton.showProgress();
-            try {
-                await fetchApi('/api/v1/admin/users/manage-coins', { user_id: currentUser.telegram_id, amount: amount, action_type: action });
-                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Баланс обновлен!'});
-                closeModal('coinsModal');
-                document.getElementById('coinsAmount').value = '';
-                loadUser(currentUser.telegram_id);
-            } catch (err) { tg.showAlert(err.message); }
-            finally { tg.MainButton.hideProgress(); }
+       async function submitCoins() {
+    const amount = parseFloat(document.getElementById('coinsAmount').value);
+    const action = document.getElementById('coinsAction').value;
+    if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму");
+    
+    tg.MainButton.showProgress();
+    try {
+        await fetchApi('/api/v1/admin/users/manage-coins', { user_id: currentUser.telegram_id, amount: amount, action_type: action });
+        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        tg.showPopup({message: 'Баланс обновлен!'});
+        closeModal('coinsModal');
+        
+        // Оптимистично обновляем баланс прямо в интерфейсе
+        let currentBalance = parseFloat(currentUser.bot_t_coins || 0);
+        if (action === 'add') {
+            currentBalance += amount;
+        } else {
+            currentBalance -= amount;
         }
+        currentUser.bot_t_coins = currentBalance; // Обновляем в локальном кэше
+        document.getElementById('statCoins').textContent = `${currentBalance} 🪙`; // Рисуем новую цифру
+        
+        document.getElementById('coinsAmount').value = '';
+    } catch (err) { 
+        tg.showAlert(err.message); 
+    }
+    finally { 
+        tg.MainButton.hideProgress(); 
+    }
+}
 
         async function submitTickets() {
             const amount = parseInt(document.getElementById('ticketsAmount').value);
