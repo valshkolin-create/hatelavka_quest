@@ -214,6 +214,12 @@
     </div>
 
     <div id="view-cases" class="view-section active">
+        <div style="margin-bottom: 15px;">
+            <button onclick="calibrateAllPrices()" class="admin-action-btn btn-reroll" style="width: 100%; padding: 12px; border: 1px dashed var(--primary); background: rgba(255, 215, 0, 0.05);">
+                <i class="fa-solid fa-scale-balanced"></i> КАЛИБРОВКА ЦЕН (Во всех кейсах 1/2)
+            </button>
+        </div>
+        
         <div id="cases-grid" class="cases-grid">
             </div>
     </div>
@@ -379,7 +385,7 @@
                 <div class="form-row">
                     <div style="flex:1">
                         <label class="form-label">Шанс</label>
-                       <input type="number" name="chance_weight" class="form-input" value="10" step="any" inputmode="decimal">
+                        <input type="number" name="chance_weight" class="form-input" value="10" step="any" inputmode="decimal">
                     </div>
                     <div style="flex:1.2">
                         <label class="form-label">Редкость</label>
@@ -429,6 +435,42 @@
         let preservedWeight = null; // 🔥 Память для шанса при замене
 
         loadCases();
+
+        // 🔥 ЛОГИКА КАЛИБРОВКИ ВСЕХ ЦЕН 🔥
+        async function calibrateAllPrices() {
+            tg.showConfirm("ВНИМАНИЕ! Эта кнопка пересчитает цены в билетах (сделает ровно 50% от цены в рублях) для ВСЕХ скинов во ВСЕХ кейсах. Вы уверены?", async (ok) => {
+                if (!ok) return;
+
+                const btn = document.querySelector('button[onclick="calibrateAllPrices()"]');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> КАЛИБРОВКА БАЗЫ...';
+                btn.disabled = true;
+
+                try {
+                    const res = await fetch('/api/v1/admin/cases/calibrate_all', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ initData: tg.initData })
+                    });
+                    
+                    if (res.ok) {
+                        if(window.Telegram?.WebApp?.HapticFeedback) {
+                            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                        }
+                        tg.showAlert("Успех! Цены билетов во всех кейсах теперь равны 50% от рублевой стоимости.");
+                        loadCases(); 
+                    } else {
+                        const data = await res.json();
+                        tg.showAlert("Ошибка: " + (data.detail || "Не удалось откалибровать цены"));
+                    }
+                } catch(e) {
+                    tg.showAlert("Сбой сервера при вызове калибровки");
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            });
+        }
 
         // СИНХРОНИЗАЦИЯ ПОЛЗУНКОВ В МОДАЛКЕ
         function syncInput(sliderId, inputId) { document.getElementById(inputId).value = document.getElementById(sliderId).value; }
