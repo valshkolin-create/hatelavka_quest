@@ -867,7 +867,7 @@ window.openAdminRewards = async function() {
             `;
         });
 
-       // 2. 🔥 ДОБАВЛЯЕМ БЛОК АВТОМАТИКИ (Для ТГ и Твича, кроме "Всё время" / "global")
+        // 2. 🔥 ДОБАВЛЯЕМ БЛОК АВТОМАТИКИ (Для ТГ и Твича, кроме "Всё время" / "global")
         const isTgCron = state.source === 'telegram' && state.telegramPeriod !== 'all';
         const isTwitchCron = state.source === 'twitch' && state.twitchPeriod !== 'global';
         const isTwitchSession = state.source === 'twitch' && state.twitchPeriod === 'session';
@@ -922,34 +922,9 @@ window.openAdminRewards = async function() {
                 document.getElementById('auto-enabled').checked = cfg.auto_issue.enabled || false;
                 
                 const timeInput = document.getElementById('auto-time');
-                // Если это не скрытый инпут (т.е. обычный таймер) - ставим время
                 if (timeInput && timeInput.type !== 'hidden') {
                     timeInput.value = cfg.auto_issue.time || "00:00";
                 }
-            }
-        }
-
-        // 3. Подгружаем сохраненные настройки из базы
-        const lKey = getCurrentLeaderboardKey();
-        const cfg = await makeApiRequest(`/api/v1/admin/leaderboard/config?key=${lKey}`, {}, 'GET', true);
-        
-        if (cfg) {
-            // Восстанавливаем награды ТОП-3
-            [1, 2, 3].forEach(num => {
-                const item = cfg[num.toString()];
-                if (item && item.type) {
-                    const typeEl = document.getElementById(`rew-type-${num}`);
-                    if (typeEl) {
-                        typeEl.value = item.type;
-                        updateRewardInput(num, item.value);
-                    }
-                }
-            });
-            
-            // Восстанавливаем настройки времени и галочку
-            if (cfg.auto_issue && document.getElementById('auto-enabled')) {
-                document.getElementById('auto-enabled').checked = cfg.auto_issue.enabled || false;
-                document.getElementById('auto-time').value = cfg.auto_issue.time || "00:00";
             }
         }
     } catch (e) { 
