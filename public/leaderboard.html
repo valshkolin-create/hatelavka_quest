@@ -870,8 +870,23 @@ window.openAdminRewards = async function() {
        // 2. 🔥 ДОБАВЛЯЕМ БЛОК АВТОМАТИКИ (Для ТГ и Твича, кроме "Всё время" / "global")
         const isTgCron = state.source === 'telegram' && state.telegramPeriod !== 'all';
         const isTwitchCron = state.source === 'twitch' && state.twitchPeriod !== 'global';
+        const isTwitchSession = state.source === 'twitch' && state.twitchPeriod === 'session';
         
-        if (isTgCron || isTwitchCron) {
+        if (isTwitchSession) {
+            // Для сессии на Твиче время не нужно, выдаем по завершению стрима
+            form.innerHTML += `
+                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); margin-top: 15px;">
+                    <div style="font-size: 11px; font-weight: 900; color: #9146ff; margin-bottom: 8px; text-transform: uppercase;">🎬 Авто-выдача (Конец стрима)</div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <label style="color: #fff; font-size: 12px; display: flex; align-items: center; gap: 5px; flex: 1; cursor: pointer;">
+                            <input type="checkbox" id="auto-enabled" style="accent-color: #9146ff; width: 18px; height: 18px;"> При завершении трансляции
+                        </label>
+                        <input type="hidden" id="auto-time" value="on_stream_end">
+                    </div>
+                </div>
+            `;
+        } else if (isTgCron || isTwitchCron) {
+            // Обычный таймер для всего остального
             form.innerHTML += `
                 <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); margin-top: 15px;">
                     <div style="font-size: 11px; font-weight: 900; color: #34c759; margin-bottom: 8px; text-transform: uppercase;">⏰ Авто-выдача (CRON)</div>
@@ -883,6 +898,35 @@ window.openAdminRewards = async function() {
                     </div>
                 </div>
             `;
+        }
+
+        // 3. Подгружаем сохраненные настройки из базы
+        const lKey = getCurrentLeaderboardKey();
+        const cfg = await makeApiRequest(`/api/v1/admin/leaderboard/config?key=${lKey}`, {}, 'GET', true);
+        
+        if (cfg) {
+            // Восстанавливаем награды ТОП-3
+            [1, 2, 3].forEach(num => {
+                const item = cfg[num.toString()];
+                if (item && item.type) {
+                    const typeEl = document.getElementById(`rew-type-${num}`);
+                    if (typeEl) {
+                        typeEl.value = item.type;
+                        updateRewardInput(num, item.value);
+                    }
+                }
+            });
+            
+            // Восстанавливаем настройки времени и галочку
+            if (cfg.auto_issue && document.getElementById('auto-enabled')) {
+                document.getElementById('auto-enabled').checked = cfg.auto_issue.enabled || false;
+                
+                const timeInput = document.getElementById('auto-time');
+                // Если это не скрытый инпут (т.е. обычный таймер) - ставим время
+                if (timeInput && timeInput.type !== 'hidden') {
+                    timeInput.value = cfg.auto_issue.time || "00:00";
+                }
+            }
         }
 
         // 3. Подгружаем сохраненные настройки из базы
@@ -974,25 +1018,25 @@ window.saveAdminRewards = async function() {
         // 1. Сохраняем конфиг наград и времени в БД (Supabase)
         await makeApiRequest('/api/v1/admin/leaderboard/config/save', { key: lKey, config }, 'POST');
         
-       // 2. 🔥 Отправляем расписание в cron-job.org (Для ТГ и Твича)
+      // 2. 🔥 Отправляем расписание в cron-job.org (или в базу для стрима)
         const isTgCron = state.source === 'telegram' && state.telegramPeriod !== 'all';
         const isTwitchCron = state.source === 'twitch' && state.twitchPeriod !== 'global';
         
         if (isTgCron || isTwitchCron) {
             if (autoEnabledEl && autoTimeEl) {
-                // Для Твича 'session' приравниваем к 'day', чтобы использовать нашу задачу "День"
+                // Если это сессия на Твиче, маркируем период как stream_end для бэкенда
                 let cronPeriod = state.source === 'telegram' ? state.telegramPeriod : state.twitchPeriod;
-                if (cronPeriod === 'session') cronPeriod = 'day';
+                if (cronPeriod === 'session') cronPeriod = 'stream_end';
 
                 await makeApiRequest('/api/v1/admin/cron/setup', { 
-                    source: state.source, // 🔥 Отправляем платформу (telegram или twitch)
+                    source: state.source, 
                     period: cronPeriod, 
-                    time: autoTimeEl.value,
+                    time: autoTimeEl.value, // Передаст "on_stream_end" для сессии
                     is_enabled: autoEnabledEl.checked
                 }, 'POST');
             }
         }
-
+      
         Telegram.WebApp.showAlert("✅ Настройки и расписание CRON сохранены!");
         document.getElementById('admin-rewards-modal').classList.add('hidden');
         fetchAndRender(); 
