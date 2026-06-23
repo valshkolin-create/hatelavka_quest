@@ -25,12 +25,12 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0; padding: 20px;
             -webkit-tap-highlight-color: transparent;
-            padding-bottom: 140px; /* Увеличен отступ, чтобы нижний бар не перекрывал контент */
+            padding-bottom: 140px; 
             zoom: 0.85; 
         }
 
         /* --- Header --- */
-        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .page-header { display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
         .back-btn { background: none; border: none; color: var(--text-sec); font-size: 16px; cursor: pointer; transition: 0.2s; }
         .back-btn:active { color: var(--text); transform: scale(0.95); }
         .page-title { font-size: 20px; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -92,12 +92,9 @@
 <body>
 
     <div class="page-header">
-        <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
         <h1 class="page-title">Редактор профиля</h1>
-        <div style="width: 16px;"></div> 
     </div>
 
-    <!-- БЛОК ПОИСКА И БАНОВ (Скрывается при открытии профиля) -->
     <div id="searchView">
         <div class="section-box admin-form" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
             <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-magnifying-glass"></i> Поиск игрока</h3>
@@ -116,13 +113,11 @@
         </div>
     </div>
 
-    <!-- ЛОАДЕР ЗАГРУЗКИ ПРОФИЛЯ -->
     <div id="mainLoader" class="hidden" style="text-align: center; padding: 40px; color: var(--text-sec);">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p style="margin-top: 10px; font-size: 13px;">Сбор данных...</p>
     </div>
 
-    <!-- КАРТОЧКА ПРОФИЛЯ -->
     <div id="profileContainer" class="profile-container hidden">
         <button class="inner-back-btn" onclick="closeProfile()">
             <i class="fa-solid fa-arrow-left"></i> Назад к списку
@@ -162,8 +157,6 @@
             </div>
         </div>
     </div>
-
-    <!-- МОДАЛКИ (BOTTOM SHEETS) -->
 
     <div id="coinsModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
@@ -269,7 +262,7 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResults').style.display = 'none';
             currentUser = null;
-            loadBannedUsers(); // Обновим баны на всякий случай
+            loadBannedUsers(); 
         }
 
         // Раскрывающийся список банов
@@ -377,7 +370,6 @@
         async function loadUser(id) {
             if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
             
-            // Прячем меню поиска и показываем лоадер
             document.getElementById('searchView').classList.add('hidden');
             document.getElementById('profileContainer').classList.add('hidden');
             document.getElementById('mainLoader').classList.remove('hidden');
