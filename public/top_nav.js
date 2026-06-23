@@ -130,7 +130,6 @@ html, body {
             </div>
         </div>
 
-        <!-- МОДАЛКА КУПОНОВ -->
         <div id="coupon-modal" class="modal hidden" style="z-index: 10002;">
             <div class="modal-content" style="text-align: center; max-width: 320px;">
                 <div class="modal-header">
@@ -160,7 +159,6 @@ html, body {
             </div>
         </div>
 
-        <!-- САМА ШАПКА -->
         <header class="top-header" id="universal-top-header">
             <div class="logo-wrapper">
                 <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
@@ -257,7 +255,7 @@ html, body {
         };
         setTimeout(tryLoadData, 300);
         // 🔥 ПРОВЕРКА АДМИНА 🔥
-        checkAdminAccess();
+        checkAdminAccess();
     }
 
     function detectPlatforms() {
@@ -292,48 +290,48 @@ html, body {
     }
 
     async function checkAdminAccess() {
-        const adminNav = document.getElementById('nav-admin');
-        if (!adminNav) return;
+        const adminNav = document.getElementById('nav-admin');
+        if (!adminNav) return;
 
-        // 1. Быстрая проверка: смотрим кэш
-        try {
-            const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-            if (cached?.user?.is_admin) {
-                adminNav.classList.remove('hidden');
-                return; // Если в кэше уже админ, сразу показываем и выходим
-            }
-        } catch (e) {}
+        // 1. Быстрая проверка: смотрим кэш
+        try {
+            const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+            if (cached?.user?.is_admin) {
+                adminNav.classList.remove('hidden');
+                return; // Если в кэше уже админ, сразу показываем и выходим
+            }
+        } catch (e) {}
 
-        // 2. Надежная проверка: если в кэше пусто или не админ, спрашиваем бэкенд
-        const tryLoadMe = async () => {
-            // Ждем инициализации TG WebApp или API-запросника
-            if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
-                setTimeout(tryLoadMe, 200);
-                return;
-            }
-            try {
-                if (typeof window.makeApiRequest === 'function') {
-                    // Запрашиваем данные юзера тихо, без крутилок
-                    const userData = await window.makeApiRequest('/api/v1/user/me', {}, 'POST', true);
-                    if (userData && userData.is_admin) {
-                        adminNav.classList.remove('hidden');
-                        
-                        // Заодно обновляем кэш, чтобы в следующий раз было мгновенно
-                        try {
-                            const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-                            if (!cached.user) cached.user = {};
-                            cached.user.is_admin = true;
-                            localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
-                        } catch(e){}
-                    }
-                }
-            } catch (e) {
-                console.warn("Не удалось проверить статус админа", e);
-            }
-        };
-        
-        setTimeout(tryLoadMe, 300);
-    }
+        // 2. Надежная проверка: если в кэше пусто или не админ, спрашиваем бэкенд
+        const tryLoadMe = async () => {
+            // Ждем инициализации TG WebApp или API-запросника
+            if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
+                setTimeout(tryLoadMe, 200);
+                return;
+            }
+            try {
+                if (typeof window.makeApiRequest === 'function') {
+                    // Запрашиваем данные юзера тихо, без крутилок
+                    const userData = await window.makeApiRequest('/api/v1/user/me', {}, 'POST', true);
+                    if (userData && userData.is_admin) {
+                        adminNav.classList.remove('hidden');
+                        
+                        // Заодно обновляем кэш, чтобы в следующий раз было мгновенно
+                        try {
+                            const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+                            if (!cached.user) cached.user = {};
+                            cached.user.is_admin = true;
+                            localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
+                        } catch(e){}
+                    }
+                }
+            } catch (e) {
+                console.warn("Не удалось проверить статус админа", e);
+            }
+        };
+        
+        setTimeout(tryLoadMe, 300);
+    }
 
     // Запускаем внедрение
     if (document.readyState === 'loading') {
@@ -426,9 +424,10 @@ html, body {
         }
     };
 
+    // 🔥 ВОТ ТУТ МЫ ВСЕ ИСПРАВИЛИ 🔥
     window.renderBalanceUI = function(coins, tickets) {
         if (coins !== undefined) {
-            let displayBalance = Number(coins).toLocaleString('ru-RU');
+            let displayBalance = Number(coins).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             const balanceEl = document.getElementById('user-balance');
             if (balanceEl && balanceEl.textContent !== displayBalance) { 
                 balanceEl.style.opacity = '0.5'; 
@@ -436,7 +435,7 @@ html, body {
             }
         }
         if (tickets !== undefined) {
-            let displayTickets = Math.floor(Number(tickets)).toString();
+            let displayTickets = Number(tickets).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
             const ticketsEl = document.getElementById('ticketStats');
             if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
                 ticketsEl.style.opacity = '0.5'; 
