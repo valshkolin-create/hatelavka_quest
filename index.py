@@ -26434,9 +26434,14 @@ async def get_random_skin(
 ):
     price = req.target_price
     
-    # Ищем скины в диапазоне ±15% от нужной цены
-    min_p = price * 0.85
-    max_p = price * 1.15
+    # 🔥 УМНЫЙ РАЗБРОС ЦЕН 🔥
+    # Выбираем, что даст больший диапазон: +-15% ИЛИ +-1 рубль
+    min_p = min(price * 0.85, price - 1.0)
+    max_p = max(price * 1.15, price + 1.0)
+    
+    # Защита от ухода цены в минус
+    if min_p < 0.01:
+        min_p = 0.01
     
     try:
         res = await supabase.get("/market_cache", params={
@@ -26531,9 +26536,11 @@ async def admin_global_reskin(
             if price <= 0:
                 continue
                 
-            # Ищем замену в коридоре ±15% от текущей цены скина
-            min_p = price * 0.85
-            max_p = price * 1.15
+            # 🔥 УМНЫЙ РАЗБРОС ЦЕН 🔥
+            min_p = min(price * 0.85, price - 1.0)
+            max_p = max(price * 1.15, price + 1.0)
+            if min_p < 0.01:
+                min_p = 0.01
             
             # Базовые параметры фильтрации
             market_params = [
@@ -26571,23 +26578,31 @@ async def admin_global_reskin(
             market_res = await supabase.get("/market_cache", params=market_params)
             candidates = market_res.json() if market_res.status_code == 200 else []
             
-            # Фолбэк: если при жестких фильтрах ничего не нашлось, расширяем поиск до ±35%
+            # Фолбэк: расширяем поиск до +-35% ИЛИ +-3 рубля
             if not candidates:
                 fallback_params = market_params.copy()
-                fallback_params[1] = ("price_rub", f"gte.{price * 0.65}")
-                fallback_params[2] = ("price_rub", f"lte.{price * 1.35}")
+                f_min = min(price * 0.65, price - 3.0)
+                f_max = max(price * 1.35, price + 3.0)
+                if f_min < 0.01:
+                    f_min = 0.01
+                    
+                fallback_params[1] = ("price_rub", f"gte.{f_min}")
+                fallback_params[2] = ("price_rub", f"lte.{f_max}")
                 fallback_res = await supabase.get("/market_cache", params=fallback_params)
                 candidates = fallback_res.json() if fallback_res.status_code == 200 else []
 
             if not candidates:
                 continue 
 
+            # Пытаемся выбрать предмет, которого еще не было
             fresh_candidates = [c for c in candidates if c["market_hash_name"] not in used_names]
             if not fresh_candidates:
-                fresh_candidates = candidates
+                fresh_candidates = candidates # Разрешаем повтор, если уникальных больше нет
             
+            # Сортируем по максимальной близости цены
             fresh_candidates.sort(key=lambda x: abs(x.get("price_rub", 0) - price))
             
+            # Выбираем случайный из топ-3 самых близких
             chosen = random.choice(fresh_candidates[:3])
             used_names.add(chosen["market_hash_name"])
             
@@ -26595,6 +26610,7 @@ async def admin_global_reskin(
             clean_name = raw_name
             condition = "-"
             
+            # Красиво парсим износ для базы (MW, FT, FN и т.д.)
             cond_match = re.search(r"(.*?)\s+\(([^)]+)\)$", raw_name)
             if cond_match:
                 clean_name = cond_match.group(1).strip()
@@ -26609,8 +26625,10 @@ async def admin_global_reskin(
                 "image_url": chosen["image_url"],
                 "rarity": chosen.get("rarity", "blue"),
                 "condition": condition
+                # ВАЖНО: price, price_rub и chance_weight здесь нет! Они остаются оригинальными.
             }
             
+            # Отправляем PATCH запрос для обновления конкретного скина
             patch_res = await supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json=update_payload)
             if patch_res.status_code < 400:
                 updated_count += 1
