@@ -4782,7 +4782,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         return
         
 
-elif event_type == "stream.offline":
+    elif event_type == "stream.offline":
         logging.info("⚫ Стрим OFFLINE.")
         
         # 🔥 [НОВОЕ] ВЫДАЕМ НАГРАДЫ ЗА СЕССИЮ (до сброса счетчиков)
