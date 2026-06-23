@@ -2163,25 +2163,19 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
 
     // 🔥 ЛОГИКА ОТОБРАЖЕНИЯ ГАРАНТА 🔥
     if (!lacky || lacky === 0) {
-        // Проверяем, почему пришел 0. Если это из-за красного траста — показываем плашку наказания.
         const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
         
         if (score < 30) {
             bottomProgress.style.display = 'flex';
-            
-            // Гасим точки и красим в тускло-красный
             const dots = document.querySelectorAll('#r-bottom-progress .r-progress-dot');
             dots.forEach(dot => {
                 dot.className = 'r-progress-dot'; 
                 dot.style.background = 'rgba(255, 59, 48, 0.2)'; 
                 dot.style.boxShadow = 'none';
             });
-
-            // Выводим грозный текст
             const progressTextEl = document.getElementById('r-progress-text');
             if (progressTextEl) progressTextEl.innerHTML = '<span style="color: #ff3b30; font-size: 11px; font-weight: 800; text-transform: uppercase;">🚫 Гарант отключен (Низкий траст) 🚫</span>';
         } else {
-            // Если это просто ивентовый кейс или купон (у нормальных ребят) - просто прячем полоску
             bottomProgress.style.display = 'none';
         }
     } else {
@@ -2190,12 +2184,10 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
         const dots = document.querySelectorAll('#r-bottom-progress .r-progress-dot');
         dots.forEach((dot, index) => {
             dot.className = 'r-progress-dot'; 
-            // Возвращаем стандартные стили на случай, если раньше они были затерты красным цветом
             dot.style.background = '';
             dot.style.boxShadow = '';
             if (index < currentLacky) { dot.classList.add('active'); if (index === 4 && currentLacky === 5) dot.classList.add('guaranteed'); }
         });
-
         const progressTextEl = document.getElementById('r-progress-text');
         if (progressTextEl) {
             if (currentLacky === 5) progressTextEl.innerHTML = '<span style="color: #ffcc00; font-size: 11px;">🔥 ГАРАНТ АКТИВЕН 🔥</span>';
@@ -2204,7 +2196,6 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
     }
 
     document.getElementById('r-top-header').style.display = 'flex';
-
     track.style.transition = 'none'; track.style.transform = 'translateX(0)';
     area.style.display = 'block'; winScreen.style.display = 'none'; modal.style.display = 'flex';
 
@@ -2245,17 +2236,22 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
                 'FT': 'После полевых испытаний', 'WW': 'Поношенное', 'BS': 'Закаленное в боях'
             };
             
-            // Подтягиваем данные из базы (cs_items)
+            // Проверка: скрываем качество для наклеек, граффити, нашивок, значков
+            const isNoConditionItem = /sticker|наклейка|graffiti|граффити|patch|нашивка|charm|брелок|pin|значок/i.test(winner.name);
             const rawCond = winner.condition || 'FN';
-            const winCondition = condMap[rawCond] || rawCond; // Если нет в словаре, выведет как есть
+            const winCondition = condMap[rawCond] || rawCond;
             const winPrice = winner.price_rub || winner.price || 0;
+            
+            const conditionHtml = isNoConditionItem 
+                ? '' 
+                : `<div style="font-size: 11px; color: #8e8e93; margin-bottom: 2px; text-align: center;">${escapeHTML(winCondition)}</div>`;
 
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО!</h2>
                 <img src="${winner.image_url}" class="win-img">
                 <h3 style="color:#fff; margin-top:15px; margin-bottom: 2px; font-weight: 700;">${winner.name.split('|').pop().trim()}</h3>
                 
-                <div style="font-size: 11px; color: #8e8e93; margin-bottom: 2px; text-align: center;">${escapeHTML(winCondition)}</div>
+                ${conditionHtml}
                 <div style="font-size: 12px; color: #cbd5e0; font-weight: 500; margin-bottom: 20px; text-align: center;">
                     ${winPrice} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 10px;"></i>
                 </div>
@@ -2268,6 +2264,7 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
         }, ANIMATION_TIME); 
     }, 100);
 }
+
 window.closeRoulette = function() {
     document.getElementById('r-modal').style.display = 'none';
     document.getElementById('r-top-header').style.display = 'none';
@@ -4582,13 +4579,10 @@ window.executeSwap = async () => {
             target_market_name: swapTargetItem.name
         };
 
-        // Делаем запрос. Бэкенд теперь вернет { success: true, item: { id, name, image_url, price } }
         const res = await makeApiRequest('/api/v1/swap/execute', payload, 'POST');
         
-        // Закрываем окно самого обменника
         closeSwapModal();
         
-        // ПОКАЗЫВАЕМ ПОПАП ПОБЕДЫ (Как в рулетке)
         const modal = document.getElementById('r-modal');
         const area = document.getElementById('r-area');
         const winScreen = document.getElementById('r-win');
@@ -4596,36 +4590,38 @@ window.executeSwap = async () => {
         const bottomProgress = document.getElementById('r-bottom-progress');
 
         if (modal && winScreen && res.item) {
-            // Прячем элементы от обычной рулетки (ленту, гарант, заголовок кейса)
             if(topHeader) topHeader.style.display = 'none';
             if(bottomProgress) bottomProgress.style.display = 'none';
             if(area) area.style.display = 'none';
 
-            // Словарь для перевода английских качеств с маркета
             const engCondMap = {
                 'Factory New': 'Прямо с завода', 'Minimal Wear': 'Немного поношенное',
                 'Field-Tested': 'После полевых испытаний', 'Well-Worn': 'Поношенное', 'Battle-Scarred': 'Закаленное в боях'
             };
 
+            const isNoConditionItem = /sticker|наклейка|graffiti|граффити|patch|нашивка|charm|брелок|pin|значок/i.test(res.item.name);
             let swapSkinName = res.item.name;
-            let swapCondition = "Прямо с завода"; // Дефолт
+            let swapCondition = "Прямо с завода";
             const match = res.item.name.match(/^(.*?)\s*\|\s*(.*?)(?:\s*\((.*?)\))?$/);
             
             if (match) {
-                swapSkinName = `${match[1]} | ${match[2]}`; // Оружие | Скин
+                swapSkinName = `${match[1]} | ${match[2]}`;
                 const engCond = match[3] || "Factory New";
-                swapCondition = engCondMap[engCond] || engCond; // Забираем качество из скобок и переводим
+                swapCondition = engCondMap[engCond] || engCond;
             } else {
                 swapSkinName = res.item.name.split('|').pop().trim();
             }
 
-            // Генерируем экран со скином и правильными функциями магазина: claimItem и sellForTickets
+            const conditionHtml = isNoConditionItem 
+                ? '' 
+                : `<div style="font-size: 11px; color: #8e8e93; margin-bottom: 2px; text-align: center;">${escapeHTML(swapCondition)}</div>`;
+
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ОБМЕН УСПЕШЕН!</h2>
                 <img src="${res.item.image_url}" class="win-img" style="width: 150px; height: 150px; object-fit: contain;">
                 <h3 style="color:#fff; margin-top:15px; margin-bottom: 2px; font-weight: 700; text-align: center; padding: 0 10px;">${escapeHTML(swapSkinName)}</h3>
                 
-                <div style="font-size: 11px; color: #8e8e93; margin-bottom: 2px; text-align: center;">${escapeHTML(swapCondition)}</div>
+                ${conditionHtml}
                 <div style="font-size: 12px; color: #cbd5e0; font-weight: 500; margin-bottom: 20px; text-align: center;">
                     ${res.item.price} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 10px;"></i>
                 </div>
@@ -4649,21 +4645,15 @@ window.executeSwap = async () => {
             winScreen.style.display = 'flex';
             modal.style.display = 'flex';
         } else {
-            // Резервный вариант, если HTML рулетки почему-то не найден
             customAlert(`✅ Успешно! Вы получили:\n${swapTargetItem.name}`);
         }
         
-        // Синхронизируем визуальный баланс
         checkBalance(true); 
-        
-        // Обновляем данные, если функция существует
         if (typeof loadData === 'function') loadData(true); 
         
     } catch (e) {
-        // Ошибка сама покажется через customAlert из твоего makeApiRequest
         console.error("Ошибка свапа:", e);
     } finally {
-        // Возвращаем кнопку в исходное состояние
         btn.disabled = false;
         btn.innerText = "ПОДТВЕРДИТЬ СВАП";
     }
