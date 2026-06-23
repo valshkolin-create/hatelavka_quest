@@ -445,7 +445,7 @@
                     </div>
                     <div style="flex:1">
                         <label class="form-label" style="color:var(--danger)">Реал. (Руб)</label>
-                        <input type="number" name="price_rub" id="inp-price-rub" class="form-input" value="0" step="any" inputmode="decimal" oninput="document.getElementById('inp-price').value = Math.ceil(this.value * 0.5); updatePreview()">
+                        <input type="number" name="price_rub" id="inp-price-rub" class="form-input" value="0" step="any" inputmode="decimal" oninput="document.getElementById('inp-price').value = parseFloat((this.value * 0.5).toFixed(2)); updatePreview()">
                     </div>
                 </div>
 
@@ -513,7 +513,7 @@
         let isFetching = false;
         let hasMoreItems = true;
         let currentMarketBalance = 0;
-        let preservedWeight = null; // 🔥 Память для шанса при замене
+        let preservedWeight = null; 
 
         loadCases();
 
@@ -531,7 +531,6 @@
             const allowGraffiti = document.getElementById('reskin-allow-graffiti').checked;
             const allowBs = document.getElementById('reskin-allow-bs').checked;
 
-            // 🔥 Собираем названия выбранных кейсов
             const caseCheckboxes = document.querySelectorAll('.reskin-case-cb:checked');
             const selectedCases = Array.from(caseCheckboxes).map(cb => cb.value);
 
@@ -562,7 +561,7 @@
                             allow_stickers: allowStickers,
                             allow_graffiti: allowGraffiti,
                             allow_bs: allowBs,
-                            target_cases: selectedCases // 🔥 Передаем список кейсов
+                            target_cases: selectedCases 
                         })
                     });
                     
@@ -586,7 +585,7 @@
             });
         }
 
-        // 🔥 ОДИНОЧНЫЙ АВТО-РЕСКИН ДЛЯ РЕДАКТОРА 🔥
+        // 🔥 ОДИНОЧНЫЙ АВТО-РЕСКИН ДЛЯ РЕДАКТОРА С ПАРСИНГОМ ДАННЫХ 🔥
         async function autoPickSkin() {
             const form = document.getElementById('edit-form');
             const targetPrice = parseFloat(form.price_rub.value);
@@ -611,10 +610,35 @@
                 if (data.status === 'ok') {
                     const skin = data.skin;
                     
-                    form.name.value = skin.market_hash_name;
+                    // 1. Очищаем название и парсим износ
+                    let cleanName = skin.market_hash_name;
+                    let qualityCode = "FT"; 
+                    const wearMap = {
+                        'factory new': 'FN', 'прямо с завода': 'FN',
+                        'minimal wear': 'MW', 'немного поношенное': 'MW',
+                        'field-tested': 'FT', 'после полевых испытаний': 'FT',
+                        'well-worn': 'WW', 'поношенное': 'WW',
+                        'battle-scarred': 'BS', 'закаленное в боях': 'BS'
+                    };
+                    
+                    const conditionMatch = cleanName.match(/(.*?)\s+\(([^)]+)\)$/);
+                    if (conditionMatch) {
+                        cleanName = conditionMatch[1].trim(); 
+                        const rawWear = conditionMatch[2].toLowerCase().trim(); 
+                        if (wearMap[rawWear]) {
+                            qualityCode = wearMap[rawWear]; 
+                        }
+                    }
+                    
+                    // Заполняем поля названия и износа
+                    form.name.value = cleanName;
                     form.market_hash_name.value = skin.market_hash_name;
+                    form.condition.value = qualityCode;
+                    
+                    // 2. Обновляем картинку
                     form.image_url.value = skin.image_url;
                     
+                    // 3. Обновляем редкость
                     const rarityMap = {
                         'common': 'common', 'industrial': 'blue', 'milspec': 'blue', 'blue': 'blue',
                         'restricted': 'purple', 'purple': 'purple',
@@ -623,6 +647,11 @@
                         'gold': 'gold', 'knife': 'gold', 'contraband': 'gold'
                     };
                     form.rarity.value = rarityMap[(skin.rarity || 'blue').toLowerCase()] || 'blue';
+                    
+                    // 4. 🔥 Обновляем цену и пересчитываем билеты (1/2) 🔥
+                    const newRubPrice = parseFloat(skin.price_rub) || 0;
+                    form.price_rub.value = newRubPrice;
+                    form.price.value = parseFloat((newRubPrice * 0.5).toFixed(2));
                     
                     updatePreview();
                     
@@ -722,7 +751,6 @@
                 `;
                 grid.appendChild(addDiv);
 
-                // 🔥 Очищаем список кейсов для модалки Рескина
                 const reskinList = document.getElementById('reskin-cases-list');
                 reskinList.innerHTML = '';
 
@@ -733,7 +761,6 @@
                         displayName = displayName.replace(/^(КЕЙС|CASE|Кейс|Case)\s*\|\s*/i, '');
                     }
                     
-                    // 🔥 Заполняем список кейсов в модалке Рескина
                     reskinList.innerHTML += `
                         <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #fff; cursor: pointer; padding: 4px 0;">
                             <input type="checkbox" class="reskin-case-cb" value="${t.name}">
@@ -741,7 +768,6 @@
                         </label>
                     `;
 
-                    // Отрисовка самих папок кейсов
                     const isSecret = t.is_secret;
                     const eyeIcon = isSecret ? 'fa-eye-slash' : 'fa-eye';
                     const eyeColor = isSecret ? 'color: var(--danger);' : 'color: var(--text-sec);';
@@ -820,7 +846,6 @@
                     return;
                 }
 
-                // 🔥 СОРТИРУЕМ ОТ ДОРОГОГО К ДЕШЕВОМУ 🔥
                 items.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
 
                 let html = '<div class="items-grid">';
@@ -846,7 +871,6 @@
             document.querySelector('.fab-main').classList.toggle('rotate');
         }
 
-        // --- МАГИЯ ПОИСКА ПО СКЛАДУ ---
         function openLibrarySearch() {
             toggleFab();
             document.getElementById('modal-library').classList.add('modal-active');
@@ -1025,7 +1049,8 @@
                 market_hash_name: item.market_hash_name,
                 name: cleanName,
                 image_url: item.image_url || '',
-                price: Math.ceil((item.price_rub || 0) * 0.5), // 🔥 Теперь билеты это 50% от рублей
+                // 🔥 ИСПРАВЛЕНО: Теперь тут точный расчет с дробями
+                price: parseFloat(((item.price_rub || 0) * 0.5).toFixed(2)), 
                 price_rub: item.price_rub || 0,
                 chance_weight: 10,
                 rarity: itemRarity,
@@ -1066,7 +1091,7 @@
                 
                 if (item.id || item.link_id) {
                     delBtn.style.display = 'flex';
-                    rerollBtn.style.display = 'flex'; // Показываем кнопку замены
+                    rerollBtn.style.display = 'flex'; 
                 } else {
                     delBtn.style.display = 'none';
                     rerollBtn.style.display = 'none';
@@ -1081,7 +1106,7 @@
                 form.condition.value = 'FT'; 
                 form.chance_weight.value = 10;
                 delBtn.style.display = 'none';
-                rerollBtn.style.display = 'none'; // Прячем кнопку замены для новых
+                rerollBtn.style.display = 'none';
             }
             updatePreview();
             modal.classList.add('modal-active');
@@ -1100,13 +1125,11 @@
             document.getElementById('p-price').innerHTML = `${priceRub} ₽ <span style="font-size:11px; color:#aaa; font-weight:normal;">/ ${priceTix} 🎫</span>`;
         }
 
-        // --- УМНАЯ АВТОГЕНЕРАЦИЯ (ВЫЗОВ МОДАЛКИ) ---
         function openGeneratorModal() {
             toggleFab();
             document.getElementById('modal-generator').classList.add('active');
         }
 
-        // --- ОТПРАВКА ДАННЫХ ИЗ МОДАЛКИ ---
         function executeAutoGenerate() {
             let budget = parseFloat(document.getElementById('gen-budget').value);
             if (isNaN(budget) || budget <= 0) {
@@ -1114,7 +1137,6 @@
                 return;
             }
 
-            // Собираем данные
             const payload = {
                 case_tag: currentCase,
                 mode: "full",
@@ -1160,14 +1182,13 @@
             });
         }
 
-        // 🔥 ОДИНОЧНАЯ ЗАМЕНА СКИНА 🔥
         function rerollSingleItem() {
             const form = document.getElementById('edit-form');
             const targetPriceRub = parseFloat(form.price_rub.value);
             const linkId = form.link_id.value;
             const itemId = form.id.value;
             
-            preservedWeight = form.chance_weight.value; // 🔥 Запоминаем шанс старого скина
+            preservedWeight = form.chance_weight.value; 
 
             if (!targetPriceRub || targetPriceRub <= 0) {
                 tg.showAlert("У скина должна быть цена в рублях для поиска замены!");
@@ -1177,7 +1198,6 @@
             tg.showConfirm(`Заменить скин?\nТекущий скин удалится, и откроется склад для выбора нового.`, async (ok) => {
                 if (!ok) return;
                 
-                // 1. Удаляем старый скин из базы
                 try {
                     await fetch('/api/v1/admin/cases/delete_item', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1187,16 +1207,13 @@
                     console.error("Ошибка при удалении старого скина", e);
                 }
 
-                // 2. Закрываем редактор и обновляем фон
                 closeModal('modal-editor');
                 loadItems(currentCase);
                 loadCases();
 
-                // 3. Высчитываем коридор цен (± 20% от цены старого скина)
                 const minPrice = Math.floor(targetPriceRub * 0.8);
                 const maxPrice = Math.ceil(targetPriceRub * 1.2);
 
-                // 4. Открываем склад и вбиваем фильтры
                 document.getElementById('modal-library').classList.add('modal-active');
                 document.getElementById('lib-search-inp').value = '';
                 document.getElementById('lib-price-min').value = minPrice;
@@ -1206,7 +1223,6 @@
                 hasMoreItems = true;
                 updateModalBalance(); 
 
-                // 5. Автоматически запускаем поиск
                 document.getElementById('lib-results').innerHTML = '<div style="text-align:center;color:var(--text-sec);">Ищем замену... <i class="fa-solid fa-spinner fa-spin"></i></div>';
                 doSearch(true);
             });
@@ -1324,12 +1340,11 @@
         
         // --- ПЕРЕКЛЮЧЕНИЕ СЕКРЕТНОСТИ КЕЙСА ---
         window.toggleCaseSecret = async function(event, caseName) {
-            event.stopPropagation(); // Чтобы при клике на глазик не открывалась сама папка кейса
+            event.stopPropagation();
             
             const btn = event.currentTarget;
             const icon = btn.querySelector('i');
             
-            // Включаем крутилку загрузки
             icon.className = 'fa-solid fa-spinner fa-spin';
             icon.style.color = 'var(--text-sec)';
             
@@ -1346,7 +1361,6 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    // Меняем иконку на основе того, что вернул бэкенд
                     if (data.is_secret) {
                         icon.className = 'fa-solid fa-eye-slash';
                         btn.style.color = 'var(--danger)';
@@ -1358,7 +1372,6 @@
                         Telegram.WebApp.HapticFeedback.selectionChanged();
                     }
                 } else {
-                    // Если бэкенд выдал ошибку, просто перерисовываем все кейсы как было
                     loadCases();
                 }
             } catch (e) {
