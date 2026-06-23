@@ -549,9 +549,11 @@ function renderBalanceUI(coins, tickets) {
         }
     }
 
-    if (tickets !== undefined) {
-        // 🔥 ИСПРАВЛЕНО: Билеты теперь БЕЗ разделения (например, 1000 вместо 1 000)
-        let displayTickets = Math.floor(Number(tickets)).toString();
+   if (tickets !== undefined) {
+        // Было: let displayTickets = Math.floor(Number(tickets)).toString();
+        let numTickets = Number(tickets);
+        // Если число целое - показываем как есть. Если дробное - оставляем 2 знака.
+        let displayTickets = numTickets % 1 === 0 ? numTickets.toString() : numTickets.toFixed(2);
         
         const ticketsEl = document.getElementById('ticketStats');
         if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
@@ -1806,7 +1808,7 @@ function renderItems(items) {
     if (window.isSmartFilterActive) {
         // Считываем то, что сейчас написано у юзера на экране
         const currentCoins = parseInt(document.getElementById('user-balance')?.textContent.replace(/\s/g, '') || 0);
-        const currentTickets = parseInt(document.getElementById('ticketStats')?.textContent.replace(/\s/g, '') || 0);
+        const currentTickets = parseFloat(document.getElementById('ticketStats')?.textContent.replace(/\s/g, '').replace(',', '.')) || 0;
 
         items = items.filter(item => {
             if (item.is_folder) return true; // Папки не трогаем
@@ -2074,7 +2076,7 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             let currentVisualBalance = 0;
             if (balanceEl) {
                 // Убираем пробелы и парсим число
-                currentVisualBalance = parseInt(balanceEl.textContent.replace(/\s/g, '')) || 0;
+               currentVisualBalance = parseFloat(balanceEl.textContent.replace(/\s/g, '').replace(',', '.')) || 0;
                 
                 // Если монет визуально не хватает — тормозим сразу
                 if (currentVisualBalance < displayPrice) {
@@ -2326,7 +2328,7 @@ window.sellForTickets = function(itemId, price) {
             // ⚡ ОПТИМИСТИЧНОЕ НАЧИСЛЕНИЕ БИЛЕТОВ (ДО ЗАПРОСА)
             const ticketsEl = document.getElementById('ticketStats');
             if (ticketsEl) {
-                const currentTickets = parseInt(ticketsEl.textContent.replace(/\s/g, '')) || 0;
+                const currentTickets = parseFloat(ticketsEl.textContent.replace(/\s/g, '').replace(',', '.')) || 0;
                 renderBalanceUI(undefined, currentTickets + price);
             }
 
