@@ -2238,10 +2238,28 @@ function launchRoulette(items, winner, extraMessages, lacky, rawCaseName) {
         setTimeout(() => {
             if (haptic) { haptic.impactOccurred('heavy'); setTimeout(() => haptic.notificationOccurred('success'), 800); }
             area.style.display = 'none'; 
+            
+            // Словарь для перевода качества
+            const condMap = {
+                'FN': 'Прямо с завода', 'MW': 'Немного поношенное',
+                'FT': 'После полевых испытаний', 'WW': 'Поношенное', 'BS': 'Закаленное в боях'
+            };
+            
+            // Подтягиваем данные из базы (cs_items)
+            const rawCond = winner.condition || 'FN';
+            const winCondition = condMap[rawCond] || rawCond; // Если нет в словаре, выведет как есть
+            const winPrice = winner.price_rub || winner.price || 0;
+
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ВЫПАЛО!</h2>
                 <img src="${winner.image_url}" class="win-img">
-                <h3 style="color:#fff; margin-top:15px; margin-bottom: 20px; font-weight: 700;">${winner.name}</h3>
+                <h3 style="color:#fff; margin-top:15px; margin-bottom: 2px; font-weight: 700;">${winner.name.split('|').pop().trim()}</h3>
+                
+                <div style="font-size: 11px; color: #8e8e93; margin-bottom: 2px; text-align: center;">${escapeHTML(winCondition)}</div>
+                <div style="font-size: 12px; color: #cbd5e0; font-weight: 500; margin-bottom: 20px; text-align: center;">
+                    ${winPrice} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 10px;"></i>
+                </div>
+                
                 <button class="action-btn btn-buy" style="width: 220px; height: 48px; font-size: 14px; margin-bottom: 10px;" onclick="claimItem(${winner.id})">ЗАБРАТЬ В STEAM</button>
                 <button class="action-btn" style="background: linear-gradient(135deg, #6a11cb, #2575fc); color: #fff; width: 220px; height: 44px; margin-bottom: 15px;" onclick="sellForTickets(${winner.id}, ${winner.price || 0})">ПРОДАТЬ ЗА ${winner.price || 0} 🎟️</button>
                 <button class="action-btn btn-secondary-action" style="width: 220px;" onclick="closeRoulette()">Закрыть</button>
@@ -2256,7 +2274,6 @@ window.closeRoulette = function() {
     document.getElementById('r-bottom-progress').style.display = 'none';
     checkBalance(true);
 }
-
 // ================================================================
 // ВЫВОД, ПРОДАЖА И ЗАМЕНА
 // ================================================================
@@ -4584,12 +4601,35 @@ window.executeSwap = async () => {
             if(bottomProgress) bottomProgress.style.display = 'none';
             if(area) area.style.display = 'none';
 
+            // Словарь для перевода английских качеств с маркета
+            const engCondMap = {
+                'Factory New': 'Прямо с завода', 'Minimal Wear': 'Немного поношенное',
+                'Field-Tested': 'После полевых испытаний', 'Well-Worn': 'Поношенное', 'Battle-Scarred': 'Закаленное в боях'
+            };
+
+            let swapSkinName = res.item.name;
+            let swapCondition = "Прямо с завода"; // Дефолт
+            const match = res.item.name.match(/^(.*?)\s*\|\s*(.*?)(?:\s*\((.*?)\))?$/);
+            
+            if (match) {
+                swapSkinName = `${match[1]} | ${match[2]}`; // Оружие | Скин
+                const engCond = match[3] || "Factory New";
+                swapCondition = engCondMap[engCond] || engCond; // Забираем качество из скобок и переводим
+            } else {
+                swapSkinName = res.item.name.split('|').pop().trim();
+            }
+
             // Генерируем экран со скином и правильными функциями магазина: claimItem и sellForTickets
             winScreen.innerHTML = `
                 <h2 style="color:#ffcc00; margin-bottom:10px; text-transform:uppercase; text-shadow:0 0 20px rgba(255,215,0,0.5);">ОБМЕН УСПЕШЕН!</h2>
                 <img src="${res.item.image_url}" class="win-img" style="width: 150px; height: 150px; object-fit: contain;">
-                <h3 style="color:#fff; margin-top:15px; margin-bottom: 20px; font-weight: 700; text-align: center; padding: 0 10px;">${res.item.name}</h3>
+                <h3 style="color:#fff; margin-top:15px; margin-bottom: 2px; font-weight: 700; text-align: center; padding: 0 10px;">${escapeHTML(swapSkinName)}</h3>
                 
+                <div style="font-size: 11px; color: #8e8e93; margin-bottom: 2px; text-align: center;">${escapeHTML(swapCondition)}</div>
+                <div style="font-size: 12px; color: #cbd5e0; font-weight: 500; margin-bottom: 20px; text-align: center;">
+                    ${res.item.price} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 10px;"></i>
+                </div>
+
                 <button class="action-btn btn-buy" style="width: 220px; height: 48px; font-size: 14px; margin-bottom: 10px; box-shadow: 0 0 15px rgba(52, 199, 89, 0.4); background: #34c759; color: #000; border: none; font-weight: 800; border-radius: 8px;" 
                         onclick="closeRoulette(); claimItem(${res.item.id})">
                     ЗАБРАТЬ В STEAM
@@ -4628,7 +4668,6 @@ window.executeSwap = async () => {
         btn.innerText = "ПОДТВЕРДИТЬ СВАП";
     }
 };
-
 // ================================================================
 // СПЕЦИАЛЬНОЕ ОКНО ДЛЯ ИНФО-ПОДСКАЗОК (НЕ ЗАКРЫВАЕТ ТРАСТ-ФАКТОР)
 // ================================================================
