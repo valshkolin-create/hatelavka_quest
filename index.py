@@ -26422,6 +26422,7 @@ class GlobalReskinRequest(BaseModel):
     allow_stickers: bool = False
     allow_graffiti: bool = False
     allow_bs: bool = False
+    target_cases: list[str] = [] # 🔥 НОВОЕ ПОЛЕ: Список выбранных кейсов
 
 # ==========================================
 # 1. ОДИНОЧНЫЙ АВТО-РЕСКИН (ДЛЯ РЕДАКТОРА)
@@ -26479,7 +26480,7 @@ async def get_random_skin(
 
 
 # ==========================================
-# 2. ГЛОБАЛЬНЫЙ МАССОВЫЙ РЕСКИН (ВСЯ БАЗА)
+# 2. ГЛОБАЛЬНЫЙ МАССОВЫЙ РЕСКИН (С ВЫБОРКОЙ ПО КЕЙСАМ)
 # ==========================================
 @app.post("/api/v1/admin/cases/global_reskin")
 async def admin_global_reskin(
@@ -26492,17 +26493,38 @@ async def admin_global_reskin(
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     try:
-        # Получаем все уникальные предметы из cs_items
+        # 🔥 УМНАЯ ВЫБОРКА КЕЙСОВ 🔥
+        valid_item_ids = []
+        if req.target_cases:
+            # Если передали конкретные кейсы, достаем ID скинов только из этих кейсов
+            case_tags_str = ",".join(req.target_cases)
+            link_res = await supabase.get("/cs_case_contents", params={
+                "select": "item_id", 
+                "case_tag": f"in.({case_tags_str})"
+            })
+            if link_res.status_code == 200 and link_res.json():
+                valid_item_ids = [row["item_id"] for row in link_res.json()]
+            
+            if not valid_item_ids:
+                return {"status": "ok", "message": "В выбранных кейсах нет предметов для обновления"}
+
+        # Получаем предметы из cs_items
         res = await supabase.get("/cs_items", params={"select": "id, price_rub"})
         if res.status_code >= 400:
             raise Exception(f"Ошибка получения cs_items: {res.text}")
         
-        cs_items = res.json()
-        if not cs_items:
+        all_cs_items = res.json()
+        if not all_cs_items:
             return {"status": "ok", "message": "База пуста"}
 
+        # Если кейсы были выбраны, фильтруем только нужные скины
+        if valid_item_ids:
+            cs_items = [i for i in all_cs_items if i.get("id") in valid_item_ids]
+        else:
+            cs_items = all_cs_items # Если список пуст, обновляем ВСЁ
+
         updated_count = 0
-        used_names = set() # Чтобы не повторяться скинами, если это возможно
+        used_names = set() 
         
         for item in cs_items:
             price = float(item.get("price_rub", 0))
@@ -26558,17 +26580,14 @@ async def admin_global_reskin(
                 candidates = fallback_res.json() if fallback_res.status_code == 200 else []
 
             if not candidates:
-                continue # Если вообще пусто (очень редкий кейс для ножей), оставляем скин как есть
+                continue 
 
-            # Пытаемся выбрать предмет, которого еще не было
             fresh_candidates = [c for c in candidates if c["market_hash_name"] not in used_names]
             if not fresh_candidates:
-                fresh_candidates = candidates # Разрешаем повтор, если уникальных больше нет
+                fresh_candidates = candidates
             
-            # Сортируем по максимальной близости цены
             fresh_candidates.sort(key=lambda x: abs(x.get("price_rub", 0) - price))
             
-            # Выбираем случайный из топ-3 самых близких
             chosen = random.choice(fresh_candidates[:3])
             used_names.add(chosen["market_hash_name"])
             
@@ -26576,7 +26595,6 @@ async def admin_global_reskin(
             clean_name = raw_name
             condition = "-"
             
-            # Красиво парсим износ для базы (MW, FT, FN и т.д.)
             cond_match = re.search(r"(.*?)\s+\(([^)]+)\)$", raw_name)
             if cond_match:
                 clean_name = cond_match.group(1).strip()
@@ -26591,15 +26609,13 @@ async def admin_global_reskin(
                 "image_url": chosen["image_url"],
                 "rarity": chosen.get("rarity", "blue"),
                 "condition": condition
-                # ВАЖНО: price, price_rub и chance_weight здесь нет! Они остаются оригинальными.
             }
             
-            # Отправляем PATCH запрос для обновления конкретного скина
             patch_res = await supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json=update_payload)
             if patch_res.status_code < 400:
                 updated_count += 1
             
-        logging.info(f"Админ {user_info.get('id')} запустил массовый рескин. Успешно заменено: {updated_count}")
+        logging.info(f"Админ {user_info.get('id')} запустил массовый рескин для {len(req.target_cases)} кейсов. Успешно заменено: {updated_count}")
         return {"status": "ok", "message": f"Успешно заменено {updated_count} скинов"}
 
     except Exception as e:
