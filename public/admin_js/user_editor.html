@@ -6,6 +6,10 @@
     <title>Редактор Профилей | HATElavka</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Идеальная круглая заглушка, если аватарка сломана
+        const defaultAvatar = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%232c2c2e%22/%3E%3Cpath d=%22M50 55a22 22 0 1 0 0-44 22 22 0 0 0 0 44zm0 5c-15.3 0-45 7.6-45 23v9h90v-9c0-15.4-29.7-23-45-23z%22 fill=%22%238e8e93%22/%3E%3C/svg%3E";
+    </script>
     <style>
         :root {
             --bg: #0f0f0f;
@@ -86,7 +90,7 @@
         /* --- Модальные окна (Bottom Sheet) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; }
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); overflow-y: auto;}
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         
         .admin-action-btn { background: #64b5ef; color: #000; padding: 12px; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 15px; transition: 0.2s; }
@@ -103,6 +107,7 @@
         <h1 class="page-title">Редактор профиля</h1>
     </div>
 
+    <!-- БЛОК ПОИСКА И БАНОВ -->
     <div id="searchView">
         <div class="section-box admin-form" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
             <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-magnifying-glass"></i> Поиск игрока</h3>
@@ -121,11 +126,13 @@
         </div>
     </div>
 
+    <!-- ЛОАДЕР ЗАГРУЗКИ ПРОФИЛЯ -->
     <div id="mainLoader" class="hidden" style="text-align: center; padding: 40px; color: var(--text-sec);">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p style="margin-top: 10px; font-size: 13px;">Сбор данных...</p>
     </div>
 
+    <!-- КАРТОЧКА ПРОФИЛЯ -->
     <div id="profileContainer" class="profile-container hidden">
         <button class="inner-back-btn" onclick="closeProfile()">
             <i class="fa-solid fa-arrow-left"></i> Назад к списку
@@ -133,7 +140,7 @@
 
         <div class="section-box">
             <div class="profile-card">
-                <img id="userAvatar" src="" alt="Avatar" class="profile-avatar" onerror="this.src='https://placehold.co/100?text=User';">
+                <img id="userAvatar" src="" alt="Avatar" class="profile-avatar" onerror="this.onerror=null; this.src=defaultAvatar;">
                 <div class="profile-info">
                     <div id="userName" class="profile-name">Загрузка...</div>
                     <div style="font-size: 12px; color: var(--text-sec); margin-top: 4px; font-weight: 600;">ID: <span id="userId" style="color: #fff;"></span></div>
@@ -176,6 +183,8 @@
         </div>
     </div>
 
+    <!-- МОДАЛКИ (BOTTOM SHEETS) -->
+
     <div id="coinsModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
@@ -208,12 +217,17 @@
     <div id="cpModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
-                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Уровень Battle Pass</h3>
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Уровни Battle Pass</h3>
                 <button class="back-btn" onclick="closeModal('cpModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
-            <label>Установить Уровень (1 уровень = 10 EXP)</label>
-            <input type="number" id="cpLevelAmount" placeholder="Например: 5" min="1">
-            <button class="admin-action-btn" onclick="submitCp()" style="background: #ff4757; color: #fff;">Установить уровень</button>
+            <label>Действие</label>
+            <select id="cpAction">
+                <option value="add">Добавить уровни (+)</option>
+                <option value="subtract">Забрать уровни (-)</option>
+            </select>
+            <label>Количество уровней</label>
+            <input type="number" id="cpAmount" placeholder="Например: 5" min="1">
+            <button class="admin-action-btn" onclick="submitCp()" style="background: #ff4757; color: #fff;">Применить</button>
         </div>
     </div>
 
@@ -301,6 +315,7 @@
             }
         }
 
+        // Кнопка "Назад к поиску"
         function closeProfile() {
             if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
             document.getElementById('profileContainer').classList.add('hidden');
@@ -311,6 +326,7 @@
             loadBannedUsers(); 
         }
 
+        // Раскрывающийся список банов
         function toggleBanned() {
             if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
             const list = document.getElementById('bannedList');
@@ -352,11 +368,11 @@
                 }
 
                 listObj.innerHTML = users.map(u => {
-                    const avatar = u.photo_url || 'https://placehold.co/40';
+                    const avatar = u.photo_url || defaultAvatar;
                     const name = escapeHTML(u.full_name || u.username || 'Без имени');
                     return `
                         <div class="search-item" style="border-left-color: var(--danger);" onclick="loadUser(${u.telegram_id})">
-                            <img src="${avatar}" class="search-img" onerror="this.src='https://placehold.co/40?text=User';">
+                            <img src="${avatar}" class="search-img" onerror="this.onerror=null; this.src=defaultAvatar;">
                             <div class="search-info">
                                 <div style="font-weight:700; font-size:12px; color:#fff;">${name}</div>
                                 <div style="font-size:10px; color:var(--text-sec); margin-top:2px;">ID: ${u.telegram_id}</div>
@@ -390,12 +406,12 @@
                         return;
                     }
                     searchResults.innerHTML = users.map(u => {
-                        const avatar = u.photo_url || 'https://placehold.co/40';
+                        const avatar = u.photo_url || defaultAvatar;
                         const name = escapeHTML(u.full_name || u.username || 'Без имени');
                         const twitch = u.twitch_login ? escapeHTML(u.twitch_login) : 'нет';
                         return `
                             <div class="search-item" style="border-left-color: #64b5ef;" onclick="loadUser(${u.telegram_id})">
-                                <img src="${avatar}" class="search-img" onerror="this.src='https://placehold.co/40?text=User';">
+                                <img src="${avatar}" class="search-img" onerror="this.onerror=null; this.src=defaultAvatar;">
                                 <div class="search-info">
                                     <div style="font-weight:700; font-size:12px; color:#fff;">${name}</div>
                                     <div style="font-size:10px; color:var(--text-sec); margin-top:2px;">ID: ${u.telegram_id} | <i class="fa-brands fa-twitch"></i> ${twitch}</div>
@@ -423,27 +439,29 @@
                 currentUser = await fetchApi(`/api/v1/admin/users/${id}/full_profile`, null, 'GET');
                 
                 // Заполняем UI
-                document.getElementById('userAvatar').src = currentUser.photo_url || 'https://placehold.co/100';
+                document.getElementById('userAvatar').src = currentUser.photo_url || defaultAvatar;
                 document.getElementById('userName').textContent = currentUser.full_name || 'Без имени';
                 document.getElementById('userId').textContent = currentUser.telegram_id;
 
+                // Бейджи
                 let badgesHTML = '';
-                if (currentUser.is_banned) badgesHTML += '<span class="badge red">BANNED</span>';
+                if (currentUser.is_banned) badgesHTML += '<span class="badge red">ЗАБАНЕН</span>';
                 if (currentUser.has_cp_premium) badgesHTML += '<span class="badge premium">PREMIUM</span>';
-                if (currentUser.trust_level === 'red') badgesHTML += '<span class="badge red">LOW TRUST</span>';
-                if (currentUser.trust_level === 'green') badgesHTML += '<span class="badge green">HIGH TRUST</span>';
+                if (currentUser.trust_level === 'red') badgesHTML += '<span class="badge red">КРАСНЫЙ ТРАСТ</span>';
+                if (currentUser.trust_level === 'green') badgesHTML += '<span class="badge green">ЗЕЛЕНЫЙ ТРАСТ</span>';
                 document.getElementById('userBadges').innerHTML = badgesHTML;
 
-                // Баланс делим на 100
+                // Статистика на кнопках (Bot-t монеты делим на 100 для красивого вида)
                 const coinsDisplay = ((currentUser.bot_t_coins || 0) / 100).toFixed(2);
-                document.getElementById('statCoins').innerHTML = `${coinsDisplay} 🪙`;
+                document.getElementById('statCoins').innerHTML = `${coinsDisplay} <i class="fa-solid fa-coins" style="color:var(--text-sec); font-size:10px;"></i>`;
                 
-                document.getElementById('statTickets').innerHTML = `${currentUser.tickets || 0} 🎟️`;
+                document.getElementById('statTickets').innerHTML = `${currentUser.tickets || 0} <i class="fa-solid fa-ticket" style="color:var(--text-sec); font-size:10px;"></i>`;
                 document.getElementById('statTrust').textContent = `Score: ${currentUser.trust_score || 0}`;
                 document.getElementById('statStatus').textContent = currentUser.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН';
                 document.getElementById('statCpLevel').textContent = `LVL: ${currentUser.checkpoint_level || 0}`;
                 document.getElementById('statGrind').textContent = currentUser.has_events_access ? `Страйк: ${currentUser.streak_days || 0} дн.` : 'ЗАКРЫТ';
 
+                // Заполняем инпуты модалок заранее
                 document.getElementById('trustLevel').value = currentUser.trust_level || 'green';
                 document.getElementById('trustScore').value = currentUser.trust_score || 0;
                 document.getElementById('penaltyPoints').value = currentUser.penalty_points || 0;
@@ -482,7 +500,7 @@
                 tg.showPopup({message: 'Баланс обновлен!'});
                 closeModal('coinsModal');
                 
-                // Обновляем локально (в центах)
+                // Оптимистично обновляем баланс (в центах)
                 let currentBalanceCents = parseFloat(currentUser.bot_t_coins || 0);
                 const amountCents = amount * 100;
                 if (action === 'add') {
@@ -491,7 +509,7 @@
                     currentBalanceCents -= amountCents;
                 }
                 currentUser.bot_t_coins = currentBalanceCents; 
-                document.getElementById('statCoins').innerHTML = `${(currentBalanceCents / 100).toFixed(2)} 🪙`;
+                document.getElementById('statCoins').innerHTML = `${(currentBalanceCents / 100).toFixed(2)} <i class="fa-solid fa-coins" style="color:var(--text-sec); font-size:10px;"></i>`;
                 
                 document.getElementById('coinsAmount').value = '';
             } catch (err) { 
@@ -517,17 +535,17 @@
         }
 
         async function submitCp() {
-            const level = parseInt(document.getElementById('cpLevelAmount').value);
-            if (!level || level < 1) return tg.showAlert("Введите уровень");
+            const amount = parseInt(document.getElementById('cpAmount').value);
+            const action = document.getElementById('cpAction').value;
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректное число уровней");
 
             tg.MainButton.showProgress();
             try {
-                // Используем твой эндпоинт grant_level
-                await fetchApi('/api/v1/admin/checkpoint/grant_level', { target_user_id: currentUser.telegram_id, level: level, platform: "tg" });
+                await fetchApi('/api/v1/admin/users/manage-cp', { user_id: currentUser.telegram_id, action_type: action, amount: amount });
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 tg.showPopup({message: 'Уровни обновлены!'});
                 closeModal('cpModal');
-                document.getElementById('cpLevelAmount').value = '';
+                document.getElementById('cpAmount').value = '';
                 loadUser(currentUser.telegram_id);
             } catch (err) { tg.showAlert(err.message); }
             finally { tg.MainButton.hideProgress(); }
@@ -590,6 +608,7 @@
             finally { tg.MainButton.hideProgress(); }
         }
 
+        // Загружаем список банов при старте
         loadBannedUsers();
     </script>
     <script src="/top_nav.js" defer></script>
