@@ -26410,6 +26410,39 @@ async def cancel_tg_challenge_paid(request: Request):
 # ⚙️ ЛОГИКА АДМИНКИ (RELATIONAL: CS_ITEMS + CONTENTS)
 # ====================================================
 
+# Модель для принятия данных от Telegram WebApp
+class CalibrateRequest(BaseModel):
+    initData: str
+
+@app.post("/api/v1/admin/cases/calibrate_all")
+async def calibrate_all_cases(
+    request_data: CalibrateRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Строгая проверка на администратора
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # 2. Вызываем SQL-функцию (RPC) для моментального пересчета всей базы
+        response = await supabase.post("/rpc/calibrate_all_case_items")
+        response.raise_for_status()
+
+        logging.info(f"Админ {user_info.get('id')} успешно запустил глобальную калибровку цен (1/2) во всех кейсах.")
+        
+        return {"status": "success", "message": "Цены успешно откалиброваны"}
+
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.text
+        logging.error(f"Ошибка БД при калибровке цен: {error_details}")
+        raise HTTPException(status_code=400, detail="Ошибка базы данных при калибровке")
+    
+    except Exception as e:
+        logging.error(f"Критическая ошибка при калибровке цен: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось откалибровать цены")
+
+
 @app.post("/api/v1/admin/cases/toggle_secret")
 async def toggle_case_secret(
     request: Request, 
