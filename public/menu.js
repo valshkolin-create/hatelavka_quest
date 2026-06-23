@@ -464,7 +464,10 @@ async function refreshDataSilently() {
             if (hbData.tickets !== undefined) {
                 userData.tickets = hbData.tickets;
                 const tel = document.getElementById('ticketStats');
-                if (tel) tel.textContent = hbData.tickets;
+                if (tel) {
+                    let tNum = Number(hbData.tickets);
+                    tel.textContent = tNum % 1 === 0 ? tNum.toString() : tNum.toFixed(2).replace('.', ',');
+                }
             }
             if (hbData.quest_id) {
                 userData.active_quest_id = hbData.quest_id;
@@ -552,8 +555,8 @@ function renderBalanceUI(coins, tickets) {
    if (tickets !== undefined) {
         // Было: let displayTickets = Math.floor(Number(tickets)).toString();
         let numTickets = Number(tickets);
-        // Если число целое - показываем как есть. Если дробное - оставляем 2 знака.
-        let displayTickets = numTickets % 1 === 0 ? numTickets.toString() : numTickets.toFixed(2);
+        // Если число целое - показываем как есть. Если дробное - оставляем 2 знака и меняем точку на запятую.
+        let displayTickets = numTickets % 1 === 0 ? numTickets.toString() : numTickets.toFixed(2).replace('.', ',');
         
         const ticketsEl = document.getElementById('ticketStats');
         if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
@@ -1560,7 +1563,8 @@ async function renderFullInterface(data) {
     window.activeFreeCases = data.my_active_cases || [];
 
     if (document.getElementById('ticketStats')) {
-        document.getElementById('ticketStats').textContent = userData.tickets || 0;
+        let tNum = Number(userData.tickets || 0);
+        document.getElementById('ticketStats').textContent = tNum % 1 === 0 ? tNum.toString() : tNum.toFixed(2).replace('.', ',');
     }
     dom.fullName.textContent = userData.full_name || "Профиль";
     if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
