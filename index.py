@@ -27378,8 +27378,9 @@ class AdminCpRequest(BaseModel):
 class AdminGrindRequest(BaseModel):
     initData: str
     user_id: int
-    has_events_access: bool
     streak_days: int
+    coins: float
+    twitch_status: Optional[str] = None
 
 class AdminProfileActionRequest(BaseModel):
     initData: str
@@ -27438,22 +27439,23 @@ async def admin_manage_cp(
 
 
 # =========================================================================
-# УПРАВЛЕНИЕ ДОСТУПОМ К ГРИНДУ
+# УПРАВЛЕНИЕ ГРИНДОМ (Стрик, Монеты, Твич)
 # =========================================================================
 @app.post("/api/v1/admin/users/manage-grind")
 async def admin_manage_grind(
     req: AdminGrindRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Изменяет доступ к Ивентам и количество дней страйка."""
+    """(Админ) Изменяет стрик, гринд-монеты и статус Twitch."""
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
         update_data = {
-            "has_events_access": req.has_events_access,
-            "streak_days": req.streak_days
+            "streak_days": req.streak_days,
+            "coins": req.coins,
+            "twitch_status": req.twitch_status
         }
         
         resp = await supabase.patch(
