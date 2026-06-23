@@ -25227,7 +25227,7 @@ async def sell_inventory_item(
     
     print(f"[SELL] Запрос обмена: User={user_id}, HistoryID={req.history_id}")
 
-    # 1. Проверяем предмет (🔥 ФИКС: добавили canceled и replaced_price)
+    # 1. Проверяем предмет
     check_resp = await supabase.get(
         "/cs_history",
         params={
@@ -25244,7 +25244,7 @@ async def sell_inventory_item(
         print(f"[SELL] ОШИБКА: Предмет не найден или статус не подходит. Ответ БД: {check_resp.text}")
         raise HTTPException(status_code=400, detail="Предмет недоступен для обмена (возможно, уже продан)")
     
-    # 2. Считаем билеты (🔥 ФИКС: учитываем цену замены с маркета)
+    # 2. Считаем билеты (🔥 ФИКС: ДРОБНЫЕ ЗНАЧЕНИЯ И ДЕЛЕНИЕ НА 2)
     try:
         row = rows[0]
         replaced_price = row.get('replaced_price')
@@ -25256,13 +25256,16 @@ async def sell_inventory_item(
             item_data = row.get('item') or {}
             raw_price = item_data.get('price', 0)
             
-        tickets_amount = int(float(raw_price))
+        # Делим цену на 2 и оставляем 2 знака после запятой (например 0.93 / 2 = 0.46)
+        tickets_amount = round(float(raw_price) / 2.0, 2)
+        
+        # Если предмет стоит совсем копейки (0.01), чтобы не выдавать 0, даем минимум 0.01
+        if tickets_amount <= 0:
+            tickets_amount = 0.01
+            
     except Exception as e:
         print(f"[SELL] Ошибка парсинга цены: {e}")
         tickets_amount = 0
-
-    if tickets_amount < 1: 
-        tickets_amount = 1 # Минимум 1 билет
 
     print(f"[SELL] Начисляем {tickets_amount} билетов")
 
@@ -25274,14 +25277,15 @@ async def sell_inventory_item(
         await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": tickets_amount})
     except Exception as e:
         print(f"[SELL] Ошибка RPC, пробуем патч. {e}")
-        # Фолбэк (ручное обновление баланса билетов)
+        # Фолбэк (ручное обновление баланса билетов с поддержкой дробей)
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
         if u_res.json():
             curr = u_res.json()[0].get('tickets', 0)
-            safe_curr = int(curr) if curr else 0
-            await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": safe_curr + tickets_amount})
+            safe_curr = float(curr) if curr else 0.0
+            new_balance = round(safe_curr + tickets_amount, 2)
+            await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
 
-    return {"success": True, "message": f"Обменяно на {tickets_amount} билетов!"}
+    return {"success": True, "message": f"Обменяно на {tickets_amount} 🎟️!"}
     
 @app.get("/api/v1/cron/check_tm_trades")
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
