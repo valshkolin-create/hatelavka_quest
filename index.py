@@ -27369,6 +27369,18 @@ async def commit_tg_slider(
 # 🎛 УГОЛОК РЕДАКТОРА ПРОФИЛЕЙ (USER EDITOR ENDPOINTS)
 # =========================================================================
 
+class AdminCpRequest(BaseModel):
+    initData: str
+    user_id: int
+    action_type: str  # 'add' или 'subtract'
+    amount: int
+
+class AdminGrindRequest(BaseModel):
+    initData: str
+    user_id: int
+    has_events_access: bool
+    streak_days: int
+
 class AdminProfileActionRequest(BaseModel):
     initData: str
     user_id: int
@@ -27379,6 +27391,82 @@ class AdminProfileActionRequest(BaseModel):
     penalty_points: Optional[float] = None
     is_banned: Optional[bool] = None
     has_cp_premium: Optional[bool] = None
+
+# =========================================================================
+# УПРАВЛЕНИЕ УРОВНЯМИ BATTLE PASS
+# =========================================================================
+@app.post("/api/v1/admin/users/manage-cp")
+async def admin_manage_cp(
+    req: AdminCpRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Добавляет или забирает уровни Чекпоинта (Battle Pass)."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # 1. Получаем текущий уровень пользователя
+        resp = await supabase.get("/users", params={"telegram_id": f"eq.{req.user_id}", "select": "checkpoint_level"})
+        resp.raise_for_status()
+        data = resp.json()
+        
+        if not data:
+            raise HTTPException(status_code=404, detail="Пользователь не найден.")
+        
+        current_level = data[0].get("checkpoint_level") or 0
+        
+        # 2. Считаем новый уровень
+        if req.action_type == "add":
+            new_level = current_level + req.amount
+        else:
+            # Защита от ухода в минус
+            new_level = max(0, current_level - req.amount)
+
+        # 3. Сохраняем в базу
+        patch_resp = await supabase.patch(
+            "/users", 
+            params={"telegram_id": f"eq.{req.user_id}"}, 
+            json={"checkpoint_level": new_level}
+        )
+        patch_resp.raise_for_status()
+
+        return {"message": f"Уровни обновлены! Текущий уровень: {new_level}"}
+    except Exception as e:
+        logging.error(f"Ошибка изменения уровней CP для {req.user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных.")
+
+
+# =========================================================================
+# УПРАВЛЕНИЕ ДОСТУПОМ К ГРИНДУ
+# =========================================================================
+@app.post("/api/v1/admin/users/manage-grind")
+async def admin_manage_grind(
+    req: AdminGrindRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Изменяет доступ к Ивентам и количество дней страйка."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        update_data = {
+            "has_events_access": req.has_events_access,
+            "streak_days": req.streak_days
+        }
+        
+        resp = await supabase.patch(
+            "/users", 
+            params={"telegram_id": f"eq.{req.user_id}"}, 
+            json=update_data
+        )
+        resp.raise_for_status()
+
+        return {"message": "Гринд статус успешно обновлен!"}
+    except Exception as e:
+        logging.error(f"Ошибка изменения гринд статуса для {req.user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных.")
 
 @app.get("/api/v1/admin/users/{user_id}/full_profile")
 async def admin_get_full_profile(
