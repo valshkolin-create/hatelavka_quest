@@ -2179,7 +2179,7 @@ function renderInventory(items, isSorting = false) {
         // Получаем качество (если это не замененный скин)
         const conditionText = (item.condition && !isReplaced && !isSwapped) ? item.condition : '';
         
-        console.log("ДАННЫЕ СО СКИНА:", item.name, "| Качество:", item.condition, "| Дата:", rawDate);
+        console.log("ДАННЫЕ СО СКИНА:", item.name, "| Качество:", item.condition, "| Дата:", item.created_at || item.updated_at || item.date);
 
         el.innerHTML = `
             <div class="inv-card-top">
