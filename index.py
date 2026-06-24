@@ -15883,7 +15883,7 @@ async def claim_checkpoint_reward(
 
     try:
         # 1. Проверяем баланс Звезд, наличие Премиума и достаем текущие билеты
-        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "checkpoint_stars, has_cp_premium, tickets"})
+        user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "checkpoint_stars, has_cp_premium, tickets, bott_internal_id"})
         user_resp.raise_for_status()
         if not user_resp.json():
              raise HTTPException(status_code=404, detail="Пользователь не найден.")
@@ -15892,6 +15892,7 @@ async def claim_checkpoint_reward(
         user_stars = float(user_db.get("checkpoint_stars") or 0)
         has_premium = user_db.get("has_cp_premium", False)
         current_tickets = int(user_db.get("tickets") or 0)
+        bott_internal_id = user_db.get("bott_internal_id") # <--- ДОБАВИТЬ ЭТО
 
         if track_type == 'premium' and not has_premium:
             raise HTTPException(status_code=403, detail="Для этой награды требуется Premium статус.")
@@ -15936,12 +15937,42 @@ async def claim_checkpoint_reward(
             await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"checkpoint_stars": user_stars + exchange_stars})
             
         else:
+            else:
             if reward_type == 'coins':
-                await supabase.post("/rpc/add_user_balance", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
+                # Вызываем твою вспомогательную функцию для Bot-t
+                success = await add_balance_to_bott(
+                    bott_internal_id=bott_internal_id, 
+                    amount=float(reward_value), 
+                    comment=f"Награда Battle Pass (Ур. {level_to_claim})"
+                )
                 
-            elif reward_type == 'tickets':
+                if not success:
+                    raise HTTPException(status_code=500, detail="Ошибка начисления монет через API Bot-t.")
+                
+          elif reward_type == 'tickets':
                 new_tickets = current_tickets + int(reward_value)
-                await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"tickets": new_tickets})
+                
+                # 🔥 Жестко обновляем и требуем вернуть результат (return=representation)
+                res = await supabase.patch(
+                    "/users", 
+                    params={"telegram_id": f"eq.{telegram_id}"}, 
+                    json={"tickets": new_tickets},
+                    headers={"Prefer": "return=representation"}
+                )
+                
+                # Проверяем, что БД не послала нас куда подальше
+                if res.status_code not in (200, 204) or not res.json():
+                    logging.error(f"Сбой начисления билетов: {res.text}")
+                    raise HTTPException(status_code=500, detail="Ошибка базы данных при выдаче билетов.")
+                
+                # 🔥 Добавляем красивое уведомление внутри приложения
+                await create_in_app_notification(
+                    supabase=supabase,
+                    user_id=telegram_id,
+                    title="🎟 Награда Battle Pass",
+                    message=f"Вам начислено +{reward_value} билетов!",
+                    notif_type="success" 
+                )
                 
             elif reward_type in ['case', 'case_coupon']:
                 unique_code = f"BP-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
