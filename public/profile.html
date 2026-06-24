@@ -2103,11 +2103,7 @@ function renderInventory(items, isSorting = false) {
         const rData = getRarityData(item.rarity); 
         const isSwapped = item.is_swapped === true;
         const isReplaced = !!item.replaced_name && !isSwapped; 
-        let displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
-        // Если есть качество, добавляем его в скобках (например, "SCAR-20 | Green Marine (FT)")
-        if (item.condition && !isReplaced && !isSwapped) {
-        displayName += ` (${item.condition})`; 
-        }
+        const displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
         const ticketVal = (isReplaced || isSwapped) && item.replaced_price ? item.replaced_price : (item.price || 0);
 
         const imageContentHtml = isReplaced 
@@ -2179,7 +2175,7 @@ function renderInventory(items, isSorting = false) {
         // Получаем качество (если это не замененный скин)
         const conditionText = (item.condition && !isReplaced && !isSwapped) ? item.condition : '';
         
-        console.log("ДАННЫЕ СО СКИНА:", item.name, "| Качество:", item.condition, "| Дата:", item.created_at || item.updated_at || item.date);
+        
 
         el.innerHTML = `
             <div class="inv-card-top">
