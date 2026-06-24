@@ -15937,7 +15937,7 @@ async def claim_checkpoint_reward(
             await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"checkpoint_stars": user_stars + exchange_stars})
             
         else:
-            else:
+            
             if reward_type == 'coins':
                 # Вызываем твою вспомогательную функцию для Bot-t
                 success = await add_balance_to_bott(
@@ -15952,6 +15952,28 @@ async def claim_checkpoint_reward(
             elif reward_type == 'tickets':
                 new_tickets = current_tickets + int(reward_value)
                 await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"tickets": new_tickets})
+                
+                # 🔥 Жестко обновляем и требуем вернуть результат (return=representation)
+                res = await supabase.patch(
+                    "/users", 
+                    params={"telegram_id": f"eq.{telegram_id}"}, 
+                    json={"tickets": new_tickets},
+                    headers={"Prefer": "return=representation"}
+                )
+                
+                # Проверяем, что БД не послала нас куда подальше
+                if res.status_code not in (200, 204) or not res.json():
+                    logging.error(f"Сбой начисления билетов: {res.text}")
+                    raise HTTPException(status_code=500, detail="Ошибка базы данных при выдаче билетов.")
+                
+                # 🔥 Добавляем красивое уведомление внутри приложения
+                await create_in_app_notification(
+                    supabase=supabase,
+                    user_id=telegram_id,
+                    title="🎟 Награда Battle Pass",
+                    message=f"Вам начислено +{reward_value} билетов!",
+                    notif_type="success" 
+                )
                 
             elif reward_type in ['case', 'case_coupon']:
                 unique_code = f"BP-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
