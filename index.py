@@ -938,6 +938,7 @@ class CheckpointClaimRequest(BaseModel):
     level: int
     platform: str = "tg"  # <--- Добавлено!
     type: str  # 'free' или 'premium'
+    action_type: str = "claim"
 
 class ManualRewardCompleteRequest(BaseModel):
     initData: str
@@ -15571,8 +15572,10 @@ async def update_checkpoint_content(
                     "required_stars": t.get("required_stars"),
                     "free_reward_type": t.get("free_reward", {}).get("type", "none"),
                     "free_reward_value": str(t.get("free_reward", {}).get("value", "")),
+                    "free_exchange_stars": int(t.get("free_reward", {}).get("exchange", 0)),
                     "premium_reward_type": t.get("premium_reward", {}).get("type", "none"),
-                    "premium_reward_value": str(t.get("premium_reward", {}).get("value", ""))
+                    "premium_reward_value": str(t.get("premium_reward", {}).get("value", "")),
+                    "premium_exchange_stars": int(t.get("premium_reward", {}).get("exchange", 0))
                 })
             # Массовая вставка (Bulk Insert)
             resp = await supabase.post("/checkpoint_tiers", json=tier_records)
@@ -15799,11 +15802,13 @@ async def get_checkpoint_status(
                 "free_reward": {
                     "type": t["free_reward_type"], 
                     "value": t["free_reward_value"],
+                    "exchange": t.get("free_exchange_stars", 0),
                     "image_url": get_image_for_reward(t["free_reward_type"], t["free_reward_value"])
                 },
                 "premium_reward": {
                     "type": t["premium_reward_type"], 
                     "value": t["premium_reward_value"],
+                    "exchange": t.get("premium_exchange_stars", 0),
                     "image_url": get_image_for_reward(t["premium_reward_type"], t["premium_reward_value"])
                 }
             })
@@ -15903,110 +15908,119 @@ async def claim_checkpoint_reward(
         if claim_check.json():
             raise HTTPException(status_code=400, detail="Награда уже получена.")
 
+# ==========================================
+        # 4. ВЫДАЧА НАГРАДЫ ИЛИ ОБМЕН
         # ==========================================
-        # 4. ВЫДАЧА НАГРАДЫ
-        # ==========================================
-        if reward_type == 'coins':
-            await supabase.post("/rpc/add_user_balance", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
+        action_type = getattr(request_data, "action_type", "claim")
+        
+        if action_type == "exchange":
+            exchange_stars = int(tier_data.get(f"{track_type}_exchange_stars", 0))
+            if exchange_stars <= 0:
+                raise HTTPException(status_code=400, detail="Обмен недоступен для этой награды.")
             
-        elif reward_type == 'tickets':
-            new_tickets = current_tickets + int(reward_value)
-            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"tickets": new_tickets})
+            # Выдаем звезды обмена
+            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"checkpoint_stars": user_stars + exchange_stars})
             
-        elif reward_type in ['case', 'case_coupon']:
-            unique_code = f"BP-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
-            coupon_res = await supabase.post(
-                "/cs_codes", 
-                json={
-                    "code": unique_code,
-                    "max_uses": 1,
-                    "current_uses": 0,
-                    "is_active": True,
-                    "description": f"Авто-код: Награда Battle Pass (Уровень {level_to_claim}, {track_type.upper()})",
-                    "is_copied": False,
-                    "assigned_to": telegram_id,
-                    "assigned_at": datetime.now(timezone.utc).isoformat(),
-                    "target_case_name": reward_value,
-                    "used_by_ids": [],
-                    "activated_by_ids": [str(telegram_id)], 
-                    "campaign_id": 999 
-                }
-            )
-            if coupon_res.status_code not in [200, 201]:
-                raise HTTPException(status_code=500, detail=f"Ошибка генерации купона: {coupon_res.text}")
-
-        # 🔥 ЖЕСТКАЯ ЛОГИКА ДЛЯ СКИНОВ 🔥
-        elif reward_type == 'cs2_skin':
-            market_hash_name = reward_value
-            
-            # Получаем актуальные данные с маркета
-            market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
-            market_data_db = market_res.json() if market_res.status_code == 200 else []
-            price_rub = float(market_data_db[0].get('price_rub', 0)) if market_data_db else 0.0
-            image_url = market_data_db[0].get('image_url', 'https://placehold.co/150') if market_data_db else 'https://placehold.co/150'
-
-            item_id = None
-            item_res = await supabase.get("/cs_items", params={"market_hash_name": f"eq.{market_hash_name}", "select": "id", "limit": 1})
-            
-            if item_res.status_code == 200 and item_res.json():
-                item_id = item_res.json()[0]['id']
-            else:
-                base_name = market_hash_name.split(' (')[0] if ' (' in market_hash_name else market_hash_name
-                condition = market_hash_name.split('(')[-1].replace(')','') if '(' in market_hash_name else None
-
-                new_item = {
-                    "name": base_name,
-                    "market_hash_name": market_hash_name,
-                    "price_rub": price_rub,
-                    "price": str(int(price_rub)), # Принудительно в строку, чтобы избежать конфликтов типов
-                    "rarity": "mythical",
-                    "condition": condition,
-                    "image_url": image_url,
-                    "is_active": False
-                }
-                create_res = await supabase.post("/cs_items", json=new_item, headers={"Prefer": "return=representation"})
+        else:
+            if reward_type == 'coins':
+                await supabase.post("/rpc/add_user_balance", json={"p_telegram_id": telegram_id, "amount": int(reward_value)})
                 
-                # СТРОГАЯ ПРОВЕРКА: Если БД отказывается создавать предмет, выдаем ошибку на клиент
-                if create_res.status_code not in (200, 201):
-                    logging.error(f"БД не приняла предмет: {create_res.text}")
-                    raise HTTPException(status_code=500, detail=f"Сбой БД при создании предмета: {create_res.text}")
+            elif reward_type == 'tickets':
+                new_tickets = current_tickets + int(reward_value)
+                await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"tickets": new_tickets})
                 
-                item_id = create_res.json()[0]['id']
-
-            if not item_id:
-                raise HTTPException(status_code=500, detail="Системная ошибка: item_id не сгенерирован")
-
-            # Записываем в ИНВЕНТАРЬ пользователя
-            hist_res = await supabase.post("/cs_history", json={
-                "user_id": telegram_id,
-                "item_id": item_id,
-                "case_name": f"БП Ур.{level_to_claim}",
-                "status": "available", 
-                "details": f"Награда БП ({track_type.upper()})",
-                "source": "checkpoint"
-            }, headers={"Prefer": "return=representation"})
-
-            # СТРОГАЯ ПРОВЕРКА: Если БД не кладет предмет в инвентарь
-            if hist_res.status_code not in (200, 201):
-                logging.error(f"БД не положила в инвентарь: {hist_res.text}")
-                raise HTTPException(status_code=500, detail=f"Сбой выдачи в инвентарь: {hist_res.text}")
-
-            await create_in_app_notification(
-                supabase=supabase,
-                user_id=telegram_id,
-                title="🎁 Награда Battle Pass!",
-                message=f"Скин «{market_hash_name}» добавлен в ваш инвентарь!",
-                notif_type="system" 
-            )
-
-            if ADMIN_NOTIFY_CHAT_ID:
-                await safe_send_message(
-                    ADMIN_NOTIFY_CHAT_ID,
-                    f"✅ <b>Авто-выдача из Чекпоинта!</b>\n\n"
-                    f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
-                    f"<b>Скин:</b> {market_hash_name}\n"
-                    f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}"
+            elif reward_type in ['case', 'case_coupon']:
+                unique_code = f"BP-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+                coupon_res = await supabase.post(
+                    "/cs_codes", 
+                    json={
+                        "code": unique_code,
+                        "max_uses": 1,
+                        "current_uses": 0,
+                        "is_active": True,
+                        "description": f"Авто-код: Награда Battle Pass (Уровень {level_to_claim}, {track_type.upper()})",
+                        "is_copied": False,
+                        "assigned_to": telegram_id,
+                        "assigned_at": datetime.now(timezone.utc).isoformat(),
+                        "target_case_name": reward_value,
+                        "used_by_ids": [],
+                        "activated_by_ids": [str(telegram_id)], 
+                        "campaign_id": 999 
+                    }
                 )
+                if coupon_res.status_code not in [200, 201]:
+                    raise HTTPException(status_code=500, detail=f"Ошибка генерации купона: {coupon_res.text}")
+
+            # 🔥 ЖЕСТКАЯ ЛОГИКА ДЛЯ СКИНОВ 🔥
+            elif reward_type == 'cs2_skin':
+                market_hash_name = reward_value
+                
+                # Получаем актуальные данные с маркета
+                market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
+                market_data_db = market_res.json() if market_res.status_code == 200 else []
+                price_rub = float(market_data_db[0].get('price_rub', 0)) if market_data_db else 0.0
+                image_url = market_data_db[0].get('image_url', 'https://placehold.co/150') if market_data_db else 'https://placehold.co/150'
+
+                item_id = None
+                item_res = await supabase.get("/cs_items", params={"market_hash_name": f"eq.{market_hash_name}", "select": "id", "limit": 1})
+                
+                if item_res.status_code == 200 and item_res.json():
+                    item_id = item_res.json()[0]['id']
+                else:
+                    base_name = market_hash_name.split(' (')[0] if ' (' in market_hash_name else market_hash_name
+                    condition = market_hash_name.split('(')[-1].replace(')','') if '(' in market_hash_name else None
+
+                    new_item = {
+                        "name": base_name,
+                        "market_hash_name": market_hash_name,
+                        "price_rub": price_rub,
+                        "price": int(price_rub),  # <-- ИСПРАВЛЕНО (Убрали str())
+                        "rarity": "mythical",
+                        "condition": condition,
+                        "image_url": image_url,
+                        "is_active": True  # <-- ИСПРАВЛЕНО НА TRUE (чтобы сразу падал в инвентарь)
+                    }
+                    create_res = await supabase.post("/cs_items", json=new_item, headers={"Prefer": "return=representation"})
+                    
+                    if create_res.status_code not in (200, 201):
+                        logging.error(f"БД не приняла предмет: {create_res.text}")
+                        raise HTTPException(status_code=500, detail=f"Сбой БД при создании предмета: {create_res.text}")
+                    
+                    item_id = create_res.json()[0]['id']
+
+                if not item_id:
+                    raise HTTPException(status_code=500, detail="Системная ошибка: item_id не сгенерирован")
+
+                # Записываем в ИНВЕНТАРЬ пользователя
+                hist_res = await supabase.post("/cs_history", json={
+                    "user_id": telegram_id,
+                    "item_id": item_id,
+                    "case_name": f"БП Ур.{level_to_claim}",
+                    "status": "available", 
+                    "details": f"Награда БП ({track_type.upper()})",
+                    "source": "checkpoint"
+                }, headers={"Prefer": "return=representation"})
+
+                if hist_res.status_code not in (200, 201):
+                    logging.error(f"БД не положила в инвентарь: {hist_res.text}")
+                    raise HTTPException(status_code=500, detail=f"Сбой выдачи в инвентарь: {hist_res.text}")
+
+                await create_in_app_notification(
+                    supabase=supabase,
+                    user_id=telegram_id,
+                    title="🎁 Награда Battle Pass!",
+                    message=f"Скин «{market_hash_name}» добавлен в ваш инвентарь!",
+                    notif_type="system" 
+                )
+
+                if ADMIN_NOTIFY_CHAT_ID:
+                    await safe_send_message(
+                        ADMIN_NOTIFY_CHAT_ID,
+                        f"✅ <b>Авто-выдача из Чекпоинта!</b>\n\n"
+                        f"<b>Пользователь:</b> {user_full_name} (ID: <code>{telegram_id}</code>)\n"
+                        f"<b>Скин:</b> {market_hash_name}\n"
+                        f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}"
+                    )
 
         # 5. Только если ВСЕ этапы пройдены успешно, записываем, что награда получена
         await supabase.post("/user_checkpoint_claims", json={
