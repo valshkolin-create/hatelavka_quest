@@ -2176,9 +2176,13 @@ function renderInventory(items, isSorting = false) {
         el.style.borderColor = rData.color;
         el.style.boxShadow = `inset 0 0 10px ${rData.color}15`; 
 
+        // Получаем качество (если это не замененный скин)
+        const conditionText = (item.condition && !isReplaced && !isSwapped) ? item.condition : '';
+
         el.innerHTML = `
             <div class="inv-card-top">
                 <span>#${historyId}</span>
+                <span style="color: #b0b0b0;">${conditionText}</span>
                 <span>${dateStr}</span>
             </div>
             <div class="inv-card-img-wrap">
