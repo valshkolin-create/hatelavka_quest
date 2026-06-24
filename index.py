@@ -15923,7 +15923,7 @@ async def claim_checkpoint_reward(
         if claim_check.json():
             raise HTTPException(status_code=400, detail="Награда уже получена.")
 
-# ==========================================
+        # ==========================================
         # 4. ВЫДАЧА НАГРАДЫ ИЛИ ОБМЕН
         # ==========================================
         action_type = getattr(request_data, "action_type", "claim")
@@ -15949,7 +15949,7 @@ async def claim_checkpoint_reward(
                 if not success:
                     raise HTTPException(status_code=500, detail="Ошибка начисления монет через API Bot-t.")
                 
-          elif reward_type == 'tickets':
+            elif reward_type == 'tickets':
                 new_tickets = current_tickets + int(reward_value)
                 
                 # 🔥 Жестко обновляем и требуем вернуть результат (return=representation)
