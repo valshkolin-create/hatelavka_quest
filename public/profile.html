@@ -1016,6 +1016,19 @@
                 </div>
             </div>
 
+            <!-- ВСТАВЛЯЕМ ПАНЕЛЬ СОРТИРОВКИ СЮДА -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
+                <div style="font-size: 11px; font-weight: 800; color: #888; text-transform: uppercase;">Сортировка:</div>
+                <select id="inventory-sort-select" onchange="applyInventorySort()" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 700; outline: none; cursor: pointer; -webkit-appearance: none;">
+                    <option value="date_desc">Сначала новые</option>
+                    <option value="date_asc">Сначала старые</option>
+                    <option value="price_desc">Сначала дорогие</option>
+                    <option value="price_asc">Сначала дешевые</option>
+                    <option value="status">По статусу</option>
+                </select>
+            </div>
+            <!-- КОНЕЦ ВСТАВКИ -->
+
             <div id="inventory-list-container" style="width: 100%; padding-bottom: 20px;">
                 <div style="text-align: center; color: #888; margin-top: 20px;">Загрузка инвентаря...</div>
             </div>
@@ -1979,60 +1992,99 @@ function initCountdown(elementId, updatedAtStr) {
     el.dataset.intervalId = setInterval(updateTimer, 1000);
 }
     
-function renderInventory(items) {
+// Глобальная переменная для хранения списка скинов
+window.currentInventoryItems = [];
+
+// Функция, которая срабатывает при выборе сортировки в выпадающем списке
+window.applyInventorySort = function() {
+    renderInventory(window.currentInventoryItems, true);
+};
+
+// Функция-помощник: лечит сломанную дату из базы, чтобы iPhone её понял
+function parseSafeDate(dateStr) {
+    if (!dateStr) return 0;
+    let safe = dateStr.replace(' ', 'T'); // Меняем пробел на T
+    safe = safe.replace(/(\.\d{3})\d+/, '$1'); // Отрезаем лишние микросекунды
+    if (safe.match(/[+-]\d{2}$/)) safe += ':00'; // Добавляем :00 к таймзоне
+    return new Date(safe).getTime() || 0;
+}
+
+function renderInventory(items, isSorting = false) {
     const container = dom.inventoryList;
     const infoBadge = dom.inventoryInfoBadge;
-    container.innerHTML = '';
     
-    // Включаем нашу сетку из CSS
+    // Если это первая загрузка с бэкенда, сохраняем предметы в память
+    if (!isSorting) {
+        window.currentInventoryItems = items || [];
+    }
+
+    // Делаем копию массива, чтобы сортировка не ломала исходник
+    const itemsToRender = [...window.currentInventoryItems];
+
+    container.innerHTML = '';
     container.className = 'inventory-grid';
 
-    if (infoBadge) infoBadge.textContent = items && items.length > 0 ? `${items.length} шт.` : 'Пусто';
+    if (infoBadge) infoBadge.textContent = itemsToRender.length > 0 ? `${itemsToRender.length} шт.` : 'Пусто';
 
-    if (!items || items.length === 0) {
+    if (itemsToRender.length === 0) {
         container.innerHTML = `
             <div style="grid-column: 1 / -1; text-align:center; padding-top: 50px;">
                 <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 15px; opacity: 0.3; color: #fff;"></i>
                 <p style="font-size: 14px; color: #888;">Инвентарь пуст</p>
             </div>`;
-        container.classList.remove('inventory-grid'); // Убираем сетку, чтобы плашка встала по центру
+        container.classList.remove('inventory-grid'); 
         return;
     }
 
-    const statusWeight = { 
-        'market_pending': 1, 'sent': 1, 'offer_sent': 1, 'auto_queued': 1, 'pending': 1,
-        'available': 2, 'processing': 2, 'failed': 2, 'canceled': 2,
-        'received': 3, 'exchanged': 4, 'exchanged_swap': 4
-    };
-    
-    items.sort((a, b) => {
-        const statA = (a.status || 'available').toLowerCase();
-        const statB = (b.status || 'available').toLowerCase();
-        
-        if (statusWeight[statA] === statusWeight[statB]) {
-            // ИСПРАВЛЕНИЕ СОРТИРОВКИ: Сортируем по дате (самые свежие сверху)
-            const dateA = new Date(a.created_at || 0).getTime();
-            const dateB = new Date(b.created_at || 0).getTime();
-            return dateB - dateA;
+    // Узнаем, какую сортировку выбрал пользователь
+    const sortSelect = document.getElementById('inventory-sort-select');
+    const sortType = sortSelect ? sortSelect.value : 'date_desc';
+
+    // УМНАЯ СОРТИРОВКА
+    itemsToRender.sort((a, b) => {
+        // 1. АРХИВ - Всегда отправляем полученные и проданные скины в самый низ
+        const archiveStatuses = ['received', 'exchanged', 'exchanged_swap'];
+        const isAArchived = archiveStatuses.includes((a.status || '').toLowerCase());
+        const isBArchived = archiveStatuses.includes((b.status || '').toLowerCase());
+
+        if (isAArchived && !isBArchived) return 1;
+        if (!isAArchived && isBArchived) return -1;
+
+        // 2. Достаем цифры для сравнения (дату и цену)
+        const dateA = parseSafeDate(a.created_at);
+        const dateB = parseSafeDate(b.created_at);
+
+        const priceA = parseFloat(a.price_rub || a.price || 0);
+        const priceB = parseFloat(b.price_rub || b.price || 0);
+
+        // 3. Применяем логику в зависимости от выбора в меню
+        if (sortType === 'date_desc') return dateB - dateA;
+        if (sortType === 'date_asc') return dateA - dateB;
+        if (sortType === 'price_desc') return priceB - priceA;
+        if (sortType === 'price_asc') return priceA - priceB;
+        if (sortType === 'status') {
+            const statA = (a.status || '').toLowerCase();
+            const statB = (b.status || '').toLowerCase();
+            if (statA === statB) return dateB - dateA;
+            return statA.localeCompare(statB);
         }
-        return (statusWeight[statA] || 99) - (statusWeight[statB] || 99);
+        
+        return dateB - dateA; // Резервный вариант
     });
 
-    items.forEach(item => {
+    // Отрисовка отсортированного списка
+    itemsToRender.forEach(item => {
         const status = (item.status || 'available').toLowerCase();
-
-        // ИСПРАВЛЕНИЕ ID: Берем id, а если есть history_id (на будущее), берем его
         const historyId = item.id || item.history_id; 
 
-        if (status === 'available' || status === 'pending' || status === 'failed' || status === 'canceled' || status === 'received') {
+        // Снимаем блокировку кнопки, если статус откатился
+        if (['available', 'pending', 'failed', 'canceled', 'received'].includes(status)) {
             localStorage.removeItem(`claim_lock_${historyId}`);
         }
         
         const rData = getRarityData(item.rarity); 
-        
         const isSwapped = item.is_swapped === true;
         const isReplaced = !!item.replaced_name && !isSwapped; 
-        
         const displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
         const ticketVal = (isReplaced || isSwapped) && item.replaced_price ? item.replaced_price : (item.price || 0);
 
@@ -2040,16 +2092,16 @@ function renderInventory(items) {
             ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
             : `<img src="${item.image_url}" loading="lazy" decoding="async">`;
 
-        // Делаем аккуратную дату (Например: 24.06)
-        const dateObj = new Date(item.created_at);
-        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        // Создаем правильную и красивую дату
+        const timestamp = parseSafeDate(item.created_at);
+        const dateObj = new Date(timestamp);
+        const dateStr = timestamp > 0 ? dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '??.??';
 
         const timerElementId = `timer-${historyId}`;
-
         let rightContentHtml = '';
         let cardOpacity = '1';
 
-        // --- МАЛЕНЬКИЕ СТАТУСЫ ДЛЯ НОВЫХ КАРТОЧЕК ---
+        // Статусы и кнопки
         if (status === 'auto_queued') {
             rightContentHtml = `<div style="color: #00c0e3; font-size: 8px; font-weight: 700; padding: 4px 0;">ПОИСК...</div>`;
         }
@@ -2088,7 +2140,6 @@ function renderInventory(items) {
             rightContentHtml = `<div style="color: #888; font-size: 9px; font-weight: 700;">СВАП</div>`;
         }
         else {
-            // Кнопки по умолчанию (Забрать / Продать)
             rightContentHtml = `
                 <button id="withdraw-btn-${historyId}" class="inv-btn inv-btn-claim" onclick="withdrawItem(${historyId}, '${displayName.replace(/'/g, "\\'")}')">
                     ЗАБРАТЬ
@@ -2101,8 +2152,6 @@ function renderInventory(items) {
         const el = document.createElement('div');
         el.className = 'inv-card';
         el.style.opacity = cardOpacity;
-        
-        // Магия: красим рамку карточки и создаем свечение под цвет редкости!
         el.style.borderColor = rData.color;
         el.style.boxShadow = `inset 0 0 10px ${rData.color}15`; 
 
@@ -2111,15 +2160,11 @@ function renderInventory(items) {
                 <span>#${historyId}</span>
                 <span>${dateStr}</span>
             </div>
-            
             <div class="inv-card-img-wrap">
                 ${imageContentHtml}
             </div>
-
             <div class="inv-card-price">${item.price_rub ? item.price_rub + ' ₽' : '??? ₽'}</div>
-            
             <div class="inv-card-name" style="color: ${rData.color};">${displayName}</div>
-            
             <div class="inv-card-status">
                 ${rightContentHtml}
             </div>
