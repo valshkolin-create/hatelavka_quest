@@ -15567,21 +15567,34 @@ async def update_checkpoint_content(
         if tiers:
             tier_records = []
             for t in tiers:
+                # Безопасное извлечение для защиты от null, если фронт отправил пустые ключи
+                free_reward = t.get("free_reward") or {}
+                premium_reward = t.get("premium_reward") or {}
+
                 tier_records.append({
-                    "level": t.get("level"),
-                    "required_stars": t.get("required_stars"),
-                    "free_reward_type": t.get("free_reward", {}).get("type", "none"),
-                    "free_reward_value": str(t.get("free_reward", {}).get("value", "")),
-                    "free_exchange_stars": int(t.get("free_reward", {}).get("exchange", 0)),
-                    "premium_reward_type": t.get("premium_reward", {}).get("type", "none"),
-                    "premium_reward_value": str(t.get("premium_reward", {}).get("value", "")),
-                    "premium_exchange_stars": int(t.get("premium_reward", {}).get("exchange", 0))
+                    "level": int(t.get("level") if t.get("level") is not None else 0),
+                    "required_stars": float(t.get("required_stars") if t.get("required_stars") is not None else 0.0),
+                    "free_reward_type": str(free_reward.get("type") or "none"),
+                    "free_reward_value": str(free_reward.get("value") or ""),
+                    "free_exchange_stars": int(free_reward.get("exchange") if free_reward.get("exchange") is not None else 0),
+                    "premium_reward_type": str(premium_reward.get("type") or "none"),
+                    "premium_reward_value": str(premium_reward.get("value") or ""),
+                    "premium_exchange_stars": int(premium_reward.get("exchange") if premium_reward.get("exchange") is not None else 0)
                 })
+            
             # Массовая вставка (Bulk Insert)
             resp = await supabase.post("/checkpoint_tiers", json=tier_records)
-            resp.raise_for_status()
+            
+            # Перехватываем HTTP ошибку БД, чтобы увидеть точную причину (e.response.text)
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                logging.error(f"Supabase 400 Details: {e.response.text}")
+                raise HTTPException(status_code=400, detail=f"Ошибка БД при вставке уровней: {e.response.text}")
 
         return {"message": "Контент марафона и уровни успешно обновлены."}
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Ошибка при обновлении контента Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Не удалось сохранить контент страницы.")
