@@ -1590,7 +1590,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 tg.HapticFeedback.notificationOccurred('success');
                 if (actionToSend === 'exchange') {
                     if (eventPos) playStarAnimation(eventPos.x, eventPos.y);
-                    tg.showAlert(`Вы распылили предмет и получили +${exchangeAmount} Звезд!`);
+                    
+                    // 👇 Просто комментируем или удаляем этот алерт, чтобы он не мешал анимации
+                    // tg.showAlert(`Вы распылили предмет и получили +${exchangeAmount} Звезд!`);
                 } else {
                     tg.showAlert('Награда успешно получена!');
                 }
