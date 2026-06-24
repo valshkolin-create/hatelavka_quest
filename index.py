@@ -15573,7 +15573,8 @@ async def update_checkpoint_content(
 
                 tier_records.append({
                     "level": int(t.get("level") if t.get("level") is not None else 0),
-                    "required_stars": float(t.get("required_stars") if t.get("required_stars") is not None else 0.0),
+                    # 🔥 ИСПРАВЛЕНИЕ: Конвертируем в float (от строки), а затем жестко в int для БД
+                    "required_stars": int(float(t.get("required_stars") if t.get("required_stars") is not None else 0)),
                     "free_reward_type": str(free_reward.get("type") or "none"),
                     "free_reward_value": str(free_reward.get("value") or ""),
                     "free_exchange_stars": int(free_reward.get("exchange") if free_reward.get("exchange") is not None else 0),
