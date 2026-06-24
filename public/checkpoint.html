@@ -1561,9 +1561,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const clickY = event ? (event.clientY || (event.touches && event.touches[0].clientY)) : window.innerHeight / 2;
 
             document.getElementById('btn-do-claim').onclick = () => {
-                modal.classList.remove('modal-active');
-                window.claimReward(level, type, 'claim');
-            };
+    modal.classList.remove('modal-active');
+    // Вместо 'claim' передаем кастомный маркер, например 'withdraw_skin'
+    window.claimReward(level, type, 'withdraw_skin');
+};
             document.getElementById('btn-do-exchange').onclick = () => {
                 modal.classList.remove('modal-active');
                 window.claimReward(level, type, 'exchange', {x: clickX, y: clickY});
