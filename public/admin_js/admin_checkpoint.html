@@ -711,7 +711,7 @@
         }
 
         function createCpTierRow(tier = null, index = 0) {
-            const data = tier || { level: index + 1, required_stars: 0, free_reward: { type: 'none', value: '' }, premium_reward: { type: 'none', value: '' } };
+            const data = tier || { level: index + 1, required_stars: 0, free_reward: { type: 'none', value: '', exchange: 0 }, premium_reward: { type: 'none', value: '', exchange: 0 } };
             const wrapper = document.createElement('div');
             wrapper.className = 'section-box cp-tier-row'; 
             wrapper.style.paddingTop = '40px'; 
@@ -735,18 +735,24 @@
                     <div class="reward-box">
                         <h4>FREE Награда</h4>
                         ${getRewardTypeSelectHtml(data.free_reward.type, 'free')}
-                        <div class="reward-val-container" style="display:flex; gap:5px; margin-top:5px;">
-                            <input type="text" class="reward-value-input free-val" placeholder="Значение" value="${escapeHTML(String(data.free_reward.value))}">
-                            <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
+                        <div class="reward-val-container" style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
+                            <div style="display:flex; gap:5px;">
+                                <input type="text" class="reward-value-input free-val" placeholder="Значение" value="${escapeHTML(String(data.free_reward.value))}">
+                                <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
+                            </div>
+                            <input type="number" class="free-exchange" placeholder="Опыт за отказ (0 = выкл)" value="${data.free_reward.exchange || 0}" style="background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.3);">
                         </div>
                     </div>
 
                     <div class="reward-box premium">
                         <h4>PREMIUM Награда</h4>
                         ${getRewardTypeSelectHtml(data.premium_reward.type, 'premium')}
-                        <div class="reward-val-container" style="display:flex; gap:5px; margin-top:5px;">
-                            <input type="text" class="reward-value-input premium-val" placeholder="Значение" value="${escapeHTML(String(data.premium_reward.value))}">
-                            <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
+                        <div class="reward-val-container" style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
+                            <div style="display:flex; gap:5px;">
+                                <input type="text" class="reward-value-input premium-val" placeholder="Значение" value="${escapeHTML(String(data.premium_reward.value))}">
+                                <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
+                            </div>
+                            <input type="number" class="premium-exchange" placeholder="Опыт за отказ (0 = выкл)" value="${data.premium_reward.exchange || 0}" style="background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.3);">
                         </div>
                     </div>
                 </div>
@@ -1021,7 +1027,7 @@
             }
         }
 
-        async function saveCheckpointData() {
+       async function saveCheckpointData() {
             const tiers = [];
             document.querySelectorAll('.cp-tier-row').forEach(row => {
                 tiers.push({
@@ -1029,11 +1035,13 @@
                     required_stars: parseInt(row.querySelector('.tier-stars').value) || 0,
                     free_reward: {
                         type: row.querySelector('select[name="free_type"]').value,
-                        value: row.querySelector('.free-val').value
+                        value: row.querySelector('.free-val').value,
+                        exchange: parseInt(row.querySelector('.free-exchange').value) || 0
                     },
                     premium_reward: {
                         type: row.querySelector('select[name="premium_type"]').value,
-                        value: row.querySelector('.premium-val').value
+                        value: row.querySelector('.premium-val').value,
+                        exchange: parseInt(row.querySelector('.premium-exchange').value) || 0
                     }
                 });
             });
