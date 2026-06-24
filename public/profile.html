@@ -2003,14 +2003,21 @@ window.applyInventorySort = function() {
 // БРОНЕБОЙНАЯ ФУНКЦИЯ ПАРСИНГА ДАТЫ
 function parseSafeDate(dateStr) {
     if (!dateStr) return 0;
-    // Нам приходит: "2026-06-24 11:59:07.836199+03"
-    // Шаг 1: Отрезаем всё после точки (микросекунды) или плюса (таймзона)
-    let cleanPart = dateStr.split('.')[0].split('+')[0]; 
-    // Шаг 2: Получаем "2026-06-24 11:59:07", меняем пробел на T
-    let safe = cleanPart.replace(' ', 'T'); 
+    if (typeof dateStr === 'number') return dateStr; // Если пришел готовый timestamp
     
-    let ms = new Date(safe).getTime();
-    return isNaN(ms) ? 0 : ms;
+    // Сначала пробуем нативный парсинг (PostgreSQL отдает совместимый ISO-формат)
+    let ms = new Date(dateStr).getTime();
+    if (!isNaN(ms)) return ms;
+
+    // Фолбэк для странных форматов
+    try {
+        let cleanPart = String(dateStr).split('.')[0].split('+')[0];
+        let safe = cleanPart.replace(' ', 'T');
+        ms = new Date(safe).getTime();
+        return isNaN(ms) ? 0 : ms;
+    } catch(e) {
+        return 0;
+    }
 }
 
 function renderInventory(items, isSorting = false) {
@@ -2050,8 +2057,9 @@ function renderInventory(items, isSorting = false) {
     };
 
     itemsToRender.sort((a, b) => {
-        const dateA = parseSafeDate(a.created_at);
-        const dateB = parseSafeDate(b.created_at);
+       // Пробуем взять любую доступную дату
+       const dateA = parseSafeDate(a.created_at || a.updated_at || a.date);
+       const dateB = parseSafeDate(b.created_at || b.updated_at || b.date);
         
         const priceA = parseFloat(a.price_rub || a.price || 0);
         const priceB = parseFloat(b.price_rub || b.price || 0);
@@ -2095,7 +2103,11 @@ function renderInventory(items, isSorting = false) {
         const rData = getRarityData(item.rarity); 
         const isSwapped = item.is_swapped === true;
         const isReplaced = !!item.replaced_name && !isSwapped; 
-        const displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
+        let displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
+        // Если есть качество, добавляем его в скобках (например, "SCAR-20 | Green Marine (FT)")
+        if (item.condition && !isReplaced && !isSwapped) {
+        displayName += ` (${item.condition})`; 
+        }
         const ticketVal = (isReplaced || isSwapped) && item.replaced_price ? item.replaced_price : (item.price || 0);
 
         const imageContentHtml = isReplaced 
@@ -2103,7 +2115,7 @@ function renderInventory(items, isSorting = false) {
             : `<img src="${item.image_url}" loading="lazy" decoding="async">`;
 
         // КРАСИВЫЙ ВЫВОД ДАТЫ (Теперь всегда будет работать)
-        const timestamp = parseSafeDate(item.created_at);
+        const timestamp = parseSafeDate(item.created_at || item.updated_at || item.date);
         const dateObj = new Date(timestamp);
         const dateStr = timestamp > 0 ? dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '??.??';
 
