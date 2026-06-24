@@ -713,6 +713,28 @@
         .editor-add-btn:active { background: rgba(255,215,0,0.2); }
         .editor-actions { display: flex; gap: 10px; margin-top: 15px; }
 
+        /* --- АНИМАЦИЯ ЗВЕЗД И МОДАЛКА ОБМЕНА --- */
+        .star-anim-particle {
+            position: fixed;
+            color: var(--primary);
+            font-size: 24px;
+            z-index: 9999;
+            pointer-events: none;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+            animation: fly-to-xp 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        @keyframes fly-to-xp {
+            0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+            20% { transform: translate(var(--dx), var(--dy)) scale(1.2); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0.3); opacity: 0; }
+        }
+
+        .exchange-btn-row { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-take-item { flex: 1; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 12px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; transition: 0.2s; }
+        .btn-take-item:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
+        .btn-exchange-stars { flex: 1; background: var(--primary); color: #000; border: none; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 12px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 15px var(--primary-glow); display: flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; }
+        .btn-exchange-stars:active { transform: scale(0.95); }
+
     </style>
 </head>
 <body>
@@ -877,6 +899,30 @@
     <button id="scroll-to-top" class="scroll-to-top-btn" onclick="scrollToTop()">
         <i class="fa-solid fa-arrow-up"></i>
     </button>
+
+    <!-- КАСТОМНАЯ МОДАЛКА ОБМЕНА -->
+    <div id="exchange-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel" style="max-width: 320px; transform: translateY(-10px) !important;">
+            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('exchange-modal').classList.remove('modal-active')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="inst-modal-header" style="padding-top: 30px;">
+                <img id="exchange-item-img" src="" style="width: 100px; height: 100px; object-fit: contain; margin: 0 auto 10px; display: block; drop-shadow: 0 10px 20px rgba(0,0,0,0.5);">
+                <h3 id="exchange-item-title" style="font-size: 14px; margin-bottom: 5px;">Название предмета</h3>
+                <p>Вы можете забрать предмет или распылить его на опыт.</p>
+            </div>
+
+            <div class="premium-modal-body" style="padding-top: 10px;">
+                <div class="exchange-btn-row">
+                    <button class="btn-take-item" id="btn-do-claim">Забрать</button>
+                    <button class="btn-exchange-stars" id="btn-do-exchange">
+                        <span id="exchange-stars-val"></span> <i class="fa-solid fa-star"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 <script>
 window.haptic = function(style = 'light') {
@@ -1056,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderBP() {
+    function renderBP(preventScroll = false) {
         const isSeasonActive = bpData && bpData.is_active;
 
         if (!isSeasonActive) {
@@ -1196,19 +1242,18 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.rewardsContainer.appendChild(row);
         });
        // 👇 ОБНОВЛЕННЫЙ БЛОК С РАБОЧИМ СКРОЛЛОМ 👇
-        setTimeout(() => {
-            const unlockedRows = dom.rewardsContainer.querySelectorAll('.tier-row.unlocked');
-            
-            if (unlockedRows.length > 0) {
-                const lastUnlocked = unlockedRows[unlockedRows.length - 1];
-                const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
+        if (!preventScroll) {
+            setTimeout(() => {
+                const unlockedRows = dom.rewardsContainer.querySelectorAll('.tier-row.unlocked');
                 
-                // block: 'start' прижимает элемент к верху, 
-                // но CSS scroll-margin-top не даст ему залететь под табы!
-                targetRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }, 300); // Чуть увеличил таймаут до 300мс, чтобы картинки и DOM точно успели прогрузиться
+                if (unlockedRows.length > 0) {
+                    const lastUnlocked = unlockedRows[unlockedRows.length - 1];
+                    const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
+                    targetRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 300); 
         }
+    }
    function renderQuests() {
 
     let globalHasRewards = false; // <--- ДОБАВИТЬ ЭТУ СТРОКУ
@@ -1441,45 +1486,101 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
             
-    window.claimReward = async function(level, type) {
-    const lockKey = `bp_${level}_${type}`;
-    if (window.isClaiming[lockKey]) return; // 🛡 Жестко блокируем двойные клики
-    window.isClaiming[lockKey] = true;
+   function playStarAnimation(startX, startY) {
+        const target = document.getElementById('ui-current-xp').getBoundingClientRect();
+        for(let i = 0; i < 8; i++) {
+            let star = document.createElement('i');
+            star.className = 'fa-solid fa-star star-anim-particle';
+            star.style.left = startX + 'px';
+            star.style.top = startY + 'px';
+            
+            let dx = (Math.random() * 80 - 40) + 'px';
+            let dy = (Math.random() * -60 - 20) + 'px';
+            
+            let tx = target.left + target.width/2 - startX;
+            let ty = target.top + target.height/2 - startY;
+            
+            star.style.setProperty('--dx', dx);
+            star.style.setProperty('--dy', dy);
+            star.style.setProperty('--tx', tx + 'px');
+            star.style.setProperty('--ty', ty + 'px');
+            
+            document.body.appendChild(star);
+            setTimeout(() => star.remove(), 1000);
+        }
+    }
 
-    haptic('medium');
-    tg.MainButton.showProgress();
-    
-    try {
-        const res = await fetch('/api/v1/checkpoint/claim', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: tg.initData, level: level, type: type })
-        });
-        const data = await res.json();
-        
-        if (res.ok) {
-            tg.HapticFeedback.notificationOccurred('success');
-            tg.showAlert('Награда успешно получена!');
-        } else {
-            tg.HapticFeedback.notificationOccurred('error');
-            tg.showAlert(data.detail || 'Ошибка при получении награды');
+    window.claimReward = async function(level, type, forceAction = null, eventPos = null) {
+        const lockKey = `bp_${level}_${type}`;
+        if (window.isClaiming[lockKey]) return;
+
+        const tier = bpData.tiers.find(t => t.level === level);
+        const reward = tier[`${type}_reward`];
+        const exchangeAmount = parseInt(reward.exchange) || 0;
+
+        if (exchangeAmount > 0 && forceAction === null) {
+            haptic('light');
+            const modal = document.getElementById('exchange-modal');
+            document.getElementById('exchange-item-img').src = reward.image_url || 'https://placehold.co/100';
+            document.getElementById('exchange-item-title').innerText = reward.value || 'Награда';
+            document.getElementById('exchange-stars-val').innerText = `+${exchangeAmount}`;
+            
+            const clickX = event ? (event.clientX || (event.touches && event.touches[0].clientX)) : window.innerWidth / 2;
+            const clickY = event ? (event.clientY || (event.touches && event.touches[0].clientY)) : window.innerHeight / 2;
+
+            document.getElementById('btn-do-claim').onclick = () => {
+                modal.classList.remove('modal-active');
+                window.claimReward(level, type, 'claim');
+            };
+            document.getElementById('btn-do-exchange').onclick = () => {
+                modal.classList.remove('modal-active');
+                window.claimReward(level, type, 'exchange', {x: clickX, y: clickY});
+            };
+            
+            modal.classList.add('modal-active');
+            return;
         }
 
-        // 🚀 ГЛАВНЫЙ ФИКС: Запрашиваем новые данные В ЛЮБОМ СЛУЧАЕ!
-        const userRes = await fetch('/api/v1/user/me', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ initData: tg.initData }) 
-        });
-        userData = await userRes.json();
-        renderBP(); 
+        const actionToSend = forceAction || 'claim';
+        window.isClaiming[lockKey] = true;
+        haptic('medium');
+        tg.MainButton.showProgress();
         
-    } catch (e) {
-        tg.showAlert('Сбой сети. Попробуйте позже.');
-    } finally {
-        window.isClaiming[lockKey] = false; // Снимаем замок
-        tg.MainButton.hideProgress();
-    }
+        try {
+            const res = await fetch('/api/v1/checkpoint/claim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: tg.initData, level: level, type: type, action_type: actionToSend })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                tg.HapticFeedback.notificationOccurred('success');
+                if (actionToSend === 'exchange') {
+                    if (eventPos) playStarAnimation(eventPos.x, eventPos.y);
+                    tg.showAlert(`Вы распылили предмет и получили +${exchangeAmount} Звезд!`);
+                } else {
+                    tg.showAlert('Награда успешно получена!');
+                }
+            } else {
+                tg.HapticFeedback.notificationOccurred('error');
+                tg.showAlert(data.detail || 'Ошибка при получении награды');
+            }
+
+            const userRes = await fetch('/api/v1/user/me', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ initData: tg.initData }) 
+            });
+            userData = await userRes.json();
+            renderBP(true); 
+            
+        } catch (e) {
+            tg.showAlert('Сбой сети. Попробуйте позже.');
+        } finally {
+            window.isClaiming[lockKey] = false;
+            tg.MainButton.hideProgress();
+        }
 };
     
    window.isClaiming = window.isClaiming || {}; // Глобальный замок
@@ -1515,7 +1616,7 @@ window.claimQuestReward = async function(questId, week) {
         });
         userData = await userRes.json();
         
-        renderBP();     // Обновляем шкалу уровней
+        renderBP(true); // <--- ДОБАВЛЕНО true, ЧТОБЫ НЕ ДЕРГАЛСЯ СКРОЛЛ
         renderQuests(); // Обновляем статусы заданий (кнопка станет серой)
 
     } catch (e) {
