@@ -23395,7 +23395,7 @@ async def get_user_inventory(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, price, price_rub)",
+            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, condition, price, price_rub)",
             "order": "created_at.desc"
         }
     )
@@ -23424,6 +23424,7 @@ async def get_user_inventory(
             "name": row.get('replaced_name') or item_data.get('name', 'Секретный скин'),
             "image_url": row.get('replaced_image_url') or item_data.get('image_url', ''),
             "rarity": row.get('replaced_rarity') or item_data.get('rarity', 'common'),
+            "condition": item_data.get('condition', ''), # <--- ДОБАВИТЬ ЭТУ СТРОКУ
             "price": ticket_val,  # Оставляем билеты для кнопки "Продать за билеты"
             "price_rub": float(coin_val), # 🔥 ОТПРАВЛЯЕМ МОНЕТЫ НА ФРОНТ
             "status": row['status'],
