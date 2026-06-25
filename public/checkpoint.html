@@ -834,6 +834,15 @@
         </div>
     </div>
 
+    <div id="custom-alert-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel" style="max-width: 300px; padding: 25px 20px; text-align: center; transform: translateY(-20px) !important;">
+            <div id="custom-alert-icon" style="font-size: 45px; margin-bottom: 12px;"></div>
+            <h3 id="custom-alert-title" style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: #fff; text-transform: uppercase;"></h3>
+            <p id="custom-alert-text" style="font-size: 12px; color: var(--text-muted); margin: 0 0 20px 0; line-height: 1.4;"></p>
+            <button class="btn-claim ready" onclick="haptic('light'); document.getElementById('custom-alert-modal').classList.remove('modal-active');" style="margin: 0; padding: 12px;">Отлично!</button>
+        </div>
+    </div>
+
     <div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-panel gold-glow">
             <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('premium-buy-modal').classList.remove('modal-active')">
@@ -947,6 +956,26 @@ window.haptic = function(style = 'light') {
     }
 };
 
+// 👇 НОВОЕ: Функция вызова кастомного алерта
+window.showCustomAlert = function(title, text, type = 'success') {
+    haptic('medium');
+    const modal = document.getElementById('custom-alert-modal');
+    const iconEl = document.getElementById('custom-alert-icon');
+    
+    if (type === 'success') {
+        iconEl.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--success); text-shadow: 0 0 20px rgba(50, 215, 75, 0.4);"></i>';
+    } else {
+        iconEl.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: var(--danger); text-shadow: 0 0 20px rgba(255, 69, 58, 0.4);"></i>';
+    }
+    
+    document.getElementById('custom-alert-title').innerText = title;
+    document.getElementById('custom-alert-text').innerText = text;
+    modal.classList.add('modal-active');
+};
+
+// 👇 НОВОЕ: Хранилище открытых недель
+window.expandedWeeksState = window.expandedWeeksState || new Set();
+    
 window.switchBPView = function(viewId) {
     haptic('light');
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -1008,13 +1037,16 @@ window.toggleWeek = function(headerElement) {
 
     const content = headerElement.nextElementSibling;
     const isExpanded = headerElement.classList.contains('expanded');
-    
+    const weekNum = headerElement.getAttribute('data-week'); // Читаем номер недели
+
     if (isExpanded) {
         content.style.maxHeight = '0px';
         headerElement.classList.remove('expanded');
+        if (weekNum) window.expandedWeeksState.delete(weekNum); // Убираем из памяти
     } else {
         content.style.maxHeight = content.scrollHeight + 50 + 'px';
         headerElement.classList.add('expanded');
+        if (weekNum) window.expandedWeeksState.add(weekNum); // Запоминаем, что открыта
     }
 };
 
@@ -1309,6 +1341,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let statusText = '';
         let isLocked = false;
         let isExpanded = false; // Всегда false по умолчанию
+        // 👇 Теперь читаем из памяти, а не ставим false
+        let isExpanded = window.expandedWeeksState.has(String(i));
 
         if (now < weekStart) {
             const diffDays = Math.ceil((weekStart - now) / (1000*60*60*24));
@@ -1420,7 +1454,7 @@ const processedQuests = weekQuests.map(cfg => {
         weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
         
         weekBlock.innerHTML = `
-            <div class="week-header ${isExpanded ? 'expanded' : ''}" onclick="toggleWeek(this)">
+            <div class="week-header ${isExpanded ? 'expanded' : ''}" data-week="${i}" onclick="toggleWeek(this)">
                 <div class="week-title-box">
                     <div class="week-title">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span> ${rewardAlertHtml}</div>
                     <div class="week-dates"><i class="fa-regular fa-calendar"></i> ${weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})} - ${weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})}</div>
@@ -1635,7 +1669,7 @@ const processedQuests = weekQuests.map(cfg => {
    window.isClaiming = window.isClaiming || {}; // Глобальный замок
 
 window.claimQuestReward = async function(questId, week) {
-    if (window.isClaiming[questId]) return; // 🛡 Жестко блокируем двойные клики
+    if (window.isClaiming[questId]) return;
     window.isClaiming[questId] = true;
     
     haptic('medium');
@@ -1650,14 +1684,12 @@ window.claimQuestReward = async function(questId, week) {
         
         if (res.ok) {
             tg.HapticFeedback.notificationOccurred('success');
-            tg.showAlert(`Отлично! Получено +${data.earned_exp} EXP`);
+            showCustomAlert('Награда получена!', `Отлично! Тебе начислено +${data.earned_exp} EXP`, 'success');
         } else {
             tg.HapticFeedback.notificationOccurred('error');
-            tg.showAlert(data.detail || 'Ошибка при получении награды');
+            showCustomAlert('Ошибка', data.detail || 'Не удалось получить награду', 'error');
         }
 
-        // 🚀 ГЛАВНЫЙ ФИКС: Запрашиваем новые данные В ЛЮБОМ СЛУЧАЕ!
-        // Даже если вылезла ошибка 400, мы должны обновить фронтенд актуальными данными из БД
         const userRes = await fetch('/api/v1/user/me', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
@@ -1665,16 +1697,26 @@ window.claimQuestReward = async function(questId, week) {
         });
         userData = await userRes.json();
         
-        renderBP(true); // <--- ДОБАВЛЕНО true, ЧТОБЫ НЕ ДЕРГАЛСЯ СКРОЛЛ
-        renderQuests(); // Обновляем статусы заданий (кнопка станет серой)
+        // 👇 ФИКС СКРОЛЛА: Запоминаем позицию перед рендером
+        const scrollContainer = document.querySelector('.main-content-scrollable');
+        const currentScroll = scrollContainer ? scrollContainer.scrollTop : 0;
+
+        renderBP(true); 
+        renderQuests(); 
+
+        // 👇 ФИКС СКРОЛЛА: Возвращаем на место после обновления DOM
+        if (scrollContainer) {
+            setTimeout(() => scrollContainer.scrollTop = currentScroll, 10);
+        }
 
     } catch (e) {
-        tg.showAlert('Сбой сети. Попробуйте позже.');
+        showCustomAlert('Ошибка сети', 'Попробуйте позже.', 'error');
     } finally {
-        window.isClaiming[questId] = false; // Снимаем замок
+        window.isClaiming[questId] = false; 
         tg.MainButton.hideProgress();
     }
 };
+    
     dom.buyPremiumBtn.addEventListener('click', () => {
         haptic('medium');
         if (!bpData || !bpData.is_active) {
