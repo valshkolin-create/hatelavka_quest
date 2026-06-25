@@ -27731,6 +27731,59 @@ async def admin_manage_cp(
         raise HTTPException(status_code=500, detail="Ошибка базы данных.")
 
 
+# Добавь эту модель туда, где у тебя описаны остальные (AdminGrindRequest и т.д.)
+class AdminUnbindRequest(BaseModel):
+    initData: str
+    user_id: int
+    unbind_type: str
+
+# =========================================================================
+# УПРАВЛЕНИЕ ПРИВЯЗКАМИ (Отвязка Twitch и Steam)
+# =========================================================================
+@app.post("/api/v1/admin/users/unbind")
+async def admin_unbind_account(
+    req: AdminUnbindRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Отвязывает Twitch аккаунт или Steam Trade-ссылку."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    if req.unbind_type not in ["twitch", "trade_link"]:
+        raise HTTPException(status_code=400, detail="Неизвестный тип отвязки.")
+
+    try:
+        update_data = {}
+        
+        if req.unbind_type == "twitch":
+            # Сносим всё, что связывало человека с Твичом
+            update_data = {
+                "twitch_id": None,
+                "twitch_login": None,
+                "twitch_access_token": None,
+                "twitch_refresh_token": None,
+                "twitch_status": None
+            }
+        elif req.unbind_type == "trade_link":
+            # Убираем трейд-ссылку
+            update_data = {
+                "trade_link": None
+            }
+
+        resp = await supabase.patch(
+            "/users", 
+            params={"telegram_id": f"eq.{req.user_id}"}, 
+            json=update_data
+        )
+        resp.raise_for_status()
+
+        return {"message": f"Успешно отвязано: {req.unbind_type}"}
+    
+    except Exception as e:
+        logging.error(f"Ошибка отвязки {req.unbind_type} для {req.user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при удалении привязки.")
+
 # =========================================================================
 # УПРАВЛЕНИЕ ГРИНДОМ (Стрик, Монеты, Твич)
 # =========================================================================
