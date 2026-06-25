@@ -900,6 +900,25 @@
             box-shadow: 0 0 15px rgba(50, 215, 75, 0.05);
         }
 
+        /* --- БОГАТАЯ АНИМАЦИЯ КОРОНЫ --- */
+@keyframes richCrownPulse {
+    0% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.2)) drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
+    50% { transform: scale(1.1); filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.8)) drop-shadow(0 15px 30px rgba(255, 215, 0, 0.3)); }
+    100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.2)) drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
+}
+.rich-crown-anim {
+    animation: richCrownPulse 2.5s infinite ease-in-out !important;
+}
+
+/* --- АНИМАЦИЯ ИКОНКИ СТРЕЛКИ ВНИЗ --- */
+@keyframes bounceDown {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(3px); }
+}
+#scroll-to-current-btn i {
+    animation: bounceDown 1.5s infinite;
+}
+
     </style>
 </head>
 <body>
@@ -1045,10 +1064,9 @@
     <div id="premium-success-modal" class="modal-overlay" onclick="if(event.target===this) { closeAllModals(); }">
         <div class="premium-panel" style="background: transparent !important; border: none !important; box-shadow: none !important; text-align: center; max-width: 320px; padding: 20px;">
             
-            <div style="position: relative; width: 140px; height: 140px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                <div style="position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%); animation: forgeGlow 2s infinite alternate; border-radius: 50%;"></div>
-                <i class="fa-solid fa-crown" style="font-size: 70px; color: var(--primary); filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); position: relative; z-index: 1;"></i>
-            </div>
+            <div style="margin: 0 auto 25px; display: flex; align-items: center; justify-content: center;">
+    <i class="fa-solid fa-crown rich-crown-anim" style="font-size: 85px; color: var(--primary);"></i>
+</div>
             
             <h2 style="margin: 0 0 15px; font-size: 24px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 4px 10px rgba(0,0,0,0.8);">Premium Активен</h2>
             
@@ -1108,6 +1126,11 @@
     <button id="scroll-to-top" class="scroll-to-top-btn" onclick="scrollToTop()">
         <i class="fa-solid fa-arrow-up"></i>
     </button>
+
+    <!-- НОВАЯ КНОПКА ВНИЗ -->
+<button id="scroll-to-current-btn" class="scroll-to-top-btn" style="bottom: 130px; background: #fff; color: #000; display: none;" onclick="scrollToCurrentTarget()">
+    <i class="fa-solid fa-arrow-down"></i>
+</button>
 
     <!-- КАСТОМНАЯ МОДАЛКА ОБМЕНА -->
     <div id="exchange-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
@@ -1276,21 +1299,51 @@ window.openImageModal = function(src, title) {
     }
 };
 
-// Функция, которая проверит скролл и покажет кнопку
+// Функция, которая проверит скролл и покажет нужные кнопки
 function checkScroll(e) {
-    const scrollBtn = document.getElementById('scroll-to-top');
-    if (!scrollBtn) return;
+    const scrollUpBtn = document.getElementById('scroll-to-top');
+    const scrollDownBtn = document.getElementById('scroll-to-current-btn');
     
-    // Берем позицию скролла либо у элемента (если скроллится div), либо у окна
+    // Берем позицию скролла
     const scrollTop = e.target.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
     
-    if (scrollTop > 300) {
-        scrollBtn.classList.add('visible');
-    } else {
-        scrollBtn.classList.remove('visible');
+    // 1. Логика кнопки НАВЕРХ
+    if (scrollUpBtn) {
+        if (scrollTop > 300) {
+            scrollUpBtn.classList.add('visible');
+        } else {
+            scrollUpBtn.classList.remove('visible');
+        }
+    }
+
+    // 2. Логика кнопки ВНИЗ (к текущей награде)
+    if (scrollDownBtn) {
+        // Ищем строку, к которой нужно вернуться
+        const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
+        if (unlockedRows.length > 0) {
+            const lastUnlocked = unlockedRows[unlockedRows.length - 1];
+            const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
+            
+            // Вычисляем позицию нужной строки относительно экрана
+            const targetRect = targetRow.getBoundingClientRect();
+            
+            // Если нужная строка ушла сильно вниз за пределы экрана (юзер ускроллил вверх)
+            if (targetRect.top > window.innerHeight + 100) {
+                scrollDownBtn.style.display = 'flex';
+                setTimeout(() => scrollDownBtn.classList.add('visible'), 10);
+            } else {
+                // Если мы рядом с ней или скроллим ниже неё
+                scrollDownBtn.classList.remove('visible');
+                setTimeout(() => { 
+                    if (!scrollDownBtn.classList.contains('visible')) {
+                        scrollDownBtn.style.display = 'none'; 
+                    }
+                }, 300);
+            }
+        }
     }
 }
-
+    
 // Вешаем слушатель на само окно
 window.addEventListener('scroll', checkScroll, { passive: true });
 
@@ -1642,7 +1695,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (unlockedRows.length > 0) {
                     const lastUnlocked = unlockedRows[unlockedRows.length - 1];
                     const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
-                    targetRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }, 300); 
         }
@@ -2088,15 +2141,18 @@ window.claimQuestReward = async function(questId, week) {
 
     // КЛИК: ОПЛАТА РУБЛЯМИ
     if (rubBtn) {
-        rubBtn.addEventListener('click', () => {
-            haptic('medium');
-            dom.premiumBuyModal.classList.remove('modal-active');
-            
-            // Здесь будет логика генерации ссылки на оплату или вызов кассы.
-            // Пока оставляем заглушку.
-            tg.showAlert("Оплата рублями в данный момент подключается! Используйте монеты.");
-        });
-    }
+    rubBtn.addEventListener('click', () => {
+        haptic('medium');
+        dom.premiumBuyModal.classList.remove('modal-active');
+        
+        // Красивое окно с иконкой ошибки (крестиком)
+        showCustomAlert(
+            "В разработке", 
+            "Оплата рублями в данный момент подключается! Используйте монеты.", 
+            "error" 
+        );
+    });
+}
 
    // КЛИК: ОПЛАТА МОНЕТАМИ
     if (coinsBtn) {
