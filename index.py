@@ -18967,6 +18967,26 @@ async def buy_bott_item_proxy(
     item_image = getattr(request_data, 'image_url', "") or ""
     currency = getattr(request_data, 'currency', 'coins')
 
+    # =========================================================================
+    # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА ОТ API-АБУЗЕРОВ (ПРОВЕРКА СЕКРЕТНОСТИ) 🔥
+    # =========================================================================
+    try:
+        # Название таблицы может отличаться (например, shop_items или goods), подставь свое
+        goods_res = await supabase.get("/goods", params={"id": f"eq.{item_id}", "select": "is_secret"})
+        goods_data = goods_res.json()
+        
+        if goods_data and isinstance(goods_data, list) and len(goods_data) > 0:
+            is_secret = goods_data[0].get("is_secret", False)
+            
+            # Если кейс секретный, но фронтенд НЕ прислал флаг бесплатного открытия по купону
+            if is_secret and getattr(request_data, 'coupon_code', None) != "FREE_BY_ID":
+                raise HTTPException(status_code=403, detail="⛔ Этот кейс скрыт и открывается только по купону!")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[SHOP] Ошибка проверки is_secret для товара {item_id}: {e}")
+    # =========================================================================
+
     # 1. Получаем данные юзера (ДОБАВИЛ last_balance_sync)
     try:
         user_db_resp = await supabase.get(
