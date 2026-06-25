@@ -21,29 +21,29 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-html, body {
-    width: 100vw; height: 100vh; height: var(--tg-viewport-height, 100vh); 
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    overflow: hidden; background-color: var(--bg-main); color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    overflow-x: hidden;
-    overscroll-behavior-x: none !important;
-    
-    /* 👇 ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ 👇 */
-    display: flex;
-    flex-direction: column;
-}
+        html, body {
+            width: 100vw; height: 100vh; height: var(--tg-viewport-height, 100vh); 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            overflow: hidden; background-color: var(--bg-main); color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow-x: hidden;
+            overscroll-behavior-x: none !important;
+            
+            /* 👇 ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ 👇 */
+            display: flex;
+            flex-direction: column;
+        }
 
         .hidden { display: none !important; }
 
         .main-content-scrollable {
-    flex: 1;
-    height: auto; 
-    
-    overflow-y: auto; overflow-x: hidden;
-    -webkit-overflow-scrolling: touch; padding-bottom: 0; 
-    overscroll-behavior-x: none !important;
-}
+            flex: 1;
+            height: auto; 
+            
+            overflow-y: auto; overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; padding-bottom: 0; 
+            overscroll-behavior-x: none !important;
+        }
         .main-content-scrollable::after {
             content: ''; display: block; height: 160px; width: 100%; flex-shrink: 0; pointer-events: none;
         }
@@ -108,7 +108,7 @@ html, body {
     `;
 
     // ==========================================
-    // 2. HTML ШАПКИ И БОКОВОГО МЕНЮ
+    // 2. HTML ШАПКИ И БОКОВОГО МЕНЮ (СПИННЕРЫ ПО УМОЛЧАНИЮ)
     // ==========================================
     const navHtml = `
         <div id="side-menu-overlay" class="side-menu-overlay">
@@ -175,8 +175,8 @@ html, body {
             <div class="header-right-group">
                 <div class="balance-pill" onclick="if(typeof checkBalance === 'function') checkBalance(true)">
                     <div class="balance-col">
-                        <div class="balance-row"><span id="user-balance">0</span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i></div>
-                        <div class="balance-row"><span id="ticketStats">0</span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i></div>
+                        <div class="balance-row"><span id="user-balance"><i class="fa-solid fa-spinner fa-spin" style="font-size: 10px;"></i></span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i></div>
+                        <div class="balance-row"><span id="ticketStats"><i class="fa-solid fa-spinner fa-spin" style="font-size: 10px;"></i></span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i></div>
                     </div>
                     <div class="refresh-icon-wrapper">
                         <i class="fa-solid fa-rotate-right" id="refresh-icon"></i>
@@ -191,19 +191,31 @@ html, body {
     `;
 
     // ==========================================
-    // 3. ЛОГИКА ВНЕДРЕНИЯ И ДЕТЕКТОРОВ
+    // 3. ДОМИНАНТНАЯ ЛОГИКА И ЗАЩИТА СИСТЕМЫ
     // ==========================================
-        function initTopNav() {
-        // 🔥 ВОТ ЭТА СТРОЧКА СПАСЕТ АДМИНКУ 🔥
+    let isInitialized = false;
+
+    // Эта функция намертво прибивает твои методы к window, запрещая их менять другим скриптам
+    function lockGlobalFunction(name, fn) {
+        if (window[name]) return;
+        Object.defineProperty(window, name, {
+            value: fn,
+            writable: false,      
+            configurable: false   
+        });
+    }
+
+    function injectDOM() {
         if (window.location.pathname.includes('/admin')) return;
-
-
-        if (document.getElementById('universal-top-header')) return; // Защита от дублей
+        if (document.getElementById('universal-top-header')) return; 
 
         // Внедряем CSS
-        const styleEl = document.createElement('style');
-        styleEl.innerHTML = navStyles;
-        document.head.appendChild(styleEl);
+        if (!document.getElementById('hatelavka-global-styles')) {
+            const styleEl = document.createElement('style');
+            styleEl.id = 'hatelavka-global-styles';
+            styleEl.innerHTML = navStyles;
+            document.head.appendChild(styleEl);
+        }
 
         // Внедряем HTML
         const container = document.createElement('div');
@@ -212,12 +224,17 @@ html, body {
             document.body.insertBefore(container.firstChild, document.body.firstChild);
         }
 
-        // Биндим бургер
+        bindEvents();
+        loadCachedAvatar();
+    }
+
+    function bindEvents() {
         const menuBtn = document.getElementById('open-menu-btn');
         const closeMenuBtn = document.getElementById('close-menu-btn');
         const sideMenu = document.getElementById('side-menu-overlay');
 
         const toggleMenu = (show) => {
+            if (!sideMenu) return;
             if (show) { 
                 sideMenu.classList.add('active'); 
                 document.body.style.overflow = 'hidden'; 
@@ -227,13 +244,14 @@ html, body {
             }
         };
 
-        if (menuBtn) menuBtn.addEventListener('click', () => toggleMenu(true));
-        if (closeMenuBtn) closeMenuBtn.addEventListener('click', () => toggleMenu(false));
-        if (sideMenu) sideMenu.addEventListener('click', (e) => { 
+        if (menuBtn) menuBtn.onclick = () => toggleMenu(true);
+        if (closeMenuBtn) closeMenuBtn.onclick = () => toggleMenu(false);
+        if (sideMenu) sideMenu.onclick = (e) => { 
             if (e.target === sideMenu) toggleMenu(false); 
-        });
+        };
+    }
 
-        // Загружаем аватарку пользователя из кэша
+    function loadCachedAvatar() {
         try {
             const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
             if (cached && cached.user && cached.user.photo_url) {
@@ -241,28 +259,6 @@ html, body {
                 if (avatarEl) avatarEl.src = cached.user.photo_url;
             }
         } catch(e){}
-
-        // Запускаем детектор платформы
-        detectPlatforms();
-
-        // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА ПРИ СТАРТЕ 🔥
-        const tryLoadData = () => {
-            // Ждем не только инициализации Телеграма, но и пока подгрузится наш файл с API
-            const isTgReady = window.isVk || (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
-            const isApiReady = typeof window.makeApiRequest === 'function';
-
-            if (!isTgReady || !isApiReady) {
-                // Если кто-то из них еще спит — ждем еще 100 миллисекунд и пробуем снова
-                setTimeout(tryLoadData, 100);
-                return;
-            }
-            
-            // Вот теперь все на месте, можно смело дергать баланс
-            if (typeof window.checkBalance === 'function') window.checkBalance(true);
-        };
-        setTimeout(tryLoadData, 300);
-        // 🔥 ПРОВЕРКА АДМИНА 🔥
-        checkAdminAccess();
     }
 
     function detectPlatforms() {
@@ -300,58 +296,54 @@ html, body {
         const adminNav = document.getElementById('nav-admin');
         if (!adminNav) return;
 
-        // 1. Быстрая проверка: смотрим кэш
         try {
             const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
             if (cached?.user?.is_admin) {
                 adminNav.classList.remove('hidden');
-                return; // Если в кэше уже админ, сразу показываем и выходим
+                return; 
             }
         } catch (e) {}
 
-        // 2. Надежная проверка: если в кэше пусто или не админ, спрашиваем бэкенд
-        const tryLoadMe = async () => {
-            // Ждем инициализации TG WebApp или API-запросника
-            if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
-                setTimeout(tryLoadMe, 200);
-                return;
-            }
-            try {
-                if (typeof window.makeApiRequest === 'function') {
-                    // Запрашиваем данные юзера тихо, без крутилок
-                    const userData = await window.makeApiRequest('/api/v1/user/me', {}, 'POST', true);
-                    if (userData && userData.is_admin) {
-                        adminNav.classList.remove('hidden');
-                        
-                        // Заодно обновляем кэш, чтобы в следующий раз было мгновенно
-                        try {
-                            const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-                            if (!cached.user) cached.user = {};
-                            cached.user.is_admin = true;
-                            localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
-                        } catch(e){}
-                    }
+        try {
+            if (typeof window.makeApiRequest === 'function') {
+                const userData = await window.makeApiRequest('/api/v1/user/me', {}, 'POST', true);
+                if (userData && userData.is_admin) {
+                    adminNav.classList.remove('hidden');
+                    try {
+                        const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+                        if (!cached.user) cached.user = {};
+                        cached.user.is_admin = true;
+                        localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
+                    } catch(e){}
                 }
-            } catch (e) {
-                console.warn("Не удалось проверить статус админа", e);
             }
-        };
-        
-        setTimeout(tryLoadMe, 300);
+        } catch (e) {
+            console.warn("Не удалось проверить статус админа", e);
+        }
     }
 
-    // Запускаем внедрение
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTopNav);
-    } else {
-        initTopNav();
+    // Умное ожидание без глупых таймаутов
+    function waitForDependencies(callback) {
+        let attempts = 0;
+        const maxAttempts = 50; 
+
+        const check = setInterval(() => {
+            attempts++;
+            const isTgReady = window.isVk || (window.Telegram?.WebApp?.initData);
+            const isApiReady = typeof window.makeApiRequest === 'function';
+
+            if ((isTgReady && isApiReady) || attempts >= maxAttempts) {
+                clearInterval(check);
+                callback(); 
+            }
+        }, 100);
     }
 
     // ==========================================
-    // 4. ГЛОБАЛЬНЫЕ ФУНКЦИИ (МОДАЛКИ, БАЛАНС)
+    // 4. ГЛОБАЛЬНЫЕ ЗАЩИЩЕННЫЕ ФУНКЦИИ
     // ==========================================
 
-    window.showShopModal = function({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
+    lockGlobalFunction('showShopModal', function({ title, subtitle, confirmText, confirmClass, showCancel = true, onConfirm }) {
         const old = document.querySelector('.custom-confirm-overlay'); if (old) old.remove();
         const overlay = document.createElement('div'); overlay.className = 'custom-confirm-overlay';
         
@@ -380,25 +372,52 @@ html, body {
             onConfirm(close);                       
         };
         overlay.onclick = (e) => { if(e.target === overlay && showCancel) close(); };
-    };
+    });
 
-    window.customAlert = function(message, callback) {
+    lockGlobalFunction('customAlert', function(message, callback) {
         window.showShopModal({
             title: "Внимание", subtitle: message, confirmText: "ПОНЯТНО", confirmClass: "btn-yellow-modal", showCancel: false, 
             onConfirm: (close) => { close(); if(callback) callback(); }
         });
-    };
+    });
 
-    window.customConfirm = function(message, callback) {
+    lockGlobalFunction('customConfirm', function(message, callback) {
         window.showShopModal({
             title: "Подтверждение", subtitle: message, confirmText: "ДА", confirmClass: "btn-yellow-modal", showCancel: true,
             onConfirm: (close) => { close(); if (callback) callback(true); }
         });
-    };
+    });
 
-    // Баланс
+    lockGlobalFunction('renderBalanceUI', function(coins, tickets) {
+        const displayBalance = (coins !== undefined && coins !== null && coins !== '')
+            ? Number(coins).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+            : '<i class="fa-solid fa-spinner fa-spin" style="font-size: 10px;"></i>';
+
+        const balanceEl = document.getElementById('user-balance');
+        if (balanceEl && balanceEl.innerHTML !== displayBalance) { 
+            balanceEl.style.opacity = '0.5'; 
+            setTimeout(() => { 
+                balanceEl.innerHTML = displayBalance; 
+                balanceEl.style.opacity = '1'; 
+            }, 150); 
+        }
+
+        const displayTickets = (tickets !== undefined && tickets !== null && tickets !== '')
+            ? Number(tickets).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+            : '<i class="fa-solid fa-spinner fa-spin" style="font-size: 10px;"></i>';
+
+        const ticketsEl = document.getElementById('ticketStats');
+        if (ticketsEl && ticketsEl.innerHTML !== displayTickets) { 
+            ticketsEl.style.opacity = '0.5'; 
+            setTimeout(() => { 
+                ticketsEl.innerHTML = displayTickets; 
+                ticketsEl.style.opacity = '1'; 
+            }, 150); 
+        }
+    });
+
     let isBalanceLoading = false;
-    window.checkBalance = async function(updateUI = true, forceSync = false) {
+    lockGlobalFunction('checkBalance', async function(updateUI = true, forceSync = false) {
         if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return Promise.resolve();
 
         if (isBalanceLoading) return Promise.resolve();
@@ -417,16 +436,16 @@ html, body {
         try {
             if(typeof window.makeApiRequest !== 'function') throw new Error("makeApiRequest not found");
             
-            // Если просим принудительно, добавляем параметр в URL
             const url = forceSync ? '/api/v1/shop/smart_balance?force=true' : '/api/v1/shop/smart_balance';
-            
             const data = await window.makeApiRequest(url, {}, 'POST', true);
+            
             if (updateUI && data) {
                 localStorage.setItem('smart_balance_cache', JSON.stringify(data));
                 window.renderBalanceUI(data.balance, data.tickets);
             }
         } catch (err) {
             console.error("Ошибка баланса:", err);
+            // Если ошибка загрузки, UI оставит спиннеры или кэш
         } finally {
             isBalanceLoading = false; 
             setTimeout(() => { 
@@ -434,53 +453,21 @@ html, body {
                 if (currentIcon) currentIcon.classList.remove('fa-spin'); 
             }, 500); 
         }
-    };
+    });
 
-    // 🔥 ВОТ ТУТ МЫ ВСЕ ИСПРАВИЛИ 🔥
-    window.renderBalanceUI = function(coins, tickets) {
-    // === 1. ОБРАБОТКА МОНЕТ (COINS) ===
-    const displayBalance = (coins !== undefined && coins !== null && coins !== '')
-        ? Number(coins).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-        : '<i class="fa-solid fa-spinner fa-spin" style="font-size: 8px;"></i>';
-
-    const balanceEl = document.getElementById('user-balance');
-    if (balanceEl && balanceEl.innerHTML !== displayBalance) { 
-        balanceEl.style.opacity = '0.5'; 
-        setTimeout(() => { 
-            balanceEl.innerHTML = displayBalance; 
-            balanceEl.style.opacity = '1'; 
-        }, 150); 
-    }
-
-    // === 2. ОБРАБОТКА БИЛЕТОВ (TICKETS) ===
-    const displayTickets = (tickets !== undefined && tickets !== null && tickets !== '')
-        ? Number(tickets).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-        : '<i class="fa-solid fa-spinner fa-spin" style="font-size: 8px;"></i>';
-
-    const ticketsEl = document.getElementById('ticketStats');
-    if (ticketsEl && ticketsEl.innerHTML !== displayTickets) { 
-        ticketsEl.style.opacity = '0.5'; 
-        setTimeout(() => { 
-            ticketsEl.innerHTML = displayTickets; 
-            ticketsEl.style.opacity = '1'; 
-        }, 150); 
-    }
-};
-
-    // Купоны
-    window.openCouponModal = () => {
+    lockGlobalFunction('openCouponModal', () => {
         const m = document.getElementById('coupon-modal');
         if(m) m.classList.remove('hidden');
         const i = document.getElementById('coupon-input');
         if(i) i.value = '';
-    };
+    });
 
-    window.closeCouponModal = () => {
+    lockGlobalFunction('closeCouponModal', () => {
         const m = document.getElementById('coupon-modal');
         if(m) m.classList.add('hidden');
-    };
+    });
 
-    window.pasteCoupon = async () => {
+    lockGlobalFunction('pasteCoupon', async () => {
         try {
             const text = await navigator.clipboard.readText();
             const i = document.getElementById('coupon-input');
@@ -489,9 +476,9 @@ html, body {
         } catch (err) {
             window.customAlert('Не удалось вставить текст. Проверьте разрешения браузера.');
         }
-    };
+    });
 
-    window.activateCouponSubmit = async () => {
+    lockGlobalFunction('activateCouponSubmit', async () => {
         const input = document.getElementById('coupon-input');
         if(!input) return;
         const code = input.value.trim(); 
@@ -518,13 +505,13 @@ html, body {
                 window.customAlert("❌ " + res.message);
             }
         } catch (e) {
+            console.error(e);
         } finally {
             if(btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
         }
-    };
+    });
 
-    // FAQ
-    window.showFaq = function() {
+    lockGlobalFunction('showFaq', function() {
         const faqHtml = '<div style="text-align: left; font-size: 13px; line-height: 1.35; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 5px;">' +
             '<div>Добро пожаловать в <b>HATElavka</b>! Чтобы ты не запутался, вот краткий путеводитель:</div><br>' +
             '<div><b style="color: #fff;">💰 Валюта и прогресс</b><br>' +
@@ -551,5 +538,38 @@ html, body {
             showCancel: false,
             onConfirm: (close) => close()
         });
-    };
+    });
+
+    // ==========================================
+    // 5. ИНИЦИАЛИЗАЦИЯ И ЗАЩИТА DOM
+    // ==========================================
+    function bootstrap() {
+        if (isInitialized) return;
+        isInitialized = true;
+
+        injectDOM();
+        detectPlatforms();
+
+        waitForDependencies(() => {
+            window.checkBalance(true);
+            checkAdminAccess();
+        });
+
+        // Наблюдатель (Observer): Если другой скрипт на странице удалит шапку - возвращаем её
+        const observer = new MutationObserver(() => {
+            if (window.location.pathname.includes('/admin')) return;
+            if (!document.getElementById('universal-top-header')) {
+                console.warn('HATElavka: Обнаружено удаление шапки. Восстанавливаем...');
+                injectDOM();
+            }
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: false });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+        bootstrap();
+    }
 })();
