@@ -511,7 +511,7 @@
         #premium-buy-modal .premium-panel { transform: translateY(-5px) !important; }
         #image-modal .image-modal-wrapper { transform: translateY(-10px) !important; }
         #case-contents-modal .premium-panel { 
-            transform: translateY(-200px) !important; 
+            transform: translateY(-80px) !important; 
         }
         /* Выравнивание крестика и заголовка в окне кейсов */
 #case-contents-modal .unified-close-btn {
@@ -1075,7 +1075,7 @@
     </div>
 
     <div id="case-contents-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); closeContentsModal(); }">
-        <div class="premium-panel" style="max-height: 85vh; transform: translateY(0) !important;">
+        <div class="premium-panel" style="max-height: 85vh;">
             <button class="unified-close-btn" onclick="haptic('light'); closeContentsModal()">
                 <i class="fa-solid fa-xmark"></i>
             </button>
@@ -1628,10 +1628,10 @@ const processedQuests = weekQuests.map(cfg => {
             // Ищем прогресс юзера для этой старой недели
             const prevProgress = allUserProgress.find(q => String(q.week) === String(prevCfg.week));
             
-            // Если записи вообще нет ИЛИ она есть, но не завершена
-            if (!prevProgress || !prevProgress.is_completed) {
+            // Если записи вообще нет ИЛИ она есть, но награда еще не забрана
+            if (!prevProgress || !prevProgress.is_claimed) {
                 requiredPrevWeek = prevCfg.week;
-                break; // Нашли самую раннюю невыполненную неделю - тормозим цикл
+                break; // Нашли самую раннюю незабранную неделю - тормозим цикл
             }
         }
     }
