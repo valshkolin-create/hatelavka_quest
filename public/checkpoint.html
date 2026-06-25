@@ -743,17 +743,60 @@
         }
 
         /* --- МОДАЛКА СОДЕРЖИМОГО КЕЙСА --- */
-        .case-contents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; }
-        .content-item { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 10px; text-align: center; position: relative; overflow: hidden; }
-        .content-item img { width: 100%; height: 60px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); margin-bottom: 5px; }
-        .content-name { font-size: 10px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-        .content-quality { font-size: 9px; color: #8e8e93; }
+        .case-contents-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); /* Жестко 3 колонки */
+            gap: 8px; 
+            margin-top: 10px; 
+            padding: 0 5px; 
+        }
+        .content-item { 
+            background: transparent; /* Убрали фон */
+            border: none; /* Убрали рамки */
+            padding: 5px; 
+            text-align: center; 
+            position: relative; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+        .content-item img { 
+            width: 100%; 
+            max-width: 65px; 
+            height: 50px; /* Сделали картинки аккуратнее */
+            object-fit: contain; 
+            filter: drop-shadow(0 5px 8px rgba(0,0,0,0.6)); 
+            margin-bottom: 6px; 
+        }
+        .content-name { 
+            font-size: 9px; 
+            font-weight: 800; 
+            width: 100%; 
+            display: -webkit-box; 
+            -webkit-line-clamp: 2; /* Максимум 2 строки, чтобы не ломать сетку */
+            -webkit-box-orient: vertical; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            line-height: 1.2; 
+            margin-bottom: 2px; 
+        }
+        .content-quality { font-size: 8px; color: #8e8e93; }
         
-        .content-item.blue { border-bottom: 3px solid #4b69ff; }
-        .content-item.purple { border-bottom: 3px solid #8847ff; }
-        .content-item.pink { border-bottom: 3px solid #d32ce6; }
-        .content-item.red { border-bottom: 3px solid #eb4b4b; }
-        .content-item.gold { border-bottom: 3px solid #ffd700; }
+        /* Цвета редкости теперь применяются к названию и дают свечение картинке */
+        .content-item.blue .content-name { color: #4b69ff; }
+        .content-item.blue img { filter: drop-shadow(0 5px 15px rgba(75, 105, 255, 0.25)); }
+        
+        .content-item.purple .content-name { color: #8847ff; }
+        .content-item.purple img { filter: drop-shadow(0 5px 15px rgba(136, 71, 255, 0.25)); }
+        
+        .content-item.pink .content-name { color: #d32ce6; }
+        .content-item.pink img { filter: drop-shadow(0 5px 15px rgba(211, 44, 230, 0.25)); }
+        
+        .content-item.red .content-name { color: #eb4b4b; }
+        .content-item.red img { filter: drop-shadow(0 5px 15px rgba(235, 75, 75, 0.25)); }
+        
+        .content-item.gold .content-name { color: #ffd700; }
+        .content-item.gold img { filter: drop-shadow(0 5px 15px rgba(255, 215, 0, 0.25)); }
 
     </style>
 </head>
@@ -1132,18 +1175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // ЛОГИКА ПРОСМОТРА СОДЕРЖИМОГО КЕЙСА
     // ==========================================
-    window.toggleCaseFaq = function() {
-        const content = document.getElementById('case-faq-content');
-        const icon = document.getElementById('case-faq-icon');
-        if (content.style.display === 'none') {
-            content.style.display = 'flex';
-            icon.style.transform = 'rotate(180deg)';
-        } else {
-            content.style.display = 'none';
-            icon.style.transform = 'rotate(0deg)';
-        }
-    };
-
     window.closeContentsModal = () => document.getElementById('case-contents-modal').classList.remove('modal-active');
 
     window.openCaseContents = async function(event, caseName) {
@@ -1153,63 +1184,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('case-contents-modal'); 
         const list = document.getElementById('case-items-list'); 
         const loader = document.getElementById('contents-loader');
-        
-        let statsBlock = document.getElementById('case-stats-block');
-        if (!statsBlock) {
-            statsBlock = document.createElement('div');
-            statsBlock.id = 'case-stats-block';
-            list.parentNode.insertBefore(statsBlock, list);
-        }
 
         modal.classList.add('modal-active'); 
         loader.style.display = 'block'; 
         list.innerHTML = '';
-        statsBlock.innerHTML = '';
+
+        // Удаляем старый блок со статистикой, если он остался от прошлых открытий
+        const oldStatsBlock = document.getElementById('case-stats-block');
+        if (oldStatsBlock) oldStatsBlock.remove();
 
         try {
             const initData = window.Telegram?.WebApp?.initData || '';
             const res = await fetch(`/api/v1/shop/case_contents?case_name=${encodeURIComponent(caseName)}&initData=${encodeURIComponent(initData)}`);
             const data = await res.json();
             
+            // Сортируем от дорогих к дешевым
             data.sort((a,b) => (parseFloat(b.price_rub) || 0) - (parseFloat(a.price_rub) || 0));
 
-            let priceDisplayHtml = `<span style="font-size: 14px; font-weight: 900; color: #34c759; text-shadow: 0 0 10px rgba(52,199,89,0.4);"><i class="fa-solid fa-gift"></i> НАГРАДА</span>`;
-            let chanceDisplayHtml = `<div style="font-size: 18px; font-weight: 900; color: #8e8e93;">--</div>`;
-            
-            statsBlock.innerHTML = `
-                <div style="background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(255, 215, 0, 0.2); margin-bottom: 16px;">
-                    <div style="display: flex; justify-content: space-around; align-items: center;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Шанс на хороший скин</div>
-                            ${chanceDisplayHtml}
-                        </div>
-                        <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.1);"></div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 10px; color: #8e8e93; text-transform: uppercase; margin-bottom: 4px;">Ценность</div>
-                            <div style="font-size: 18px; font-weight: 900; color: #fff; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                                ${priceDisplayHtml}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 12px; background: rgba(0, 0, 0, 0.25); border-radius: 8px; overflow: hidden;">
-                        <div onclick="toggleCaseFaq()" style="padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
-                            <div style="font-size: 11px; font-weight: 800; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px;">
-                                <i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i> Важно знать
-                            </div>
-                            <i id="case-faq-icon" class="fa-solid fa-chevron-down" style="color: #8e8e93; font-size: 10px; transition: transform 0.2s;"></i>
-                        </div>
-                        
-                        <div id="case-faq-content" style="display: none; flex-direction: column; gap: 8px; padding: 0 10px 10px 10px; font-size: 10px; color: #ccc; line-height: 1.4;">
-                            <div style="display: flex; align-items: flex-start; gap: 6px;">
-                                <i class="fa-solid fa-circle-exclamation" style="color: #ffd700; font-size: 10px; margin-top: 2px;"></i>
-                                <span><b>Награда Battle Pass:</b> Гарант и окупаемость применяются только при покупке за монеты в магазине. Данный кейс вы получаете как награду.</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
             list.innerHTML = data.map(item => {
                 let rClass = 'blue'; 
                 const r = (item.rarity || '').toLowerCase();
@@ -1227,8 +1218,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <img src="${item.image_url}" loading="lazy">
                         <div class="content-name">${safeName}</div>
                         <div class="content-quality">${safeCondition}</div>
-                        <div style="margin-top: 6px; font-size: 13px; font-weight: 800; color: #FFD700; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            ${itemPriceRub} <i class="fa-solid fa-coins" style="color: #ffd700; font-size: 12px;"></i>
+                        <div style="margin-top: 4px; font-size: 11px; font-weight: 800; color: #FFD700; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            ${itemPriceRub} <i class="fa-solid fa-coins" style="font-size: 10px;"></i>
                         </div>
                     </div>
                 `;
@@ -1253,7 +1244,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (reward.type === 'tickets') src = 'https://i.postimg.cc/RCYsCPwk/tickets.png';
         }
 
-        const safeTitle = reward.value ? reward.value.replace(/'/g, "\\'") : '';
+        // Формируем полное название (добавляем Монеты и Билеты)
+        let fullTitle = reward.value ? reward.value.toString() : '';
+        if (reward.type === 'coins') fullTitle += ' Монет';
+        if (reward.type === 'tickets') fullTitle += ' Билетов';
+
+        const safeTitle = fullTitle.replace(/'/g, "\\'");
         const upperName = safeTitle.toUpperCase();
         const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
 
@@ -1263,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<img src="${src}" class="reward-image" alt="Reward" onclick="openImageModal('${src}', '${safeTitle}')">`;
         }
     }
-
+    
     function getRewardTitleHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         let title = reward.value ? reward.value.toString() : '';
