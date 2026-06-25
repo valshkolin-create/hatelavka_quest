@@ -15457,38 +15457,34 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         logging.error(f"Ошибка авто-синхронизации БП для {user_id}: {e}", exc_info=True)
 
 async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
-    """
-    Фоновый обработчик: ищет активное задание БП на текущей неделе по ключевому слову 
-    в названии (например, 'отгадай') и обновляет прогресс напрямую в БД.
-    """
     try:
-        # 1. Если передали только twitch_login (из отгадайки), находим TG ID
+        # 1. Если передали только twitch_login, находим TG ID
         if not tg_id and twitch_login:
             u_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_login}", "select": "telegram_id"})
             if u_res.status_code == 200 and u_res.json():
                 tg_id = u_res.json()[0]["telegram_id"]
         
-        if not tg_id: return  # Пользователь не привязал Twitch
+        if not tg_id: return 
 
-        # 2. Получаем конфиг Чекпоинта (БП)
+        # 2. Получаем конфиг БП
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
         if cp_res.status_code != 200 or not cp_res.json(): return
         
         config = cp_res.json()[0].get("content", {})
         if not config.get("is_active") or not config.get("start_date"): return
         
-        # 3. Вычисляем текущую неделю БП
+        # 3. Вычисляем текущую неделю
         start_date = datetime.fromisoformat(config["start_date"].replace('Z', '+00:00'))
         now = datetime.now(timezone.utc)
         if now < start_date: return
         
         current_week = ((now - start_date).days // 7) + 1
         
-        # Ищем квесты, которые активны именно на этой неделе
-        week_quests = [q for q in config.get("quests_config", []) if q.get("week") == current_week]
-        if not week_quests: return
+        # 🔥 Ищем ВСЕ активные квесты вплоть до текущей недели
+        active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
+        if not active_quests: return
         
-        quest_ids = [str(q["quest_id"]) for q in week_quests]
+        quest_ids = [str(q["quest_id"]) for q in active_quests]
         
         # 4. Проверяем названия заданий в БД, чтобы найти нужное
         quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,title"})
@@ -15500,37 +15496,48 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
                 target_quest_id = q_db["id"]
                 break
                 
-        if not target_quest_id: return  # На этой неделе такого задания нет
+        if not target_quest_id: return
         
-        # 5. Достаем N (сколько нужно сделать) из конфига
-        target_amount = next((q.get("target_amount", 1) for q in week_quests if q["quest_id"] == target_quest_id), 1)
+        # 🔥 Достаем все конфиги для ЭТОГО задания за ВСЕ доступные недели, сортируем по порядку
+        target_configs = sorted([q for q in active_quests if q["quest_id"] == target_quest_id], key=lambda x: x.get("week", 1))
         
-        # 🔥 6. ОБНОВЛЯЕМ ПРОГРЕСС ПРЯМО В ПИТОНЕ (УБИЛИ RPC)
+        # 5. Ищем ВЕСЬ прогресс юзера по этому заданию
         prog_res = await supabase.get("/user_bp_quests", params={
             "user_id": f"eq.{tg_id}",
-            "quest_id": f"eq.{target_quest_id}",
-            "week": f"eq.{current_week}"
+            "quest_id": f"eq.{target_quest_id}"
         })
+        user_progress = {q["week"]: q for q in prog_res.json()} if prog_res.status_code == 200 else {}
         
-        if prog_res.status_code == 200 and prog_res.json():
-            # Запись уже существует (юзер уже угадывал слова)
-            q_data = prog_res.json()[0]
-            if q_data["is_completed"]: return # Квест уже сделан 3/3, не трогаем
-            
-            new_amount = q_data["current_amount"] + 1
+        week_to_update = None
+        target_amount = 1
+        current_db_record = None
+        
+        # 🔥 6. Ищем ПЕРВУЮ незавершенную неделю!
+        for cfg in target_configs:
+            w = cfg.get("week", 1)
+            prog = user_progress.get(w)
+            if not prog or not prog.get("is_completed"):
+                week_to_update = w
+                target_amount = cfg.get("target_amount", 1)
+                current_db_record = prog
+                break
+                
+        if not week_to_update: return # Все доступные недели уже выполнены на 100%
+        
+        # 7. Обновляем найденную неделю (либо вставляем новую запись)
+        if current_db_record:
+            new_amount = current_db_record["current_amount"] + 1
             is_completed = new_amount >= target_amount
-            
-            await supabase.patch("/user_bp_quests", params={"id": f"eq.{q_data['id']}"}, json={
+            await supabase.patch("/user_bp_quests", params={"id": f"eq.{current_db_record['id']}"}, json={
                 "current_amount": new_amount,
                 "is_completed": is_completed
             })
         else:
-            # Это самое первое угаданное слово на этой неделе!
             is_completed = 1 >= target_amount
             await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id,
                 "quest_id": target_quest_id,
-                "week": current_week,
+                "week": week_to_update,
                 "current_amount": 1,
                 "target_amount": target_amount,
                 "is_completed": is_completed,
@@ -15692,13 +15699,6 @@ async def claim_bp_quest(
             is_completed = quest_data.get("is_completed")
             is_claimed = quest_data.get("is_claimed")
             
-            # Защита: если квест многоразовый, а выполнение старое — сбрасываем статус
-            updated_at_str = quest_data.get("updated_at") or quest_data.get("created_at")
-            if updated_at_str and is_repeatable:
-                updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
-                if updated_at < week_start_date:
-                    is_completed = False
-                    is_claimed = False
         else:
             # 🚀 Ищем в старой классической системе квестов с УМНЫМ ФИЛЬТРОМ
             subs_query = {
