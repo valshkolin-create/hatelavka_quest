@@ -638,10 +638,11 @@
 }
 
 /* --- ПРОЗРАЧНЫЕ МОДАЛКИ (Инструкция и Кейс) --- */
-/* --- ПРОЗРАЧНЫЕ МОДАЛКИ (Инструкция, Кейс, Premium) --- */
+/* --- ПРОЗРАЧНЫЕ МОДАЛКИ (Инструкция, Кейс, Premium, Уведомления) --- */
 #instruction-modal .premium-panel,
 #case-contents-modal .premium-panel,
-#premium-buy-modal .premium-panel {
+#premium-buy-modal .premium-panel,
+#custom-alert-modal .premium-panel {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -956,11 +957,18 @@
         </div>
     </div>
 
-   <div id="custom-alert-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+  <div id="custom-alert-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-panel" style="max-width: 300px; padding: 25px 20px; text-align: center; transform: translateY(-20px);">
+            <!-- Контейнер для иконки (ошибка или успех без картинки) -->
             <div id="custom-alert-icon" style="font-size: 45px; margin-bottom: 12px;"></div>
+            
+            <!-- Контейнер для парящей картинки с наградой -->
+            <div id="custom-alert-img-container" style="display: none; position: relative; margin: 0 auto 15px; width: 120px; height: 120px; align-items: center; justify-content: center;"></div>
+            
             <h3 id="custom-alert-title" style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: #fff; text-transform: uppercase;"></h3>
-            <p id="custom-alert-text" style="font-size: 12px; color: var(--text-muted); margin: 0 0 20px 0; line-height: 1.4;"></p>
+            <p id="custom-alert-text" style="font-size: 14px; color: var(--primary); font-weight: 800; margin: 0 0 6px 0; line-height: 1.2; text-shadow: 0 2px 5px rgba(0,0,0,0.5);"></p>
+            <p id="custom-alert-subtext" style="font-size: 10px; color: #ccc; margin: 0 0 20px 0; line-height: 1.4; display: none;"></p>
+            
             <button class="btn-claim ready" onclick="haptic('light'); document.getElementById('custom-alert-modal').classList.remove('modal-active');" style="margin: 0; padding: 12px;">Отлично!</button>
         </div>
     </div>
@@ -1101,20 +1109,43 @@ window.haptic = function(style = 'light') {
     }
 };
 
-// 👇 НОВОЕ: Функция вызова кастомного алерта
-window.showCustomAlert = function(title, text, type = 'success') {
+window.showCustomAlert = function(title, text, type = 'success', imageUrl = null, subText = null) {
     haptic('medium');
     const modal = document.getElementById('custom-alert-modal');
     const iconEl = document.getElementById('custom-alert-icon');
+    const imgEl = document.getElementById('custom-alert-img-container');
+    const subTextEl = document.getElementById('custom-alert-subtext');
     
-    if (type === 'success') {
-        iconEl.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--success); text-shadow: 0 0 20px rgba(50, 215, 75, 0.4);"></i>';
+    // Если передана картинка — показываем её с красивым неоновым свечением
+    if (imageUrl) {
+        iconEl.style.display = 'none';
+        imgEl.style.display = 'flex';
+        imgEl.innerHTML = `
+            <div style="position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, rgba(50,215,75,0.2) 0%, transparent 70%); animation: exchangeGlow 2s infinite alternate; border-radius: 50%; z-index: 0;"></div>
+            <img src="${imageUrl}" style="width: 100px; height: 100px; object-fit: contain; position: relative; z-index: 1; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8)); transform: scale(1.15);">
+        `;
     } else {
-        iconEl.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: var(--danger); text-shadow: 0 0 20px rgba(255, 69, 58, 0.4);"></i>';
+        // Иначе показываем просто иконку (например, для заданий или ошибок)
+        imgEl.style.display = 'none';
+        iconEl.style.display = 'block';
+        if (type === 'success') {
+            iconEl.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--success); text-shadow: 0 0 20px rgba(50, 215, 75, 0.4);"></i>';
+        } else {
+            iconEl.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: var(--danger); text-shadow: 0 0 20px rgba(255, 69, 58, 0.4);"></i>';
+        }
     }
     
     document.getElementById('custom-alert-title').innerText = title;
     document.getElementById('custom-alert-text').innerText = text;
+
+    // Включаем умную подпись, если она передана
+    if (subText) {
+        subTextEl.style.display = 'block';
+        subTextEl.innerText = subText;
+    } else {
+        subTextEl.style.display = 'none';
+    }
+
     modal.classList.add('modal-active');
 };
 
@@ -1846,11 +1877,32 @@ const processedQuests = weekQuests.map(cfg => {
                 tg.HapticFeedback.notificationOccurred('success');
                 if (actionToSend === 'exchange') {
                     if (eventPos) playStarAnimation(eventPos.x, eventPos.y);
-                    
-                    // 👇 Просто комментируем или удаляем этот алерт, чтобы он не мешал анимации
-                    // tg.showAlert(`Вы распылили предмет и получили +${exchangeAmount} Звезд!`);
                 } else {
-                    tg.showAlert('Награда успешно получена!');
+                    // Вычисляем правильную картинку
+                    let imgUrl = reward.image_url;
+                    if (!imgUrl || !imgUrl.startsWith('http')) {
+                        if (reward.type === 'coins') imgUrl = 'https://i.postimg.cc/pdV45myM/money.png';
+                        else if (reward.type === 'tickets') imgUrl = 'https://i.postimg.cc/RCYsCPwk/tickets.png';
+                        else imgUrl = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
+                    }
+
+                    // Формируем название с учетом количества (Монет/Билетов)
+                    const safeValue = reward.value ? reward.value.toString() : 'Награда';
+                    const upperName = safeValue.toUpperCase();
+                    let rewardName = safeValue;
+                    if (reward.type === 'coins') rewardName += ' Монет';
+                    if (reward.type === 'tickets') rewardName += ' Билетов';
+
+                    // Подбираем умный текст-подсказку
+                    let subText = "Скин находится в инвентаре!";
+                    if (reward.type === 'coins' || reward.type === 'tickets') {
+                        subText = "Ожидайте зачисление в течение 3 минут.";
+                    } else if (upperName.includes("КЕЙС") || upperName.includes("CASE")) {
+                        subText = "Открытие происходит во вкладке «Кейсы».";
+                    }
+
+                    // Вызываем наше парящее красивое окно!
+                    showCustomAlert('Успешно!', rewardName, 'success', imgUrl, subText);
                 }
             } else {
                 tg.HapticFeedback.notificationOccurred('error');
