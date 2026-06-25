@@ -910,15 +910,6 @@
     animation: richCrownPulse 2.5s infinite ease-in-out !important;
 }
 
-/* --- АНИМАЦИЯ ИКОНКИ СТРЕЛКИ ВНИЗ --- */
-@keyframes bounceDown {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(3px); }
-}
-#scroll-to-current-btn i {
-    animation: bounceDown 1.5s infinite;
-}
-
     </style>
 </head>
 <body>
@@ -1127,7 +1118,7 @@
         <i class="fa-solid fa-arrow-up"></i>
     </button>
 
-    <button id="scroll-to-current-btn" class="scroll-to-top-btn" style="bottom: 130px;" onclick="scrollToCurrentTarget()">
+    <button id="scroll-to-current-btn" class="scroll-to-top-btn" onclick="scrollToCurrentTarget()">
         <i class="fa-solid fa-arrow-down"></i>
     </button>
 
@@ -1313,32 +1304,35 @@ function checkScroll(e) {
     const scrollUpBtn = document.getElementById('scroll-to-top');
     const scrollDownBtn = document.getElementById('scroll-to-current-btn');
     
-    // Берем позицию скролла
     const scrollTop = e.target.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
     
-    // 1. Логика кнопки НАВЕРХ
-    if (scrollUpBtn) {
-        if (scrollTop > 300) {
-            scrollUpBtn.classList.add('visible');
-        } else {
-            scrollUpBtn.classList.remove('visible');
-        }
-    }
-
-    // 2. Логика кнопки ВНИЗ (к текущей награде)
+    let showDown = false;
+    
+    // 1. Проверяем, нужна ли стрелка ВНИЗ
     if (scrollDownBtn) {
         const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
         if (unlockedRows.length > 0) {
             const lastUnlocked = unlockedRows[unlockedRows.length - 1];
             const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
-            
             const targetRect = targetRow.getBoundingClientRect();
             
-            // Если нужная строка ушла сильно вниз за пределы экрана
             if (targetRect.top > window.innerHeight + 100) {
-                scrollDownBtn.classList.add('visible');
+                showDown = true;
+            }
+        }
+    }
+
+    // 2. Умное переключение кнопок (чтобы не было наложения)
+    if (showDown) {
+        scrollDownBtn.classList.add('visible');
+        if (scrollUpBtn) scrollUpBtn.classList.remove('visible'); // Прячем "вверх", показываем "вниз"
+    } else {
+        if (scrollDownBtn) scrollDownBtn.classList.remove('visible');
+        if (scrollUpBtn) {
+            if (scrollTop > 300) {
+                scrollUpBtn.classList.add('visible'); // Показываем "вверх"
             } else {
-                scrollDownBtn.classList.remove('visible');
+                scrollUpBtn.classList.remove('visible'); // Прячем обе
             }
         }
     }
