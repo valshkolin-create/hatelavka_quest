@@ -224,10 +224,19 @@ td.count { text-align: right; font-family: 'SF Mono', monospace; font-weight: 70
 
 .close-preview {
     position: absolute;
-    top: 30px; right: 25px;
-    font-size: 35px; color: #8e8e93; cursor: pointer;
+    /* Берем системный отступ (для челок/динамик-айлендов) и добавляем 30px сверху */
+    top: calc(30px + env(safe-area-inset-top, 20px)); 
+    right: 25px;
+    font-size: 35px; 
+    color: #8e8e93; 
+    cursor: pointer;
+    z-index: 200001; /* Накинем индекс, чтоб наверняка поверх превьюхи */
+    /* Делаем область клика чуть больше, чтобы пальцем было легче попасть */
+    padding: 10px; 
+    margin-top: -10px;
+    margin-right: -10px;
 }
-
+  
 /* Стили для формы админки */
 .admin-row { display: flex; gap: 10px; margin-bottom: 10px; }
 .admin-select, .admin-input { background: #2c2c2e; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 8px; font-size: 12px; outline: none; }
