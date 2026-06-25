@@ -18198,39 +18198,32 @@ async def fetch_and_cache_goods_background(category_id: int):
                 # ==========================================
                 # 2. ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ)
                 # ==========================================
-                # 🔥 ИСПРАВЛЕНИЕ: Используем category_id вместо id 🔥
+                # 🔥 ИСПРАВЛЕНО: передаем category_id вместо id 🔥
                 payload = {"bot_id": int(BOTT_BOT_ID), "category_id": int(category_id)}
                 
                 url_products = "https://api.bot-t.com/v1/shop/category/view-products"
                 url_view = "https://api.bot-t.com/v1/shop/category/view"
                 
-                # 🔥 МАГИЯ СКОРОСТИ: Запрашиваем товары и данные категории ОДНОВРЕМЕННО 🔥
+                # Запрашиваем товары и данные категории
                 resp_prod, resp_view = await asyncio.gather(
                     client.post(url_products, params=params, json=payload, headers=headers),
                     client.post(url_view, params=params, json=payload, headers=headers),
                     return_exceptions=True
                 )
                 
-                # 1. Разбираем ТОВАРЫ из view-products
+                # 1. Разбираем ТОВАРЫ
                 if isinstance(resp_prod, httpx.Response) and resp_prod.status_code == 200:
                     prod_data = resp_prod.json().get("data", [])
                     if isinstance(prod_data, list):
                         items_list.extend(prod_data)
                 
-                # 2. Разбираем ПОДПАПКИ и ТОВАРЫ из view (резервный канал)
+                # 2. Разбираем ПОДПАПКИ
                 if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
                     view_data = resp_view.json().get("data", {})
-                    # 🔥 ЛОГ ДЛЯ ОТЛАДКИ 🔥
-                    logging.info(f"[DEBUG] Category {category_id} view_data: {view_data}")
-                    
                     if isinstance(view_data, dict):
                         # Добавляем подкатегории
                         sub_cats = view_data.get("children", []) or view_data.get("categories", [])
                         items_list.extend(sub_cats)
-                        
-                        # Если API view-products вернул пустоту, а тут лежит товар типа 2 - берем его!
-                        if view_data.get("type") == 2:
-                            items_list.append(view_data)
 
         # ==========================================
         # 🛡️ СПАСАЕМ ФЛАГИ СЕКРЕТНОСТИ ПЕРЕД ПЕРЕЗАПИСЬЮ
