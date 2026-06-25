@@ -9402,12 +9402,12 @@ async def get_current_user_data(
                 "select": "quest_id, week, current_amount, target_amount, is_completed, is_claimed, updated_at, created_at"
             }),
 
-            # H. Старые выполненные квесты (TikTok, Telegram и т.д.)
+            # H. 👇 РУЧНЫЕ ОДОБРЕННЫЕ ЗАДАНИЯ (ИЩЕМ ЗДЕСЬ) 👇
             supabase.get("/quest_submissions", params={
                 "user_id": f"eq.{telegram_id}",
                 "status": "eq.approved",
                 "select": "quest_id, created_at"
-            }), # <--- ТУТ БЫЛА ЛИШНЯЯ ЗАПЯТАЯ
+            }),
             
             # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
@@ -9483,16 +9483,16 @@ async def get_current_user_data(
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
 
-        # --- [G & H] СЛИЯНИЕ ПРОГРЕССА КВЕСТОВ (Баттл-пасс + Старая система) ---
+        # --- [G & H] 👇 СЛИЯНИЕ ПРОГРЕССА КВЕСТОВ (Баттл-пасс + Одобренные ручные) 👇 ---
         bp_quests_data = bp_quests_resp.json() if not isinstance(bp_quests_resp, Exception) and bp_quests_resp.status_code == 200 else []
         old_quests_data = old_quests_resp.json() if not isinstance(old_quests_resp, Exception) and old_quests_resp.status_code == 200 else []
         
-        # Собираем ID квестов, которые уже начаты в БП (ОБЯЗАТЕЛЬНО СТРОКОЙ)
+        # Собираем список ID квестов, которые уже есть в user_bp_quests, чтобы не дублировать
         existing_bp_ids = {str(q["quest_id"]) for q in bp_quests_data}
         
-        # Если юзер выполнял квесты в старой системе, добавляем их как выполненные
+        # Подмешиваем ручные одобренные задания
         for old_q in old_quests_data:
-            old_id = str(old_q["quest_id"]) # ТОЖЕ СТРОКОЙ
+            old_id = str(old_q["quest_id"])
             if old_id not in existing_bp_ids:
                 bp_quests_data.append({
                     "quest_id": old_q["quest_id"], 
@@ -9500,7 +9500,7 @@ async def get_current_user_data(
                     "target_amount": 1,
                     "is_completed": True,
                     "is_claimed": False, 
-                    "week": None, # <--- Явный null для фронтенда
+                    "week": None, # Для разовых заданий неделя не важна
                     "created_at": old_q.get("created_at"),
                     "updated_at": old_q.get("created_at") 
                 })
