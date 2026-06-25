@@ -151,9 +151,12 @@
         <div class="section-box">
             <div class="profile-card">
                 <img id="userAvatar" src="" alt="Avatar" class="profile-avatar" onerror="this.onerror=null; this.src=defaultAvatar;">
-                <div class="profile-info">
+               <div class="profile-info">
                     <div id="userName" class="profile-name">Загрузка...</div>
                     <div style="font-size: 12px; color: var(--text-sec); margin-top: 4px; font-weight: 600;">ID: <span id="userId" style="color: #fff;"></span></div>
+                    <div id="withdrawnBlock" style="font-size: 11px; color: var(--accent); margin-top: 4px; font-weight: 700; display: none;">
+                        <i class="fa-solid fa-hand-holding-dollar"></i> Выведено на: <span id="statWithdrawn">0</span> ₽
+                    </div>
                     <div id="userBadges" class="badges-wrapper"></div>
                 </div>
             </div>
@@ -630,6 +633,28 @@
                 document.getElementById('penaltyPoints').value = currentUser.penalty_points || 0;
                 document.getElementById('isBanned').value = currentUser.is_banned ? "true" : "false";
                 document.getElementById('hasPremium').value = currentUser.has_cp_premium ? "true" : "false";
+
+                // --- ФОНОВЫЙ ПОДСЧЕТ СУММЫ ВЫВОДОВ ---
+                document.getElementById('withdrawnBlock').style.display = 'none';
+                document.getElementById('statWithdrawn').textContent = '...';
+                fetchApi(`/api/v1/admin/users/${id}/inventory`, null, 'GET')
+                    .then(items => {
+                        if (items && items.length > 0) {
+                            const total = items.reduce((sum, item) => {
+                                if (item.status === 'received') {
+                                    const price = item.is_swapped ? parseFloat(item.replaced_price) : parseFloat(item.item_price);
+                                    return sum + (isNaN(price) ? 0 : price);
+                                }
+                                return sum;
+                            }, 0);
+                            
+                            if (total > 0) {
+                                document.getElementById('statWithdrawn').textContent = total.toFixed(2);
+                                document.getElementById('withdrawnBlock').style.display = 'block';
+                            }
+                        }
+                    }).catch(e => console.error("Ошибка подсчета выводов:", e));
+                // --------------------------------------
 
                 document.getElementById('mainLoader').classList.add('hidden');
                 document.getElementById('profileContainer').classList.remove('hidden');
