@@ -1042,6 +1042,31 @@
         </div>
     </div>
 
+    <div id="premium-success-modal" class="modal-overlay" onclick="if(event.target===this) { closeAllModals(); }">
+        <div class="premium-panel" style="background: transparent !important; border: none !important; box-shadow: none !important; text-align: center; max-width: 320px; padding: 20px;">
+            
+            <div style="position: relative; width: 140px; height: 140px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                <div style="position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%); animation: forgeGlow 2s infinite alternate; border-radius: 50%;"></div>
+                <i class="fa-solid fa-crown" style="font-size: 70px; color: var(--primary); filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); position: relative; z-index: 1;"></i>
+            </div>
+            
+            <h2 style="margin: 0 0 15px; font-size: 24px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 4px 10px rgba(0,0,0,0.8);">Premium Активен</h2>
+            
+            <div style="background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 15px; margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;">
+                    <span style="color: var(--text-muted); font-size: 13px; font-weight: 600;">Уже можно забрать:</span>
+                    <span style="color: var(--success); font-size: 15px; font-weight: 800;" id="prem-ready-count">0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted); font-size: 13px; font-weight: 600;">Ещё заблокировано:</span>
+                    <span style="color: var(--danger); font-size: 15px; font-weight: 800;" id="prem-locked-count">0</span>
+                </div>
+            </div>
+            
+            <button class="btn-claim ready" onclick="closeAllModals()" style="padding: 16px; font-size: 13px; border-radius: 14px;">К НАГРАДАМ</button>
+        </div>
+    </div>
+
     <!-- ОКНО РЕДАКТОРА ПРАВИЛ (АДМИН) -->
     <div id="rules-editor-modal" class="modal-overlay" style="z-index: 10000;" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-panel" style="max-height: 85vh; transform: translateY(0) !important;">
@@ -1138,11 +1163,18 @@
     </div>
 
 <script>
+
+    window.closeAllModals = function() {
+    haptic('light');
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('modal-active'));
+};
+    
 window.haptic = function(style = 'light') {
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.impactOccurred(style);
     }
 };
+    
 
 window.showCustomAlert = function(title, text, type = 'success', imageUrl = null, subText = null) {
     haptic('medium');
@@ -2036,7 +2068,7 @@ window.claimQuestReward = async function(questId, week) {
         });
     }
 
-    // КЛИК: ОПЛАТА МОНЕТАМИ
+   // КЛИК: ОПЛАТА МОНЕТАМИ
     if (coinsBtn) {
         coinsBtn.addEventListener('click', async () => {
             haptic('medium');
@@ -2045,14 +2077,13 @@ window.claimQuestReward = async function(questId, week) {
             
             const originalHtml = coinsBtn.innerHTML;
             const modalBody = dom.premiumBuyModal.querySelector('.premium-modal-body');
-            const originalBodyHtml = modalBody.innerHTML; // Запоминаем исходный вид
+            const originalBodyHtml = modalBody.innerHTML; 
 
             coinsBtn.disabled = true;
             coinsBtn.classList.add('processing');
             coinsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Авторизация...';
             
             try {
-                // Молча стучимся на сервер
                 const res = await fetch('/api/v1/checkpoint/buy_premium', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2062,15 +2093,14 @@ window.claimQuestReward = async function(questId, week) {
                 const data = await res.json();
                 
                 if (res.ok) {
-                    // Сервер дал добро, деньги списаны. Начинаем шоу.
                     haptic('light');
                     
-                    // Прячем всё лишнее и выводим наши шаги
+                    // Обновленные этапы без "Золотого пропуска"
                     modalBody.innerHTML = `
                         <div style="padding: 20px 0; display: flex; flex-direction: column; gap: 12px;" id="premium-activation-steps">
                             <div class="premium-step" id="step-1"><i class="fa-solid fa-shield-halved"></i> Проверка аккаунта</div>
                             <div class="premium-step" id="step-2"><i class="fa-solid fa-coins"></i> Перевод средств</div>
-                            <div class="premium-step" id="step-3"><i class="fa-solid fa-fire"></i> Выпуск Золотого Пропуска</div>
+                            <div class="premium-step" id="step-3"><i class="fa-solid fa-bolt"></i> Активация статуса</div>
                         </div>
                     `;
                     
@@ -2079,7 +2109,6 @@ window.claimQuestReward = async function(questId, week) {
                     const step2 = document.getElementById('step-2');
                     const step3 = document.getElementById('step-3');
 
-                    // Наш философский таймер для задержек
                     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
                     // Шаг 1
@@ -2100,52 +2129,73 @@ window.claimQuestReward = async function(questId, week) {
                     step2.innerHTML = '<i class="fa-solid fa-check"></i> Баланс подтвержден';
                     haptic('light');
 
-                    // Шаг 3 - Ковка пропуска (самый долгий и сочный)
+                    // Шаг 3 
                     step3.classList.add('active');
-                    step3.innerHTML = '<i class="fa-solid fa-hammer fa-bounce" style="color: var(--primary);"></i> Активация статуса...';
-                    panel.classList.add('forge-active'); // Включаем пульсацию модалки
+                    step3.innerHTML = '<i class="fa-solid fa-hammer fa-bounce" style="color: var(--primary);"></i> Настройка наград...';
+                    panel.classList.add('forge-active'); 
                     haptic('heavy');
                     
-                    await sleep(1400); // Держим интригу
+                    await sleep(1200); 
                     
-                    panel.classList.remove('forge-active');
-                    step3.classList.remove('active');
-                    step3.classList.add('done');
-                    step3.innerHTML = '<i class="fa-solid fa-crown" style="color: var(--primary);"></i> PREMIUM АКТИВЕН';
+                    // ФИКС ОШИБКИ ВИБРАЦИИ:
+                    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
                     
-                    // Финальный аккорд: взрыв звезд из центра панели
-                    haptic('success');
-                    const rect = panel.getBoundingClientRect();
-                    const centerX = rect.left + rect.width / 2;
-                    const centerY = rect.top + rect.height / 2;
+                    // Считаем статусы наград
+                    const userStars = parseFloat(userData.checkpoint_stars) || 0;
+                    const claimedPremium = userData.cp_claimed_premium || [];
+                    let readyCount = 0;
+                    let lockedCount = 0;
                     
-                    // Твоя же функция, которая красиво отправит звезды наверх
-                    playStarAnimation(centerX, centerY);
+                    if (bpData && bpData.tiers) {
+                        bpData.tiers.forEach(tier => {
+                            if (tier.premium_reward.type === 'none') return;
+                            const isUnlocked = userStars >= (parseFloat(tier.required_stars) || 0);
+                            const isClaimed = claimedPremium.some(l => String(l) === String(tier.level));
+                            
+                            if (isUnlocked && !isClaimed) readyCount++;
+                            else if (!isUnlocked) lockedCount++;
+                        });
+                    }
                     
-                    // Даем человеку секунду насладиться результатом
-                    await sleep(1000);
-                    
-                    // Скрываем модалку и обновляем всё
-                    dom.premiumBuyModal.classList.remove('modal-active');
-                    
-                    // Возвращаем исходный HTML на случай, если окно откроется снова (хотя оно будет заблокировано)
-                    setTimeout(() => { modalBody.innerHTML = originalBodyHtml; }, 400);
+                    document.getElementById('prem-ready-count').innerText = readyCount;
+                    document.getElementById('prem-locked-count').innerText = lockedCount;
 
+                    // Закрываем окно покупки, возвращаем в него старый HTML
+                    dom.premiumBuyModal.classList.remove('modal-active');
+                    setTimeout(() => { 
+                        panel.classList.remove('forge-active');
+                        modalBody.innerHTML = originalBodyHtml; 
+                    }, 400);
+
+                    // Обновляем фронт
                     userData.has_cp_premium = true;
                     renderBP();
-                    
                     if (typeof checkBalance === 'function') checkBalance(true);
                     
+                    // Показываем финальную красоту с короной
+                    const successModal = document.getElementById('premium-success-modal');
+                    successModal.classList.add('modal-active');
+                    
+                    // Выстреливаем звезды прямо в центре экрана
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+                    playStarAnimation(centerX, centerY);
+
                 } else {
-                    // Если беда с балансом — возвращаем всё на круги своя
-                    tg.HapticFeedback.notificationOccurred('error');
+                    if (window.Telegram && window.Telegram.WebApp) {
+                        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                    }
                     tg.showAlert(data.detail || 'Транзакция отклонена сервером.');
                     coinsBtn.disabled = false;
                     coinsBtn.classList.remove('processing');
                     coinsBtn.innerHTML = originalHtml;
                 }
             } catch (e) {
-                tg.HapticFeedback.notificationOccurred('error');
+                if (window.Telegram && window.Telegram.WebApp) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                }
                 tg.showAlert('Связь прервалась. Попробуйте еще раз.');
                 coinsBtn.disabled = false;
                 coinsBtn.classList.remove('processing');
@@ -2153,6 +2203,7 @@ window.claimQuestReward = async function(questId, week) {
             }
         });
     }
+    
     function setupSwipe() {
         let startX = 0;
         let startY = 0;
