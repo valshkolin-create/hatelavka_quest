@@ -18741,6 +18741,7 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
 @app.post("/api/v1/shop/smart_balance")
 async def get_shop_smart_balance(
     request_data: InitDataRequest,
+    force: bool = False,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
@@ -18777,7 +18778,9 @@ async def get_shop_smart_balance(
     # 2. Проверяем кэш (5 сек)
     last_sync = user_data.get("last_balance_sync")
     should_sync = True
-    if last_sync:
+    
+    # Если пришел force=True, плюем на время и идем запрашивать свежие данные
+    if last_sync and not force:
         try:
             last_dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
             if (datetime.now(timezone.utc) - last_dt).total_seconds() < 5:
