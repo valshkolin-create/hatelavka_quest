@@ -451,10 +451,16 @@
         .unified-close-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
 
         .premium-modal-header-img {
-            height: 140px;
-            background: linear-gradient(180deg, rgba(255,215,0,0.15) 0%, #1c1c1e 100%), url('https://placehold.co/340x140/2a2a2c/ffd700?text=Premium+Banner') center/cover;
-            display: flex; align-items: center; justify-content: center;
-        }
+    height: 180px; /* Чуть увеличили, чтобы было место для красивого градиента */
+    background: url('ТВОЯ_ССЫЛКА_НА_БАННЕР') center/cover;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    /* 👇 Фишка для плавного растворения картинки снизу 👇 */
+    -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+    margin-bottom: -20px; /* Сдвигаем текст чуть ближе к растворенному краю */
+}
         .inst-modal-header {
             padding: 25px 20px 15px;
             text-align: center;
@@ -597,8 +603,10 @@
 }
 
 /* --- ПРОЗРАЧНЫЕ МОДАЛКИ (Инструкция и Кейс) --- */
+/* --- ПРОЗРАЧНЫЕ МОДАЛКИ (Инструкция, Кейс, Premium) --- */
 #instruction-modal .premium-panel,
-#case-contents-modal .premium-panel {
+#case-contents-modal .premium-panel,
+#premium-buy-modal .premium-panel {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
