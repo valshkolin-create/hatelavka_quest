@@ -511,7 +511,7 @@
         #premium-buy-modal .premium-panel { transform: translateY(-5px) !important; }
         #image-modal .image-modal-wrapper { transform: translateY(-10px) !important; }
         #case-contents-modal .premium-panel { 
-            transform: translateY(-80px) !important; 
+            transform: translateY(-50px) !important; 
         }
         /* Выравнивание крестика и заголовка в окне кейсов */
 #case-contents-modal .unified-close-btn {
@@ -1075,7 +1075,7 @@
     </div>
 
     <div id="case-contents-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); closeContentsModal(); }">
-        <div class="premium-panel" style="max-height: 85vh;">
+        <div class="premium-panel" style="max-height: 95vh;">
             <button class="unified-close-btn" onclick="haptic('light'); closeContentsModal()">
                 <i class="fa-solid fa-xmark"></i>
             </button>
@@ -1084,7 +1084,7 @@
                 <h3>Содержимое кейса</h3>
             </div>
 
-            <div class="premium-modal-body" style="padding: 15px; max-height: 60vh; overflow-y: auto;">
+            <div class="premium-modal-body" style="padding: 15px; max-height: 80vh; overflow-y: auto;">
                 <div id="contents-loader" style="display: none; text-align: center; color: var(--text-muted); margin: 20px 0;">
                     <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: var(--primary);"></i>
                     <div style="margin-top: 10px; font-size: 12px;">Загрузка дропа...</div>
