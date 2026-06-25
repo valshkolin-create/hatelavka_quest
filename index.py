@@ -26740,7 +26740,7 @@ async def admin_global_reskin(
                 return {"status": "ok", "message": "В выбранных кейсах нет предметов для обновления"}
 
         # Получаем предметы из cs_items
-        res = await supabase.get("/cs_items", params={"select": "id, price_rub"})
+        res = await supabase.get("/cs_items", params={"select": "id, price_rub, price, chance_weight, quantity, boost_percent, case_tag"})
         if res.status_code >= 400:
             raise Exception(f"Ошибка получения cs_items: {res.text}")
         
@@ -26844,22 +26844,68 @@ async def admin_global_reskin(
                 cond_map = {"Factory New": "FN", "Minimal Wear": "MW", "Field-Tested": "FT", "Well-Worn": "WW", "Battle-Scarred": "BS"}
                 condition = cond_map.get(raw_cond, raw_cond)
 
-            # Собираем данные для обновления ТОЛЬКО внешки скина
-            update_payload = {
+            # -----------------------------------------------------
+            # 🔥 ИММУТАБЕЛЬНАЯ ЗАМЕНА (Создаем новый, отвязываем старый)
+            # -----------------------------------------------------
+            
+            # 1. Формируем НОВЫЙ скин со старыми ценами и новыми визуалами
+            insert_payload = {
                 "name": clean_name,
                 "market_hash_name": raw_name,
                 "image_url": chosen["image_url"],
                 "rarity": chosen.get("rarity", "blue"),
-                "condition": condition
-                # ВАЖНО: price, price_rub и chance_weight здесь нет! Они остаются оригинальными.
+                "condition": condition,
+                "price": item.get("price", 0),                 # Старая цена в билетах
+                "price_rub": item.get("price_rub", 0),         # Старая цена в рублях
+                "chance_weight": item.get("chance_weight", 10),
+                "quantity": item.get("quantity", 1),
+                "is_active": True,
+                "boost_percent": item.get("boost_percent", 0),
+                "case_tag": item.get("case_tag", "")
             }
             
-            # Отправляем PATCH запрос для обновления конкретного скина
-            patch_res = await supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json=update_payload)
-            if patch_res.status_code < 400:
-                updated_count += 1
+            # Сохраняем НОВЫЙ скин в БД (Обязательно Prefer: return=representation, чтобы получить ID)
+            insert_res = await supabase.post(
+                "/cs_items", 
+                json=insert_payload,
+                headers={"Prefer": "return=representation"}
+            )
             
-        logging.info(f"Админ {user_info.get('id')} запустил массовый рескин для {len(req.target_cases)} кейсов. Успешно заменено: {updated_count}")
+            if insert_res.status_code >= 400:
+                logging.error(f"Ошибка вставки нового скина: {insert_res.text}")
+                continue
+                
+            new_item_data = insert_res.json()
+            new_item_id = new_item_data[0]['id']
+
+            # 2. Перекидываем линки (шансы) в таблице cs_case_contents
+            link_query = {"item_id": f"eq.{item['id']}"}
+            if req.target_cases:
+                case_tags_str = ",".join(req.target_cases)
+                link_query["case_tag"] = f"in.({case_tags_str})"
+                
+            old_links_res = await supabase.get("/cs_case_contents", params=link_query)
+            old_links = old_links_res.json() if old_links_res.status_code == 200 else []
+
+            for link in old_links:
+                # А) Привязываем НОВЫЙ скин к кейсу с тем же шансом
+                await supabase.post("/cs_case_contents", json={
+                    "case_tag": link["case_tag"],
+                    "item_id": new_item_id,
+                    "chance_weight": link["chance_weight"]
+                })
+                
+                # Б) Отвязываем СТАРЫЙ скин из этого кейса
+                await supabase.delete("/cs_case_contents", params={
+                    "id": f"eq.{link['id']}"
+                })
+
+            # 3. Гасим старый предмет глобально, чтобы не мешался
+            await supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json={"is_active": False})
+
+            updated_count += 1
+            
+        logging.info(f"Админ {user_info.get('id')} запустил массовый рескин для {len(req.target_cases) if req.target_cases else 'всех'} кейсов. Успешно заменено: {updated_count}")
         return {"status": "ok", "message": f"Успешно заменено {updated_count} скинов"}
 
     except Exception as e:
@@ -27053,8 +27099,18 @@ async def admin_clear_case(
         raise HTTPException(status_code=400, detail="Не указан case_tag")
         
     try:
+        # 🔥 ИММУТАБЕЛЬНОЕ УЛУЧШЕНИЕ: Сначала получаем все item_id в этом кейсе
+        links_res = await supabase.get("/cs_case_contents", params={"case_tag": f"eq.{case_tag}", "select": "item_id"})
+        item_ids = [row["item_id"] for row in links_res.json()] if links_res.status_code == 200 else []
+
         # Асинхронное удаление связей для кейса
         await supabase.delete("/cs_case_contents", params={"case_tag": f"eq.{case_tag}"})
+        
+        # Гасим все отвязанные предметы глобально
+        if item_ids:
+            item_ids_str = ",".join(map(str, item_ids))
+            await supabase.patch("/cs_items", params={"id": f"in.({item_ids_str})"}, json={"is_active": False})
+
         return {"status": "ok"}
     except Exception as e:
         print(f"Clear Case Error: {e}")
@@ -27311,29 +27367,27 @@ async def admin_auto_generate_case(request: Request):
 
         skin_id = None
         try:
-            existing_skin = supabase.table("cs_items").select("id").eq("market_hash_name", raw_name).limit(1).execute()
-            
-            if existing_skin.data:
-                skin_id = existing_skin.data[0]['id']
-            else:
-                item_payload = {
-                    "name": clean_name,
-                    "image_url": icon_url,
-                    "rarity": item["rarity"],
-                    "condition": condition,
-                    "chance_weight": float(item["chance_weight"]), 
-                    "quantity": 1,
-                    "is_active": True,
-                    "boost_percent": 0.0,
-                    "price": int(item["price_rub"] * 0.6), # Авто-расчет билетов 60%
-                    "case_tag": case_tag,
-                    "price_rub": float(item["price_rub"]),
-                    "market_hash_name": raw_name
-                }
+            # 🔥 ИММУТАБЕЛЬНОЕ УЛУЧШЕНИЕ: 
+            # Больше не ищем existing_skin. Мы ВСЕГДА создаем новую строку, 
+            # чтобы цена генерации зафиксировалась и не конфликтовала с историей.
+            item_payload = {
+                "name": clean_name,
+                "image_url": icon_url,
+                "rarity": item["rarity"],
+                "condition": condition,
+                "chance_weight": float(item["chance_weight"]), 
+                "quantity": 1,
+                "is_active": True,
+                "boost_percent": 0.0,
+                "price": int(item["price_rub"] * 0.6), # Авто-расчет билетов 60%
+                "case_tag": case_tag,
+                "price_rub": float(item["price_rub"]),
+                "market_hash_name": raw_name
+            }
 
-                res_item = supabase.table("cs_items").insert(item_payload).execute()
-                if res_item.data:
-                    skin_id = res_item.data[0]['id']
+            res_item = supabase.table("cs_items").insert(item_payload).execute()
+            if res_item.data:
+                skin_id = res_item.data[0]['id']
 
             if skin_id:
                 existing_link = supabase.table("cs_case_contents").select("id").eq("case_tag", case_tag).eq("item_id", skin_id).execute()
@@ -27351,11 +27405,12 @@ async def admin_auto_generate_case(request: Request):
 
     return {"status": "ok", "message": f"Сгенерировано и добавлено {saved_count} скинов!"}
     
+    
 # 3. Сохранить (Умное сохранение: Скин + Связь)
 @app.post("/api/v1/admin/cases/save_item")
 async def admin_save_case_item(request: Request):
     data = await request.json()
-    item_id = data.get("id")
+    old_item_id = data.get("id")  # Запоминаем старый ID, если это редактирование
     case_tag = data.get("case_tag")
     
     market_hash_name = data.get("market_hash_name") or data["name"]
@@ -27397,7 +27452,7 @@ async def admin_save_case_item(request: Request):
         price_tickets = int(price_rub * 0.6)
 
     # -----------------------------------------------------
-    # 💾 3. СОБИРАЕМ И СОХРАНЯЕМ
+    # 💾 3. СОБИРАЕМ И СОХРАНЯЕМ (ИММУТАБЕЛЬНАЯ ЛОГИКА)
     # -----------------------------------------------------
     item_payload = {
         "name": data["name"],
@@ -27415,37 +27470,39 @@ async def admin_save_case_item(request: Request):
     }
 
     try:
-        if item_id:
-            # Обновляем скин глобально
-            supabase.table("cs_items").update(item_payload).eq("id", item_id).execute()
+        # 🔥 ВСЕГДА создаем новую запись в cs_items, чтобы не ломать старую историю пользователей
+        res_item = supabase.table("cs_items").insert(item_payload).execute()
+        
+        if not res_item.data:
+            raise Exception("Ошибка при создании записи в cs_items")
             
-            # Обновляем шанс в текущем кейсе
+        new_id = res_item.data[0]['id']
+        chance = data.get("chance_weight", 10)
+
+        if old_item_id:
+            # Это было редактирование. Отвязываем старый скин от текущего кейса
             supabase.table("cs_case_contents")\
-                .update({"chance_weight": data["chance_weight"]})\
-                .eq("item_id", item_id)\
+                .delete()\
+                .eq("item_id", old_item_id)\
                 .eq("case_tag", case_tag)\
                 .execute()
                 
-            return {"status": "ok"}
-        else:
-            # Создаем с нуля
-            res_item = supabase.table("cs_items").insert(item_payload).execute()
-            
-            if not res_item.data:
-                raise Exception("Ошибка при создании записи в cs_items")
-                
-            new_id = res_item.data[0]['id']
-            
-            # Привязываем к кейсу
-            link_payload = {
-                "case_tag": case_tag,
-                "item_id": new_id,
-                "chance_weight": data["chance_weight"]
-            }
-            supabase.table("cs_case_contents").insert(link_payload).execute()
-            
-            return {"status": "ok", "data": res_item.data}
-            
+            # Помечаем старый скин как неактивный (скрываем из админки), но оставляем в БД для истории
+            supabase.table("cs_items")\
+                .update({"is_active": False})\
+                .eq("id", old_item_id)\
+                .execute()
+
+        # Привязываем НОВЫЙ скин к кейсу
+        link_payload = {
+            "case_tag": case_tag,
+            "item_id": new_id,
+            "chance_weight": chance
+        }
+        supabase.table("cs_case_contents").insert(link_payload).execute()
+        
+        return {"status": "ok", "data": res_item.data}
+        
     except Exception as e:
         print(f"Save Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -27460,6 +27517,12 @@ async def admin_delete_case_item(request: Request):
     case_tag = body.get("case_tag") # Ждем с фронта для фолбэка
     
     try:
+        # Если передали только link_id, нужно узнать item_id, чтобы погасить предмет
+        if link_id and not item_id:
+            link_res = supabase.table("cs_case_contents").select("item_id").eq("id", link_id).execute()
+            if link_res.data:
+                item_id = link_res.data[0].get("item_id")
+
         if link_id:
             # Идеальный сценарий: Удаляем конкретную связь по ID
             supabase.table("cs_case_contents").delete().eq("id", link_id).execute()
@@ -27474,6 +27537,10 @@ async def admin_delete_case_item(request: Request):
         else:
             # Если фронт прислал совсем пустой запрос
             raise Exception("Недостаточно данных для удаления: нужен link_id или id+case_tag")
+            
+        # 🔥 ИММУТАБЕЛЬНОЕ УЛУЧШЕНИЕ: Гасим предмет, чтобы он не мешался, но оставался в истории
+        if item_id:
+            supabase.table("cs_items").update({"is_active": False}).eq("id", item_id).execute()
             
         return {"status": "ok"}
         
