@@ -18195,7 +18195,6 @@ async def fetch_and_cache_goods_background(category_id: int):
                     # /index отдает массив категорий
                     items_list.extend(data if isinstance(data, list) else [])
             else:
-               else:
                 # ==========================================
                 # 2. ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ)
                 # ==========================================
