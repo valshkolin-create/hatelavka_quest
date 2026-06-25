@@ -1497,8 +1497,13 @@ async function renderFullInterface(data) {
         let tNum = Number(userData.tickets || 0);
         document.getElementById('ticketStats').textContent = tNum % 1 === 0 ? tNum.toString() : tNum.toFixed(2).replace('.', ',');
     }
-    dom.fullName.textContent = userData.full_name || "Профиль";
-    if (userData.is_admin) dom.navAdmin.classList.remove('hidden');
+    
+    // 👇 Безопасная проверка: обновляем только если элемент реально есть на странице
+    const nameEl = document.getElementById('fullName');
+    if (nameEl) nameEl.textContent = userData.full_name || "Профиль";
+    
+    const adminEl = document.getElementById('nav-admin');
+    if (userData.is_admin && adminEl) adminEl.classList.remove('hidden');
 
     // 👇 БЕТОННЫЙ БЛОК ДЛЯ ФОТОГРАФИИ (С ЗАЩИТОЙ ОТ ERR_TIMED_OUT) 👇
     const avatarEl = document.getElementById('user-avatar');
