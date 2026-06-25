@@ -18339,13 +18339,10 @@ async def get_bott_goods_proxy(
 
     if db_data:
         row = db_data[0]
-        all_goods = row.get("data") or []
-        
-        # 🔥 ВОТ ОНА МАГИЯ СЕКРЕТНОСТИ 🔥
-        # Фильтруем массив: оставляем только те элементы, у которых is_secret не равно True
-        cached_goods = [item for item in all_goods if not item.get("is_secret")]
+        # Отдаем вообще ВСЕ товары. Фронтенд сам скроет то, что is_secret == True
+        cached_goods = row.get("data") or []
 
-    # 3. Сохраняем в ОЗУ для следующих быстрых запросов (УЖЕ ОТФИЛЬТРОВАННЫЕ ДАННЫЕ)
+    # 3. Сохраняем в ОЗУ для следующих быстрых запросов
     if cached_goods:
         RAM_SHOP_CACHE[category_id] = {
             'time': current_time,
@@ -18353,7 +18350,7 @@ async def get_bott_goods_proxy(
         }
 
     return cached_goods
-
+    
 # --- БРОНЕБОЙНЫЙ ПАРСЕР ТОВАРОВ И ПАПОК ---
 async def fetch_and_cache_goods_background(category_id: int, supabase_client=None):
     """Фоновая задача: Скачивает товары с Bot-t (Private API) и сохраняет в Supabase (shop_cache)"""
