@@ -179,40 +179,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return cleanStr.trim() || 'Пользователь';
     }
 
-    async function makeApiRequest(url, body = {}, method = 'POST', showLoader = true) {
-        if (showLoader) dom.loader.classList.remove('hidden');
-        try {
-            const options = {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                cache: 'no-store'
-            };
-            
-            if (method.toUpperCase() !== 'GET') {
-                 options.body = JSON.stringify({ ...body, initData: tg.initData });
-            }
-
-            const response = await fetch(url, options);
-            
-            if (response.status === 204) {
-                 return { success: true }; 
-            }
-            
-            const result = await response.json();
-
-            if (!response.ok) {
-                const errorMsg = result.detail || result.message || 'Произошла ошибка';
-                throw new Error(errorMsg);
-            }
-            return result;
-        } catch (e) {
-            // Здесь мы только пробрасываем ошибку, чтобы обработать её в месте вызова
-            // tg.showAlert(e.message); // <-- Убрали alert отсюда, чтобы не дублировать
-            throw e;
-        } finally {
-            if (showLoader) dom.loader.classList.add('hidden');
+    window.makeApiRequest = async function(url, body = {}, method = 'POST', showLoader = true) {
+    if (showLoader) dom.loader.classList.remove('hidden');
+    try {
+        const options = {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store'
+        };
+        
+        if (method.toUpperCase() !== 'GET') {
+             options.body = JSON.stringify({ ...body, initData: tg.initData });
         }
+
+        const response = await fetch(url, options);
+        
+        if (response.status === 204) {
+             return { success: true }; 
+        }
+        
+        const result = await response.json();
+
+        if (!response.ok) {
+            const errorMsg = result.detail || result.message || 'Произошла ошибка';
+            throw new Error(errorMsg);
+        }
+        return result;
+    } catch (e) {
+        throw e;
+    } finally {
+        if (showLoader) dom.loader.classList.add('hidden');
     }
+};
 
     async function loadArchive() {
         dom.archiveList.innerHTML = '<div style="text-align:center; padding:20px;"><div class="spinner"></div></div>';
