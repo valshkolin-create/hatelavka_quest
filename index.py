@@ -15325,31 +15325,28 @@ class BuyPremiumRequest(BaseModel):
 
 @app.post("/api/v1/checkpoint/buy_premium")
 async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    # 1. Авторизация
+    # 1. Авторизация. Нет пропуска — до свидания.
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info:
         raise HTTPException(status_code=401, detail="Не авторизован")
     tg_id = user_info["id"]
 
-    # 2. Достаем конфиг Чекпоинта (БП) из БД
-    cp_res = await supabase.get("/settings", params={"key": "eq.checkpoint_config"})
-    if not cp_res.json():
+    # 2. Достаем конфиг из правильного места (pages_content)
+    cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+    if not cp_res.is_success or not cp_res.json():
         raise HTTPException(status_code=400, detail="Настройки БП не найдены")
     
-    config = cp_res.json()[0].get("value", {})
-    if isinstance(config, str):
-        import json
-        config = json.loads(config)
+    config = cp_res.json()[0].get("content", {})
 
     if not config.get("is_active"):
         raise HTTPException(status_code=400, detail="Сезон БП сейчас не активен")
 
-    # Берем цену, которую ты указал в админке!
+    # Берем актуальную цену
     premium_price = int(config.get("premium_price", 0))
     if premium_price <= 0:
         raise HTTPException(status_code=400, detail="Покупка Premium отключена (цена 0)")
 
-    # 3. Проверяем юзера (монеты и наличие према)
+    # 3. Проверяем, кто перед нами
     u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "bott_internal_id, has_cp_premium"})
     user_data = u_res.json()
     if not user_data:
@@ -15363,22 +15360,37 @@ async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncCl
     if not bott_id:
         raise HTTPException(status_code=400, detail="Ошибка аккаунта: ID бота не найден")
 
-    # 4. Списываем монетки через нашу умную функцию
+    # 4. Жесткое списание. Транзакция либо проходит, либо рубит весь процесс.
     try:
-        await subtract_bott_balance(
+        deduction_result = await subtract_bott_balance(
             bott_internal_id=bott_id, 
             amount=premium_price, 
             comment="Покупка HATElavka Premium (Battle Pass)"
         )
+        
+        # Если твоя функция возвращает False при провале (зависит от того, как она написана)
+        if deduction_result is False:
+            raise HTTPException(status_code=400, detail="Транзакция отклонена. Проверьте баланс.")
+            
     except HTTPException as e:
-        # Прокидываем ошибку (например, "Недостаточно монет на балансе")
+        # Честно прокидываем 400-е ошибки (например, нехватку монет) на фронт
         raise e
     except Exception as e:
-        logging.error(f"Ошибка списания за Премиум БП: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка при списании баланса")
+        logging.error(f"Критическая ошибка списания за Премиум БП у {tg_id}: {e}")
+        raise HTTPException(status_code=500, detail="Сбой при проведении транзакции. Статус не выдан.")
 
-    # 5. Выдаем Premium юзеру
-    await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"has_cp_premium": True})
+    # 5. Сюда код дойдет ТОЛЬКО если монеты успешно испарились со счета.
+    # Теперь выдаем товар.
+    patch_res = await supabase.patch(
+        "/users", 
+        params={"telegram_id": f"eq.{tg_id}"}, 
+        json={"has_cp_premium": True}
+    )
+    
+    # Крайний случай: монеты ушли, а база данных поперхнулась
+    if not patch_res.is_success:
+        logging.error(f"АЛАРМ! Монеты списаны, но Premium не выдан для {tg_id}. Ошибка БД: {patch_res.text}")
+        raise HTTPException(status_code=500, detail="Монеты списаны, но произошел сбой выдачи. Обратитесь к администратору.")
 
     return {"status": "success", "message": "Premium успешно активирован!"}
 
