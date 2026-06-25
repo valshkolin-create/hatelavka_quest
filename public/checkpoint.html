@@ -510,7 +510,14 @@
         #instruction-modal .premium-panel { transform: translateY(-15px) !important; }
         #premium-buy-modal .premium-panel { transform: translateY(-5px) !important; }
         #image-modal .image-modal-wrapper { transform: translateY(-10px) !important; }
-        #case-contents-modal .premium-panel { transform: translateY(-40px) !important; }
+        #case-contents-modal .premium-panel { 
+            transform: translateY(-100px) !important; 
+        }
+        /* Выравниваем крестик в окне кейсов строго по верхней линии (где должен быть заголовок) */
+        #case-contents-modal .unified-close-btn { 
+            top: 15px; 
+            right: 15px; 
+        }
 
         /* ⚡️ СВЕРХКОМПАКТНАЯ ВКЛАДКА ЗАДАНИЙ (УМЕНЬШЕНО В 2 РАЗА) ⚡️ */
 #view-quests .week-accordion { border-radius: 10px; margin-bottom: 8px; }
@@ -954,15 +961,18 @@
     </div>
 
     <div id="premium-buy-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
-        <div class="premium-panel gold-glow">
-            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('premium-buy-modal').classList.remove('modal-active')">
+        <div class="premium-panel">
+            <button class="unified-close-btn" style="top: 20px; right: 20px;" onclick="haptic('light'); document.getElementById('premium-buy-modal').classList.remove('modal-active')">
                 <i class="fa-solid fa-xmark"></i>
             </button>
             
-            <div class="premium-modal-header-img"></div>
+            <div style="padding: 22px 50px 10px 20px; text-align: center; position: relative; z-index: 2;">
+                <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;">Premium Статус</h3>
+            </div>
+
+            <div class="premium-modal-header-img" style="margin-top: 5px;"></div>
             
-            <div class="premium-modal-body">
-                <h3>Premium Статус</h3>
+            <div class="premium-modal-body" style="padding-top: 5px;">
                 <p>Открой доступ ко всем эксклюзивным наградам сезона. Собирай лут сразу из обеих колонок!</p>
                 
                 <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
