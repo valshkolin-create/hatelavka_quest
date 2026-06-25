@@ -119,7 +119,6 @@
         <h1 class="page-title">Редактор профиля</h1>
     </div>
 
-    <!-- БЛОК ПОИСКА И БАНОВ -->
     <div id="searchView">
         <div class="section-box admin-form" style="border-color: rgba(100, 181, 239, 0.3); background: rgba(100, 181, 239, 0.05);">
             <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-solid fa-magnifying-glass"></i> Поиск игрока</h3>
@@ -138,13 +137,11 @@
         </div>
     </div>
 
-    <!-- ЛОАДЕР ЗАГРУЗКИ ПРОФИЛЯ -->
     <div id="mainLoader" class="hidden" style="text-align: center; padding: 40px; color: var(--text-sec);">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p style="margin-top: 10px; font-size: 13px;">Сбор данных...</p>
     </div>
 
-    <!-- КАРТОЧКА ПРОФИЛЯ -->
     <div id="profileContainer" class="profile-container hidden">
         <button class="inner-back-btn" onclick="closeProfile()">
             <i class="fa-solid fa-arrow-left"></i> Назад к списку
@@ -186,6 +183,11 @@
                     <span>Траст Фактор</span>
                     <small id="statTrust">...</small>
                 </button>
+                <button class="action-btn" onclick="openModal('connectionsModal')" style="border-color: rgba(142, 142, 147, 0.3); background: rgba(142, 142, 147, 0.05);">
+                    <i class="fa-solid fa-link-slash" style="color: #8e8e93;"></i>
+                    <span>Привязки</span>
+                    <small id="statConnections">...</small>
+                </button>
                 <button class="action-btn" onclick="openModal('statusModal')" style="border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05);">
                     <i class="fa-solid fa-gavel" style="color: var(--danger);"></i>
                     <span>Статусы</span>
@@ -194,8 +196,6 @@
             </div>
         </div>
     </div>
-
-    <!-- МОДАЛКИ (BOTTOM SHEETS) -->
 
     <div id="coinsModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
@@ -306,6 +306,39 @@
         </div>
     </div>
 
+    <div id="connectionsModal" class="modal-overlay" onclick="closeOnDim(event)">
+        <div class="bottom-sheet admin-form">
+            <div class="modal-header">
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #8e8e93;"><i class="fa-solid fa-link-slash"></i> Управление привязками</h3>
+                <button class="back-btn" onclick="closeModal('connectionsModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
+            </div>
+            
+            <div class="section-box" style="margin-bottom: 15px; border-color: rgba(100, 65, 165, 0.3); background: rgba(100, 65, 165, 0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-sec); font-weight: 600;">Twitch Аккаунт</div>
+                        <div id="connTwitch" style="font-size: 14px; font-weight: 700; color: #fff; margin-top: 4px;">...</div>
+                    </div>
+                    <button class="inner-back-btn" onclick="submitUnbind('twitch')" style="margin: 0; color: var(--danger); border-color: rgba(255,77,77,0.3);">
+                        Отвязать
+                    </button>
+                </div>
+            </div>
+
+            <div class="section-box" style="margin-bottom: 15px; border-color: rgba(42, 71, 94, 0.3); background: rgba(42, 71, 94, 0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="overflow: hidden; padding-right: 10px;">
+                        <div style="font-size: 12px; color: var(--text-sec); font-weight: 600;">Trade Ссылка (Steam)</div>
+                        <div id="connTrade" style="font-size: 14px; font-weight: 700; color: #fff; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">...</div>
+                    </div>
+                    <button class="inner-back-btn" onclick="submitUnbind('trade_link')" style="margin: 0; color: var(--danger); border-color: rgba(255,77,77,0.3);">
+                        Отвязать
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="statusModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
@@ -344,7 +377,6 @@
             }
         }
 
-        // Кнопка "Назад к поиску"
         function closeProfile() {
             if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
             document.getElementById('profileContainer').classList.add('hidden');
@@ -355,7 +387,6 @@
             loadBannedUsers(); 
         }
 
-        // Раскрывающийся список банов
         function toggleBanned() {
             if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
             const list = document.getElementById('bannedList');
@@ -383,7 +414,6 @@
             return data;
         }
 
-        // --- СПИСОК БАНОВ ---
         async function loadBannedUsers() {
             const listObj = document.getElementById('bannedList');
             const countObj = document.getElementById('bannedCount');
@@ -415,7 +445,6 @@
             }
         }
 
-        // --- ЛОГИКА ПОИСКА ---
         const searchInput = document.getElementById('searchInput');
         const searchResults = document.getElementById('searchResults');
 
@@ -456,7 +485,6 @@
 
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
 
-        // --- ЗАГРУЗКА И РЕНДЕР ПРОФИЛЯ ---
         async function loadUser(id) {
             if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
             
@@ -467,12 +495,10 @@
             try {
                 currentUser = await fetchApi(`/api/v1/admin/users/${id}/full_profile`, null, 'GET');
                 
-                // Заполняем UI
                 document.getElementById('userAvatar').src = currentUser.photo_url || defaultAvatar;
                 document.getElementById('userName').textContent = currentUser.full_name || 'Без имени';
                 document.getElementById('userId').textContent = currentUser.telegram_id;
 
-                // Бейджи
                 let badgesHTML = '';
                 if (currentUser.is_banned) badgesHTML += '<span class="badge red">ЗАБАНЕН</span>';
                 if (currentUser.has_cp_premium) badgesHTML += '<span class="badge premium">PREMIUM</span>';
@@ -480,7 +506,6 @@
                 if (currentUser.trust_level === 'green') badgesHTML += '<span class="badge green">ЗЕЛЕНЫЙ ТРАСТ</span>';
                 document.getElementById('userBadges').innerHTML = badgesHTML;
 
-                // Статистика на кнопках
                 const coinsDisplay = ((currentUser.bot_t_coins || 0) / 100).toFixed(2);
                 document.getElementById('statCoins').innerHTML = `${coinsDisplay} <i class="fa-solid fa-coins" style="color:var(--text-sec); font-size:10px;"></i>`;
                 document.getElementById('statTickets').innerHTML = `${currentUser.tickets || 0} <i class="fa-solid fa-ticket" style="color:var(--text-sec); font-size:10px;"></i>`;
@@ -488,7 +513,6 @@
                 document.getElementById('statStatus').textContent = currentUser.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН';
                 document.getElementById('statCpLevel').textContent = `LVL: ${currentUser.checkpoint_level || 0}`;
                 
-                // Расчет времени для Гринда
                 let hoursAgoText = "Никогда";
                 if (currentUser.last_grind_at) {
                     const diffMs = new Date() - new Date(currentUser.last_grind_at.replace(' ', 'T') + (currentUser.last_grind_at.includes('+') ? '' : 'Z'));
@@ -496,16 +520,25 @@
                     hoursAgoText = `${diffHrs} ч. назад`;
                 }
 
-                // Вывод на кнопке гринда
                 document.getElementById('statGrind').innerHTML = `Стрик: ${currentUser.streak_days || 0} | <span style="font-size:10px;">${hoursAgoText}</span>`;
                 
-                // Заполняем инпуты модалки Гринда
+                // --- ЛОГИКА ОТОБРАЖЕНИЯ ПРИВЯЗОК ---
+                const hasTwitch = currentUser.twitch_login ? true : false;
+                const hasTrade = currentUser.trade_link ? true : false;
+                let connText = 'Связано';
+                if (!hasTwitch && !hasTrade) connText = 'Пусто';
+                else if (hasTwitch && !hasTrade) connText = 'Только Twitch';
+                else if (!hasTwitch && hasTrade) connText = 'Только Steam';
+                
+                document.getElementById('statConnections').textContent = connText;
+                document.getElementById('connTwitch').innerHTML = hasTwitch ? `<i class="fa-brands fa-twitch" style="color: #6441a5;"></i> ${currentUser.twitch_login}` : 'Не привязан';
+                document.getElementById('connTrade').textContent = hasTrade ? currentUser.trade_link : 'Не указана';
+
                 document.getElementById('grindCoins').value = currentUser.coins || 0;
                 document.getElementById('streakDays').value = currentUser.streak_days || 0;
                 document.getElementById('twitchStatus').value = currentUser.twitch_status || 'none';
                 document.getElementById('lastGrindHours').textContent = hoursAgoText;
 
-                // Остальные инпуты
                 document.getElementById('trustLevel').value = currentUser.trust_level || 'green';
                 document.getElementById('trustScore').value = currentUser.trust_score || 0;
                 document.getElementById('penaltyPoints').value = currentUser.penalty_points || 0;
@@ -524,12 +557,10 @@
             }
         }
 
-        // --- УПРАВЛЕНИЕ МОДАЛКАМИ ---
         function openModal(id) { document.getElementById(id).classList.add('modal-active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('modal-active'); }
         function closeOnDim(e) { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('modal-active'); }
 
-        // --- API ДЕЙСТВИЯ (ОТПРАВКА) ---
         async function submitCoins() {
             const amount = parseFloat(document.getElementById('coinsAmount').value);
             const action = document.getElementById('coinsAction').value;
@@ -652,7 +683,30 @@
             finally { tg.MainButton.hideProgress(); }
         }
 
-        // Загружаем список банов при старте
+        // --- НОВАЯ ФУНКЦИЯ ДЛЯ ОТВЯЗОК ---
+        async function submitUnbind(type) {
+            const confirmMsg = type === 'twitch' ? 'Точно отвязать Twitch аккаунт?' : 'Точно удалить Trade-ссылку?';
+            if (!confirm(confirmMsg)) return;
+
+            tg.MainButton.showProgress();
+            try {
+                // Вызываем новый эндпоинт отвязки
+                await fetchApi('/api/v1/admin/users/unbind', { 
+                    user_id: currentUser.telegram_id, 
+                    unbind_type: type 
+                });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: type === 'twitch' ? 'Twitch успешно отвязан' : 'Трейд-ссылка удалена'});
+                
+                // Перезагружаем профиль, чтобы UI обновился
+                loadUser(currentUser.telegram_id); 
+            } catch (err) { 
+                tg.showAlert(err.message); 
+            } finally { 
+                tg.MainButton.hideProgress(); 
+            }
+        }
+
         loadBannedUsers();
     </script>
     <script src="/top_nav.js" defer></script>
