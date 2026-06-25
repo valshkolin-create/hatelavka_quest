@@ -1103,8 +1103,8 @@ document.addEventListener('DOMContentLoaded', () => {
             src = reward.image_url;
         } else {
             src = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
-            if (reward.type === 'coins') src = 'https://placehold.co/150x150/2a2a2c/ffd700?text=COINS';
-            if (reward.type === 'tickets') src = 'https://placehold.co/150x150/2a2a2c/ffd700?text=TICKETS';
+            if (reward.type === 'coins') src = 'https://i.postimg.cc/Z5pDMrBw/money.png';
+            if (reward.type === 'tickets') src = 'https://i.postimg.cc/RCYsCPwk/tickets.png';
         }
 
         const safeTitle = reward.value ? reward.value.replace(/'/g, "\\'") : '';
