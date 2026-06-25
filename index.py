@@ -15879,33 +15879,41 @@ async def get_checkpoint_status(
 
         # Запрашиваем картинки скинов из кэша маркета
         if skin_names:
-            formatted_skin_names = ",".join([f'"{name}"' for name in skin_names])
-            skins_resp = await supabase.get("/market_cache", params={"market_hash_name": f"in.({formatted_skin_names})", "select": "market_hash_name,image_url"})
-            if skins_resp.is_success:
-                for s in skins_resp.json():
-                    skin_images[s["market_hash_name"]] = s.get("image_url")
+            try:
+                formatted_skin_names = ",".join([f'"{name}"' for name in skin_names])
+                skins_resp = await supabase.get("/market_cache", params={"market_hash_name": f"in.({formatted_skin_names})", "select": "market_hash_name,image_url"})
+                if skins_resp.is_success:
+                    for s in skins_resp.json():
+                        skin_images[s["market_hash_name"]] = s.get("image_url")
+            except Exception as e:
+                # База отвалилась по таймауту или другая беда — глотаем ошибку, баттл-пасс должен работать
+                logging.warning(f"Сбой при загрузке картинок скинов: {e}")
 
         # Запрашиваем картинки кейсов из shop_cache
         if case_names:
-            cases_category_id = 2716312
-            cases_resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{cases_category_id}", "select": "data"})
-            if cases_resp.is_success and cases_resp.json():
-                row_data = cases_resp.json()[0].get("data")
-                
-                # Парсим JSONB данные (в базе может быть строкой или уже массивом)
-                if isinstance(row_data, str):
-                    try:
-                        cases_list = json.loads(row_data)
-                    except json.JSONDecodeError:
-                        cases_list = []
-                else:
-                    cases_list = row_data or []
-                
-                # Ищем картинки по названию кейса
-                for c in cases_list:
-                    name = c.get("name")
-                    if name in case_names:
-                        case_images[name] = c.get("image_url")
+            try:
+                cases_category_id = 2716312
+                cases_resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{cases_category_id}", "select": "data"})
+                if cases_resp.is_success and cases_resp.json():
+                    row_data = cases_resp.json()[0].get("data")
+                    
+                    # Парсим JSONB данные (в базе может быть строкой или уже массивом)
+                    if isinstance(row_data, str):
+                        try:
+                            cases_list = json.loads(row_data)
+                        except json.JSONDecodeError:
+                            cases_list = []
+                    else:
+                        cases_list = row_data or []
+                    
+                    # Ищем картинки по названию кейса
+                    for c in cases_list:
+                        name = c.get("name")
+                        if name in case_names:
+                            case_images[name] = c.get("image_url")
+            except Exception as e:
+                # Аналогично, если кэш кейсов тяжелый и отвалился, просто пишем в лог
+                logging.warning(f"Сбой при загрузке картинок кейсов: {e}")
         # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
 
         # 3. Собираем массив уровней в том виде, который ждет фронтенд
