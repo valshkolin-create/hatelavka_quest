@@ -18195,31 +18195,33 @@ async def fetch_and_cache_goods_background(category_id: int):
                     # /index отдает массив категорий
                     items_list.extend(data if isinstance(data, list) else [])
             else:
+               else:
                 # ==========================================
                 # 2. ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ)
                 # ==========================================
-                payload = {"bot_id": int(BOTT_BOT_ID), "id": int(category_id)}
+                # 🔥 ИСПРАВЛЕНИЕ: Используем category_id вместо id 🔥
+                payload = {"bot_id": int(BOTT_BOT_ID), "category_id": int(category_id)}
                 
                 url_products = "https://api.bot-t.com/v1/shop/category/view-products"
                 url_view = "https://api.bot-t.com/v1/shop/category/view"
                 
-                # 🔥 МАГИЯ СКОРОСТИ: Запрашиваем товары и подпапки ОДНОВРЕМЕННО 🔥
+                # 🔥 МАГИЯ СКОРОСТИ: Запрашиваем товары и данные категории ОДНОВРЕМЕННО 🔥
                 resp_prod, resp_view = await asyncio.gather(
                     client.post(url_products, params=params, json=payload, headers=headers),
                     client.post(url_view, params=params, json=payload, headers=headers),
                     return_exceptions=True
                 )
                 
-                # Разбираем ТОВАРЫ (скины, ключи и тд)
+                # 1. Разбираем ТОВАРЫ из view-products
                 if isinstance(resp_prod, httpx.Response) and resp_prod.status_code == 200:
                     prod_data = resp_prod.json().get("data", [])
                     if isinstance(prod_data, list):
                         items_list.extend(prod_data)
                 
-                # Разбираем ПОДПАПКИ и проверяем, не является ли сама категория товаром
+                # 2. Разбираем ПОДПАПКИ и ТОВАРЫ из view (резервный канал)
                 if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
                     view_data = resp_view.json().get("data", {})
-                    # 🔥 ДОБАВЛЯЕМ ЛОГ ДЛЯ ОТЛАДКИ 🔥
+                    # 🔥 ЛОГ ДЛЯ ОТЛАДКИ 🔥
                     logging.info(f"[DEBUG] Category {category_id} view_data: {view_data}")
                     
                     if isinstance(view_data, dict):
@@ -18227,7 +18229,7 @@ async def fetch_and_cache_goods_background(category_id: int):
                         sub_cats = view_data.get("children", []) or view_data.get("categories", [])
                         items_list.extend(sub_cats)
                         
-                        # Если это товар (тип 2)
+                        # Если API view-products вернул пустоту, а тут лежит товар типа 2 - берем его!
                         if view_data.get("type") == 2:
                             items_list.append(view_data)
 
