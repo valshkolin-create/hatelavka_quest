@@ -9495,11 +9495,12 @@ async def get_current_user_data(
             old_id = str(old_q["quest_id"]) # ТОЖЕ СТРОКОЙ
             if old_id not in existing_bp_ids:
                 bp_quests_data.append({
-                    "quest_id": old_q["quest_id"], # Оригинал оставляем для фронта
+                    "quest_id": old_q["quest_id"], 
                     "current_amount": 1,
                     "target_amount": 1,
                     "is_completed": True,
                     "is_claimed": False, 
+                    "week": None, # <--- Явный null для фронтенда
                     "created_at": old_q.get("created_at"),
                     "updated_at": old_q.get("created_at") 
                 })
