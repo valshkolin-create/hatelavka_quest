@@ -1123,14 +1123,13 @@
         </div>
     </div>
 
-    <button id="scroll-to-top" class="scroll-to-top-btn" onclick="scrollToTop()">
+<button id="scroll-to-top" class="scroll-to-top-btn" onclick="scrollToTop()">
         <i class="fa-solid fa-arrow-up"></i>
     </button>
 
-    <!-- НОВАЯ КНОПКА ВНИЗ -->
-<button id="scroll-to-current-btn" class="scroll-to-top-btn" style="bottom: 130px; background: #fff; color: #000; display: none;" onclick="scrollToCurrentTarget()">
-    <i class="fa-solid fa-arrow-down"></i>
-</button>
+    <button id="scroll-to-current-btn" class="scroll-to-top-btn" style="bottom: 130px;" onclick="scrollToCurrentTarget()">
+        <i class="fa-solid fa-arrow-down"></i>
+    </button>
 
     <!-- КАСТОМНАЯ МОДАЛКА ОБМЕНА -->
     <div id="exchange-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
@@ -1299,6 +1298,16 @@ window.openImageModal = function(src, title) {
     }
 };
 
+    window.scrollToCurrentTarget = function() {
+    haptic('medium');
+    const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
+    if (unlockedRows.length > 0) {
+        const lastUnlocked = unlockedRows[unlockedRows.length - 1];
+        const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
+        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+};
+
 // Функция, которая проверит скролл и покажет нужные кнопки
 function checkScroll(e) {
     const scrollUpBtn = document.getElementById('scroll-to-top');
@@ -1318,27 +1327,18 @@ function checkScroll(e) {
 
     // 2. Логика кнопки ВНИЗ (к текущей награде)
     if (scrollDownBtn) {
-        // Ищем строку, к которой нужно вернуться
         const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
         if (unlockedRows.length > 0) {
             const lastUnlocked = unlockedRows[unlockedRows.length - 1];
             const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
             
-            // Вычисляем позицию нужной строки относительно экрана
             const targetRect = targetRow.getBoundingClientRect();
             
-            // Если нужная строка ушла сильно вниз за пределы экрана (юзер ускроллил вверх)
+            // Если нужная строка ушла сильно вниз за пределы экрана
             if (targetRect.top > window.innerHeight + 100) {
-                scrollDownBtn.style.display = 'flex';
-                setTimeout(() => scrollDownBtn.classList.add('visible'), 10);
+                scrollDownBtn.classList.add('visible');
             } else {
-                // Если мы рядом с ней или скроллим ниже неё
                 scrollDownBtn.classList.remove('visible');
-                setTimeout(() => { 
-                    if (!scrollDownBtn.classList.contains('visible')) {
-                        scrollDownBtn.style.display = 'none'; 
-                    }
-                }, 300);
             }
         }
     }
