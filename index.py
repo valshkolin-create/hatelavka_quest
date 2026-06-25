@@ -11909,55 +11909,69 @@ async def update_submission_status(
             # ==========================================
             try:
                 logging.info(f"Синхронизация ручного квеста {manual_quest_id} с Баттл-Пассом...")
-                # Достаем конфиг текущего БП
                 cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
                 if cp_res.status_code == 200 and cp_res.json():
                     bp_config = cp_res.json()[0].get("content", {})
-
-                    # Ищем этот квест в конфиге БП
-                    q_configs = [q for q in bp_config.get("quests_config", []) if str(q.get("quest_id")) == str(manual_quest_id)]
+                    
+                    # 1. Ищем, есть ли этот квест в текущем БП
+                    quests_config = bp_config.get("quests_config", [])
+                    q_configs = [q for q in quests_config if str(q.get("quest_id")) == str(manual_quest_id)]
+                    logging.info(f"Найдено {len(q_configs)} конфигов для квеста {manual_quest_id} в БП.")
 
                     if q_configs:
-                        # Проверяем, повторяемый ли он и какая у него цель
                         q_meta = await supabase.get("/quests", params={"id": f"eq.{manual_quest_id}", "select": "is_repeatable, target_value"})
                         is_rep = q_meta.json()[0].get('is_repeatable', False) if q_meta.status_code == 200 and q_meta.json() else False
-                        target_val = q_meta.json()[0].get('target_value', 1) if q_meta.status_code == 200 and q_meta.json() else 1
+                        
+                        # Определяем таргет (из квеста или из конфига БП)
+                        target_val = q_meta.json()[0].get('target_value') if q_meta.status_code == 200 and q_meta.json() and q_meta.json()[0].get('target_value') else None
+                        if not target_val:
+                            target_val = q_configs[0].get('target_amount', 1)
 
                         for cfg in q_configs:
                             week_val = cfg.get("week", 1)
+                            logging.info(f"Проверка недели {week_val}. Повторяемый: {is_rep}, Цель: {target_val}")
 
-                            # Смотрим, есть ли уже запись у юзера в user_bp_quests
-                            existing = await supabase.get("/user_bp_quests", params={
+                            # 2. УМНЫЙ ПОИСК В БАЗЕ (Для одноразовых игнорируем неделю)
+                            search_params = {
                                 "user_id": f"eq.{user_to_notify}",
-                                "quest_id": f"eq.{manual_quest_id}",
-                                "week": f"eq.{week_val}"
-                            })
+                                "quest_id": f"eq.{manual_quest_id}"
+                            }
+                            if is_rep:
+                                search_params["week"] = f"eq.{week_val}"
+
+                            existing = await supabase.get("/user_bp_quests", params=search_params)
+
+                            payload = {
+                                "current_amount": target_val,
+                                "target_amount": target_val,
+                                "is_completed": True
+                            }
 
                             if existing.status_code == 200 and existing.json():
-                                # Если запись есть (например, 0/1), добиваем до максимума
+                                # Обновляем существующую запись
                                 row_id = existing.json()[0]['id']
-                                await supabase.patch("/user_bp_quests", params={"id": f"eq.{row_id}"}, json={
-                                    "current_amount": target_val,
-                                    "target_amount": target_val,
-                                    "is_completed": True
-                                })
+                                res = await supabase.patch("/user_bp_quests", params={"id": f"eq.{row_id}"}, json=payload)
+                                res.raise_for_status()
+                                logging.info(f"✅ УСПЕХ: Квест обновлен в user_bp_quests (ID строки: {row_id})")
                             else:
-                                # Если записи не было, создаем готовую к сбору награды
-                                await supabase.post("/user_bp_quests", json={
+                                # Создаем новую
+                                payload.update({
                                     "user_id": user_to_notify,
                                     "quest_id": manual_quest_id,
-                                    "week": week_val,
-                                    "current_amount": target_val,
-                                    "target_amount": target_val,
-                                    "is_completed": True,
+                                    "week": week_val if is_rep else None, # Разовым не ставим неделю жестко
                                     "is_claimed": False
                                 })
+                                res = await supabase.post("/user_bp_quests", json=payload)
+                                res.raise_for_status()
+                                logging.info(f"✅ УСПЕХ: Новая запись создана в user_bp_quests!")
 
-                            # Если квест разовый, достаточно записать его один раз (фронт найдет сам)
+                            # Если квест разовый, одной записи достаточно
                             if not is_rep:
                                 break
+                    else:
+                        logging.warning(f"⚠️ Квест {manual_quest_id} не найден в quests_config текущего Баттл-Пасса!")
             except Exception as bp_err:
-                logging.error(f"Ошибка моста БП для ручного квеста {manual_quest_id}: {bp_err}", exc_info=True)
+                logging.error(f"❌ Ошибка моста БП для ручного квеста {manual_quest_id}: {bp_err}", exc_info=True)
             # ==========================================
 
             # 👇 ЭТА СТРОКА ДОЛЖНА БЫТЬ ОБЯЗАТЕЛЬНО ЗДЕСЬ 👇
