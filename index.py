@@ -11959,6 +11959,10 @@ async def update_submission_status(
             except Exception as bp_err:
                 logging.error(f"Ошибка моста БП для ручного квеста {manual_quest_id}: {bp_err}", exc_info=True)
             # ==========================================
+
+            # 👇 ЭТА СТРОКА ДОЛЖНА БЫТЬ ОБЯЗАТЕЛЬНО ЗДЕСЬ 👇
+            ticket_reward = await get_ticket_reward_amount_global("manual_quest_approval")
+            
             if ticket_reward > 0:
                 await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_to_notify, "p_amount": ticket_reward})
                 logging.info(f"Начислено {ticket_reward} билета(ов) за ручной квест пользователю {user_to_notify}.")
