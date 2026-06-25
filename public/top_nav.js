@@ -247,10 +247,17 @@ html, body {
 
         // 🔥 ВАЖНО: АВТОЗАГРУЗКА БАЛАНСА ПРИ СТАРТЕ 🔥
         const tryLoadData = () => {
-            if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) {
+            // Ждем не только инициализации Телеграма, но и пока подгрузится наш файл с API
+            const isTgReady = window.isVk || (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
+            const isApiReady = typeof window.makeApiRequest === 'function';
+
+            if (!isTgReady || !isApiReady) {
+                // Если кто-то из них еще спит — ждем еще 100 миллисекунд и пробуем снова
                 setTimeout(tryLoadData, 100);
                 return;
             }
+            
+            // Вот теперь все на месте, можно смело дергать баланс
             if (typeof window.checkBalance === 'function') window.checkBalance(true);
         };
         setTimeout(tryLoadData, 300);
