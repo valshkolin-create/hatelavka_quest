@@ -1505,15 +1505,6 @@ document.addEventListener('DOMContentLoaded', () => {
             statusClass = 'status-past';
             statusText = 'Доступна';
         }
-
-        // 🚀 ИСПРАВЛЕНИЕ: Плашка о прошлых неделях теперь показывается над "Текущей", 
-        // даже если она свернута (раньше она была привязана к isExpanded)
-        if (statusClass === 'status-active' && hasPastWeeksAvailable) {
-            const noticeBox = document.createElement('div');
-            noticeBox.className = 'past-weeks-notice';
-            noticeBox.innerHTML = '<i class="fa-solid fa-arrow-up"></i> Доступны задания других недель ↑';
-            dom.questsContainer.appendChild(noticeBox);
-        }
         
   // Предварительно обрабатываем и мапим прогресс квестов для этой недели
 const processedQuests = weekQuests.map(cfg => {
@@ -1580,9 +1571,8 @@ const processedQuests = weekQuests.map(cfg => {
     return { cfg, title, userProgress, requiredPrevWeek };
 });
         
-        // Считаем, есть ли в этой неделе задания, готовые к выдаче награды
-        const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed);
-
+        // Считаем, есть ли в этой неделе задания, готовые к выдаче (и не заблокированные предыдущими неделями)
+        const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed && q.requiredPrevWeek === null);
         if (hasRewardsToClaim) globalHasRewards = true; // <--- ДОБАВИТЬ ЭТУ СТРОКУ
         
         // Маленький динамический текст-индикатор для шапки аккордеона
