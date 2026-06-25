@@ -27992,20 +27992,19 @@ async def admin_get_user_inventory(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Получаем историю и джойним базовую информацию о предмете из cs_items
-        # Обрати внимание: если у тебя в cs_items поля называются иначе (не name, image, price, rarity), поправь селект.
+        # ИСПРАВЛЕНИЕ: Заменили 'image' на 'image_url', чтобы соответствовать SQL-схеме
         resp = await supabase.get(
             "/cs_history",
             params={
                 "user_id": f"eq.{user_id}",
-                "select": "*,cs_items(name,image,price,rarity)",
+                "select": "*,cs_items(name,image_url,price,rarity)",
                 "order": "created_at.desc"
             }
         )
         resp.raise_for_status()
         history_records = resp.json()
 
-        # Форматируем ответ для фронтенда, чтобы плоская структура была удобнее
+        # Форматируем ответ для фронтенда
         formatted_inventory = []
         for record in history_records:
             item_data = record.get("cs_items") or {}
@@ -28018,9 +28017,9 @@ async def admin_get_user_inventory(
                 "details": record.get("details"),
                 "code_used": record.get("code_used"),
                 
-                # Оригинальный предмет (до свапа)
+                # ИСПРАВЛЕНИЕ: Читаем 'image_url' из связанных данных cs_items
                 "item_name": item_data.get("name"),
-                "item_image": item_data.get("image"),
+                "item_image": item_data.get("image_url"),
                 "item_price": item_data.get("price"),
                 "item_rarity": item_data.get("rarity"),
                 
@@ -28034,10 +28033,12 @@ async def admin_get_user_inventory(
 
         return formatted_inventory
 
+    except httpx.HTTPStatusError as e:
+        logging.error(f"Ошибка БД при получении инвентаря для {user_id}: {e.response.text}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при запросе инвентаря.")
     except Exception as e:
-        logging.error(f"Ошибка получения инвентаря для {user_id}: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка базы данных при получении инвентаря.")
-
+        logging.error(f"Неизвестная ошибка получения инвентаря для {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 @app.post("/api/v1/admin/users/inventory/swap")
 async def admin_swap_inventory_item(
