@@ -18245,6 +18245,9 @@ async def fetch_and_cache_goods_background(category_id: int):
         for item in items_list:
             # Берем только Активные (1)
             item_status = item.get("status")
+            
+            logging.info(f"[DEBUG] Item: {item.get('name')}, Status: {item_status}")
+            
             if item_status not in [1, "1", "ACTIVE", None]:
                 continue
                 
