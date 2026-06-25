@@ -814,6 +814,13 @@
         .content-item.gold .content-name { color: #ffd700; }
         .content-item.gold img { filter: drop-shadow(0 5px 15px rgba(255, 215, 0, 0.25)); }
 
+        /* --- ПОДСВЕТКА ТЕКУЩЕЙ НЕДЕЛИ --- */
+        .week-accordion.current-week {
+            border-color: rgba(50, 215, 75, 0.4);
+            background: linear-gradient(180deg, rgba(50, 215, 75, 0.05) 0%, var(--surface-bg) 100%);
+            box-shadow: 0 0 15px rgba(50, 215, 75, 0.05);
+        }
+
     </style>
 </head>
 <body>
@@ -1604,7 +1611,8 @@ const processedQuests = weekQuests.map(cfg => {
         });
 
         const weekBlock = document.createElement('div');
-        weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''}`;
+        const isCurrentWeek = (statusClass === 'status-active');
+        weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''} ${isCurrentWeek ? 'current-week' : ''}`;
         
         weekBlock.innerHTML = `
             <div class="week-header ${isExpanded ? 'expanded' : ''}" data-week="${i}" onclick="toggleWeek(this)">
