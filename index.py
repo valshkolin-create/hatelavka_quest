@@ -11901,15 +11901,64 @@ async def update_submission_status(
 
     elif action == 'approved':
         try:
-            # 👇 ДОБАВИТЬ ВОТ ЭТО 👇
-            await supabase.patch(
-                "/quest_submissions", 
-                params={"id": f"eq.{submission_id}"}, 
-                json={"status": "approved"}
-            )
-            # 👆 👆 👆
-            # 1. Начисляем билеты
-            ticket_reward = await get_ticket_reward_amount_global("manual_quest_approval")
+            # 1. Обновляем статус самой заявки
+            await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "approved"})
+
+            # ==========================================
+            # 🔥 МОСТ В BATTLE PASS: Синхронизируем ручной квест с user_bp_quests 🔥
+            # ==========================================
+            try:
+                logging.info(f"Синхронизация ручного квеста {manual_quest_id} с Баттл-Пассом...")
+                # Достаем конфиг текущего БП
+                cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+                if cp_res.status_code == 200 and cp_res.json():
+                    bp_config = cp_res.json()[0].get("content", {})
+
+                    # Ищем этот квест в конфиге БП
+                    q_configs = [q for q in bp_config.get("quests_config", []) if str(q.get("quest_id")) == str(manual_quest_id)]
+
+                    if q_configs:
+                        # Проверяем, повторяемый ли он и какая у него цель
+                        q_meta = await supabase.get("/quests", params={"id": f"eq.{manual_quest_id}", "select": "is_repeatable, target_value"})
+                        is_rep = q_meta.json()[0].get('is_repeatable', False) if q_meta.status_code == 200 and q_meta.json() else False
+                        target_val = q_meta.json()[0].get('target_value', 1) if q_meta.status_code == 200 and q_meta.json() else 1
+
+                        for cfg in q_configs:
+                            week_val = cfg.get("week", 1)
+
+                            # Смотрим, есть ли уже запись у юзера в user_bp_quests
+                            existing = await supabase.get("/user_bp_quests", params={
+                                "user_id": f"eq.{user_to_notify}",
+                                "quest_id": f"eq.{manual_quest_id}",
+                                "week": f"eq.{week_val}"
+                            })
+
+                            if existing.status_code == 200 and existing.json():
+                                # Если запись есть (например, 0/1), добиваем до максимума
+                                row_id = existing.json()[0]['id']
+                                await supabase.patch("/user_bp_quests", params={"id": f"eq.{row_id}"}, json={
+                                    "current_amount": target_val,
+                                    "target_amount": target_val,
+                                    "is_completed": True
+                                })
+                            else:
+                                # Если записи не было, создаем готовую к сбору награды
+                                await supabase.post("/user_bp_quests", json={
+                                    "user_id": user_to_notify,
+                                    "quest_id": manual_quest_id,
+                                    "week": week_val,
+                                    "current_amount": target_val,
+                                    "target_amount": target_val,
+                                    "is_completed": True,
+                                    "is_claimed": False
+                                })
+
+                            # Если квест разовый, достаточно записать его один раз (фронт найдет сам)
+                            if not is_rep:
+                                break
+            except Exception as bp_err:
+                logging.error(f"Ошибка моста БП для ручного квеста {manual_quest_id}: {bp_err}", exc_info=True)
+            # ==========================================
             if ticket_reward > 0:
                 await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_to_notify, "p_amount": ticket_reward})
                 logging.info(f"Начислено {ticket_reward} билета(ов) за ручной квест пользователю {user_to_notify}.")
