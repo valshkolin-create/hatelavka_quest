@@ -18356,6 +18356,12 @@ async def get_bott_goods_proxy(
 async def fetch_and_cache_goods_background(category_id: int, supabase_client=None):
     """Фоновая задача: Скачивает товары с Bot-t (Private API) и сохраняет в Supabase (shop_cache)"""
     
+    # ==========================================
+    # 🔥 НОВАЯ ПРОВЕРКА: ЖЕСТКИЙ КОНТРОЛЬ ТОКЕНОВ 🔥
+    # ==========================================
+    if not BOTT_BOT_TOKEN or not BOTT_SECRET_KEY:
+        raise Exception(f"СЛЕТЕЛИ ТОКЕНЫ В VERCEL! BotToken: {bool(BOTT_BOT_TOKEN)}, SecretKey: {bool(BOTT_SECRET_KEY)}")
+    
     params = {
         "botToken": BOTT_BOT_TOKEN,
         "secretKey": BOTT_SECRET_KEY
@@ -18368,7 +18374,7 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
         # ==========================================
         # 1. ЗАПРАШИВАЕМ СВЕЖИЕ ДАННЫЕ ИЗ BOT-T (С ДЕБАГОМ)
         # ==========================================
-        async with httpx.AsyncClient(timeout=15.0) as client: 
+        async with httpx.AsyncClient(timeout=15.0) as client:
             raw_response_text = ""
             
             if category_id == 0:
