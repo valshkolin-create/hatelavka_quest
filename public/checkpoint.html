@@ -1683,7 +1683,7 @@ window.claimQuestReward = async function(questId, week) {
         
         if (res.ok) {
             tg.HapticFeedback.notificationOccurred('success');
-            showCustomAlert('Награда получена!', `Отлично! Тебе начислено +${data.earned_exp} EXP`, 'success');
+            showCustomAlert('Награда получена!', `Тебе начислено +${data.earned_exp} EXP`, 'success');
         } else {
             tg.HapticFeedback.notificationOccurred('error');
             showCustomAlert('Ошибка', data.detail || 'Не удалось получить награду', 'error');
