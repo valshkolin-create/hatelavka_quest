@@ -391,7 +391,7 @@ html, body {
 
     // Баланс
     let isBalanceLoading = false;
-    window.checkBalance = async function(updateUI = true) {
+    window.checkBalance = async function(updateUI = true, forceSync = false) {
         if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return Promise.resolve();
 
         if (isBalanceLoading) return Promise.resolve();
@@ -400,7 +400,7 @@ html, body {
         const iconCoins = document.getElementById('refresh-icon');
         if (iconCoins) iconCoins.classList.add('fa-spin');
 
-        if (updateUI) {
+        if (updateUI && !forceSync) {
             try {
                 const cached = JSON.parse(localStorage.getItem('smart_balance_cache'));
                 if (cached) window.renderBalanceUI(cached.balance, cached.tickets);
@@ -409,15 +409,20 @@ html, body {
 
         try {
             if(typeof window.makeApiRequest !== 'function') throw new Error("makeApiRequest not found");
-            const data = await window.makeApiRequest('/api/v1/shop/smart_balance', {}, 'POST', true);
+            
+            // Если просим принудительно, добавляем параметр в URL
+            const url = forceSync ? '/api/v1/shop/smart_balance?force=true' : '/api/v1/shop/smart_balance';
+            
+            const data = await window.makeApiRequest(url, {}, 'POST', true);
             if (updateUI && data) {
                 localStorage.setItem('smart_balance_cache', JSON.stringify(data));
                 window.renderBalanceUI(data.balance, data.tickets);
             }
         } catch (err) {
-        } finally { 
+            console.error("Ошибка баланса:", err);
+        } finally {
+            isBalanceLoading = false; 
             setTimeout(() => { 
-                isBalanceLoading = false; 
                 const currentIcon = document.getElementById('refresh-icon');
                 if (currentIcon) currentIcon.classList.remove('fa-spin'); 
             }, 500); 
