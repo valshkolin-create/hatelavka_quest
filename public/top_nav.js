@@ -438,23 +438,34 @@ html, body {
 
     // 🔥 ВОТ ТУТ МЫ ВСЕ ИСПРАВИЛИ 🔥
     window.renderBalanceUI = function(coins, tickets) {
-        if (coins !== undefined) {
-            let displayBalance = Number(coins).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-            const balanceEl = document.getElementById('user-balance');
-            if (balanceEl && balanceEl.textContent !== displayBalance) { 
-                balanceEl.style.opacity = '0.5'; 
-                setTimeout(() => { balanceEl.textContent = displayBalance; balanceEl.style.opacity = '1'; }, 150); 
-            }
-        }
-        if (tickets !== undefined) {
-            let displayTickets = Number(tickets).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-            const ticketsEl = document.getElementById('ticketStats');
-            if (ticketsEl && ticketsEl.textContent !== displayTickets) { 
-                ticketsEl.style.opacity = '0.5'; 
-                setTimeout(() => { ticketsEl.textContent = displayTickets; ticketsEl.style.opacity = '1'; }, 150); 
-            }
-        }
-    };
+    // === 1. ОБРАБОТКА МОНЕТ (COINS) ===
+    const displayBalance = (coins !== undefined && coins !== null && coins !== '')
+        ? Number(coins).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+        : '<i class="fa-solid fa-spinner fa-spin" style="font-size: 8px;"></i>';
+
+    const balanceEl = document.getElementById('user-balance');
+    if (balanceEl && balanceEl.innerHTML !== displayBalance) { 
+        balanceEl.style.opacity = '0.5'; 
+        setTimeout(() => { 
+            balanceEl.innerHTML = displayBalance; 
+            balanceEl.style.opacity = '1'; 
+        }, 150); 
+    }
+
+    // === 2. ОБРАБОТКА БИЛЕТОВ (TICKETS) ===
+    const displayTickets = (tickets !== undefined && tickets !== null && tickets !== '')
+        ? Number(tickets).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+        : '<i class="fa-solid fa-spinner fa-spin" style="font-size: 8px;"></i>';
+
+    const ticketsEl = document.getElementById('ticketStats');
+    if (ticketsEl && ticketsEl.innerHTML !== displayTickets) { 
+        ticketsEl.style.opacity = '0.5'; 
+        setTimeout(() => { 
+            ticketsEl.innerHTML = displayTickets; 
+            ticketsEl.style.opacity = '1'; 
+        }, 150); 
+    }
+};
 
     // Купоны
     window.openCouponModal = () => {
