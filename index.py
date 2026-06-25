@@ -27967,6 +27967,128 @@ async def force_trust_sync(
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+# --- Модели для новых запросов ---
+class AdminSwapItemRequest(BaseModel):
+    initData: str
+    history_id: int
+    new_market_hash_name: str
+    new_price: float
+    new_image_url: str
+    new_rarity: str
+
+# =========================================================================
+# УПРАВЛЕНИЕ ИНВЕНТАРЕМ ПОЛЬЗОВАТЕЛЯ
+# =========================================================================
+
+@app.get("/api/v1/admin/users/{user_id}/inventory")
+async def admin_get_user_inventory(
+    user_id: int,
+    initData: str = Query(...),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Получает инвентарь пользователя (все записи из cs_history)."""
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Получаем историю и джойним базовую информацию о предмете из cs_items
+        # Обрати внимание: если у тебя в cs_items поля называются иначе (не name, image, price, rarity), поправь селект.
+        resp = await supabase.get(
+            "/cs_history",
+            params={
+                "user_id": f"eq.{user_id}",
+                "select": "*,cs_items(name,image,price,rarity)",
+                "order": "created_at.desc"
+            }
+        )
+        resp.raise_for_status()
+        history_records = resp.json()
+
+        # Форматируем ответ для фронтенда, чтобы плоская структура была удобнее
+        formatted_inventory = []
+        for record in history_records:
+            item_data = record.get("cs_items") or {}
+            formatted_inventory.append({
+                "id": record.get("id"),
+                "status": record.get("status"),
+                "created_at": record.get("created_at"),
+                "source": record.get("source"),
+                "case_name": record.get("case_name"),
+                "details": record.get("details"),
+                "code_used": record.get("code_used"),
+                
+                # Оригинальный предмет (до свапа)
+                "item_name": item_data.get("name"),
+                "item_image": item_data.get("image"),
+                "item_price": item_data.get("price"),
+                "item_rarity": item_data.get("rarity"),
+                
+                # Фактический предмет (если был свап)
+                "is_swapped": record.get("is_swapped", False),
+                "replaced_name": record.get("replaced_name"),
+                "replaced_image_url": record.get("replaced_image_url"),
+                "replaced_price": record.get("replaced_price"),
+                "replaced_rarity": record.get("replaced_rarity")
+            })
+
+        return formatted_inventory
+
+    except Exception as e:
+        logging.error(f"Ошибка получения инвентаря для {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при получении инвентаря.")
+
+
+@app.post("/api/v1/admin/users/inventory/swap")
+async def admin_swap_inventory_item(
+    req: AdminSwapItemRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Заменяет предмет в инвентаре пользователя на другой со склада."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Проверяем, существует ли запись и можно ли её заменить (статус должен быть pending)
+        check_resp = await supabase.get(
+            "/cs_history",
+            params={"id": f"eq.{req.history_id}", "select": "status,is_swapped"}
+        )
+        check_resp.raise_for_status()
+        record_data = check_resp.json()
+
+        if not record_data:
+            raise HTTPException(status_code=404, detail="Предмет не найден в истории.")
+        
+        if record_data[0].get("status") != "pending":
+            raise HTTPException(status_code=400, detail="Можно заменить только предметы со статусом 'pending' (в инвентаре).")
+
+        # Обновляем запись
+        update_data = {
+            "is_swapped": True,
+            "replaced_name": req.new_market_hash_name,
+            "replaced_price": req.new_price,
+            "replaced_image_url": req.new_image_url,
+            "replaced_rarity": req.new_rarity,
+            "details": f"Свап админом {user_info.get('id')}. Было -> Стало: {req.new_market_hash_name}"
+        }
+
+        resp = await supabase.patch(
+            "/cs_history",
+            params={"id": f"eq.{req.history_id}"},
+            json=update_data
+        )
+        resp.raise_for_status()
+
+        return {"message": "Предмет успешно заменен!"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Ошибка замены предмета {req.history_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при замене предмета.")
+
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon(): return Response(status_code=204)
