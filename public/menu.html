@@ -65,69 +65,6 @@
         <div class="loader-text" id="loader-text">Оформляем...</div>
     </div>
 
-    <div id="side-menu-overlay" class="side-menu-overlay">
-    <div class="side-menu-content">
-        <div class="side-menu-header">
-            <h3 id="fullName">Профиль</h3>
-            <button id="close-menu-btn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <nav class="side-nav">
-            <a href="/profile"><i class="fa-solid fa-user"></i> Мой Профиль</a>
-            <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
-            <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
-            <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки (заглушка)</a>
-            <a href="#" onclick="showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
-            <a href="#" onclick="openCouponModal(); return false;">
-        <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
-    </a>
-            <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
-        </nav>
-    </div>
-</div>
-
-<header class="top-header">
-    
-    <div class="logo-wrapper">
-    <div id="logo-notification-btn" class="logo-btn-container" onclick="openNotificationsHistory()">
-        <img src="https://i.postimg.cc/T3J3WhZL/6d40575f-80b0-49ba-a3ce-84890db9a196.png" alt="Logo" class="app-logo">
-        
-        <div class="bell-wrapper">
-            <i class="fa-solid fa-bell"></i>
-            <span id="logo-notification-badge" class="notif-badge-logo hidden">0</span>
-        </div>
-    </div>
-    
-    <div class="logo-text">
-    <span class="logo-title">HATElavka</span>
-    <span class="logo-subtitle">
-        <a href="https://www.twitch.tv/hatelove_ttv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openLink('https://www.twitch.tv/hatelove_ttv'); return false; }" style="color: #9146ff; text-decoration: none; font-weight: 700;">TWITCH</a> 
-        <span style="color: inherit; margin: 0 2px;">|</span> 
-        <a href="https://t.me/hatelove_ttv" target="_blank" onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); return false; }" style="color: #2AABEE; text-decoration: none; font-weight: 700;">TELEGRAM</a>
-    </span>
-</div>
-</div>
-
-    <div class="header-right-group">
-        <div class="balance-pill" onclick="checkBalance(true)">
-            <div class="balance-col">
-                <div class="balance-row"><span id="user-balance">0</span> <i class="fa-solid fa-coins" style="color: #FFD700;"></i></div>
-                <div class="balance-row"><span id="ticketStats">0</span> <i class="fa-solid fa-ticket" style="color: #bdecff;"></i></div>
-            </div>
-            <div class="refresh-icon-wrapper">
-                <i class="fa-solid fa-rotate-right fa-spin" id="refresh-icon"></i>
-            </div>
-        </div>
-        
-        <img src="https://via.placeholder.com/64x64/555555/ffffff?text=U" alt="Avatar" class="user-avatar" id="user-avatar" onclick="window.location.href='/profile'">
-        
-        <button id="open-menu-btn" class="glass-burger">
-            <span></span><span></span><span></span>
-        </button>
-    </div>
-
-</header>
-
-    
 
 <div id="pull-to-refresh">
         <i class="fa-solid fa-rotate-right"></i>
@@ -662,36 +599,6 @@
         </div>
     </div>
 </div>
-
-    <div id="coupon-modal" class="modal hidden" style="z-index: 10002;">
-        <div class="modal-content" style="text-align: center; max-width: 320px;">
-            <div class="modal-header">
-                <h3 style="margin: 0; color: #fff;">Активация</h3>
-                <button onclick="closeCouponModal()" class="close-modal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <div style="font-size: 45px; margin: 10px 0; animation: pulse 2s infinite;">🎟️</div>
-            
-            <p style="font-size: 11px; color: #8e8e93; margin-bottom: 15px; padding: 0 10px;">
-                Введите секретный код, чтобы получить бонус на ваш аккаунт
-            </p>
-            
-            <div style="position: relative; margin-bottom: 15px;">
-                <input type="text" id="coupon-input" class="p2p-input" placeholder="КОД" autocapitalize="off" spellcheck="false"
-       style="text-align:center; padding-right: 45px; font-weight: 700; font-size: 14px; letter-spacing: 2px; height: 40px;">
-                
-                <button onclick="pasteCoupon()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.05); border: none; color: #8e8e93; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                    <i class="fa-solid fa-paste" style="font-size: 12px;"></i>
-                </button>
-            </div>
-            
-            <button id="activate-coupon-btn" class="action-btn btn-buy" 
-                    style="height: 40px; font-size: 13px; background: linear-gradient(135deg, #34c759 0%, #2ecc71 100%); color: #fff; border-radius: 10px;" 
-                    onclick="activateCouponSubmit()">
-                Активировать
-            </button>
-        </div>
-    </div>
 
 <script>
     // АТОМНЫЙ ДЕТЕКТОР ПЛАТФОРМЫ (V3 - ТЕРМИНАТОР)
