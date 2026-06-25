@@ -1794,6 +1794,22 @@ function renderItems(items) {
     // 🔥 Защита от краша
     if (!Array.isArray(items)) items = []; 
 
+    // ============================================================
+    // 👇 ЛОГИКА СЕКРЕТНЫХ КЕЙСОВ (is_secret) 👇
+    // ============================================================
+    items = items.filter(item => {
+        // Если у кейса стоит пометка is_secret: true
+        if (item.is_secret) {
+            // Проверяем, активировал ли юзер купон именно на этот кейс
+            const hasCoupon = window.activeFreeCases.includes(item.name);
+            // Если купон есть — оставляем в массиве, если нет — выкидываем (прячем)
+            return hasCoupon; 
+        }
+        // Обычные (не секретные) кейсы и папки показываем всегда
+        return true; 
+    });
+    // ============================================================
+
     const container = document.getElementById('shop-grid');
     container.innerHTML = '';
 
