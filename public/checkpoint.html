@@ -511,13 +511,18 @@
         #premium-buy-modal .premium-panel { transform: translateY(-5px) !important; }
         #image-modal .image-modal-wrapper { transform: translateY(-10px) !important; }
         #case-contents-modal .premium-panel { 
-            transform: translateY(-100px) !important; 
+            transform: translateY(-130px) !important; 
         }
-        /* Выравниваем крестик в окне кейсов строго по верхней линии (где должен быть заголовок) */
-        #case-contents-modal .unified-close-btn { 
-            top: 15px; 
-            right: 15px; 
-        }
+        /* Выравнивание крестика и заголовка в окне кейсов */
+#case-contents-modal .unified-close-btn {
+    top: 24px !important; /* Двигай эту цифру: меньше — крестик выше, больше — ниже */
+    right: 20px !important;
+}
+
+#case-contents-modal .inst-modal-header {
+    padding-top: 25px !important; /* Фиксируем высоту заголовка */
+    padding-right: 45px !important; /* Делаем отступ справа, чтобы текст не залез под крестик */
+}
 
         /* ⚡️ СВЕРХКОМПАКТНАЯ ВКЛАДКА ЗАДАНИЙ (УМЕНЬШЕНО В 2 РАЗА) ⚡️ */
 #view-quests .week-accordion { border-radius: 10px; margin-bottom: 8px; }
