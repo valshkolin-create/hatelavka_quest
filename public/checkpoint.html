@@ -596,6 +596,22 @@
     background: linear-gradient(90deg, rgba(50, 215, 75, 0.02) 0%, rgba(50, 215, 75, 0.05) 100%);
 }
 
+/* --- ПРОЗРАЧНЫЕ МОДАЛКИ (Инструкция и Кейс) --- */
+#instruction-modal .premium-panel,
+#case-contents-modal .premium-panel {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Убираем полоску-разделитель в шапке этих модалок */
+#instruction-modal .inst-modal-header,
+#case-contents-modal .inst-modal-header {
+    background: transparent !important;
+    border-bottom: none !important;
+    padding-top: 10px; /* Чуть сдвинем текст выше, раз нет визуальных границ */
+}
+
 /* Жесткое выравнивание правой части, чтобы убрать "лесенку" */
 /* 2. Правая часть теперь с фиксированными зонами */
 .quest-right-side {
