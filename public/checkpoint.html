@@ -177,6 +177,40 @@
             padding-bottom: 130px; /* Добавили отступ, чтобы можно было доскроллить до конца */
         }
 
+        .premium-step {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin: 10px 0;
+            opacity: 0.3;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
+        }
+        .premium-step.active {
+            color: var(--text-main);
+            opacity: 1;
+            transform: scale(1.05);
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        .premium-step.done {
+            color: var(--success);
+            opacity: 0.8;
+            transform: scale(1);
+        }
+        .premium-step i { width: 20px; text-align: center; }
+
+        @keyframes forgeGlow {
+            0% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); border-color: rgba(255, 215, 0, 0.2); }
+            50% { box-shadow: 0 0 60px rgba(255, 215, 0, 0.6), inset 0 0 20px rgba(255, 215, 0, 0.3); border-color: var(--primary); transform: scale(1.02); }
+            100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); border-color: rgba(255, 215, 0, 0.2); }
+        }
+        .forge-active {
+            animation: forgeGlow 1.2s ease-in-out infinite !important;
+        }
+
         .view-section { display: none; padding: 0 15px 15px 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s ease; }
         .view-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
@@ -809,6 +843,7 @@
             gap: 8px; 
             margin-top: 10px; 
             padding: 0 5px; 
+            padding-bottom: calc(120px + env(safe-area-inset-bottom));
         }
         .content-item { 
             background: transparent; /* Убрали фон */
@@ -2006,17 +2041,18 @@ window.claimQuestReward = async function(questId, week) {
         coinsBtn.addEventListener('click', async () => {
             haptic('medium');
             
-            // Защита от двойного клика на кнопку
-            if (coinsBtn.disabled) return;
+            if (coinsBtn.disabled || coinsBtn.classList.contains('processing')) return;
             
             const originalHtml = coinsBtn.innerHTML;
+            const modalBody = dom.premiumBuyModal.querySelector('.premium-modal-body');
+            const originalBodyHtml = modalBody.innerHTML; // Запоминаем исходный вид
+
             coinsBtn.disabled = true;
-            coinsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Обработка...';
-            
-            tg.MainButton.showProgress();
+            coinsBtn.classList.add('processing');
+            coinsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Авторизация...';
             
             try {
-                // Вызываем бэкенд, который мы написали (списывает баланс через subtract_bott_balance)
+                // Молча стучимся на сервер
                 const res = await fetch('/api/v1/checkpoint/buy_premium', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2026,30 +2062,97 @@ window.claimQuestReward = async function(questId, week) {
                 const data = await res.json();
                 
                 if (res.ok) {
-                    dom.premiumBuyModal.classList.remove('modal-active');
-                    tg.HapticFeedback.notificationOccurred('success');
-                    tg.showAlert('Premium успешно активирован!');
+                    // Сервер дал добро, деньги списаны. Начинаем шоу.
+                    haptic('light');
                     
-                    // Обновляем фронтенд
+                    // Прячем всё лишнее и выводим наши шаги
+                    modalBody.innerHTML = `
+                        <div style="padding: 20px 0; display: flex; flex-direction: column; gap: 12px;" id="premium-activation-steps">
+                            <div class="premium-step" id="step-1"><i class="fa-solid fa-shield-halved"></i> Проверка аккаунта</div>
+                            <div class="premium-step" id="step-2"><i class="fa-solid fa-coins"></i> Перевод средств</div>
+                            <div class="premium-step" id="step-3"><i class="fa-solid fa-fire"></i> Выпуск Золотого Пропуска</div>
+                        </div>
+                    `;
+                    
+                    const panel = dom.premiumBuyModal.querySelector('.premium-panel');
+                    const step1 = document.getElementById('step-1');
+                    const step2 = document.getElementById('step-2');
+                    const step3 = document.getElementById('step-3');
+
+                    // Наш философский таймер для задержек
+                    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+                    // Шаг 1
+                    step1.classList.add('active');
+                    step1.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Проверка аккаунта...';
+                    await sleep(500);
+                    step1.classList.remove('active');
+                    step1.classList.add('done');
+                    step1.innerHTML = '<i class="fa-solid fa-check"></i> Защита пройдена';
+                    haptic('light');
+
+                    // Шаг 2
+                    step2.classList.add('active');
+                    step2.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Списание монет...';
+                    await sleep(700);
+                    step2.classList.remove('active');
+                    step2.classList.add('done');
+                    step2.innerHTML = '<i class="fa-solid fa-check"></i> Баланс подтвержден';
+                    haptic('light');
+
+                    // Шаг 3 - Ковка пропуска (самый долгий и сочный)
+                    step3.classList.add('active');
+                    step3.innerHTML = '<i class="fa-solid fa-hammer fa-bounce" style="color: var(--primary);"></i> Активация статуса...';
+                    panel.classList.add('forge-active'); // Включаем пульсацию модалки
+                    haptic('heavy');
+                    
+                    await sleep(1400); // Держим интригу
+                    
+                    panel.classList.remove('forge-active');
+                    step3.classList.remove('active');
+                    step3.classList.add('done');
+                    step3.innerHTML = '<i class="fa-solid fa-crown" style="color: var(--primary);"></i> PREMIUM АКТИВЕН';
+                    
+                    // Финальный аккорд: взрыв звезд из центра панели
+                    haptic('success');
+                    const rect = panel.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    
+                    // Твоя же функция, которая красиво отправит звезды наверх
+                    playStarAnimation(centerX, centerY);
+                    
+                    // Даем человеку секунду насладиться результатом
+                    await sleep(1000);
+                    
+                    // Скрываем модалку и обновляем всё
+                    dom.premiumBuyModal.classList.remove('modal-active');
+                    
+                    // Возвращаем исходный HTML на случай, если окно откроется снова (хотя оно будет заблокировано)
+                    setTimeout(() => { modalBody.innerHTML = originalBodyHtml; }, 400);
+
                     userData.has_cp_premium = true;
                     renderBP();
                     
-                    // Если есть фоновое обновление баланса — вызываем его
                     if (typeof checkBalance === 'function') checkBalance(true);
+                    
                 } else {
+                    // Если беда с балансом — возвращаем всё на круги своя
                     tg.HapticFeedback.notificationOccurred('error');
-                    tg.showAlert(data.detail || 'Недостаточно средств или ошибка.');
+                    tg.showAlert(data.detail || 'Транзакция отклонена сервером.');
+                    coinsBtn.disabled = false;
+                    coinsBtn.classList.remove('processing');
+                    coinsBtn.innerHTML = originalHtml;
                 }
             } catch (e) {
-                tg.showAlert('Ошибка соединения с сервером.');
-            } finally {
-                tg.MainButton.hideProgress();
+                tg.HapticFeedback.notificationOccurred('error');
+                tg.showAlert('Связь прервалась. Попробуйте еще раз.');
                 coinsBtn.disabled = false;
+                coinsBtn.classList.remove('processing');
                 coinsBtn.innerHTML = originalHtml;
             }
         });
     }
-
     function setupSwipe() {
         let startX = 0;
         let startY = 0;
