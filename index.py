@@ -18380,7 +18380,9 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
                     items_list.extend(data if isinstance(data, list) else [])
             else:
                 # ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ)
-                payload = {"bot_id": int(BOTT_BOT_ID), "id": int(category_id)}
+                
+                # 🔥 ИЗМЕНЕНИЯ ЗДЕСЬ: поменяли "id" на "category_id"
+                payload = {"bot_id": int(BOTT_BOT_ID), "category_id": int(category_id)}
                 
                 url_products = "https://api.bot-t.com/v1/shop/category/view-products"
                 url_view = "https://api.bot-t.com/v1/shop/category/view"
