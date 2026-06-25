@@ -12245,48 +12245,69 @@ async def trigger_stream_end_rewards(supabase: httpx.AsyncClient):
     
     for board in leaderboards_to_check:
         try:
-            # 1. Проверяем, включена ли авто-выдача для этого лидерборда
-            cfg_resp = await supabase.get("/leaderboard_configs", params={"leaderboard_key": f"eq.{board['key']}"})
+            # 1. Ищем настройки в правильной таблице 'settings' по колонке 'key'
+            cfg_resp = await supabase.get("/settings", params={"key": f"eq.{board['key']}"})
             cfg_data = cfg_resp.json()
             if not cfg_data:
                 continue
                 
-            config = cfg_data[0].get("config", {})
+            # 2. Достаем JSON из колонки 'value'
+            config = cfg_data[0].get("value", {})
+            if isinstance(config, str):
+                import json
+                try: config = json.loads(config)
+                except: config = {}
+                
             auto_issue = config.get("auto_issue", {})
             
+            # Если галочка "При завершении трансляции" не стоит — пропускаем
             if not auto_issue.get("enabled"):
                 continue
                 
             logging.info(f"🎬 Запуск авто-выдачи наград для {board['key']} (Конец стрима)")
             
-            # 2. Получаем ТОП-3 из таблицы users
+            # 3. Берем ТОП-10 с запасом, потому что скрытые аккаунты есть в базе
             top_resp = await supabase.get(
                 "/users",
                 params={
                     "order": f"{board['db_col']}.desc",
-                    "limit": "3",
+                    "telegram_id": "not.is.null",
+                    "limit": "10",
                     "select": f"telegram_id, twitch_login, {board['db_col']}"
                 }
             )
             top_data = top_resp.json()
             
-            # 3. Раздаем награды
-            for i, user in enumerate(top_data):
-                # Если у юзера 0 активаности, пропускаем
-                if not user.get(board['db_col']) or user.get(board['db_col']) <= 0:
-                    continue
-
-                rank = str(i + 1)
-                reward_cfg = config.get(rank)
+            if not top_data or not isinstance(top_data, list):
+                continue
                 
+            # 4. Раздаем награды строго 3 лучшим зрителям
+            valid_rank = 1
+            for user in top_data:
+                if valid_rank > 3:
+                    break # Выдали топ-3 — завершаем
+                    
+                if not user.get(board['db_col']) or user.get(board['db_col']) <= 0:
+                    break # Дальше идут юзеры с нулями, стоп
+
+                twitch_login = user.get("twitch_login", "").lower()
+                
+                # Точно такой же фильтр, как у тебя на фронте (плюс сам стример и боты)
+                if twitch_login == "channel" or twitch_login == "telegram" or twitch_login == "hatelove_ttv" or "bot" in twitch_login:
+                    continue
+                    
+                reward_cfg = config.get(str(valid_rank))
+                
+                # Если место заработано, но админ поставил "Пусто"
                 if not reward_cfg or reward_cfg.get("type") == "none":
+                    valid_rank += 1
                     continue
                     
                 telegram_id = user.get("telegram_id")
-                if not telegram_id:
-                    continue
-                    
-                # Вызываем твою готовую функцию
+                
+                logging.info(f"🏆 Выдаем {valid_rank} место ({board['key']}) -> {twitch_login}")
+                
+                # Вызываем твою готовую, рабочую функцию выдачи
                 await process_reward_issuance(
                     tg_id=telegram_id,
                     r_type=reward_cfg["type"],
@@ -12294,6 +12315,8 @@ async def trigger_stream_end_rewards(supabase: httpx.AsyncClient):
                     config_key=board["key"],
                     supabase=supabase
                 )
+                
+                valid_rank += 1 # Шагаем на следующее призовое место
                 
         except Exception as e:
             logging.error(f"❌ Ошибка авто-выдачи наград после стрима ({board['key']}): {e}")
