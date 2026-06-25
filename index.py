@@ -18216,12 +18216,17 @@ async def fetch_and_cache_goods_background(category_id: int):
                     if isinstance(prod_data, list):
                         items_list.extend(prod_data)
                 
-                # Разбираем ПОДПАПКИ (если внутри этой папки есть еще папки)
+                # Разбираем ПОДПАПКИ и проверяем, не является ли сама категория товаром
                 if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
                     view_data = resp_view.json().get("data", {})
                     if isinstance(view_data, dict):
+                        # Добавляем подкатегории
                         sub_cats = view_data.get("children", []) or view_data.get("categories", [])
                         items_list.extend(sub_cats)
+                        
+                        # 🔥 ДОБАВЛЯЕМ САМ ЭЛЕМЕНТ, ЕСЛИ ЭТО ТОВАР 🔥
+                        if view_data.get("type") == 2:
+                            items_list.append(view_data)
 
         # ==========================================
         # 🛡️ СПАСАЕМ ФЛАГИ СЕКРЕТНОСТИ ПЕРЕД ПЕРЕЗАПИСЬЮ
