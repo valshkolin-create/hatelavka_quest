@@ -18219,12 +18219,15 @@ async def fetch_and_cache_goods_background(category_id: int):
                 # Разбираем ПОДПАПКИ и проверяем, не является ли сама категория товаром
                 if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
                     view_data = resp_view.json().get("data", {})
+                    # 🔥 ДОБАВЛЯЕМ ЛОГ ДЛЯ ОТЛАДКИ 🔥
+                    logging.info(f"[DEBUG] Category {category_id} view_data: {view_data}")
+                    
                     if isinstance(view_data, dict):
                         # Добавляем подкатегории
                         sub_cats = view_data.get("children", []) or view_data.get("categories", [])
                         items_list.extend(sub_cats)
                         
-                        # 🔥 ДОБАВЛЯЕМ САМ ЭЛЕМЕНТ, ЕСЛИ ЭТО ТОВАР 🔥
+                        # Если это товар (тип 2)
                         if view_data.get("type") == 2:
                             items_list.append(view_data)
 
