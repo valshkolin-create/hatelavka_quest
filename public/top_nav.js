@@ -395,11 +395,7 @@
 
         const balanceEl = document.getElementById('user-balance');
         if (balanceEl && balanceEl.innerHTML !== displayBalance) { 
-            balanceEl.style.opacity = '0.5'; 
-            setTimeout(() => { 
-                balanceEl.innerHTML = displayBalance; 
-                balanceEl.style.opacity = '1'; 
-            }, 150); 
+            balanceEl.innerHTML = displayBalance; 
         }
 
         const displayTickets = (tickets !== undefined && tickets !== null && tickets !== '')
@@ -408,14 +404,10 @@
 
         const ticketsEl = document.getElementById('ticketStats');
         if (ticketsEl && ticketsEl.innerHTML !== displayTickets) { 
-            ticketsEl.style.opacity = '0.5'; 
-            setTimeout(() => { 
-                ticketsEl.innerHTML = displayTickets; 
-                ticketsEl.style.opacity = '1'; 
-            }, 150); 
+            ticketsEl.innerHTML = displayTickets; 
         }
     });
-
+    
     let isBalanceLoading = false;
     lockGlobalFunction('checkBalance', async function(updateUI = true, forceSync = false) {
         if (!window.isVk && (!window.Telegram || !window.Telegram.WebApp || !window.Telegram.WebApp.initData)) return Promise.resolve();
