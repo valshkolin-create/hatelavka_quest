@@ -1333,59 +1333,70 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.questsContainer.appendChild(noticeBox);
         }
         
-    // Предварительно обрабатываем и мапим прогресс квестов для этой недели
-        const processedQuests = weekQuests.map(cfg => {
-            const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
-            const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
-            const isRepeatable = questDetails ? questDetails.is_repeatable : false;
+  // Предварительно обрабатываем и мапим прогресс квестов для этой недели
+const processedQuests = weekQuests.map(cfg => {
+    const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
+    const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
+    const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
-            // Ищем все записи для этого квеста в профиле юзера
-            const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
+    // Ищем все записи для этого квеста в профиле юзера
+    const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
 
-            let rawProgress = null;
+    let rawProgress = null;
 
-            if (!isRepeatable) {
-                // 1. ОДНОРАЗОВЫЕ (Ютуб): Берем любую запись. Если хоть раз делал за всё время — засчитано.
-                rawProgress = allUserProgress.length > 0 ? allUserProgress[0] : null;
-            } else {
-                // 2. МНОГОРАЗОВЫЕ (Ассисты): Ищем СТРОГО запись этой недели
-                rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
-
-                // Если записи с номером недели нет, проверяем старые записи (week == null) строго по датам
-                if (!rawProgress) {
-                    const oldNullProgress = allUserProgress.find(q => q.week == null);
-                    if (oldNullProgress) {
-                        const timeStr = oldNullProgress.updated_at || oldNullProgress.created_at;
-                        if (timeStr) {
-                            const progressDate = new Date(timeStr);
-                            if (progressDate >= weekStart && progressDate <= weekEnd) {
-                                rawProgress = oldNullProgress;
-                            }
-                        }
-                    }
+    if (!isRepeatable) {
+        rawProgress = allUserProgress.length > 0 ? allUserProgress[0] : null;
+    } else {
+        // Ищем СТРОГО запись этой недели
+        rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
+        
+        // Фоллбэк для старых записей без недели
+        if (!rawProgress) {
+            const oldNullProgress = allUserProgress.find(q => q.week == null);
+            if (oldNullProgress && oldNullProgress.updated_at) {
+                const progressDate = new Date(oldNullProgress.updated_at || oldNullProgress.created_at);
+                if (progressDate >= weekStart && progressDate <= weekEnd) {
+                    rawProgress = oldNullProgress;
                 }
             }
+        }
+    }
 
-            // 3. ДОСТАЕМ РЕАЛЬНУЮ ЦЕЛЬ
-            const actualTarget = cfg.target_value || (questDetails ? questDetails.target_value : null) || cfg.target_amount || 1;
+    const actualTarget = cfg.target_value || (questDetails ? questDetails.target_value : null) || cfg.target_amount || 1;
 
-            let userProgress = rawProgress ? { ...rawProgress } : {
-                current_amount: 0,
-                target_amount: actualTarget,
-                is_completed: false,
-                is_claimed: false
-            };
+    let userProgress = rawProgress ? { ...rawProgress } : {
+        current_amount: 0,
+        target_amount: actualTarget,
+        is_completed: false,
+        is_claimed: false
+    };
 
-            // Чиним цель, если бэкенд прислал дефолтную 1
-            if (userProgress.target_amount === 1 && actualTarget > 1) {
-                userProgress.target_amount = actualTarget;
-            }
+    if (userProgress.target_amount === 1 && actualTarget > 1) {
+        userProgress.target_amount = actualTarget;
+    }
 
-            // 🛑 ВЫРЕЗАЛИ ЗЛОСЧАСТНЫЙ СБРОС ДАТ! 
-            // Теперь мы просто верим базе: если rawProgress найден и там is_completed = true, кнопка 100% будет зеленой.
+    // 👇 НОВАЯ ЛОГИКА: ПРОВЕРКА ПРЕДЫДУЩИХ НЕДЕЛЬ 👇
+    let requiredPrevWeek = null;
+    if (isRepeatable) {
+        // Ищем все такие же задания из предыдущих недель в конфиге БП
+        const prevWeeksConfigs = bpData.quests_config.filter(q => 
+            String(q.quest_id) === String(cfg.quest_id) && q.week < cfg.week
+        ).sort((a, b) => a.week - b.week); // Сортируем от первой недели к текущей
+
+        for (const prevCfg of prevWeeksConfigs) {
+            // Ищем прогресс юзера для этой старой недели
+            const prevProgress = allUserProgress.find(q => String(q.week) === String(prevCfg.week));
             
-            return { cfg, title, userProgress };
-        });
+            // Если записи вообще нет ИЛИ она есть, но не завершена
+            if (!prevProgress || !prevProgress.is_completed) {
+                requiredPrevWeek = prevCfg.week;
+                break; // Нашли самую раннюю невыполненную неделю - тормозим цикл
+            }
+        }
+    }
+
+    return { cfg, title, userProgress, requiredPrevWeek };
+});
         
         // Считаем, есть ли в этой неделе задания, готовые к выдаче награды
         const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed);
@@ -1425,20 +1436,23 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const contentInner = weekBlock.querySelector('.week-content-inner');
 
-        processedQuests.forEach(({ cfg, title, userProgress }) => {
-            let actionHtml = '';
-            let cardClass = 'quest-card';
-            
-            if (userProgress.is_claimed) {
-                actionHtml = `<div style="color: var(--text-muted); font-size: 10px; font-weight: 700;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
-                cardClass += ' dimmed';
-            } else if (userProgress.is_completed) {
-                // ПЕРЕДАЕМ НЕДЕЛЮ (cfg.week) ВТОРЫМ ПАРАМЕТРОМ!
-                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id}, ${cfg.week})" style="margin: 0;">ЗАБРАТЬ</button>`;
-                cardClass += ' ready-to-claim';
-            } else {
-                actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
-            }
+        pprocessedQuests.forEach(({ cfg, title, userProgress, requiredPrevWeek }) => {
+    let actionHtml = '';
+    let cardClass = 'quest-card';
+    
+    // 👇 ДОБАВЛЕНА ПРОВЕРКА НА ОЧЕРЕДЬ 👇
+    if (requiredPrevWeek !== null) {
+        actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--danger); text-transform: uppercase; text-align: right; line-height: 1.2;">Сначала<br>неделя ${requiredPrevWeek}</div>`;
+        cardClass += ' dimmed'; // Делаем карточку тусклой, так как она недоступна
+    } else if (userProgress.is_claimed) {
+        actionHtml = `<div style="color: var(--text-muted); font-size: 10px; font-weight: 700;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
+        cardClass += ' dimmed';
+    } else if (userProgress.is_completed) {
+        actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id}, ${cfg.week})" style="margin: 0;">ЗАБРАТЬ</button>`;
+        cardClass += ' ready-to-claim';
+    } else {
+        actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
+    }
 
             // Поменяли местами награду и условие
             contentInner.innerHTML += `
