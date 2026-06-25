@@ -18521,7 +18521,7 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
 
     except Exception as e:
         logging.error(f"[BG_SHOP] Ошибка: {e}")
-        return []
+        raise e  # Прокидываем ошибку наверх!
     
 async def save_balance_background(telegram_id: int, update_data: dict):
     """Фоновая задача для сохранения данных магазина в Supabase"""
