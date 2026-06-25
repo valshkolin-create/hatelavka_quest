@@ -11901,6 +11901,13 @@ async def update_submission_status(
 
     elif action == 'approved':
         try:
+            # 👇 ДОБАВИТЬ ВОТ ЭТО 👇
+            await supabase.patch(
+                "/quest_submissions", 
+                params={"id": f"eq.{submission_id}"}, 
+                json={"status": "approved"}
+            )
+            # 👆 👆 👆
             # 1. Начисляем билеты
             ticket_reward = await get_ticket_reward_amount_global("manual_quest_approval")
             if ticket_reward > 0:
