@@ -18248,7 +18248,7 @@ async def fetch_and_cache_goods_background(category_id: int):
             
             logging.info(f"[DEBUG] Item: {item.get('name')}, Status: {item_status}")
             
-            if item_status not in [1, "1", "ACTIVE", None]:
+            if item_status not in [1, "1", 10, "10", "ACTIVE", None]:
                 continue
                 
             is_folder = (item.get("type") == 0)
@@ -18366,39 +18366,52 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
 
     try:
         # ==========================================
-        # 1. ЗАПРАШИВАЕМ СВЕЖИЕ ДАННЫЕ ИЗ BOT-T
+        # 1. ЗАПРАШИВАЕМ СВЕЖИЕ ДАННЫЕ ИЗ BOT-T (С ДЕБАГОМ)
         # ==========================================
         async with httpx.AsyncClient(timeout=15.0) as client: 
+            raw_response_text = ""
+            
             if category_id == 0:
-                # ГЛАВНАЯ СТРАНИЦА (КОРЕНЬ МАГАЗИНА)
                 url = "https://api.bot-t.com/v1/shop/category/index"
                 payload = {"bot_id": int(BOTT_BOT_ID)}
-                
                 resp = await client.post(url, params=params, json=payload, headers=headers)
-                if resp.status_code == 200:
-                    data = resp.json().get("data", [])
-                    items_list.extend(data if isinstance(data, list) else [])
+                
+                if resp.status_code != 200:
+                    raise Exception(f"API Index Error {resp.status_code}: {resp.text}")
+                
+                raw_response_text = resp.text
+                data = resp.json().get("data", [])
+                # Защита от словарей:
+                if isinstance(data, dict): 
+                    data = data.get("items", []) or data.get("categories", [])
+                    
+                items_list.extend(data if isinstance(data, list) else [])
+                
             else:
-                # ВНУТРИ КАТЕГОРИИ (ПАПКИ + ТОВАРЫ)
-                
-                # 🔥 ИЗМЕНЕНИЯ ЗДЕСЬ: поменяли "id" на "category_id"
                 payload = {"bot_id": int(BOTT_BOT_ID), "category_id": int(category_id)}
-                
                 url_products = "https://api.bot-t.com/v1/shop/category/view-products"
                 url_view = "https://api.bot-t.com/v1/shop/category/view"
                 
-                # 🔥 МАГИЯ СКОРОСТИ: Запрашиваем товары и подпапки ОДНОВРЕМЕННО 🔥
                 resp_prod, resp_view = await asyncio.gather(
                     client.post(url_products, params=params, json=payload, headers=headers),
                     client.post(url_view, params=params, json=payload, headers=headers),
                     return_exceptions=True
                 )
                 
-                # Разбираем ТОВАРЫ (скины, ключи и тд)
-                if isinstance(resp_prod, httpx.Response) and resp_prod.status_code == 200:
-                    prod_data = resp_prod.json().get("data", [])
-                    if isinstance(prod_data, list):
-                        items_list.extend(prod_data)
+                if isinstance(resp_prod, Exception):
+                    raise Exception(f"Сетевая ошибка: {str(resp_prod)}")
+                if resp_prod.status_code != 200:
+                    raise Exception(f"API Prod Error {resp_prod.status_code}: {resp_prod.text}")
+                
+                raw_response_text = resp_prod.text
+                prod_data = resp_prod.json().get("data", [])
+                
+                # Защита от словарей:
+                if isinstance(prod_data, dict): 
+                    prod_data = prod_data.get("items", []) or prod_data.get("products", [])
+                    
+                if isinstance(prod_data, list): 
+                    items_list.extend(prod_data)
                 
                 # Разбираем ПОДПАПКИ
                 if isinstance(resp_view, httpx.Response) and resp_view.status_code == 200:
@@ -18408,8 +18421,9 @@ async def fetch_and_cache_goods_background(category_id: int, supabase_client=Non
                         items_list.extend(sub_cats)
 
         if not items_list:
-            return []
-
+            # Выводим первые 300 символов ответа API, чтобы увидеть структуру!
+            raise Exception(f"Список пуст! Ответ API: {raw_response_text[:300]}")
+            
         # ==========================================
         # 2. 🔥 ДОСТАЕМ СТАРЫЙ КЭШ ИЗ БД, ЧТОБЫ СПАСТИ ФЛАГ is_secret 🔥
         # ==========================================
