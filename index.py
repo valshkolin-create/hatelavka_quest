@@ -1276,7 +1276,7 @@ class EventsPageContentUpdate(BaseModel):
     content: dict
 
 # Модели для запросов
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel
 
 class ShopBuyRequest(BaseModel):
@@ -15781,7 +15781,7 @@ async def update_checkpoint_content(
 class QuestClaimRequest(BaseModel):
     initData: str
     quest_id: int
-    week: int  # <--- ДОБАВИЛИ НЕДЕЛЮ
+    week: Union[int, str, None] = None # <--- Теперь принимает и числа, и 'global'
 
 @app.post("/api/v1/checkpoint/quest/claim")
 async def claim_bp_quest(
@@ -15802,6 +15802,55 @@ async def claim_bp_quest(
             
         config = cp_res.json()[0].get("content", {})
         
+        # --- НОВОЕ: ЛОГИКА ДЛЯ ОБЩИХ ЗАДАНИЙ (GLOBAL) ---
+        if str(req.week) == 'global':
+            quest_config = next((q for q in config.get("global_quests", []) if q["quest_id"] == req.quest_id), None)
+            if not quest_config:
+                raise HTTPException(status_code=400, detail="Общий квест не найден")
+                
+            exp_reward = quest_config.get("exp_reward", 0)
+            target_amount = quest_config.get("target_amount", 1)
+
+            # Проверяем сумму реакций (реально ли они собраны)
+            bp_start_date_str = config.get("start_date")
+            total_reactions = 0
+            if bp_start_date_str:
+                bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
+                start_str = bp_start_date.strftime('%Y-%m-%d')
+                reactions_resp = await supabase.get("/tg_total_reactions", params={"target_date": f"gte.{start_str}", "select": "daily_reactions"})
+                if reactions_resp.is_success and reactions_resp.json():
+                    total_reactions = sum(r.get("daily_reactions", 0) for r in reactions_resp.json())
+                    
+            if total_reactions < target_amount:
+                raise HTTPException(status_code=400, detail="Общая цель еще не достигнута сервером!")
+
+            # Проверяем, не забирал ли он уже
+            quest_res = await supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"})
+            if quest_res.is_success and quest_res.json():
+                if quest_res.json()[0].get("is_claimed"):
+                    raise HTTPException(status_code=400, detail="Награда уже получена")
+                # Обновляем
+                await supabase.patch("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"}, json={"is_claimed": True})
+            else:
+                # Создаем запись (week ставим 0, чтобы не путалось с обычными)
+                await supabase.post("/user_bp_quests", json={
+                    "user_id": tg_id,
+                    "quest_id": req.quest_id,
+                    "week": 0, 
+                    "current_amount": total_reactions,
+                    "target_amount": target_amount,
+                    "is_completed": True,
+                    "is_claimed": True
+                })
+
+            # Выдаем EXP
+            user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
+            current_stars = float(user_res.json()[0].get("checkpoint_stars") or 0)
+            await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"checkpoint_stars": current_stars + exp_reward})
+
+            return {"status": "success", "earned_exp": exp_reward}
+        # --- КОНЕЦ ЛОГИКИ GLOBAL ---
+
         # 🚀 ИЩЕМ КВЕСТ СТРОГО ПО ID И НЕДЕЛЕ ИЗ ЗАПРОСА
         quest_config = next((q for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id and q.get("week", 1) == req.week), None)
         if not quest_config:
@@ -15916,6 +15965,42 @@ async def get_checkpoint_status(
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"})
         content_resp.raise_for_status()
         base_config = content_resp.json()[0].get("content", {}) if content_resp.json() else {}
+
+        # --- НОВОЕ: ВЫЧИСЛЯЕМ ПРОГРЕСС ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
+        global_quests = base_config.get("global_quests", [])
+        if global_quests:
+            bp_start_date_str = base_config.get("start_date")
+            total_reactions = 0
+            
+            # Суммируем реакции за сезон
+            if bp_start_date_str:
+                bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
+                start_str = bp_start_date.strftime('%Y-%m-%d')
+                reactions_resp = await supabase.get("/tg_total_reactions", params={"target_date": f"gte.{start_str}", "select": "daily_reactions"})
+                if reactions_resp.is_success and reactions_resp.json():
+                    total_reactions = sum(r.get("daily_reactions", 0) for r in reactions_resp.json())
+
+            # Узнаем, кто запрашивает, чтобы проверить, забрал ли он уже награду
+            init_data = request_data.get("initData", "")
+            user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
+            tg_id = user_info["id"] if user_info else None
+            
+            claimed_gq_ids = set()
+            if tg_id:
+                # Ищем прогресс общих квестов у этого юзера
+                gq_ids = ",".join([str(q["quest_id"]) for q in global_quests])
+                prog_resp = await supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"in.({gq_ids})", "is_claimed": "eq.true"})
+                if prog_resp.is_success and prog_resp.json():
+                    claimed_gq_ids = {q["quest_id"] for q in prog_resp.json()}
+
+            # Обновляем объекты для фронта
+            for gq in global_quests:
+                gq["current_amount"] = total_reactions
+                gq["is_completed"] = total_reactions >= gq.get("target_amount", 1)
+                gq["is_claimed"] = gq["quest_id"] in claimed_gq_ids
+                
+        base_config["global_quests"] = global_quests
+        # --- КОНЕЦ БЛОКА ОБЩИХ ЗАДАНИЙ ---
 
         # 2. Получаем уровни (сортируем по level)
         tiers_resp = await supabase.get("/checkpoint_tiers", params={"select": "*", "order": "level.asc"})
