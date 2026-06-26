@@ -1056,7 +1056,8 @@
                 document.getElementById('cp_end_date').value = formatDateToInput(checkpointData.end_date);
                 document.getElementById('cp_premium_price').value = checkpointData.premium_price || 0;
                 document.getElementById('cp_premium_price_rub').value = checkpointData.premium_price_rub || 0;
-                document.getElementById('cp_min_reaction_msg_id').value = checkpointData.min_reaction_message_id || ''; // <--- ДОБАВЛЕНО
+                const savedId = checkpointData.min_reaction_message_id;
+                document.getElementById('cp_min_reaction_msg_id').value = savedId !== undefined && savedId !== null ? savedId : '';
                 document.getElementById('cp_banner_url').value = checkpointData.banner_url || '';
                 updateBannerPreview();
 
