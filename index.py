@@ -9463,19 +9463,25 @@ async def get_current_user_data(
                 "select": "quest_id, week, current_amount, target_amount, is_completed, is_claimed, updated_at, created_at"
             }),
 
-            # H. 👇 РУЧНЫЕ ОДОБРЕННЫЕ ЗАДАНИЯ (ИЩЕМ ЗДЕСЬ) 👇
+            # H. РУЧНЫЕ ОДОБРЕННЫЕ ЗАДАНИЯ (ИЩЕМ ЗДЕСЬ)
             supabase.get("/quest_submissions", params={
                 "user_id": f"eq.{telegram_id}",
                 "status": "eq.approved",
                 "select": "quest_id, created_at"
+            }),
+
+            # I. 👇 НОВОЕ: НОВАЯ ТАБЛИЦА ПРОГРЕССА (Глобальные квесты) 👇
+            supabase.get("/user_quest_progress", params={
+                "user_id": f"eq.{telegram_id}",
+                "select": "quest_id, week, current_progress, target_value, claimed_at"
             }),
             
             # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
         )
         
-       # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен!)
-        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp) = results
+       # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен! Добавлена новая переменная в конце)
+        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp, new_quests_resp) = results
 
         # --- [A] Обработка Профиля ---
         data = None
@@ -9544,11 +9550,11 @@ async def get_current_user_data(
                 is_online = s_data[0].get('value', False)
         final_response['is_stream_online'] = is_online
 
-        # --- [G & H] 👇 СЛИЯНИЕ ПРОГРЕССА КВЕСТОВ (Баттл-пасс + Одобренные ручные) 👇 ---
+        # --- [G, H & I] 👇 СЛИЯНИЕ ПРОГРЕССА КВЕСТОВ 👇 ---
         bp_quests_data = bp_quests_resp.json() if not isinstance(bp_quests_resp, Exception) and bp_quests_resp.status_code == 200 else []
         old_quests_data = old_quests_resp.json() if not isinstance(old_quests_resp, Exception) and old_quests_resp.status_code == 200 else []
+        new_quests_data = new_quests_resp.json() if not isinstance(new_quests_resp, Exception) and new_quests_resp.status_code == 200 else []
         
-        # Собираем список ID квестов, которые уже есть в user_bp_quests, чтобы не дублировать
         existing_bp_ids = {str(q["quest_id"]) for q in bp_quests_data}
         
         # Подмешиваем ручные одобренные задания
@@ -9561,10 +9567,24 @@ async def get_current_user_data(
                     "target_amount": 1,
                     "is_completed": True,
                     "is_claimed": False, 
-                    "week": None, # Для разовых заданий неделя не важна
+                    "week": None, 
                     "created_at": old_q.get("created_at"),
                     "updated_at": old_q.get("created_at") 
                 })
+
+        # 👇 НОВОЕ: Подмешиваем Глобальные задания из новой таблицы 👇
+        for nq in new_quests_data:
+            # Формируем структуру, которую ожидает твой фронтенд
+            bp_quests_data.append({
+                "quest_id": nq["quest_id"],
+                "week": nq.get("week"),
+                "current_amount": nq.get("current_progress", 0),
+                "target_amount": nq.get("target_value", 1),
+                # Квест выполнен, если прогресс достиг цели ИЛИ если мы его уже забрали (claimed_at != null)
+                "is_completed": True if nq.get("claimed_at") else (nq.get("current_progress", 0) >= nq.get("target_value", 1)),
+                # Квест забран, только если стоит дата в claimed_at
+                "is_claimed": True if nq.get("claimed_at") else False
+            })
                 
         final_response['bp_quests'] = bp_quests_data
 
@@ -9579,7 +9599,7 @@ async def get_current_user_data(
         
 # --- ГЛОБАЛЬНЫЙ КЭШ ---
 HEARTBEAT_DB_CACHE = {}
-DB_WRITE_INTERVAL = 45 
+DB_WRITE_INTERVAL = 45
 
 # 👇 ИСПРАВЛЕННАЯ ФУНКЦИЯ (Использует get_background_client)
 async def safe_update_last_active(telegram_id: int):
@@ -15824,33 +15844,29 @@ async def claim_bp_quest(
             if total_reactions < target_amount:
                 raise HTTPException(status_code=400, detail="Общая цель еще не достигнута сервером!")
 
-            # Проверяем, не забирал ли он уже
-            quest_res = await supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"})
-            if quest_res.is_success and quest_res.json():
-                if quest_res.json()[0].get("is_claimed"):
-                    raise HTTPException(status_code=400, detail="Награда уже получена")
-                # Обновляем
-                await supabase.patch("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"eq.{req.quest_id}"}, json={"is_claimed": True})
-            else:
-                # Создаем запись (week ставим 0, чтобы не путалось с обычными)
-                await supabase.post("/user_bp_quests", json={
-                    "user_id": tg_id,
-                    "quest_id": req.quest_id,
-                    "week": 0, 
-                    "current_amount": total_reactions,
-                    "target_amount": target_amount,
-                    "is_completed": True,
-                    "is_claimed": True
-                })
+            # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: АТОМАРНАЯ ВСТАВКА В НОВУЮ ТАБЛИЦУ 🔥
+            post_res = await supabase.post("/user_quest_progress", json={
+                "user_id": tg_id,
+                "quest_id": req.quest_id,
+                "week": "global",  # <--- ОБЯЗАТЕЛЬНО ДОБАВЬ ЭТУ СТРОКУ
+                "current_progress": total_reactions,
+                "target_value": target_amount,
+                "claimed_at": datetime.now(timezone.utc).isoformat()
+            })
 
-            # Выдаем EXP
+            # 409 Conflict значит, что Primary Key (user_id, quest_id) не пустил дубликат
+            if post_res.status_code == 409:
+                raise HTTPException(status_code=400, detail="Награда уже получена")
+            elif post_res.status_code not in (200, 201):
+                raise HTTPException(status_code=500, detail="Ошибка сохранения прогресса")
+
+            # Выдаем EXP только если вставка прошла успешно
             user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
             current_stars = float(user_res.json()[0].get("checkpoint_stars") or 0)
             await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"checkpoint_stars": current_stars + exp_reward})
 
             return {"status": "success", "earned_exp": exp_reward}
         # --- КОНЕЦ ЛОГИКИ GLOBAL ---
-
         # 🚀 ИЩЕМ КВЕСТ СТРОГО ПО ID И НЕДЕЛЕ ИЗ ЗАПРОСА
         quest_config = next((q for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id and q.get("week", 1) == req.week), None)
         if not quest_config:
