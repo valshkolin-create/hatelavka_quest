@@ -20817,18 +20817,41 @@ async def get_advent_pending_list(req: InitDataRequest, supabase: httpx.AsyncCli
         })
     return formatted
 
+
 # ==========================================================
-#        МОДУЛЬ TELEGRAM ИСПЫТАНИЙ (FULL FIXED)
+#        TG РЕАКЦИИ  (COMMUNITY BATTLE PASS EDITION)
 # ==========================================================
 
-# 1. Читаем настройки из Vercel (или берем по умолчанию)
+import os
+import json
+import logging
+import uuid
+from datetime import datetime, timezone, timedelta
+from urllib.parse import parse_qsl
+
+import httpx
+from dateutil import parser
+from fastapi import APIRouter, Request, Depends, Body
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from aiogram import Bot, Router, types
+
+# Настройка логгеров
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("TG_Module")
+
+# Если используешь APIRouter вместо app
+# app = APIRouter() 
+
+# 1. Читаем настройки из переменных (или берем по умолчанию)
 TG_QUEST_CHANNEL_ID = int(os.getenv("TG_QUEST_CHANNEL_ID", "0")) 
 TG_QUEST_SURNAME = os.getenv("TG_QUEST_SURNAME", "BotName")           
 TG_QUEST_BIO_LINK = os.getenv("TG_QUEST_BIO_LINK", "t.me/MyBotLink")      
-TG_REACTION_WEEKLY_LIMIT = 7  # Лимит реакций
+TG_REACTION_WEEKLY_LIMIT = 7  # Лимит реакций (можно оставить для UI)
+BOTT_BOT_TOKEN = os.getenv("BOTT_BOT_TOKEN", "") # Токен для проверок
 
 # 2. Вспомогательная функция для парсинга initData
-async def get_user_id_from_init_data(init_data: str) -> Optional[int]:
+async def get_user_id_from_init_data(init_data: str) -> int | None:
     try:
         if not init_data: return None
         parsed_data = dict(parse_qsl(init_data))
@@ -20846,26 +20869,19 @@ class TelegramQuestResponse(BaseModel):
     reactions_count: int
     reactions_target: int = TG_REACTION_WEEKLY_LIMIT
 
-# --- ЭНДПОИНТЫ API ---
-
 # --- Вспомогательная функция расчета награды ---
 def calculate_daily_reward(total_amount, total_days, current_day):
-    """
-    Рассчитывает награду на текущий день, чтобы в сумме вышло ровно total_amount.
-    Логика: Размазываем остаток по первым дням.
-    Пример: 15 билетов, 7 дней.
-    База = 2. Остаток = 1.
-    День 1: 3 билета. Дни 2-7: 2 билета. Итого 15.
-    """
     if current_day > total_days: return 0
-    
     base_reward = total_amount // total_days
     remainder = total_amount % total_days
-    
-    # Если текущий день (1-based) попадает в остаток, даем +1
     if current_day <= remainder:
         return base_reward + 1
     return base_reward
+
+
+# ==========================================================
+#        FASTAPI ENDPOINTS (API ДЛЯ ФРОНТЕНДА)
+# ==========================================================
 
 @app.post("/api/v1/telegram/claim_daily")
 async def claim_daily_task(
@@ -20912,10 +20928,8 @@ async def claim_daily_task(
             return JSONResponse({"success": False, "error": "Задание уже выполнено!"})
 
         current_day_val = progress.get("current_day", 0)
-        # Флаг: является ли это нажатием на Золотую кнопку (7 день)
         is_golden_claim = (current_day_val == 7)
 
-        # Проверка таймера (если не 7 день)
         if task.get("is_daily") and progress.get("last_claimed_at") and not is_golden_claim:
             last_claim = parser.isoparse(progress["last_claimed_at"])
             if datetime.now(timezone.utc) - last_claim < timedelta(hours=20):
@@ -20923,16 +20937,12 @@ async def claim_daily_task(
 
        # === 5. ЛОГИКА ПРОВЕРКИ ===
         check_passed = False
-        
-        # Создаем клиент бота от лица ГЛАВНОГО токена Bot-T!
-        from aiogram import Bot
         main_bot = Bot(token=BOTT_BOT_TOKEN)
         
         try:
             if task_key == "tg_sub":
-                channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
                 try:
-                    member = await main_bot.get_chat_member(chat_id=channel_id, user_id=user_id)
+                    member = await main_bot.get_chat_member(chat_id=TG_QUEST_CHANNEL_ID, user_id=user_id)
                     if member.status in ["creator", "administrator", "member", "restricted"]:
                         check_passed = True
                     else:
@@ -20941,9 +20951,8 @@ async def claim_daily_task(
                     return JSONResponse({"success": False, "error": "Не удалось проверить подписку."})
 
             elif task_key == "tg_vote":
-                channel_id = os.getenv("TG_QUEST_CHANNEL_ID")
                 try:
-                    user_boosts = await main_bot.get_user_chat_boosts(chat_id=channel_id, user_id=user_id)
+                    user_boosts = await main_bot.get_user_chat_boosts(chat_id=TG_QUEST_CHANNEL_ID, user_id=user_id)
                     if user_boosts.boosts:
                         check_passed = True
                     else:
@@ -20968,14 +20977,12 @@ async def claim_daily_task(
                     else:
                         check_passed = True 
                 except Exception as e:
-                    print(f"Ошибка проверки профиля для юзера {user_id}: {e}")
+                    logger.error(f"Ошибка проверки профиля для юзера {user_id}: {e}")
                     return JSONResponse({
                         "success": False, 
                         "error": "Не удалось проверить профиль. Попробуйте снова через минуту."
                     })
-                    
         finally:
-            # 🔥 ВАЖНО: Закрываем сессию временного бота, чтобы не забивать память сервера
             await main_bot.session.close()
 
         if not check_passed:
@@ -20991,30 +20998,21 @@ async def claim_daily_task(
         streak_reset = False 
         reward = task.get("reward_amount", 0)
         secret_code = None
-        custom_message = None # Ввели переменную для кастомного текста уведомления
+        custom_message = None 
 
-        # Проверка на сгорание серии
         if last_claimed_str and not is_golden_claim:
             last_claim_dt = parser.isoparse(last_claimed_str)
             now_dt = datetime.now(timezone.utc)
             delta = now_dt - last_claim_dt
-            
             if delta.days >= 2:
-                next_day = 1 # Сброс на 1-й (сейчас забираем 1-й, след -> 2-й)
+                next_day = 1 
                 streak_reset = True 
                 current_day_val = 1 
                 is_golden_claim = False 
-            else:
-                pass 
 
-        # 🔥 СЦЕНАРИЙ 1: ЭТО НАЖАТИЕ НА 7-Й ДЕНЬ (ЗОЛОТАЯ КНОПКА) 🔥
+        # 🔥 ЗОЛОТАЯ КНОПКА (7 ДЕНЬ)
         if is_golden_claim and not streak_reset:
-            import uuid # Импортируем здесь на всякий случай
-            
-            # 1. Генерируем уникальный код
             unique_code = f"DAY7-{user_id}-{uuid.uuid4().hex[:4].upper()}"
-            
-            # 2. Создаем купон прямо для юзера
             coupon_data = {
                 "code": unique_code,
                 "max_uses": 1,
@@ -21026,35 +21024,23 @@ async def claim_daily_task(
                 "assigned_at": datetime.now(timezone.utc).isoformat(),
                 "target_case_name": "Кейс | TELEGRAM", 
                 "used_by_ids": [],
-                "activated_by_ids": [str(user_id)], # Фронт видит этот ID и ставит "ОТКРЫТЬ БЕСПЛАТНО"
+                "activated_by_ids": [str(user_id)],
                 "campaign_id": 777
             }
-            
             await supabase.post("/cs_codes", json=coupon_data)
-            
             reward = 0 
-            secret_code = None # Оставляем None, чтобы СЕКРЕТНОЕ ОКНО НЕ ВЫЛЕЗАЛО!
-            # ОБНОВЛЕННЫЙ ПОНЯТНЫЙ ТЕКСТ:
+            secret_code = None 
             custom_message = "Успешная серия! Вам выдан бесплатный Кейс | TELEGRAM. Он уже ждёт в разделе Кейсы!"
-            
-            # СБРАСЫВАЕМ НА 1 ДЕНЬ (КРУГ ЗАМКНУЛСЯ)
             next_day = 1 
 
-        # 🔥 СЦЕНАРИЙ 2: ОБЫЧНЫЙ ДЕНЬ (1-6) 🔥
+        # 🔥 ОБЫЧНЫЙ ДЕНЬ (1-6)
         else:
             if streak_reset:
                 next_day = 1 
             else:
                 next_day = current_day_val + 1
         
-        # 🔥 ИСПРАВЛЕНИЕ: НИКОГДА НЕ ЗАВЕРШАЕМ ЕЖЕДНЕВНОЕ ЗАДАНИЕ 🔥
-        # Для ежедневных заданий (is_daily=True) мы всегда возвращаем False, 
-        # потому что после 7-го дня идет снова 1-й. Оно бесконечное.
-        if task.get("is_daily"):
-            is_done = False
-        else:
-            # Для разовых заданий (подписка и т.д.)
-            is_done = True 
+        is_done = False if task.get("is_daily") else True 
 
         # 7. Обновляем баланс
         user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "tickets"})
@@ -21065,11 +21051,10 @@ async def claim_daily_task(
 
         # 8. Обновляем прогресс
         update_data = {
-            "current_day": next_day, # Если было 6 -> станет 7. Если было 7 -> станет 1.
+            "current_day": next_day,
             "last_claimed_at": datetime.now(timezone.utc).isoformat(),
             "completed": is_done
         }
-        
         await supabase.patch(
             "/user_telegram_progress", 
             params={"user_id": f"eq.{user_id}", "task_key": f"eq.{task_key}"},
@@ -21085,60 +21070,56 @@ async def claim_daily_task(
             "tickets": new_balance, 
             "streak_reset": streak_reset, 
             "secret_code": secret_code, 
-            # Добавили вывод нашего нового текста, если он есть
             "message": custom_message if custom_message else (f"Секретный код получен!" if secret_code else f"Задание выполнено! +{reward} билетов")
         })
 
     except Exception as e:
-        print(f"Global Error: {e}")
+        logger.error(f"Global Error in claim_daily: {e}")
         return JSONResponse({"success": False, "error": f"Ошибка сервера: {str(e)}"})
-        
+
+
 @app.post("/api/v1/telegram/status")
 async def get_telegram_status(
     request: Request,
-    # Используем Depends, если get_supabase_client определен в index.py
-    # Если нет - замените на глобальный supabase, если он AsyncClient
     supabase_client: httpx.AsyncClient = Depends(get_supabase_client) 
 ):
-    """Отдает статус заданий для отрисовки интерфейса (1в1 Twitch)"""
+    """Отдает статус заданий для отрисовки интерфейса"""
     try:
         body = await request.json()
         user_id = await get_user_id_from_init_data(body.get("initData"))
-        if not user_id: return JSONResponse({"error": "No user"}, status=401)
+        if not user_id: return JSONResponse({"error": "No user"}, status_code=401)
         
-        # 1. Запрашиваем состояние из базы
         res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
+        data = res.json()
         
-        # Если записи нет — создаем дефолтную
-        if not res.json():
+        if not data:
             record = {
                 "user_id": user_id,
                 "is_subscribed": False,
                 "last_vote_date": None,
                 "has_bot_surname": False,
-                "has_ref_link": False,
-                "reaction_count_weekly": 0,
-                "last_reaction_reset": datetime.now(timezone.utc).isoformat()
+                "has_ref_link": False
             }
             await supabase_client.post("/telegram_challenges", json=record)
         else:
-            record = res.json()[0]
+            record = data[0]
 
-        # 2. Авто-проверка подписки при открытии (если еще не выполнено)
+        updates = {}
+
         is_sub = record.get('is_subscribed', False)
         if not is_sub and TG_QUEST_CHANNEL_ID != 0:
+            main_bot = Bot(token=BOTT_BOT_TOKEN)
             try:
-                member = await bot.get_chat_member(chat_id=TG_QUEST_CHANNEL_ID, user_id=user_id)
+                member = await main_bot.get_chat_member(chat_id=TG_QUEST_CHANNEL_ID, user_id=user_id)
                 if member.status in ["member", "administrator", "creator", "restricted"]:
                     is_sub = True
-                    # Фиксируем в базе
-                    await supabase_client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json={"is_subscribed": True})
-                    # Начисляем 5 билетов через RPC
+                    updates["is_subscribed"] = True
                     await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 5})
             except Exception as e:
-                logging.warning(f"[TG Quest] Sub check fail: {e}")
+                logger.warning(f"[TG Quest] Sub check fail: {e}")
+            finally:
+                await main_bot.session.close()
 
-        # 3. Проверка доступности голосования (30 дней)
         vote_avail = True
         last_vote_str = record.get('last_vote_date')
         if last_vote_str:
@@ -21146,25 +21127,19 @@ async def get_telegram_status(
             if datetime.now(timezone.utc) - lv < timedelta(days=30):
                 vote_avail = False
 
-        # 4. Визуальный сброс счетчика реакций, если неделя прошла
-        r_count = record.get('reaction_count_weekly', 0)
-        last_reset_str = record.get('last_reaction_reset')
-        if last_reset_str:
-            l_reset = datetime.fromisoformat(last_reset_str.replace('Z', '+00:00'))
-            if datetime.now(timezone.utc) - l_reset > timedelta(days=7):
-                r_count = 0
+        if updates:
+            await supabase_client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json=updates)
 
         return JSONResponse({
             "subscribed": is_sub,
             "vote_available": vote_avail,
             "surname_ok": record.get('has_bot_surname', False),
-            "bio_ok": record.get('has_ref_link', False),
-            "reactions_count": r_count,
-            "reactions_target": TG_REACTION_WEEKLY_LIMIT
+            "bio_ok": record.get('has_ref_link', False)
         })
     except Exception as e:
-        logging.error(f"Telegram status error: {e}")
-        return JSONResponse({"error": str(e)}, status=500)
+        logger.error(f"Telegram status error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 
 @app.post("/api/v1/telegram/check_profile")
 async def check_telegram_profile(
@@ -21176,42 +21151,40 @@ async def check_telegram_profile(
         body = await request.json()
         user_id = await get_user_id_from_init_data(body.get("initData"))
         if not user_id:
-            return JSONResponse({"error": "Auth failed"}, status=401)
+            return JSONResponse({"error": "Auth failed"}, status_code=401)
 
-        # Берем текущий статус
         db_res = await supabase_client.get("/telegram_challenges", params={"user_id": f"eq.{user_id}"})
         if not db_res.json():
-            return JSONResponse({"error": "No record"}, status=404)
+            return JSONResponse({"error": "No record"}, status_code=404)
         curr = db_res.json()[0]
 
-        # Проверяем реальный профиль через API бота
+        main_bot = Bot(token=BOTT_BOT_TOKEN)
         try:
-            chat = await bot.get_chat(user_id)
-        except:
-            return JSONResponse({"success": False, "message": "Бот не видит вас. Нажмите /start"}, status=400)
+            chat = await main_bot.get_chat(user_id)
+        except Exception:
+            return JSONResponse({"success": False, "message": "Бот не видит вас. Нажмите /start"}, status_code=400)
+        finally:
+            await main_bot.session.close()
         
         last_name = chat.last_name or ""
         bio = chat.bio or ""
 
-        # Сравниваем с переменными
         s_ok = TG_QUEST_SURNAME.lower() in last_name.lower() if TG_QUEST_SURNAME else False
         b_ok = TG_QUEST_BIO_LINK.lower() in bio.lower() if TG_QUEST_BIO_LINK else False
         
         updates = {}
-        # Флаги, выдали ли мы награду ПРЯМО СЕЙЧАС
         s_rewarded = False
         b_rewarded = False
 
-        # Начисляем, только если выполнено ВПЕРВЫЕ
         if s_ok and not curr.get('has_bot_surname'):
             updates['has_bot_surname'] = True
             await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 15})
-            s_rewarded = True # <--- ЗАПОМИНАЕМ, ЧТО ВЫДАЛИ
+            s_rewarded = True
 
         if b_ok and not curr.get('has_ref_link'):
             updates['has_ref_link'] = True
             await supabase_client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": 20})
-            b_rewarded = True # <--- ЗАПОМИНАЕМ, ЧТО ВЫДАЛИ
+            b_rewarded = True
 
         if updates:
             await supabase_client.patch("/telegram_challenges", params={"user_id": f"eq.{user_id}"}, json=updates)
@@ -21220,13 +21193,136 @@ async def check_telegram_profile(
             "success": True,
             "surname": s_ok or curr.get('has_bot_surname'),
             "bio": b_ok or curr.get('has_ref_link'),
-            # Возвращаем информацию о факте выдачи награды
             "surname_rewarded": s_rewarded,
             "bio_rewarded": b_rewarded
         })
 
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status=500)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/v1/telegram/global_bp_status")
+async def get_global_bp_status(
+    supabase_client: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Отдает общую сумму ВСЕХ реакций за сезон/за все дни.
+    Фронтенд может использовать это для отрисовки шкалы Баттл Пасса!
+    """
+    try:
+        # Получаем все дневные записи
+        res = await supabase_client.get(
+            "/tg_total_reactions",
+            params={"select": "daily_reactions"}
+        )
+        
+        total_community_reactions = 0
+        if res.status_code == 200 and res.json():
+            total_community_reactions = sum(item.get("daily_reactions", 0) for item in res.json())
+
+        return JSONResponse({
+            "community_reactions": total_community_reactions,
+            "community_target": 1000000 # Ставь свою глобальную цель
+        })
+    except Exception as e:
+        logger.error(f"Global BP Error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# ==========================================================
+#        AIOGRAM ROUTER (GLOBAL REACTION TRACKER)
+# ==========================================================
+
+reaction_router = Router()
+
+@reaction_router.message_reaction_count()
+async def track_global_channel_reactions(reaction_update: types.MessageReactionCountUpdated):
+    """
+    Анонимный перехват общих реакций канала.
+    Считает дельту изменения и пишет в общую дневную статистику.
+    """
+    channel_id = reaction_update.chat.id
+    message_id = reaction_update.message_id
+    
+    # 1. Защита: реагируем только на целевой канал
+    target_channel = int(os.getenv("TG_QUEST_CHANNEL_ID", "0"))
+    if target_channel != 0 and channel_id != target_channel:
+        return
+
+    # 2. Считаем сумму ВСЕХ реакций под этим постом в данный момент
+    new_total = sum(r.total_count for r in reaction_update.reactions)
+    
+    try:
+        # Используем твою функцию инициализации клиента
+        supabase = await get_supabase_client()
+        
+        # Определяем текущий день (UTC) и точное время
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # --- ШАГ 1: ВЫЧИСЛЯЕМ РАЗНИЦУ (ДЕЛЬТУ) ---
+        res_msg = await supabase.get(
+            "/tg_message_reactions", 
+            params={"message_id": f"eq.{message_id}", "select": "reaction_count"}
+        )
+        
+        old_total = 0
+        if res_msg.status_code == 200 and res_msg.json():
+            old_total = res_msg.json()[0].get("reaction_count", 0)
+
+        delta = new_total - old_total
+
+        # Если кто-то поменял одну эмоцию на другую (сумма та же)
+        if delta == 0:
+            return 
+
+        # --- ШАГ 2: ОБНОВЛЯЕМ КЭШ ПОСТА ---
+        await supabase.post(
+            "/tg_message_reactions",
+            headers={"Prefer": "resolution=merge-duplicates"}, # Upsert
+            json={
+                "message_id": message_id, 
+                "reaction_count": new_total, 
+                "updated_at": now_iso
+            }
+        )
+
+        # --- ШАГ 3: ЗАПИСЫВАЕМ В ДНЕВНОЙ ТРЕКЕР ---
+        res_day = await supabase.get(
+            "/tg_total_reactions", 
+            params={"target_date": f"eq.{today_str}", "select": "daily_reactions"}
+        )
+
+        if res_day.status_code == 200 and res_day.json():
+            # День уже есть в базе — плюсуем/минусуем
+            current_daily = res_day.json()[0].get("daily_reactions", 0)
+            await supabase.patch(
+                "/tg_total_reactions",
+                params={"target_date": f"eq.{today_str}"},
+                json={
+                    "daily_reactions": current_daily + delta,
+                    "last_reaction_time": now_iso,
+                    "last_message_id": message_id
+                }
+            )
+        else:
+            # Первая реакция за день — создаем строку
+            await supabase.post(
+                "/tg_total_reactions",
+                json={
+                    "target_date": today_str,
+                    "daily_reactions": max(0, delta), 
+                    "last_reaction_time": now_iso,
+                    "last_message_id": message_id,
+                    "bp_phase_id": "season_1",
+                    "exp_multiplier": 1.0
+                }
+            )
+
+        logger.info(f"🏆 [Global BP] Пост {message_id} | Изменение: {delta} | Запись за {today_str} обновлена.")
+
+    except Exception as e:
+        logger.error(f"❌ [Global BP] Ошибка трекера реакций: {e}")
 
 
 # --- МАСТЕР ПЕРЕЕЗДА (АВТОМАТИКА) ---
