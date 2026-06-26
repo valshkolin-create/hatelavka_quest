@@ -2456,7 +2456,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # ==========================================================
-#        AIOGRAM ROUTER (РЕАКЦИИ ТГ)
+#        AIOGRAM ROUTER (ТГ РЕАКЦИИ)
 # ==========================================================
 
 reaction_router = Router()
@@ -20880,8 +20880,8 @@ async def get_advent_pending_list(req: InitDataRequest, supabase: httpx.AsyncCli
 
 
 # ==========================================================
-#        TG РЕАКЦИИ  (COMMUNITY BATTLE PASS EDITION)
-# ==========================================================
+#        TG РЕАКЦИИ  (ТГ РЕАКЦИИ)
+# =======================================================
 
 import os
 import json
