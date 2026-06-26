@@ -2464,8 +2464,8 @@ reaction_router = Router()
 @reaction_router.message_reaction_count()
 async def track_global_channel_reactions(reaction_update: types.MessageReactionCountUpdated):
     """
-    Анонимный перехват общих реакций канала.
-    Бронебойная версия с детальным логированием и безопасным JSON-парсингом.
+    Ультра-быстрый перехват реакций (через RPC).
+    Ожидаемое время выполнения: 50-100ms.
     """
     channel_id = reaction_update.chat.id
     message_id = reaction_update.message_id
@@ -2481,79 +2481,24 @@ async def track_global_channel_reactions(reaction_update: types.MessageReactionC
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        # --- ШАГ 1: БЕЗОПАСНЫЙ ПАРСИНГ КЭША ---
-        res_msg = await supabase.get(
-            "/tg_message_reactions", 
-            params={"message_id": f"eq.{message_id}", "select": "reaction_count"}
+        # 🔥 ДЕЛАЕМ ВСЕГО 1 ЗАПРОС К БАЗЕ ДАННЫХ ВМЕСТО 4 🔥
+        res = await supabase.post(
+            "/rpc/update_global_reactions",
+            json={
+                "p_message_id": message_id,
+                "p_new_total": new_total,
+                "p_today_str": today_str,
+                "p_now_iso": now_iso
+            }
         )
-        
-        old_total = 0
-        post_exists = False
-        
-        # Защита: проверяем, что пришел именно список (а не текст ошибки от БД)
-        if res_msg.status_code == 200:
-            data = res_msg.json()
-            if isinstance(data, list) and len(data) > 0:
-                old_total = data[0].get("reaction_count", 0)
-                post_exists = True
 
-        delta = new_total - old_total
-
-        if delta == 0:
-            return 
-
-        # --- ШАГ 2: БРОНЕБОЙНОЕ ОБНОВЛЕНИЕ КЭША (PATCH/POST) ---
-        if post_exists:
-            await supabase.patch(
-                "/tg_message_reactions",
-                params={"message_id": f"eq.{message_id}"},
-                json={"reaction_count": new_total, "updated_at": now_iso}
-            )
+        if res.status_code >= 400:
+            logger.error(f"❌ [Global BP] Ошибка RPC: {res.text}")
         else:
-            await supabase.post(
-                "/tg_message_reactions",
-                json={"message_id": message_id, "reaction_count": new_total, "updated_at": now_iso}
-            )
-
-        # --- ШАГ 3: ЗАПИСЬ В ДНЕВНОЙ ТРЕКЕР ---
-        res_day = await supabase.get(
-            "/tg_total_reactions", 
-            params={"target_date": f"eq.{today_str}", "select": "daily_reactions"}
-        )
-
-        if res_day.status_code == 200:
-            day_data = res_day.json()
-            if isinstance(day_data, list) and len(day_data) > 0:
-                current_daily = day_data[0].get("daily_reactions", 0)
-                await supabase.patch(
-                    "/tg_total_reactions",
-                    params={"target_date": f"eq.{today_str}"},
-                    json={
-                        "daily_reactions": current_daily + delta,
-                        "last_reaction_time": now_iso,
-                        "last_message_id": message_id
-                    }
-                )
-            else:
-                await supabase.post(
-                    "/tg_total_reactions",
-                    json={
-                        "target_date": today_str,
-                        "daily_reactions": max(0, delta), 
-                        "last_reaction_time": now_iso,
-                        "last_message_id": message_id,
-                        "bp_phase_id": "season_1",
-                        "exp_multiplier": 1.0
-                    }
-                )
-
-        logger.info(f"🏆 [Global BP] Пост {message_id} | Изменение: {delta} | Запись за {today_str} обновлена.")
+            logger.info(f"⚡ [Global BP] Пост {message_id} обработан через RPC (Total: {new_total})")
 
     except Exception as e:
-        # 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Включаем exc_info=True, чтобы Питон выплюнул всю подноготную!
-        logger.error(f"❌ [Global BP] Ошибка трекера реакций: {e}", exc_info=True)
-
-
+        logger.error(f"❌ [Global BP] Ошибка трекера: {e}", exc_info=True)
 
 # --- Telegram Bot/Dispatcher ---
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
