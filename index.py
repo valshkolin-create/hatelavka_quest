@@ -2470,35 +2470,49 @@ async def track_global_channel_reactions(reaction_update: types.MessageReactionC
     channel_id = reaction_update.chat.id
     message_id = reaction_update.message_id
     
+    # МАЯЧОК 1: Проверяем, зашел ли вебхук вообще
+    logger.info(f"👀 [Global BP] Пойман вебхук реакций! Чат: {channel_id}, Пост: {message_id}")
+
     target_channel = int(os.getenv("TG_QUEST_CHANNEL_ID", "0"))
     if target_channel != 0 and channel_id != target_channel:
+        # МАЯЧОК 2: Если чат не совпадает, он скажет об этом
+        logger.warning(f"⚠️ [Global BP] Игнорируем. Чат {channel_id} не совпадает с {target_channel}")
         return
 
     new_total = sum(r.total_count for r in reaction_update.reactions)
+    logger.info(f"📊 [Global BP] Сумма реакций на посте: {new_total}")
     
     try:
         supabase = await get_supabase_client()
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        # 🔥 ДЕЛАЕМ ВСЕГО 1 ЗАПРОС К БАЗЕ ДАННЫХ ВМЕСТО 4 🔥
-        res = await supabase.post(
-            "/rpc/update_global_reactions",
-            json={
-                "p_message_id": message_id,
-                "p_new_total": new_total,
-                "p_today_str": today_str,
-                "p_now_iso": now_iso
-            }
-        )
+        try:
+            # 🔥 ДЕЛАЕМ ВСЕГО 1 ЗАПРОС К БАЗЕ ДАННЫХ ВМЕСТО 4 🔥
+            # Даем базе ровно 3 секунды на ответ, чтобы Vercel не висел
+            res = await supabase.post(
+                "/rpc/update_global_reactions",
+                json={
+                    "p_message_id": message_id,
+                    "p_new_total": new_total,
+                    "p_today_str": today_str,
+                    "p_now_iso": now_iso
+                },
+                timeout=3.0 
+            )
 
-        if res.status_code >= 400:
-            logger.error(f"❌ [Global BP] Ошибка RPC: {res.text}")
-        else:
-            logger.info(f"⚡ [Global BP] Пост {message_id} обработан через RPC (Total: {new_total})")
+            if res.status_code >= 400:
+                logger.error(f"❌ [Global BP] Ошибка RPC: {res.text}")
+            else:
+                logger.info(f"⚡ [Global BP] Пост {message_id} успешно обработан через RPC (Total: {new_total})!")
+
+        except httpx.ReadTimeout:
+            # Спокойно ловим таймаут, не роняя скрипт
+            logger.warning(f"⏳ [Global BP] Supabase долго отвечает. Пропускаем, счетчик выровняется на следующем апдейте.")
 
     except Exception as e:
-        logger.error(f"❌ [Global BP] Ошибка трекера: {e}", exc_info=True)
+        # Включаем exc_info=True, чтобы Питон выплюнул всю подноготную при критическом сбое
+        logger.error(f"❌ [Global BP] Критическая ошибка: {e}", exc_info=True)
 
 # --- Telegram Bot/Dispatcher ---
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
