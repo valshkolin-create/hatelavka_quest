@@ -204,6 +204,10 @@
             </div>
             <p style="font-size: 11px; color: var(--text-sec); margin: 4px 0 10px;">Если 0 — кнопка покупки за эту валюту будет скрыта.</p>
 
+            <label style="color: var(--primary);"><i class="fa-solid fa-filter"></i> ID первого поста сезона (для реакций)</label>
+            <input type="number" id="cp_min_reaction_msg_id" placeholder="Например: 5432" oninput="showSaveBtn()">
+            <p style="font-size: 11px; color: var(--text-sec); margin: 4px 0 15px;">Все реакции на постах с ID меньше этого будут проигнорированы. Чтобы узнать ID поста, скопируй на него ссылку (t.me/канал/5432) — последние цифры и есть ID.</p>
+
             <label>Ссылка на баннер главной</label>
             <div style="display: flex; gap: 8px; align-items: center;">
                 <input type="text" id="cp_banner_url" placeholder="https://..." oninput="updateBannerPreview(); showSaveBtn();" style="flex: 1;">
@@ -255,6 +259,17 @@
     </div>
 
     <div id="tab-quests" class="tab-content hidden admin-form">
+        
+        <div class="section-box" style="border-color: rgba(255, 215, 0, 0.3); background: rgba(255, 215, 0, 0.05); margin-bottom: 30px;">
+            <h3 class="sec-title" style="color: var(--primary);"><i class="fa-solid fa-globe"></i> Общие задания (Global)</h3>
+            <p style="font-size: 11px; color: var(--text-sec); margin-top: -5px; margin-bottom: 15px;">Прогресс этих заданий заполняется автоматически сервером (например, реакции в канале). Награда выдается всем.</p>
+            
+            <div id="cp-global-quests-container" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;"></div>
+            
+            <button type="button" class="action-add-btn" style="border-color: var(--primary); color: var(--primary);" onclick="addGlobalQuest()">
+                <i class="fa-solid fa-plus"></i> ДОБАВИТЬ ОБЩЕЕ ЗАДАНИЕ
+            </button>
+        </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 class="sec-title" style="margin: 0;"><i class="fa-solid fa-calendar-week"></i> Задания по неделям</h3>
             <button type="button" class="icon-btn btn-view" onclick="generateWeeks()" title="Сгенерировать недели по датам" style="width: 36px; height: 36px;">
@@ -862,6 +877,62 @@
             wrapper.addEventListener('input', showSaveBtn);
             return wrapper;
         }
+
+        // --- НОВОЕ: ЛОГИКА ОБЩИХ ЗАДАНИЙ ---
+        function createGlobalQuestRow(data = null) {
+            const q = data || { quest_id: Date.now(), title: '', target_amount: 1000, exp_reward: 50 };
+            const wrapper = document.createElement('div');
+            wrapper.className = 'quest-row global-quest-row';
+            wrapper.style.background = 'rgba(0,0,0,0.5)';
+            wrapper.dataset.qid = q.quest_id; // Уникальный ID для бекенда
+
+            wrapper.innerHTML = `
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; width: 100%; align-items: center;">
+                    <div style="flex: 1 1 100%;">
+                        <input type="text" class="gq-title" placeholder="Название (напр. Собрать 10 000 реакций)" value="${escapeHTML(q.title)}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 5px; flex: 1 1 60px;">
+                        <i class="fa-solid fa-crosshairs" style="color: #64b5ef; font-size: 12px;"></i>
+                        <input type="number" class="gq-target" placeholder="Цель" value="${q.target_amount}" min="1" required style="width: 100%; padding: 8px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
+                    </div>
+
+                    <div style="flex: 1 1 80px; display: flex; align-items: center; gap: 5px;">
+                        <i class="fa-solid fa-star" style="color: #ffd700; font-size: 12px;"></i>
+                        <input type="number" step="0.1" class="gq-exp" placeholder="EXP" value="${q.exp_reward}" required style="width: 100%; padding: 8px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
+                    </div>
+
+                    <button type="button" class="remove-gq-btn" style="width: 36px; height: 36px; background: rgba(255,77,77,0.1); color: var(--danger); border: none; border-radius: 8px; cursor: pointer; flex-shrink:0;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `;
+
+            wrapper.querySelector('.remove-gq-btn').addEventListener('click', () => { wrapper.remove(); showSaveBtn(); });
+            wrapper.addEventListener('input', showSaveBtn);
+            return wrapper;
+        }
+
+        function addGlobalQuest() {
+            document.getElementById('cp-global-quests-container').appendChild(createGlobalQuestRow());
+            showSaveBtn();
+        }
+
+        function extractGlobalQuestsData() {
+            const arr = [];
+            document.querySelectorAll('.global-quest-row').forEach(row => {
+                const title = row.querySelector('.gq-title').value.trim();
+                const target = parseInt(row.querySelector('.gq-target').value);
+                const exp = parseFloat(row.querySelector('.gq-exp').value);
+                const qid = parseInt(row.dataset.qid);
+                
+                if (title && target > 0 && exp > 0) {
+                    arr.push({ quest_id: qid, title: title, target_amount: target, exp_reward: exp });
+                }
+            });
+            return arr;
+        }
+        // --- КОНЕЦ ЛОГИКИ ОБЩИХ ЗАДАНИЙ ---
         
         function generateWeeks() {
             const startVal = document.getElementById('cp_start_date').value;
@@ -985,6 +1056,7 @@
                 document.getElementById('cp_end_date').value = formatDateToInput(checkpointData.end_date);
                 document.getElementById('cp_premium_price').value = checkpointData.premium_price || 0;
                 document.getElementById('cp_premium_price_rub').value = checkpointData.premium_price_rub || 0;
+                document.getElementById('cp_min_reaction_msg_id').value = checkpointData.min_reaction_message_id || ''; // <--- ДОБАВЛЕНО
                 document.getElementById('cp_banner_url').value = checkpointData.banner_url || '';
                 updateBannerPreview();
 
@@ -1058,6 +1130,7 @@
                 end_date: endDateInput ? new Date(endDateInput).toISOString() : null,
                 premium_price: parseInt(document.getElementById('cp_premium_price').value) || 0,
                 premium_price_rub: parseFloat(document.getElementById('cp_premium_price_rub').value) || 0,
+                min_reaction_message_id: parseInt(document.getElementById('cp_min_reaction_msg_id').value) || 0, // <--- ДОБАВЛЕНО
                 banner_url: document.getElementById('cp_banner_url').value,
                 tiers: tiers,
                 quests_config: extractQuestsData() 
