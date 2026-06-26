@@ -2459,6 +2459,7 @@ bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTM
 router = Router()
 dp = Dispatcher()
 dp.include_router(router)
+dp.include_router(reaction_router)
 
 # --- Telegram handlers ---
 @router.message(Command("start"))
