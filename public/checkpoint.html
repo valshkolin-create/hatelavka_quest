@@ -1704,6 +1704,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dom.questsContainer.innerHTML = '';
     
+    // --- ДОБАВЛЕНО: РЕНДЕР ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
+    if (bpData.global_quests && bpData.global_quests.length > 0) {
+        const globalBlock = document.createElement('div');
+        globalBlock.className = 'week-accordion expanded'; // Делаем всегда открытым
+        globalBlock.style.borderColor = 'rgba(255, 215, 0, 0.4)';
+        globalBlock.style.marginBottom = '20px';
+        globalBlock.style.background = 'linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, var(--surface-bg) 100%)';
+        globalBlock.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.05)';
+        
+        globalBlock.innerHTML = `
+            <div class="week-header" style="cursor: default; background: transparent;">
+                <div class="week-title-box">
+                    <div class="week-title" style="color: var(--primary);"><i class="fa-solid fa-globe"></i> ОБЩИЕ НАГРАДЫ СЕЗОНА</div>
+                    <div class="week-dates" style="color: #ccc;">Счетчик реакций общий для всех игроков</div>
+                </div>
+            </div>
+            <div class="week-content" style="max-height: 2000px; padding-top: 5px;">
+                <div class="week-content-inner" id="global-quests-inner"></div>
+            </div>
+        `;
+        
+        const globalInner = globalBlock.querySelector('#global-quests-inner');
+        
+        bpData.global_quests.forEach(gq => {
+            let actionHtml = '';
+            let cardClass = 'quest-card';
+            
+            if (gq.is_claimed) {
+                actionHtml = `<div style="color: var(--text-muted); font-size: 10px; font-weight: 700;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
+                cardClass += ' dimmed';
+            } else if (gq.is_completed) {
+                // Передаем 'global' вместо номера недели, чтобы бекенд понял, что это за квест
+                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${gq.quest_id}, 'global')" style="margin: 0;">ЗАБРАТЬ</button>`;
+                cardClass += ' ready-to-claim';
+                globalHasRewards = true;
+            } else {
+                actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${gq.current_amount} / ${gq.target_amount}</div>`;
+            }
+
+            globalInner.innerHTML += `
+                <div class="${cardClass}">
+                    <div class="quest-info">
+                        <h4 class="quest-title">${gq.title}</h4>
+                    </div>
+                    <div class="quest-right-side">
+                        <div class="quest-action-box">
+                            ${actionHtml}
+                        </div>
+                        <div class="quest-reward">
+                            +${gq.exp_reward} <i class="fa-solid fa-star"></i>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        dom.questsContainer.appendChild(globalBlock);
+    }
+    // --- КОНЕЦ БЛОКА ОБЩИХ ЗАДАНИЙ ---
+    
     const questsWithWeeks = bpData.quests_config.map(q => ({...q, week: q.week || 1}));
     const maxWeek = Math.max(...questsWithWeeks.map(q => q.week));
     
