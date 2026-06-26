@@ -2454,6 +2454,104 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
         logging.info("WebSocket клиент отключен.")
 
+
+# ==========================================================
+#        AIOGRAM ROUTER (GLOBAL REACTION TRACKER)
+# ==========================================================
+
+reaction_router = Router()
+
+@reaction_router.message_reaction_count()
+async def track_global_channel_reactions(reaction_update: types.MessageReactionCountUpdated):
+    """
+    Анонимный перехват общих реакций канала.
+    Считает дельту изменения и пишет в общую дневную статистику.
+    """
+    channel_id = reaction_update.chat.id
+    message_id = reaction_update.message_id
+    
+    # 1. Защита: реагируем только на целевой канал
+    target_channel = int(os.getenv("TG_QUEST_CHANNEL_ID", "0"))
+    if target_channel != 0 and channel_id != target_channel:
+        return
+
+    # 2. Считаем сумму ВСЕХ реакций под этим постом в данный момент
+    new_total = sum(r.total_count for r in reaction_update.reactions)
+    
+    try:
+        # Используем твою функцию инициализации клиента
+        supabase = await get_supabase_client()
+        
+        # Определяем текущий день (UTC) и точное время
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # --- ШАГ 1: ВЫЧИСЛЯЕМ РАЗНИЦУ (ДЕЛЬТУ) ---
+        res_msg = await supabase.get(
+            "/tg_message_reactions", 
+            params={"message_id": f"eq.{message_id}", "select": "reaction_count"}
+        )
+        
+        old_total = 0
+        if res_msg.status_code == 200 and res_msg.json():
+            old_total = res_msg.json()[0].get("reaction_count", 0)
+
+        delta = new_total - old_total
+
+        # Если кто-то поменял одну эмоцию на другую (сумма та же)
+        if delta == 0:
+            return 
+
+        # --- ШАГ 2: ОБНОВЛЯЕМ КЭШ ПОСТА ---
+        await supabase.post(
+            "/tg_message_reactions",
+            headers={"Prefer": "resolution=merge-duplicates"}, # Upsert
+            json={
+                "message_id": message_id, 
+                "reaction_count": new_total, 
+                "updated_at": now_iso
+            }
+        )
+
+        # --- ШАГ 3: ЗАПИСЫВАЕМ В ДНЕВНОЙ ТРЕКЕР ---
+        res_day = await supabase.get(
+            "/tg_total_reactions", 
+            params={"target_date": f"eq.{today_str}", "select": "daily_reactions"}
+        )
+
+        if res_day.status_code == 200 and res_day.json():
+            # День уже есть в базе — плюсуем/минусуем
+            current_daily = res_day.json()[0].get("daily_reactions", 0)
+            await supabase.patch(
+                "/tg_total_reactions",
+                params={"target_date": f"eq.{today_str}"},
+                json={
+                    "daily_reactions": current_daily + delta,
+                    "last_reaction_time": now_iso,
+                    "last_message_id": message_id
+                }
+            )
+        else:
+            # Первая реакция за день — создаем строку
+            await supabase.post(
+                "/tg_total_reactions",
+                json={
+                    "target_date": today_str,
+                    "daily_reactions": max(0, delta), 
+                    "last_reaction_time": now_iso,
+                    "last_message_id": message_id,
+                    "bp_phase_id": "season_1",
+                    "exp_multiplier": 1.0
+                }
+            )
+
+        logger.info(f"🏆 [Global BP] Пост {message_id} | Изменение: {delta} | Запись за {today_str} обновлена.")
+
+    except Exception as e:
+        logger.error(f"❌ [Global BP] Ошибка трекера реакций: {e}")
+
+
+
 # --- Telegram Bot/Dispatcher ---
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 router = Router()
@@ -21228,103 +21326,6 @@ async def get_global_bp_status(
     except Exception as e:
         logger.error(f"Global BP Error: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
-
-
-# ==========================================================
-#        AIOGRAM ROUTER (GLOBAL REACTION TRACKER)
-# ==========================================================
-
-reaction_router = Router()
-
-@reaction_router.message_reaction_count()
-async def track_global_channel_reactions(reaction_update: types.MessageReactionCountUpdated):
-    """
-    Анонимный перехват общих реакций канала.
-    Считает дельту изменения и пишет в общую дневную статистику.
-    """
-    channel_id = reaction_update.chat.id
-    message_id = reaction_update.message_id
-    
-    # 1. Защита: реагируем только на целевой канал
-    target_channel = int(os.getenv("TG_QUEST_CHANNEL_ID", "0"))
-    if target_channel != 0 and channel_id != target_channel:
-        return
-
-    # 2. Считаем сумму ВСЕХ реакций под этим постом в данный момент
-    new_total = sum(r.total_count for r in reaction_update.reactions)
-    
-    try:
-        # Используем твою функцию инициализации клиента
-        supabase = await get_supabase_client()
-        
-        # Определяем текущий день (UTC) и точное время
-        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        now_iso = datetime.now(timezone.utc).isoformat()
-
-        # --- ШАГ 1: ВЫЧИСЛЯЕМ РАЗНИЦУ (ДЕЛЬТУ) ---
-        res_msg = await supabase.get(
-            "/tg_message_reactions", 
-            params={"message_id": f"eq.{message_id}", "select": "reaction_count"}
-        )
-        
-        old_total = 0
-        if res_msg.status_code == 200 and res_msg.json():
-            old_total = res_msg.json()[0].get("reaction_count", 0)
-
-        delta = new_total - old_total
-
-        # Если кто-то поменял одну эмоцию на другую (сумма та же)
-        if delta == 0:
-            return 
-
-        # --- ШАГ 2: ОБНОВЛЯЕМ КЭШ ПОСТА ---
-        await supabase.post(
-            "/tg_message_reactions",
-            headers={"Prefer": "resolution=merge-duplicates"}, # Upsert
-            json={
-                "message_id": message_id, 
-                "reaction_count": new_total, 
-                "updated_at": now_iso
-            }
-        )
-
-        # --- ШАГ 3: ЗАПИСЫВАЕМ В ДНЕВНОЙ ТРЕКЕР ---
-        res_day = await supabase.get(
-            "/tg_total_reactions", 
-            params={"target_date": f"eq.{today_str}", "select": "daily_reactions"}
-        )
-
-        if res_day.status_code == 200 and res_day.json():
-            # День уже есть в базе — плюсуем/минусуем
-            current_daily = res_day.json()[0].get("daily_reactions", 0)
-            await supabase.patch(
-                "/tg_total_reactions",
-                params={"target_date": f"eq.{today_str}"},
-                json={
-                    "daily_reactions": current_daily + delta,
-                    "last_reaction_time": now_iso,
-                    "last_message_id": message_id
-                }
-            )
-        else:
-            # Первая реакция за день — создаем строку
-            await supabase.post(
-                "/tg_total_reactions",
-                json={
-                    "target_date": today_str,
-                    "daily_reactions": max(0, delta), 
-                    "last_reaction_time": now_iso,
-                    "last_message_id": message_id,
-                    "bp_phase_id": "season_1",
-                    "exp_multiplier": 1.0
-                }
-            )
-
-        logger.info(f"🏆 [Global BP] Пост {message_id} | Изменение: {delta} | Запись за {today_str} обновлена.")
-
-    except Exception as e:
-        logger.error(f"❌ [Global BP] Ошибка трекера реакций: {e}")
-
 
 # --- МАСТЕР ПЕРЕЕЗДА (АВТОМАТИКА) ---
 @app.post("/api/v1/admin/system/migrate")
