@@ -717,7 +717,13 @@
                 { val: 'cs2_skin', text: 'CS2 Скин (Маркет)' },
                 { val: 'case', text: 'Кейс' },
                 { val: 'case_coupon', text: 'Купон на кейс' },
-                { val: 'grind_vip', text: 'Grind VIP' }
+                { val: 'grind_vip', text: 'Grind VIP' },
+                { val: 'trust_increase', text: 'Повышение траста' },
+                { val: 'topskin_discount', text: 'Скидка TopSkin' },
+                { val: 'fake_messages', text: 'Фейк сообщения (Купон)' },
+                { val: 'twitch_vip', text: 'Twitch VIP (Заявка)' },
+                { val: 'twitch_sub', text: 'Twitch Sub (Заявка)' },
+                { val: 'red_pill', text: 'Красная таблетка' }
             ];
             let html = `<select class="reward-type-select" name="${namePrefix}_type" style="margin-bottom: 5px;">`;
             types.forEach(t => { html += `<option value="${t.val}" ${t.val === selectedValue ? 'selected' : ''}>${t.text}</option>`; });
@@ -730,6 +736,40 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'section-box cp-tier-row'; 
             wrapper.style.paddingTop = '40px'; 
+
+            // Функция для парсинга склеенных значений (КОД|ССЫЛКА)
+            const parseVal = (type, val) => {
+                let parts = (val || '').split('|');
+                if (type === 'topskin_discount') return { code: parts[0] || '', link: parts[1] || '' };
+                if (type === 'fake_messages') return { msgType: parts[0] || 'stream', amount: parts[1] || '' };
+                return {};
+            };
+            const fP = parseVal(data.free_reward.type, data.free_reward.value);
+            const pP = parseVal(data.premium_reward.type, data.premium_reward.value);
+
+            // Шаблон для блоков с параметрами, чтобы не дублировать код
+            const getInputsHtml = (prefix, dataObj, parsed) => `
+                <div class="reward-val-container" style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
+                    <div class="standard-val-wrap" style="display:flex; gap:5px;">
+                        <input type="text" class="reward-value-input ${prefix}-val" placeholder="Значение" value="${escapeHTML(String(dataObj.value))}" style="flex:1;">
+                        <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
+                    </div>
+                    <div class="topskin-wrap" style="display:none; flex-direction:column; gap:5px;">
+                        <input type="text" class="${prefix}-ts-code" placeholder="Код (CODE123)" value="${escapeHTML(parsed.code || '')}">
+                        <input type="text" class="${prefix}-ts-link" placeholder="Ссылка (https://...)" value="${escapeHTML(parsed.link || '')}">
+                    </div>
+                    <div class="fake-msgs-wrap" style="display:none; gap:5px;">
+                        <select class="${prefix}-fm-type" style="padding:8px; border-radius:8px; background:var(--card-bg); color:#fff; border:1px solid var(--card-border); flex:1;">
+                            <option value="stream" ${parsed.msgType === 'stream' ? 'selected' : ''}>Стрим</option>
+                            <option value="week" ${parsed.msgType === 'week' ? 'selected' : ''}>Неделя</option>
+                            <option value="month" ${parsed.msgType === 'month' ? 'selected' : ''}>Месяц</option>
+                        </select>
+                        <input type="number" class="${prefix}-fm-amount" placeholder="Кол-во" value="${parsed.amount || ''}" style="flex:1;">
+                    </div>
+
+                    <input type="number" class="${prefix}-exchange" placeholder="Опыт за отказ (0 = выкл)" value="${dataObj.exchange || 0}" style="background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.3);">
+                </div>
+            `;
 
             wrapper.innerHTML = `
                 <div style="position: absolute; top: -10px; left: 15px; background: var(--primary); color: #000; padding: 2px 10px; border-radius: 8px; font-weight: 800; font-size: 14px; z-index: 2;">УРОВЕНЬ ${data.level}</div>
@@ -750,25 +790,13 @@
                     <div class="reward-box">
                         <h4>FREE Награда</h4>
                         ${getRewardTypeSelectHtml(data.free_reward.type, 'free')}
-                        <div class="reward-val-container" style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
-                            <div style="display:flex; gap:5px;">
-                                <input type="text" class="reward-value-input free-val" placeholder="Значение" value="${escapeHTML(String(data.free_reward.value))}">
-                                <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
-                            </div>
-                            <input type="number" class="free-exchange" placeholder="Опыт за отказ (0 = выкл)" value="${data.free_reward.exchange || 0}" style="background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.3);">
-                        </div>
+                        ${getInputsHtml('free', data.free_reward, fP)}
                     </div>
 
                     <div class="reward-box premium">
                         <h4>PREMIUM Награда</h4>
                         ${getRewardTypeSelectHtml(data.premium_reward.type, 'premium')}
-                        <div class="reward-val-container" style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
-                            <div style="display:flex; gap:5px;">
-                                <input type="text" class="reward-value-input premium-val" placeholder="Значение" value="${escapeHTML(String(data.premium_reward.value))}">
-                                <button type="button" class="icon-btn skin-search-btn" onclick="openLibraryForTarget(this)" style="display:none;"><i class="fa-solid fa-box-open"></i></button>
-                            </div>
-                            <input type="number" class="premium-exchange" placeholder="Опыт за отказ (0 = выкл)" value="${data.premium_reward.exchange || 0}" style="background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.3);">
-                        </div>
+                        ${getInputsHtml('premium', data.premium_reward, pP)}
                     </div>
                 </div>
             `;
@@ -778,8 +806,22 @@
             wrapper.querySelectorAll('.reward-type-select').forEach(select => {
                 const toggleUI = (sel) => {
                     const container = sel.nextElementSibling;
-                    const input = container.querySelector('.reward-value-input');
+                    const stdWrap = container.querySelector('.standard-val-wrap');
+                    const tsWrap = container.querySelector('.topskin-wrap');
+                    const fmWrap = container.querySelector('.fake-msgs-wrap');
                     const searchBtn = container.querySelector('.skin-search-btn');
+                    
+                    stdWrap.style.display = 'none';
+                    tsWrap.style.display = 'none';
+                    fmWrap.style.display = 'none';
+
+                    if (['cs2_skin', 'case', 'case_coupon', 'coins', 'tickets', 'grind_vip', 'trust_increase'].includes(sel.value)) {
+                        stdWrap.style.display = 'flex';
+                    } else if (sel.value === 'topskin_discount') {
+                        tsWrap.style.display = 'flex';
+                    } else if (sel.value === 'fake_messages') {
+                        fmWrap.style.display = 'flex';
+                    }
                     
                     container.style.display = sel.value === 'none' ? 'none' : 'flex';
                     searchBtn.style.display = (sel.value === 'cs2_skin' || sel.value === 'case') ? 'flex' : 'none';
@@ -1109,23 +1151,35 @@
         }
 
        async function saveCheckpointData() {
+            const getRewardData = (row, prefix) => {
+                const type = row.querySelector(`select[name="${prefix}_type"]`).value;
+                let value = '';
+                if (type === 'topskin_discount') {
+                    value = row.querySelector(`.${prefix}-ts-code`).value + '|' + row.querySelector(`.${prefix}-ts-link`).value;
+                } else if (type === 'fake_messages') {
+                    value = row.querySelector(`.${prefix}-fm-type`).value + '|' + row.querySelector(`.${prefix}-fm-amount`).value;
+                } else if (['twitch_vip', 'twitch_sub', 'red_pill', 'none'].includes(type)) {
+                    value = ''; // Для этих типов значение не требуется
+                } else {
+                    value = row.querySelector(`.${prefix}-val`).value;
+                }
+                return {
+                    type: type,
+                    value: value,
+                    exchange: parseInt(row.querySelector(`.${prefix}-exchange`).value) || 0
+                };
+            };
+
             const tiers = [];
             document.querySelectorAll('.cp-tier-row').forEach(row => {
                 tiers.push({
                     level: parseInt(row.querySelector('.tier-level').value) || 0,
                     required_stars: parseInt(row.querySelector('.tier-stars').value) || 0,
-                    free_reward: {
-                        type: row.querySelector('select[name="free_type"]').value,
-                        value: row.querySelector('.free-val').value,
-                        exchange: parseInt(row.querySelector('.free-exchange').value) || 0
-                    },
-                    premium_reward: {
-                        type: row.querySelector('select[name="premium_type"]').value,
-                        value: row.querySelector('.premium-val').value,
-                        exchange: parseInt(row.querySelector('.premium-exchange').value) || 0
-                    }
+                    free_reward: getRewardData(row, 'free'),
+                    premium_reward: getRewardData(row, 'premium')
                 });
             });
+           
             tiers.sort((a, b) => a.level - b.level);
 
             const startDateInput = document.getElementById('cp_start_date').value;
