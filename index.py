@@ -9490,13 +9490,15 @@ async def get_current_user_data(
         
        # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен! Добавлена переменная fm_codes_resp)
         (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp, new_quests_resp, fm_codes_resp) = results
+
         # Смотрим, что реально ответил Supabase при попытке чтения
-if isinstance(new_quests_resp, Exception):
-    print(f"[AUDIT] Exception in new_quests_resp: {new_quests_resp}")
-else:
-    print(f"[AUDIT] GET user_quest_progress: Status {new_quests_resp.status_code} | Body: {new_quests_resp.text}")
+        if isinstance(new_quests_resp, Exception):
+            print(f"[AUDIT] Exception in new_quests_resp: {new_quests_resp}")
+        else:
+            print(f"[AUDIT] GET user_quest_progress: Status {new_quests_resp.status_code} | Body: {new_quests_resp.text}")
 
         # --- [A] Обработка Профиля ---
+        data = None
         data = None
         if not isinstance(rpc_resp, Exception) and rpc_resp.status_code == 200:
             data = rpc_resp.json()
