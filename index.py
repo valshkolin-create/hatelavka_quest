@@ -9473,13 +9473,14 @@ async def get_current_user_data(
             # I. 👇 НОВОЕ: НОВАЯ ТАБЛИЦА ПРОГРЕССА (Глобальные квесты) 👇
             supabase.get("/user_quest_progress", params={
                 "user_id": f"eq.{telegram_id}",
-                "select": "quest_id, week, current_progress, target_value, claimed_at"
+                "select": "quest_id, current_progress, target_value, claimed_at"
             }),
             
             # J. 🔥 ИЩЕМ СГЕНЕРИРОВАННЫЕ КОДЫ ФЕЙК-СООБЩЕНИЙ 🔥
             supabase.get("/cs_codes", params={
                 "assigned_to": f"eq.{telegram_id}",
                 "code": "like.CP-FM-%",
+                "is_active": "eq.true", # 👈 ДОБАВИТЬ ВОТ ЭТО
                 "select": "code, description, activated_by_ids"
             }),
             
@@ -9489,6 +9490,11 @@ async def get_current_user_data(
         
        # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен! Добавлена переменная fm_codes_resp)
         (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp, new_quests_resp, fm_codes_resp) = results
+        # Смотрим, что реально ответил Supabase при попытке чтения
+if isinstance(new_quests_resp, Exception):
+    print(f"[AUDIT] Exception in new_quests_resp: {new_quests_resp}")
+else:
+    print(f"[AUDIT] GET user_quest_progress: Status {new_quests_resp.status_code} | Body: {new_quests_resp.text}")
 
         # --- [A] Обработка Профиля ---
         data = None
@@ -9584,7 +9590,7 @@ async def get_current_user_data(
             # Формируем структуру, которую ожидает твой фронтенд
             bp_quests_data.append({
                 "quest_id": nq["quest_id"],
-                "week": nq.get("week"),
+                "week": "global",  # Жестко маркируем для фронтенда
                 "current_amount": nq.get("current_progress", 0),
                 "target_amount": nq.get("target_value", 1),
                 # Квест выполнен, если прогресс достиг цели ИЛИ если мы его уже забрали (claimed_at != null)
@@ -15867,12 +15873,11 @@ async def claim_bp_quest(
             if total_reactions < target_amount:
                 raise HTTPException(status_code=400, detail="Общая цель еще не достигнута сервером!")
 
-            # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: СОХРАНЯЕМ В СТАНДАРТНУЮ ТАБЛИЦУ БП 🔥
-            post_res = await supabase.post("/user_bp_quests", json={
+            # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: АТОМАРНАЯ ВСТАВКА В НОВУЮ ТАБЛИЦУ 🔥
+            post_res = await supabase.post("/user_quest_progress", json={
                 "user_id": tg_id,
                 "quest_id": req.quest_id,
-                "week": 0,  # 0 будет означать глобальный квест
-                "current_amount": total_reactions,
+                "current_progress": total_reactions,
                 "target_amount": target_amount,
                 "is_completed": True,
                 "is_claimed": True
