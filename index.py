@@ -5969,14 +5969,27 @@ async def check_cs_code(
     
     # 🔥 2. ПЕРЕХВАТ ФЕЙК-СООБЩЕНИЙ (CP-FM): Активируем прямо здесь! 🔥
     if code_text.startswith("CP-FM-"):
-        target_case_name = promo.get("target_case_name") or ""
-        parts = target_case_name.split('|')
+        target_val = promo.get("target_case_name")
+        
+        # Если target_case_name пустой (null), вытаскиваем из описания
+        # Описание выглядит так: "Фейк сообщения (week|500). БП Ур. 9"
+        if not target_val:
+            desc = promo.get("description", "")
+            if "(" in desc and ")" in desc:
+                target_val = desc.split("(")[1].split(")")[0]  # Достаем то, что в скобках
+            else:
+                target_val = ""
+
+        parts = target_val.split('|')
         
         if len(parts) != 2:
-            return {"valid": False, "message": "Неверный формат купона на сообщения."}
+            return {"valid": False, "message": f"Неверный формат купона на сообщения. Данные: {target_val}"}
             
         period = parts[0]
-        amount_to_add = int(parts[1])
+        try:
+            amount_to_add = int(parts[1])
+        except ValueError:
+            return {"valid": False, "message": "Ошибка купона: неверное количество."}
         
         # Достаем текущие статы юзера
         user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "weekly_message_count, monthly_message_count"})
@@ -5990,6 +6003,8 @@ async def check_cs_code(
             update_data["weekly_message_count"] = int(user_data.get("weekly_message_count") or 0) + amount_to_add
         elif period == 'month':
             update_data["monthly_message_count"] = int(user_data.get("monthly_message_count") or 0) + amount_to_add
+        else:
+            return {"valid": False, "message": "Неизвестный период в купоне."}
             
         # Начисляем сообщения
         await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json=update_data)
@@ -6005,7 +6020,7 @@ async def check_cs_code(
             "activated_by_ids": [str(user_id)]
         })
         
-        # Возвращаем valid: True, но БЕЗ target_case_name, чтобы фронт просто показал алерт
+        # Возвращаем valid: True, но БЕЗ target_case_name
         return {
             "valid": True,
             "message": f"Купон активирован! Начислено {amount_to_add} сообщений на {'неделю' if period == 'week' else 'месяц'} 💬"
@@ -16625,14 +16640,27 @@ async def activate_fake_messages(
         if not coupon.get("code", "").startswith("CP-FM-"):
             raise HTTPException(status_code=400, detail="Этот код не предназначен для фейковых сообщений.")
 
-        # 3. ДОСТАЕМ ПЕРИОД И НОМИНАЛ (расшифровываем "week|500")
-        target_case_name = coupon.get("target_case_name") or ""
+        # 🔥 3. ДОСТАЕМ ПЕРИОД И НОМИНАЛ (Фикс пустого target_case_name)
+        target_case_name = coupon.get("target_case_name")
+        
+        # Тянем из описания "Фейк сообщения (week|500). БП Ур. 9", если колонка пустая
+        if not target_case_name:
+            desc = coupon.get("description", "")
+            if "(" in desc and ")" in desc:
+                target_case_name = desc.split("(")[1].split(")")[0]
+            else:
+                target_case_name = ""
+
         parts = target_case_name.split('|')
+        
         if len(parts) != 2:
-            raise HTTPException(status_code=400, detail="Неверный формат купона.")
+            raise HTTPException(status_code=400, detail=f"Неверный формат купона: {target_case_name}")
             
-        period = parts[0] # 'week' или 'month'
-        amount_to_add = int(parts[1])
+        period = parts[0]  # 'week' или 'month'
+        try:
+            amount_to_add = int(parts[1])
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ошибка купона: неверное количество.")
 
         if amount_to_add <= 0:
             raise HTTPException(status_code=400, detail="Ошибка купона: нулевой номинал.")
@@ -16671,7 +16699,7 @@ async def activate_fake_messages(
 
         return {
             "status": "success", 
-            "message": f"Успешно начислено {amount_to_add} Twitch сообщений за {'неделю' if period == 'week' else 'месяц'}!"
+            "message": f"Успешно начислено {amount_to_add} сообщений за {'неделю' if period == 'week' else 'месяц'}!"
         }
 
     except HTTPException:
