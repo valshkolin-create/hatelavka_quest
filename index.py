@@ -15889,6 +15889,8 @@ async def claim_bp_quest(
             if post_res.status_code == 409:
                 raise HTTPException(status_code=400, detail="Награда уже получена")
             elif post_res.status_code not in (200, 201):
+                # 👇 ВЫВОДИМ РЕАЛЬНУЮ ОШИБКУ ОТ SUPABASE 👇
+                logging.error(f"[SUPABASE DB ERROR]: {post_res.text}")
                 raise HTTPException(status_code=500, detail="Ошибка сохранения прогресса")
 
             # Выдаем EXP только если вставка прошла успешно
