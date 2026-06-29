@@ -1524,17 +1524,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Новая функция-помощник для выдачи нужной картинки по типу
+    function getRewardImageUrl(reward) {
+        if (!reward) return 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
+        
+        // Если с бэкенда пришла реальная картинка (скины, кейсы)
+        if (reward.image_url && reward.image_url.startsWith('http')) {
+            return reward.image_url;
+        }
+        
+        // Индивидуальные заглушки для каждого типа
+        switch (reward.type) {
+            case 'coins': return 'https://i.postimg.cc/pdV45myM/money.png';
+            case 'tickets': return 'https://i.postimg.cc/RCYsCPwk/tickets.png';
+            case 'topskin_discount': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=TOPSKIN';
+            case 'fake_messages': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=MSG';
+            case 'grind_vip': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=VIP';
+            case 'trust_increase': return 'https://placehold.co/150x150/2a2a2c/32d74b?text=TRUST'; // Зеленая заглушка
+            case 'twitch_vip': return 'https://placehold.co/150x150/6441a5/ffffff?text=TWITCH+VIP'; // Фиолетовая Twitch
+            case 'twitch_sub': return 'https://placehold.co/150x150/6441a5/ffffff?text=TWITCH+SUB'; // Фиолетовая Twitch
+            case 'red_pill': return 'https://placehold.co/150x150/ff453a/ffffff?text=RED+PILL'; // Красная
+            case 'case_coupon': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=COUPON';
+            default: return 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
+        }
+    }
+
     function getRewardImageHtml(reward) {
         if (!reward || reward.type === 'none') return '';
         
-        let src = '';
-        if (reward.image_url && reward.image_url.startsWith('http')) {
-            src = reward.image_url;
-        } else {
-            src = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
-            if (reward.type === 'coins') src = 'https://i.postimg.cc/pdV45myM/money.png';
-            if (reward.type === 'tickets') src = 'https://i.postimg.cc/RCYsCPwk/tickets.png';
-        }
+        const src = getRewardImageUrl(reward);
 
         // Формируем полное название (добавляем Монеты и Билеты)
         let fullTitle = reward.value ? reward.value.toString() : '';
@@ -2180,13 +2198,8 @@ const processedQuests = weekQuests.map(cfg => {
                     break;
             }
             
-            // 2. Умная подстановка картинки (монеты, билеты или дефолт)
-            let displayImg = reward.image_url;
-            if (!displayImg || !displayImg.startsWith('http')) {
-                displayImg = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
-                if (reward.type === 'coins') displayImg = 'https://i.postimg.cc/pdV45myM/money.png';
-                if (reward.type === 'tickets') displayImg = 'https://i.postimg.cc/RCYsCPwk/tickets.png';
-            }
+            // 2. Умная подстановка картинки через нашу новую функцию
+            let displayImg = getRewardImageUrl(reward);
 
             document.getElementById('exchange-item-img').src = displayImg;
             document.getElementById('exchange-item-title').innerText = displayTitle;
@@ -2230,13 +2243,8 @@ const processedQuests = weekQuests.map(cfg => {
                 if (actionToSend === 'exchange') {
                     if (eventPos) playStarAnimation(eventPos.x, eventPos.y);
                 } else {
-                    // Вычисляем правильную картинку
-                    let imgUrl = reward.image_url;
-                    if (!imgUrl || !imgUrl.startsWith('http')) {
-                        if (reward.type === 'coins') imgUrl = 'https://i.postimg.cc/pdV45myM/money.png';
-                        else if (reward.type === 'tickets') imgUrl = 'https://i.postimg.cc/RCYsCPwk/tickets.png';
-                        else imgUrl = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
-                    }
+                    // Вычисляем правильную картинку через нашу новую функцию
+                    let imgUrl = getRewardImageUrl(reward);
 
                     // Формируем название с учетом количества (Монет/Билетов)
                     const safeValue = reward.value ? reward.value.toString() : 'Награда';
