@@ -939,6 +939,7 @@ class CheckpointClaimRequest(BaseModel):
     platform: str = "tg"  # <--- Добавлено!
     type: str  # 'free' или 'premium'
     action_type: str = "claim"
+    target_period: str = None  # <-- ДОБАВИЛИ ЭТО
 
 class ManualRewardCompleteRequest(BaseModel):
     initData: str
@@ -16334,9 +16335,12 @@ async def claim_checkpoint_reward(
 
             # 🔥 ЧИСТАЯ ЛОГИКА ДЛЯ ФЕЙК СООБЩЕНИЙ 🔥
             elif reward_type == 'fake_messages':
+                if request_data.target_period not in ['week', 'month']:
+                    raise HTTPException(status_code=400, detail="Сначала выберите период (неделя или месяц)!")
+                    
                 unique_coupon_code = f"CP-FM-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
                 
-                # Достаем чистое количество (отрезаем stream| или week|)
+                # Достаем чистое количество (отрезаем stream| или week| если есть)
                 parts = str(reward_value).split('|')
                 clean_fake_amount = parts[-1] if len(parts) > 0 and parts[-1].isdigit() else "0"
                 
@@ -16347,13 +16351,14 @@ async def claim_checkpoint_reward(
                         "max_uses": 1,
                         "current_uses": 0,
                         "is_active": True,
-                        "description": f"Фейк сообщения ({clean_fake_amount}). БП Ур. {level_to_claim}",
-                        "target_case_name": clean_fake_amount, # <--- ТЕПЕРЬ ТУТ ЧИСТАЯ ЦИФРА
+                        "description": f"Фейк сообщения ({clean_fake_amount} на {'неделю' if request_data.target_period == 'week' else 'месяц'}). БП Ур. {level_to_claim}",
+                        # 🔥 ЗАШИВАЕМ ПЕРИОД И КОЛИЧЕСТВО В БАЗУ (например: "week|500") 🔥
+                        "target_case_name": f"{request_data.target_period}|{clean_fake_amount}",
                         "is_copied": False,
                         "assigned_to": telegram_id,
                         "assigned_at": datetime.now(timezone.utc).isoformat(),
                         "used_by_ids": [],
-                        "activated_by_ids": [], # <--- ПУСТОЙ МАССИВ (купон еще не активирован)
+                        "activated_by_ids": [], # Купон создан, но НЕ активирован
                         "campaign_id": 999 
                     }
                 )
@@ -16511,7 +16516,6 @@ async def admin_grant_level(
 class ActivateFakeMessagesRequest(BaseModel):
     initData: str
     code: str
-    target_period: str  # Принимает 'week' или 'month'
 
 @app.post("/api/v1/checkpoint/activate_fake_messages")
 async def activate_fake_messages(
@@ -16523,9 +16527,6 @@ async def activate_fake_messages(
     if not user_info:
         raise HTTPException(status_code=401, detail="Не авторизован")
     tg_id = user_info["id"]
-
-    if req.target_period not in ['week', 'month']:
-        raise HTTPException(status_code=400, detail="Неверный период. Выберите 'week' или 'month'.")
 
     try:
         # 2. Ищем купон и проверяем его валидность
@@ -16544,8 +16545,15 @@ async def activate_fake_messages(
         if not coupon.get("code", "").startswith("CP-FM-"):
             raise HTTPException(status_code=400, detail="Этот код не предназначен для фейковых сообщений.")
 
-        # 3. Достаем номинал из target_case_name
-        amount_to_add = int(coupon.get("target_case_name") or 0)
+        # 3. ДОСТАЕМ ПЕРИОД И НОМИНАЛ (расшифровываем "week|500")
+        target_case_name = coupon.get("target_case_name") or ""
+        parts = target_case_name.split('|')
+        if len(parts) != 2:
+            raise HTTPException(status_code=400, detail="Неверный формат купона.")
+            
+        period = parts[0] # 'week' или 'month'
+        amount_to_add = int(parts[1])
+
         if amount_to_add <= 0:
             raise HTTPException(status_code=400, detail="Ошибка купона: нулевой номинал.")
 
@@ -16558,14 +16566,16 @@ async def activate_fake_messages(
         
         # 5. Подготавливаем данные для обновления
         update_data = {}
-        if req.target_period == 'week':
+        if period == 'week':
             current_val = int(user_data.get("weekly_message_count") or 0)
             update_data["weekly_message_count"] = current_val + amount_to_add
-        else:
+        elif period == 'month':
             current_val = int(user_data.get("monthly_message_count") or 0)
             update_data["monthly_message_count"] = current_val + amount_to_add
+        else:
+            raise HTTPException(status_code=400, detail="Неизвестный период в купоне.")
 
-        # 6. Начисляем сообщения юзеру (триггеры Траста отработают автоматически)
+        # 6. Начисляем сообщения юзеру
         await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json=update_data)
 
         # 7. Гасим купон
@@ -16575,12 +16585,13 @@ async def activate_fake_messages(
         await supabase.patch("/cs_codes", params={"code": f"eq.{req.code}"}, json={
             "is_active": False,
             "current_uses": coupon.get("current_uses", 0) + 1,
-            "used_by_ids": used_by_ids
+            "used_by_ids": used_by_ids,
+            "activated_by_ids": [str(tg_id)]
         })
 
         return {
             "status": "success", 
-            "message": f"Успешно начислено {amount_to_add} Twitch сообщений за {'неделю' if req.target_period == 'week' else 'месяц'}!"
+            "message": f"Успешно начислено {amount_to_add} Twitch сообщений за {'неделю' if period == 'week' else 'месяц'}!"
         }
 
     except HTTPException:
