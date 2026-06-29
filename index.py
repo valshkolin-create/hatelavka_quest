@@ -5949,23 +5949,71 @@ async def check_cs_code(
     if not code:
         return {"valid": False, "message": "Введите код"}
 
-    # 1. Ищем код в базе
+    # 1. Ищем код в базе (только активные)
     code_res = await supabase.get("/cs_codes", params={"code": f"eq.{code}", "is_active": "eq.true"})
     code_data = code_res.json()
 
     if not code_data:
-        return {"valid": False, "message": "Неверный код"}
+        return {"valid": False, "message": "Неверный код или он уже использован"}
 
     promo = code_data[0]
+    campaign_id = promo.get("campaign_id")
+    code_text = promo.get("code", "")
 
-    # 🔥 ФИКС 1: Запрещаем ручную активацию кодов Твича
-    if promo.get("campaign_id") is not None:
+    # 🔥 1. ЗАЩИТА ТВИЧА: Блокируем стримовские коды, но пропускаем БПшные системные (999)
+    if campaign_id is not None and campaign_id != 999:
         return {
             "valid": False, 
             "message": "Этот код активируется только через чат Твича во время раздачи! 📺"
         }
     
-    # Дальнейшая логика только для ОБЫЧНЫХ промокодов (где нет campaign_id)
+    # 🔥 2. ПЕРЕХВАТ ФЕЙК-СООБЩЕНИЙ (CP-FM): Активируем прямо здесь! 🔥
+    if code_text.startswith("CP-FM-"):
+        target_case_name = promo.get("target_case_name") or ""
+        parts = target_case_name.split('|')
+        
+        if len(parts) != 2:
+            return {"valid": False, "message": "Неверный формат купона на сообщения."}
+            
+        period = parts[0]
+        amount_to_add = int(parts[1])
+        
+        # Достаем текущие статы юзера
+        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "weekly_message_count, monthly_message_count"})
+        if not user_res.is_success or not user_res.json():
+            return {"valid": False, "message": "Пользователь не найден."}
+            
+        user_data = user_res.json()[0]
+        update_data = {}
+        
+        if period == 'week':
+            update_data["weekly_message_count"] = int(user_data.get("weekly_message_count") or 0) + amount_to_add
+        elif period == 'month':
+            update_data["monthly_message_count"] = int(user_data.get("monthly_message_count") or 0) + amount_to_add
+            
+        # Начисляем сообщения
+        await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json=update_data)
+        
+        # Гасим купон
+        used_by = promo.get('used_by_ids') or []
+        used_by.append(user_id)
+        
+        await supabase.patch("/cs_codes", params={"code": f"eq.{code}"}, json={
+            "is_active": False,
+            "current_uses": promo.get("current_uses", 0) + 1,
+            "used_by_ids": used_by,
+            "activated_by_ids": [str(user_id)]
+        })
+        
+        # Возвращаем valid: True, но БЕЗ target_case_name, чтобы фронт просто показал алерт
+        return {
+            "valid": True,
+            "message": f"Купон активирован! Начислено {amount_to_add} сообщений на {'неделю' if period == 'week' else 'месяц'} 💬"
+        }
+
+    # ==========================================
+    # 3. ЛОГИКА ДЛЯ ПРОМОКОДОВ НА КЕЙСЫ (BP-... и обычные без campaign_id)
+    # ==========================================
     used_by = promo.get('used_by_ids') or []
     activated_by = promo.get('activated_by_ids') or []
 
@@ -5980,7 +6028,7 @@ async def check_cs_code(
     if user_id in activated_by:
         return {"valid": False, "message": "Этот код уже активирован на вашем аккаунте!"}
 
-    # 4. Записываем ID юзера в список активировавших (для ОБЫЧНЫХ кодов)
+    # Записываем ID юзера в список активировавших
     activated_by.append(user_id)
     await supabase.patch(
         f"/cs_codes?code=eq.{code}",
