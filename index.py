@@ -16348,6 +16348,120 @@ async def claim_checkpoint_reward(
                         f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}"
                     )
 
+            # 🔥 ЛОГИКА ДЛЯ КУПОНОВ (Траст / Фейк сообщения) 🔥
+            elif reward_type in ['fake_messages', 'trust_increase']:
+                prefix = 'FM' if reward_type == 'fake_messages' else 'TRUST'
+                unique_code = f"CP-{prefix}-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+                
+                coupon_res = await supabase.post(
+                    "/cs_codes", 
+                    json={
+                        "code": unique_code,
+                        "max_uses": 1,
+                        "current_uses": 0,
+                        "is_active": True,
+                        "description": f"{'Фейк сообщения' if reward_type == 'fake_messages' else 'Повышение траста'} ({reward_value}). БП Ур. {level_to_claim}",
+                        "is_copied": False,
+                        "assigned_to": telegram_id,
+                        "assigned_at": datetime.now(timezone.utc).isoformat(),
+                        "used_by_ids": [],
+                        "activated_by_ids": [str(telegram_id)], 
+                        "campaign_id": 999 
+                    }
+                )
+                if coupon_res.status_code not in [200, 201]:
+                    raise HTTPException(status_code=500, detail="Ошибка генерации купона актива")
+                    
+          # 🔥 ЛОГИКА ДЛЯ КУПОНОВ (Только Фейк сообщения) 🔥
+            elif reward_type == 'fake_messages':
+                unique_code = f"CP-FM-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+                
+                coupon_res = await supabase.post(
+                    "/cs_codes", 
+                    json={
+                        "code": unique_code,
+                        "max_uses": 1,
+                        "current_uses": 0,
+                        "is_active": True,
+                        "description": f"Фейк сообщения ({reward_value}). БП Ур. {level_to_claim}",
+                        "target_case_name": str(reward_value), # <--- СЮДА ПИШЕМ КОЛИЧЕСТВО (например, "400")
+                        "is_copied": False,
+                        "assigned_to": telegram_id,
+                        "assigned_at": datetime.now(timezone.utc).isoformat(),
+                        "used_by_ids": [],
+                        "activated_by_ids": [str(telegram_id)], 
+                        "campaign_id": 999 
+                    }
+                )
+                if coupon_res.status_code not in [200, 201]:
+                    raise HTTPException(status_code=500, detail="Ошибка генерации купона актива")
+
+            # 🔥 ПРЯМОЕ ДЕЙСТВИЕ: Повышение траста 🔥
+            elif reward_type == 'trust_increase':
+                # Читаем, сколько баллов амнистии у него уже есть, чтобы не затереть, а прибавить
+                current_amnesty = float(user_db.get("amnesty_bonus") or 0)
+                
+                # Если в награде указано число (например 70), берем его. Если нет - даем дефолтные 70 для Green
+                bonus_to_add = float(reward_value) if reward_value.replace('.', '', 1).isdigit() else 70.0
+                
+                trust_res = await supabase.patch(
+                    "/users",
+                    params={"telegram_id": f"eq.{telegram_id}"},
+                    json={
+                        # 1. Снимаем все штрафы (если он был должником, они больше не будут тянуть его вниз)
+                        "penalty_points": 0,
+                        # 2. Накидываем бонус амнистии. 
+                        # Триггер поймает этот апдейт, сложит актив + бонус, получит > 70 и САМ поставит trust_level = 'green'
+                        "amnesty_bonus": current_amnesty + bonus_to_add
+                    }
+                )
+                
+                if trust_res.status_code not in [200, 204]:
+                    logging.error(f"Ошибка повышения траста для {telegram_id}: {trust_res.text}")
+                    raise HTTPException(status_code=500, detail="Ошибка при повышении траста.")
+
+           # 🔥 ПРЯМОЕ ДЕЙСТВИЕ: Красная таблетка (Удаление из матрицы) 🔥
+            elif reward_type == 'red_pill':
+                delete_res = await supabase.delete(
+                    "/event_matrix_quest", 
+                    params={"user_id": f"eq.{telegram_id}"}
+                )
+                if delete_res.status_code not in [200, 204]:
+                    logging.error(f"БД не смогла удалить таблетку для {telegram_id}: {delete_res.text}")
+                    raise HTTPException(status_code=500, detail="Сбой при удалении красной таблетки.")
+
+            # 🔥 СТАТИЧЕСКАЯ НАГРАДА: Скидка TopSkin 🔥
+            elif reward_type == 'topskin_discount':
+                # Награда выдается прямо на фронте, в БД ничего не пишем
+                pass
+
+            # 🔥 ЛОГИКА ДЛЯ РУЧНОЙ ВЫДАЧИ (Заявки) 🔥
+            elif reward_type in ['twitch_vip', 'twitch_sub']:
+                # 1. Ищем технический квест
+                tech_q_res = await supabase.get("/quests", params={"quest_type": "eq.bp_manual_reward", "select": "id", "limit": 1})
+                if tech_q_res.status_code == 200 and tech_q_res.json():
+                    tech_quest_id = tech_q_res.json()[0]['id']
+                else:
+                    # 2. Создаем, если его еще нет
+                    new_q = await supabase.post("/quests", json={
+                        "title": "Системный: Ручные награды БП",
+                        "quest_type": "bp_manual_reward",
+                        "is_active": False,
+                        "is_repeatable": True
+                    }, headers={"Prefer": "return=representation"})
+                    if new_q.status_code not in [200, 201]:
+                        raise HTTPException(status_code=500, detail="Ошибка инициализации ручных наград")
+                    tech_quest_id = new_q.json()[0]['id']
+
+                # 3. Отправляем заявку в quest_submissions
+                reward_names = {'twitch_vip': 'VIP на Twitch', 'twitch_sub': 'Подписка Twitch'}
+                await supabase.post("/quest_submissions", json={
+                    "quest_id": tech_quest_id,
+                    "user_id": telegram_id,
+                    "status": "pending",
+                    "submitted_data": f"Награда БП: {reward_names.get(reward_type, reward_type)} (Ур. {level_to_claim}, {track_type.upper()})"
+                })
+
         # 5. Только если ВСЕ этапы пройдены успешно, записываем, что награда получена
         await supabase.post("/user_checkpoint_claims", json={
             "user_id": telegram_id, 
@@ -16355,7 +16469,27 @@ async def claim_checkpoint_reward(
             "reward_track": track_type
         })
 
-        return {"message": "Награда успешно получена!"}
+        # 6. Формируем ответ (добавляем данные для фронта, если нужно показать купон или код)
+        response_data = {"message": "Награда успешно получена!"}
+        
+        if reward_type == 'topskin_discount':
+            parts = reward_value.split('|')
+            response_data['extra_data'] = {
+                "type": "topskin_discount",
+                "code": parts[0] if len(parts) > 0 else "",
+                "link": parts[1] if len(parts) > 1 else ""
+            }
+        elif reward_type == 'fake_messages':
+            response_data['extra_data'] = {
+                "type": "coupon",
+                "code": unique_code
+            }
+        elif reward_type in ['twitch_vip', 'twitch_sub']:
+            response_data['extra_data'] = {
+                "type": "manual_submission"
+            }
+
+        return response_data
 
     except httpx.HTTPStatusError as e:
         error_details = e.response.json().get("message", "Сбой БД при выдаче награды.")
@@ -16372,7 +16506,7 @@ class GrantLevelRequest(BaseModel):
     platform: str = "tg"
     target_user_id: int
     level: int
-
+    
 # Сам эндпоинт
 @app.post("/api/v1/admin/checkpoint/grant_level")
 async def admin_grant_level(
@@ -16423,6 +16557,87 @@ async def admin_grant_level(
         raise HTTPException(status_code=400, detail="Ошибка при записи в базу данных.")
     except Exception as e:
         logging.error(f"Критическая ошибка в /grant_level: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
+
+class ActivateFakeMessagesRequest(BaseModel):
+    initData: str
+    code: str
+    target_period: str  # Принимает 'week' или 'month'
+
+@app.post("/api/v1/checkpoint/activate_fake_messages")
+async def activate_fake_messages(
+    req: ActivateFakeMessagesRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Авторизация
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    tg_id = user_info["id"]
+
+    if req.target_period not in ['week', 'month']:
+        raise HTTPException(status_code=400, detail="Неверный период. Выберите 'week' или 'month'.")
+
+    try:
+        # 2. Ищем купон и проверяем его валидность
+        code_res = await supabase.get("/cs_codes", params={"code": f"eq.{req.code}"})
+        if not code_res.is_success or not code_res.json():
+            raise HTTPException(status_code=404, detail="Купон не найден.")
+            
+        coupon = code_res.json()[0]
+
+        if not coupon.get("is_active") or coupon.get("current_uses", 0) >= coupon.get("max_uses", 1):
+            raise HTTPException(status_code=400, detail="Купон уже использован или неактивен.")
+            
+        if coupon.get("assigned_to") != tg_id:
+            raise HTTPException(status_code=403, detail="Этот купон принадлежит другому пользователю.")
+            
+        if not coupon.get("code", "").startswith("CP-FM-"):
+            raise HTTPException(status_code=400, detail="Этот код не предназначен для фейковых сообщений.")
+
+        # 3. Достаем номинал из target_case_name
+        amount_to_add = int(coupon.get("target_case_name") or 0)
+        if amount_to_add <= 0:
+            raise HTTPException(status_code=400, detail="Ошибка купона: нулевой номинал.")
+
+        # 4. Получаем текущие статы юзера
+        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "weekly_message_count, monthly_message_count"})
+        if not user_res.is_success or not user_res.json():
+            raise HTTPException(status_code=404, detail="Пользователь не найден.")
+            
+        user_data = user_res.json()[0]
+        
+        # 5. Подготавливаем данные для обновления
+        update_data = {}
+        if req.target_period == 'week':
+            current_val = int(user_data.get("weekly_message_count") or 0)
+            update_data["weekly_message_count"] = current_val + amount_to_add
+        else:
+            current_val = int(user_data.get("monthly_message_count") or 0)
+            update_data["monthly_message_count"] = current_val + amount_to_add
+
+        # 6. Начисляем сообщения юзеру (триггеры Траста отработают автоматически)
+        await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json=update_data)
+
+        # 7. Гасим купон
+        used_by_ids = coupon.get("used_by_ids") or []
+        used_by_ids.append(tg_id)
+        
+        await supabase.patch("/cs_codes", params={"code": f"eq.{req.code}"}, json={
+            "is_active": False,
+            "current_uses": coupon.get("current_uses", 0) + 1,
+            "used_by_ids": used_by_ids
+        })
+
+        return {
+            "status": "success", 
+            "message": f"Успешно начислено {amount_to_add} Twitch сообщений за {'неделю' if req.target_period == 'week' else 'месяц'}!"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Ошибка активации фейк-сообщений для {tg_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
