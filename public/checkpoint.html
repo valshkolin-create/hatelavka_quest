@@ -1721,15 +1721,28 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             
             // Вспомогательная функция для генерации кнопок с учетом новых наград
-            const getClaimedBtnHtml = (reward) => {
+            // 🔥 ТЕПЕРЬ ПРИНИМАЕТ УРОВЕНЬ, ЧТОБЫ ДОСТАТЬ КОД ИЗ ПРОФИЛЯ 🔥
+            const getClaimedBtnHtml = (reward, currentTierLevel) => {
                 if (reward.type === 'topskin_discount') {
                     const parts = (reward.value || '').split('|');
                     return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openTopSkinModal('${parts[0] || ''}', '${parts[1] || ''}')"><i class="fa-solid fa-ticket"></i> КУПОН</button>`;
                 }
+                
                 if (reward.type === 'fake_messages') {
-                    // Код бэкенд отдает только при клейме, поэтому передаем заглушку, но юзер всё равно увидит окно
-                    return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openFakeMsgModal('КОД_В_ИСТОРИИ', '${reward.value || 0}')"><i class="fa-solid fa-ticket"></i> АКТИВИРОВАТЬ</button>`;
+                    // Ищем реальный код в данных юзера
+                    const realCode = (userData.fake_message_codes && userData.fake_message_codes[currentTierLevel]) 
+                                     ? userData.fake_message_codes[currentTierLevel] 
+                                     : null;
+                    
+                    if (realCode) {
+                        // Код есть, значит сгенерирован, но не активирован
+                        return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openFakeMsgModal('${realCode}', '${reward.value || 0}')"><i class="fa-solid fa-ticket"></i> АКТИВИРОВАТЬ</button>`;
+                    } else {
+                        // Кода нет в неактивированных — значит он уже использован
+                        return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+                    }
                 }
+                
                 return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
             };
 
@@ -1738,7 +1751,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let freeBtnHtml = '';
             
             if (isFreeEmpty) freeBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
-            else if (isFreeClaimed) freeBtnHtml = getClaimedBtnHtml(tier.free_reward);
+            // 🔥 ПЕРЕДАЕМ tier.level 🔥
+            else if (isFreeClaimed) freeBtnHtml = getClaimedBtnHtml(tier.free_reward, tier.level);
             else if (isUnlocked && isSeasonActive) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">ЗАБРАТЬ</button>`;
             else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
 
@@ -1747,7 +1761,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let premBtnHtml = '';
 
             if (isPremEmpty) premBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
-            else if (isPremClaimed) premBtnHtml = getClaimedBtnHtml(tier.premium_reward);
+            // 🔥 ПЕРЕДАЕМ tier.level 🔥
+            else if (isPremClaimed) premBtnHtml = getClaimedBtnHtml(tier.premium_reward, tier.level);
             else if (isUnlocked && hasPremium && isSeasonActive) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">ЗАБРАТЬ</button>`;
             else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" style="pointer-events: auto;" onclick="document.getElementById('premium-buy-modal').classList.add('modal-active')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
             else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
@@ -1824,7 +1839,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let actionHtml = '';
             let cardClass = 'quest-card';
             
-            if (gq.is_claimed) {
+            // 👇 Ищем актуальный статус именно в данных юзера, которые обновляются после клика
+            const userProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(gq.quest_id));
+            const isClaimedNow = userProgress ? userProgress.is_claimed : gq.is_claimed;
+            
+            if (isClaimedNow) {
                 actionHtml = `<div style="color: var(--text-muted); font-size: 10px; font-weight: 700;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
                 cardClass += ' dimmed';
             } else if (gq.is_completed) {
@@ -2759,6 +2778,9 @@ window.saveRules = async function() {
             
             const userRes = await window.makeApiRequest('/api/v1/user/me');
             userData = userRes;
+            
+            // 👇 ДОБАВЛЯЕМ ОБНОВЛЕНИЕ БАТТЛ ПАССА 👇
+            renderBP(true);
             
         } catch (e) {
             tg.HapticFeedback.notificationOccurred('error');
