@@ -2177,23 +2177,6 @@ const processedQuests = weekQuests.map(cfg => {
             modal.classList.add('modal-active');
             return;
         }
-            
-            const clickX = event ? (event.clientX || (event.touches && event.touches[0].clientX)) : window.innerWidth / 2;
-            const clickY = event ? (event.clientY || (event.touches && event.touches[0].clientY)) : window.innerHeight / 2;
-
-            document.getElementById('btn-do-claim').onclick = () => {
-    modal.classList.remove('modal-active');
-    // Вместо 'claim' передаем кастомный маркер, например 'withdraw_skin'
-    window.claimReward(level, type, 'withdraw_skin');
-};
-            document.getElementById('btn-do-exchange').onclick = () => {
-                modal.classList.remove('modal-active');
-                window.claimReward(level, type, 'exchange', {x: clickX, y: clickY});
-            };
-            
-            modal.classList.add('modal-active');
-            return;
-        }
 
         const actionToSend = forceAction || 'claim';
         window.isClaiming[lockKey] = true;
@@ -2273,7 +2256,7 @@ const processedQuests = weekQuests.map(cfg => {
             window.isClaiming[lockKey] = false;
             tg.MainButton.hideProgress();
         }
-};
+    };
     
    window.isClaiming = window.isClaiming || {}; // Глобальный замок
 
