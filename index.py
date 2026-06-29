@@ -15948,8 +15948,15 @@ async def claim_bp_quest(
                 "claimed_at": datetime.now(timezone.utc).isoformat()
             })
 
-            # 409 Conflict значит, что Primary Key (user_id, quest_id) не пустил дубликат
+            # Различаем ошибки 409 от Supabase
             if post_res.status_code == 409:
+                err_data = post_res.json()
+                # Код 23503 — это Foreign Key Violation (квеста нет в таблице quests)
+                if err_data.get("code") == "23503":
+                    logging.error(f"[DB ERROR] Квест {req.quest_id} не найден в таблице quests!")
+                    raise HTTPException(status_code=500, detail=f"Системная ошибка: Квеста {req.quest_id} нет в БД")
+                
+                # Иначе это реальный дубликат (код 23505)
                 raise HTTPException(status_code=400, detail="Награда уже получена")
             elif post_res.status_code not in (200, 201):
                 # 👇 ВЫВОДИМ РЕАЛЬНУЮ ОШИБКУ ОТ SUPABASE 👇
