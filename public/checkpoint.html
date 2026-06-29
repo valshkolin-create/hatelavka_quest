@@ -1176,16 +1176,24 @@
     </div>
 
     <div id="topskin-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
-        <div class="premium-panel" style="max-width: 320px; text-align: center; background: #1c1c1e !important; border: 1px solid var(--surface-border) !important;">
+        <!-- Убираем фон, рамки и тени панели -->
+        <div class="premium-panel" style="max-width: 320px; text-align: center; background: transparent !important; border: none !important; box-shadow: none !important;">
+            
             <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('topskin-modal').classList.remove('modal-active')">
                 <i class="fa-solid fa-xmark"></i>
             </button>
+            
             <div style="padding: 25px 20px 20px;">
-                <img src="https://placehold.co/100x100/2a2a2c/ffd700?text=TOPSKIN" style="width: 80px; height: 80px; border-radius: 16px; margin-bottom: 12px; filter: drop-shadow(0 5px 15px rgba(255,215,0,0.1));">
-                <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Скидка TopSkin</h3>
-                <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 15px;">Твой эксклюзивный промокод. Скопируй его и используй на сайте партнера!</p>
+                <!-- Чистая картинка без фильтров и скруглений -->
+                <img src="https://images.steamcdn.io/topskin/cases/hatelove_ttv.png" style="width: 100px; height: 100px; object-fit: contain; margin-bottom: 12px;">
                 
-                <div style="background: rgba(0,0,0,0.5); border: 1px dashed var(--primary); padding: 12px; border-radius: 10px; font-size: 16px; font-weight: 800; letter-spacing: 1px; margin-bottom: 15px;" id="topskin-code-display"></div>
+                <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Скидка на кейс HATElove</h3>
+                <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 15px;">Промокод на 50% скидку на кейс HATELOVE, при депозите за сутки от 70 рублей</p>
+                
+                <!-- Поле для кода -->
+                <div style="background: rgba(0,0,0,0.5); border: 1px dashed var(--primary); padding: 12px; border-radius: 10px; font-size: 16px; font-weight: 800; letter-spacing: 2px; margin-bottom: 5px; color: #fff;" id="topskin-code-display"></div>
+                
+                <p style="font-size: 9px; color: var(--text-muted); margin: 0 0 15px 0;">вставь скопированное в секретный код</p>
                 
                 <div style="display: flex; gap: 8px;">
                     <button id="btn-copy-topskin" class="btn-claim ready" style="margin: 0; flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;"><i class="fa-solid fa-copy"></i> Копия</button>
@@ -1537,7 +1545,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switch (reward.type) {
             case 'coins': return 'https://i.postimg.cc/pdV45myM/money.png';
             case 'tickets': return 'https://i.postimg.cc/RCYsCPwk/tickets.png';
-            case 'topskin_discount': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=TOPSKIN';
+            case 'topskin_discount': return 'https://images.steamcdn.io/topskin/cases/hatelove_ttv.png';
             case 'fake_messages': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=MSG';
             case 'grind_vip': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=VIP';
             case 'trust_increase': return 'https://placehold.co/150x150/2a2a2c/32d74b?text=TRUST'; // Зеленая заглушка
@@ -1741,10 +1749,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // Вспомогательная функция для генерации кнопок с учетом новых наград
             // 🔥 ТЕПЕРЬ ПРИНИМАЕТ УРОВЕНЬ, ЧТОБЫ ДОСТАТЬ КОД ИЗ ПРОФИЛЯ 🔥
             const getClaimedBtnHtml = (reward, currentTierLevel) => {
-                if (reward.type === 'topskin_discount') {
-                    const parts = (reward.value || '').split('|');
-                    return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openTopSkinModal('${parts[0] || ''}', '${parts[1] || ''}')"><i class="fa-solid fa-ticket"></i> КУПОН</button>`;
-                }
+                // Внутри getClaimedBtnHtml
+if (reward.type === 'topskin_discount') {
+    const views = userData.topskin_views || 0;
+    const maxViews = 2;
+    const remaining = maxViews - views;
+    
+    if (remaining > 0) {
+        // Информативная кнопка с счетчиком
+        return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="fetchTopSkinCode('${currentTierLevel}')"><i class="fa-solid fa-eye"></i> СМОТРЕТЬ (${remaining})</button>`;
+    } else {
+        // Лимит исчерпан — показываем как обычную полученную награду
+        return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+    }
+}
                 
                 if (reward.type === 'fake_messages') {
                     // Ищем реальный код в данных юзера
@@ -2805,9 +2823,53 @@ window.saveRules = async function() {
             btn.style.pointerEvents = 'auto';
         }
     };
+
+    window.fetchTopSkinCode = async function(level) {
+    haptic('medium');
+    tg.MainButton.showProgress();
+    
+    try {
+        const res = await window.makeApiRequest('/api/v1/checkpoint/topskin/view', {
+            level: parseInt(level)
+        });
+        
+        // Открываем модалку с реальными данными от бэка
+        openTopSkinModal(res.code, res.link);
+        
+        // Обновляем счетчик в памяти и перерисовываем БП (кнопка обновит цифру или заблокируется)
+        userData.topskin_views = res.views;
+        renderBP(true);
+        
+    } catch(e) {
+        tg.HapticFeedback.notificationOccurred('error');
+        showCustomAlert('Ошибка', e.message || 'Не удалось получить код', 'error');
+    } finally {
+        tg.MainButton.hideProgress();
+    }
+}
+
+window.openTopSkinModal = function(code, link) {
+    // 1. Маскируем код визуально
+    let maskedCode = '••••••••';
+    if (code && code.length > 2) {
+        maskedCode = code.substring(0, 2) + '••••••••';
+    }
+    document.getElementById('topskin-code-display').innerText = maskedCode;
+    
+    // 2. Подставляем ссылку
+    document.getElementById('btn-link-topskin').href = link || '#';
+    
+    // 3. Копируется РЕАЛЬНЫЙ код, а не звездочки
+    const copyBtn = document.getElementById('btn-copy-topskin');
+    const origHtml = copyBtn.innerHTML;
+    copyBtn.onclick = () => window.copyTextToClipboard(code, copyBtn, origHtml);
+    
+    document.getElementById('topskin-modal').classList.add('modal-active');
+};
     
     initialize();
 });
+
 </script>
 </body>
 </html>
