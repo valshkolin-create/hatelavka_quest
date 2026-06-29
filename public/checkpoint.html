@@ -1175,6 +1175,51 @@
         </div>
     </div>
 
+    <div id="topskin-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel" style="max-width: 320px; text-align: center; background: #1c1c1e !important; border: 1px solid var(--surface-border) !important;">
+            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('topskin-modal').classList.remove('modal-active')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div style="padding: 25px 20px 20px;">
+                <img src="https://placehold.co/100x100/2a2a2c/ffd700?text=TOPSKIN" style="width: 80px; height: 80px; border-radius: 16px; margin-bottom: 12px; filter: drop-shadow(0 5px 15px rgba(255,215,0,0.1));">
+                <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Скидка TopSkin</h3>
+                <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 15px;">Твой эксклюзивный промокод. Скопируй его и используй на сайте партнера!</p>
+                
+                <div style="background: rgba(0,0,0,0.5); border: 1px dashed var(--primary); padding: 12px; border-radius: 10px; font-size: 16px; font-weight: 800; letter-spacing: 1px; margin-bottom: 15px;" id="topskin-code-display"></div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-copy-topskin" class="btn-claim ready" style="margin: 0; flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;"><i class="fa-solid fa-copy"></i> Копия</button>
+                    <a id="btn-link-topskin" href="#" target="_blank" class="btn-claim ready" style="margin: 0; flex: 1; background: #fff; color: #000; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px;"><i class="fa-solid fa-arrow-up-right-from-square"></i> Сайт</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="fakemsg-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel" style="max-width: 320px; text-align: center; background: #1c1c1e !important; border: 1px solid var(--surface-border) !important;">
+            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('fakemsg-modal').classList.remove('modal-active')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div style="padding: 25px 20px 20px;">
+                <img src="https://placehold.co/100x100/2a2a2c/ffd700?text=MSG" style="width: 80px; height: 80px; border-radius: 16px; margin-bottom: 12px; filter: drop-shadow(0 5px 15px rgba(255,215,0,0.1));">
+                <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Активность</h3>
+                <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 15px;">Купон на <span id="fakemsg-amount-display" style="color: #fff; font-weight: 800;"></span> сообщений. Выбери, куда их зачислить, или сохрани код.</p>
+                
+                <div id="btn-copy-fakemsg" style="background: rgba(0,0,0,0.5); border: 1px dashed var(--surface-border); padding: 10px; border-radius: 10px; font-size: 12px; color: var(--text-muted); margin-bottom: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                    <span id="fakemsg-code-display" style="font-family: monospace;"></span>
+                    <i class="fa-solid fa-copy"></i>
+                </div>
+                
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button class="btn-claim locked" id="btn-target-week" onclick="selectFakeMsgTarget('week')" style="margin: 0; flex: 1; pointer-events: auto !important; border: 1px solid var(--surface-border);">В Неделю</button>
+                    <button class="btn-claim locked" id="btn-target-month" onclick="selectFakeMsgTarget('month')" style="margin: 0; flex: 1; pointer-events: auto !important; border: 1px solid var(--surface-border);">В Месяц</button>
+                </div>
+                
+                <button id="btn-activate-fakemsg" class="btn-claim locked" style="margin: 0; width: 100%; pointer-events: none;" onclick="activateFakeMsg()">АКТИВИРОВАТЬ</button>
+            </div>
+        </div>
+    </div>
+
 <script>
 
     // Глобальная функция для запросов, которую ждет top_nav.js
@@ -1640,12 +1685,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             
+            // Вспомогательная функция для генерации кнопок с учетом новых наград
+            const getClaimedBtnHtml = (reward) => {
+                if (reward.type === 'topskin_discount') {
+                    const parts = (reward.value || '').split('|');
+                    return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openTopSkinModal('${parts[0] || ''}', '${parts[1] || ''}')"><i class="fa-solid fa-ticket"></i> КУПОН</button>`;
+                }
+                if (reward.type === 'fake_messages') {
+                    // Код бэкенд отдает только при клейме, поэтому передаем заглушку, но юзер всё равно увидит окно
+                    return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openFakeMsgModal('КОД_В_ИСТОРИИ', '${reward.value || 0}')"><i class="fa-solid fa-ticket"></i> АКТИВИРОВАТЬ</button>`;
+                }
+                return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+            };
+
             const isFreeClaimed = claimedFree.some(l => String(l) === String(tier.level));
             const isFreeEmpty = tier.free_reward.type === 'none';
             let freeBtnHtml = '';
             
             if (isFreeEmpty) freeBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
-            else if (isFreeClaimed) freeBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+            else if (isFreeClaimed) freeBtnHtml = getClaimedBtnHtml(tier.free_reward);
             else if (isUnlocked && isSeasonActive) freeBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'free')">ЗАБРАТЬ</button>`;
             else freeBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
 
@@ -1654,7 +1712,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let premBtnHtml = '';
 
             if (isPremEmpty) premBtnHtml = `<button class="btn-claim locked">Пусто</button>`;
-            else if (isPremClaimed) premBtnHtml = `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+            else if (isPremClaimed) premBtnHtml = getClaimedBtnHtml(tier.premium_reward);
             else if (isUnlocked && hasPremium && isSeasonActive) premBtnHtml = `<button class="btn-claim ready" onclick="claimReward(${tier.level}, 'premium')">ЗАБРАТЬ</button>`;
             else if (isUnlocked && !hasPremium) premBtnHtml = `<button class="btn-claim locked" style="pointer-events: auto;" onclick="document.getElementById('premium-buy-modal').classList.add('modal-active')"><i class="fa-solid fa-crown"></i> Нужен PASS</button>`;
             else premBtnHtml = `<button class="btn-claim locked"><i class="fa-solid fa-lock"></i> НЕ АКТИВНА</button>`;
@@ -2104,8 +2162,23 @@ const processedQuests = weekQuests.map(cfg => {
                         subText = "Открытие происходит во вкладке «Кейсы».";
                     }
 
-                    // Вызываем наше парящее красивое окно!
-                    showCustomAlert('Успешно!', rewardName, 'success', imgUrl, subText);
+                    // Обрабатываем новые типы наград через extra_data
+                    if (data.extra_data) {
+                        if (data.extra_data.type === 'topskin_discount') {
+                            openTopSkinModal(data.extra_data.code, data.extra_data.link);
+                        } else if (data.extra_data.type === 'coupon') {
+                            openFakeMsgModal(data.extra_data.code, reward.value || 0);
+                        } else if (data.extra_data.type === 'manual_submission') {
+                            showCustomAlert('Заявка отправлена', 'Администратор выдаст награду в ближайшее время.', 'success', null, 'Ожидайте начисления на аккаунт.');
+                        }
+                    } else if (reward.type === 'trust_increase') {
+                        showCustomAlert('Траст повышен!', 'Твои штрафы списаны, а баллы доверия увеличены.', 'success');
+                    } else if (reward.type === 'red_pill') {
+                        showCustomAlert('Матрица покинута', 'Ты выбрал красную таблетку. Твой путь свободен.', 'success');
+                    } else {
+                        // Стандартный вызов для скинов, монет и кейсов
+                        showCustomAlert('Успешно!', rewardName, 'success', imgUrl, subText);
+                    }
                 }
             } else {
                 tg.HapticFeedback.notificationOccurred('error');
@@ -2485,6 +2558,102 @@ window.saveRules = async function() {
         tg.MainButton.hideProgress();
     }
 };
+
+    // --- ЛОГИКА НОВЫХ МОДАЛОК И КОПИРОВАНИЯ ---
+    window.copyTextToClipboard = function(text, btnElement, originalHtml) {
+        haptic('light');
+        navigator.clipboard.writeText(text).then(() => {
+            btnElement.innerHTML = '<i class="fa-solid fa-check"></i> Скопировано!';
+            btnElement.style.background = 'var(--success)';
+            btnElement.style.color = '#fff';
+            btnElement.style.borderColor = 'var(--success)';
+            setTimeout(() => {
+                btnElement.innerHTML = originalHtml;
+                btnElement.style.background = '';
+                btnElement.style.color = '';
+                btnElement.style.borderColor = '';
+            }, 2000);
+        }).catch(err => console.error('Ошибка копирования', err));
+    };
+
+    window.openTopSkinModal = function(code, link) {
+        document.getElementById('topskin-code-display').innerText = code || 'НЕТ КОДА';
+        document.getElementById('btn-link-topskin').href = link || '#';
+        
+        const copyBtn = document.getElementById('btn-copy-topskin');
+        const origHtml = copyBtn.innerHTML;
+        copyBtn.onclick = () => window.copyTextToClipboard(code, copyBtn, origHtml);
+        
+        document.getElementById('topskin-modal').classList.add('modal-active');
+    };
+
+    let currentFakeMsgCode = '';
+    let currentFakeMsgTarget = '';
+
+    window.openFakeMsgModal = function(code, amount) {
+        currentFakeMsgCode = code;
+        currentFakeMsgTarget = '';
+        
+        document.getElementById('fakemsg-amount-display').innerText = amount;
+        document.getElementById('fakemsg-code-display').innerText = code;
+        
+        // Сброс кнопок
+        document.getElementById('btn-target-week').className = 'btn-claim locked';
+        document.getElementById('btn-target-month').className = 'btn-claim locked';
+        document.getElementById('btn-activate-fakemsg').className = 'btn-claim locked';
+        document.getElementById('btn-activate-fakemsg').style.pointerEvents = 'none';
+        
+        document.getElementById('fakemsg-modal').classList.add('modal-active');
+    };
+
+    window.copyFakeMsgCode = function(element) {
+        const origHtml = element.innerHTML;
+        window.copyTextToClipboard(currentFakeMsgCode, element, origHtml);
+    };
+
+    window.selectFakeMsgTarget = function(target) {
+        haptic('light');
+        currentFakeMsgTarget = target;
+        
+        const btnWeek = document.getElementById('btn-target-week');
+        const btnMonth = document.getElementById('btn-target-month');
+        
+        btnWeek.className = target === 'week' ? 'btn-claim ready' : 'btn-claim locked';
+        btnMonth.className = target === 'month' ? 'btn-claim ready' : 'btn-claim locked';
+        
+        const activateBtn = document.getElementById('btn-activate-fakemsg');
+        activateBtn.className = 'btn-claim ready';
+        activateBtn.style.pointerEvents = 'auto';
+    };
+
+    window.activateFakeMsg = async function() {
+        if (!currentFakeMsgTarget) return;
+        haptic('medium');
+        
+        const btn = document.getElementById('btn-activate-fakemsg');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.style.pointerEvents = 'none';
+        
+        try {
+            const res = await window.makeApiRequest('/api/v1/checkpoint/activate_fake_messages', {
+                code: currentFakeMsgCode,
+                target_period: currentFakeMsgTarget
+            });
+            
+            document.getElementById('fakemsg-modal').classList.remove('modal-active');
+            showCustomAlert('Активировано!', res.message, 'success');
+            
+            // Запрашиваем новые данные, чтобы бегунки опыта сразу сдвинулись
+            const userRes = await window.makeApiRequest('/api/v1/user/me');
+            userData = userRes;
+            
+        } catch (e) {
+            tg.HapticFeedback.notificationOccurred('error');
+            alert(e.message || 'Ошибка активации');
+            btn.innerHTML = 'АКТИВИРОВАТЬ';
+            btn.style.pointerEvents = 'auto';
+        }
+    };
     
     initialize();
 });
