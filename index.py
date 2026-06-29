@@ -9479,8 +9479,8 @@ async def get_current_user_data(
             # J. 🔥 ИЩЕМ СГЕНЕРИРОВАННЫЕ КОДЫ ФЕЙК-СООБЩЕНИЙ 🔥
             supabase.get("/cs_codes", params={
                 "assigned_to": f"eq.{telegram_id}",
-                "code": "like.CP-FM-%",
-                "is_active": "eq.true", # 👈 ДОБАВИТЬ ВОТ ЭТО
+                "code": "like.CP-FM-*",    # 👈 МЕНЯЕМ % НА *
+                "is_active": "eq.true",    # 👈 СРАЗУ ОТСЕКАЕМ ПОГАШЕННЫЕ
                 "select": "code, description, activated_by_ids"
             }),
             
@@ -9608,14 +9608,14 @@ async def get_current_user_data(
         if not isinstance(fm_codes_resp, Exception) and fm_codes_resp.status_code == 200:
             fm_data = fm_codes_resp.json()
             for coupon in fm_data:
-                activated = coupon.get("activated_by_ids") or []
-                # Если юзер еще не активировал этот код
-                if str(telegram_id) not in activated:
-                    desc = coupon.get("description", "")
-                    # Вытаскиваем уровень из строки вида "... БП Ур. 5"
-                    if "БП Ур. " in desc:
-                        level_str = desc.split("БП Ур. ")[-1].strip()
-                        fake_message_codes[level_str] = coupon.get("code")
+                # Нам уже не нужно так жестко проверять activated_by_ids, 
+                # так как мы отсекли их через is_active=eq.true в запросе
+                desc = coupon.get("description", "")
+                
+                # Вытаскиваем уровень из строки вида "... БП Ур. 5"
+                if "БП Ур. " in desc:
+                    level_str = desc.split("БП Ур. ")[-1].strip()
+                    fake_message_codes[level_str] = coupon.get("code")
         
         final_response['fake_message_codes'] = fake_message_codes
 
@@ -16295,8 +16295,8 @@ async def claim_checkpoint_reward(
                         "assigned_at": datetime.now(timezone.utc).isoformat(),
                         "target_case_name": reward_value,
                         "used_by_ids": [],
-                        "activated_by_ids": [str(telegram_id)], 
-                        "campaign_id": 999 
+                        "activated_by_ids": [], # ✅ При создании он еще никем не активирован!
+                        "campaign_id": 999
                     }
                 )
                 if coupon_res.status_code not in [200, 201]:
