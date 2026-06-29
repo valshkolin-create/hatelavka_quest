@@ -16715,6 +16715,64 @@ async def activate_fake_messages(
         logging.error(f"Ошибка активации фейк-сообщений для {tg_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
+
+class TopSkinViewRequest(BaseModel):
+    initData: str
+    level: int
+
+@app.post("/api/v1/checkpoint/topskin/view")
+async def view_topskin_code(
+    req: TopSkinViewRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    tg_id = user_info["id"]
+
+    # 1. Проверяем счетчик просмотров юзера
+    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "topskin_views"})
+    if not user_res.is_success or not user_res.json():
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+    views = int(user_res.json()[0].get("topskin_views") or 0)
+    
+    if views >= 2:
+        raise HTTPException(status_code=400, detail="Лимит просмотров исчерпан.")
+
+    # 2. Ищем код в конфигурации уровня
+    tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{req.level}"})
+    if not tier_resp.is_success or not tier_resp.json():
+        raise HTTPException(status_code=404, detail="Уровень не найден")
+        
+    tier_data = tier_resp.json()[0]
+    
+    code_value = None
+    if tier_data.get("free_reward_type") == "topskin_discount":
+        code_value = tier_data.get("free_reward_value")
+    elif tier_data.get("premium_reward_type") == "topskin_discount":
+        code_value = tier_data.get("premium_reward_value")
+        
+    if not code_value:
+        raise HTTPException(status_code=400, detail="На этом уровне нет скидки TopSkin")
+
+    # Формат в БД: "CODE123|https://link.com"
+    parts = code_value.split('|')
+    code = parts[0] if len(parts) > 0 else ""
+    link = parts[1] if len(parts) > 1 else ""
+
+    # 3. Увеличиваем счетчик и возвращаем данные
+    new_views = views + 1
+    await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"topskin_views": new_views})
+    
+    return {
+        "status": "success",
+        "code": code,
+        "link": link,
+        "views": new_views
+    }
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
