@@ -1548,17 +1548,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function getRewardTitleHtml(reward) {
-        if (!reward || reward.type === 'none') return '';
-        let title = reward.value ? reward.value.toString() : '';
-        
-        if (reward.type === 'coins') title += ' Монет';
-        if (reward.type === 'tickets') title += ' Билетов';
-        
-        const safeTitle = title.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        return `<div class="reward-title">${safeTitle}</div>`;
-    }
+    ffunction getRewardTitleHtml(reward) {
+    if (!reward || reward.type === 'none') return '';
+    
+    let title = '';
 
+    // Перехватываем специфичные типы, где в value лежат технические данные (коды, ссылки)
+    switch (reward.type) {
+        case 'topskin_discount':
+            title = 'Скидка кейса на TopSkin';
+            break;
+        case 'fake_messages':
+            title = 'Сообщения твич';
+            break;
+        case 'grind_vip':
+            title = 'Grind VIP';
+            break;
+        case 'trust_increase':
+            title = 'Зеленый траст';
+            break;
+        case 'twitch_vip':
+            title = 'Twitch VIP';
+            break;
+        case 'twitch_sub':
+            title = 'Twitch Sub';
+            break;
+        case 'red_pill':
+            title = 'Красная таблетка';
+            break;
+        case 'case_coupon':
+            title = 'Купон на кейс';
+            break;
+        default:
+            // Для скинов, монет, билетов и кейсов берем значение напрямую
+            title = reward.value ? reward.value.toString() : 'Награда';
+            if (reward.type === 'coins') title += ' Монет';
+            if (reward.type === 'tickets') title += ' Билетов';
+            break;
+    }
+    
+    const safeTitle = title.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<div class="reward-title">${safeTitle}</div>`;
+}
     async function initialize() {
         try {
             const [userRes, bpRes, questsRes] = await Promise.all([
