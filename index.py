@@ -16172,7 +16172,7 @@ async def claim_checkpoint_reward(
         user_stars = float(user_db.get("checkpoint_stars") or 0)
         has_premium = user_db.get("has_cp_premium", False)
         current_tickets = int(user_db.get("tickets") or 0)
-        bott_internal_id = user_db.get("bott_internal_id") # <--- ДОБАВИТЬ ЭТО
+        bott_internal_id = user_db.get("bott_internal_id")
 
         if track_type == 'premium' and not has_premium:
             raise HTTPException(status_code=403, detail="Для этой награды требуется Premium статус.")
@@ -16208,6 +16208,10 @@ async def claim_checkpoint_reward(
         # ==========================================
         action_type = getattr(request_data, "action_type", "claim")
         
+        # Переменная для сохранения сгенерированного кода
+        unique_coupon_code = ""
+        clean_fake_amount = "0"
+        
         if action_type == "exchange":
             exchange_stars = int(tier_data.get(f"{track_type}_exchange_stars", 0))
             if exchange_stars <= 0:
@@ -16217,36 +16221,26 @@ async def claim_checkpoint_reward(
             await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"checkpoint_stars": user_stars + exchange_stars})
             
         else:
-            
             if reward_type == 'coins':
-                # Вызываем твою вспомогательную функцию для Bot-t
                 success = await add_balance_to_bott(
                     bott_internal_id=bott_internal_id, 
                     amount=float(reward_value), 
                     comment=f"Награда Battle Pass (Ур. {level_to_claim})"
                 )
-                
                 if not success:
                     raise HTTPException(status_code=500, detail="Ошибка начисления монет через API Bot-t.")
                 
             elif reward_type == 'tickets':
                 new_tickets = current_tickets + int(reward_value)
-                await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"tickets": new_tickets})
-                
-                # 🔥 Жестко обновляем и требуем вернуть результат (return=representation)
                 res = await supabase.patch(
                     "/users", 
                     params={"telegram_id": f"eq.{telegram_id}"}, 
                     json={"tickets": new_tickets},
                     headers={"Prefer": "return=representation"}
                 )
-                
-                # Проверяем, что БД не послала нас куда подальше
                 if res.status_code not in (200, 204) or not res.json():
-                    logging.error(f"Сбой начисления билетов: {res.text}")
                     raise HTTPException(status_code=500, detail="Ошибка базы данных при выдаче билетов.")
                 
-                # 🔥 Добавляем красивое уведомление внутри приложения
                 await create_in_app_notification(
                     supabase=supabase,
                     user_id=telegram_id,
@@ -16256,11 +16250,11 @@ async def claim_checkpoint_reward(
                 )
                 
             elif reward_type in ['case', 'case_coupon']:
-                unique_code = f"BP-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+                unique_coupon_code = f"BP-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
                 coupon_res = await supabase.post(
                     "/cs_codes", 
                     json={
-                        "code": unique_code,
+                        "code": unique_coupon_code,
                         "max_uses": 1,
                         "current_uses": 0,
                         "is_active": True,
@@ -16277,19 +16271,14 @@ async def claim_checkpoint_reward(
                 if coupon_res.status_code not in [200, 201]:
                     raise HTTPException(status_code=500, detail=f"Ошибка генерации купона: {coupon_res.text}")
 
-            # 🔥 ЖЕСТКАЯ ЛОГИКА ДЛЯ СКИНОВ 🔥
             elif reward_type == 'cs2_skin':
                 market_hash_name = reward_value
-                
-                # Получаем актуальные данные с маркета
                 market_res = await supabase.get("/market_cache", params={"market_hash_name": f"eq.{market_hash_name}"})
                 market_data_db = market_res.json() if market_res.status_code == 200 else []
                 price_rub = float(market_data_db[0].get('price_rub', 0)) if market_data_db else 0.0
                 image_url = market_data_db[0].get('image_url', 'https://placehold.co/150') if market_data_db else 'https://placehold.co/150'
 
-                item_id = None
                 item_res = await supabase.get("/cs_items", params={"market_hash_name": f"eq.{market_hash_name}", "select": "id", "limit": 1})
-                
                 if item_res.status_code == 200 and item_res.json():
                     item_id = item_res.json()[0]['id']
                 else:
@@ -16300,24 +16289,20 @@ async def claim_checkpoint_reward(
                         "name": base_name,
                         "market_hash_name": market_hash_name,
                         "price_rub": price_rub,
-                        "price": int(price_rub),  # <-- ИСПРАВЛЕНО (Убрали str())
+                        "price": int(price_rub),
                         "rarity": "mythical",
                         "condition": condition,
                         "image_url": image_url,
-                        "is_active": True  # <-- ИСПРАВЛЕНО НА TRUE (чтобы сразу падал в инвентарь)
+                        "is_active": True 
                     }
                     create_res = await supabase.post("/cs_items", json=new_item, headers={"Prefer": "return=representation"})
-                    
                     if create_res.status_code not in (200, 201):
-                        logging.error(f"БД не приняла предмет: {create_res.text}")
                         raise HTTPException(status_code=500, detail=f"Сбой БД при создании предмета: {create_res.text}")
-                    
                     item_id = create_res.json()[0]['id']
 
                 if not item_id:
                     raise HTTPException(status_code=500, detail="Системная ошибка: item_id не сгенерирован")
 
-                # Записываем в ИНВЕНТАРЬ пользователя
                 hist_res = await supabase.post("/cs_history", json={
                     "user_id": telegram_id,
                     "item_id": item_id,
@@ -16328,7 +16313,6 @@ async def claim_checkpoint_reward(
                 }, headers={"Prefer": "return=representation"})
 
                 if hist_res.status_code not in (200, 201):
-                    logging.error(f"БД не положила в инвентарь: {hist_res.text}")
                     raise HTTPException(status_code=500, detail=f"Сбой выдачи в инвентарь: {hist_res.text}")
 
                 await create_in_app_notification(
@@ -16348,101 +16332,66 @@ async def claim_checkpoint_reward(
                         f"<b>Трек:</b> {track_type.upper()} Уровень {level_to_claim}"
                     )
 
-            # 🔥 ЛОГИКА ДЛЯ КУПОНОВ (Траст / Фейк сообщения) 🔥
-            elif reward_type in ['fake_messages', 'trust_increase']:
-                prefix = 'FM' if reward_type == 'fake_messages' else 'TRUST'
-                unique_code = f"CP-{prefix}-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
-                
-                coupon_res = await supabase.post(
-                    "/cs_codes", 
-                    json={
-                        "code": unique_code,
-                        "max_uses": 1,
-                        "current_uses": 0,
-                        "is_active": True,
-                        "description": f"{'Фейк сообщения' if reward_type == 'fake_messages' else 'Повышение траста'} ({reward_value}). БП Ур. {level_to_claim}",
-                        "is_copied": False,
-                        "assigned_to": telegram_id,
-                        "assigned_at": datetime.now(timezone.utc).isoformat(),
-                        "used_by_ids": [],
-                        "activated_by_ids": [str(telegram_id)], 
-                        "campaign_id": 999 
-                    }
-                )
-                if coupon_res.status_code not in [200, 201]:
-                    raise HTTPException(status_code=500, detail="Ошибка генерации купона актива")
-                    
-          # 🔥 ЛОГИКА ДЛЯ КУПОНОВ (Только Фейк сообщения) 🔥
+            # 🔥 ЧИСТАЯ ЛОГИКА ДЛЯ ФЕЙК СООБЩЕНИЙ 🔥
             elif reward_type == 'fake_messages':
-                unique_code = f"CP-FM-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+                unique_coupon_code = f"CP-FM-{telegram_id}-{uuid.uuid4().hex[:4].upper()}"
+                
+                # Достаем чистое количество (отрезаем stream| или week|)
+                parts = str(reward_value).split('|')
+                clean_fake_amount = parts[-1] if len(parts) > 0 and parts[-1].isdigit() else "0"
                 
                 coupon_res = await supabase.post(
                     "/cs_codes", 
                     json={
-                        "code": unique_code,
+                        "code": unique_coupon_code,
                         "max_uses": 1,
                         "current_uses": 0,
                         "is_active": True,
-                        "description": f"Фейк сообщения ({reward_value}). БП Ур. {level_to_claim}",
-                        "target_case_name": str(reward_value), # <--- СЮДА ПИШЕМ КОЛИЧЕСТВО (например, "400")
+                        "description": f"Фейк сообщения ({clean_fake_amount}). БП Ур. {level_to_claim}",
+                        "target_case_name": clean_fake_amount, # <--- ТЕПЕРЬ ТУТ ЧИСТАЯ ЦИФРА
                         "is_copied": False,
                         "assigned_to": telegram_id,
                         "assigned_at": datetime.now(timezone.utc).isoformat(),
                         "used_by_ids": [],
-                        "activated_by_ids": [str(telegram_id)], 
+                        "activated_by_ids": [], # <--- ПУСТОЙ МАССИВ (купон еще не активирован)
                         "campaign_id": 999 
                     }
                 )
                 if coupon_res.status_code not in [200, 201]:
                     raise HTTPException(status_code=500, detail="Ошибка генерации купона актива")
 
-            # 🔥 ПРЯМОЕ ДЕЙСТВИЕ: Повышение траста 🔥
+            # 🔥 ЧИСТАЯ ЛОГИКА ПОВЫШЕНИЯ ТРАСТА 🔥
             elif reward_type == 'trust_increase':
-                # Читаем, сколько баллов амнистии у него уже есть, чтобы не затереть, а прибавить
                 current_amnesty = float(user_db.get("amnesty_bonus") or 0)
-                
-                # Если в награде указано число (например 70), берем его. Если нет - даем дефолтные 70 для Green
                 bonus_to_add = float(reward_value) if reward_value.replace('.', '', 1).isdigit() else 70.0
                 
                 trust_res = await supabase.patch(
                     "/users",
                     params={"telegram_id": f"eq.{telegram_id}"},
                     json={
-                        # 1. Снимаем все штрафы (если он был должником, они больше не будут тянуть его вниз)
                         "penalty_points": 0,
-                        # 2. Накидываем бонус амнистии. 
-                        # Триггер поймает этот апдейт, сложит актив + бонус, получит > 70 и САМ поставит trust_level = 'green'
                         "amnesty_bonus": current_amnesty + bonus_to_add
                     }
                 )
-                
                 if trust_res.status_code not in [200, 204]:
-                    logging.error(f"Ошибка повышения траста для {telegram_id}: {trust_res.text}")
                     raise HTTPException(status_code=500, detail="Ошибка при повышении траста.")
 
-           # 🔥 ПРЯМОЕ ДЕЙСТВИЕ: Красная таблетка (Удаление из матрицы) 🔥
             elif reward_type == 'red_pill':
                 delete_res = await supabase.delete(
                     "/event_matrix_quest", 
                     params={"user_id": f"eq.{telegram_id}"}
                 )
                 if delete_res.status_code not in [200, 204]:
-                    logging.error(f"БД не смогла удалить таблетку для {telegram_id}: {delete_res.text}")
                     raise HTTPException(status_code=500, detail="Сбой при удалении красной таблетки.")
 
-            # 🔥 СТАТИЧЕСКАЯ НАГРАДА: Скидка TopSkin 🔥
             elif reward_type == 'topskin_discount':
-                # Награда выдается прямо на фронте, в БД ничего не пишем
-                pass
+                pass # Награда выдается прямо на фронте, в БД ничего не пишем
 
-            # 🔥 ЛОГИКА ДЛЯ РУЧНОЙ ВЫДАЧИ (Заявки) 🔥
             elif reward_type in ['twitch_vip', 'twitch_sub']:
-                # 1. Ищем технический квест
                 tech_q_res = await supabase.get("/quests", params={"quest_type": "eq.bp_manual_reward", "select": "id", "limit": 1})
                 if tech_q_res.status_code == 200 and tech_q_res.json():
                     tech_quest_id = tech_q_res.json()[0]['id']
                 else:
-                    # 2. Создаем, если его еще нет
                     new_q = await supabase.post("/quests", json={
                         "title": "Системный: Ручные награды БП",
                         "quest_type": "bp_manual_reward",
@@ -16453,7 +16402,6 @@ async def claim_checkpoint_reward(
                         raise HTTPException(status_code=500, detail="Ошибка инициализации ручных наград")
                     tech_quest_id = new_q.json()[0]['id']
 
-                # 3. Отправляем заявку в quest_submissions
                 reward_names = {'twitch_vip': 'VIP на Twitch', 'twitch_sub': 'Подписка Twitch'}
                 await supabase.post("/quest_submissions", json={
                     "quest_id": tech_quest_id,
@@ -16469,7 +16417,7 @@ async def claim_checkpoint_reward(
             "reward_track": track_type
         })
 
-        # 6. Формируем ответ (добавляем данные для фронта, если нужно показать купон или код)
+        # 6. Формируем ответ (отдаем коды фронту)
         response_data = {"message": "Награда успешно получена!"}
         
         if reward_type == 'topskin_discount':
@@ -16482,7 +16430,8 @@ async def claim_checkpoint_reward(
         elif reward_type == 'fake_messages':
             response_data['extra_data'] = {
                 "type": "coupon",
-                "code": unique_code
+                "code": unique_coupon_code,
+                "amount": clean_fake_amount # <--- Передаем чистую цифру фронтенду!
             }
         elif reward_type in ['twitch_vip', 'twitch_sub']:
             response_data['extra_data'] = {
