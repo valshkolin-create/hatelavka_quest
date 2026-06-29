@@ -2131,9 +2131,52 @@ const processedQuests = weekQuests.map(cfg => {
         if (exchangeAmount > 0 && forceAction === null) {
             haptic('light');
             const modal = document.getElementById('exchange-modal');
-            document.getElementById('exchange-item-img').src = reward.image_url || 'https://placehold.co/100';
-            document.getElementById('exchange-item-title').innerText = reward.value || 'Награда';
+            
+            // 1. Умная подстановка названия для модалки
+            let displayTitle = 'Награда';
+            switch (reward.type) {
+                case 'topskin_discount': displayTitle = 'Скидка TopSkin'; break;
+                case 'fake_messages': displayTitle = 'Фейк-сообщения'; break;
+                case 'grind_vip': displayTitle = 'Grind VIP'; break;
+                case 'trust_increase': displayTitle = 'Траст аккаунта'; break;
+                case 'twitch_vip': displayTitle = 'Twitch VIP'; break;
+                case 'twitch_sub': displayTitle = 'Twitch Sub'; break;
+                case 'red_pill': displayTitle = 'Красная таблетка'; break;
+                case 'case_coupon': displayTitle = 'Купон на кейс'; break;
+                default:
+                    displayTitle = reward.value ? reward.value.toString() : 'Награда';
+                    if (reward.type === 'coins') displayTitle += ' Монет';
+                    if (reward.type === 'tickets') displayTitle += ' Билетов';
+                    break;
+            }
+            
+            // 2. Умная подстановка картинки (монеты, билеты или дефолт)
+            let displayImg = reward.image_url;
+            if (!displayImg || !displayImg.startsWith('http')) {
+                displayImg = 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
+                if (reward.type === 'coins') displayImg = 'https://i.postimg.cc/pdV45myM/money.png';
+                if (reward.type === 'tickets') displayImg = 'https://i.postimg.cc/RCYsCPwk/tickets.png';
+            }
+
+            document.getElementById('exchange-item-img').src = displayImg;
+            document.getElementById('exchange-item-title').innerText = displayTitle;
             document.getElementById('exchange-stars-val').innerText = `+${exchangeAmount}`;
+            
+            const clickX = event ? (event.clientX || (event.touches && event.touches[0].clientX)) : window.innerWidth / 2;
+            const clickY = event ? (event.clientY || (event.touches && event.touches[0].clientY)) : window.innerHeight / 2;
+
+            document.getElementById('btn-do-claim').onclick = () => {
+                modal.classList.remove('modal-active');
+                window.claimReward(level, type, 'withdraw_skin');
+            };
+            document.getElementById('btn-do-exchange').onclick = () => {
+                modal.classList.remove('modal-active');
+                window.claimReward(level, type, 'exchange', {x: clickX, y: clickY});
+            };
+            
+            modal.classList.add('modal-active');
+            return;
+        }
             
             const clickX = event ? (event.clientX || (event.touches && event.touches[0].clientX)) : window.innerWidth / 2;
             const clickY = event ? (event.clientY || (event.touches && event.touches[0].clientY)) : window.innerHeight / 2;
