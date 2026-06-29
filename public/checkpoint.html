@@ -1203,19 +1203,23 @@
             <div style="padding: 25px 20px 20px;">
                 <img src="https://placehold.co/100x100/2a2a2c/ffd700?text=MSG" style="width: 80px; height: 80px; border-radius: 16px; margin-bottom: 12px; filter: drop-shadow(0 5px 15px rgba(255,215,0,0.1));">
                 <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Активность</h3>
-                <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 15px;">Купон на <span id="fakemsg-amount-display" style="color: #fff; font-weight: 800;"></span> сообщений. Выбери, куда их зачислить, или сохрани код.</p>
+                <p id="fakemsg-desc" style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 15px;">Купон на <span id="fakemsg-amount-display" style="color: #fff; font-weight: 800;"></span> сообщений. Выбери период, чтобы сгенерировать код.</p>
                 
-                <div id="btn-copy-fakemsg" style="background: rgba(0,0,0,0.5); border: 1px dashed var(--surface-border); padding: 10px; border-radius: 10px; font-size: 12px; color: var(--text-muted); margin-bottom: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
-                    <span id="fakemsg-code-display" style="font-family: monospace;"></span>
-                    <i class="fa-solid fa-copy"></i>
+                <div id="fakemsg-generation-block">
+                    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                        <button class="btn-claim locked" id="btn-target-week" onclick="selectFakeMsgTarget('week')" style="margin: 0; flex: 1; pointer-events: auto !important; border: 1px solid var(--surface-border);">В Неделю</button>
+                        <button class="btn-claim locked" id="btn-target-month" onclick="selectFakeMsgTarget('month')" style="margin: 0; flex: 1; pointer-events: auto !important; border: 1px solid var(--surface-border);">В Месяц</button>
+                    </div>
+                    <button id="btn-generate-fakemsg" class="btn-claim locked" style="margin: 0; width: 100%; pointer-events: none;" onclick="generateFakeMsgCoupon()">СГЕНЕРИРОВАТЬ</button>
                 </div>
-                
-                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                    <button class="btn-claim locked" id="btn-target-week" onclick="selectFakeMsgTarget('week')" style="margin: 0; flex: 1; pointer-events: auto !important; border: 1px solid var(--surface-border);">В Неделю</button>
-                    <button class="btn-claim locked" id="btn-target-month" onclick="selectFakeMsgTarget('month')" style="margin: 0; flex: 1; pointer-events: auto !important; border: 1px solid var(--surface-border);">В Месяц</button>
+
+                <div id="fakemsg-activation-block" style="display: none;">
+                    <div id="btn-copy-fakemsg" onclick="copyFakeMsgCode(this)" style="background: rgba(0,0,0,0.5); border: 1px dashed var(--surface-border); padding: 10px; border-radius: 10px; font-size: 12px; color: var(--text-muted); margin-bottom: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s;">
+                        <span id="fakemsg-code-display" style="font-family: monospace; color: var(--primary); font-weight: bold;"></span>
+                        <i class="fa-solid fa-copy"></i>
+                    </div>
+                    <button id="btn-activate-fakemsg" class="btn-claim ready" style="margin: 0; width: 100%;" onclick="activateFakeMsg()">АКТИВИРОВАТЬ СЕЙЧАС</button>
                 </div>
-                
-                <button id="btn-activate-fakemsg" class="btn-claim locked" style="margin: 0; width: 100%; pointer-events: none;" onclick="activateFakeMsg()">АКТИВИРОВАТЬ</button>
             </div>
         </div>
     </div>
@@ -2120,13 +2124,20 @@ const processedQuests = weekQuests.map(cfg => {
         }
     }
 
-    window.claimReward = async function(level, type, forceAction = null, eventPos = null) {
+    window.claimReward = async function(level, type, forceAction = null, eventPos = null, extraParams = null) {
         const lockKey = `bp_${level}_${type}`;
         if (window.isClaiming[lockKey]) return;
 
         const tier = bpData.tiers.find(t => t.level === level);
         const reward = tier[`${type}_reward`];
         const exchangeAmount = parseInt(reward.exchange) || 0;
+
+        // 🔥 ПЕРЕХВАТ: Если это фейк-сообщения, открываем генератор ПЕРЕД отправкой на сервер
+        if (reward.type === 'fake_messages' && forceAction === null) {
+            haptic('light');
+            window.openFakeMsgGenerator(level, type, reward.value);
+            return;
+        }
 
         if (exchangeAmount > 0 && forceAction === null) {
             haptic('light');
@@ -2184,10 +2195,14 @@ const processedQuests = weekQuests.map(cfg => {
         tg.MainButton.showProgress();
         
         try {
+            // 🔥 ДОБАВЛЯЕМ extraParams В BODY 🔥
+            const bodyPayload = { initData: tg.initData, level: level, type: type, action_type: actionToSend };
+            if (extraParams) Object.assign(bodyPayload, extraParams);
+
             const res = await fetch('/api/v1/checkpoint/claim', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData, level: level, type: type, action_type: actionToSend })
+                body: JSON.stringify(bodyPayload)
             });
             const data = await res.json();
             
@@ -2224,7 +2239,7 @@ const processedQuests = weekQuests.map(cfg => {
                         if (data.extra_data.type === 'topskin_discount') {
                             openTopSkinModal(data.extra_data.code, data.extra_data.link);
                         } else if (data.extra_data.type === 'coupon') {
-                            openFakeMsgModal(data.extra_data.code, reward.value || 0);
+                            openFakeMsgModal(data.extra_data.code, data.extra_data.amount || reward.value || 0);
                         } else if (data.extra_data.type === 'manual_submission') {
                             showCustomAlert('Заявка отправлена', 'Администратор выдаст награду в ближайшее время.', 'success', null, 'Ожидайте начисления на аккаунт.');
                         }
@@ -2644,22 +2659,79 @@ window.saveRules = async function() {
         document.getElementById('topskin-modal').classList.add('modal-active');
     };
 
-    let currentFakeMsgCode = '';
     let currentFakeMsgTarget = '';
+    let currentPendingLevel = null;
+    let currentPendingType = null;
+    let currentFakeMsgCode = '';
 
-    window.openFakeMsgModal = function(code, amount) {
-        currentFakeMsgCode = code;
+    window.openFakeMsgGenerator = function(level, type, rawValue) {
+        currentPendingLevel = level;
+        currentPendingType = type;
         currentFakeMsgTarget = '';
         
+        // Достаем чистое число
+        const parts = String(rawValue).split('|');
+        const amount = parts.length > 0 && !isNaN(parts[parts.length - 1]) ? parts[parts.length - 1] : "0";
+
         document.getElementById('fakemsg-amount-display').innerText = amount;
-        document.getElementById('fakemsg-code-display').innerText = code;
+        document.getElementById('fakemsg-desc').innerText = `Купон на ${amount} сообщений. Выбери период, чтобы сгенерировать код.`;
         
+        // Показываем блок генерации, прячем блок активации
+        document.getElementById('fakemsg-generation-block').style.display = 'block';
+        document.getElementById('fakemsg-activation-block').style.display = 'none';
+
         // Сброс кнопок
         document.getElementById('btn-target-week').className = 'btn-claim locked';
         document.getElementById('btn-target-month').className = 'btn-claim locked';
-        document.getElementById('btn-activate-fakemsg').className = 'btn-claim locked';
-        document.getElementById('btn-activate-fakemsg').style.pointerEvents = 'none';
         
+        const genBtn = document.getElementById('btn-generate-fakemsg');
+        genBtn.className = 'btn-claim locked';
+        genBtn.style.pointerEvents = 'none';
+        genBtn.innerHTML = 'СГЕНЕРИРОВАТЬ';
+        
+        document.getElementById('fakemsg-modal').classList.add('modal-active');
+    };
+
+    window.selectFakeMsgTarget = function(target) {
+        haptic('light');
+        currentFakeMsgTarget = target;
+        
+        document.getElementById('btn-target-week').className = target === 'week' ? 'btn-claim ready' : 'btn-claim locked';
+        document.getElementById('btn-target-month').className = target === 'month' ? 'btn-claim ready' : 'btn-claim locked';
+        
+        const genBtn = document.getElementById('btn-generate-fakemsg');
+        genBtn.className = 'btn-claim ready';
+        genBtn.style.pointerEvents = 'auto';
+    };
+
+    window.generateFakeMsgCoupon = async function() {
+        if (!currentFakeMsgTarget) return;
+        haptic('medium');
+        
+        const btn = document.getElementById('btn-generate-fakemsg');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.style.pointerEvents = 'none';
+        
+        // Прокидываем period в функцию claimReward, передаем null для eventPos
+        await window.claimReward(currentPendingLevel, currentPendingType, 'claim', null, { target_period: currentFakeMsgTarget });
+    };
+
+    // Эту функцию теперь вызывает claimReward, когда сервер вернул сгенерированный код!
+    window.openFakeMsgModal = function(code, amount) {
+        currentFakeMsgCode = code;
+        
+        document.getElementById('fakemsg-desc').innerText = `Код сгенерирован и сохранен! Ты можешь активировать его сейчас или позже из профиля.`;
+        document.getElementById('fakemsg-code-display').innerText = code;
+        
+        // Прячем генерацию, показываем активацию
+        document.getElementById('fakemsg-generation-block').style.display = 'none';
+        document.getElementById('fakemsg-activation-block').style.display = 'block';
+        
+        const actBtn = document.getElementById('btn-activate-fakemsg');
+        actBtn.innerHTML = 'АКТИВИРОВАТЬ СЕЙЧАС';
+        actBtn.style.pointerEvents = 'auto';
+        
+        // Убеждаемся, что окно открыто
         document.getElementById('fakemsg-modal').classList.add('modal-active');
     };
 
@@ -2668,23 +2740,8 @@ window.saveRules = async function() {
         window.copyTextToClipboard(currentFakeMsgCode, element, origHtml);
     };
 
-    window.selectFakeMsgTarget = function(target) {
-        haptic('light');
-        currentFakeMsgTarget = target;
-        
-        const btnWeek = document.getElementById('btn-target-week');
-        const btnMonth = document.getElementById('btn-target-month');
-        
-        btnWeek.className = target === 'week' ? 'btn-claim ready' : 'btn-claim locked';
-        btnMonth.className = target === 'month' ? 'btn-claim ready' : 'btn-claim locked';
-        
-        const activateBtn = document.getElementById('btn-activate-fakemsg');
-        activateBtn.className = 'btn-claim ready';
-        activateBtn.style.pointerEvents = 'auto';
-    };
-
     window.activateFakeMsg = async function() {
-        if (!currentFakeMsgTarget) return;
+        if (!currentFakeMsgCode) return;
         haptic('medium');
         
         const btn = document.getElementById('btn-activate-fakemsg');
@@ -2692,22 +2749,21 @@ window.saveRules = async function() {
         btn.style.pointerEvents = 'none';
         
         try {
+            // Больше не передаем target_period, он зашит в купоне на сервере!
             const res = await window.makeApiRequest('/api/v1/checkpoint/activate_fake_messages', {
-                code: currentFakeMsgCode,
-                target_period: currentFakeMsgTarget
+                code: currentFakeMsgCode
             });
             
             document.getElementById('fakemsg-modal').classList.remove('modal-active');
             showCustomAlert('Активировано!', res.message, 'success');
             
-            // Запрашиваем новые данные, чтобы бегунки опыта сразу сдвинулись
             const userRes = await window.makeApiRequest('/api/v1/user/me');
             userData = userRes;
             
         } catch (e) {
             tg.HapticFeedback.notificationOccurred('error');
             alert(e.message || 'Ошибка активации');
-            btn.innerHTML = 'АКТИВИРОВАТЬ';
+            btn.innerHTML = 'АКТИВИРОВАТЬ СЕЙЧАС';
             btn.style.pointerEvents = 'auto';
         }
     };
