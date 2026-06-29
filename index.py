@@ -15923,14 +15923,14 @@ async def claim_bp_quest(
             if total_reactions < target_amount:
                 raise HTTPException(status_code=400, detail="Общая цель еще не достигнута сервером!")
 
-            # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: АТОМАРНАЯ ВСТАВКА В НОВУЮ ТАБЛИЦУ 🔥
+            # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: ИДЕАЛЬНО ЧИСТЫЙ PAYLOAD 🔥
             post_res = await supabase.post("/user_quest_progress", json={
                 "user_id": tg_id,
                 "quest_id": req.quest_id,
+                "week": "global",
                 "current_progress": total_reactions,
-                "target_amount": target_amount,
-                "is_completed": True,
-                "is_claimed": True
+                "target_value": target_amount,
+                "claimed_at": datetime.now(timezone.utc).isoformat()
             })
 
             # 409 Conflict значит, что Primary Key (user_id, quest_id) не пустил дубликат
