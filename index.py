@@ -9392,7 +9392,6 @@ async def check_channel_subscription(
         # При ошибке API (например, таймаут) лучше вернуть False и попросить проверить снова
         return {"is_subscribed": False}
     
-# --- ПРАВИЛЬНО ---
 @app.post("/api/v1/user/me")
 async def get_current_user_data(
     request_data: InitDataRequest,
@@ -9477,12 +9476,19 @@ async def get_current_user_data(
                 "select": "quest_id, week, current_progress, target_value, claimed_at"
             }),
             
+            # J. 🔥 ИЩЕМ СГЕНЕРИРОВАННЫЕ КОДЫ ФЕЙК-СООБЩЕНИЙ 🔥
+            supabase.get("/cs_codes", params={
+                "assigned_to": f"eq.{telegram_id}",
+                "code": "like.CP-FM-%",
+                "select": "code, description, activated_by_ids"
+            }),
+            
             # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
         )
         
-       # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен! Добавлена новая переменная в конце)
-        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp, new_quests_resp) = results
+       # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен! Добавлена переменная fm_codes_resp)
+        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp, new_quests_resp, fm_codes_resp) = results
 
         # --- [A] Обработка Профиля ---
         data = None
@@ -9588,6 +9594,22 @@ async def get_current_user_data(
             })
                 
         final_response['bp_quests'] = bp_quests_data
+
+        # --- [J] 👇 НОВОЕ: ОБРАБОТКА КОДОВ ФЕЙК-СООБЩЕНИЙ 👇 ---
+        fake_message_codes = {}
+        if not isinstance(fm_codes_resp, Exception) and fm_codes_resp.status_code == 200:
+            fm_data = fm_codes_resp.json()
+            for coupon in fm_data:
+                activated = coupon.get("activated_by_ids") or []
+                # Если юзер еще не активировал этот код
+                if str(telegram_id) not in activated:
+                    desc = coupon.get("description", "")
+                    # Вытаскиваем уровень из строки вида "... БП Ур. 5"
+                    if "БП Ур. " in desc:
+                        level_str = desc.split("БП Ур. ")[-1].strip()
+                        fake_message_codes[level_str] = coupon.get("code")
+        
+        final_response['fake_message_codes'] = fake_message_codes
 
         # --- Дополнительные вычисляемые поля ---
         final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
