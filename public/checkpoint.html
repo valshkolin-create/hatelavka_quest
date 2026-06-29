@@ -1858,7 +1858,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let cardClass = 'quest-card';
             
            // 👇 Строго ищем прогресс с пометкой 0 (global)
-            const userProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(gq.quest_id) && String(q.week) === '0');
+            const userProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(gq.quest_id) && String(q.week) === 'global');
             const isClaimedNow = userProgress ? userProgress.is_claimed : gq.is_claimed;
             
             if (isClaimedNow) {
