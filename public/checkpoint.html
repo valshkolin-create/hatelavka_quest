@@ -2340,6 +2340,13 @@ window.claimQuestReward = async function(questId, week) {
         bpData = await bpRes.json();
         
         // 👇 ФИКС СКРОЛЛА: Запоминаем позицию перед рендером
+        const scrollContainer = document.querySelector('.main-content-scrollable');
+        const currentScroll = scrollContainer ? scrollContainer.scrollTop : 0;
+
+        renderBP(true); 
+        renderQuests();
+
+        // 👇 ФИКС СКРОЛЛА: Возвращаем на место после обновления DOM
         if (scrollContainer) {
             setTimeout(() => scrollContainer.scrollTop = currentScroll, 10);
         }
