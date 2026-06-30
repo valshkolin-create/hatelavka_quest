@@ -248,7 +248,7 @@
             position: absolute;
             left: 50%;
             top: 50%; /* Начинается ровно из центра */
-            height: calc(100% + 35px); /* Тянется ровно до центра следующего ряда (с учетом нового gap) */
+            height: calc(100% + 15px); /* Исправлен расчет: тянется строго до центра следующего кружка (margin 15px) */
             width: 4px;
             background: var(--surface-border);
             transform: translateX(-50%);
@@ -260,7 +260,7 @@
         /* Специфичная линия для самого первого уровня */
         .tier-line.first-line {
             top: 20px;
-            height: calc(150% + 15px); 
+            height: calc(150% - 5px); /* Скомпенсировали отступ 20px сверху, чтобы линия не торчала снизу */
         }
 
         .tier-line-fill {
@@ -2100,9 +2100,10 @@ function getRewardDisplayName(reward) {
             const isFirst = index === 0;
             const isLast = index === tiers.length - 1;
             
+            // Добавили отключение тени, если линия пустая, чтобы она не отбрасывала блик под кружок
             const lineHtml = isLast ? '' : `
                 <div class="tier-line ${isFirst ? 'first-line' : ''}">
-                    <div class="tier-line-fill" style="height: ${fillPercentage}%;"></div>
+                    <div class="tier-line-fill" style="height: ${fillPercentage}%; ${fillPercentage === 0 ? 'box-shadow: none;' : ''}"></div>
                 </div>
             `;
             
