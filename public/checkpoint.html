@@ -504,7 +504,12 @@
         .inst-modal-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
         .inst-modal-header p { margin: 6px 0 0 0; font-size: 11px; color: var(--text-muted); }
 
-        .premium-modal-body { padding: 20px; text-align: center; max-height: 60vh; overflow-y: auto; }
+        .premium-modal-body { 
+    padding: 20px; 
+    text-align: center; 
+    max-height: 75vh; /* Было 60vh, теперь текст может занимать больше места */
+    overflow-y: auto; 
+}
         .premium-modal-body h3 { margin: 0 0 8px 0; font-size: 20px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
         .premium-modal-body p { margin: 0 0 20px 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
 
@@ -541,7 +546,11 @@
         .inst-content-inner li { margin-bottom: 4px; }
 
         /* Выравнивание окон */
-        #instruction-modal .premium-panel { transform: translateY(-15px) !important; }
+        /* Выравнивание окон */
+#instruction-modal .premium-panel { 
+    transform: translateY(-5vh) !important; /* Поднимаем окно выше в свободное место */
+    max-height: 90vh; /* Разрешаем панели тянуться почти на весь экран */
+}
         #premium-buy-modal .premium-panel { transform: translateY(-5px) !important; }
         #image-modal .image-modal-wrapper { transform: translateY(-10px) !important; }
         #case-contents-modal .premium-panel { 
@@ -3237,24 +3246,20 @@ window.openTopSkinModal = function(code, link) {
     document.getElementById('topskin-modal').classList.add('modal-active');
 };
 
-// Добавь эту функцию в конец скриптов
 window.smoothScrollTo = function(element) {
     if (!element) return;
 
-    // 1. Ищем правильный контейнер: модалку (если открыта инструкция) или главный экран
+    // Ищем правильный контейнер: модалку или главный экран
     const container = element.closest('.premium-modal-body') || document.querySelector('.main-content-scrollable');
     if (!container) return;
 
-    // 2. Берем заголовок аккордеона, чтобы центрировать именно его, а не всю раскрытую простыню
+    // Берем заголовок аккордеона
     const header = element.firstElementChild || element;
-
-    // 3. Вычисляем координаты
     const headerRect = header.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    // 4. Формула идеального центра: 
-    // Текущая позиция + отступ элемента от верха контейнера - половина высоты экрана + половина высоты заголовка
-    const offsetPosition = headerRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (headerRect.height / 2);
+    // Формула: текущий скролл + позиция заголовка относительно контейнера - 15px отступа сверху
+    const offsetPosition = headerRect.top - containerRect.top + container.scrollTop - 15;
 
     container.scrollTo({
         top: offsetPosition,
