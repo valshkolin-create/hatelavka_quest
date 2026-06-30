@@ -9496,8 +9496,11 @@ async def get_current_user_data(
             # A. Основные данные профиля (RPC-функция в базе)
             supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
             
-            # B. Статус привязки Twitch + ДОБАВИЛИ ЧЕКПОИНТ
-            supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status, twitch_login, checkpoint_stars, checkpoint_level"}),
+           # B. Статус привязки Twitch + ДОБАВИЛИ ЧЕКПОИНТ
+            supabase.get("/users", params={
+                "telegram_id": f"eq.{telegram_id}", 
+                "select": "twitch_status, twitch_login, checkpoint_stars, checkpoint_level, topskin_views" # 👈 Добавили topskin_views
+            }),
             
             # C. Настройки игры (Гринд) - берем из кэша или быстро из БД
             get_grind_settings_async_global(),
@@ -9590,6 +9593,7 @@ async def get_current_user_data(
         twitch_status = None
         checkpoint_stars = 0
         checkpoint_level = 0
+        topskin_views = 0 # 👈 1. Создаем переменную
         
         if not isinstance(twitch_resp, Exception) and twitch_resp.status_code == 200:
             tw_data = twitch_resp.json()
@@ -9597,10 +9601,12 @@ async def get_current_user_data(
                 twitch_status = tw_data[0].get('twitch_status')
                 checkpoint_stars = tw_data[0].get('checkpoint_stars', 0)
                 checkpoint_level = tw_data[0].get('checkpoint_level', 0)
+                topskin_views = tw_data[0].get('topskin_views') or 0 # 👈 2. Достаем из ответа базы
                 
         final_response['twitch_status'] = twitch_status
         final_response['checkpoint_stars'] = checkpoint_stars
         final_response['checkpoint_level'] = checkpoint_level
+        final_response['topskin_views'] = topskin_views # 👈 3. Отдаем фронтенду
 
         # --- [C] Обработка Настроек Гринда ---
         final_response['grind_settings'] = grind_settings.dict() if hasattr(grind_settings, 'dict') else {}
