@@ -1175,13 +1175,15 @@
     <div id="premium-success-modal" class="modal-overlay" onclick="if(event.target===this) { closeAllModals(); }">
         <div class="premium-panel" style="background: transparent !important; border: none !important; box-shadow: none !important; text-align: center; max-width: 320px; padding: 20px;">
             
-            <<!-- Контейнер с левитирующим предметом и мягким свечением -->
+        
+            <!-- Контейнер с левитирующим предметом и мягким свечением -->
             <div class="premium-success-icon-box">
                 <div class="premium-success-glow"></div>
                 <div class="premium-success-item">
-                    <!-- Чтобы поставить свою картинку, удали строчку с <i> и раскомментируй <img> -->
-                    <i class="fa-solid fa-crown" style="font-size: 85px; color: var(--primary);"></i>
-                    <!-- <img src="ССЫЛКА_НА_ТВОЮ_КРУТУЮ_КОРОНУ.png" alt="Premium"> -->
+                    <!-- Премиальная 3D-корона с собственным мягким свечением -->
+                    <img src="https://cdn-icons-png.flaticon.com/512/6941/6941697.png" 
+                         alt="Premium" 
+                         style="width: 140px; height: 140px; object-fit: contain; filter: drop-shadow(0 15px 30px rgba(0,0,0,0.95)) drop-shadow(0 0 25px rgba(255, 200, 0, 0.25)); transform: translateY(-5px);">
                 </div>
             </div>
             
@@ -1620,8 +1622,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.toggleWeek = function(headerElement) {
     const isLocked = headerElement.parentElement.classList.contains('locked');
+    
+    // Получаем данные юзера через наш "мост"
+    const currentUser = window.getUserData ? window.getUserData() : null;
+    
     // Админ может открывать и смотреть заблокированные недели
-    if (isLocked && (!userData || !userData.is_admin)) return;
+    if (isLocked && (!currentUser || !currentUser.is_admin)) return;
 
     haptic('light');
     
@@ -1770,6 +1776,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let bpData = null;
     let userData = null;
+    window.getUserData = () => userData; // Создаем "мост" для глобальных функций
     let allQuests = [];
 
     // ==========================================
