@@ -1964,6 +1964,56 @@ async function main() {
             }
         }
 
+        // =========================================================================
+        // 👇👇👇 НОВАЯ ЛОГИКА: АВТО-ОТКРЫТИЕ КВЕСТА ИЗ ЧЕКПОИНТА 👇👇👇
+        // =========================================================================
+        const openQuestId = urlParams.get('open_id');
+        if (openQuestId) {
+            // Ищем кнопку с этим ID (в ручных квестах она имеет атрибут data-id)
+            const targetBtn = document.querySelector(`.perform-quest-button[data-id="${openQuestId}"]`);
+            
+            if (targetBtn) {
+                // 1. Принудительно переключаем на вкладку Manual
+                const manualTab = document.getElementById('view-manual');
+                if (manualTab) {
+                    manualTab.checked = true;
+                    setPlatformTheme('manual');
+                    if (dom.sectionAuto) dom.sectionAuto.classList.add('hidden');
+                    if (dom.sectionManual) dom.sectionManual.classList.remove('hidden');
+                }
+                
+                // 2. Находим родительский аккордеон и раскрываем его
+                const accordion = targetBtn.closest('details.quest-category-accordion');
+                if (accordion) accordion.setAttribute('open', '');
+                
+                // 3. Плавный скролл и неоновая подсветка нужной карточки
+                const targetCard = targetBtn.closest('.quest-card');
+                if (targetCard) {
+                    setTimeout(() => {
+                        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        // Эффект временного фокуса на карточке
+                        const origShadow = targetCard.style.boxShadow;
+                        const origBorder = targetCard.style.borderColor;
+                        
+                        targetCard.style.transition = 'all 0.4s ease';
+                        targetCard.style.borderColor = '#FFD700';
+                        targetCard.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.4)';
+                        
+                        setTimeout(() => {
+                            targetCard.style.borderColor = origBorder;
+                            targetCard.style.boxShadow = origShadow;
+                        }, 2500);
+                    }, 300); // Задержка для плавной отрисовки DOM
+                }
+                
+                // 4. Очищаем URL, чтобы не сработало повторно при перезагрузке
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }
+        // =========================================================================
+
         // Скрываем лоадер
         if (dom.loaderOverlay) dom.loaderOverlay.classList.add('hidden');
         dom.mainContent.style.opacity = 1;
