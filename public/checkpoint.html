@@ -1632,8 +1632,6 @@ function getRewardDisplayName(reward) {
         if (!reward || reward.type === 'none') return '';
         
         let title = '';
-
-       let title = '';
         const rawValue = reward.value || 0;
         const numValue = parseInt(String(rawValue).split('|').pop()) || 0;
 
@@ -1674,6 +1672,7 @@ function getRewardDisplayName(reward) {
         const safeTitle = title.replace(/</g, "&lt;").replace(/>/g, "&gt;");
         return `<div class="reward-title">${safeTitle}</div>`;
     }
+    
     async function initialize() {
         try {
             const [userRes, bpRes, questsRes] = await Promise.all([
