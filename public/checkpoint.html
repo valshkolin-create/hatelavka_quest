@@ -3262,10 +3262,13 @@ window.openTopSkinModal = function(code, link) {
     document.getElementById('topskin-modal').classList.add('modal-active');
 };
 
+// Глобальные настройки отступов (можно менять прямо в консоли разработчика)
+window.SCROLL_OFFSET_MODAL = 20; 
+window.SCROLL_OFFSET_MAIN = 80;
+
 window.smoothScrollTo = function(element) {
     if (!element) return;
 
-    // Определяем, где мы находимся
     const isModal = element.closest('.premium-modal-body');
     const container = isModal || document.querySelector('.main-content-scrollable');
     if (!container) return;
@@ -3274,12 +3277,9 @@ window.smoothScrollTo = function(element) {
     const headerRect = header.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    // 👇 ЗДЕСЬ КАЛИБРОВКА ОТСТУПА СВЕРХУ 👇
-    // Если скроллим в модалке (Инструкция) — отступ 20px
-    // Если скроллим на главном экране (Задания) — отступ 80px (чтобы не пряталось под табы)
-    const offset = isModal ? 20 : 80; 
+    // Берем значения из глобальных переменных
+    const offset = isModal ? window.SCROLL_OFFSET_MODAL : window.SCROLL_OFFSET_MAIN; 
 
-    // Формула: текущий скролл + позиция заголовка - наш отступ
     const offsetPosition = headerRect.top - containerRect.top + container.scrollTop - offset;
 
     container.scrollTo({
