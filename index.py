@@ -8012,8 +8012,8 @@ async def update_checkpoint_rules(
             
         config = resp.json()[0].get("content", {})
         
-        # Обновляем только правила
-        config["rules"] = req.rules
+        # Обновляем правила, конвертируя объекты Pydantic в обычные словари
+        config["rules"] = [rule.model_dump() for rule in req.rules]
         
         # Сохраняем обратно
         await supabase.patch(
