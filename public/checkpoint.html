@@ -947,15 +947,51 @@
 .sub-inst-content { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 0 12px; }
 .sub-inst-content-inner { padding-bottom: 12px; font-size: 10px; line-height: 1.5; color: #bbb; }
 
-        /* --- БОГАТАЯ АНИМАЦИЯ КОРОНЫ --- */
-@keyframes richCrownPulse {
-    0% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.2)) drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
-    50% { transform: scale(1.1); filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.8)) drop-shadow(0 15px 30px rgba(255, 215, 0, 0.3)); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.2)) drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
-}
-.rich-crown-anim {
-    animation: richCrownPulse 2.5s infinite ease-in-out !important;
-}
+        /* --- ПРЕМИУМ АНИМАЦИИ (АКТИВАЦИЯ) --- */
+        @keyframes premiumFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+        @keyframes ambientGlow {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .premium-success-icon-box {
+            position: relative;
+            margin: 40px auto 35px; /* Сильно увеличили отступ сверху */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 160px;
+            height: 160px;
+        }
+        
+        /* Мягкий фон позади иконки/картинки (никаких резких границ, он не выходит за края) */
+        .premium-success-glow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.2) 0%, transparent 65%);
+            animation: ambientGlow 4s infinite ease-in-out;
+            z-index: 0;
+            border-radius: 50%;
+        }
+        
+        /* Сам предмет плавно левитирует. Тень статичная, глубокая, ничего не обрезается */
+        .premium-success-item {
+            position: relative;
+            z-index: 1;
+            animation: premiumFloat 4s infinite ease-in-out;
+            filter: drop-shadow(0 15px 20px rgba(0,0,0,0.8)); 
+        }
+        
+        /* Если решишь вставить свою картинку, она сразу будет нужного размера */
+        .premium-success-item img {
+            width: 110px;
+            height: 110px;
+            object-fit: contain;
+        }
 
         /* --- КНОПКА ДЛЯ ИНСТРУКЦИЙ И ПОДТЕМ (КОМПАКТНАЯ) --- */
 .inst-btn-link {
@@ -1139,9 +1175,15 @@
     <div id="premium-success-modal" class="modal-overlay" onclick="if(event.target===this) { closeAllModals(); }">
         <div class="premium-panel" style="background: transparent !important; border: none !important; box-shadow: none !important; text-align: center; max-width: 320px; padding: 20px;">
             
-            <div style="margin: 0 auto 25px; display: flex; align-items: center; justify-content: center;">
-    <i class="fa-solid fa-crown rich-crown-anim" style="font-size: 85px; color: var(--primary);"></i>
-</div>
+            <<!-- Контейнер с левитирующим предметом и мягким свечением -->
+            <div class="premium-success-icon-box">
+                <div class="premium-success-glow"></div>
+                <div class="premium-success-item">
+                    <!-- Чтобы поставить свою картинку, удали строчку с <i> и раскомментируй <img> -->
+                    <i class="fa-solid fa-crown" style="font-size: 85px; color: var(--primary);"></i>
+                    <!-- <img src="ССЫЛКА_НА_ТВОЮ_КРУТУЮ_КОРОНУ.png" alt="Premium"> -->
+                </div>
+            </div>
             
             <h2 style="margin: 0 0 15px; font-size: 24px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 4px 10px rgba(0,0,0,0.8);">Premium Активен</h2>
             
