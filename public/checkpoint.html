@@ -1683,6 +1683,34 @@ document.addEventListener('DOMContentLoaded', () => {
     tg.ready();
     tg.expand();
 
+    // === НАСТРОЙКА СИСТЕМНОЙ КНОПКИ НАЗАД ===
+    if (tg.BackButton) {
+        tg.BackButton.show(); // Показываем кнопку всегда на этой странице
+        
+        // Очищаем старые обработчики, чтобы не было дублей при перезагрузках
+        tg.BackButton.offClick(handleBPBack); 
+        tg.BackButton.onClick(handleBPBack);
+    }
+
+    function handleBPBack() {
+        // Проверяем, есть ли открытые модальные окна
+        const activeModals = document.querySelectorAll('.modal-overlay.modal-active');
+        
+        if (activeModals.length > 0) {
+            // Если открыто окно (кейс, инструкция, обмен) — просто закрываем его
+            window.closeAllModals();
+        } else {
+            // Если окон нет — уходим назад
+            if (window.history.length > 1 && document.referrer) {
+                window.history.back();
+            } else {
+                // Подстраховка: если истории нет, кидаем в главное меню (замени '/menu', если путь другой)
+                window.location.href = '/menu'; 
+            }
+        }
+    }
+    // ========================================
+
     const dom = {
         loader: document.getElementById('loader-overlay'),
         hero: document.getElementById('bp-hero'),
