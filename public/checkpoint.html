@@ -937,6 +937,29 @@
     animation: richCrownPulse 2.5s infinite ease-in-out !important;
 }
 
+        /* --- КНОПКА ДЛЯ ИНСТРУКЦИЙ И ПОДТЕМ --- */
+.inst-btn-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px dashed var(--primary);
+    color: var(--primary);
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-decoration: none;
+    margin-top: 10px;
+    transition: 0.2s;
+}
+.inst-btn-link:active {
+    transform: scale(0.95);
+    background: rgba(255, 215, 0, 0.2);
+}
+
     </style>
 </head>
 <body>
@@ -1260,27 +1283,33 @@
     </div>
 
     <div id="sub-accordion-modal" class="modal-overlay" style="z-index: 10001;" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
-        <div class="premium-panel" style="max-height: 85vh; transform: translateY(0) !important;">
-            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('sub-accordion-modal').classList.remove('modal-active')">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-            
-            <div class="inst-modal-header">
-                <h3>Добавить подтему</h3>
-                <p>Создание вложенного спойлера</p>
-            </div>
+    <div class="premium-panel" style="max-height: 85vh; transform: translateY(0) !important;">
+        <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('sub-accordion-modal').classList.remove('modal-active')">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        
+        <div class="inst-modal-header">
+            <h3>Добавить подтему</h3>
+            <p>Создание вложенного спойлера с кнопкой</p>
+        </div>
 
-            <div class="premium-modal-body" style="padding-bottom: 20px;">
-                <input type="text" id="sub-acc-title" class="editor-input" placeholder="Заголовок (напр. 'Отгадай слово')">
-                <textarea id="sub-acc-text" class="editor-textarea" placeholder="Текст подтемы (можно использовать HTML)" style="min-height: 120px;"></textarea>
-                
-                <button class="btn-claim ready" onclick="confirmInsertSubAccordion()" style="margin-top: 15px; width: 100%; border-radius: 12px; padding: 12px;">
-                    <i class="fa-solid fa-plus"></i> ВСТАВИТЬ В КОД
-                </button>
+        <div class="premium-modal-body" style="padding-bottom: 20px;">
+            <input type="text" id="sub-acc-title" class="editor-input" placeholder="Заголовок (напр. 'Отгадай слово')">
+            <textarea id="sub-acc-text" class="editor-textarea" placeholder="Текст подтемы" style="min-height: 100px;"></textarea>
+            
+            <div style="margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 8px 0;">Добавить кнопку-ссылку (необязательно):</p>
+                <input type="text" id="sub-acc-btn-text" class="editor-input" placeholder="Текст кнопки (напр. 'Перейти в бота')">
+                <input type="text" id="sub-acc-btn-link" class="editor-input" placeholder="Ссылка (напр. 'https://t.me/...')">
             </div>
+            
+            <button class="btn-claim ready" onclick="confirmInsertSubAccordion()" style="margin-top: 15px; width: 100%; border-radius: 12px; padding: 12px;">
+                <i class="fa-solid fa-plus"></i> ВСТАВИТЬ В КОД
+            </button>
         </div>
     </div>
-
+</div>
+    
 <script>
 
     // Глобальная функция для запросов, которую ждет top_nav.js
@@ -2286,34 +2315,64 @@ const processedQuests = weekQuests.map(cfg => {
     // <--- КОНЕЦ ВСТАВКИ --->
 }
 
-    function renderRules() {
-        const container = document.getElementById('instructions-container');
-        
-        // Если в базе еще нет массива rules или он пустой
-        if (!bpData || !bpData.rules || bpData.rules.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-muted); font-size: 11px; margin-top: 10px;">Инструкции скоро появятся.</p>';
-            return;
-        }
+    // Функция отрисовки правил для зрителей
+function renderRules() {
+    const container = document.getElementById('instructions-container');
+    
+    if (!bpData || !bpData.rules || bpData.rules.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 11px; margin-top: 10px;">Инструкции скоро появятся.</p>';
+        return;
+    }
 
-        container.innerHTML = ''; // Очищаем текст "Загрузка..."
+    container.innerHTML = ''; 
 
-        // Рисуем аккордеоны из базы данных
-        bpData.rules.forEach(rule => {
-            container.innerHTML += `
-                <div class="inst-accordion" onclick="toggleInst(this)">
-                    <div class="inst-header">
-                        <span class="inst-title"><i class="fa-solid ${rule.icon || 'fa-circle-info'}"></i> ${rule.title}</span>
-                        <i class="fa-solid fa-chevron-down inst-chevron"></i>
-                    </div>
-                    <div class="inst-content">
-                        <div class="inst-content-inner">
-                            ${rule.text}
+    bpData.rules.forEach(rule => {
+        // 1. Генерируем HTML для вложенных подтем
+        let subRulesHtml = '';
+        if (rule.sub_rules && rule.sub_rules.length > 0) {
+            rule.sub_rules.forEach(sub => {
+                let btnHtml = '';
+                if (sub.btn_text && sub.btn_link) {
+                    btnHtml = `<br><a href="${sub.btn_link}" target="_blank" class="inst-btn-link"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${sub.btn_text}</a>`;
+                }
+                
+                // Автоматически конвертируем переносы строк в <br>, чтобы не писать теги руками
+                const safeText = sub.text.replace(/\n/g, '<br>');
+
+                subRulesHtml += `
+                    <div class="sub-accordion" onclick="toggleSubInst(event, this)">
+                        <div class="sub-inst-header">
+                            <span class="sub-inst-title">${sub.title}</span>
+                            <i class="fa-solid fa-chevron-down sub-inst-chevron"></i>
+                        </div>
+                        <div class="sub-inst-content">
+                            <div class="sub-inst-content-inner">
+                                ${safeText}
+                                ${btnHtml}
+                            </div>
                         </div>
                     </div>
+                `;
+            });
+        }
+
+        // 2. Отрисовываем основное правило + вшиваем сгенерированные подтемы
+        container.innerHTML += `
+            <div class="inst-accordion" onclick="toggleInst(this)">
+                <div class="inst-header">
+                    <span class="inst-title"><i class="fa-solid ${rule.icon || 'fa-circle-info'}"></i> ${rule.title}</span>
+                    <i class="fa-solid fa-chevron-down inst-chevron"></i>
                 </div>
-            `;
-        });
-    }
+                <div class="inst-content">
+                    <div class="inst-content-inner">
+                        ${rule.text.replace(/\n/g, '<br>')}
+                        ${subRulesHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
             
   function playStarAnimation(startX, startY) {
         const target = document.getElementById('ui-current-xp').getBoundingClientRect();
@@ -2760,7 +2819,7 @@ window.claimQuestReward = async function(questId, week) {
 // Открыть редактор и заполнить поля
 window.openRulesEditor = function() {
     haptic('medium');
-    document.getElementById('instruction-modal').classList.remove('modal-active'); // Закрываем просмотр
+    document.getElementById('instruction-modal').classList.remove('modal-active'); 
     
     const container = document.getElementById('editor-items-container');
     container.innerHTML = '';
@@ -2768,16 +2827,17 @@ window.openRulesEditor = function() {
     const rules = (bpData && bpData.rules) ? bpData.rules : [];
     
     if (rules.length === 0) {
-        addEditorItem(); // Создаем пустой, если ничего нет
+        addEditorItem(); 
     } else {
-        rules.forEach(rule => addEditorItem(rule.title, rule.icon, rule.text));
+        // Передаем массив подтем (если он есть)
+        rules.forEach(rule => addEditorItem(rule.title, rule.icon, rule.text, rule.sub_rules || []));
     }
     
     document.getElementById('rules-editor-modal').classList.add('modal-active');
 };
-
+    
 // Добавить новый блок в редактор
-window.addEditorItem = function(title = '', icon = 'fa-star', text = '') {
+window.addEditorItem = function(title = '', icon = 'fa-star', text = '', subRules = []) {
     haptic('light');
     const container = document.getElementById('editor-items-container');
     const id = 'rule_' + Date.now() + Math.random().toString(36).substr(2, 9);
@@ -2795,15 +2855,45 @@ window.addEditorItem = function(title = '', icon = 'fa-star', text = '') {
             <button class="editor-btn-small" onclick="insertLink(this)">
                 <i class="fa-solid fa-link"></i> Вставить ссылку
             </button>
-            <button class="editor-btn-small" onclick="insertSubAccordion(this)">
+            <button class="editor-btn-small" onclick="addSubRuleUI('${id}')">
                 <i class="fa-solid fa-layer-group"></i> Добавить подтему
             </button>
         </div>
         <textarea class="editor-textarea rule-text" placeholder="Текст инструкции (можно использовать HTML)">${text}</textarea>
+        
+        <div id="${id}-subrules" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
+    `;
+    container.appendChild(div);
+
+    // Если есть сохраненные подтемы, отрисовываем их
+    if (subRules.length > 0) {
+        subRules.forEach(sr => addSubRuleUI(id, sr.title, sr.text, sr.btn_text, sr.btn_link));
+    }
+};
+
+// НОВОЕ: Отрисовка мини-редактора подтемы
+window.addSubRuleUI = function(ruleId, title = '', text = '', btnText = '', btnLink = '') {
+    haptic('light');
+    const container = document.getElementById(ruleId + '-subrules');
+    const subId = 'sub_' + Date.now() + Math.random().toString(36).substr(2, 9);
+
+    const div = document.createElement('div');
+    div.className = 'sub-editor-item'; // Класс-маркер для сбора данных
+    div.id = subId;
+    div.style.cssText = "background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,215,0,0.3); padding: 10px; border-radius: 8px; position: relative;";
+
+    div.innerHTML = `
+        <button class="editor-btn-delete" style="top: 5px; right: 5px; width: 22px; height: 22px; font-size: 10px;" onclick="document.getElementById('${subId}').remove(); haptic('light');"><i class="fa-solid fa-xmark"></i></button>
+        <input type="text" class="editor-input sub-rule-title" placeholder="Заголовок подтемы" value="${title}" style="margin-bottom: 6px; padding: 8px; font-size: 11px;">
+        <textarea class="editor-textarea sub-rule-text" placeholder="Текст подтемы" style="min-height: 50px; margin-bottom: 6px; padding: 8px; font-size: 11px;">${text}</textarea>
+        <div style="display: flex; gap: 6px;">
+            <input type="text" class="editor-input sub-rule-btn-text" placeholder="Текст кнопки (опционально)" value="${btnText}" style="flex: 1; padding: 8px; font-size: 10px; margin-bottom: 0;">
+            <input type="text" class="editor-input sub-rule-btn-link" placeholder="Ссылка (опционально)" value="${btnLink}" style="flex: 1; padding: 8px; font-size: 10px; margin-bottom: 0;">
+        </div>
     `;
     container.appendChild(div);
 };
-
+    
 // Хелпер: вставить ссылку в текстовое поле
 window.insertLink = function(btn) {
     const textarea = btn.parentElement.nextElementSibling;
@@ -2876,21 +2966,39 @@ window.confirmInsertSubAccordion = function() {
     document.getElementById('sub-accordion-modal').classList.remove('modal-active');
 };
 
-// Сохранить на бэкенд
+// Сохранить на бэкенд (Собираем древовидный JSON)
 window.saveRules = async function() {
     haptic('medium');
     const items = document.querySelectorAll('.editor-item');
-    const newRules = []; // Пустой массив для обновленных правил
+    const newRules = []; 
     
-    // Собираем данные со всех открытых блоков
     items.forEach(item => {
         const title = item.querySelector('.rule-title').value.trim();
         const icon = item.querySelector('.rule-icon').value.trim();
         const text = item.querySelector('.rule-text').value.trim();
         
-        // Если заголовок или текст не пустые — добавляем в массив
-        if (title || text) {
-            newRules.push({ title: title, icon: icon, text: text }); // <-- ИСПОЛЬЗУЕМ PUSH
+        // Собираем все подтемы внутри этого конкретного правила
+        const subItems = item.querySelectorAll('.sub-editor-item');
+        const subRules = [];
+        
+        subItems.forEach(sub => {
+            const sTitle = sub.querySelector('.sub-rule-title').value.trim();
+            const sText = sub.querySelector('.sub-rule-text').value.trim();
+            const sBtnText = sub.querySelector('.sub-rule-btn-text').value.trim();
+            const sBtnLink = sub.querySelector('.sub-rule-btn-link').value.trim();
+            
+            if (sTitle || sText) {
+                subRules.push({
+                    title: sTitle, 
+                    text: sText, 
+                    btn_text: sBtnText, 
+                    btn_link: sBtnLink
+                });
+            }
+        });
+        
+        if (title || text || subRules.length > 0) {
+            newRules.push({ title: title, icon: icon, text: text, sub_rules: subRules }); 
         }
     });
     
@@ -2907,9 +3015,8 @@ window.saveRules = async function() {
             tg.HapticFeedback.notificationOccurred('success');
             tg.showAlert('Инструкция успешно сохранена!');
             
-            // Обновляем данные в памяти и перерисовываем аккордеоны
             bpData.rules = newRules;
-            renderRules();
+            renderRules(); // Перерисовываем с новыми данными
             
             document.getElementById('rules-editor-modal').classList.remove('modal-active');
         } else {
