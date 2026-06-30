@@ -1184,8 +1184,8 @@
             </button>
             
             <div style="padding: 25px 20px 20px;">
-                <!-- Чистая картинка без фильтров и скруглений -->
-                <img src="https://images.steamcdn.io/topskin/cases/hatelove_ttv.png" style="width: 100px; height: 100px; object-fit: contain; margin-bottom: 12px;">
+                <!-- Чистая картинка без фильтров и скруглений (увеличена с 100px до 200px) -->
+                <img src="https://images.steamcdn.io/topskin/cases/hatelove_ttv.png" style="width: 200px; height: 200px; object-fit: contain; margin-bottom: 12px;">
                 
                 <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Скидка на кейс HATElove</h3>
                 <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 15px;">Промокод на 50% скидку на кейс HATELOVE, при депозите за сутки от 70 рублей</p>
@@ -1202,7 +1202,7 @@
             </div>
         </div>
     </div>
-
+    
     <div id="fakemsg-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-panel" style="max-width: 320px; text-align: center; background: #1c1c1e !important; border: 1px solid var(--surface-border) !important;">
             <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('fakemsg-modal').classList.remove('modal-active')">
@@ -1562,12 +1562,25 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const src = getRewardImageUrl(reward);
 
-        // Формируем полное название (добавляем Монеты и Билеты)
-        let fullTitle = reward.value ? reward.value.toString() : '';
-        if (reward.type === 'coins') fullTitle += ' Монет';
-        if (reward.type === 'tickets') fullTitle += ' Билетов';
+        // Умное формирование названия для увеличенной картинки
+        let title = '';
+        switch (reward.type) {
+            case 'topskin_discount': title = 'Скидка на кейс HATElove'; break;
+            case 'fake_messages': title = 'Увеличитель сообщений'; break;
+            case 'grind_vip': title = 'Grind VIP'; break;
+            case 'trust_increase': title = 'Зеленый траст'; break;
+            case 'twitch_vip': title = 'VIP статус TWITCH'; break;
+            case 'twitch_sub': title = 'Подписка на твиче'; break;
+            case 'red_pill': title = 'Удаление красной таблетки'; break;
+            case 'case_coupon': title = 'Купон на кейс'; break;
+            default:
+                title = reward.value ? reward.value.toString() : '';
+                if (reward.type === 'coins') title += ' Монет';
+                if (reward.type === 'tickets') title += ' Билетов';
+                break;
+        }
 
-        const safeTitle = fullTitle.replace(/'/g, "\\'");
+        const safeTitle = title.replace(/'/g, "\\'");
         const upperName = safeTitle.toUpperCase();
         const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
 
