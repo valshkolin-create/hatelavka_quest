@@ -457,22 +457,44 @@
         let searchTimeout = null;
 
         // Глобальная функция для совместимости с внешними скриптами (top_nav.js и др.)
-window.makeApiRequest = async function(endpoint, method = 'GET', data = null) {
+window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
+    let method = 'GET';
+    let data = null;
+
+    // Определяем, в каком порядке переданы аргументы
+    if (typeof arg2 === 'string') {
+        method = arg2.toUpperCase();
+        data = arg3;
+    } else if (typeof arg2 === 'object' && arg2 !== null) {
+        data = arg2;
+        // Если метод не передан 3-м аргументом, по умолчанию считаем POST (так как есть данные)
+        method = (typeof arg3 === 'string') ? arg3.toUpperCase() : 'POST'; 
+    }
+
     let url = endpoint;
     const options = { 
         method: method, 
         headers: { 'Content-Type': 'application/json' } 
     };
 
-    if (method === 'GET') {
-        // Добавляем initData в query параметры для GET запросов
+    if (method === 'GET' || method === 'HEAD') {
+        // Добавляем initData в query параметры
         const params = new URLSearchParams(data || {});
-        params.append('initData', tg.initData);
-        url += '?' + params.toString();
+        if (typeof tg !== 'undefined' && tg.initData) {
+            params.append('initData', tg.initData);
+        }
+        
+        // Если параметры не пустые, добавляем их к URL
+        const queryString = params.toString();
+        if (queryString) {
+            url += (url.includes('?') ? '&' : '?') + queryString;
+        }
     } else {
-        // Добавляем initData в тело для POST/PUT/PATCH запросов
+        // Добавляем initData в тело для POST/PUT/PATCH/DELETE
         const bodyData = data || {};
-        bodyData.initData = tg.initData;
+        if (typeof tg !== 'undefined' && tg.initData) {
+            bodyData.initData = tg.initData;
+        }
         options.body = JSON.stringify(bodyData);
     }
 
