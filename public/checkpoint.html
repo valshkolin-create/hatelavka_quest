@@ -3249,17 +3249,22 @@ window.openTopSkinModal = function(code, link) {
 window.smoothScrollTo = function(element) {
     if (!element) return;
 
-    // Ищем правильный контейнер: модалку или главный экран
-    const container = element.closest('.premium-modal-body') || document.querySelector('.main-content-scrollable');
+    // Определяем, где мы находимся
+    const isModal = element.closest('.premium-modal-body');
+    const container = isModal || document.querySelector('.main-content-scrollable');
     if (!container) return;
 
-    // Берем заголовок аккордеона
     const header = element.firstElementChild || element;
     const headerRect = header.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    // Формула: текущий скролл + позиция заголовка относительно контейнера - 15px отступа сверху
-    const offsetPosition = headerRect.top - containerRect.top + container.scrollTop - 15;
+    // 👇 ЗДЕСЬ КАЛИБРОВКА ОТСТУПА СВЕРХУ 👇
+    // Если скроллим в модалке (Инструкция) — отступ 20px
+    // Если скроллим на главном экране (Задания) — отступ 80px (чтобы не пряталось под табы)
+    const offset = isModal ? 20 : 80; 
+
+    // Формула: текущий скролл + позиция заголовка - наш отступ
+    const offsetPosition = headerRect.top - containerRect.top + container.scrollTop - offset;
 
     container.scrollTo({
         top: offsetPosition,
