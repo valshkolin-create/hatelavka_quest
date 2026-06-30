@@ -738,13 +738,136 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
             if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('modal-active'); 
         }
 
-        async function submitCoins() { console.log('[LOG] Клик: submitCoins'); /* (Твой код без изменений) */ }
-        async function submitTickets() { console.log('[LOG] Клик: submitTickets'); /* (Твой код без изменений) */ }
-        async function submitCp() { console.log('[LOG] Клик: submitCp'); /* (Твой код без изменений) */ }
-        async function submitGrind() { console.log('[LOG] Клик: submitGrind'); /* (Твой код без изменений) */ }
-        async function submitTrust() { console.log('[LOG] Клик: submitTrust'); /* (Твой код без изменений) */ }
-        async function submitStatus() { console.log('[LOG] Клик: submitStatus'); /* (Твой код без изменений) */ }
-        async function submitUnbind(type) { console.log('[LOG] Клик: submitUnbind для', type); /* (Твой код без изменений) */ }
+async function submitCoins() {
+            const amount = parseFloat(document.getElementById('coinsAmount').value);
+            const action = document.getElementById('coinsAction').value;
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму");
+            
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/manage-coins', { user_id: currentUser.telegram_id, amount: amount, action_type: action });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Баланс обновлен!'});
+                closeModal('coinsModal');
+                
+                let currentBalanceCents = parseFloat(currentUser.bot_t_coins || 0);
+                const amountCents = amount * 100;
+                if (action === 'add') {
+                    currentBalanceCents += amountCents;
+                } else {
+                    currentBalanceCents -= amountCents;
+                }
+                currentUser.bot_t_coins = currentBalanceCents; 
+                document.getElementById('statCoins').innerHTML = `${(currentBalanceCents / 100).toFixed(2)} <i class="fa-solid fa-coins" style="color:var(--text-sec); font-size:10px;"></i>`;
+                
+                document.getElementById('coinsAmount').value = '';
+            } catch (err) { 
+                tg.showAlert(err.message); 
+            }
+            finally { tg.MainButton.hideProgress(); }
+        }
+
+        async function submitTickets() {
+            const amount = parseInt(document.getElementById('ticketsAmount').value);
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректную сумму");
+
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/grant-stars', { user_id_to_grant: currentUser.telegram_id, amount: amount });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Билеты выданы!'});
+                closeModal('ticketsModal');
+                document.getElementById('ticketsAmount').value = '';
+                loadUser(currentUser.telegram_id);
+            } catch (err) { tg.showAlert(err.message); }
+            finally { tg.MainButton.hideProgress(); }
+        }
+
+        async function submitCp() {
+            const amount = parseInt(document.getElementById('cpAmount').value);
+            const action = document.getElementById('cpAction').value;
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректное число уровней");
+
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/manage-cp', { user_id: currentUser.telegram_id, action_type: action, amount: amount });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Уровни обновлены!'});
+                closeModal('cpModal');
+                document.getElementById('cpAmount').value = '';
+                loadUser(currentUser.telegram_id);
+            } catch (err) { tg.showAlert(err.message); }
+            finally { tg.MainButton.hideProgress(); }
+        }
+
+        async function submitGrind() {
+            const streak = parseInt(document.getElementById('streakDays').value);
+            const coins = parseFloat(document.getElementById('grindCoins').value);
+            let twitch = document.getElementById('twitchStatus').value;
+            if (twitch === 'none') twitch = null;
+            
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/manage-grind', { 
+                    user_id: currentUser.telegram_id, 
+                    streak_days: streak >= 0 ? streak : 0,
+                    coins: coins >= 0 ? coins : 0,
+                    twitch_status: twitch
+                });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Гринд статус сохранен!'});
+                closeModal('grindModal');
+                loadUser(currentUser.telegram_id);
+            } catch (err) { tg.showAlert(err.message); }
+            finally { tg.MainButton.hideProgress(); }
+        }
+
+        async function submitTrust() {
+            const payload = {
+                user_id: currentUser.telegram_id,
+                trust_level: document.getElementById('trustLevel').value,
+                trust_score: parseFloat(document.getElementById('trustScore').value),
+                penalty_points: parseFloat(document.getElementById('penaltyPoints').value)
+            };
+
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/manage-trust', payload);
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Траст сохранен (защита от штрафов активирована)!'});
+                closeModal('trustModal');
+                loadUser(currentUser.telegram_id);
+            } catch (err) { tg.showAlert(err.message); }
+            finally { tg.MainButton.hideProgress(); }
+        }
+
+        async function submitStatus() {
+            const payload = {
+                user_id: currentUser.telegram_id,
+                is_banned: document.getElementById('isBanned').value === "true",
+                has_cp_premium: document.getElementById('hasPremium').value === "true"
+            };
+        async function submitUnbind(type) {
+            const confirmMsg = type === 'twitch' ? 'Точно отвязать Twitch аккаунт?' : 'Точно удалить Trade-ссылку?';
+            if (!confirm(confirmMsg)) return;
+
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/unbind', { 
+                    user_id: currentUser.telegram_id, 
+                    unbind_type: type 
+                });
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: type === 'twitch' ? 'Twitch успешно отвязан' : 'Трейд-ссылка удалена'});
+                
+                loadUser(currentUser.telegram_id); 
+            } catch (err) { 
+                tg.showAlert(err.message); 
+            } finally { 
+                tg.MainButton.hideProgress(); 
+            }
+        }
+
 
         // ==========================================
         // ЛОГИКА ИНВЕНТАРЯ И СКЛАДА
