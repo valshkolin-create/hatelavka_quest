@@ -2359,9 +2359,14 @@ const processedQuests = weekQuests.map(cfg => {
         actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
     }
 
-            // 👇 Минималистичная ссылка перехода без рамок и фонов 👇
+           // Находим данные квеста из загруженной меты, чтобы узнать его тип
+            const questMeta = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
+            // Проверяем, относится ли квест к ручным (которые лежат в аккордеонах)
+            const isManualInAccordion = questMeta && questMeta.quest_type === 'manual_check';
+
+            // 👇 Минималистичная ссылка перехода (только для нужных заданий) 👇
             let goToHtml = '';
-            if (!userProgress.is_completed) {
+            if (!userProgress.is_completed && isManualInAccordion) {
                 goToHtml = `
                     <div style="margin-top: 2px;">
                         <button style="background: transparent; border: none; padding: 2px 0; color: var(--text-muted); font-size: 9px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: none;" onclick="window.location.href='/quests?open_id=${cfg.quest_id}'">
@@ -2369,7 +2374,6 @@ const processedQuests = weekQuests.map(cfg => {
                         </button>
                     </div>
                 `;
-            }
             }
 
             // Поменяли местами награду и условие
