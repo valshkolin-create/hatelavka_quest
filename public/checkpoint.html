@@ -900,6 +900,33 @@
             box-shadow: 0 0 15px rgba(50, 215, 75, 0.05);
         }
 
+        /* --- ВЛОЖЕННЫЕ АККОРДЕОНЫ (ПОДТЕМЫ) --- */
+.sub-accordion {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    margin: 8px 0;
+    overflow: hidden;
+    transition: 0.3s;
+}
+.sub-inst-header {
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+}
+.sub-inst-header:active { background: rgba(255, 255, 255, 0.05); }
+.sub-inst-title { font-size: 11px; font-weight: 700; color: #fff; }
+.sub-inst-chevron { color: var(--text-muted); font-size: 10px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.sub-accordion.expanded .sub-inst-chevron { transform: rotate(180deg); }
+.sub-accordion.expanded { border-color: rgba(255,215,0,0.2); background: rgba(255,215,0,0.02); }
+
+.sub-inst-content { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 0 12px; }
+.sub-inst-content-inner { padding-bottom: 12px; font-size: 10px; line-height: 1.5; color: #bbb; }
+
         /* --- БОГАТАЯ АНИМАЦИЯ КОРОНЫ --- */
 @keyframes richCrownPulse {
     0% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.2)) drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
@@ -1432,7 +1459,7 @@ window.toggleInst = function(element) {
     const content = element.querySelector('.inst-content');
     const isExpanded = element.classList.contains('expanded');
     
-    // Закрываем все остальные открытые вкладки (если хочешь, чтобы открывалась только одна)
+    // Закрываем все остальные открытые вкладки (главного уровня)
     document.querySelectorAll('.inst-accordion.expanded').forEach(el => {
         if (el !== element) {
             el.classList.remove('expanded');
@@ -1444,8 +1471,30 @@ window.toggleInst = function(element) {
         content.style.maxHeight = '0px';
         element.classList.remove('expanded');
     } else {
+        // Даем запас высоты 800px, чтобы вложенные аккордеоны могли спокойно раскрыться
+        content.style.maxHeight = content.scrollHeight + 800 + 'px';
+        element.classList.add('expanded');
+    }
+};
+
+// Функция открытия/закрытия подтем
+window.toggleSubInst = function(event, element) {
+    event.stopPropagation(); // Обязательно! Чтобы клик не закрыл родительский аккордеон
+    haptic('light');
+    const content = element.querySelector('.sub-inst-content');
+    const isExpanded = element.classList.contains('expanded');
+    const parentContent = element.closest('.inst-content');
+
+    if (isExpanded) {
+        content.style.maxHeight = '0px';
+        element.classList.remove('expanded');
+    } else {
         content.style.maxHeight = content.scrollHeight + 20 + 'px';
         element.classList.add('expanded');
+        // Обновляем высоту родителя, чтобы контент не обрезался
+        if (parentContent) {
+            parentContent.style.maxHeight = parentContent.scrollHeight + content.scrollHeight + 50 + 'px';
+        }
     }
 };
 
@@ -2668,9 +2717,12 @@ window.addEditorItem = function(title = '', icon = 'fa-star', text = '') {
         <input type="text" class="editor-input rule-title" placeholder="Заголовок (напр. VIP Статус)" value="${title}">
         <input type="text" class="editor-input rule-icon" placeholder="Иконка (напр. fa-gift)" value="${icon}">
         
-        <div>
-            <button class="editor-btn-small" onclick="insertLink(this)" style="margin-bottom: 5px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 5px;">
+            <button class="editor-btn-small" onclick="insertLink(this)">
                 <i class="fa-solid fa-link"></i> Вставить ссылку
+            </button>
+            <button class="editor-btn-small" onclick="insertSubAccordion(this)">
+                <i class="fa-solid fa-layer-group"></i> Добавить подтему
             </button>
         </div>
         <textarea class="editor-textarea rule-text" placeholder="Текст инструкции (можно использовать HTML)">${text}</textarea>
@@ -2692,6 +2744,35 @@ window.insertLink = function(btn) {
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     textarea.value = textarea.value.substring(0, start) + linkHtml + textarea.value.substring(end);
+    textarea.focus();
+};
+
+window.insertSubAccordion = function(btn) {
+    const textarea = btn.parentElement.nextElementSibling;
+    
+    const subTitle = prompt("Введите заголовок подтемы (например, 'Отгадай слово'):", "Новая подтема");
+    if (!subTitle) return;
+    
+    const subText = prompt("Введите текст подтемы (можно использовать HTML):", "Описание задания...");
+    if (!subText) return;
+    
+    // Генерируем готовый HTML-блок для подтемы
+    const subHtml = `
+<div class="sub-accordion" onclick="toggleSubInst(event, this)">
+    <div class="sub-inst-header">
+        <span class="sub-inst-title">${subTitle}</span>
+        <i class="fa-solid fa-chevron-down sub-inst-chevron"></i>
+    </div>
+    <div class="sub-inst-content">
+        <div class="sub-inst-content-inner">
+            ${subText}
+        </div>
+    </div>
+</div>`;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.value = textarea.value.substring(0, start) + subHtml + textarea.value.substring(end);
     textarea.focus();
 };
 
