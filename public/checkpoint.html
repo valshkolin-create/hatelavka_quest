@@ -1532,6 +1532,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- Хелпер для правильных падежей ---
+function getPlural(number, one, two, five) {
+    let n = Math.abs(number);
+    n %= 100;
+    if (n >= 5 && n <= 20) return five;
+    n %= 10;
+    if (n === 1) return one;
+    if (n >= 2 && n <= 4) return two;
+    return five;
+}
+
+// --- Универсальный генератор красивых названий ---
+function getRewardDisplayName(reward) {
+    if (!reward || reward.type === 'none') return '';
+    
+    // Достаем чистое число (сработает и для обычных "100", и для "CODE|100")
+    const rawValue = reward.value || 0;
+    const numValue = parseInt(String(rawValue).split('|').pop()) || 0;
+
+    switch (reward.type) {
+        case 'topskin_discount': return 'Скидка на кейс HATElove';
+        case 'fake_messages': return `Увеличитель сообщений (+${numValue})`;
+        case 'grind_vip': return 'Grind VIP';
+        case 'trust_increase': return 'Зеленый траст';
+        case 'twitch_vip': return 'VIP статус TWITCH';
+        case 'twitch_sub': return 'Подписка на твиче';
+        case 'red_pill': return 'Удаление красной таблетки';
+        case 'case_coupon': return 'Купон на кейс';
+        case 'coins': return `${numValue} ${getPlural(numValue, 'Монета', 'Монеты', 'Монет')}`;
+        case 'tickets': return `${numValue} ${getPlural(numValue, 'Билет', 'Билета', 'Билетов')}`;
+        default: return reward.value ? reward.value.toString() : 'Награда';
+    }
+}
+
     // Новая функция-помощник для выдачи нужной картинки по типу
     function getRewardImageUrl(reward) {
         if (!reward) return 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
@@ -1549,9 +1583,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'fake_messages': return 'https://i.postimg.cc/kgbpPRty/massage.png';
             case 'grind_vip': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=VIP';
             case 'trust_increase': return 'https://placehold.co/150x150/2a2a2c/32d74b?text=TRUST'; // Зеленая заглушка
-            case 'twitch_vip': return 'https://placehold.co/150x150/6441a5/ffffff?text=TWITCH+VIP'; // Фиолетовая Twitch
-            case 'twitch_sub': return 'https://placehold.co/150x150/6441a5/ffffff?text=TWITCH+SUB'; // Фиолетовая Twitch
-            case 'red_pill': return 'https://placehold.co/150x150/ff453a/ffffff?text=RED+PILL'; // Красная
+            case 'twitch_vip': return 'https://i.postimg.cc/3xXzDDJv/TWITCH-VIP.png'; // Фиолетовая Twitch
+            case 'twitch_sub': return 'https://i.postimg.cc/fLVNXTPh/Twitch-SUB.png'; // Фиолетовая Twitch
+            case 'red_pill': return 'https://i.postimg.cc/4N5SfR8H/red.png'; // Красная
             case 'case_coupon': return 'https://placehold.co/150x150/2a2a2c/ffd700?text=COUPON';
             default: return 'https://placehold.co/150x150/2a2a2c/ffd700?text=ITEM';
         }
@@ -1562,11 +1596,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const src = getRewardImageUrl(reward);
 
-        // Умное формирование названия для увеличенной картинки
+       // Умное формирование названия для увеличенной картинки
         let title = '';
+        const rawValue = reward.value || 0;
+        const numValue = parseInt(String(rawValue).split('|').pop()) || 0;
+
         switch (reward.type) {
             case 'topskin_discount': title = 'Скидка на кейс HATElove'; break;
-            case 'fake_messages': title = 'Увеличитель сообщений'; break;
+            case 'fake_messages': title = `Увеличитель сообщений (+${numValue})`; break;
             case 'grind_vip': title = 'Grind VIP'; break;
             case 'trust_increase': title = 'Зеленый траст'; break;
             case 'twitch_vip': title = 'VIP статус TWITCH'; break;
@@ -1575,8 +1612,8 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'case_coupon': title = 'Купон на кейс'; break;
             default:
                 title = reward.value ? reward.value.toString() : '';
-                if (reward.type === 'coins') title += ' Монет';
-                if (reward.type === 'tickets') title += ' Билетов';
+                if (reward.type === 'coins') title = `${numValue} ${getPlural(numValue, 'Монета', 'Монеты', 'Монет')}`;
+                if (reward.type === 'tickets') title = `${numValue} ${getPlural(numValue, 'Билет', 'Билета', 'Билетов')}`;
                 break;
         }
 
@@ -1596,13 +1633,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let title = '';
 
+       let title = '';
+        const rawValue = reward.value || 0;
+        const numValue = parseInt(String(rawValue).split('|').pop()) || 0;
+
         // Перехватываем специфичные типы, где в value лежат технические данные (коды, ссылки)
         switch (reward.type) {
             case 'topskin_discount':
                 title = 'Скидка на кейс HATElove';
                 break;
             case 'fake_messages':
-                title = 'Увеличитель сообщений';
+                title = `Увеличитель сообщений (+${numValue})`;
                 break;
             case 'grind_vip':
                 title = 'Grind VIP';
@@ -1625,8 +1666,8 @@ document.addEventListener('DOMContentLoaded', () => {
             default:
                 // Для скинов, монет, билетов и кейсов берем значение напрямую
                 title = reward.value ? reward.value.toString() : 'Награда';
-                if (reward.type === 'coins') title += ' Монет';
-                if (reward.type === 'tickets') title += ' Билетов';
+                if (reward.type === 'coins') title = `${numValue} ${getPlural(numValue, 'Монета', 'Монеты', 'Монет')}`;
+                if (reward.type === 'tickets') title = `${numValue} ${getPlural(numValue, 'Билет', 'Билета', 'Билетов')}`;
                 break;
         }
         
@@ -2211,11 +2252,14 @@ const processedQuests = weekQuests.map(cfg => {
             haptic('light');
             const modal = document.getElementById('exchange-modal');
             
-            // 1. Умная подстановка названия для модалки
+           // 1. Умная подстановка названия для модалки
             let displayTitle = 'Награда';
+            const rawValue = reward.value || 0;
+            const numValue = parseInt(String(rawValue).split('|').pop()) || 0;
+            
             switch (reward.type) {
                 case 'topskin_discount': displayTitle = 'Скидка TopSkin'; break;
-                case 'fake_messages': displayTitle = 'Фейк-сообщения'; break;
+                case 'fake_messages': displayTitle = `Увеличитель сообщений (+${numValue})`; break;
                 case 'grind_vip': displayTitle = 'Grind VIP'; break;
                 case 'trust_increase': displayTitle = 'Траст аккаунта'; break;
                 case 'twitch_vip': displayTitle = 'Twitch VIP'; break;
@@ -2224,8 +2268,8 @@ const processedQuests = weekQuests.map(cfg => {
                 case 'case_coupon': displayTitle = 'Купон на кейс'; break;
                 default:
                     displayTitle = reward.value ? reward.value.toString() : 'Награда';
-                    if (reward.type === 'coins') displayTitle += ' Монет';
-                    if (reward.type === 'tickets') displayTitle += ' Билетов';
+                    if (reward.type === 'coins') displayTitle = `${numValue} ${getPlural(numValue, 'Монета', 'Монеты', 'Монет')}`;
+                    if (reward.type === 'tickets') displayTitle = `${numValue} ${getPlural(numValue, 'Билет', 'Билета', 'Билетов')}`;
                     break;
             }
             
@@ -2277,12 +2321,15 @@ const processedQuests = weekQuests.map(cfg => {
                     // Вычисляем правильную картинку через нашу новую функцию
                     let imgUrl = getRewardImageUrl(reward);
 
-                    // Формируем название с учетом количества (Монет/Билетов)
+                   // Формируем название с учетом количества (Монет/Билетов/Падежей)
+                    const rawValueSuccess = reward.value || 0;
+                    const numValueSuccess = parseInt(String(rawValueSuccess).split('|').pop()) || 0;
                     const safeValue = reward.value ? reward.value.toString() : 'Награда';
                     const upperName = safeValue.toUpperCase();
                     let rewardName = safeValue;
-                    if (reward.type === 'coins') rewardName += ' Монет';
-                    if (reward.type === 'tickets') rewardName += ' Билетов';
+                    if (reward.type === 'coins') rewardName = `${numValueSuccess} ${getPlural(numValueSuccess, 'Монета', 'Монеты', 'Монет')}`;
+                    if (reward.type === 'tickets') rewardName = `${numValueSuccess} ${getPlural(numValueSuccess, 'Билет', 'Билета', 'Билетов')}`;
+                    if (reward.type === 'fake_messages') rewardName = `Увеличитель сообщений (+${numValueSuccess})`;
 
                     // Подбираем умный текст-подсказку
                     let subText = "Скин находится в инвентаре!";
