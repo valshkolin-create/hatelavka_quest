@@ -1259,6 +1259,28 @@
         </div>
     </div>
 
+    <div id="sub-accordion-modal" class="modal-overlay" style="z-index: 10001;" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
+        <div class="premium-panel" style="max-height: 85vh; transform: translateY(0) !important;">
+            <button class="unified-close-btn" onclick="haptic('light'); document.getElementById('sub-accordion-modal').classList.remove('modal-active')">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="inst-modal-header">
+                <h3>Добавить подтему</h3>
+                <p>Создание вложенного спойлера</p>
+            </div>
+
+            <div class="premium-modal-body" style="padding-bottom: 20px;">
+                <input type="text" id="sub-acc-title" class="editor-input" placeholder="Заголовок (напр. 'Отгадай слово')">
+                <textarea id="sub-acc-text" class="editor-textarea" placeholder="Текст подтемы (можно использовать HTML)" style="min-height: 120px;"></textarea>
+                
+                <button class="btn-claim ready" onclick="confirmInsertSubAccordion()" style="margin-top: 15px; width: 100%; border-radius: 12px; padding: 12px;">
+                    <i class="fa-solid fa-plus"></i> ВСТАВИТЬ В КОД
+                </button>
+            </div>
+        </div>
+    </div>
+
 <script>
 
     // Глобальная функция для запросов, которую ждет top_nav.js
@@ -2747,14 +2769,32 @@ window.insertLink = function(btn) {
     textarea.focus();
 };
 
+// Переменная для хранения ссылки на активное поле ввода
+let activeEditorTextarea = null;
+
 window.insertSubAccordion = function(btn) {
-    const textarea = btn.parentElement.nextElementSibling;
+    haptic('light');
+    // Запоминаем текстарею, к которой относится нажатая кнопка
+    activeEditorTextarea = btn.parentElement.nextElementSibling;
     
-    const subTitle = prompt("Введите заголовок подтемы (например, 'Отгадай слово'):", "Новая подтема");
-    if (!subTitle) return;
+    // Очищаем поля перед открытием (чтобы не осталось старого текста)
+    document.getElementById('sub-acc-title').value = '';
+    document.getElementById('sub-acc-text').value = '';
     
-    const subText = prompt("Введите текст подтемы (можно использовать HTML):", "Описание задания...");
-    if (!subText) return;
+    // Открываем кастомную модалку вместо системных prompt
+    document.getElementById('sub-accordion-modal').classList.add('modal-active');
+};
+
+// Функция, которая собирает введенные данные из кастомной модалки и вставляет HTML
+window.confirmInsertSubAccordion = function() {
+    haptic('medium');
+    const subTitle = document.getElementById('sub-acc-title').value.trim();
+    const subText = document.getElementById('sub-acc-text').value.trim();
+    
+    if (!subTitle || !subText) {
+        showCustomAlert('Ошибка', 'Заполни заголовок и текст подтемы!', 'error');
+        return;
+    }
     
     // Генерируем готовый HTML-блок для подтемы
     const subHtml = `
@@ -2770,10 +2810,18 @@ window.insertSubAccordion = function(btn) {
     </div>
 </div>`;
     
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    textarea.value = textarea.value.substring(0, start) + subHtml + textarea.value.substring(end);
-    textarea.focus();
+    // Вставляем сгенерированный код туда, где стоял курсор
+    if (activeEditorTextarea) {
+        const start = activeEditorTextarea.selectionStart;
+        const end = activeEditorTextarea.selectionEnd;
+        activeEditorTextarea.value = activeEditorTextarea.value.substring(0, start) + subHtml + activeEditorTextarea.value.substring(end);
+        
+        // Фокус обратно на текстарею
+        activeEditorTextarea.focus();
+    }
+    
+    // Закрываем модалку подтемы
+    document.getElementById('sub-accordion-modal').classList.remove('modal-active');
 };
 
 // Сохранить на бэкенд
@@ -2823,7 +2871,6 @@ window.saveRules = async function() {
         tg.MainButton.hideProgress();
     }
 };
-
     // --- ЛОГИКА НОВЫХ МОДАЛОК И КОПИРОВАНИЯ ---
     window.copyTextToClipboard = function(text, btnElement, originalHtml) {
         haptic('light');
