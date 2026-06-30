@@ -408,7 +408,7 @@
         }
         .week-accordion.locked {
             opacity: 0.6;
-            pointer-events: none;
+            /* Убрали pointer-events: none, теперь клик доходит до JS, а JS уже решает пускать или нет */
             background: rgba(255, 255, 255, 0.01);
         }
         .week-header {
