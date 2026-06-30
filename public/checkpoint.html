@@ -971,6 +971,14 @@
     background: rgba(255, 215, 0, 0.2);
 }
 
+        /* Отступы для плавного скролла (чтобы вкладки не улетали под липкое меню) */
+.week-accordion {
+    scroll-margin-top: 70px; 
+}
+.inst-accordion, .sub-accordion {
+    scroll-margin-top: 20px; 
+}
+
     </style>
 </head>
 <body>
@@ -1561,29 +1569,34 @@ window.toggleWeek = function(headerElement) {
 
     const content = headerElement.nextElementSibling;
     const isExpanded = headerElement.classList.contains('expanded');
-    const weekNum = headerElement.getAttribute('data-week'); // Читаем номер недели
+    const weekNum = headerElement.getAttribute('data-week'); 
+    const accordion = headerElement.closest('.week-accordion');
 
     if (isExpanded) {
         content.style.maxHeight = '0px';
         headerElement.classList.remove('expanded');
-        if (weekNum) window.expandedWeeksState.delete(weekNum); // Убираем из памяти
+        if (weekNum) window.expandedWeeksState.delete(weekNum); 
     } else {
         content.style.maxHeight = content.scrollHeight + 50 + 'px';
         headerElement.classList.add('expanded');
-        if (weekNum) window.expandedWeeksState.add(weekNum); // Запоминаем, что открыта
+        if (weekNum) window.expandedWeeksState.add(weekNum); 
+
+        // 👇 Плавный скролл к открытой вкладке
+        setTimeout(() => {
+            accordion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
     }
 };
 
 window.toggleInst = function(triggerElement) {
     haptic('light');
-    // Ищем главную обертку аккордеона, откуда бы ни пришел клик
     const element = triggerElement.closest('.inst-accordion');
     if (!element) return;
 
     const content = element.querySelector('.inst-content');
     const isExpanded = element.classList.contains('expanded');
     
-    // Закрываем все остальные открытые вкладки (главного уровня)
+    // Закрываем все остальные открытые вкладки
     document.querySelectorAll('.inst-accordion.expanded').forEach(el => {
         if (el !== element) {
             el.classList.remove('expanded');
@@ -1595,15 +1608,19 @@ window.toggleInst = function(triggerElement) {
         content.style.maxHeight = '0px';
         element.classList.remove('expanded');
     } else {
-        // Даем запас высоты 800px, чтобы вложенные аккордеоны могли спокойно раскрыться
         content.style.maxHeight = content.scrollHeight + 800 + 'px';
         element.classList.add('expanded');
+
+        // 👇 Плавный скролл к открытой инструкции
+        setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
     }
 };
 
 // Функция открытия/закрытия подтем
 window.toggleSubInst = function(event, triggerElement) {
-    event.stopPropagation(); // Обязательно! Чтобы клик не закрыл родительский аккордеон
+    event.stopPropagation(); 
     haptic('light');
     const element = triggerElement.closest('.sub-accordion');
     if (!element) return;
@@ -1618,10 +1635,15 @@ window.toggleSubInst = function(event, triggerElement) {
     } else {
         content.style.maxHeight = content.scrollHeight + 20 + 'px';
         element.classList.add('expanded');
-        // Обновляем высоту родителя, чтобы контент не обрезался
+        
         if (parentContent) {
             parentContent.style.maxHeight = parentContent.scrollHeight + content.scrollHeight + 50 + 'px';
         }
+
+        // 👇 Плавный скролл для подтемы (центрируем, чтобы было удобнее читать)
+        setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
     }
 };
 
