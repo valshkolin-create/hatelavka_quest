@@ -1397,14 +1397,48 @@ window.openImageModal = function(src, title) {
 
     window.scrollToCurrentTarget = function() {
     haptic('medium');
-    const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
-    if (unlockedRows.length > 0) {
-        const lastUnlocked = unlockedRows[unlockedRows.length - 1];
-        const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
-        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Определяем, какая вкладка сейчас активна
+    const isRewardsView = document.getElementById('view-rewards').classList.contains('active');
+    
+    if (isRewardsView) {
+        // Логика для вкладок BattlePass (как была)
+        const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
+        if (unlockedRows.length > 0) {
+            const lastUnlocked = unlockedRows[unlockedRows.length - 1];
+            const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
+            targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else {
+        // Логика для вкладок Задания
+        // 1. Ищем текущую неделю
+        let target = document.querySelector('.week-accordion.current-week');
+        
+        // 2. Если текущей нет или она закрыта, ищем первую неделю, где есть "ready-to-claim"
+        if (!target) {
+            target = document.querySelector('.week-accordion .ready-to-claim');
+            if (target) target = target.closest('.week-accordion');
+        }
+        
+        // 3. Если ничего не нашли — просто первую неделю
+        if (!target) {
+            target = document.querySelector('.week-accordion');
+        }
+
+        if (target) {
+            // Если аккордеон закрыт, мы его раскроем (опционально, для удобства)
+            if (!target.classList.contains('expanded')) {
+                const header = target.querySelector('.week-header');
+                toggleWeek(header);
+            }
+            
+            // Даем время на анимацию раскрытия перед скроллом
+            setTimeout(() => {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
     }
 };
-
 // Функция, которая проверит скролл и покажет нужные кнопки
 function checkScroll(e) {
     const scrollUpBtn = document.getElementById('scroll-to-top');
@@ -1416,14 +1450,32 @@ function checkScroll(e) {
     
     // 1. Проверяем, нужна ли стрелка ВНИЗ
     if (scrollDownBtn) {
-        const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
-        if (unlockedRows.length > 0) {
-            const lastUnlocked = unlockedRows[unlockedRows.length - 1];
-            const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
-            const targetRect = targetRow.getBoundingClientRect();
+        // Определяем, какая вкладка сейчас активна
+        const isRewardsView = document.getElementById('view-rewards').classList.contains('active');
+
+        if (isRewardsView) {
+            // Логика для наград (старая)
+            const unlockedRows = document.querySelectorAll('#rewards-container .tier-row.unlocked');
+            if (unlockedRows.length > 0) {
+                const lastUnlocked = unlockedRows[unlockedRows.length - 1];
+                const targetRow = lastUnlocked.nextElementSibling || lastUnlocked;
+                const targetRect = targetRow.getBoundingClientRect();
+                
+                if (targetRect.top > window.innerHeight + 100) {
+                    showDown = true;
+                }
+            }
+        } else {
+            // Новая логика для заданий
+            // Ищем текущую неделю или первую готовую награду
+            const target = document.querySelector('.week-accordion.current-week') || document.querySelector('.ready-to-claim');
             
-            if (targetRect.top > window.innerHeight + 100) {
-                showDown = true;
+            if (target) {
+                const targetRect = target.getBoundingClientRect();
+                // Если элемент находится ниже видимой области
+                if (targetRect.top > window.innerHeight + 100) {
+                    showDown = true;
+                }
             }
         }
     }
