@@ -737,28 +737,6 @@
     color: var(--primary); 
 }
 
-        /* --- КНОПКА ДЛЯ ИНСТРУКЦИЙ И ПОДТЕМ --- */
-.inst-btn-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    background: rgba(255, 215, 0, 0.1);
-    border: 1px dashed var(--primary);
-    color: var(--primary);
-    padding: 10px 16px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-    text-decoration: none;
-    transition: 0.2s;
-}
-.inst-btn-link:active {
-    transform: scale(0.95);
-    background: rgba(255, 215, 0, 0.2);
-}
-
 /* Класс, который JS повесит на кнопку, если есть награды */
 .has-rewards-anim .label-normal { animation: fade-normal 3.5s infinite; }
 .has-rewards-anim .label-reward { animation: fade-reward 3.5s infinite; }
@@ -970,22 +948,22 @@
     animation: richCrownPulse 2.5s infinite ease-in-out !important;
 }
 
-        /* --- КНОПКА ДЛЯ ИНСТРУКЦИЙ И ПОДТЕМ --- */
+        /* --- КНОПКА ДЛЯ ИНСТРУКЦИЙ И ПОДТЕМ (КОМПАКТНАЯ) --- */
 .inst-btn-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px; /* Меньше расстояние между иконкой и текстом */
     background: rgba(255, 215, 0, 0.1);
     border: 1px dashed var(--primary);
     color: var(--primary);
-    padding: 10px 16px;
-    border-radius: 12px;
-    font-size: 11px;
+    padding: 5px 10px; /* Ужали внутренние отступы в 2 раза */
+    border-radius: 8px; /* Чуть меньше скругление */
+    font-size: 9px; /* Уменьшили шрифт (был 11px) */
     font-weight: 800;
     text-transform: uppercase;
     text-decoration: none;
-    margin-top: 10px;
+    margin-top: 6px; /* Прижали поближе к тексту над ней */
     transition: 0.2s;
 }
 .inst-btn-link:active {
