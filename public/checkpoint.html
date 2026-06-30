@@ -3238,7 +3238,7 @@ window.openTopSkinModal = function(code, link) {
 };
 
 // Добавь эту функцию в конец скриптов
-function smoothScrollTo(element) {
+window.smoothScrollTo = function(element) {
     const container = document.querySelector('.main-content-scrollable');
     if (!container || !element) return;
 
@@ -3251,7 +3251,7 @@ function smoothScrollTo(element) {
         top: offsetPosition,
         behavior: 'smooth'
     });
-}
+};
     
     initialize();
 });
