@@ -456,6 +456,32 @@
         let currentUser = null;
         let searchTimeout = null;
 
+        // Глобальная функция для совместимости с внешними скриптами (top_nav.js и др.)
+window.makeApiRequest = async function(endpoint, method = 'GET', data = null) {
+    let url = endpoint;
+    const options = { 
+        method: method, 
+        headers: { 'Content-Type': 'application/json' } 
+    };
+
+    if (method === 'GET') {
+        // Добавляем initData в query параметры для GET запросов
+        const params = new URLSearchParams(data || {});
+        params.append('initData', tg.initData);
+        url += '?' + params.toString();
+    } else {
+        // Добавляем initData в тело для POST/PUT/PATCH запросов
+        const bodyData = data || {};
+        bodyData.initData = tg.initData;
+        options.body = JSON.stringify(bodyData);
+    }
+
+    const res = await fetch(url, options);
+    const resData = await res.json();
+    if (!res.ok) throw new Error(resData.detail || 'Ошибка API');
+    return resData;
+};
+
         function goBack() { 
             const openModal = document.querySelector('.modal-overlay.modal-active');
             if (openModal) {
