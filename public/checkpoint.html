@@ -1611,31 +1611,37 @@ window.toggleInst = function(triggerElement) {
     const content = element.querySelector('.inst-content');
     const isExpanded = element.classList.contains('expanded');
     
-    // Закрываем все остальные открытые вкладки
-    document.querySelectorAll('.inst-accordion.expanded').forEach(el => {
-        if (el !== element) {
-            el.classList.remove('expanded');
-            el.querySelector('.inst-content').style.maxHeight = '0px';
-        }
-    });
+    // Проверяем, где именно мы кликнули: в просмотре правил или в редакторе?
+    const isViewer = element.closest('#instructions-container') !== null;
+
+    // Если это просмотр правил (а не редактор) — закрываем остальные вкладки
+    if (isViewer) {
+        document.querySelectorAll('#instructions-container .inst-accordion.expanded').forEach(el => {
+            if (el !== element) {
+                el.classList.remove('expanded');
+                el.querySelector('.inst-content').style.maxHeight = '0px';
+            }
+        });
+    }
 
     if (isExpanded) {
         content.style.maxHeight = '0px';
         element.classList.remove('expanded');
     } else {
+        // Даем запас высоты 800px, чтобы вложенные аккордеоны могли спокойно раскрыться
         content.style.maxHeight = content.scrollHeight + 800 + 'px';
         element.classList.add('expanded');
 
-        // 👇 Плавный скролл к открытой инструкции
+        // Вызываем плавный скролл к открытой вкладке
         setTimeout(() => {
-            smoothScrollTo(element);
+            window.smoothScrollTo(element);
         }, 300);
     }
 };
 
-// Функция открытия/закрытия подтем
+// Функция открытия/закрытия подтем (вложенных аккордеонов)
 window.toggleSubInst = function(event, triggerElement) {
-    event.stopPropagation(); 
+    event.stopPropagation(); // Обязательно! Чтобы клик не закрыл родительский аккордеон
     haptic('light');
     const element = triggerElement.closest('.sub-accordion');
     if (!element) return;
@@ -1644,6 +1650,16 @@ window.toggleSubInst = function(event, triggerElement) {
     const isExpanded = element.classList.contains('expanded');
     const parentContent = element.closest('.inst-content');
 
+    // Автоматически закрываем другие открытые подтемы внутри этого же блока
+    if (!isExpanded && parentContent) {
+        parentContent.querySelectorAll('.sub-accordion.expanded').forEach(el => {
+            if (el !== element) {
+                el.classList.remove('expanded');
+                el.querySelector('.sub-inst-content').style.maxHeight = '0px';
+            }
+        });
+    }
+
     if (isExpanded) {
         content.style.maxHeight = '0px';
         element.classList.remove('expanded');
@@ -1651,17 +1667,17 @@ window.toggleSubInst = function(event, triggerElement) {
         content.style.maxHeight = content.scrollHeight + 20 + 'px';
         element.classList.add('expanded');
         
+        // Обновляем высоту родителя, чтобы контент не обрезался
         if (parentContent) {
             parentContent.style.maxHeight = parentContent.scrollHeight + content.scrollHeight + 50 + 'px';
         }
 
-        // 👇 Плавный скролл для подтемы (центрируем, чтобы было удобнее читать)
+        // Центрируем подтему
         setTimeout(() => {
-            smoothScrollTo(element);
+            window.smoothScrollTo(element);
         }, 300);
     }
 };
-
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
     tg.ready();
