@@ -2359,17 +2359,17 @@ const processedQuests = weekQuests.map(cfg => {
         actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
     }
 
-            // 👇 Ультракомпактная кнопка перехода (показываем только если не выполнено) 👇
+            // 👇 Минималистичная ссылка перехода без рамок и фонов 👇
             let goToHtml = '';
             if (!userProgress.is_completed) {
-                // Если у тебя страница с квестами называется иначе, замени '/quests' на нужный URL (например, '/tasks.html' или '/menu')
                 goToHtml = `
-                    <div style="margin-top: 6px;">
-                        <button class="inst-btn-link" style="margin: 0; padding: 4px 8px; font-size: 9px;" onclick="window.location.href='/quests?open_id=${cfg.quest_id}'">
-                            Перейти к выполнению <i class="fa-solid fa-arrow-right"></i>
+                    <div style="margin-top: 2px;">
+                        <button style="background: transparent; border: none; padding: 2px 0; color: var(--text-muted); font-size: 9px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: none;" onclick="window.location.href='/quests?open_id=${cfg.quest_id}'">
+                            К заданию <i class="fa-solid fa-angle-right" style="font-size: 8px; color: var(--primary);"></i>
                         </button>
                     </div>
                 `;
+            }
             }
 
             // Поменяли местами награду и условие
