@@ -7975,9 +7975,24 @@ async def admin_reset_auction(
         logging.error(f"❌ ОШИБКА при сбросе аукциона {auction_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при сбросе.")
 
+# 1. Добавляем модель для подтемы
+class SubRuleItem(BaseModel):
+    title: str
+    text: str
+    btn_text: Optional[str] = ""
+    btn_link: Optional[str] = ""
+
+# 2. Обновляем модель правила
+class RuleItem(BaseModel):
+    title: str
+    icon: str
+    text: str
+    sub_rules: Optional[List[SubRuleItem]] = [] # <-- Новое поле
+
+# 3. Твой UpdateRulesRequest должен выглядеть примерно так:
 class UpdateRulesRequest(BaseModel):
     initData: str
-    rules: list
+    rules: List[RuleItem]
 
 @app.post("/api/v1/admin/checkpoint/rules_update")
 async def update_checkpoint_rules(
