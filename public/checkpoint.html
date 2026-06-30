@@ -1578,10 +1578,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.toggleWeek = function(headerElement) {
     const isLocked = headerElement.parentElement.classList.contains('locked');
-    if (isLocked) return;
+    // Админ может открывать и смотреть заблокированные недели
+    if (isLocked && (!userData || !userData.is_admin)) return;
 
     haptic('light');
-
+    
     const content = headerElement.nextElementSibling;
     const isExpanded = headerElement.classList.contains('expanded');
     const weekNum = headerElement.getAttribute('data-week'); 
@@ -2331,21 +2332,29 @@ const processedQuests = weekQuests.map(cfg => {
     return { cfg, title, userProgress, requiredPrevWeek };
 });
         
-        // Считаем, есть ли в этой неделе задания, готовые к выдаче (и не заблокированные предыдущими неделями)
-        const hasRewardsToClaim = processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed && q.requiredPrevWeek === null);
-        if (hasRewardsToClaim) globalHasRewards = true; // <--- ДОБАВИТЬ ЭТУ СТРОКУ
+        // Считаем, есть ли в этой неделе задания, готовые к выдаче (только если неделя уже началась!)
+        const hasRewardsToClaim = !isLocked && processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed && q.requiredPrevWeek === null);
+        if (hasRewardsToClaim) globalHasRewards = true; 
         
         // Маленький динамический текст-индикатор для шапки аккордеона
-        const rewardAlertHtml = (hasRewardsToClaim && !isLocked) ? `<span class="week-claim-alert"><i class="fa-solid fa-gift"></i> Есть награда</span>` : '';
+        const rewardAlertHtml = hasRewardsToClaim ? `<span class="week-claim-alert"><i class="fa-solid fa-gift"></i> Есть награда</span>` : '';
 
-        // 🚀 СОРТИРОВКА: ЗАБРАТЬ (0) -> В ПРОЦЕССЕ (1) -> ПОЛУЧЕНО (2)
+        // 🚀 СОРТИРОВКА: ЗАБРАТЬ (0) -> В ПРОЦЕССЕ (1) -> ПОЛУЧЕНО (2) -> ЗВЕЗДЫ (по возрастанию)
         processedQuests.sort((a, b) => {
             const getPriority = (p) => {
+                if (isLocked) return 1; // Если закрыто, статусы "забрать" не важны, всё будет "в процессе"
                 if (p.is_completed && !p.is_claimed) return 0; // Сверху
                 if (!p.is_completed && !p.is_claimed) return 1; // Середина
                 return 2; // Снизу
             };
-            return getPriority(a.userProgress) - getPriority(b.userProgress);
+            
+            const priorityDiff = getPriority(a.userProgress) - getPriority(b.userProgress);
+            if (priorityDiff !== 0) return priorityDiff;
+            
+            // Вторичная сортировка по звездам (от меньшего к большему)
+            const expA = parseInt(a.cfg.exp_reward) || 0;
+            const expB = parseInt(b.cfg.exp_reward) || 0;
+            return expA - expB;
         });
 
         const weekBlock = document.createElement('div');
@@ -2373,8 +2382,12 @@ const processedQuests = weekQuests.map(cfg => {
     let actionHtml = '';
     let cardClass = 'quest-card';
     
-    // 👇 ДОБАВЛЕНА ПРОВЕРКА НА ОЧЕРЕДЬ 👇
-    if (requiredPrevWeek !== null) {
+    // 👇 ДОБАВЛЕНА ПРОВЕРКА НА ЗАКРЫТУЮ НЕДЕЛЮ И ОЧЕРЕДЬ 👇
+    if (isLocked) {
+        // Если неделя еще не стартовала, гасим карточку и не даем кнопок (даже для админа)
+        actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; text-align: right; line-height: 1.2;"><i class="fa-solid fa-lock"></i><br>Ожидается</div>`;
+        cardClass += ' dimmed';
+    } else if (requiredPrevWeek !== null) {
         actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--danger); text-transform: uppercase; text-align: right; line-height: 1.2;">Сначала<br>неделя ${requiredPrevWeek}</div>`;
         cardClass += ' dimmed'; // Делаем карточку тусклой, так как она недоступна
     } else if (userProgress.is_claimed) {
