@@ -1086,6 +1086,11 @@
         .btn-buy-levels:active {
             transform: scale(0.95);
         }
+        /* Принудительно поднимаем системные уведомления поверх окна покупки уровней */
+#custom-alert-modal,
+#premium-success-modal {
+    z-index: 10500 !important; 
+}
 
 
     </style>
