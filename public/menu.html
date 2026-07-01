@@ -159,19 +159,30 @@
                 <span id="cp-banner-name">...</span>!
             </div>
             
-            <div style="background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.02)); border: 1px solid rgba(255,215,0,0.4); border-radius: 6px; padding: 4px 10px; display: flex; align-items: baseline; gap: 6px; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); backdrop-filter: blur(2px);">
-                <span style="font-size: 10px; font-weight: 700; color: #eee; text-transform: uppercase;">Твой LVL БП:</span>
-                <span id="cp-banner-level" style="color: #FFD700; font-size: 16px; font-weight: 900; text-shadow: 0 0 8px rgba(255,215,0,0.6);">0</span>
-            </div>
-            
-            <div id="cp-banner-alert" style="display: none; font-size: 9px; font-weight: 900; color: #000; background: linear-gradient(90deg, #FFD700, #FFA500); padding: 4px 10px; border-radius: 4px; text-transform: uppercase; box-shadow: 0 0 10px rgba(255,215,0,0.4);">
-                <i class="fa-solid fa-gift"></i> Задание выполнено
-            </div>
-            
-        </div>
-    </div>
-</a>
+<div style="display: flex; align-items: baseline; gap: 4px; margin-bottom: 6px;">
+    <span style="font-size: 8px; font-weight: 700; color: #ccc; text-transform: uppercase;">Твой LVL БП:</span>
+    <span id="cp-banner-level" style="color: #FFD700; font-size: 12px; font-weight: 900; text-shadow: 0 0 4px rgba(255,215,0,0.5);">0</span>
+</div>
 
+<div id="cp-banner-alert" style="display: none; font-size: 7px; font-weight: 900; color: #000; background: linear-gradient(90deg, #FFD700, #FFA500); padding: 2px 6px; border-radius: 3px; text-transform: uppercase; box-shadow: 0 0 5px rgba(255,215,0,0.4);">
+    <i class="fa-solid fa-gift"></i> Задание выполнено
+</div>
+                                   </div>
+                                </div>
+                            </div>
+                        </a>
+                        </div> 
+                    <button id="slide-prev-btn" class="slider-arrow prev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button id="slide-next-btn" class="slider-arrow next"><i class="fa-solid fa-chevron-right"></i></button>
+                    <div class="slider-dots"></div>
+                </div>
+
+                <div id="weekly-goals-trigger" class="weekly-banner-wrapper hidden">
+                    <img id="weekly-goals-banner-img" src="" class="weekly-banner-img" alt="Недельные испытания">
+                    <div id="weekly-goals-badge" class="weekly-reward-badge hidden">
+                        <i class="fa-solid fa-gift fa-shake"></i> ЗАДАНИЕ ВЫПОЛНЕНО!
+                    </div>
+                </div>
 
                <div class="action-cards-grid">
     <div class="flat-card" id="auction-card-container" onclick="window.location.href='/auction'" style="cursor: pointer; padding: 0; background: linear-gradient(135deg, rgba(255, 149, 0, 0.1) 0%, #1c1c1e 100%);">
