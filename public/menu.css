@@ -1175,22 +1175,21 @@ body.desktop-platform .content-wrapper {
     20%, 40%, 60%, 80% { transform: rotate(5deg) scale(1.05); }
 }
 
-/* Визуальная кнопка "Перейти" для баннера */
+/* Визуальная кнопка "Перейти" под наградами */
 .cp-go-btn {
-    position: absolute;
-    bottom: 12px; /* Отступ снизу */
-    left: 50%;
-    transform: translateX(-50%);
-    background: #121212; /* Черный, как интерфейс бота */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #121212;
     color: #ffffff;
     font-size: 10px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 6px 16px;
-    border-radius: 8px; /* Аккуратное скругление, как на скрине */
-    z-index: 20; /* Железобетонно поверх картинки и теней */
+    border-radius: 8px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1); /* Легкая граница, чтобы не сливалась с черным фоном */
-    pointer-events: none; /* Важно: клик проходит сквозь неё на сам слайд */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    pointer-events: none; /* Клик проходит сквозь неё на сам баннер */
+    margin-top: 8px; /* Отступ от желтой плашки наград */
 }
