@@ -1034,7 +1034,7 @@
 .quest-card.dependency-locked {
     background: rgba(0, 0, 0, 0.2);
 }
-.quest-card.dependency-locked .quest-info {
+.quest-card.dependency-locked .quest-title {
     opacity: 0.4;
     filter: grayscale(80%);
 }
@@ -2433,8 +2433,8 @@ function renderQuests() {
                 // Идеально выровненный замочек по центру для будущих недель
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
                 cardClass += ' dimmed';
-            } else if (requiredPrevWeek !== null) {
-                // 👇 Надпись 1в1 как "К заданию", но красного цвета (var(--danger)) со стрелочкой
+           } else if (requiredPrevWeek !== null) {
+                // Надпись 1в1 как "К заданию", но красного цвета
                 explanationHtml = `
                     <div style="margin-top: 2px;">
                         <button style="background: transparent; border: none; padding: 2px 0; color: var(--danger); font-size: 9px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: none; transition: 0.2s;" onclick="jumpToWeek(event, ${requiredPrevWeek}, this)">
@@ -2444,6 +2444,8 @@ function renderQuests() {
                 
                 // Идеально выровненный замочек по центру
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--danger); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
+                
+                // 👇 ВАЖНО: Здесь НЕ должно быть ' dimmed', иначе всё потускнеет
                 cardClass += ' dependency-locked'; 
             } else if (userProgress.is_claimed) {
                 actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
