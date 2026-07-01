@@ -1560,7 +1560,37 @@ async function renderFullInterface(data) {
         };
         setupSlide('skin_race', menuContent.skin_race_enabled, menuContent.menu_banner_url);
         setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || (menuContent.auction_slide_data ? menuContent.auction_slide_data.image_url : null), '/auction');
-        setupSlide('checkpoint', menuContent.checkpoint_enabled, menuContent.checkpoint_banner_url);
+        
+        // --- НОВАЯ ЛОГИКА CHECKPOINT ---
+        const cpSlide = document.querySelector('[data-event="checkpoint"]');
+        if (cpSlide) {
+            // 1. Имя пользователя
+            let displayName = "Игрок";
+            if (userData.twitch_login) {
+                displayName = userData.twitch_login;
+            } else if (userData.full_name) {
+                displayName = userData.full_name.split(' ')[0];
+            }
+            const cpNameEl = document.getElementById('cp-banner-name');
+            if (cpNameEl) cpNameEl.textContent = displayName;
+
+            // 2. Уровень БП
+            const cpLevelEl = document.getElementById('cp-banner-level');
+            if (cpLevelEl) cpLevelEl.textContent = userData.checkpoint_level || 0;
+
+            // 3. Плашка выполненного квеста
+            const cpAlertEl = document.getElementById('cp-banner-alert');
+            if (cpAlertEl) {
+                const hasFinishedQuests = Array.isArray(userData.bp_quests) && 
+                    userData.bp_quests.some(q => q.is_completed === true && q.is_claimed === false);
+                cpAlertEl.style.display = hasFinishedQuests ? 'inline-block' : 'none';
+            }
+
+            // 4. Статус отображения баннера
+            const showCp = userData.is_checkpoint_globally_enabled || menuContent.checkpoint_enabled || userData.is_admin;
+            cpSlide.style.display = showCp ? '' : 'none';
+        }
+        // --------------------------------
     }
 
     const eventSlide = document.querySelector('[data-event="cauldron"]');
