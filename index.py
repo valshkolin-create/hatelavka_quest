@@ -16661,12 +16661,13 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
         raise HTTPException(status_code=400, detail="Сезон БП сейчас не активен")
 
     # 3. Калькуляция
-    premium_price = int(config.get("premium_price", 0))
-    base_rub = round(premium_price * 0.1) if premium_price > 0 else 20
+    premium_price = float(config.get("premium_price", 199))
+    ratio = premium_price / 199.0
     
-    price_rub = base_rub * req.levels
-    price_coins = (base_rub * 2) * req.levels
-    price_tickets = (base_rub * 4) * req.levels
+    # Считаем точную стоимость за запрошенное количество уровней по заданным тарифам
+    price_rub = round(20 * ratio * req.levels)
+    price_coins = round(40 * ratio * req.levels)
+    price_tickets = round(80 * ratio * req.levels)
 
     # 4. Проверяем балансы пользователя
     u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars, tickets, bott_internal_id"})
