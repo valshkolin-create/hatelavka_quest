@@ -2455,10 +2455,8 @@ const processedQuests = weekQuests.map(cfg => {
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
                 cardClass += ' dimmed';
             } else if (requiredPrevWeek !== null) {
-                // 🔥 3. Меняем текст предупреждения для поэтапных заданий
-                let explanationText = isWaterfall 
-                    ? `Поэтапно. Сначала заверши на ${requiredPrevWeek} неделе` 
-                    : `Сначала заверши на ${requiredPrevWeek} неделе`;
+                // Возвращаем компактную надпись без слова "Поэтапно"
+                let explanationText = `Сначала заверши на ${requiredPrevWeek} неделе`;
                     
                 explanationHtml = `
                     <div style="margin-top: 2px;">
@@ -2467,7 +2465,10 @@ const processedQuests = weekQuests.map(cfg => {
                         </button>
                     </div>`;
                 
+                // Идеально выровненный замочек по центру
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--danger); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
+                
+                // ВАЖНО: Здесь НЕ должно быть ' dimmed', иначе всё потускнеет
                 cardClass += ' dependency-locked'; 
             } else if (userProgress.is_claimed) {
                 actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
