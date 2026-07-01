@@ -1561,7 +1561,7 @@ async function renderFullInterface(data) {
         setupSlide('skin_race', menuContent.skin_race_enabled, menuContent.menu_banner_url);
         setupSlide('auction', menuContent.auction_enabled, menuContent.auction_banner_url || (menuContent.auction_slide_data ? menuContent.auction_slide_data.image_url : null), '/auction');
         
-        // --- НОВАЯ ЛОГИКА CHECKPOINT ---
+       // --- НОВАЯ ЛОГИКА CHECKPOINT ---
         const cpSlide = document.querySelector('[data-event="checkpoint"]');
         if (cpSlide) {
             // 1. Имя пользователя
@@ -1586,7 +1586,13 @@ async function renderFullInterface(data) {
                 cpAlertEl.style.display = hasFinishedQuests ? 'inline-block' : 'none';
             }
 
-            // 4. Статус отображения баннера
+            // 4. Подтягиваем картинку из админки (JSON)
+            const cpBannerImg = document.getElementById('checkpoint-banner-img');
+            if (cpBannerImg && menuContent.checkpoint_banner_url) {
+                cpBannerImg.src = menuContent.checkpoint_banner_url;
+            }
+
+            // 5. Статус отображения баннера
             const showCp = userData.is_checkpoint_globally_enabled || menuContent.checkpoint_enabled || userData.is_admin;
             cpSlide.style.display = showCp ? '' : 'none';
         }
