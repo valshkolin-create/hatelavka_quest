@@ -1039,6 +1039,54 @@
     filter: grayscale(80%);
 }
 
+        /* Анимированная кнопка покупки уровней (Без фона, золотая бегающая линия) */
+        /* Анимированная кнопка покупки уровней (Мини-версия) */
+        .btn-buy-levels {
+            position: relative;
+            background: transparent;
+            color: var(--primary);
+            font-size: 9px; /* Было 11px */
+            font-weight: 800;
+            padding: 4px 12px; /* Было 8px 24px */
+            border: none;
+            border-radius: 8px; /* Было 12px */
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+            transition: transform 0.2s;
+        }
+        
+        .btn-buy-levels::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 8px;
+            padding: 1px; /* Более тонкая линия */
+            background: linear-gradient(90deg, 
+                rgba(255, 215, 0, 0) 0%, 
+                rgba(255, 215, 0, 1) 50%, 
+                rgba(255, 215, 0, 0) 100%);
+            background-size: 200% 100%;
+            animation: goldLineFlow 2s linear infinite;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+        
+        @keyframes goldLineFlow {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .btn-buy-levels:active {
+            transform: scale(0.95);
+        }
+
 
     </style>
 </head>
@@ -1088,8 +1136,7 @@
                 <div class="level-text-container">
                     <div class="level-text">Уровень <span id="ui-current-level">0</span></div>
                     <div id="ui-current-xp" style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 6px;"></div>
-                    <button class="inst-btn-link" style="margin-top: 10px; padding: 8px 16px; font-size: 11px; border-radius: 12px;" onclick="openBuyExpModal()">
-                        <i class="fa-solid fa-level-up-alt"></i> ДОКУПИТЬ УРОВНИ
+                    <button class="btn-buy-levels" onclick="openBuyExpModal()"> Покупка уровней (exp)
                     </button>
                 </div>
 
@@ -1419,14 +1466,14 @@
                 <p>Мгновенное получение EXP</p>
             </div>
             
-            <div class="premium-modal-body" style="padding: 15px; text-align: center; overflow: visible;">
+           <div class="premium-modal-body" style="padding: 15px; text-align: center; overflow: visible;">
                 
                 <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 5px;">
                     <button class="editor-btn-small" onclick="changeBuyLevel(-1)" style="width: 45px; height: 45px; justify-content: center; font-size: 20px; border-radius: 12px;"><i class="fa-solid fa-minus"></i></button>
                     
                     <div style="display: flex; flex-direction: column; align-items: center; min-width: 70px;">
                         <div style="font-size: 32px; font-weight: 900; color: var(--primary); text-shadow: 0 0 15px rgba(255, 215, 0, 0.4); line-height: 1;"><span id="buy-level-count">1</span></div>
-                        <div style="font-size: 10px; color: var(--text-muted); font-weight: 800; letter-spacing: 1px;">УРОВНЕЙ</div>
+                        <div id="buy-level-text" style="font-size: 10px; color: var(--text-muted); font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">УРОВЕНЬ</div>
                     </div>
                     
                     <button class="editor-btn-small" onclick="changeBuyLevel(1)" style="width: 45px; height: 45px; justify-content: center; font-size: 20px; border-radius: 12px;"><i class="fa-solid fa-plus"></i></button>
@@ -1434,23 +1481,23 @@
                 
                 <p style="font-size: 12px; color: var(--success); margin: 0 0 20px 0; font-weight: 800;">Вы получите: +<span id="buy-exp-count">10</span> <i class="fa-solid fa-star" style="font-size: 10px;"></i></p>
 
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button id="btn-buy-exp-rub" class="btn-claim ready" onclick="confirmBuyExp('rub')" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: #fff; padding: 14px; border-radius: 14px; font-size: 13px; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.2);">
-                        <i class="fa-solid fa-ruble-sign"></i> За <span id="price-rub">20</span> ₽
+                <button id="btn-buy-exp-rub" class="btn-claim ready" onclick="confirmBuyExp('rub')" style="width: 100%; margin-bottom: 0; background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: #fff; padding: 14px; border-radius: 14px; font-size: 13px; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.2);">
+                    <i class="fa-solid fa-ruble-sign"></i> За <span id="price-rub">20</span> ₽
+                </button>
+                
+                <div style="text-align: center; color: var(--text-muted); font-size: 10px; margin: 10px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">либо</div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-buy-exp-coins" class="btn-claim ready" onclick="confirmBuyExp('coins')" style="flex: 1; margin: 0; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700; padding: 12px 6px; border-radius: 12px; font-size: 12px;">
+                        <i class="fa-solid fa-coins"></i> <span id="price-coins">40</span>
                     </button>
                     
-                    <button id="btn-buy-exp-coins" class="btn-claim ready" onclick="confirmBuyExp('coins')" style="background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700; padding: 14px; border-radius: 14px; font-size: 13px;">
-                        <i class="fa-solid fa-coins"></i> За <span id="price-coins">40</span> Монет
-                    </button>
-                    
-                    <button id="btn-buy-exp-tickets" class="btn-claim ready" onclick="confirmBuyExp('tickets')" style="background: rgba(255, 140, 0, 0.1); border: 1px solid rgba(255, 140, 0, 0.4); color: #ff8c00; padding: 14px; border-radius: 14px; font-size: 13px;">
-                        <i class="fa-solid fa-ticket"></i> За <span id="price-tickets">80</span> Билетов
+                    <button id="btn-buy-exp-tickets" class="btn-claim ready" onclick="confirmBuyExp('tickets')" style="flex: 1; margin: 0; background: rgba(0, 191, 255, 0.1); border: 1px solid rgba(0, 191, 255, 0.4); color: #00bfff; padding: 12px 6px; border-radius: 12px; font-size: 12px;">
+                        <i class="fa-solid fa-ticket"></i> <span id="price-tickets">80</span>
                     </button>
                 </div>
+
             </div>
-            
-        </div>
-    </div>
     
 <script>
 
@@ -3514,17 +3561,22 @@ window.smoothScrollTo = function(element) {
 
     function updateBuyExpUI() {
         document.getElementById('buy-level-count').innerText = levelsToBuy;
+        
+        // НОВОЕ: Подставляем правильный падеж
+        document.getElementById('buy-level-text').innerText = getPlural(levelsToBuy, 'УРОВЕНЬ', 'УРОВНЯ', 'УРОВНЕЙ');
+        
         document.getElementById('buy-exp-count').innerText = levelsToBuy * 10;
 
-        // Динамическая калькуляция от цены Premium
+        // Динамическая калькуляция. База: 199 рублей
         const premiumPrice = bpData && bpData.premium_price ? bpData.premium_price : 199;
         
-        // 1 уровень = 10% от стоимости БП в рублях (199 -> 20 руб)
-        const baseRub = Math.round(premiumPrice * 0.1); 
+        // Вычисляем множитель (при 199 руб он равен 1)
+        const ratio = premiumPrice / 199;
         
-        const priceRub = baseRub * levelsToBuy;
-        const priceCoins = (baseRub * 2) * levelsToBuy; // 1 руб = 2 монеты
-        const priceTickets = (baseRub * 4) * levelsToBuy; // 1 руб = 4 билета
+        // Точные расчеты: Базовая цена * Множитель * Количество уровней
+        const priceRub = Math.round(20 * ratio * levelsToBuy);
+        const priceCoins = Math.round(40 * ratio * levelsToBuy);
+        const priceTickets = Math.round(80 * ratio * levelsToBuy);
 
         document.getElementById('price-rub').innerText = priceRub;
         document.getElementById('price-coins').innerText = priceCoins;
