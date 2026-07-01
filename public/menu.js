@@ -1581,8 +1581,10 @@ async function renderFullInterface(data) {
             // 3. Плашка выполненного квеста
             const cpAlertEl = document.getElementById('cp-banner-alert');
             if (cpAlertEl) {
+                // Убрали строгое сравнение. Теперь ловит любые truthy/falsy значения корректно
                 const hasFinishedQuests = Array.isArray(userData.bp_quests) && 
-                    userData.bp_quests.some(q => q.is_completed === true && q.is_claimed === false);
+                    userData.bp_quests.some(q => q.is_completed && !q.is_claimed);
+                
                 cpAlertEl.style.display = hasFinishedQuests ? 'inline-block' : 'none';
             }
 
