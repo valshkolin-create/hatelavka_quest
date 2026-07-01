@@ -2199,9 +2199,8 @@ if (reward.type === 'topskin_discount') {
             }
         } // <--- ВОТ ЭТА СКОБКА СПАСЕТ СКРИПТ
 
-    function renderQuests() {
-
-    let globalHasRewards = false; // <--- ДОБАВИТЬ ЭТУ СТРОКУ
+function renderQuests() {
+    let globalHasRewards = false;
     if (!bpData || !bpData.quests_config || bpData.quests_config.length === 0) {
         dom.questsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); margin-top: 4px;">Задания для Чекпоинта пока не привязаны.</p>';
         return;
@@ -2209,10 +2208,10 @@ if (reward.type === 'topskin_discount') {
 
     dom.questsContainer.innerHTML = '';
     
-    // --- ДОБАВЛЕНО: РЕНДЕР ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
+    // --- РЕНДЕР ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
     if (bpData.global_quests && bpData.global_quests.length > 0) {
         const globalBlock = document.createElement('div');
-        globalBlock.className = 'week-accordion expanded'; // Делаем всегда открытым
+        globalBlock.className = 'week-accordion expanded';
         globalBlock.style.borderColor = 'rgba(255, 215, 0, 0.4)';
         globalBlock.style.marginBottom = '20px';
         globalBlock.style.background = 'linear-gradient(180deg, rgba(255, 215, 0, 0.05) 0%, var(--surface-bg) 100%)';
@@ -2236,7 +2235,6 @@ if (reward.type === 'topskin_discount') {
             let actionHtml = '';
             let cardClass = 'quest-card';
             
-           // 👇 Строго ищем прогресс с пометкой 0 (global)
             const userProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(gq.quest_id) && String(q.week) === 'global');
             const isClaimedNow = userProgress ? userProgress.is_claimed : gq.is_claimed;
             
@@ -2244,7 +2242,6 @@ if (reward.type === 'topskin_discount') {
                 actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
                 cardClass += ' dimmed';
             } else if (gq.is_completed) {
-                // Передаем 'global' вместо номера недели, чтобы бекенд понял, что это за квест
                 actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${gq.quest_id}, 'global')" style="margin: 0;">ЗАБРАТЬ</button>`;
                 cardClass += ' ready-to-claim';
                 globalHasRewards = true;
@@ -2300,7 +2297,6 @@ if (reward.type === 'topskin_discount') {
         let statusClass = '';
         let statusText = '';
         let isLocked = false;
-        // 👇 Теперь читаем из памяти, а не ставим false
         let isExpanded = window.expandedWeeksState.has(String(i));
 
         if (now < weekStart) {
@@ -2311,97 +2307,87 @@ if (reward.type === 'topskin_discount') {
         } else if (now >= weekStart && now <= weekEnd) {
             statusClass = 'status-active';
             statusText = 'Текущая';
-            // isExpanded = true; <-- УБРАЛИ, теперь текущая неделя тоже закрыта
         } else {
             statusClass = 'status-past';
             statusText = 'Доступна';
         }
         
-  // Предварительно обрабатываем и мапим прогресс квестов для этой недели
-const processedQuests = weekQuests.map(cfg => {
-    const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
-    const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
-    const isRepeatable = questDetails ? questDetails.is_repeatable : false;
+        const processedQuests = weekQuests.map(cfg => {
+            const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
+            const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
+            const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
-    // Ищем все записи для этого квеста в профиле юзера
-    const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
+            const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
 
-    let rawProgress = null;
+            let rawProgress = null;
 
-    if (!isRepeatable) {
-        rawProgress = allUserProgress.length > 0 ? allUserProgress[0] : null;
-    } else {
-        // Ищем СТРОГО запись этой недели
-        rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
-        
-        // Фоллбэк для старых записей без недели
-        if (!rawProgress) {
-            const oldNullProgress = allUserProgress.find(q => q.week == null);
-            if (oldNullProgress && oldNullProgress.updated_at) {
-                const progressDate = new Date(oldNullProgress.updated_at || oldNullProgress.created_at);
-                if (progressDate >= weekStart && progressDate <= weekEnd) {
-                    rawProgress = oldNullProgress;
+            if (!isRepeatable) {
+                rawProgress = allUserProgress.length > 0 ? allUserProgress[0] : null;
+            } else {
+                rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
+                
+                if (!rawProgress) {
+                    const oldNullProgress = allUserProgress.find(q => q.week == null);
+                    if (oldNullProgress && oldNullProgress.updated_at) {
+                        const progressDate = new Date(oldNullProgress.updated_at || oldNullProgress.created_at);
+                        if (progressDate >= weekStart && progressDate <= weekEnd) {
+                            rawProgress = oldNullProgress;
+                        }
+                    }
                 }
             }
-        }
-    }
 
-    const actualTarget = cfg.target_value || (questDetails ? questDetails.target_value : null) || cfg.target_amount || 1;
+            const actualTarget = cfg.target_value || (questDetails ? questDetails.target_value : null) || cfg.target_amount || 1;
 
-    let userProgress = rawProgress ? { ...rawProgress } : {
-        current_amount: 0,
-        target_amount: actualTarget,
-        is_completed: false,
-        is_claimed: false
-    };
+            let userProgress = rawProgress ? { ...rawProgress } : {
+                current_amount: 0,
+                target_amount: actualTarget,
+                is_completed: false,
+                is_claimed: false
+            };
 
-    if (userProgress.target_amount === 1 && actualTarget > 1) {
-        userProgress.target_amount = actualTarget;
-    }
-
-    // 👇 НОВАЯ ЛОГИКА: ПРОВЕРКА ПРЕДЫДУЩИХ НЕДЕЛЬ 👇
-    let requiredPrevWeek = null;
-    if (isRepeatable) {
-        // Ищем все такие же задания из предыдущих недель в конфиге БП
-        const prevWeeksConfigs = bpData.quests_config.filter(q => 
-            String(q.quest_id) === String(cfg.quest_id) && q.week < cfg.week
-        ).sort((a, b) => a.week - b.week); // Сортируем от первой недели к текущей
-
-        for (const prevCfg of prevWeeksConfigs) {
-            // Ищем прогресс юзера для этой старой недели
-            const prevProgress = allUserProgress.find(q => String(q.week) === String(prevCfg.week));
-            
-            // Если записи вообще нет ИЛИ она есть, но награда еще не забрана
-            if (!prevProgress || !prevProgress.is_claimed) {
-                requiredPrevWeek = prevCfg.week;
-                break; // Нашли самую раннюю незабранную неделю - тормозим цикл
+            if (userProgress.target_amount === 1 && actualTarget > 1) {
+                userProgress.target_amount = actualTarget;
             }
-        }
-    }
 
-    return { cfg, title, userProgress, requiredPrevWeek };
-});
+            let requiredPrevWeek = null;
+            if (isRepeatable) {
+                const prevWeeksConfigs = bpData.quests_config.filter(q => 
+                    String(q.quest_id) === String(cfg.quest_id) && q.week < cfg.week
+                ).sort((a, b) => a.week - b.week); 
+
+                for (const prevCfg of prevWeeksConfigs) {
+                    const prevProgress = allUserProgress.find(q => String(q.week) === String(prevCfg.week));
+                    
+                    if (!prevProgress || !prevProgress.is_claimed) {
+                        requiredPrevWeek = prevCfg.week;
+                        break; 
+                    }
+                }
+            }
+
+            return { cfg, title, userProgress, requiredPrevWeek };
+        });
         
-        // Считаем, есть ли в этой неделе задания, готовые к выдаче (только если неделя уже началась!)
         const hasRewardsToClaim = !isLocked && processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed && q.requiredPrevWeek === null);
         if (hasRewardsToClaim) globalHasRewards = true; 
         
-        // Маленький динамический текст-индикатор для шапки аккордеона
         const rewardAlertHtml = hasRewardsToClaim ? `<span class="week-claim-alert"><i class="fa-solid fa-gift"></i> Есть награда</span>` : '';
 
-        // 🚀 СОРТИРОВКА: ЗАБРАТЬ (0) -> В ПРОЦЕССЕ (1) -> ПОЛУЧЕНО (2) -> ЗВЕЗДЫ (по возрастанию)
+        // 🚀 НОВАЯ СОРТИРОВКА: ЗАБРАТЬ -> В ПРОЦЕССЕ -> ЗАБЛОКИРОВАНО ПРЕД. НЕДЕЛЕЙ -> ПОЛУЧЕНО
         processedQuests.sort((a, b) => {
-            const getPriority = (p) => {
-                if (isLocked) return 1; // Если закрыто, статусы "забрать" не важны, всё будет "в процессе"
-                if (p.is_completed && !p.is_claimed) return 0; // Сверху
-                if (!p.is_completed && !p.is_claimed) return 1; // Середина
-                return 2; // Снизу
+            const getPriority = (q) => {
+                const p = q.userProgress;
+                if (isLocked) return 4; // Будущие недели всегда внизу по логике, хотя статус один
+                if (p.is_completed && !p.is_claimed && q.requiredPrevWeek === null) return 0; // Сверху
+                if (!p.is_completed && !p.is_claimed && q.requiredPrevWeek === null) return 1; // Середина
+                if (q.requiredPrevWeek !== null) return 2; // Заблокировано прошлой неделей
+                return 3; // Снизу (ПОЛУЧЕНО)
             };
             
-            const priorityDiff = getPriority(a.userProgress) - getPriority(b.userProgress);
+            const priorityDiff = getPriority(a) - getPriority(b);
             if (priorityDiff !== 0) return priorityDiff;
             
-            // Вторичная сортировка по звездам (от меньшего к большему)
             const expA = parseInt(a.cfg.exp_reward) || 0;
             const expB = parseInt(b.cfg.exp_reward) || 0;
             return expA - expB;
@@ -2429,35 +2415,34 @@ const processedQuests = weekQuests.map(cfg => {
         const contentInner = weekBlock.querySelector('.week-content-inner');
 
         processedQuests.forEach(({ cfg, title, userProgress, requiredPrevWeek }) => {
-    let actionHtml = '';
-    let cardClass = 'quest-card';
-    
-    // 👇 ДОБАВЛЕНА ПРОВЕРКА НА ЗАКРЫТУЮ НЕДЕЛЮ И ОЧЕРЕДЬ 👇
-    if (isLocked) {
-        // Если неделя еще не стартовала, гасим карточку и не даем кнопок (даже для админа)
-        actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; text-align: right; line-height: 1.2;"><i class="fa-solid fa-lock"></i><br>Ожидается</div>`;
-        cardClass += ' dimmed';
-    } else if (requiredPrevWeek !== null) {
-        actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--danger); text-transform: uppercase; text-align: right; line-height: 1.2;">Сначала<br>неделя ${requiredPrevWeek}</div>`;
-        cardClass += ' dimmed'; // Делаем карточку тусклой, так как она недоступна
-    } else if (userProgress.is_claimed) {
-        actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
-        cardClass += ' dimmed';
-    } else if (userProgress.is_completed) {
-        actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id}, ${cfg.week})" style="margin: 0;">ЗАБРАТЬ</button>`;
-        cardClass += ' ready-to-claim';
-    } else {
-        actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
-    }
+            let actionHtml = '';
+            let cardClass = 'quest-card';
+            let explanationHtml = ''; // 👈 Новая переменная для пояснения юзеру
+            
+            if (isLocked) {
+                actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; text-align: right; line-height: 1.2;"><i class="fa-solid fa-lock"></i><br>Ожидается</div>`;
+                cardClass += ' dimmed';
+            } else if (requiredPrevWeek !== null) {
+                // 👇 Фронтенд теперь объясняет пользователю текстом под названием
+                explanationHtml = `<div style="margin-top: 4px; font-size: 9px; color: var(--danger); font-weight: 600;"><i class="fa-solid fa-link"></i> Сначала заверши это задание на ${requiredPrevWeek} неделе</div>`;
+                actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--danger); text-transform: uppercase; text-align: right; line-height: 1.2;"><i class="fa-solid fa-lock" style="margin-bottom: 2px;"></i><br>Блок</div>`;
+                cardClass += ' dimmed'; 
+            } else if (userProgress.is_claimed) {
+                actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
+                cardClass += ' dimmed';
+            } else if (userProgress.is_completed) {
+                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id}, ${cfg.week})" style="margin: 0;">ЗАБРАТЬ</button>`;
+                cardClass += ' ready-to-claim';
+            } else {
+                actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
+            }
 
-           // Находим данные квеста из загруженной меты, чтобы узнать его тип
             const questMeta = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
-            // Проверяем, относится ли квест к ручным (которые лежат в аккордеонах)
             const isManualInAccordion = questMeta && questMeta.quest_type === 'manual_check';
 
-            // 👇 Минималистичная ссылка перехода (только для нужных заданий) 👇
             let goToHtml = '';
-            if (!userProgress.is_completed && isManualInAccordion) {
+            // Ссылка не показывается, если квест заблокирован предыдущей неделей или будущей
+            if (!userProgress.is_completed && isManualInAccordion && requiredPrevWeek === null && !isLocked) {
                 goToHtml = `
                     <div style="margin-top: 2px;">
                         <button style="background: transparent; border: none; padding: 2px 0; color: var(--text-muted); font-size: 9px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: none;" onclick="window.location.href='/quests?open_id=${cfg.quest_id}'">
@@ -2467,11 +2452,11 @@ const processedQuests = weekQuests.map(cfg => {
                 `;
             }
 
-            // Поменяли местами награду и условие
             contentInner.innerHTML += `
                 <div class="${cardClass}">
                     <div class="quest-info">
                         <h4 class="quest-title">${title}</h4>
+                        ${explanationHtml}
                         ${goToHtml}
                     </div>
                     <div class="quest-right-side">
@@ -2486,10 +2471,9 @@ const processedQuests = weekQuests.map(cfg => {
             `;
         });
         
-
         dom.questsContainer.appendChild(weekBlock);
     }
-       // <--- ДОБАВИТЬ ЭТОТ БЛОК В КОНЕЦ ФУНКЦИИ --->
+    
     const questsBtn = document.getElementById('tab-quests-btn');
     if (questsBtn) {
         if (globalHasRewards) {
@@ -2498,7 +2482,6 @@ const processedQuests = weekQuests.map(cfg => {
             questsBtn.classList.remove('has-rewards-anim');
         }
     }
-    // <--- КОНЕЦ ВСТАВКИ --->
 }
             
   function playStarAnimation(startX, startY) {
