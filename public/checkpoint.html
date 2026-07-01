@@ -1030,6 +1030,15 @@
     height: 100vh;
 }
 
+        /* Тусклый стиль для заданий, ожидающих прошлую неделю, но с яркой кнопкой */
+.quest-card.dependency-locked {
+    background: rgba(0, 0, 0, 0.2);
+}
+.quest-card.dependency-locked .quest-info {
+    opacity: 0.4;
+    filter: grayscale(80%);
+}
+
 
     </style>
 </head>
@@ -2419,23 +2428,24 @@ function renderQuests() {
             let cardClass = 'quest-card';
             let explanationHtml = ''; // 👈 Новая переменная для пояснения юзеру
             
-            if (isLocked) {
-                actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; text-align: right; line-height: 1.2;"><i class="fa-solid fa-lock"></i><br>Ожидается</div>`;
-                cardClass += ' dimmed';
-            } else if (requiredPrevWeek !== null) {
-                // 👇 Фронтенд теперь объясняет пользователю текстом под названием
-                explanationHtml = `<div style="margin-top: 4px; font-size: 9px; color: var(--danger); font-weight: 600;"><i class="fa-solid fa-link"></i> Сначала заверши это задание на ${requiredPrevWeek} неделе</div>`;
-                actionHtml = `<div style="font-size: 9px; font-weight: 800; color: var(--danger); text-transform: uppercase; text-align: right; line-height: 1.2;"><i class="fa-solid fa-lock" style="margin-bottom: 2px;"></i><br>Блок</div>`;
-                cardClass += ' dimmed'; 
-            } else if (userProgress.is_claimed) {
-                actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
-                cardClass += ' dimmed';
-            } else if (userProgress.is_completed) {
-                actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id}, ${cfg.week})" style="margin: 0;">ЗАБРАТЬ</button>`;
-                cardClass += ' ready-to-claim';
-            } else {
-                actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
-            }
+            / 👇 ДОБАВЛЕНА ПРОВЕРКА НА ЗАКРЫТУЮ НЕДЕЛЮ И ОЧЕРЕДЬ 👇
+    if (isLocked) {
+        // Идеально выровненный замочек по центру, без текста
+        actionHtml = `<div style="display: flex; align-items: center; justify-content: center; width: 100%; color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
+        cardClass += ' dimmed';
+    } else if (requiredPrevWeek !== null) {
+        // Яркая кликабельная кнопка-указатель
+        actionHtml = `<div onclick="jumpToWeek(event, ${requiredPrevWeek}, this)" style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; text-align: center; line-height: 1.3; cursor: pointer; background: rgba(255, 215, 0, 0.1); border: 1px dashed rgba(255, 215, 0, 0.4); padding: 4px 8px; border-radius: 6px; text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);"><span style="font-size: 7px; color: #ccc;">Сначала</span><br>Неделя ${requiredPrevWeek}</div>`;
+        cardClass += ' dependency-locked';
+    } else if (userProgress.is_claimed) {
+        actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
+        cardClass += ' dimmed';
+    } else if (userProgress.is_completed) {
+        actionHtml = `<button class="btn-claim ready" onclick="claimQuestReward(${cfg.quest_id}, ${cfg.week})" style="margin: 0;">ЗАБРАТЬ</button>`;
+        cardClass += ' ready-to-claim';
+    } else {
+        actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${userProgress.current_amount} / ${userProgress.target_amount}</div>`;
+    }
 
             const questMeta = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const isManualInAccordion = questMeta && questMeta.quest_type === 'manual_check';
@@ -2523,6 +2533,29 @@ function renderQuests() {
             setTimeout(() => star.remove(), 1600);
         }
     }
+
+    window.jumpToWeek = function(event, targetWeek, element) {
+    if (event) event.stopPropagation();
+    haptic('medium');
+
+    // Находим текущий аккордеон и закрываем его
+    const currentAccordion = element.closest('.week-accordion');
+    if (currentAccordion && currentAccordion.classList.contains('expanded')) {
+        const currentHeader = currentAccordion.querySelector('.week-header');
+        if (currentHeader) window.toggleWeek(currentHeader);
+    }
+
+    // Находим нужный аккордеон и открываем его (в toggleWeek уже вшит плавный скролл)
+    const targetHeader = document.querySelector(`.week-header[data-week="${targetWeek}"]`);
+    if (targetHeader) {
+        if (!targetHeader.classList.contains('expanded')) {
+            window.toggleWeek(targetHeader);
+        } else {
+            // Если он уже был открыт, просто плавно скроллим к нему
+            setTimeout(() => window.smoothScrollTo(targetHeader.closest('.week-accordion')), 300);
+        }
+    }
+};
 
     window.claimReward = async function(level, type, forceAction = null, eventPos = null, extraParams = null) {
         const lockKey = `bp_${level}_${type}`;
