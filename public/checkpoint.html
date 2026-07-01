@@ -2321,20 +2321,22 @@ function renderQuests() {
             statusText = 'Доступна';
         }
         
-        const processedQuests = weekQuests.map(cfg => {
+const processedQuests = weekQuests.map(cfg => {
             const questDetails = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(cfg.quest_id)) : null;
             const title = questDetails ? questDetails.title : `Задание ID: ${cfg.quest_id}`;
             const isRepeatable = questDetails ? questDetails.is_repeatable : false;
 
+            // 🔥 1. Определяем, является ли задание поэтапным (водопадным) по его типу
+            const qType = questDetails ? (questDetails.quest_type || '') : '';
+            const isWaterfall = qType.includes('twitch_messages') || qType.includes('twitch_uptime');
+
             const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
 
             let rawProgress = null;
-
             if (!isRepeatable) {
                 rawProgress = allUserProgress.length > 0 ? allUserProgress[0] : null;
             } else {
                 rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
-                
                 if (!rawProgress) {
                     const oldNullProgress = allUserProgress.find(q => q.week == null);
                     if (oldNullProgress && oldNullProgress.updated_at) {
@@ -2359,23 +2361,44 @@ function renderQuests() {
                 userProgress.target_amount = actualTarget;
             }
 
+            // 🔥 2. Умный поиск предыдущей недели (связываем по типу задания, а не только по ID)
             let requiredPrevWeek = null;
-            if (isRepeatable) {
-                const prevWeeksConfigs = bpData.quests_config.filter(q => 
-                    String(q.quest_id) === String(cfg.quest_id) && q.week < cfg.week
-                ).sort((a, b) => a.week - b.week); 
+            if (isRepeatable || isWaterfall) {
+                const prevWeeksConfigs = bpData.quests_config.filter(q => {
+                    if (q.week >= cfg.week) return false;
+                    
+                    if (String(q.quest_id) === String(cfg.quest_id)) return true;
+                    
+                    // Если это водопадное задание, ищем прошлые задания ТАКОГО ЖЕ типа
+                    if (isWaterfall) {
+                        const pDetails = Array.isArray(allQuests) ? allQuests.find(aq => String(aq.id) === String(q.quest_id)) : null;
+                        if (pDetails && pDetails.quest_type === qType) return true;
+                    }
+                    return false;
+                }).sort((a, b) => a.week - b.week); 
 
                 for (const prevCfg of prevWeeksConfigs) {
-                    const prevProgress = allUserProgress.find(q => String(q.week) === String(prevCfg.week));
+                    const pDetails = Array.isArray(allQuests) ? allQuests.find(aq => String(aq.id) === String(prevCfg.quest_id)) : null;
+                    const pIsRepeatable = pDetails ? pDetails.is_repeatable : false;
                     
-                    if (!prevProgress || !prevProgress.is_claimed) {
+                    let prevProg = null;
+                    if (userData.bp_quests) {
+                        if (pIsRepeatable) {
+                            prevProg = userData.bp_quests.find(q => String(q.quest_id) === String(prevCfg.quest_id) && String(q.week) === String(prevCfg.week));
+                        } else {
+                            prevProg = userData.bp_quests.find(q => String(q.quest_id) === String(prevCfg.quest_id));
+                        }
+                    }
+
+                    if (!prevProg || !prevProg.is_claimed) {
                         requiredPrevWeek = prevCfg.week;
                         break; 
                     }
                 }
             }
 
-            return { cfg, title, userProgress, requiredPrevWeek };
+            // Прокидываем флаг isWaterfall дальше для рендера текста
+            return { cfg, title, userProgress, requiredPrevWeek, isWaterfall };
         });
         
         const hasRewardsToClaim = !isLocked && processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed && q.requiredPrevWeek === null);
@@ -2423,29 +2446,28 @@ function renderQuests() {
         
         const contentInner = weekBlock.querySelector('.week-content-inner');
 
-        processedQuests.forEach(({ cfg, title, userProgress, requiredPrevWeek }) => {
+        processedQuests.forEach(({ cfg, title, userProgress, requiredPrevWeek, isWaterfall }) => {
             let actionHtml = '';
             let cardClass = 'quest-card';
-            let explanationHtml = ''; // 👈 Новая переменная для пояснения юзеру
+            let explanationHtml = ''; 
             
-            // 👇 ДОБАВЛЕНА ПРОВЕРКА НА ЗАКРЫТУЮ НЕДЕЛЮ И ОЧЕРЕДЬ 👇
-               if (isLocked) {
-                // Идеально выровненный замочек по центру для будущих недель
+            if (isLocked) {
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
                 cardClass += ' dimmed';
-           } else if (requiredPrevWeek !== null) {
-                // Надпись 1в1 как "К заданию", но красного цвета
+            } else if (requiredPrevWeek !== null) {
+                // 🔥 3. Меняем текст предупреждения для поэтапных заданий
+                let explanationText = isWaterfall 
+                    ? `Поэтапно. Сначала заверши на ${requiredPrevWeek} неделе` 
+                    : `Сначала заверши на ${requiredPrevWeek} неделе`;
+                    
                 explanationHtml = `
                     <div style="margin-top: 2px;">
                         <button style="background: transparent; border: none; padding: 2px 0; color: var(--danger); font-size: 9px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: none; transition: 0.2s;" onclick="jumpToWeek(event, ${requiredPrevWeek}, this)">
-                            Сначала заверши на ${requiredPrevWeek} неделе <i class="fa-solid fa-angle-right" style="font-size: 8px; color: var(--danger);"></i>
+                            ${explanationText} <i class="fa-solid fa-angle-right" style="font-size: 8px; color: var(--danger);"></i>
                         </button>
                     </div>`;
                 
-                // Идеально выровненный замочек по центру
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--danger); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
-                
-                // 👇 ВАЖНО: Здесь НЕ должно быть ' dimmed', иначе всё потускнеет
                 cardClass += ' dependency-locked'; 
             } else if (userProgress.is_claimed) {
                 actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
