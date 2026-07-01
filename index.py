@@ -16661,10 +16661,14 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
         raise HTTPException(status_code=400, detail="Сезон БП сейчас не активен")
 
     # 3. Калькуляция
-    premium_price = float(config.get("premium_price", 199))
-    ratio = premium_price / 199.0
+    # Обращаемся строго к рублевой цене, как на фронтенде
+    premium_price_rub = float(config.get("premium_price_rub") or 199)
+    if premium_price_rub <= 0:
+        premium_price_rub = 199.0
+        
+    ratio = premium_price_rub / 199.0
     
-    # Считаем точную стоимость за запрошенное количество уровней по заданным тарифам
+    # Считаем динамическую стоимость
     price_rub = round(20 * ratio * req.levels)
     price_coins = round(40 * ratio * req.levels)
     price_tickets = round(80 * ratio * req.levels)
