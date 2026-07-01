@@ -51,13 +51,14 @@
         }
 
         .bp-hero::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            /* Используем RGB (18, 18, 18) для идеального слияния */
-            background: linear-gradient(to bottom, rgba(18,18,18,0.8) 0%, rgba(18,18,18,0.4) 50%, var(--bg-color) 100%);
-            z-index: 1;
-        }
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* Убрали черноту сверху. Добавили 5% золотого свечения для сочности, плавное затемнение начинается только с 50% высоты */
+    background: linear-gradient(to bottom, rgba(255, 215, 0, 0.05) 0%, rgba(18, 18, 18, 0.1) 50%, var(--bg-color) 100%);
+    z-index: 1;
+    pointer-events: none; /* Гарантирует, что оверлей никогда не перекроет клики по кнопкам */
+}
 
         .hero-actions { 
             display: flex; 
