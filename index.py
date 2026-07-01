@@ -15966,9 +15966,16 @@ async def get_checkpoint_status(
             
             claimed_gq_ids = set()
             if tg_id:
-                # Ищем прогресс общих квестов у этого юзера
+                # 🔥 ИСПРАВЛЕНИЕ: Ищем прогресс общих квестов В НОВОЙ ТАБЛИЦЕ
                 gq_ids = ",".join([str(q["quest_id"]) for q in global_quests])
-                prog_resp = await supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"in.({gq_ids})", "is_claimed": "eq.true"})
+                prog_resp = await supabase.get(
+                    "/user_quest_progress", 
+                    params={
+                        "user_id": f"eq.{tg_id}", 
+                        "quest_id": f"in.({gq_ids})", 
+                        "claimed_at": "not.is.null" # Проверяем наличие даты клейма
+                    }
+                )
                 if prog_resp.is_success and prog_resp.json():
                     claimed_gq_ids = {q["quest_id"] for q in prog_resp.json()}
 
@@ -16011,7 +16018,6 @@ async def get_checkpoint_status(
                     for s in skins_resp.json():
                         skin_images[s["market_hash_name"]] = s.get("image_url")
             except Exception as e:
-                # База отвалилась по таймауту или другая беда — глотаем ошибку, баттл-пасс должен работать
                 logging.warning(f"Сбой при загрузке картинок скинов: {e}")
 
         # Запрашиваем картинки кейсов из shop_cache
@@ -16022,7 +16028,6 @@ async def get_checkpoint_status(
                 if cases_resp.is_success and cases_resp.json():
                     row_data = cases_resp.json()[0].get("data")
                     
-                    # Парсим JSONB данные (в базе может быть строкой или уже массивом)
                     if isinstance(row_data, str):
                         try:
                             cases_list = json.loads(row_data)
@@ -16031,13 +16036,11 @@ async def get_checkpoint_status(
                     else:
                         cases_list = row_data or []
                     
-                    # Ищем картинки по названию кейса
                     for c in cases_list:
                         name = c.get("name")
                         if name in case_names:
                             case_images[name] = c.get("image_url")
             except Exception as e:
-                # Аналогично, если кэш кейсов тяжелый и отвалился, просто пишем в лог
                 logging.warning(f"Сбой при загрузке картинок кейсов: {e}")
         # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
 
@@ -16045,7 +16048,6 @@ async def get_checkpoint_status(
         formatted_tiers = []
         for t in tiers_data:
             
-            # Функция для безопасного извлечения URL картинки
             def get_image_for_reward(r_type, r_value):
                 if r_type == "cs2_skin":
                     return skin_images.get(r_value, "")
@@ -16076,7 +16078,6 @@ async def get_checkpoint_status(
     except Exception as e:
         logging.error(f"Ошибка получения статуса Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
-
 
 @app.get("/api/v1/admin/twitch_campaigns/cases")
 async def get_cases_list(
