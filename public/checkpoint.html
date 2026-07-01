@@ -3561,19 +3561,16 @@ window.smoothScrollTo = function(element) {
 
     function updateBuyExpUI() {
         document.getElementById('buy-level-count').innerText = levelsToBuy;
-        
-        // НОВОЕ: Подставляем правильный падеж
         document.getElementById('buy-level-text').innerText = getPlural(levelsToBuy, 'УРОВЕНЬ', 'УРОВНЯ', 'УРОВНЕЙ');
-        
         document.getElementById('buy-exp-count').innerText = levelsToBuy * 10;
 
-        // Динамическая калькуляция. База: 199 рублей
-        const premiumPrice = bpData && bpData.premium_price ? bpData.premium_price : 199;
+        // Тянем ИМЕННО рублевую цену из настроек БП (если пусто или 0, берем 199)
+        const premiumPriceRub = (bpData && bpData.premium_price_rub && bpData.premium_price_rub > 0) ? bpData.premium_price_rub : 199;
         
         // Вычисляем множитель (при 199 руб он равен 1)
-        const ratio = premiumPrice / 199;
+        const ratio = premiumPriceRub / 199.0;
         
-        // Точные расчеты: Базовая цена * Множитель * Количество уровней
+        // Точные расчеты с учетом динамического множителя
         const priceRub = Math.round(20 * ratio * levelsToBuy);
         const priceCoins = Math.round(40 * ratio * levelsToBuy);
         const priceTickets = Math.round(80 * ratio * levelsToBuy);
