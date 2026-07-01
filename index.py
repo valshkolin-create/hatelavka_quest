@@ -3702,16 +3702,28 @@ async def get_bootstrap_data(
         }
         
         # 🔥 ОПТИМИЗАЦИЯ 3: Пакетное обновление словаря на уровне С (в разы быстрее)
+        
+        # 👇 ХИРУРГИЧЕСКАЯ ВСТАВКА: Считаем уровень БП (1 уровень = 10 EXP)
+        cp_stars = db_data.get('user_extra', {}).get('checkpoint_stars', 0)
+        calculated_cp_level = int(cp_stars // 10) if cp_stars else 0
+        # -----------------------------------------------------------------
+
         user_data.update({
             'event_participations': rpc_data.get('event_participations', {}),
             'is_admin': is_admin,
             'is_checkpoint_globally_enabled': menu_content.get('checkpoint_enabled', False),
             'quest_rewards_enabled': menu_content.get('quest_promocodes_enabled', False),
             'is_stream_online': db_data.get('stream_status', False),
-            'is_telegram_subscribed': bool(user_data.get('referral_activated_at')), # Быстрое приведение к bool
+            'is_telegram_subscribed': bool(user_data.get('referral_activated_at')), 
             'active_referrals_count': db_data.get('ref_count', 0),
             'active_trade_status': trade_status_map.get(db_data.get('trade_status'), "none"),
             'active_secret_code': db_data.get('secret_code'),
+            
+            # 👇 ХИРУРГИЧЕСКАЯ ВСТАВКА: Прокидываем данные для JS
+            'bp_quests': db_data.get('bp_quests', []), 
+            'checkpoint_level': calculated_cp_level,
+            # ---------------------------------------------------
+
             **db_data.get('user_extra', {}),
             **db_data.get('user_settings', {})  # 🔥 ВОТ ОНА — РАСПАКОВКА НАСТРОЕК
         })
