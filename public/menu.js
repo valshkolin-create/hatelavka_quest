@@ -1578,14 +1578,30 @@ async function renderFullInterface(data) {
             const cpLevelEl = document.getElementById('cp-banner-level');
             if (cpLevelEl) cpLevelEl.textContent = userData.checkpoint_level || 0;
 
-            // 3. Плашка выполненного квеста
+            // 3. Плашка выполненного квеста (актуальные награды)
             const cpAlertEl = document.getElementById('cp-banner-alert');
             if (cpAlertEl) {
-                // Убрали строгое сравнение. Теперь ловит любые truthy/falsy значения корректно
-                const hasFinishedQuests = Array.isArray(userData.bp_quests) && 
-                    userData.bp_quests.some(q => q.is_completed && !q.is_claimed);
-                
-                cpAlertEl.style.display = hasFinishedQuests ? 'inline-block' : 'none';
+                // Считаем количество выполненных, но не забранных квестов
+                const unclaimedQuestsCount = Array.isArray(userData.bp_quests) 
+                    ? userData.bp_quests.filter(q => q.is_completed === true && q.is_claimed === false).length 
+                    : 0;
+
+                if (unclaimedQuestsCount > 0) {
+                    cpAlertEl.style.display = 'inline-block';
+                    
+                    // Делаем текст призывным, а иконку — пульсирующей
+                    cpAlertEl.innerHTML = `<i class="fa-solid fa-fire fa-beat" style="margin-right: 5px; color: #ff3b30;"></i>ДОСТУПНО НАГРАД: ${unclaimedQuestsCount}`;
+                    
+                    // Накидываем "агрессивные" стили для привлечения внимания
+                    cpAlertEl.style.background = '#FFD700'; // Золотой фон
+                    cpAlertEl.style.color = '#000'; // Черный текст для контраста
+                    cpAlertEl.style.fontWeight = '900';
+                    cpAlertEl.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.6)'; // Золотое свечение вокруг
+                    cpAlertEl.style.border = 'none';
+                    cpAlertEl.style.animation = 'statusPulse 2s infinite'; // Твоя анимация пульсации
+                } else {
+                    cpAlertEl.style.display = 'none';
+                }
             }
 
             // 4. Подтягиваем картинку из админки (JSON)
