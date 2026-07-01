@@ -16634,6 +16634,97 @@ async def view_topskin_code(
         "views": new_views
     }
 
+class BuyExpRequest(BaseModel):
+    initData: str
+    levels: int
+    currency: str # 'rub', 'coins', 'tickets'
+
+@app.post("/api/v1/checkpoint/buy_exp")
+async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # 1. Авторизация
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    tg_id = user_info["id"]
+
+    # Защита от дурака
+    if req.levels < 1 or req.levels > 50:
+        raise HTTPException(status_code=400, detail="Недопустимое количество уровней")
+
+    # 2. Достаем конфиг БП для расчета цены
+    cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
+    if not cp_res.is_success or not cp_res.json():
+        raise HTTPException(status_code=400, detail="Настройки БП не найдены")
+    
+    config = cp_res.json()[0].get("content", {})
+    if not config.get("is_active"):
+        raise HTTPException(status_code=400, detail="Сезон БП сейчас не активен")
+
+    # 3. Калькуляция
+    premium_price = int(config.get("premium_price", 0))
+    base_rub = round(premium_price * 0.1) if premium_price > 0 else 20
+    
+    price_rub = base_rub * req.levels
+    price_coins = (base_rub * 2) * req.levels
+    price_tickets = (base_rub * 4) * req.levels
+
+    # 4. Проверяем балансы пользователя
+    u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars, tickets, bott_internal_id"})
+    user_data = u_res.json()
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    user = user_data[0]
+    
+    # 5. Списание
+    if req.currency == "rub":
+        raise HTTPException(status_code=400, detail="Оплата рублями временно отключена")
+        
+    elif req.currency == "coins":
+        bott_id = user.get("bott_internal_id")
+        if not bott_id:
+            raise HTTPException(status_code=400, detail="Ошибка аккаунта: ID бота не найден")
+            
+        deduction_result = await subtract_bott_balance(
+            bott_internal_id=bott_id, 
+            amount=price_coins, 
+            comment=f"Покупка {req.levels} уровней БП"
+        )
+        if deduction_result is False:
+            raise HTTPException(status_code=400, detail="Транзакция отклонена. Проверьте баланс монет.")
+            
+    elif req.currency == "tickets":
+        current_tickets = int(user.get("tickets") or 0)
+        if current_tickets < price_tickets:
+            raise HTTPException(status_code=400, detail="Недостаточно билетов")
+            
+        ticket_res = await supabase.patch(
+            "/users", 
+            params={"telegram_id": f"eq.{tg_id}"}, 
+            json={"tickets": current_tickets - price_tickets}
+        )
+        if not ticket_res.is_success:
+            raise HTTPException(status_code=500, detail="Ошибка при списании билетов")
+            
+    else:
+        raise HTTPException(status_code=400, detail="Неизвестный метод оплаты")
+
+    # 6. Начисление EXP
+    current_stars = float(user.get("checkpoint_stars") or 0)
+    exp_to_add = req.levels * 10
+    
+    patch_res = await supabase.patch(
+        "/users", 
+        params={"telegram_id": f"eq.{tg_id}"}, 
+        json={"checkpoint_stars": current_stars + exp_to_add}
+    )
+    
+    if not patch_res.is_success:
+        logging.error(f"АЛАРМ! Ресурсы списаны, но EXP не выдан для {tg_id}.")
+        raise HTTPException(status_code=500, detail="Ошибка выдачи EXP. Обратитесь к администратору.")
+
+    return {"status": "success", "message": f"Куплено {req.levels} уровней"}
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
