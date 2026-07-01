@@ -2429,13 +2429,18 @@ function renderQuests() {
             let explanationHtml = ''; // 👈 Новая переменная для пояснения юзеру
             
             // 👇 ДОБАВЛЕНА ПРОВЕРКА НА ЗАКРЫТУЮ НЕДЕЛЮ И ОЧЕРЕДЬ 👇
-                if (isLocked) {
+               if (isLocked) {
                 // Идеально выровненный замочек по центру для будущих недель
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
                 cardClass += ' dimmed';
             } else if (requiredPrevWeek !== null) {
-                // 👇 Простая красная кликабельная надпись без фонов и рамок
-                explanationHtml = `<div onclick="jumpToWeek(event, ${requiredPrevWeek}, this)" style="margin-top: 4px; font-size: 10px; color: var(--danger); font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'"><i class="fa-solid fa-link"></i> Сначала заверши на ${requiredPrevWeek} неделе</div>`;
+                // 👇 Надпись 1в1 как "К заданию", но красного цвета (var(--danger)) со стрелочкой
+                explanationHtml = `
+                    <div style="margin-top: 2px;">
+                        <button style="background: transparent; border: none; padding: 2px 0; color: var(--danger); font-size: 9px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: none; transition: 0.2s;" onclick="jumpToWeek(event, ${requiredPrevWeek}, this)">
+                            Сначала заверши на ${requiredPrevWeek} неделе <i class="fa-solid fa-angle-right" style="font-size: 8px; color: var(--danger);"></i>
+                        </button>
+                    </div>`;
                 
                 // Идеально выровненный замочек по центру
                 actionHtml = `<div style="width: 100%; text-align: center; color: var(--danger); font-size: 14px;"><i class="fa-solid fa-lock"></i></div>`;
