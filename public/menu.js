@@ -1917,7 +1917,7 @@ function renderItems(items) {
 
         let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
-        const isCase = upperName.includes("КЕЙС |") || upperName.includes("CASE |");
+        const isCase = upperName.includes("КЕЙС") || upperName.includes("CASE");
         const safeName = item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeImg = item.image_url || "";
         const cleanName = item.name.replace(/^(Кейс|Case)\s*\|\s*/i, '').trim();
@@ -1933,8 +1933,8 @@ function renderItems(items) {
         let availableCountHtml = '';
         let titleTop = '4px'; // Дефолтный отступ названия
         
-        // Показываем текст только если доступно 2 и более кейсов
-        if (isCase && userOwnedCount >= 2) {
+        // Показываем плашку, если доступна хотя бы 1 штука
+        if (isCase && userOwnedCount >= 1) {
             availableCountHtml = `<div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 8px; font-weight: 900; color: #34c759; text-transform: uppercase; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Доступно: ${userOwnedCount} шт</div>`;
             titleTop = '14px'; // Сдвигаем название чуть ниже
         }
@@ -2143,13 +2143,16 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
             strip[60] = winner; 
 
             launchRoulette(strip, winner, resData.messages || [], resData.lacky, name);
-             // 2. 🔥 ВОТ СЮДА СТАВИМ ЭТОТ БЛОК 🔥
+             // 2. 🔥 БЕТОННОЕ СПИСАНИЕ ОДНОЙ ШТУКИ 🔥
             if (isFreeOpen) {
-                // Удаляем кейс из локального списка "активных халяв", чтобы кнопка сразу поменялась
-                window.activeFreeCases = window.activeFreeCases.filter(n => n !== name);
+                // Находим индекс ПЕРВОГО совпадения
+                const indexToRemove = window.activeFreeCases.indexOf(name);
+                if (indexToRemove > -1) {
+                    // Вырезаем ровно 1 штуку из массива
+                    window.activeFreeCases.splice(indexToRemove, 1);
+                }
                 
-                // Перерисовываем визуал магазина (теперь кнопки станут платными)
-                // Используем текущую категорию (у тебя это 2716312 или динамическая переменная)
+                // Перерисовываем визуал магазина (счетчик обновится)
                 renderItems(itemsCache[currentCategoryId] || []); 
             }
 
