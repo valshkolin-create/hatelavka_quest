@@ -15504,8 +15504,9 @@ async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncCl
 
 async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClient):
     """
-    Синхронизирует прогресс автоматических заданий БП методом СТРОГОЙ ЦЕПОЧКИ (Водопад).
-    Сначала заполняется 1 неделя, остаток перетекает во 2 неделю и т.д.
+    Синхронизирует прогресс автоматических заданий БП.
+    Внедрен ЖЕСТКИЙ ЗАМОК ЦЕПОЧКИ: следующая неделя получает 0, 
+    пока не нажата кнопка "Забрать" на предыдущей.
     """
     try:
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
@@ -15520,11 +15521,10 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         
         current_week = ((now - bp_start_date).days // 7) + 1
         
-        # Получаем все квесты до текущей недели
         active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
         if not active_quests: return
         
-        # СОРТИРУЕМ СТРОГО ОТ 1 НЕДЕЛИ К ПОСЛЕДНЕЙ (чтобы водопад тек правильно)
+        # Сортируем строго от 1 недели к последней
         active_quests.sort(key=lambda x: x.get("week", 1))
         quest_ids = [str(q["quest_id"]) for q in active_quests]
         
@@ -15536,7 +15536,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         start_str = bp_start_date.strftime('%Y-%m-%d')
         today_str = now.strftime('%Y-%m-%d')
 
-        # 1. СОБИРАЕМ ВООБЩЕ ВСЮ АКТИВНОСТЬ С НАЧАЛА СЕЗОНА
         activity_res = await supabase.get(
             "/user_daily_activity", 
             params={
@@ -15546,13 +15545,8 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             }
         )
         
-        season_tw_msgs = 0
-        season_tw_uptime = 0
-        season_tg_msgs = 0
-        
-        today_tw_msgs = 0
-        today_tw_uptime = 0
-        today_tg_msgs = 0
+        season_tw_msgs, season_tw_uptime, season_tg_msgs = 0, 0, 0
+        today_tw_msgs, today_tw_uptime, today_tg_msgs = 0, 0, 0
         
         if activity_res.is_success and activity_res.json():
             for row in activity_res.json():
@@ -15576,8 +15570,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         
         existing_progress = {(str(q["quest_id"]), str(q.get("week", 1))): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
-        # 2. ФОРМИРУЕМ "БАССЕЙНЫ" ДЛЯ ВОДОПАДА
-        # Это общий пул сообщений/минут, из которого мы будем черпать, пока он не иссякнет
         rem_season_tw_msgs = season_tw_msgs
         rem_season_tw_uptime = season_tw_uptime
         rem_season_tg_msgs = season_tg_msgs
@@ -15585,6 +15577,9 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         rem_today_tw_msgs = today_tw_msgs
         rem_today_tw_uptime = today_tw_uptime
         rem_today_tg_msgs = today_tg_msgs
+
+        # 🔥 Словарь для блокировки цепочек 🔥
+        chain_status = {}
 
         for wq in active_quests:
             q_id_str = str(wq["quest_id"])
@@ -15601,22 +15596,36 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 db_target = meta.get("target_value")
                 if db_target: target = db_target
             
+            # 🔥 ЕСЛИ ЦЕПОЧКА ЗАБЛОКИРОВАНА ПРЕДЫДУЩЕЙ НЕДЕЛЕЙ 🔥
+            if chain_status.get(q_id_str) == "locked":
+                existing = existing_progress.get((q_id_str, q_week_str))
+                if not existing:
+                    # Создаем пустую запись, чтобы фронт видел заблокированный квест
+                    await supabase.post("/user_bp_quests", json={
+                        "user_id": user_id,
+                        "quest_id": int(q_id_str),
+                        "week": q_week_int,
+                        "current_amount": 0,
+                        "target_amount": target,
+                        "is_completed": False,
+                        "is_claimed": False
+                    })
+                continue # Полностью пропускаем расчет прогресса для этой недели
+            
             is_auto = False
             current_amount = 0
             
-            # 🔥 3. ЛОГИКА СТРОГОЙ ЦЕПОЧКИ 🔥
-            # Берем из общего бассейна столько, сколько нужно квесту, и отнимаем это от бассейна.
-            
+            # Черпаем из бассейнов
             if "twitch_messages_week" in q_type:
                 allocate = min(rem_season_tw_msgs, target) 
                 current_amount = allocate
-                rem_season_tw_msgs -= allocate # Забрали сообщения, остаток пойдет на след. неделю
+                rem_season_tw_msgs -= allocate
                 is_auto = True
                 
             elif "tg_messages_week" in q_type:
                 allocate = min(rem_season_tg_msgs, target)
                 current_amount = allocate
-                rem_season_tg_msgs -= allocate # Остаток TG сообщений ушел на след. неделю
+                rem_season_tg_msgs -= allocate
                 is_auto = True
                 
             elif "twitch_uptime_week" in q_type:
@@ -15625,7 +15634,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 rem_season_tw_uptime -= allocate
                 is_auto = True
                 
-            # Сессионные квесты (выполняются в рамках одного дня)
             elif "twitch_messages_session" in q_type:
                 existing = existing_progress.get((q_id_str, q_week_str))
                 if existing and existing.get("is_completed"):
@@ -15658,10 +15666,17 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 
             if is_auto:
                 existing = existing_progress.get((q_id_str, q_week_str))
-                if existing and existing.get("is_claimed"):
-                    continue 
-                
+                is_claimed = existing.get("is_claimed", False) if existing else False
                 is_completed = current_amount >= target
+                
+                # 🔥 ЖЕСТКАЯ ПРОВЕРКА ЦЕПОЧКИ 🔥
+                # Если эта неделя не пройдена ИЛИ пройдена, но не забрана - блокируем все следующие!
+                if not is_completed or not is_claimed:
+                    chain_status[q_id_str] = "locked"
+                
+                # Если уже забрали, пропускаем апдейт в БД
+                if is_claimed:
+                    continue 
                 
                 payload = {
                     "current_amount": current_amount,
@@ -15685,9 +15700,13 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
     except Exception as e:
         logging.error(f"Ошибка авто-синхронизации БП для {user_id}: {e}", exc_info=True)
 
+
 async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
+    """
+    Обработчик ручных/разовых триггеров. 
+    Внедрен ЖЕСТКИЙ ЗАМОК: не перейдет к следующей неделе, пока не забрана предыдущая.
+    """
     try:
-        # 1. Если передали только twitch_login, находим TG ID
         if not tg_id and twitch_login:
             u_res = await supabase.get("/users", params={"twitch_login": f"ilike.{twitch_login}", "select": "telegram_id"})
             if u_res.status_code == 200 and u_res.json():
@@ -15695,27 +15714,23 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         if not tg_id: return 
 
-        # 2. Получаем конфиг БП
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
         if cp_res.status_code != 200 or not cp_res.json(): return
         
         config = cp_res.json()[0].get("content", {})
         if not config.get("is_active") or not config.get("start_date"): return
         
-        # 3. Вычисляем текущую неделю
         start_date = datetime.fromisoformat(config["start_date"].replace('Z', '+00:00'))
         now = datetime.now(timezone.utc)
         if now < start_date: return
         
         current_week = ((now - start_date).days // 7) + 1
         
-        # 🔥 Ищем ВСЕ активные квесты вплоть до текущей недели
         active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
         if not active_quests: return
         
         quest_ids = [str(q["quest_id"]) for q in active_quests]
         
-        # 4. Проверяем названия заданий в БД, чтобы найти нужное
         quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,title"})
         if quests_res.status_code != 200: return
         
@@ -15727,10 +15742,8 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
                 
         if not target_quest_id: return
         
-        # 🔥 Достаем все конфиги для ЭТОГО задания за ВСЕ доступные недели, сортируем по порядку
         target_configs = sorted([q for q in active_quests if q["quest_id"] == target_quest_id], key=lambda x: x.get("week", 1))
         
-        # 5. Ищем ВЕСЬ прогресс юзера по этому заданию
         prog_res = await supabase.get("/user_bp_quests", params={
             "user_id": f"eq.{tg_id}",
             "quest_id": f"eq.{target_quest_id}"
@@ -15741,19 +15754,23 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         target_amount = 1
         current_db_record = None
         
-        # 🔥 6. Ищем ПЕРВУЮ незавершенную неделю!
+        # 🔥 Ищем правильную неделю с учетом блокировок 🔥
         for cfg in target_configs:
             w = cfg.get("week", 1)
             prog = user_progress.get(w)
+            
+            # Если предыдущая неделя выполнена, но еще не забрана юзером - стоп!
+            if prog and prog.get("is_completed") and not prog.get("is_claimed"):
+                break # Прерываем цикл. Следующие недели недоступны.
+            
             if not prog or not prog.get("is_completed"):
                 week_to_update = w
                 target_amount = cfg.get("target_amount", 1)
                 current_db_record = prog
                 break
                 
-        if not week_to_update: return # Все доступные недели уже выполнены на 100%
+        if not week_to_update: return 
         
-        # 7. Обновляем найденную неделю (либо вставляем новую запись)
         if current_db_record:
             new_amount = current_db_record["current_amount"] + 1
             is_completed = new_amount >= target_amount
