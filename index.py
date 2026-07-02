@@ -9598,6 +9598,7 @@ async def get_current_user_data(
         final_response['fake_message_codes'] = data.get('fake_message_codes', {})
         final_response['my_active_cases'] = data.get('my_active_cases', []) # 👈 ДОБАВИТЬ ЭТУ СТРОКУ
         final_response['bp_quests'] = data.get('bp_quests', [])
+        final_response['topskin_views'] = final_response.get('topskin_views') or data.get('topskin_views') or 0
 
         # Вшиваем локальные настройки (с проверкой на инстанс ошибок)
         final_response['is_admin'] = telegram_id in ADMIN_IDS
