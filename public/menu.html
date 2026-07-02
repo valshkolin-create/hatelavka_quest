@@ -78,18 +78,24 @@
         <i class="fa-solid fa-rotate-right"></i>
     </div>
 
-    <main id="main-content" class="main-content-scrollable">
+    <!-- ТУТ ТУМБЛЕРА БЫТЬ НЕ ДОЛЖНО, СПУСКАЕМ ЕГО НИЖЕ -->
+    
+   <main id="main-content" class="main-content-scrollable">
     <div class="content-wrapper">
 
+        <!-- 1. СНАЧАЛА СТАТИСТИКА (будет сверху) -->
         <div id="global-stats-block" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin: 0 16px 15px 16px; opacity: 0.7;">
+            <!-- Кейсы -->
             <div style="display: flex; align-items: center; gap: 6px; font-size: 10px;">
                 <i class="fa-solid fa-box-open" style="color: #2AABEE;"></i>
                 <span style="color: #8e8e93; font-weight: 700; text-transform: uppercase;">Открыто кейсов:</span>
                 <span id="stat-cases-opened" style="color: #fff; font-weight: 900; font-family: 'SF Mono', monospace;">0</span>
             </div>
 
+            <!-- Точка-разделитель -->
             <div style="width: 3px; height: 3px; background: rgba(255,255,255,0.3); border-radius: 50%;"></div>
 
+            <!-- Скины -->
             <div style="display: flex; align-items: center; gap: 6px; font-size: 10px;">
                 <i class="fa-solid fa-gun" style="color: #ffd700; transform: scaleX(-1);"></i>
                 <span style="color: #8e8e93; font-weight: 700; text-transform: uppercase;">Успешных сделок:</span>
@@ -97,6 +103,7 @@
             </div>
         </div>
 
+        <!-- 2. ДАЛЕЕ ТУМБЛЕР (прямо под статистикой) -->
         <div class="toggle-container">
             <div class="toggle-wrapper" id="mode-toggle">
                 <div class="toggle-slider"></div>
@@ -144,6 +151,14 @@
                             <img src="https://i.postimg.cc/FK6Xm2R5/zagluska.png" alt="HATElavka">
                         </div>
 
+                        <!--- <a href="/halloween" class="slide" data-event="cauldron" style="display:none; position: relative;">
+                            <img src="" id="cauldron-banner-img" alt="Ивент">
+                            
+                            <div style="position: absolute; top: 50%; transform: translateY(-50%); right: 15px; background: rgba(0,0,0,0.3); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 4px 10px; border-radius: 10px; font-size: 8px; font-weight: 800; text-transform: uppercase; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);">
+                                Перейти
+                            </div>
+                        </a> ---> 
+
                         <a href="/checkpoint" class="slide" data-event="checkpoint" style="display:none; position: relative; background: #000; text-decoration: none; overflow: hidden;">
     <img src="" id="checkpoint-banner-img" alt="Checkpoint" style="width: 100%; height: 100%; object-fit: cover;">
     
@@ -167,9 +182,11 @@
 <div id="cp-banner-alert" style="display: none; font-size: 7px; font-weight: 900; color: #000; background: linear-gradient(90deg, #FFD700, #FFA500); padding: 2px 6px; border-radius: 3px; text-transform: uppercase; box-shadow: 0 0 5px rgba(255,215,0,0.4);">
     <i class="fa-solid fa-gift"></i> Задание выполнено
                                  </div>
-            <div style="display: inline-flex; align-items: center; justify-content: center; background: #121212; color: #ffffff; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 6px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; margin-top: 16px;">
+            <!-- 👇 НАША ОБНОВЛЕННАЯ КНОПКА 👇 -->
+<div style="display: inline-flex; align-items: center; justify-content: center; background: #121212; color: #ffffff; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 6px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; margin-top: 16px;">
     Перейти
 </div>
+<!-- 👆 КОНЕЦ КНОПКИ 👆 -->
 </div>
                         </div>
                     </a>
@@ -220,8 +237,11 @@
 
 </div>
 
-    <div id="view-shop" class="view-section"> <div class="shop-actions" style="padding: 0 16px; display: flex; gap: 10px;">
+    <div id="view-shop" class="view-section"> <!-- А ЗДЕСЬ ОТКРЫЛИ ВЛАДКУ "КЕЙСЫ" (view-shop) -->
+                
+    <div class="shop-actions" style="padding: 0 16px; display: flex; gap: 10px;">
     
+    <!-- СЛЕВА: Trade-In (Родной цвет) -->
     <button onclick="openP2PModal()" class="premium-exchange-btn" id="open-p2p-modal-btn" style="flex: 1; padding: 10px; display: flex; align-items: center; justify-content: flex-start; text-align: left; min-height: 64px; border-radius: 12px; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); box-shadow: 0 4px 15px rgba(37, 117, 252, 0.3); border: none;">
         <div class="p2p-icon-box" style="margin-right: 10px; width: 34px; height: 34px; background: rgba(255,255,255,0.2); color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: none;">
             <i class="fa-solid fa-arrow-right-arrow-left" style="font-size: 14px;"></i>
@@ -232,6 +252,7 @@
         </div>
     </button>
 
+    <!-- СПРАВА: SWAP (Огненный цвет) -->
     <button onclick="openSwapModal()" class="premium-exchange-btn" style="flex: 1; padding: 10px; display: flex; align-items: center; justify-content: flex-start; text-align: left; min-height: 64px; border-radius: 12px; background: linear-gradient(135deg, #ff3b30 0%, #ff9500 100%); box-shadow: 0 4px 15px rgba(255, 149, 0, 0.4); border: none;">
         <div class="p2p-icon-box" style="margin-right: 10px; width: 34px; height: 34px; background: rgba(255,255,255,0.2); color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: none;">
             <i class="fa-solid fa-rotate" style="font-size: 14px;"></i>
@@ -244,35 +265,42 @@
     
 </div>
 
-    <div id="mini-trust-block" style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 15px 16px 5px 16px; gap: 4px;">
-        <div style="font-size: 12px; font-weight: 800; color: #fff; text-transform: uppercase; margin-top: 6px;">
-            ТРАСТ: <span id="mini-trust-status-text" style="color: #8e8e93;">Базовый</span>
-        </div>
+    <!-- УМНАЯ ТАБЛИЦА: ТРАСТ + ФИЛЬТР -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px; margin: 15px 0 5px 0; align-items: stretch;">
         
-        <div style="font-size: 9px; color: #888; font-family: 'SF Mono', monospace; font-weight: 700;">
-            <span id="mini-trust-score-val" style="color: #ccc;">30.0</span> <span style="color: #555;">/ 100</span>
-        </div>
-
-        <div id="mini-trust-warning" style="font-size: 9px; color: #ff3b30; display: none; margin-top: 2px; font-weight: 600;">
-            Сумма кейсов увеличена до <b id="mini-trust-mult-val">2x</b>
-        </div>
-
-        <button onclick="openTrustModal()" style="margin-top: 4px; background: transparent; border: none; color: #2AABEE; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 8px; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; gap: 5px;" onmousedown="this.style.opacity='0.5'" onmouseup="this.style.opacity='1'">
-            <i class="fa-solid fa-circle-info"></i> Узнать подробнее
-        </button>
-    </div>
-
-        <div style="padding: 0 16px; margin-top: 15px; margin-bottom: 5px;">
-        <div id="smart-filter-btn" onclick="toggleSmartFilter()" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 14px; border-radius: 12px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-wallet" id="smart-filter-icon" style="color: #8e8e93; font-size: 13px; transition: 0.3s;"></i>
-                <span id="smart-filter-text" style="font-size: 11px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.3s;">Доступные кейсы </span>
+        <!-- ЛЕВАЯ ЧАСТЬ: ТРАСТ -->
+        <div id="mini-trust-block" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 5px; box-sizing: border-box;">
+            <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase;">
+                ТРАСТ: <span id="mini-trust-status-text" style="color: #8e8e93;">Базовый</span>
             </div>
-            <div id="smart-filter-switch" style="width: 36px; height: 20px; background: rgba(255,255,255,0.1); border-radius: 12px; position: relative; transition: 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);">
+            
+            <div style="font-size: 9px; color: #888; font-family: 'SF Mono', monospace; font-weight: 700;">
+                <span id="mini-trust-score-val" style="color: #ccc;">30.0</span> <span style="color: #555;">/ 100</span>
+            </div>
+
+            <div id="mini-trust-warning" style="font-size: 9px; color: #ff3b30; display: none; font-weight: 900; text-align: center; line-height: 1.2;">
+                Сумма кейсов увеличена до <b id="mini-trust-mult-val">2x</b>
+            </div>
+
+            <button onclick="openTrustModal()" style="margin-top: 2px; background: transparent; border: none; color: #2AABEE; font-size: 9px; font-weight: 800; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; gap: 4px;" onmousedown="this.style.opacity='0.5'" onmouseup="this.style.opacity='1'">
+                <i class="fa-solid fa-circle-info"></i> Узнать подробнее
+            </button>
+        </div>
+
+        <!-- ПРАВАЯ ЧАСТЬ: УМНЫЙ ФИЛЬТР -->
+        <div id="smart-filter-btn" onclick="toggleSmartFilter()" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 5px; cursor: pointer; transition: 0.2s; box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-wallet" id="smart-filter-icon" style="color: #8e8e93; font-size: 14px; transition: 0.3s;"></i>
+                <span id="smart-filter-text" style="font-size: 10px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.3s;">Доступные</span>
+            </div>
+            <div id="smart-filter-switch" style="width: 36px; height: 20px; background: rgba(255,255,255,0.1); border-radius: 12px; position: relative; transition: 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); flex-shrink: 0;">
                 <div class="switch-circle" style="width: 16px; height: 16px; background: #8e8e93; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s cubic-bezier(0.25, 1, 0.5, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
             </div>
         </div>
+        
     </div>
+    <!-- КОНЕЦ УМНОЙ ТАБЛИЦЫ -->
+
     <div id="shop-grid" class="shop-grid"></div>
 
             </div>
