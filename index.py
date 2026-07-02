@@ -11519,7 +11519,7 @@ async def sync_leaderboard_to_supabase(
 
 async def background_challenge_bonuses(user_id: int):
     """
-    Начисляет бонусы (звезды, билеты, таймер) в фоне.
+    Начисляет бонусы (билеты, таймер) в фоне.
     🔥 ИСПРАВЛЕНО: Теперь учитывает VIP и SUB статус!
     """
     try:
@@ -11535,11 +11535,8 @@ async def background_challenge_bonuses(user_id: int):
         twitch_status = "none"
         if user_resp.status_code == 200 and user_resp.json():
             twitch_status = user_resp.json()[0].get("twitch_status", "none")
-
-        # 2. Начисляем звезду Чекпоинта (Всегда +1)
-        await client.post("/rpc/increment_checkpoint_stars", json={"p_user_id": user_id, "p_amount": 1})
         
-        # 3. Начисляем билеты
+        # 2. Начисляем билеты
         # Сначала берем базу (обычно 1)
         rules_resp = await client.get("/reward_rules", params={"action_type": "eq.challenge_completion", "select": "ticket_amount"})
         rules_data = rules_resp.json()
@@ -11558,7 +11555,7 @@ async def background_challenge_bonuses(user_id: int):
         if final_tickets > 0:
             await client.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": final_tickets})
             
-        # 4. Обновляем таймер (чтобы запустить кулдаун)
+        # 3. Обновляем таймер (чтобы запустить кулдаун)
         await client.post("/rpc/update_last_challenge_time", json={"p_user_id": user_id})
         
         logging.info(f"✅ [BG] Бонусы челленджа начислены для {user_id} (Билетов: {final_tickets})")
