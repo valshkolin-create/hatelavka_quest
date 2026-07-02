@@ -2218,25 +2218,25 @@ function getRewardDisplayName(reward) {
             
             // Вспомогательная функция для генерации кнопок с учетом новых наград
 const getClaimedBtnHtml = (reward, currentTierLevel) => {
-    // 🔥 БРОНЯ: Очищаем тип от случайных пробелов и приводим к нижнему регистру
+    // Очищаем тип от мусора и приводим к нижнему регистру
     const rType = String(reward.type || '').trim().toLowerCase();
 
+    // 🕵️‍♂️ ШПИОН: Выводим в консоль всё, что видит функция
+    console.log(`[DEBUG] Уровень: ${currentTierLevel} | Тип награды: '${rType}' | Просмотры в БД: ${userData.topskin_views}`);
+
     if (rType === 'topskin_discount') {
-        // 🔥 БРОНЯ: Жестко парсим в число. Если пришла дичь или undefined — ставим 0
         const views = parseInt(userData.topskin_views) || 0;
         const maxViews = 2;
         const remaining = maxViews - views;
         
         if (remaining > 0) {
-            // Информативная кнопка с счетчиком
             return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="fetchTopSkinCode('${currentTierLevel}')"><i class="fa-solid fa-eye"></i> СМОТРЕТЬ (${remaining})</button>`;
         } else {
-            // Лимит исчерпан — показываем как обычную полученную награду
-            return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+            // 👇 ДОБАВИЛИ СЛОВО "(Лимит)", ЧТОБЫ УЗНАТЬ ЭТУ ВЕТКУ 👇
+            return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено (Лимит)</button>`;
         }
     }
     
-    // Аналогично защищаем проверку фейк-сообщений
     if (rType === 'fake_messages') {
         const realCode = (userData.fake_message_codes && userData.fake_message_codes[currentTierLevel]) 
                          ? userData.fake_message_codes[currentTierLevel] 
@@ -2249,6 +2249,7 @@ const getClaimedBtnHtml = (reward, currentTierLevel) => {
         }
     }
     
+    // Сюда проваливаются все остальные обычные награды
     return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
 };
             
