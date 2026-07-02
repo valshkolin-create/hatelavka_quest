@@ -1788,14 +1788,10 @@ function renderItems(items) {
     // 👇 ЛОГИКА СЕКРЕТНЫХ КЕЙСОВ (is_secret) 👇
     // ============================================================
     items = items.filter(item => {
-        // Если у кейса стоит пометка is_secret: true
         if (item.is_secret) {
-            // Проверяем, активировал ли юзер купон именно на этот кейс
             const hasCoupon = window.activeFreeCases.includes(item.name);
-            // Если купон есть — оставляем в массиве, если нет — выкидываем (прячем)
             return hasCoupon; 
         }
-        // Обычные (не секретные) кейсы и папки показываем всегда
         return true; 
     });
     // ============================================================
@@ -1808,37 +1804,44 @@ function renderItems(items) {
         return;
     }
 
-    // 1. РАСЧЕТ ТРАСТ-ФАКТОРА (Подняли наверх, чтобы фильтр понимал реальные цены!)
+    // 1. РАСЧЕТ ТРАСТ-ФАКТОРА
     const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
     let trustMultiplier = 2; // Дефолт
-    if (score < 30) trustMultiplier = 3; 
-    else if (score >= 70) trustMultiplier = 1; 
+    let trustColor = '#8e8e93';
+    let trustName = 'Базовый';
+
+    if (score < 30) {
+        trustMultiplier = 3; 
+        trustColor = '#ff3b30';
+        trustName = 'Пониженный';
+    } else if (score >= 70) {
+        trustMultiplier = 1; 
+        trustColor = '#34c759';
+        trustName = 'Повышенный';
+    } 
 
     // 2. 🔥 УМНАЯ ФИЛЬТРАЦИЯ ПО БАЛАНСУ 🔥
     if (window.isSmartFilterActive) {
-        // Считываем то, что сейчас написано у юзера на экране
         const currentCoins = parseInt(document.getElementById('user-balance')?.textContent.replace(/\s/g, '') || 0);
         const currentTickets = parseFloat(document.getElementById('ticketStats')?.textContent.replace(/\s/g, '').replace(',', '.')) || 0;
 
         items = items.filter(item => {
-            if (item.is_folder) return true; // Папки не трогаем
+            if (item.is_folder) return true; 
             
             const isFreeItem = window.activeFreeCases.includes(item.name);
-            if (isFreeItem) return true; // Бесплатные купоны показываем всегда
+            if (isFreeItem) return true; 
 
             const originalPrice = parseFloat(item.price) || 0;
-            if (originalPrice === 9999) return false; // Обычные купонные (за 9999) прячем, если нет купона
+            if (originalPrice === 9999) return false; 
 
-            // Учитываем текущую наценку
             const displayPriceCoins = originalPrice * trustMultiplier;
             const displayPriceTickets = (originalPrice * 2) * trustMultiplier;
 
-            // Оставляем только если хватает хотя бы монет ИЛИ билетов
             return currentCoins >= displayPriceCoins || currentTickets >= displayPriceTickets;
         });
     }
 
-    // 3. Заглушка, если баланс совсем пустой и всё скрылось
+    // 3. Заглушка, если баланс совсем пустой
     if (items.length === 0) {
         container.innerHTML = `
             <div style="grid-column:1/-1; text-align:center; color:#8e8e93; padding: 40px 10px;">
@@ -1849,63 +1852,65 @@ function renderItems(items) {
         return;
     }
 
-    // 🔥 ВОТ ЭТУ СТРОЧКУ НУЖНО БЫЛО ОСТАВИТЬ:
-const hasFreeCoupon = items.some(i => parseFloat(i.price) === 9999 && window.activeFreeCases.includes(i.name));
+    // 🔥 УЛУЧШЕННАЯ СОРТИРОВКА: БЕСПЛАТНЫЕ ВСЕГДА ПЕРВЫЕ 🔥
+    items.sort((a, b) => {
+        if (a.is_folder && !b.is_folder) return -1;
+        if (!a.is_folder && b.is_folder) return 1;
 
-// 🔥 УЛУЧШЕННАЯ СОРТИРОВКА: БЕСПЛАТНЫЕ ВСЕГДА ПЕРВЫЕ 🔥
-items.sort((a, b) => {
-    // 1. Папки всегда на самом верху
-    if (a.is_folder && !b.is_folder) return -1;
-    if (!a.is_folder && b.is_folder) return 1;
+        const isFreeA = window.activeFreeCases.includes(a.name);
+        const isFreeB = window.activeFreeCases.includes(b.name);
 
-    // 2. Проверяем, доступны ли кейсы БЕСПЛАТНО прямо сейчас
-    const isFreeA = window.activeFreeCases.includes(a.name);
-    const isFreeB = window.activeFreeCases.includes(b.name);
+        if (isFreeA && !isFreeB) return -1;
+        if (!isFreeA && isFreeB) return 1;
 
-    // Если один бесплатный, а второй нет — бесплатный летит наверх
-    if (isFreeA && !isFreeB) return -1;
-    if (!isFreeA && isFreeB) return 1;
-
-    // 3. Остальная сортировка для платных кейсов
-    const priceA = parseFloat(a.price) || 0;
-    const priceB = parseFloat(b.price) || 0;
-    
-    // Закрытые купонные кейсы (цена 9999), на которые сейчас НЕТ купона, убираем в самый низ списка
-    if (priceA === 9999 && priceB !== 9999) return 1;
-    if (priceA !== 9999 && priceB === 9999) return -1;
-    
-    // Обычные платные кейсы сортируем по возрастанию цены
-    return priceA - priceB;
-});
+        const priceA = parseFloat(a.price) || 0;
+        const priceB = parseFloat(b.price) || 0;
+        
+        if (priceA === 9999 && priceB !== 9999) return 1;
+        if (priceA !== 9999 && priceB === 9999) return -1;
+        
+        return priceA - priceB;
+    });
 
     const fragment = document.createDocumentFragment();
     
-    // 🔥 НОВЫЕ ФЛАГИ ДЛЯ ТРЕХ КАТЕГОРИЙ 🔥
+    // ============================================================
+    // 👇 НОВЫЙ БЛОК ТРАСТ-ФАКТОРА НАД КЕЙСАМИ 👇
+    // ============================================================
+    const trustHeaderBlock = document.createElement('div');
+    trustHeaderBlock.style.cssText = `grid-column: 1 / -1; background: rgba(28, 28, 30, 0.5); border: 1px solid ${trustColor}40; border-radius: 14px; padding: 16px; margin-bottom: 5px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);`;
+
+    let multiplierWarningHtml = trustMultiplier > 1 
+        ? `<div style="font-size: 11px; color: #8e8e93; margin-top: 6px;">Сумма твоих кейсов увеличена до <b style="color: #ff3b30;">${trustMultiplier}x</b></div>` 
+        : '';
+
+    trustHeaderBlock.innerHTML = `
+        <div style="font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+            ТВОЙ ТРАСТ: <span style="color: ${trustColor}; text-shadow: 0 0 10px ${trustColor}60;">${trustName}</span>
+        </div>
+        ${multiplierWarningHtml}
+        <div style="margin-top: 10px;">
+            <span onclick="openTrustModal()" style="display: inline-block; font-size: 11px; color: #2AABEE; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 4px; transition: opacity 0.2s;" onmousedown="this.style.opacity='0.5'" onmouseup="this.style.opacity='1'">Узнать подробнее</span>
+        </div>
+    `;
+    fragment.appendChild(trustHeaderBlock);
+    // ============================================================
+
     let freeHeaderAdded = false;
     let regularHeaderAdded = false; 
     let couponHeaderAdded = false;
-
-    const multiplierBadgeCoins = trustMultiplier > 1 
-        ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(255,255,255,0.7); color: #000; padding: 1px 3px; border-radius: 3px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(0,0,0,0.15);">x${trustMultiplier}</span>` 
-        : '';
-        
-    const multiplierBadgeTickets = trustMultiplier > 1 
-        ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.4); color: #fff; padding: 1px 3px; border-radius: 3px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(255,255,255,0.1);">x${trustMultiplier}</span>` 
-        : '';
 
     items.forEach(item => {
         const el = document.createElement('div');
         el.className = 'shop-item';
         
-        // ВОЗВРАЩАЕМ СТАРЫЙ ВИЗУАЛ
         el.style.background = 'transparent'; 
         el.style.boxShadow = 'none';
         el.style.border = 'none';
         
-        // 🔥 ПОЧИНКА: Возвращаем скрытие лишнего (neat look) и бронируем место сверху
-        el.style.paddingTop = '32px'; // Увеличили чуть-чуть, чтобы тексту было просторно
+        el.style.paddingTop = '32px'; 
         el.style.position = 'relative';
-        el.style.overflow = 'hidden'; // ВЕРНУЛИ HIDDEN: теперь края карточки снова четкие
+        el.style.overflow = 'hidden'; 
 
         let buttonHtml = '';
         const upperName = (item.name || "").toUpperCase();
@@ -1918,10 +1923,21 @@ items.sort((a, b) => {
         const displayPrice = originalPrice * trustMultiplier;
         const displayPriceTickets = (originalPrice * 2) * trustMultiplier;
 
-        // Определяем, бесплатный ли этот конкретный кейс сейчас
         const isFreeItem = window.activeFreeCases.includes(item.name);
 
-        // 1. ЗАГОЛОВОК: БЕСПЛАТНОЕ ОТКРЫТИЕ (Строгий стиль)
+        // Считаем количество именно этого кейса у пользователя
+        const userOwnedCount = window.activeFreeCases.filter(n => n === item.name).length;
+        
+        // НОВЫЕ БЕЙДЖИ С КОЛИЧЕСТВОМ (Вместо старых x2/x3)
+        const quantityBadgeCoins = isCase 
+            ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(255,255,255,0.9); color: #000; padding: 2px 4px; border-radius: 4px; font-size: 8px; font-weight: 900; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">📦 ${userOwnedCount}</span>` 
+            : '';
+            
+        const quantityBadgeTickets = isCase 
+            ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 4px; border-radius: 4px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(255,255,255,0.1);">📦 ${userOwnedCount}</span>` 
+            : '';
+
+        // 1. ЗАГОЛОВОК: БЕСПЛАТНОЕ ОТКРЫТИЕ
         if (isFreeItem && !freeHeaderAdded && !item.is_folder) {
             const headerEl = document.createElement('div');
             headerEl.style.cssText = "grid-column: 1 / -1; margin: 15px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
@@ -1934,7 +1950,7 @@ items.sort((a, b) => {
             freeHeaderAdded = true;
         }
 
-        // 2. ЗАГОЛОВОК: ОСНОВНЫЕ КЕЙСЫ (Строгий стиль)
+        // 2. ЗАГОЛОВОК: ОСНОВНЫЕ КЕЙСЫ
         if (!isFreeItem && originalPrice !== 9999 && !regularHeaderAdded && !item.is_folder) {
             const sepEl = document.createElement('div');
             sepEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
@@ -1947,7 +1963,7 @@ items.sort((a, b) => {
             regularHeaderAdded = true;
         }
 
-        // 3. ЗАГОЛОВОК: КУПОННЫЕ КЕЙСЫ (Строгий стиль)
+        // 3. ЗАГОЛОВОК: КУПОННЫЕ КЕЙСЫ
         if (!isFreeItem && originalPrice === 9999 && !couponHeaderAdded && !item.is_folder) {
             const headerEl = document.createElement('div');
             headerEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
@@ -1986,8 +2002,8 @@ items.sort((a, b) => {
                 </div>`;
             } else {
                 buttonHtml = `<div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>${multiplierBadgeCoins}</button>
-                    <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="position: relative; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPriceTickets}</span><i class="fa-solid fa-ticket" style="font-size: 11px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>${multiplierBadgeTickets}</button>
+                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>${quantityBadgeCoins}</button>
+                    <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="position: relative; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPriceTickets}</span><i class="fa-solid fa-ticket" style="font-size: 11px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>${quantityBadgeTickets}</button>
                 </div>`;
             }
             
@@ -2005,7 +2021,7 @@ items.sort((a, b) => {
             let stockText = item.count === null ? '∞ шт.' : `${item.count} шт.`;
             let btnHtml = item.count === 0 
                 ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
-                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>${multiplierBadgeCoins}</button>`;
+                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>${quantityBadgeCoins}</button>`;
             
             el.innerHTML = `
                 <div class="item-title" style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 11px; font-weight: 600; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${formatItemName(cleanName)}</div>
@@ -2027,14 +2043,13 @@ items.sort((a, b) => {
 
     // 🔥 ВОЗВРАЩАЕМ АВТО-УМЕНЬШЕНИЕ ТЕКСТА 🔥
     container.querySelectorAll('.case-top-title').forEach(title => {
-        let fontSize = 10; // Начинаем с 10px (как у всех остальных)
-        // Если текст не влезает, уменьшаем его вплоть до 5px
+        let fontSize = 10; 
         while (title.scrollWidth > title.offsetWidth && fontSize > 5) {
             fontSize -= 0.5;
             title.style.fontSize = fontSize + 'px';
         }
     });
-} // 🔥 <--- ДОБАВЬ ВОТ ЭТУ СКОБКУ! ОНА ЗАКРЫВАЕТ ФУНКЦИЮ renderItems
+}
 
 async function validateUserTradeLink() {
     const loader = document.getElementById('purchase-loader');
