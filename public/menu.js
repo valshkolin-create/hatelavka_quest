@@ -5099,7 +5099,6 @@ window.isSmartFilterActive = false;
 window.toggleSmartFilter = () => {
     window.isSmartFilterActive = !window.isSmartFilterActive;
     
-    const btn = document.getElementById('smart-filter-btn');
     const icon = document.getElementById('smart-filter-icon');
     const text = document.getElementById('smart-filter-text');
     const sw = document.getElementById('smart-filter-switch');
@@ -5107,17 +5106,13 @@ window.toggleSmartFilter = () => {
 
     if (window.isSmartFilterActive) {
         // Включено (Зеленое)
-        btn.style.background = 'rgba(52, 199, 89, 0.1)';
-        btn.style.borderColor = 'rgba(52, 199, 89, 0.3)';
         icon.style.color = '#34c759';
-        text.style.color = '#fff';
+        text.style.color = '#34c759';
         sw.style.background = '#34c759';
-        circle.style.left = '18px';
+        circle.style.left = '12px'; // Ползунок едет на 12px вместо 18px
         circle.style.background = '#fff';
     } else {
         // Выключено (Серое)
-        btn.style.background = 'rgba(255,255,255,0.03)';
-        btn.style.borderColor = 'rgba(255,255,255,0.06)';
         icon.style.color = '#8e8e93';
         text.style.color = '#8e8e93';
         sw.style.background = 'rgba(255,255,255,0.1)';
@@ -5125,12 +5120,12 @@ window.toggleSmartFilter = () => {
         circle.style.background = '#8e8e93';
     }
 
-if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
+    if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.selectionChanged();
 
-    // Мгновенно перерисовываем кейсы
-    if (typeof window.currentCategoryId !== 'undefined' && itemsCache[window.currentCategoryId]) {
-        renderItems(itemsCache[window.currentCategoryId]);
-    }
+    // Мгновенно перерисовываем кейсы
+    if (typeof window.currentCategoryId !== 'undefined' && itemsCache[window.currentCategoryId]) {
+        renderItems(itemsCache[window.currentCategoryId]);
+    }
 };
 
 // ================================================================
