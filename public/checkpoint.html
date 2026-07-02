@@ -2217,41 +2217,41 @@ function getRewardDisplayName(reward) {
             `;
             
             // Вспомогательная функция для генерации кнопок с учетом новых наград
-            // 🔥 ТЕПЕРЬ ПРИНИМАЕТ УРОВЕНЬ, ЧТОБЫ ДОСТАТЬ КОД ИЗ ПРОФИЛЯ 🔥
-            const getClaimedBtnHtml = (reward, currentTierLevel) => {
-                // Внутри getClaimedBtnHtml
-if (reward.type === 'topskin_discount') {
-    const views = userData.topskin_views || 0;
-    const maxViews = 2;
-    const remaining = maxViews - views;
-    
-    if (remaining > 0) {
-        // Информативная кнопка с счетчиком
-        return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="fetchTopSkinCode('${currentTierLevel}')"><i class="fa-solid fa-eye"></i> СМОТРЕТЬ (${remaining})</button>`;
-    } else {
-        // Лимит исчерпан — показываем как обычную полученную награду
-        return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-    }
-}
-                
-                if (reward.type === 'fake_messages') {
-                    // Ищем реальный код в данных юзера
-                    const realCode = (userData.fake_message_codes && userData.fake_message_codes[currentTierLevel]) 
-                                     ? userData.fake_message_codes[currentTierLevel] 
-                                     : null;
-                    
-                    if (realCode) {
-                        // Код есть, значит сгенерирован, но не активирован
-                        return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openFakeMsgModal('${realCode}', '${reward.value || 0}')"><i class="fa-solid fa-ticket"></i> АКТИВИРОВАТЬ</button>`;
-                    } else {
-                        // Кода нет в неактивированных — значит он уже использован
-                        return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-                    }
-                }
-                
-                return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
-            };
+const getClaimedBtnHtml = (reward, currentTierLevel) => {
+    // 🔥 БРОНЯ: Очищаем тип от случайных пробелов и приводим к нижнему регистру
+    const rType = String(reward.type || '').trim().toLowerCase();
 
+    if (rType === 'topskin_discount') {
+        // 🔥 БРОНЯ: Жестко парсим в число. Если пришла дичь или undefined — ставим 0
+        const views = parseInt(userData.topskin_views) || 0;
+        const maxViews = 2;
+        const remaining = maxViews - views;
+        
+        if (remaining > 0) {
+            // Информативная кнопка с счетчиком
+            return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="fetchTopSkinCode('${currentTierLevel}')"><i class="fa-solid fa-eye"></i> СМОТРЕТЬ (${remaining})</button>`;
+        } else {
+            // Лимит исчерпан — показываем как обычную полученную награду
+            return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+        }
+    }
+    
+    // Аналогично защищаем проверку фейк-сообщений
+    if (rType === 'fake_messages') {
+        const realCode = (userData.fake_message_codes && userData.fake_message_codes[currentTierLevel]) 
+                         ? userData.fake_message_codes[currentTierLevel] 
+                         : null;
+        
+        if (realCode) {
+            return `<button class="btn-claim ready" style="background: rgba(255,215,0,0.1); border: 1px solid var(--primary); color: var(--primary);" onclick="openFakeMsgModal('${realCode}', '${reward.value || 0}')"><i class="fa-solid fa-ticket"></i> АКТИВИРОВАТЬ</button>`;
+        } else {
+            return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+        }
+    }
+    
+    return `<button class="btn-claim claimed"><i class="fa-solid fa-check"></i> Получено</button>`;
+};
+            
             const isFreeClaimed = claimedFree.some(l => String(l) === String(tier.level));
             const isFreeEmpty = tier.free_reward.type === 'none';
             let freeBtnHtml = '';
