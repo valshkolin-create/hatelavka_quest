@@ -15788,20 +15788,24 @@ async def update_checkpoint_content(
             json={"content": config}
         )
 
-        # 2. Очищаем старые уровни (используем level >= 0 для надежного удаления всех записей)
-        await supabase.delete("/checkpoint_tiers", params={"level": "gte.0"})
+# 2. Получаем текущие уровни из БД, чтобы сохранить их первичные ключи (ID)
+        existing_resp = await supabase.get("/checkpoint_tiers", params={"select": "id, level"})
+        existing_tiers = existing_resp.json() if existing_resp.status_code == 200 else []
+        existing_map = {t["level"]: t["id"] for t in existing_tiers}
+
+        incoming_levels = []
         
-        # 3. Записываем новые уровни в реляционную таблицу
+        # 3. Записываем уровни (Обновляем существующие, вставляем новые)
         if tiers:
-            tier_records = []
             for t in tiers:
-                # Безопасное извлечение для защиты от null, если фронт отправил пустые ключи
+                level = int(t.get("level") if t.get("level") is not None else 0)
+                incoming_levels.append(level)
+                
                 free_reward = t.get("free_reward") or {}
                 premium_reward = t.get("premium_reward") or {}
 
-                tier_records.append({
-                    "level": int(t.get("level") if t.get("level") is not None else 0),
-                    # 🔥 ИСПРАВЛЕНИЕ: Конвертируем в float (от строки), а затем жестко в int для БД
+                tier_data = {
+                    "level": level,
                     "required_stars": int(float(t.get("required_stars") if t.get("required_stars") is not None else 0)),
                     "free_reward_type": str(free_reward.get("type") or "none"),
                     "free_reward_value": str(free_reward.get("value") or ""),
@@ -15809,19 +15813,26 @@ async def update_checkpoint_content(
                     "premium_reward_type": str(premium_reward.get("type") or "none"),
                     "premium_reward_value": str(premium_reward.get("value") or ""),
                     "premium_exchange_stars": int(premium_reward.get("exchange") if premium_reward.get("exchange") is not None else 0)
-                })
-            
-            # Массовая вставка (Bulk Insert)
-            resp = await supabase.post("/checkpoint_tiers", json=tier_records)
-            
-            # Перехватываем HTTP ошибку БД, чтобы увидеть точную причину (e.response.text)
-            try:
-                resp.raise_for_status()
-            except httpx.HTTPStatusError as e:
-                logging.error(f"Supabase 400 Details: {e.response.text}")
-                raise HTTPException(status_code=400, detail=f"Ошибка БД при вставке уровней: {e.response.text}")
+                }
 
-        return {"message": "Контент марафона и уровни успешно обновлены."}
+                if level in existing_map:
+                    # Уровень существует -> Обновляем (PATCH), чтобы сохранить ID и связи клеймов юзеров
+                    tier_id = existing_map[level]
+                    # Запросы в цикле для PATCH не так страшны, уровней обычно < 100
+                    await supabase.patch("/checkpoint_tiers", params={"id": f"eq.{tier_id}"}, json=tier_data)
+                else:
+                    # Новый уровень -> Вставляем (POST)
+                    await supabase.post("/checkpoint_tiers", json=tier_data)
+
+        # 4. Удаляем только те уровни, которые админ реально удалил в редакторе (крестиком)
+        levels_to_delete = [lvl for lvl in existing_map.keys() if lvl not in incoming_levels]
+        if levels_to_delete:
+            levels_str = ",".join(map(str, levels_to_delete))
+            await supabase.delete("/checkpoint_tiers", params={"level": f"in.({levels_str})"})
+
+        # 👆 КОНЕЦ ИНТЕГРАЦИИ 👆
+
+        return {"message": "Контент бп  и уровни успешно обновлены."}
     except HTTPException:
         raise
     except Exception as e:
