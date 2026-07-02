@@ -19605,9 +19605,10 @@ async def buy_bott_item_proxy(
                 code_res = await supabase.get(
                     "/cs_codes", 
                     params={
-                        "target_case_name": f"eq.{item_title}", # Ищем именно этот кейс
-                        "activated_by_ids": f"cs.{{{telegram_id}}}", # Где твой ID есть в массиве активаций
-                        "is_active": "eq.true"
+                        "target_case_name": f"eq.{item_title}", 
+                        "is_active": "eq.true",
+                        # Ищем либо среди тех, кто успел активировать, либо кому выдано лично
+                        "or": f"(activated_by_ids.cs.{{{telegram_id}}},assigned_to.eq.{telegram_id})"
                     }
                 )
             else:
@@ -19625,15 +19626,16 @@ async def buy_bott_item_proxy(
             # 🔥 ВАЖНО: Подменяем заглушку на реальный код из базы
             coupon_code = promo_data['code']
             
-            # --- СТАРТ НОВОЙ ЛОГИКИ ЗАЩИТЫ БРОНИ ---
+            # --- СТАРТ ЛОГИКИ ЗАЩИТЫ БРОНИ (ТЕПЕРЬ УНИВЕРСАЛЬНАЯ) ---
             used_ids = promo_data.get('used_by_ids') or []
             activated_ids = promo_data.get('activated_by_ids') or []
+            assigned_to = promo_data.get('assigned_to') # Достаем владельца, если он есть
             user_id_int = int(telegram_id)
 
-            # Проверяем, забронировал ли этот юзер себе место заранее через check_code
-            is_reserved_by_me = user_id_int in activated_ids
+            # Проверяем: либо юзер сам активировал (публичный), либо код выдан ему сервером (БП)
+            is_reserved_by_me = (user_id_int in activated_ids) or (assigned_to == user_id_int)
 
-            # Если юзер НЕ бронировал купон (пытается пропихнуть код напрямую при покупке)
+            # Если юзер НЕ имеет прав на этот купон
             if not is_reserved_by_me:
                 # Считаем вообще все занятые места (и открытые, и забронированные)
                 total_taken_slots = len(used_ids) + len(activated_ids)
