@@ -1875,23 +1875,21 @@ function renderItems(items) {
     const fragment = document.createDocumentFragment();
     
     // ============================================================
-    // 👇 НОВЫЙ БЛОК ТРАСТ-ФАКТОРА НАД КЕЙСАМИ 👇
+    // 👇 НОВЫЙ БЕЗРАМОЧНЫЙ ТРАСТ-ФАКТОР (МИНИМАЛИЗМ) 👇
     // ============================================================
     const trustHeaderBlock = document.createElement('div');
-    trustHeaderBlock.style.cssText = `grid-column: 1 / -1; background: rgba(28, 28, 30, 0.5); border: 1px solid ${trustColor}40; border-radius: 14px; padding: 16px; margin-bottom: 5px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); backdrop-filter: blur(10px);`;
+    trustHeaderBlock.style.cssText = "grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 8px; gap: 3px;";
 
     let multiplierWarningHtml = trustMultiplier > 1 
-        ? `<div style="font-size: 11px; color: #8e8e93; margin-top: 6px;">Сумма твоих кейсов увеличена до <b style="color: #ff3b30;">${trustMultiplier}x</b></div>` 
+        ? `<div style="font-size: 9px; color: #8e8e93;">Сумма кейсов увеличена до <b style="color: #ff3b30;">${trustMultiplier}x</b></div>` 
         : '';
 
     trustHeaderBlock.innerHTML = `
-        <div style="font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
-            ТВОЙ ТРАСТ: <span style="color: ${trustColor}; text-shadow: 0 0 10px ${trustColor}60;">${trustName}</span>
+        <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase;">
+            ТРАСТ: <span style="color: ${trustColor};">${trustName}</span>
+            <span onclick="openTrustModal()" style="color: #2AABEE; font-size: 9px; margin-left: 6px; cursor: pointer; text-decoration: underline; opacity: 0.8;">Узнать подробнее</span>
         </div>
         ${multiplierWarningHtml}
-        <div style="margin-top: 10px;">
-            <span onclick="openTrustModal()" style="display: inline-block; font-size: 11px; color: #2AABEE; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 4px; transition: opacity 0.2s;" onmousedown="this.style.opacity='0.5'" onmouseup="this.style.opacity='1'">Узнать подробнее</span>
-        </div>
     `;
     fragment.appendChild(trustHeaderBlock);
     // ============================================================
@@ -1925,22 +1923,20 @@ function renderItems(items) {
 
         const isFreeItem = window.activeFreeCases.includes(item.name);
 
-        // Считаем количество именно этого кейса у пользователя
+        // 🔥 ЛОГИКА "ДОСТУПНО: X ШТ" 🔥
         const userOwnedCount = window.activeFreeCases.filter(n => n === item.name).length;
+        let availableCountHtml = '';
+        let titleTop = '5px'; // Дефолтный отступ названия
         
-        // НОВЫЕ БЕЙДЖИ С КОЛИЧЕСТВОМ (Вместо старых x2/x3)
-        const quantityBadgeCoins = isCase 
-            ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(255,255,255,0.9); color: #000; padding: 2px 4px; border-radius: 4px; font-size: 8px; font-weight: 900; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">📦 ${userOwnedCount}</span>` 
-            : '';
-            
-        const quantityBadgeTickets = isCase 
-            ? `<span style="position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 4px; border-radius: 4px; font-size: 8px; font-weight: 900; line-height: 1; border: 1px solid rgba(255,255,255,0.1);">📦 ${userOwnedCount}</span>` 
-            : '';
+        if (isCase && userOwnedCount >= 2) {
+            availableCountHtml = `<div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 8px; font-weight: 900; color: #34c759; text-transform: uppercase; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Доступно: ${userOwnedCount} шт</div>`;
+            titleTop = '15px'; // Сдвигаем название чуть ниже, чтобы дать место количеству
+        }
 
         // 1. ЗАГОЛОВОК: БЕСПЛАТНОЕ ОТКРЫТИЕ
         if (isFreeItem && !freeHeaderAdded && !item.is_folder) {
             const headerEl = document.createElement('div');
-            headerEl.style.cssText = "grid-column: 1 / -1; margin: 15px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            headerEl.style.cssText = "grid-column: 1 / -1; margin: 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
             headerEl.innerHTML = `
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
                 <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Бесплатное открытие</span>
@@ -1953,7 +1949,7 @@ function renderItems(items) {
         // 2. ЗАГОЛОВОК: ОСНОВНЫЕ КЕЙСЫ
         if (!isFreeItem && originalPrice !== 9999 && !regularHeaderAdded && !item.is_folder) {
             const sepEl = document.createElement('div');
-            sepEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            sepEl.style.cssText = "grid-column: 1 / -1; margin: 15px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
             sepEl.innerHTML = `
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
                 <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Основные кейсы</span>
@@ -1966,7 +1962,7 @@ function renderItems(items) {
         // 3. ЗАГОЛОВОК: КУПОННЫЕ КЕЙСЫ
         if (!isFreeItem && originalPrice === 9999 && !couponHeaderAdded && !item.is_folder) {
             const headerEl = document.createElement('div');
-            headerEl.style.cssText = "grid-column: 1 / -1; margin: 25px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
+            headerEl.style.cssText = "grid-column: 1 / -1; margin: 15px 0 10px 0; display: flex; align-items: center; justify-content: center; gap: 15px;";
             headerEl.innerHTML = `
                 <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));"></div>
                 <span style="font-size: 14px; font-weight: 800; color: #8e8e93; text-transform: uppercase; letter-spacing: 1px;">Купонные кейсы</span>
@@ -2002,15 +1998,16 @@ function renderItems(items) {
                 </div>`;
             } else {
                 buttonHtml = `<div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>${quantityBadgeCoins}</button>
-                    <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="position: relative; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPriceTickets}</span><i class="fa-solid fa-ticket" style="font-size: 11px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i>${quantityBadgeTickets}</button>
+                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i></button>
+                    <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="position: relative; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPriceTickets}</span><i class="fa-solid fa-ticket" style="font-size: 11px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i></button>
                 </div>`;
             }
             
             const contentsPriceParam = originalPrice === 9999 ? 'null' : displayPrice;
 
             el.innerHTML = `
-                <div class="item-title case-top-title" style="position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 1; white-space: nowrap; pointer-events: none; width: auto !important; max-width: 95% !important; padding: 2px 8px !important; font-weight: 800; color: #fff; text-align: center; text-transform: uppercase; background: transparent !important;">${formatItemName(cleanName)}</div>
+                ${availableCountHtml}
+                <div class="item-title case-top-title" style="position: absolute; top: ${titleTop}; left: 50%; transform: translateX(-50%); z-index: 1; white-space: nowrap; pointer-events: none; width: auto !important; max-width: 95% !important; padding: 2px 8px !important; font-weight: 800; color: #fff; text-align: center; text-transform: uppercase; background: transparent !important;">${formatItemName(cleanName)}</div>
                 <div class="item-image-wrapper case-img-wrap" onclick="openCaseContents(event, '${safeName}', ${contentsPriceParam})" style="background: transparent; padding-top: 80%;">
                     <div class="case-info-overlay"><span>Посмотреть дроп</span></div>
                     <img src="${safeImg}" class="item-image case-zoom" loading="lazy" onload="this.classList.add('loaded')">
@@ -2021,7 +2018,7 @@ function renderItems(items) {
             let stockText = item.count === null ? '∞ шт.' : `${item.count} шт.`;
             let btnHtml = item.count === 0 
                 ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
-                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i>${quantityBadgeCoins}</button>`;
+                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i></button>`;
             
             el.innerHTML = `
                 <div class="item-title" style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 11px; font-weight: 600; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${formatItemName(cleanName)}</div>
