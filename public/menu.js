@@ -1926,17 +1926,29 @@ function renderItems(items) {
         const displayPrice = originalPrice * trustMultiplier;
         const displayPriceTickets = (originalPrice * 2) * trustMultiplier;
 
-        const isFreeItem = window.activeFreeCases.includes(item.name);
+        // 🔥 ТЕРМИНАТОР-ПРОВЕРКА (Убиваем пробелы и регистр) 🔥
+        const targetNameRaw = (item.name || "").trim().toLowerCase();
+        
+        // Считаем железобетонно
+        const userOwnedCount = window.activeFreeCases.filter(n => {
+            return (n || "").trim().toLowerCase() === targetNameRaw;
+        }).length;
 
-        // 🔥 ЛОГИКА "ДОСТУПНО: X ШТ" 🔥
-        const userOwnedCount = window.activeFreeCases.filter(n => n === item.name).length;
+        // Раз мы уже посчитали, бесплатным он будет, если количество больше нуля
+        const isFreeItem = userOwnedCount > 0;
+
+        // ВЫВОДИМ В КОНСОЛЬ (F12) — ЕСЛИ НЕ СЧИТАЕТ, ТУТ БУДЕТ ВИДНО ПОЧЕМУ
+        if (isCase) {
+            console.log(`[DEBUG] Витрина: "${item.name}" | Совпадений: ${userOwnedCount} | Массив купонов:`, window.activeFreeCases);
+        }
+
         let availableCountHtml = '';
         let titleTop = '4px'; // Дефолтный отступ названия
         
         // Показываем плашку, если доступна хотя бы 1 штука
         if (isCase && userOwnedCount >= 1) {
             availableCountHtml = `<div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 8px; font-weight: 900; color: #34c759; text-transform: uppercase; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Доступно: ${userOwnedCount} шт</div>`;
-            titleTop = '14px'; // Сдвигаем название чуть ниже
+            titleTop = '8px'; // Сдвигаем название чуть ниже
         }
 
         // 1. ЗАГОЛОВОК: БЕСПЛАТНОЕ ОТКРЫТИЕ
