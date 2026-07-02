@@ -16303,7 +16303,7 @@ async def claim_checkpoint_reward(
                         "assigned_at": datetime.now(timezone.utc).isoformat(),
                         "target_case_name": reward_value,
                         "used_by_ids": [],
-                        "activated_by_ids": [], # ✅ При создании он еще никем не активирован!
+                        "activated_by_ids": [telegram_id],  # 🔥 ИСПРАВЛЕНО: Сразу активирован для текущего юзера Telegram
                         "campaign_id": 999
                     }
                 )
@@ -16390,13 +16390,12 @@ async def claim_checkpoint_reward(
                         "current_uses": 0,
                         "is_active": True,
                         "description": f"Фейк сообщения ({clean_fake_amount} на {'неделю' if request_data.target_period == 'week' else 'месяц'}). БП Ур. {level_to_claim}",
-                        # 🔥 ЗАШИВАЕМ ПЕРИОД И КОЛИЧЕСТВО В БАЗУ (например: "week|500") 🔥
                         "target_case_name": f"{request_data.target_period}|{clean_fake_amount}",
                         "is_copied": False,
                         "assigned_to": telegram_id,
                         "assigned_at": datetime.now(timezone.utc).isoformat(),
                         "used_by_ids": [],
-                        "activated_by_ids": [], # Купон создан, но НЕ активирован
+                        "activated_by_ids": [telegram_id],  # 🔥 ИСПРАВЛЕНО: Сразу привязываем к Telegram ID
                         "campaign_id": 999 
                     }
                 )
@@ -16430,7 +16429,7 @@ async def claim_checkpoint_reward(
             elif reward_type == 'topskin_discount':
                 pass # Награда выдается прямо на фронте, в БД ничего не пишем
 
-            elif reward_type in ['twitch_vip', 'twitch_sub']:
+            elif reward_type == 'twitch_vip', 'twitch_sub']:
                 tech_q_res = await supabase.get("/quests", params={"quest_type": "eq.bp_manual_reward", "select": "id", "limit": 1})
                 if tech_q_res.status_code == 200 and tech_q_res.json():
                     tech_quest_id = tech_q_res.json()[0]['id']
@@ -16474,7 +16473,7 @@ async def claim_checkpoint_reward(
             response_data['extra_data'] = {
                 "type": "coupon",
                 "code": unique_coupon_code,
-                "amount": clean_fake_amount # <--- Передаем чистую цифру фронтенду!
+                "amount": clean_fake_amount 
             }
         elif reward_type in ['twitch_vip', 'twitch_sub']:
             response_data['extra_data'] = {
