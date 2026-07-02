@@ -1948,7 +1948,7 @@ function renderItems(items) {
         // Показываем плашку, если доступна хотя бы 1 штука
         if (isCase && userOwnedCount >= 1) {
             availableCountHtml = `<div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 8px; font-weight: 900; color: #34c759; text-transform: uppercase; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Доступно: ${userOwnedCount} шт</div>`;
-            titleTop = '8px'; // Сдвигаем название чуть ниже
+            titleTop = '14px'; // Сдвигаем название чуть ниже
         }
 
         // 1. ЗАГОЛОВОК: БЕСПЛАТНОЕ ОТКРЫТИЕ
