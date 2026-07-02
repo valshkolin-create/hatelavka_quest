@@ -15504,7 +15504,7 @@ async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncCl
 
 async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClient):
     """
-    Синхронизирует прогресс автоматических заданий БП методом "Водопада".
+    Синхронизирует прогресс автоматических заданий БП со СТРОГОЙ ИЗОЛЯЦИЕЙ ПО НЕДЕЛЯМ.
     """
     try:
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
@@ -15528,54 +15528,57 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,quest_type,target_value"})
         if not quests_res.is_success or not quests_res.json(): return
         
-        # ЗАЩИТА: ключи строго строки
         quests_meta = {str(q["id"]): q for q in quests_res.json()}
         
         start_str = bp_start_date.strftime('%Y-%m-%d')
         today_str = now.strftime('%Y-%m-%d')
 
+        # 👇 1. ДОБАВИЛИ tg_messages В ЗАПРОС 👇
         activity_res = await supabase.get(
             "/user_daily_activity", 
             params={
                 "user_id": f"eq.{user_id}",
                 "date": f"gte.{start_str}", 
-                "select": "date,twitch_messages,twitch_uptime" 
+                "select": "date,twitch_messages,twitch_uptime,tg_messages" 
             }
         )
         
-        season_msgs = 0
-        season_uptime = 0
+        # 👇 2. УБРАЛИ ВОДОПАД. ТЕПЕРЬ ХРАНИМ СТАТИСТИКУ ПО ДНЯМ 👇
+        daily_stats = {}
         today_msgs = 0
         today_uptime = 0
+        today_tg_msgs = 0
         
         if activity_res.is_success and activity_res.json():
             for row in activity_res.json():
-                msgs = row.get("twitch_messages", 0)
-                uptime = row.get("twitch_uptime", 0)
+                d_str = row.get("date")
+                daily_stats[d_str] = {
+                    "twitch_messages": row.get("twitch_messages", 0),
+                    "twitch_uptime": row.get("twitch_uptime", 0),
+                    "tg_messages": row.get("tg_messages", 0)
+                }
                 
-                season_msgs += msgs
-                season_uptime += uptime
-                
-                if row.get("date") == today_str:
-                    today_msgs += msgs
-                    today_uptime += uptime
+                if d_str == today_str:
+                    today_msgs += row.get("twitch_messages", 0)
+                    today_uptime += row.get("twitch_uptime", 0)
+                    today_tg_msgs += row.get("tg_messages", 0)
 
         bp_quests_res = await supabase.get(
             "/user_bp_quests", 
             params={"user_id": f"eq.{user_id}", "quest_id": f"in.({','.join(quest_ids)})"}
         )
         
-        # ЗАЩИТА: Кортеж ключей тоже состоит ТОЛЬКО ИЗ СТРОК (quest_id, week)
         existing_progress = {(str(q["quest_id"]), str(q.get("week", 1))): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
-        rem_week_msgs = season_msgs
-        rem_week_uptime = season_uptime
+        # Лимиты для сессионных квестов (чтобы за одну сессию не выполнить два одинаковых квеста)
         rem_today_msgs = today_msgs
         rem_today_uptime = today_uptime
+        rem_today_tg_msgs = today_tg_msgs
 
         for wq in active_quests:
             q_id_str = str(wq["quest_id"])
             q_week_str = str(wq.get("week", 1))
+            q_week_int = int(q_week_str)
             
             meta = quests_meta.get(q_id_str)
             if not meta: continue 
@@ -15583,17 +15586,43 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             q_type = meta.get("quest_type", "")
             target = wq.get("target_amount", 1)
             
-            if "twitch_messages" in q_type or "twitch_uptime" in q_type:
+            # Подтягиваем таргет из меты, если он там есть
+            if any(k in q_type for k in ["twitch_messages", "twitch_uptime", "tg_messages"]):
                 db_target = meta.get("target_value")
                 if db_target: target = db_target
             
             is_auto = False
             current_amount = 0
             
+            # 👇 3. ВЫЧИСЛЯЕМ ЖЕСТКИЕ ГРАНИЦЫ КОНКРЕТНОЙ НЕДЕЛИ 👇
+            week_start_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
+            week_end_date = week_start_date + timedelta(days=7)
+            
+            # Суммируем активность строго внутри дат этой недели
+            week_tw_msgs = 0
+            week_tw_uptime = 0
+            week_tg_msgs = 0
+            
+            curr_d = week_start_date
+            while curr_d < week_end_date and curr_d <= now:
+                d_str = curr_d.strftime('%Y-%m-%d')
+                if d_str in daily_stats:
+                    week_tw_msgs += daily_stats[d_str]["twitch_messages"]
+                    week_tw_uptime += daily_stats[d_str]["twitch_uptime"]
+                    week_tg_msgs += daily_stats[d_str]["tg_messages"]
+                curr_d += timedelta(days=1)
+                
+            # 👇 4. РАСПРЕДЕЛЯЕМ ПРОГРЕСС СТРОГО ИЗ ИЗОЛИРОВАННОЙ НЕДЕЛИ 👇
             if "twitch_messages_week" in q_type:
-                allocate = min(rem_week_msgs, target) 
-                current_amount = allocate
-                rem_week_msgs -= allocate 
+                current_amount = min(week_tw_msgs, target) 
+                is_auto = True
+                
+            elif "tg_messages_week" in q_type:
+                current_amount = min(week_tg_msgs, target)
+                is_auto = True
+                
+            elif "twitch_uptime_week" in q_type:
+                current_amount = min(week_tw_uptime, target)
                 is_auto = True
                 
             elif "twitch_messages_session" in q_type:
@@ -15604,12 +15633,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     allocate = min(rem_today_msgs, target)
                     current_amount = allocate
                     rem_today_msgs -= allocate
-                is_auto = True
-                
-            elif "twitch_uptime_week" in q_type:
-                allocate = min(rem_week_uptime, target)
-                current_amount = allocate
-                rem_week_uptime -= allocate
                 is_auto = True
                 
             elif "twitch_uptime_session" in q_type:
@@ -15633,7 +15656,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     "current_amount": current_amount,
                     "target_amount": target,
                     "is_completed": is_completed,
-                    "week": int(q_week_str) 
+                    "week": q_week_int 
                 }
                 
                 if existing:
