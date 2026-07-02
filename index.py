@@ -19609,14 +19609,15 @@ async def buy_bott_item_proxy(
     if coupon_code:
         coupon_code = coupon_code.strip()
         if coupon_code:
+            user_id_int = int(telegram_id)
+            
             # 🔥 МАГИЯ СИНХРОНИЗАЦИИ: Если фронт просит открыть по ID
             if coupon_code == "FREE_BY_ID":
                 code_res = await supabase.get(
                     "/cs_codes", 
                     params={
-                        "target_case_name": f"eq.{item_title}", 
+                        "target_case_name": f"ilike.{item_title}", # 🛠 Игнорим регистр на уровне БД
                         "is_active": "eq.true",
-                        # Ищем либо среди тех, кто успел активировать, либо кому выдано лично
                         "or": f"(activated_by_ids.cs.{{{telegram_id}}},assigned_to.eq.{telegram_id})"
                     }
                 )
@@ -19626,11 +19627,24 @@ async def buy_bott_item_proxy(
             
             code_data = code_res.json()
             
-            # Проверяем, нашла ли база что-нибудь
+            # Проверяем, нашла ли база вообще хоть что-то
             if not code_data or not isinstance(code_data, list) or len(code_data) == 0:
                 raise HTTPException(status_code=400, detail="⛔ Неверный код или вы его не активировали!")
+            
+            # 🛠 ХИРУРГИЧЕСКИЙ ПЕРЕБОР: Ищем первый ВАЛИДНЫЙ и НЕИСПОЛЬЗОВАННЫЙ код
+            for candidate in code_data:
+                c_used = candidate.get('used_by_ids') or []
+                c_current_uses = candidate.get('current_uses', 0)
+                c_max_uses = candidate.get('max_uses', 1)
                 
-            promo_data = code_data[0]
+                # Код подходит, если юзер его еще не юзал И там остались доступные активации
+                if user_id_int not in c_used and c_current_uses < c_max_uses:
+                    promo_data = candidate
+                    break
+            
+            # Если цикл прошел, а валидного кода нет — значит все найденные купоны уже потрачены
+            if not promo_data:
+                raise HTTPException(status_code=400, detail="⛔ Вы уже использовали этот код или лимит исчерпан!")
             
             # 🔥 ВАЖНО: Подменяем заглушку на реальный код из базы
             coupon_code = promo_data['code']
@@ -19639,8 +19653,7 @@ async def buy_bott_item_proxy(
             used_ids = promo_data.get('used_by_ids') or []
             activated_ids = promo_data.get('activated_by_ids') or []
             assigned_to = promo_data.get('assigned_to') # Достаем владельца, если он есть
-            user_id_int = int(telegram_id)
-
+            
             # Проверяем: либо юзер сам активировал (публичный), либо код выдан ему сервером (БП)
             is_reserved_by_me = (user_id_int in activated_ids) or (assigned_to == user_id_int)
 
@@ -19656,11 +19669,12 @@ async def buy_bott_item_proxy(
             if target_case_name and target_case_name.strip().lower() != item_title.strip().lower():
                 raise HTTPException(status_code=400, detail="⛔ Этот купон предназначен для другого кейса!")
                 
+            # Оставляем контрольную проверку на всякий случай
             if user_id_int in used_ids:
                 raise HTTPException(status_code=400, detail="⛔ Вы уже использовали этот код!")
                 
             is_free_purchase = True
-
+            
     # =========================================================================
     # БЛОК ОПЛАТЫ (ОБХОДИМ, ЕСЛИ ЕСТЬ ВАЛИДНЫЙ КУПОН)
     # =========================================================================
