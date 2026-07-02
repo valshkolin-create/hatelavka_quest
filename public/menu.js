@@ -1634,6 +1634,37 @@ async function renderFullInterface(data) {
         checkMatrixEvent(data.matrix_quest);
     }
 
+    // 🔥 ОБНОВЛЕНИЕ МИНИ-БЛОКА ТРАСТА НА ГЛАВНОЙ 🔥
+    const scoreVal = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
+    const miniStatusText = document.getElementById('mini-trust-status-text');
+    const miniScoreVal = document.getElementById('mini-trust-score-val');
+    const miniWarning = document.getElementById('mini-trust-warning');
+    const miniMultVal = document.getElementById('mini-trust-mult-val');
+
+    if (miniStatusText && miniScoreVal) {
+        miniScoreVal.textContent = scoreVal.toFixed(1);
+
+        if (scoreVal < 30) {
+            miniStatusText.textContent = 'Пониженный';
+            miniStatusText.style.color = '#ff3b30';
+            if (miniWarning && miniMultVal) {
+                miniWarning.style.display = 'block';
+                miniMultVal.textContent = '3x';
+            }
+        } else if (scoreVal >= 70) {
+            miniStatusText.textContent = 'Повышенный';
+            miniStatusText.style.color = '#34c759';
+            if (miniWarning) miniWarning.style.display = 'none';
+        } else {
+            miniStatusText.textContent = 'Базовый';
+            miniStatusText.style.color = '#8e8e93';
+            if (miniWarning && miniMultVal) {
+                miniWarning.style.display = 'block';
+                miniMultVal.textContent = '2x';
+            }
+        }
+    }
+
     // ==========================================
     // ЛОГИКА ОТОБРАЖЕНИЯ СТАТУСА ПОДПИСКИ
     // ==========================================
@@ -1804,20 +1835,14 @@ function renderItems(items) {
         return;
     }
 
-    // 1. РАСЧЕТ ТРАСТ-ФАКТОРА
+    // 1. РАСЧЕТ ТРАСТ-ФАКТОРА (Только для цен, визуал теперь в HTML)
     const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
     let trustMultiplier = 2; // Дефолт
-    let trustColor = '#8e8e93';
-    let trustName = 'Базовый';
 
     if (score < 30) {
         trustMultiplier = 3; 
-        trustColor = '#ff3b30';
-        trustName = 'Пониженный';
     } else if (score >= 70) {
         trustMultiplier = 1; 
-        trustColor = '#34c759';
-        trustName = 'Повышенный';
     } 
 
     // 2. 🔥 УМНАЯ ФИЛЬТРАЦИЯ ПО БАЛАНСУ 🔥
@@ -1873,26 +1898,6 @@ function renderItems(items) {
     });
 
     const fragment = document.createDocumentFragment();
-    
-    // ============================================================
-    // 👇 НОВЫЙ БЕЗРАМОЧНЫЙ ТРАСТ-ФАКТОР (МИНИМАЛИЗМ) 👇
-    // ============================================================
-    const trustHeaderBlock = document.createElement('div');
-    trustHeaderBlock.style.cssText = "grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 8px; gap: 3px;";
-
-    let multiplierWarningHtml = trustMultiplier > 1 
-        ? `<div style="font-size: 9px; color: #8e8e93;">Сумма кейсов увеличена до <b style="color: #ff3b30;">${trustMultiplier}x</b></div>` 
-        : '';
-
-    trustHeaderBlock.innerHTML = `
-        <div style="font-size: 11px; font-weight: 800; color: #fff; text-transform: uppercase;">
-            ТРАСТ: <span style="color: ${trustColor};">${trustName}</span>
-            <span onclick="openTrustModal()" style="color: #2AABEE; font-size: 9px; margin-left: 6px; cursor: pointer; text-decoration: underline; opacity: 0.8;">Узнать подробнее</span>
-        </div>
-        ${multiplierWarningHtml}
-    `;
-    fragment.appendChild(trustHeaderBlock);
-    // ============================================================
 
     let freeHeaderAdded = false;
     let regularHeaderAdded = false; 
@@ -1926,11 +1931,12 @@ function renderItems(items) {
         // 🔥 ЛОГИКА "ДОСТУПНО: X ШТ" 🔥
         const userOwnedCount = window.activeFreeCases.filter(n => n === item.name).length;
         let availableCountHtml = '';
-        let titleTop = '5px'; // Дефолтный отступ названия
+        let titleTop = '4px'; // Дефолтный отступ названия
         
+        // Показываем текст только если доступно 2 и более кейсов
         if (isCase && userOwnedCount >= 2) {
             availableCountHtml = `<div style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 8px; font-weight: 900; color: #34c759; text-transform: uppercase; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Доступно: ${userOwnedCount} шт</div>`;
-            titleTop = '15px'; // Сдвигаем название чуть ниже, чтобы дать место количеству
+            titleTop = '14px'; // Сдвигаем название чуть ниже
         }
 
         // 1. ЗАГОЛОВОК: БЕСПЛАТНОЕ ОТКРЫТИЕ
