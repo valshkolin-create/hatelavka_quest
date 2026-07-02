@@ -3774,30 +3774,21 @@ async def get_bootstrap_data(
         goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
         cauldron_data = db_data.get('cauldron', {"is_visible_to_users": False})
 
-        # 🔥 СТРАХОВОЧНЫЙ СБОР АКТИВНЫХ КЕЙСОВ ИЗ ВСЕХ СЛОЕВ RPC АГРЕГАЦИИ
-        my_active_cases = (
-            rpc_data.get('my_active_cases') or 
-            rpc_data.get('active_cases') or 
-            db_data.get('my_active_cases') or 
-            db_data.get('active_cases') or 
-            []
-        )
-
         return {
             "user": user_data,
             "menu": menu_content,
             "quests": quests_list,
             "weekly_goals": goals_data,
             "cauldron": cauldron_data,
-            "auctions": auctions_list, 
-            "raffles": db_data.get('raffles', []),                  
-            "my_active_cases": my_active_cases, # 🔥 ИСПРАВЛЕНО: Теперь фронтенд железно увидит купоны
+            "auctions": auctions_list, # 🔥 ВОТ ЭТО МЫ ДОБАВИЛИ
+            "raffles": db_data.get('raffles', []),                 
+            "my_active_cases": db_data.get('active_cases', []),
             
             # 👇 ЭТИ ДАННЫЕ УЙДУТ НА ФРОНТ ИЗБАВИВ ОТ 4 ЛИШНИХ ЗАПРОСОВ 👇
             "unread_notifications": unread_count,
             "gift_available": gift_available,
             "p2p_trades": p2p_trades,
-            "matrix_quest": matrix_state 
+            "matrix_quest": matrix_state # 🔥 ДОБАВЛЕНО
         }
 
     except HTTPException:
@@ -3805,6 +3796,7 @@ async def get_bootstrap_data(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
+
 
 class ScheduleRequest(BaseModel):
     initData: str
@@ -9490,6 +9482,10 @@ async def check_channel_subscription(
         # При ошибке API (например, таймаут) лучше вернуть False и попросить проверить снова
         return {"is_subscribed": False}
     
+@app.post("/api/v1/user/me")
+async def get_current_user_data(
+    request_data: InitDataRequest,
+    background_tasks: BackgroundTasks,
     # 👇 Используем быстрый HTTP-клиент (внедрение зависимости)
     supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ): 
@@ -9727,10 +9723,6 @@ async def check_channel_subscription(
     except Exception as e:
         logging.error(f"Ошибка в /user/me: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки профиля")
-        
-# --- ГЛОБАЛЬНЫЙ КЭШ ---
-HEARTBEAT_DB_CACHE = {}
-DB_WRITE_INTERVAL = 45
         
 # --- ГЛОБАЛЬНЫЙ КЭШ ---
 HEARTBEAT_DB_CACHE = {}
