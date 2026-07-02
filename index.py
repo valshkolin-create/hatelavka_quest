@@ -3774,21 +3774,30 @@ async def get_bootstrap_data(
         goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
         cauldron_data = db_data.get('cauldron', {"is_visible_to_users": False})
 
+        # 🔥 СТРАХОВОЧНЫЙ СБОР АКТИВНЫХ КЕЙСОВ ИЗ ВСЕХ СЛОЕВ RPC АГРЕГАЦИИ
+        my_active_cases = (
+            rpc_data.get('my_active_cases') or 
+            rpc_data.get('active_cases') or 
+            db_data.get('my_active_cases') or 
+            db_data.get('active_cases') or 
+            []
+        )
+
         return {
             "user": user_data,
             "menu": menu_content,
             "quests": quests_list,
             "weekly_goals": goals_data,
             "cauldron": cauldron_data,
-            "auctions": auctions_list, # 🔥 ВОТ ЭТО МЫ ДОБАВИЛИ
-            "raffles": db_data.get('raffles', []),                 
-            "my_active_cases": db_data.get('active_cases', []),
+            "auctions": auctions_list, 
+            "raffles": db_data.get('raffles', []),                  
+            "my_active_cases": my_active_cases, # 🔥 ИСПРАВЛЕНО: Теперь фронтенд железно увидит купоны
             
             # 👇 ЭТИ ДАННЫЕ УЙДУТ НА ФРОНТ ИЗБАВИВ ОТ 4 ЛИШНИХ ЗАПРОСОВ 👇
             "unread_notifications": unread_count,
             "gift_available": gift_available,
             "p2p_trades": p2p_trades,
-            "matrix_quest": matrix_state # 🔥 ДОБАВЛЕНО
+            "matrix_quest": matrix_state 
         }
 
     except HTTPException:
@@ -3796,7 +3805,6 @@ async def get_bootstrap_data(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
-
 
 class ScheduleRequest(BaseModel):
     initData: str
