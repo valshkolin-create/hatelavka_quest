@@ -9490,16 +9490,20 @@ async def get_current_user_data(
 ): 
     """
     Получение профиля пользователя.
-    🔥 ТУРБО-ВЕРСИЯ: Вся агрегация перенесена в PostgreSQL.
+    🔥 ТУРБО-ВЕРСИЯ: С детальным логированием и трассировкой ошибок.
     """
+    # 1. Авторизация
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
+        logging.warning("[USER/ME] Невалидные initData или отсутствует ID")
         return JSONResponse(content={"is_guest": True})
 
     telegram_id = user_info["id"]
+    logging.info(f"[USER/ME] Старт обработки профиля для telegram_id={telegram_id}")
 
-    # --- 🛡️ ЗАЩИТА ---
+    # 2. Проверка режима сна
     if sleep_cache["is_sleeping"] and telegram_id not in ADMIN_IDS:
+        logging.info(f"[USER/ME] От ворот поворот для {telegram_id}: ботик спит")
         return JSONResponse(
             status_code=503, 
             content={"detail": "Ботик спит 😴", "maintenance": True}
@@ -9509,9 +9513,15 @@ async def get_current_user_data(
     background_tasks.add_task(silent_update_twitch_user, telegram_id)
 
     try:
-        await sync_current_week_bp_progress(telegram_id, supabase)
+        # 3. Синхронизация БП (Водопад)
+        try:
+            await sync_current_week_bp_progress(telegram_id, supabase)
+        except Exception as bp_err:
+            # Логируем, но не роняем весь профиль, если упала только синхронизация квестов
+            logging.error(f"[USER/ME] Ошибка в sync_current_week_bp_progress для {telegram_id}: {bp_err}", exc_info=True)
         
-        # 🚀 3 Запроса вместо 10 🚀
+        # 4. Параллельный сбор данных
+        logging.info(f"[USER/ME] Запуск asyncio.gather для {telegram_id}")
         results = await asyncio.gather(
             supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
             get_grind_settings_async_global(),
@@ -9521,27 +9531,57 @@ async def get_current_user_data(
         
         rpc_resp, grind_settings, admin_settings = results
 
-        # --- Обработка профиля ---
+        # --- Разбор логов asyncio.gather ---
         data = None
-        if not isinstance(rpc_resp, Exception) and rpc_resp.status_code == 200:
+        if isinstance(rpc_resp, Exception):
+            logging.error(f"[USER/ME] Критическая ошибка вызова RPC для {telegram_id}: {rpc_resp}", exc_info=rpc_resp)
+        elif rpc_resp.status_code != 200:
+            logging.error(f"[USER/ME] RPC вернул статус {rpc_resp.status_code} для {telegram_id}. Боди: {rpc_resp.text}")
+        else:
             data = rpc_resp.json()
+            logging.info(f"[USER/ME] RPC успешно вернул данные для {telegram_id}")
 
-        # Если юзера нет в БД, создаем и запрашиваем RPC заново
+        if isinstance(grind_settings, Exception):
+            logging.error(f"[USER/ME] Ошибка таска get_grind_settings_async_global: {grind_settings}", exc_info=grind_settings)
+        else:
+            logging.info(f"[USER/ME] grind_settings успешно получены")
+
+        if isinstance(admin_settings, Exception):
+            logging.error(f"[USER/ME] Ошибка таска get_admin_settings_async_global: {admin_settings}", exc_info=admin_settings)
+        else:
+            logging.info(f"[USER/ME] admin_settings успешно получены")
+
+
+        # 5. Обработка профиля и Ретрай создания
         if not data or not data.get('profile'):
+            logging.warning(f"[USER/ME] Профиль для {telegram_id} не найден в БД или RPC вернул пустой объект. Запускаем регистрацию...")
+            
             full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
-            await supabase.post("/users", json={
+            reg_resp = await supabase.post("/users", json={
                  "telegram_id": telegram_id, 
                  "username": user_info.get("username"), 
                  "full_name": full_name_tg
             }, headers={"Prefer": "resolution=merge-duplicates"})
             
+            logging.info(f"[USER/ME] Статус создания пользователя {telegram_id}: {reg_resp.status_code}")
+            
+            # Повторный запрос RPC
+            logging.info(f"[USER/ME] Повторный вызов RPC для {telegram_id} после регистрации")
             retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
-            data = retry_resp.json()
+            
+            if retry_resp.status_code == 200:
+                data = retry_resp.json()
+                logging.info(f"[USER/ME] Повторный RPC выполнен успешно для {telegram_id}")
+            else:
+                logging.error(f"[USER/ME] Повторный RPC упал со статусом {retry_resp.status_code}. Ответ базы: {retry_resp.text}")
+                data = None
 
-        if not data: 
+        if not data or not data.get('profile'): 
+            logging.error(f"[USER/ME] Фатально: Данные профиля {telegram_id} отсутствуют после всех проверок и ретраев. Структура data: {data}")
             raise HTTPException(status_code=500, detail="Не удалось загрузить профиль")
 
-        # Достаем то, что сформировал PostgreSQL
+        # 6. Сборка финального ответа
+        logging.info(f"[USER/ME] Начало маппинга final_response для {telegram_id}")
         final_response = data.get('profile', {})
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
@@ -9550,17 +9590,31 @@ async def get_current_user_data(
         final_response['fake_message_codes'] = data.get('fake_message_codes', {})
         final_response['bp_quests'] = data.get('bp_quests', [])
 
-        # Вшиваем локальные настройки
+        # Вшиваем локальные настройки (с проверкой на инстанс ошибок)
         final_response['is_admin'] = telegram_id in ADMIN_IDS
-        final_response['grind_settings'] = grind_settings.dict() if hasattr(grind_settings, 'dict') else {}
-        final_response['is_checkpoint_globally_enabled'] = getattr(admin_settings, 'checkpoint_enabled', True)
-        final_response['quest_rewards_enabled'] = getattr(admin_settings, 'quest_promocodes_enabled', True)
+        
+        if not isinstance(grind_settings, Exception) and hasattr(grind_settings, 'dict'):
+            final_response['grind_settings'] = grind_settings.dict()
+        else:
+            final_response['grind_settings'] = {}
+            
+        if not isinstance(admin_settings, Exception):
+            final_response['is_checkpoint_globally_enabled'] = getattr(admin_settings, 'checkpoint_enabled', True)
+            final_response['quest_rewards_enabled'] = getattr(admin_settings, 'quest_promocodes_enabled', True)
+        else:
+            final_response['is_checkpoint_globally_enabled'] = True
+            final_response['quest_rewards_enabled'] = True
+            
         final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
 
+        logging.info(f"[USER/ME] Успешная отправка ответа для {telegram_id}")
         return JSONResponse(content=final_response)
 
+    except HTTPException as http_ex:
+        # Прокидываем честные HTTPException наружу без изменений
+        raise http_ex
     except Exception as e:
-        logging.error(f"Ошибка в /user/me: {e}", exc_info=True)
+        logging.error(f"[USER/ME] Глобальный сбой эндпоинта /user/me для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки профиля")
         
 # --- ГЛОБАЛЬНЫЙ КЭШ ---
