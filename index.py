@@ -3774,21 +3774,30 @@ async def get_bootstrap_data(
         goals_data["system_enabled"] = menu_content.get('weekly_goals_enabled', False)
         cauldron_data = db_data.get('cauldron', {"is_visible_to_users": False})
 
+        # 🔥 СТРАХОВОЧНЫЙ СБОР АКТИВНЫХ КЕЙСОВ ИЗ ВСЕХ СЛОЕВ RPC АГРЕГАЦИИ
+        my_active_cases = (
+            rpc_data.get('my_active_cases') or 
+            rpc_data.get('active_cases') or 
+            db_data.get('my_active_cases') or 
+            db_data.get('active_cases') or 
+            []
+        )
+
         return {
             "user": user_data,
             "menu": menu_content,
             "quests": quests_list,
             "weekly_goals": goals_data,
             "cauldron": cauldron_data,
-            "auctions": auctions_list, # 🔥 ВОТ ЭТО МЫ ДОБАВИЛИ
-            "raffles": db_data.get('raffles', []),                 
-            "my_active_cases": db_data.get('active_cases', []),
+            "auctions": auctions_list, 
+            "raffles": db_data.get('raffles', []),                  
+            "my_active_cases": my_active_cases, # 🔥 ИСПРАВЛЕНО: Теперь фронтенд железно увидит купоны
             
             # 👇 ЭТИ ДАННЫЕ УЙДУТ НА ФРОНТ ИЗБАВИВ ОТ 4 ЛИШНИХ ЗАПРОСОВ 👇
             "unread_notifications": unread_count,
             "gift_available": gift_available,
             "p2p_trades": p2p_trades,
-            "matrix_quest": matrix_state # 🔥 ДОБАВЛЕНО
+            "matrix_quest": matrix_state 
         }
 
     except HTTPException:
@@ -3796,7 +3805,6 @@ async def get_bootstrap_data(
     except Exception as e:
         logging.error(f"🔥 CRITICAL Bootstrap Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Bootstrap Failed: {str(e)}")
-
 
 class ScheduleRequest(BaseModel):
     initData: str
@@ -9486,242 +9494,136 @@ async def check_channel_subscription(
 async def get_current_user_data(
     request_data: InitDataRequest,
     background_tasks: BackgroundTasks,
-    # 👇 Используем быстрый HTTP-клиент (внедрение зависимости)
     supabase: httpx.AsyncClient = Depends(get_supabase_client) 
 ): 
     """
     Получение профиля пользователя.
-    ОПТИМИЗАЦИЯ: Все запросы к БД выполняются параллельно для скорости.
+    🔥 ТУРБО-ВЕРСИЯ: С детальным логированием и трассировкой ошибок.
     """
-    
-    # 1. Проверка авторизации Telegram
+    # 1. Авторизация
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
+        logging.warning("[USER/ME] Невалидные initData или отсутствует ID")
         return JSONResponse(content={"is_guest": True})
 
     telegram_id = user_info["id"]
+    logging.info(f"[USER/ME] Старт обработки профиля для telegram_id={telegram_id}")
 
-    # --- 🛡️ ЗАЩИТА: ПРОВЕРКА ТЕХ. РЕЖИМА 🛡️ ---
-    # Если режим включен и ты НЕ админ — выдаем ошибку 503 (Maintenance)
+    # 2. Проверка режима сна
     if sleep_cache["is_sleeping"] and telegram_id not in ADMIN_IDS:
+        logging.info(f"[USER/ME] От ворот поворот для {telegram_id}: ботик спит")
         return JSONResponse(
             status_code=503, 
             content={"detail": "Ботик спит 😴", "maintenance": True}
         )
         
-    # 2. Фоновые задачи (не тормозят ответ пользователю)
-    # Обновляем инфу о Twitch-подписке тихо в фоне
+    # Фоновые задачи
     background_tasks.add_task(silent_update_twitch_user, telegram_id)
 
     try:
-
-        await sync_current_week_bp_progress(telegram_id, supabase)
+        # 3. Синхронизация БП (Водопад)
+        try:
+            await sync_current_week_bp_progress(telegram_id, supabase)
+        except Exception as bp_err:
+            # Логируем, но не роняем весь профиль, если упала только синхронизация квестов
+            logging.error(f"[USER/ME] Ошибка в sync_current_week_bp_progress для {telegram_id}: {bp_err}", exc_info=True)
         
-        # 3. 🚀 ТУРБО-РЕЖИМ: ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ОДНОВРЕМЕННО
+        # 4. Параллельный сбор данных
+        logging.info(f"[USER/ME] Запуск asyncio.gather для {telegram_id}")
         results = await asyncio.gather(
-            
-            # A. Основные данные профиля (RPC-функция в базе)
             supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
-            
-           # B. Статус привязки Twitch + ДОБАВИЛИ ЧЕКПОИНТ
-            supabase.get("/users", params={
-                "telegram_id": f"eq.{telegram_id}", 
-                "select": "twitch_status, twitch_login, checkpoint_stars, checkpoint_level, topskin_views" # 👈 Добавили topskin_views
-            }),
-            
-            # C. Настройки игры (Гринд) - берем из кэша или быстро из БД
             get_grind_settings_async_global(),
-            
-            # D. Количество активных рефералов (Считаем через заголовок count)
-            supabase.get(
-                "/users", 
-                params={
-                    "referrer_id": f"eq.{telegram_id}", 
-                    "referral_activated_at": "not.is.null",
-                    "select": "telegram_id",
-                    "limit": "1" # Нам не нужны данные, только кол-во
-                },
-                headers={"Prefer": "count=exact"}
-            ),
-            
-            # E. Настройки Админа (Глобальные флаги)
             get_admin_settings_async_global(),
-            
-            # F. Статус стрима (Онлайн/Оффлайн)
-            supabase.get("/settings", params={"key": "eq.twitch_stream_status", "select": "value"}),
-            
-            # G. Прогресс квестов Баттл-пасса
-            supabase.get("/user_bp_quests", params={
-                "user_id": f"eq.{telegram_id}",
-                "select": "quest_id, week, current_amount, target_amount, is_completed, is_claimed, updated_at, created_at"
-            }),
-
-            # H. РУЧНЫЕ ОДОБРЕННЫЕ ЗАДАНИЯ (ИЩЕМ ЗДЕСЬ)
-            supabase.get("/quest_submissions", params={
-                "user_id": f"eq.{telegram_id}",
-                "status": "eq.approved",
-                "select": "quest_id, created_at"
-            }),
-
-            # I. 👇 НОВОЕ: НОВАЯ ТАБЛИЦА ПРОГРЕССА (Глобальные квесты) 👇
-            supabase.get("/user_quest_progress", params={
-                "user_id": f"eq.{telegram_id}",
-                "select": "quest_id, current_progress, target_value, claimed_at"
-            }),
-            
-            # J. 🔥 ИЩЕМ СГЕНЕРИРОВАННЫЕ КОДЫ ФЕЙК-СООБЩЕНИЙ 🔥
-            supabase.get("/cs_codes", params={
-                "assigned_to": f"eq.{telegram_id}",
-                "code": "like.CP-FM-*",    # 👈 МЕНЯЕМ % НА *
-                "is_active": "eq.true",    # 👈 СРАЗУ ОТСЕКАЕМ ПОГАШЕННЫЕ
-                "select": "code, description, activated_by_ids"
-            }),
-            
-            # Если один из второстепенных запросов упадет — не ломаем весь профиль
             return_exceptions=True 
         )
         
-       # 4. РАСПАКОВКА РЕЗУЛЬТАТОВ (Порядок важен! Добавлена переменная fm_codes_resp)
-        (rpc_resp, twitch_resp, grind_settings, ref_resp, admin_settings, stream_resp, bp_quests_resp, old_quests_resp, new_quests_resp, fm_codes_resp) = results
+        rpc_resp, grind_settings, admin_settings = results
 
-        # Смотрим, что реально ответил Supabase при попытке чтения
-        if isinstance(new_quests_resp, Exception):
-            print(f"[AUDIT] Exception in new_quests_resp: {new_quests_resp}")
+        # --- Разбор логов asyncio.gather ---
+        data = None
+        if isinstance(rpc_resp, Exception):
+            logging.error(f"[USER/ME] Критическая ошибка вызова RPC для {telegram_id}: {rpc_resp}", exc_info=rpc_resp)
+        elif rpc_resp.status_code != 200:
+            logging.error(f"[USER/ME] RPC вернул статус {rpc_resp.status_code} для {telegram_id}. Боди: {rpc_resp.text}")
         else:
-            print(f"[AUDIT] GET user_quest_progress: Status {new_quests_resp.status_code} | Body: {new_quests_resp.text}")
-
-        # --- [A] Обработка Профиля ---
-        data = None
-        data = None
-        if not isinstance(rpc_resp, Exception) and rpc_resp.status_code == 200:
             data = rpc_resp.json()
+            logging.info(f"[USER/ME] RPC успешно вернул данные для {telegram_id}")
 
+        if isinstance(grind_settings, Exception):
+            logging.error(f"[USER/ME] Ошибка таска get_grind_settings_async_global: {grind_settings}", exc_info=grind_settings)
+        else:
+            logging.info(f"[USER/ME] grind_settings успешно получены")
+
+        if isinstance(admin_settings, Exception):
+            logging.error(f"[USER/ME] Ошибка таска get_admin_settings_async_global: {admin_settings}", exc_info=admin_settings)
+        else:
+            logging.info(f"[USER/ME] admin_settings успешно получены")
+
+
+        # 5. Обработка профиля и Ретрай создания
         if not data or not data.get('profile'):
-            full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
+            logging.warning(f"[USER/ME] Профиль для {telegram_id} не найден в БД или RPC вернул пустой объект. Запускаем регистрацию...")
             
-            await supabase.post("/users", json={
+            full_name_tg = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip() or "Без имени"
+            reg_resp = await supabase.post("/users", json={
                  "telegram_id": telegram_id, 
                  "username": user_info.get("username"), 
                  "full_name": full_name_tg
             }, headers={"Prefer": "resolution=merge-duplicates"})
             
+            logging.info(f"[USER/ME] Статус создания пользователя {telegram_id}: {reg_resp.status_code}")
+            
+            # Повторный запрос RPC
+            logging.info(f"[USER/ME] Повторный вызов RPC для {telegram_id} после регистрации")
             retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
-            data = retry_resp.json()
+            
+            if retry_resp.status_code == 200:
+                data = retry_resp.json()
+                logging.info(f"[USER/ME] Повторный RPC выполнен успешно для {telegram_id}")
+            else:
+                logging.error(f"[USER/ME] Повторный RPC упал со статусом {retry_resp.status_code}. Ответ базы: {retry_resp.text}")
+                data = None
 
-        if not data: 
+        if not data or not data.get('profile'): 
+            logging.error(f"[USER/ME] Фатально: Данные профиля {telegram_id} отсутствуют после всех проверок и ретраев. Структура data: {data}")
             raise HTTPException(status_code=500, detail="Не удалось загрузить профиль")
 
+        # 6. Сборка финального ответа
+        logging.info(f"[USER/ME] Начало маппинга final_response для {telegram_id}")
         final_response = data.get('profile', {})
         final_response['challenge'] = data.get('challenge')
         final_response['event_participations'] = data.get('event_participations', {})
+        final_response['active_referrals_count'] = data.get('active_referrals_count', 0)
+        final_response['is_stream_online'] = data.get('is_stream_online', False)
+        final_response['fake_message_codes'] = data.get('fake_message_codes', {})
+        final_response['my_active_cases'] = data.get('my_active_cases', []) # 👈 ДОБАВИТЬ ЭТУ СТРОКУ
+        final_response['bp_quests'] = data.get('bp_quests', [])
+
+        # Вшиваем локальные настройки (с проверкой на инстанс ошибок)
         final_response['is_admin'] = telegram_id in ADMIN_IDS
-
-        # --- [B] Обработка Twitch и Чекпоинта ---
-        twitch_status = None
-        checkpoint_stars = 0
-        checkpoint_level = 0
-        topskin_views = 0 # 👈 1. Создаем переменную
         
-        if not isinstance(twitch_resp, Exception) and twitch_resp.status_code == 200:
-            tw_data = twitch_resp.json()
-            if tw_data:
-                twitch_status = tw_data[0].get('twitch_status')
-                checkpoint_stars = tw_data[0].get('checkpoint_stars', 0)
-                checkpoint_level = tw_data[0].get('checkpoint_level', 0)
-                topskin_views = tw_data[0].get('topskin_views') or 0 # 👈 2. Достаем из ответа базы
-                
-        final_response['twitch_status'] = twitch_status
-        final_response['checkpoint_stars'] = checkpoint_stars
-        final_response['checkpoint_level'] = checkpoint_level
-        final_response['topskin_views'] = topskin_views # 👈 3. Отдаем фронтенду
-
-        # --- [C] Обработка Настроек Гринда ---
-        final_response['grind_settings'] = grind_settings.dict() if hasattr(grind_settings, 'dict') else {}
-
-        # --- [D] Обработка Рефералов ---
-        ref_count = 0
-        if not isinstance(ref_resp, Exception):
-            content_range = ref_resp.headers.get("Content-Range")
-            if content_range:
-                try:
-                    count_val = content_range.split('/')[-1]
-                    ref_count = int(count_val) if count_val != '*' else 0
-                except: pass
-        final_response['active_referrals_count'] = ref_count
-
-        # --- [E] Обработка Настроек Админа ---
-        final_response['is_checkpoint_globally_enabled'] = admin_settings.checkpoint_enabled
-        final_response['quest_rewards_enabled'] = admin_settings.quest_promocodes_enabled
-
-        # --- [F] Обработка Статуса Стрима ---
-        is_online = False
-        if not isinstance(stream_resp, Exception) and stream_resp.status_code == 200:
-            s_data = stream_resp.json()
-            if s_data:
-                is_online = s_data[0].get('value', False)
-        final_response['is_stream_online'] = is_online
-
-        # --- [G, H & I] 👇 СЛИЯНИЕ ПРОГРЕССА КВЕСТОВ 👇 ---
-        bp_quests_data = bp_quests_resp.json() if not isinstance(bp_quests_resp, Exception) and bp_quests_resp.status_code == 200 else []
-        old_quests_data = old_quests_resp.json() if not isinstance(old_quests_resp, Exception) and old_quests_resp.status_code == 200 else []
-        new_quests_data = new_quests_resp.json() if not isinstance(new_quests_resp, Exception) and new_quests_resp.status_code == 200 else []
-        
-        existing_bp_ids = {str(q["quest_id"]) for q in bp_quests_data}
-        
-        # Подмешиваем ручные одобренные задания
-        for old_q in old_quests_data:
-            old_id = str(old_q["quest_id"])
-            if old_id not in existing_bp_ids:
-                bp_quests_data.append({
-                    "quest_id": old_q["quest_id"], 
-                    "current_amount": 1,
-                    "target_amount": 1,
-                    "is_completed": True,
-                    "is_claimed": False, 
-                    "week": None, 
-                    "created_at": old_q.get("created_at"),
-                    "updated_at": old_q.get("created_at") 
-                })
-
-        # 👇 НОВОЕ: Подмешиваем Глобальные задания из новой таблицы 👇
-        for nq in new_quests_data:
-            # Формируем структуру, которую ожидает твой фронтенд
-            bp_quests_data.append({
-                "quest_id": nq["quest_id"],
-                "week": "global",  # Жестко маркируем для фронтенда
-                "current_amount": nq.get("current_progress", 0),
-                "target_amount": nq.get("target_value", 1),
-                # Квест выполнен, если прогресс достиг цели ИЛИ если мы его уже забрали (claimed_at != null)
-                "is_completed": True if nq.get("claimed_at") else (nq.get("current_progress", 0) >= nq.get("target_value", 1)),
-                # Квест забран, только если стоит дата в claimed_at
-                "is_claimed": True if nq.get("claimed_at") else False
-            })
-                
-        final_response['bp_quests'] = bp_quests_data
-
-        # --- [J] 👇 НОВОЕ: ОБРАБОТКА КОДОВ ФЕЙК-СООБЩЕНИЙ 👇 ---
-        fake_message_codes = {}
-        if not isinstance(fm_codes_resp, Exception) and fm_codes_resp.status_code == 200:
-            fm_data = fm_codes_resp.json()
-            for coupon in fm_data:
-                # Нам уже не нужно так жестко проверять activated_by_ids, 
-                # так как мы отсекли их через is_active=eq.true в запросе
-                desc = coupon.get("description", "")
-                
-                # Вытаскиваем уровень из строки вида "... БП Ур. 5"
-                if "БП Ур. " in desc:
-                    level_str = desc.split("БП Ур. ")[-1].strip()
-                    fake_message_codes[level_str] = coupon.get("code")
-        
-        final_response['fake_message_codes'] = fake_message_codes
-
-        # --- Дополнительные вычисляемые поля ---
+        if not isinstance(grind_settings, Exception) and hasattr(grind_settings, 'dict'):
+            final_response['grind_settings'] = grind_settings.dict()
+        else:
+            final_response['grind_settings'] = {}
+            
+        if not isinstance(admin_settings, Exception):
+            final_response['is_checkpoint_globally_enabled'] = getattr(admin_settings, 'checkpoint_enabled', True)
+            final_response['quest_rewards_enabled'] = getattr(admin_settings, 'quest_promocodes_enabled', True)
+        else:
+            final_response['is_checkpoint_globally_enabled'] = True
+            final_response['quest_rewards_enabled'] = True
+            
         final_response['is_telegram_subscribed'] = True if final_response.get('referral_activated_at') else False
 
+        logging.info(f"[USER/ME] Успешная отправка ответа для {telegram_id}")
         return JSONResponse(content=final_response)
 
+    except HTTPException as http_ex:
+        # Прокидываем честные HTTPException наружу без изменений
+        raise http_ex
     except Exception as e:
-        logging.error(f"Ошибка в /user/me: {e}", exc_info=True)
+        logging.error(f"[USER/ME] Глобальный сбой эндпоинта /user/me для {telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки профиля")
         
 # --- ГЛОБАЛЬНЫЙ КЭШ ---
