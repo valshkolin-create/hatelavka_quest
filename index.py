@@ -9588,6 +9588,7 @@ async def get_current_user_data(
         final_response['active_referrals_count'] = data.get('active_referrals_count', 0)
         final_response['is_stream_online'] = data.get('is_stream_online', False)
         final_response['fake_message_codes'] = data.get('fake_message_codes', {})
+        final_response['my_active_cases'] = data.get('my_active_cases', []) # 👈 ДОБАВИТЬ ЭТУ СТРОКУ
         final_response['bp_quests'] = data.get('bp_quests', [])
 
         # Вшиваем локальные настройки (с проверкой на инстанс ошибок)
