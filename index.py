@@ -15600,7 +15600,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             q_type = meta.get("quest_type", "")
             target = wq.get("target_amount", 1)
             
-            if any(k in q_type for k in ["twitch_messages", "twitch_uptime", "tg_messages"]):
+            if any(k in q_type for k in ["twitch_messages", "twitch_uptime", "tg_messages", "telegram_messages"]):
                 db_target = meta.get("target_value")
                 if db_target: target = db_target
             
@@ -15618,7 +15618,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 rem_season_tw_msgs -= allocate
                 is_auto = True
                 
-            elif "tg_messages_week" in q_type:
+           elif "tg_messages_week" in q_type or "telegram_messages" in q_type:
                 # 🔥 ИМПЛЕМЕНТАЦИЯ ВОДОПАДА 🔥
                 # Никаких вычитаний пула. Просто даем активному квесту наш чистый остаток.
                 # Если квест выполнится, но не будет забран, замок ниже заблокирует след. неделю.
@@ -16084,7 +16084,7 @@ async def claim_bp_quest(
         patch_payload = {"checkpoint_stars": current_stars + exp_reward}
         
         # Если мы забираем награду за ТГ-квест, фиксируем текущий счетчик как новую точку отсчета
-        if "tg_messages" in quest_type:
+        if "tg_messages" in quest_type or "telegram_messages" in quest_type:
             current_tg_total = int(user_db_data.get("telegram_total_message_count") or 0)
             patch_payload["quest_start_value"] = current_tg_total
             
