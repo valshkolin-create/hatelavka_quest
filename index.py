@@ -25102,7 +25102,7 @@ async def handle_fossabot_claim(
         is_leader = res_data.get('is_leader')
 
         # ==========================================
-        # 8. НАГРАДА ПОБЕДИТЕЛЯ
+        # 8. НАГРАДА (И БАТТЛ-ПАСС ДЛЯ ВСЕХ УЧАСТНИКОВ)
         # ==========================================
         if is_winner:
             await supabase.post("/rpc/add_twitch_winner", json={
@@ -25115,9 +25115,10 @@ async def handle_fossabot_claim(
                 message=f"Бесплатное открытие для «{campaign['target_case_name']}» уже ждет тебя!", notif_type="system" 
             )
 
-            # 🔥 НОВОЕ: Прогресс задания БП (Ищем слово 'подар' в названии задания)
-            background_tasks.add_task(process_bp_auto_quest, supabase, "подар", tg_id_int, None)
-
+        # 🔥 НОВОЕ: Прогресс задания БП теперь засчитывается ВСЕМ, 
+        # кто успешно активировал код (и победителям, и тем, кто получил билеты)
+        background_tasks.add_task(process_bp_auto_quest, supabase, "подар", tg_id_int, None)
+        
         # ==========================================
         # 9. СБОРКА СООБЩЕНИЯ (ТОЛЬКО ЛИДЕР)
         # ==========================================
