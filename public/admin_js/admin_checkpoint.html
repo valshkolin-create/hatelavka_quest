@@ -921,17 +921,26 @@
         }
 
         // --- НОВОЕ: ЛОГИКА ОБЩИХ ЗАДАНИЙ ---
+        // --- НОВОЕ: ЛОГИКА ОБЩИХ ЗАДАНИЙ ---
         function createGlobalQuestRow(data = null) {
-            const q = data || { quest_id: Date.now(), title: '', target_amount: 1000, exp_reward: 50 };
+            const q = data || { quest_id: '', target_amount: 1000, exp_reward: 50 };
             const wrapper = document.createElement('div');
             wrapper.className = 'quest-row global-quest-row';
             wrapper.style.background = 'rgba(0,0,0,0.5)';
-            wrapper.dataset.qid = q.quest_id; // Уникальный ID для бекенда
+
+            // Создаем выпадающий список (как у недельных квестов)
+            let optionsHtml = '<option value="">-- Выберите глобальное задание --</option>';
+            availableCpQuests.forEach(quest => {
+                const selected = (String(quest.id) === String(q.quest_id)) ? 'selected' : '';
+                optionsHtml += `<option value="${quest.id}" ${selected}>[ID:${quest.id}] ${escapeHTML(quest.title)}</option>`;
+            });
 
             wrapper.innerHTML = `
                 <div style="display: flex; flex-wrap: wrap; gap: 8px; width: 100%; align-items: center;">
                     <div style="flex: 1 1 100%;">
-                        <input type="text" class="gq-title" placeholder="Название (напр. Собрать 10 000 реакций)" value="${escapeHTML(q.title)}" required style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;">
+                        <select class="gq-id-select" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); box-sizing: border-box;" required>
+                            ${optionsHtml}
+                        </select>
                     </div>
                     
                     <div style="display: flex; align-items: center; gap: 5px; flex: 1 1 60px;">
@@ -951,8 +960,24 @@
             `;
 
             wrapper.querySelector('.remove-gq-btn').addEventListener('click', () => { wrapper.remove(); showSaveBtn(); });
+            wrapper.addEventListener('change', showSaveBtn); // Реагируем на выбор в select
             wrapper.addEventListener('input', showSaveBtn);
             return wrapper;
+        }
+
+        function extractGlobalQuestsData() {
+            const arr = [];
+            document.querySelectorAll('.global-quest-row').forEach(row => {
+                const qid = parseInt(row.querySelector('.gq-id-select').value);
+                const target = parseInt(row.querySelector('.gq-target').value);
+                const exp = parseFloat(row.querySelector('.gq-exp').value);
+                
+                // Проверяем, что ID выбран
+                if (!isNaN(qid) && target > 0 && exp > 0) {
+                    arr.push({ quest_id: qid, target_amount: target, exp_reward: exp });
+                }
+            });
+            return arr;
         }
 
         function addGlobalQuest() {
@@ -960,20 +985,6 @@
             showSaveBtn();
         }
 
-        function extractGlobalQuestsData() {
-            const arr = [];
-            document.querySelectorAll('.global-quest-row').forEach(row => {
-                const title = row.querySelector('.gq-title').value.trim();
-                const target = parseInt(row.querySelector('.gq-target').value);
-                const exp = parseFloat(row.querySelector('.gq-exp').value);
-                const qid = parseInt(row.dataset.qid);
-                
-                if (title && target > 0 && exp > 0) {
-                    arr.push({ quest_id: qid, title: title, target_amount: target, exp_reward: exp });
-                }
-            });
-            return arr;
-        }
         // --- КОНЕЦ ЛОГИКИ ОБЩИХ ЗАДАНИЙ ---
         
         function generateWeeks() {
