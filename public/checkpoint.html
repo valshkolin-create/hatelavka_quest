@@ -2345,13 +2345,14 @@ function renderQuests() {
             let actionHtml = '';
             let cardClass = 'quest-card';
             
-            // Находим прогресс, который прилетел из Supabase RPC
-            const userProgress = (userData.bp_quests || []).find(q => String(q.quest_id) === String(gq.quest_id) && String(q.week) === 'global');
-            
-            // 🔥 ДОСТАЕМ РЕАЛЬНЫЕ ДАННЫЕ ИЗ БАЗЫ (userProgress), А НЕ ИЗ КОНФИГА (gq)
-            const isClaimedNow = userProgress ? userProgress.is_claimed : false;
-            const isCompletedNow = userProgress ? userProgress.is_completed : false;
-            const currentAmount = userProgress ? userProgress.current_amount : 0;
+            // 🔥 1. Находим метаданные квеста, чтобы получить его НАСТОЯЩЕЕ название (фикc undefined)
+            const questMeta = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(gq.quest_id)) : null;
+            const gqTitle = questMeta ? questMeta.title : 'Глобальное задание';
+
+            // 🔥 2. Прогресс берем ПРЯМО ИЗ gq, так как бэкенд теперь сам вычисляет правильный счетчик для нас!
+            const isClaimedNow = gq.is_claimed;
+            const isCompletedNow = gq.is_completed;
+            const currentAmount = gq.current_amount || 0;
             
             if (isClaimedNow) {
                 actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
@@ -2367,7 +2368,7 @@ function renderQuests() {
             globalInner.innerHTML += `
                 <div class="${cardClass}">
                     <div class="quest-info">
-                        <h4 class="quest-title">${gq.title}</h4>
+                        <h4 class="quest-title">${gqTitle}</h4>
                     </div>
                     <div class="quest-right-side">
                         <div class="quest-action-box">
