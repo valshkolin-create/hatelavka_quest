@@ -15514,8 +15514,15 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         config = cp_res.json()[0].get("content", {})
         if not config.get("is_active") or not config.get("start_date"): return
         
-        bp_start_date = datetime.fromisoformat(config.get("start_date").replace('Z', '+00:00'))
-        now = datetime.now(timezone.utc)
+        # 🔥 Задаем зону МСК (UTC+3) 🔥
+        msk_tz = timezone(timedelta(hours=3))
+        
+        # Переводим дату старта из базы в МСК
+        bp_start_date = datetime.fromisoformat(config.get("start_date").replace('Z', '+00:00')).astimezone(msk_tz)
+        
+        # Текущее время берем по МСК
+        now = datetime.now(msk_tz)
+        
         if now < bp_start_date: return
         
         current_week = ((now - bp_start_date).days // 7) + 1
@@ -15546,6 +15553,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "telegram_daily_message_count"})
         tg_daily = int(u_res.json()[0].get("telegram_daily_message_count") or 0) if u_res.is_success and u_res.json() else 0
 
+        # Считаем сегодняшние метрики с учетом МСК
         today_str = now.strftime('%Y-%m-%d')
         today_tw_msgs = sum(r.get("twitch_messages", 0) for r in activity_data if r.get("date") == today_str)
         today_tw_uptime = sum(r.get("twitch_uptime", 0) for r in activity_data if r.get("date") == today_str)
@@ -15583,16 +15591,18 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     row_date_str = row.get("date")
                     if not row_date_str: continue
                     
-                    row_date = datetime.strptime(row_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                    # Переводим дату лога в МСК
+                    row_date = datetime.strptime(row_date_str, '%Y-%m-%d').replace(tzinfo=msk_tz)
                     
-                    # Плюсуем стату СТРОГО начиная с даты открытия недели
-                    if any(k in q_type for k in ["week", "telegram_messages", "tg_messages"]) and "session" not in q_type:
-                        if "twitch_messages" in q_type:
-                            current_amount += row.get("twitch_messages", 0)
-                        elif "tg_messages" in q_type or "telegram_messages" in q_type:
-                            current_amount += row.get("tg_messages", 0)
-                        elif "twitch_uptime" in q_type:
-                            current_amount += row.get("twitch_uptime", 0)
+                    # 🔥 ПРОВЕРКА ДАТЫ: Плюсуем стату СТРОГО начиная с даты открытия недели 🔥
+                    if row_date >= week_unlock_date:
+                        if any(k in q_type for k in ["week", "telegram_messages", "tg_messages"]) and "session" not in q_type:
+                            if "twitch_messages" in q_type:
+                                current_amount += row.get("twitch_messages", 0)
+                            elif "tg_messages" in q_type or "telegram_messages" in q_type:
+                                current_amount += row.get("tg_messages", 0)
+                            elif "twitch_uptime" in q_type:
+                                current_amount += row.get("twitch_uptime", 0)
                 is_auto = True
                 
             # --- ЛОГИКА ДЛЯ ЕЖЕДНЕВНЫХ/СЕССИОННЫХ ЗАДАНИЙ ---
@@ -15642,6 +15652,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
     except Exception as e:
         logging.error(f"Ошибка авто-синхронизации БП для {user_id}: {e}", exc_info=True)
 
+
 async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
     """
     Обработчик ручных/разовых триггеров. 
@@ -15661,8 +15672,15 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         config = cp_res.json()[0].get("content", {})
         if not config.get("is_active") or not config.get("start_date"): return
         
-        start_date = datetime.fromisoformat(config["start_date"].replace('Z', '+00:00'))
-        now = datetime.now(timezone.utc)
+        # 🔥 Задаем зону МСК (UTC+3) 🔥
+        msk_tz = timezone(timedelta(hours=3))
+
+        # Переводим дату старта из базы в МСК
+        start_date = datetime.fromisoformat(config["start_date"].replace('Z', '+00:00')).astimezone(msk_tz)
+        
+        # Текущее время тоже берем по МСК
+        now = datetime.now(msk_tz)
+        
         if now < start_date: return
         
         current_week = ((now - start_date).days // 7) + 1
