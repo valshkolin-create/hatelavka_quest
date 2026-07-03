@@ -15505,8 +15505,7 @@ async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncCl
 async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClient):
     """
     Синхронизирует прогресс автоматических заданий БП.
-    Внедрен ЖЕСТКИЙ ЗАМОК ЦЕПОЧКИ: следующая неделя получает 0, 
-    пока не нажата кнопка "Забрать" на предыдущей.
+    Внедрен ЖЕСТКИЙ ЗАМОК ЦЕПОЧКИ и ВОДОПАД ДЛЯ TELEGRAM.
     """
     try:
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
@@ -15536,55 +15535,64 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         start_str = bp_start_date.strftime('%Y-%m-%d')
         today_str = now.strftime('%Y-%m-%d')
 
+        # 🔥 ШАГ 1: ДОСТАЕМ ДАННЫЕ ТГ ПРЯМО ИЗ ПРОФИЛЯ ЮЗЕРА 🔥
+        u_res = await supabase.get("/users", params={
+            "telegram_id": f"eq.{user_id}", 
+            "select": "telegram_total_message_count, telegram_daily_message_count, quest_start_value"
+        })
+        user_data = u_res.json()[0] if u_res.is_success and len(u_res.json()) > 0 else {}
+        
+        tg_total = int(user_data.get("telegram_total_message_count") or 0)
+        tg_daily = int(user_data.get("telegram_daily_message_count") or 0)
+        tg_start_val = int(user_data.get("quest_start_value") or 0)
+
+        # 🔥 ШАГ 2: ФОРМУЛА ВОДОПАДА 🔥
+        # Чистый прогресс: сколько сообщений написано с момента последней фиксации
+        waterfall_tg_progress = max(0, tg_total - tg_start_val)
+
+        # Twitch оставляем как было, он тянется из daily_activity
         activity_res = await supabase.get(
             "/user_daily_activity", 
             params={
                 "user_id": f"eq.{user_id}",
                 "date": f"gte.{start_str}", 
-                "select": "date,twitch_messages,twitch_uptime,tg_messages" 
+                "select": "date,twitch_messages,twitch_uptime" # Убрали отсюда tg_messages!
             }
         )
         
-        season_tw_msgs, season_tw_uptime, season_tg_msgs = 0, 0, 0
-        today_tw_msgs, today_tw_uptime, today_tg_msgs = 0, 0, 0
+        season_tw_msgs, season_tw_uptime = 0, 0
+        today_tw_msgs, today_tw_uptime = 0, 0
         
         if activity_res.is_success and activity_res.json():
             for row in activity_res.json():
                 tw_m = row.get("twitch_messages", 0)
                 tw_u = row.get("twitch_uptime", 0)
-                tg_m = row.get("tg_messages", 0)
                 
                 season_tw_msgs += tw_m
                 season_tw_uptime += tw_u
-                season_tg_msgs += tg_m
                 
                 if row.get("date") == today_str:
                     today_tw_msgs += tw_m
                     today_tw_uptime += tw_u
-                    today_tg_msgs += tg_m
 
         bp_quests_res = await supabase.get(
             "/user_bp_quests", 
             params={"user_id": f"eq.{user_id}", "quest_id": f"in.({','.join(quest_ids)})"}
         )
         
-        existing_progress = {(str(q["quest_id"]), str(q.get("week", 1))): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
+        existing_progress = {(str(q["quest_id"]), int(q.get("week", 1))): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
         rem_season_tw_msgs = season_tw_msgs
         rem_season_tw_uptime = season_tw_uptime
-        rem_season_tg_msgs = season_tg_msgs
-
         rem_today_tw_msgs = today_tw_msgs
         rem_today_tw_uptime = today_tw_uptime
-        rem_today_tg_msgs = today_tg_msgs
 
         # 🔥 Словарь для блокировки цепочек 🔥
         chain_status = {}
 
         for wq in active_quests:
             q_id_str = str(wq["quest_id"])
-            q_week_str = str(wq.get("week", 1))
-            q_week_int = int(q_week_str)
+            q_week_int = int(wq.get("week", 1))
             
             meta = quests_meta.get(q_id_str)
             if not meta: continue 
@@ -15598,19 +15606,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             
             # 🔥 ЕСЛИ ЦЕПОЧКА ЗАБЛОКИРОВАНА ПРЕДЫДУЩЕЙ НЕДЕЛЕЙ 🔥
             if chain_status.get(q_id_str) == "locked":
-                existing = existing_progress.get((q_id_str, q_week_str))
-                if not existing:
-                    # Создаем пустую запись, чтобы фронт видел заблокированный квест
-                    await supabase.post("/user_bp_quests", json={
-                        "user_id": user_id,
-                        "quest_id": int(q_id_str),
-                        "week": q_week_int,
-                        "current_amount": 0,
-                        "target_amount": target,
-                        "is_completed": False,
-                        "is_claimed": False
-                    })
-                continue # Полностью пропускаем расчет прогресса для этой недели
+                continue 
             
             is_auto = False
             current_amount = 0
@@ -15623,9 +15619,11 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             elif "tg_messages_week" in q_type:
-                allocate = min(rem_season_tg_msgs, target)
+                # 🔥 ИМПЛЕМЕНТАЦИЯ ВОДОПАДА 🔥
+                # Никаких вычитаний пула. Просто даем активному квесту наш чистый остаток.
+                # Если квест выполнится, но не будет забран, замок ниже заблокирует след. неделю.
+                allocate = min(waterfall_tg_progress, target)
                 current_amount = allocate
-                rem_season_tg_msgs -= allocate
                 is_auto = True
                 
             elif "twitch_uptime_week" in q_type:
@@ -15635,7 +15633,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             elif "twitch_messages_session" in q_type:
-                existing = existing_progress.get((q_id_str, q_week_str))
+                existing = existing_progress.get((q_id_str, q_week_int))
                 if existing and existing.get("is_completed"):
                     current_amount = existing.get("current_amount", target)
                 else:
@@ -15645,17 +15643,17 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             elif "tg_messages_session" in q_type:
-                existing = existing_progress.get((q_id_str, q_week_str))
+                existing = existing_progress.get((q_id_str, q_week_int))
                 if existing and existing.get("is_completed"):
                     current_amount = existing.get("current_amount", target)
                 else:
-                    allocate = min(rem_today_tg_msgs, target)
+                    # Дейлики ТГ теперь тоже берем напрямую из базы профиля (telegram_daily_message_count)
+                    allocate = min(tg_daily, target)
                     current_amount = allocate
-                    rem_today_tg_msgs -= allocate
                 is_auto = True
                 
             elif "twitch_uptime_session" in q_type:
-                existing = existing_progress.get((q_id_str, q_week_str))
+                existing = existing_progress.get((q_id_str, q_week_int))
                 if existing and existing.get("is_completed"):
                     current_amount = existing.get("current_amount", target)
                 else:
@@ -15665,16 +15663,14 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 is_auto = True
                 
             if is_auto:
-                existing = existing_progress.get((q_id_str, q_week_str))
+                existing = existing_progress.get((q_id_str, q_week_int))
                 is_claimed = existing.get("is_claimed", False) if existing else False
                 is_completed = current_amount >= target
                 
                 # 🔥 ЖЕСТКАЯ ПРОВЕРКА ЦЕПОЧКИ 🔥
-                # Если эта неделя не пройдена ИЛИ пройдена, но не забрана - блокируем все следующие!
                 if not is_completed or not is_claimed:
                     chain_status[q_id_str] = "locked"
                 
-                # Если уже забрали, пропускаем апдейт в БД
                 if is_claimed:
                     continue 
                 
@@ -15688,7 +15684,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 if existing:
                     await supabase.patch(
                         "/user_bp_quests", 
-                        params={"user_id": f"eq.{user_id}", "quest_id": f"eq.{q_id_str}", "week": f"eq.{q_week_str}"}, 
+                        params={"id": f"eq.{existing['id']}"}, 
                         json=payload
                     )
                 else:
@@ -15704,7 +15700,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
 async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
     """
     Обработчик ручных/разовых триггеров. 
-    Внедрен ЖЕСТКИЙ ЗАМОК: не перейдет к следующей неделе, пока не забрана предыдущая.
+    Внедрен ЖЕСТКИЙ ЗАМОК (Linked List): проверяет статус предыдущей недели перед шагом вперед.
     """
     try:
         if not tg_id and twitch_login:
@@ -15748,25 +15744,39 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             "user_id": f"eq.{tg_id}",
             "quest_id": f"eq.{target_quest_id}"
         })
-        user_progress = {q["week"]: q for q in prog_res.json()} if prog_res.status_code == 200 else {}
+        user_progress = {int(q["week"]): q for q in prog_res.json()} if prog_res.status_code == 200 else {}
         
         week_to_update = None
         target_amount = 1
         current_db_record = None
         
-        # 🔥 Ищем правильную неделю с учетом блокировок 🔥
+        # 🔥 УМНЫЙ ЗАМОК ЦЕПОЧКИ 🔥
+        previous_cleared = True
+        
         for cfg in target_configs:
-            w = cfg.get("week", 1)
+            w = int(cfg.get("week", 1))
             prog = user_progress.get(w)
             
-            # Если предыдущая неделя выполнена, но еще не забрана юзером - стоп!
-            if prog and prog.get("is_completed") and not prog.get("is_claimed"):
-                break # Прерываем цикл. Следующие недели недоступны.
-            
-            if not prog or not prog.get("is_completed"):
+            # Если предыдущая неделя не пройдена ИЛИ не забрана - блокируем все следующие!
+            if not previous_cleared:
+                break
+                
+            if prog:
+                if prog.get("is_completed") and not prog.get("is_claimed"):
+                    break # Текущая выполнена, но висит награда. Стоп. Не даем идти дальше.
+                elif not prog.get("is_completed"):
+                    week_to_update = w
+                    target_amount = cfg.get("target_amount", 1)
+                    current_db_record = prog
+                    break # Нашли недобитую неделю. Берем ее и стоп.
+                else:
+                    # Текущая выполнена И забрана. Открываем путь к следующей!
+                    previous_cleared = True
+            else:
+                # Записи нет, а предыдущая чиста. Берем эту неделю!
                 week_to_update = w
                 target_amount = cfg.get("target_amount", 1)
-                current_db_record = prog
+                current_db_record = None
                 break
                 
         if not week_to_update: return 
@@ -15791,7 +15801,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             })
             
     except Exception as e:
-        logging.error(f"Ошибка в авто-квесте БП ({keyword}): {e}")
+        logging.error(f"Ошибка в авто-квесте БП ({keyword}): {e}", exc_info=True)
 
 @app.post("/api/v1/checkpoint/quests_meta")
 async def get_checkpoint_quests_meta(
@@ -15892,6 +15902,11 @@ class QuestClaimRequest(BaseModel):
     quest_id: int
     week: Union[int, str, None] = None # <--- Теперь принимает и числа, и 'global'
 
+class QuestClaimRequest(BaseModel):
+    initData: str
+    quest_id: int
+    week: Union[int, str, None] = None # <--- Теперь принимает и числа, и 'global'
+
 @app.post("/api/v1/checkpoint/quest/claim")
 async def claim_bp_quest(
     req: QuestClaimRequest,
@@ -15965,6 +15980,8 @@ async def claim_bp_quest(
 
             return {"status": "success", "earned_exp": exp_reward}
         # --- КОНЕЦ ЛОГИКИ GLOBAL ---
+
+
         # 🚀 ИЩЕМ КВЕСТ СТРОГО ПО ID И НЕДЕЛЕ ИЗ ЗАПРОСА
         quest_config = next((q for q in config.get("quests_config", []) if q["quest_id"] == req.quest_id and q.get("week", 1) == req.week), None)
         if not quest_config:
@@ -15985,11 +16002,13 @@ async def claim_bp_quest(
         week_start_date = bp_start_date + timedelta(days=(quest_week - 1) * 7)
         week_start_iso = week_start_date.isoformat()
 
-        # 2.5 УЗНАЕМ ТИП КВЕСТА (Разовый или Многоразовый)
-        q_db_res = await supabase.get("/quests", params={"id": f"eq.{req.quest_id}", "select": "is_repeatable"})
+        # 2.5 УЗНАЕМ ТИП КВЕСТА (Разовый или Многоразовый + ТИП ДЛЯ ВОДОПАДА)
+        q_db_res = await supabase.get("/quests", params={"id": f"eq.{req.quest_id}", "select": "is_repeatable, quest_type"})
         is_repeatable = False
+        quest_type = ""
         if q_db_res.status_code == 200 and q_db_res.json():
             is_repeatable = q_db_res.json()[0].get("is_repeatable", False)
+            quest_type = q_db_res.json()[0].get("quest_type", "")
 
         # 3. ИЩЕМ ПРОГРЕСС (🔥 УМНЫЙ ФИЛЬТР БЕЗ ЖЕСТКОЙ НЕДЕЛИ ДЛЯ РАЗОВЫХ)
         query_params = {
@@ -16053,10 +16072,24 @@ async def claim_bp_quest(
 
             await supabase.patch("/user_bp_quests", params=patch_params, json={"is_claimed": True})
 
-        # 5. Выдаем EXP
-        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
-        current_stars = float(user_res.json()[0].get("checkpoint_stars") or 0)
-        await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json={"checkpoint_stars": current_stars + exp_reward})
+
+        # 🔥 5. ВЫДАЕМ EXP + ДЕЛАЕМ СНИМОК ДЛЯ ВОДОПАДА ТГ 🔥
+        # Одним запросом тянем и опыт, и текущее количество сообщений
+        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars, telegram_total_message_count"})
+        user_db_data = user_res.json()[0] if user_res.is_success and user_res.json() else {}
+        
+        current_stars = float(user_db_data.get("checkpoint_stars") or 0)
+        
+        # Формируем данные для обновления базы
+        patch_payload = {"checkpoint_stars": current_stars + exp_reward}
+        
+        # Если мы забираем награду за ТГ-квест, фиксируем текущий счетчик как новую точку отсчета
+        if "tg_messages" in quest_type:
+            current_tg_total = int(user_db_data.get("telegram_total_message_count") or 0)
+            patch_payload["quest_start_value"] = current_tg_total
+            
+        # Обновляем профиль (EXP + возможный обнуляющий снимок)
+        await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json=patch_payload)
 
         return {"status": "success", "earned_exp": exp_reward}
 
