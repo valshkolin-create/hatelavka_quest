@@ -2344,14 +2344,43 @@ function renderQuests() {
             let actionHtml = '';
             let cardClass = 'quest-card';
             
-            // 🔥 1. Находим метаданные квеста, чтобы получить его НАСТОЯЩЕЕ название (фикc undefined)
+            // 🔥 1. Находим метаданные квеста
             const questMeta = Array.isArray(allQuests) ? allQuests.find(q => String(q.id) === String(gq.quest_id)) : null;
             const gqTitle = questMeta ? questMeta.title : 'Глобальное задание';
 
-            // 🔥 2. Прогресс берем ПРЯМО ИЗ gq, так как бэкенд теперь сам вычисляет правильный счетчик для нас!
+            // 🔥 2. Прогресс
             const isClaimedNow = gq.is_claimed;
             const isCompletedNow = gq.is_completed;
             const currentAmount = gq.current_amount || 0;
+
+            // 👇 ДОБАВЛЯЕМ ЛОГИКУ ПЕРЕХОДНИКА "К ЗАДАНИЮ" 👇
+            let goToHtml = '';
+            // Показываем переходник, только если задание еще не выполнено и не забрано
+            if (questMeta && !isCompletedNow && !isClaimedNow) {
+                let link = '';
+                const qType = questMeta.quest_type || '';
+                const qTitle = (questMeta.title || '').toLowerCase();
+
+                // Проверяем на Twitch (по типу или слову "стрим")
+                if (qType.includes('twitch') || qTitle.includes('стрим')) {
+                    link = 'https://www.twitch.tv/hatelove_ttv';
+                } 
+                // Проверяем на Telegram (по типу 'automatic' или словам 'реакц' / 'пост')
+                else if (qType === 'automatic' || qTitle.includes('реакц') || qTitle.includes('пост')) {
+                    link = 'https://t.me/hatelove_ttv';
+                }
+
+                if (link) {
+                    goToHtml = `
+                        <div style="margin-top: 2px;">
+                            <button style="background: transparent; border: none; padding: 2px 0; color: var(--text-muted); font-size: 9px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: none; transition: 0.2s;" onclick="window.open('${link}', '_blank')">
+                                К заданию <i class="fa-solid fa-angle-right" style="font-size: 8px; color: var(--primary);"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+            // 👆 КОНЕЦ ЛОГИКИ ПЕРЕХОДНИКА 👆
             
             if (isClaimedNow) {
                 actionHtml = `<button class="btn-claim locked" style="margin: 0; padding: 4px 10px; width: auto; font-size: 9px; border-radius: 6px;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
@@ -2364,10 +2393,12 @@ function renderQuests() {
                 actionHtml = `<div style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${currentAmount} / ${gq.target_amount}</div>`;
             }
 
+            // 👇 ВСТАВЛЯЕМ ПЕРЕМЕННУЮ ${goToHtml} В ВЕРСТКУ 👇
             globalInner.innerHTML += `
                 <div class="${cardClass}">
                     <div class="quest-info">
                         <h4 class="quest-title">${gqTitle}</h4>
+                        ${goToHtml} 
                     </div>
                     <div class="quest-right-side">
                         <div class="quest-action-box">
@@ -2380,8 +2411,6 @@ function renderQuests() {
                 </div>
             `;
         });
-        dom.questsContainer.appendChild(globalBlock);
-    }
     // --- КОНЕЦ БЛОКА ОБЩИХ ЗАДАНИЙ ---
     
     const questsWithWeeks = bpData.quests_config.map(q => ({...q, week: q.week || 1}));
