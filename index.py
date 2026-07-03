@@ -15554,7 +15554,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             "/user_bp_quests", 
             params={"user_id": f"eq.{user_id}", "quest_id": f"in.({','.join(quest_ids)})"}
         )
-        existing_progress = {(str(q["quest_id"]), int(q.get("week", 1))): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
+       existing_progress = {(str(q["quest_id"]), int(q.get("week") or 1)): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
         # 🔥 2. ГЛАВНЫЙ ЦИКЛ ПОДССЧЕТА ПО ДАТАМ 🔥
         for wq in active_quests:
