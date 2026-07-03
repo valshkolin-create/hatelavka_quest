@@ -2411,6 +2411,9 @@ function renderQuests() {
                 </div>
             `;
         });
+        // 👇 Вот эти две строчки вернут кодикс к жизни 👇
+        dom.questsContainer.appendChild(globalBlock);
+    }
     // --- КОНЕЦ БЛОКА ОБЩИХ ЗАДАНИЙ ---
     
     const questsWithWeeks = bpData.quests_config.map(q => ({...q, week: q.week || 1}));
