@@ -15536,7 +15536,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             "/user_daily_activity", 
             params={
                 "user_id": f"eq.{user_id}",
-                "date": f"gte.{start_str}", 
+                "date": f"gte.{start_str}",  
                 "select": "date,twitch_messages,twitch_uptime,tg_messages"
             }
         )
