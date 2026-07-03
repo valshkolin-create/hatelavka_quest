@@ -15880,17 +15880,32 @@ async def claim_bp_quest(
             exp_reward = quest_config.get("exp_reward", 0)
             target_amount = quest_config.get("target_amount", 1)
 
-            # Проверяем сумму реакций (реально ли они собраны)
+            # 🔥 УЗНАЕМ ТИП ГЛОБАЛЬНОГО КВЕСТА ИЗ БД 🔥
+            q_type = ""
+            q_db_res = await supabase.get("/quests", params={"id": f"eq.{req.quest_id}", "select": "quest_type"})
+            if q_db_res.status_code == 200 and q_db_res.json():
+                q_type = q_db_res.json()[0].get("quest_type", "")
+
+            # Проверяем сумму прогресса (реально ли она собрана комьюнити)
             bp_start_date_str = config.get("start_date")
-            total_reactions = 0
+            total_progress = 0
+            
             if bp_start_date_str:
                 bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
                 start_str = bp_start_date.strftime('%Y-%m-%d')
-                reactions_resp = await supabase.get("/tg_total_reactions", params={"target_date": f"gte.{start_str}", "select": "daily_reactions"})
-                if reactions_resp.is_success and reactions_resp.json():
-                    total_reactions = sum(r.get("daily_reactions", 0) for r in reactions_resp.json())
+                
+                # Если это глобальный квест Твича
+                if "twitch_messages" in q_type:
+                    twitch_rpc_res = await supabase.post("/rpc/get_global_twitch_messages", json={"start_date": start_str})
+                    if twitch_rpc_res.is_success:
+                        total_progress = int(twitch_rpc_res.json() or 0)
+                # По умолчанию считаем реакции ТГ
+                else:
+                    reactions_resp = await supabase.get("/tg_total_reactions", params={"target_date": f"gte.{start_str}", "select": "daily_reactions"})
+                    if reactions_resp.is_success and reactions_resp.json():
+                        total_progress = sum(r.get("daily_reactions", 0) for r in reactions_resp.json())
                     
-            if total_reactions < target_amount:
+            if total_progress < target_amount:
                 raise HTTPException(status_code=400, detail="Общая цель еще не достигнута сервером!")
 
             # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: ИДЕАЛЬНО ЧИСТЫЙ PAYLOAD 🔥
@@ -15898,7 +15913,7 @@ async def claim_bp_quest(
                 "user_id": tg_id,
                 "quest_id": req.quest_id,
                 "week": "global",
-                "current_progress": total_reactions,
+                "current_progress": total_progress,
                 "target_value": target_amount,
                 "claimed_at": datetime.now(timezone.utc).isoformat()
             })
@@ -16018,19 +16033,17 @@ async def claim_bp_quest(
             await supabase.patch("/user_bp_quests", params=patch_params, json={"is_claimed": True})
 
 
-        # 🔥 5. ВЫДАЕМ EXP + ДЕЛАЕМ СНИМОК ДЛЯ ВОДОПАДА ТГ 🔥
-        # Одним запросом тянем и опыт, и текущее количество сообщений
-        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars, telegram_total_message_count"})
+        # 🔥 5. ВЫДАЕМ EXP 🔥
+        # Одним запросом тянем и опыт
+        user_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars"})
         user_db_data = user_res.json()[0] if user_res.is_success and user_res.json() else {}
         
         current_stars = float(user_db_data.get("checkpoint_stars") or 0)
         
         # Формируем данные для обновления базы
         patch_payload = {"checkpoint_stars": current_stars + exp_reward}
-        
-        # Если мы забираем награду за ТГ-квест, фиксируем текущий счетчик как новую точку отсчета
             
-        # Обновляем профиль (EXP + возможный обнуляющий снимок)
+        # Обновляем профиль (EXP)
         await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json=patch_payload)
 
         return {"status": "success", "earned_exp": exp_reward}
@@ -16040,7 +16053,6 @@ async def claim_bp_quest(
     except Exception as e:
         logging.error(f"Ошибка получения награды за квест: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-    
 
 @app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
@@ -16069,34 +16081,46 @@ async def get_checkpoint_status(
         if global_quests:
             bp_start_date_str = base_config.get("start_date")
             total_reactions = 0
+            total_twitch_msgs = 0
             
-            # Суммируем реакции за сезон
             if bp_start_date_str:
                 bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
                 start_str = bp_start_date.strftime('%Y-%m-%d')
+                
+                # 1. Считаем глобальные реакции ТГ
                 reactions_resp = await supabase.get("/tg_total_reactions", params={"target_date": f"gte.{start_str}", "select": "daily_reactions"})
                 if reactions_resp.is_success and reactions_resp.json():
                     total_reactions = sum(r.get("daily_reactions", 0) for r in reactions_resp.json())
+                    
+                # 2. 🔥 Считаем глобальные сообщения Twitch через нашу новую SQL-функцию 🔥
+                twitch_rpc_res = await supabase.post("/rpc/get_global_twitch_messages", json={"start_date": start_str})
+                if twitch_rpc_res.is_success:
+                    total_twitch_msgs = int(twitch_rpc_res.json() or 0)
             
             claimed_gq_ids = set()
             if tg_id:
-                # 🔥 ИСПРАВЛЕНИЕ: Ищем прогресс общих квестов В НОВОЙ ТАБЛИЦЕ
                 gq_ids = ",".join([str(q["quest_id"]) for q in global_quests])
                 prog_resp = await supabase.get(
                     "/user_quest_progress", 
                     params={
                         "user_id": f"eq.{tg_id}", 
                         "quest_id": f"in.({gq_ids})", 
-                        "claimed_at": "not.is.null" # Проверяем наличие даты клейма
+                        "claimed_at": "not.is.null"
                     }
                 )
                 if prog_resp.is_success and prog_resp.json():
                     claimed_gq_ids = {q["quest_id"] for q in prog_resp.json()}
 
-            # Обновляем объекты для фронта
+            # Подставляем нужную сумму в зависимости от типа глобального квеста
             for gq in global_quests:
-                gq["current_amount"] = total_reactions
-                gq["is_completed"] = total_reactions >= gq.get("target_amount", 1)
+                q_type = gq.get("quest_type", "")
+                
+                if "twitch_messages" in q_type:
+                    gq["current_amount"] = total_twitch_msgs
+                else:
+                    gq["current_amount"] = total_reactions # По умолчанию реакции ТГ
+                    
+                gq["is_completed"] = gq["current_amount"] >= gq.get("target_amount", 1)
                 gq["is_claimed"] = gq["quest_id"] in claimed_gq_ids
                 
         base_config["global_quests"] = global_quests
