@@ -16098,27 +16098,38 @@ async def get_checkpoint_status(
                     total_twitch_msgs = int(twitch_rpc_res.json() or 0)
             
             claimed_gq_ids = set()
-            if tg_id:
-                gq_ids = ",".join([str(q["quest_id"]) for q in global_quests])
+            gq_ids_str = ",".join([str(q["quest_id"]) for q in global_quests])
+            
+            if tg_id and gq_ids_str:
                 prog_resp = await supabase.get(
                     "/user_quest_progress", 
                     params={
                         "user_id": f"eq.{tg_id}", 
-                        "quest_id": f"in.({gq_ids})", 
+                        "quest_id": f"in.({gq_ids_str})", 
                         "claimed_at": "not.is.null"
                     }
                 )
                 if prog_resp.is_success and prog_resp.json():
                     claimed_gq_ids = {q["quest_id"] for q in prog_resp.json()}
 
-            # Подставляем нужную сумму в зависимости от типа глобального квеста
+            # 🔥 ИДЕМ В БАЗУ, ЧТОБЫ УЗНАТЬ РЕАЛЬНЫЙ ТИП КВЕСТОВ 🔥
+            gq_meta = {}
+            if gq_ids_str:
+                gq_meta_resp = await supabase.get("/quests", params={"id": f"in.({gq_ids_str})", "select": "id,quest_type"})
+                if gq_meta_resp.is_success:
+                    gq_meta = {str(q["id"]): q.get("quest_type", "") for q in gq_meta_resp.json()}
+
+            # Подставляем нужную сумму в зависимости от типа
             for gq in global_quests:
-                q_type = gq.get("quest_type", "")
+                q_id_str = str(gq["quest_id"])
+                
+                # Достаем тип из БД (если нет в БД, берем из JSON на всякий случай)
+                q_type = gq_meta.get(q_id_str, gq.get("quest_type", "")) 
                 
                 if "twitch_messages" in q_type:
                     gq["current_amount"] = total_twitch_msgs
                 else:
-                    gq["current_amount"] = total_reactions # По умолчанию реакции ТГ
+                    gq["current_amount"] = total_reactions # По умолчанию ТГ реакции
                     
                 gq["is_completed"] = gq["current_amount"] >= gq.get("target_amount", 1)
                 gq["is_claimed"] = gq["quest_id"] in claimed_gq_ids
