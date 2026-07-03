@@ -15586,7 +15586,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     row_date = datetime.strptime(row_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
                     
                     # Плюсуем стату СТРОГО начиная с даты открытия недели
-                    if row_date >= week_unlock_date:
+                    if any(k in q_type for k in ["week", "telegram_messages", "tg_messages"]) and "session" not in q_type:
                         if "twitch_messages" in q_type:
                             current_amount += row.get("twitch_messages", 0)
                         elif "tg_messages" in q_type or "telegram_messages" in q_type:
