@@ -16108,6 +16108,15 @@ async def get_checkpoint_status(
 ):
     """Возвращает настройки Чекпоинта и склеивает их с уровнями из БД, подтягивая картинки наград."""
     try:
+        # Узнаем, кто запрашивает (Перенесено в самое начало, чтобы работала синхронизация)
+        init_data = request_data.get("initData", "")
+        user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
+        tg_id = user_info["id"] if user_info else None
+
+        # 🔥 ТОТ САМЫЙ ВЫЗОВ СИНХРОНИЗАЦИИ ВОДОПАДА 🔥
+        if tg_id:
+            await sync_current_week_bp_progress(tg_id, supabase)
+
         # 1. Получаем базовый конфиг
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"})
         content_resp.raise_for_status()
@@ -16126,11 +16135,6 @@ async def get_checkpoint_status(
                 reactions_resp = await supabase.get("/tg_total_reactions", params={"target_date": f"gte.{start_str}", "select": "daily_reactions"})
                 if reactions_resp.is_success and reactions_resp.json():
                     total_reactions = sum(r.get("daily_reactions", 0) for r in reactions_resp.json())
-
-            # Узнаем, кто запрашивает, чтобы проверить, забрал ли он уже награду
-            init_data = request_data.get("initData", "")
-            user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
-            tg_id = user_info["id"] if user_info else None
             
             claimed_gq_ids = set()
             if tg_id:
