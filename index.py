@@ -26303,30 +26303,52 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ЗАМЕН ---
 async def get_replacement_options(target_price_rub: float, target_price_base: float, supabase: httpx.AsyncClient, limit: int = 4):
-    """Ищет РАЗНЫЕ предметы на складе ботов И на Маркете в диапазоне цены +/- 10%"""
+    """Ищет РАЗНЫЕ предметы на складе ботов И на Маркете. Строгий контроль цены и отсев мусора."""
     import random
     import urllib.parse
     
     # --- 🛡️ ЗАЩИТА ОТ ДЕШЕВОГО МУСОРА ---
-    # Если цена в рублях 0 (или не прогрузилась), высчитываем её из базовой цены (билетов)
     if target_price_rub <= 0:
         target_price_rub = target_price_base * 3.0
         
-    # Если даже после этого цена 0 (какой-то баг базы), отменяем поиск замен
     if target_price_rub <= 0:
         return []
 
-    min_p = target_price_rub * 0.9
-    max_p = target_price_rub * 1.1
+    # ==========================================
+    # 💰 ЖЕСТКИЙ ЦЕНОВОЙ КОРИДОР
+    # ==========================================
+    # Разрешаем брать скины на 15% дешевле, но максимум равен цене оригинала (1.00). 
+    # Никакой доплаты со стороны сервиса!
+    min_p = target_price_rub * 0.85
+    max_p = target_price_rub * 1.00 
     
     unique_items = {}
+
+    # ==========================================
+    # 🗑️ ХИРУРГИЧЕСКИЙ ФИЛЬТР МУСОРА
+    # ==========================================
+    junk_filters = [
+        "market_hash_name.not.ilike.*Sticker | *",         # Отсекает все наклейки
+        "market_hash_name.not.ilike.*Patch | *",           # Отсекает все нашивки
+        "market_hash_name.not.ilike.*Sealed Graffiti | *", # Отсекает распакованные граффити
+        "market_hash_name.not.ilike.*Graffiti Box*",       # Отсекает коробки с граффити
+        "market_hash_name.not.ilike.* Pin",                # Отсекает значки (строго с пробелом перед Pin)
+        "market_hash_name.not.ilike.*Music Kit*",          # Отсекает музыку и коробки с музыкой
+        "market_hash_name.not.ilike.* Pack",               # Отсекает паки (Patch Pack)
+        "market_hash_name.not.ilike.* Case",               # Отсекает оружейные кейсы
+        "market_hash_name.not.ilike.* Capsule",            # Отсекает капсулы с наклейками
+        "market_hash_name.not.ilike.* Package",            # Отсекает сувенирные наборы
+        "market_hash_name.not.ilike.Souvenir *"            # Отсекает сувенирные скины
+    ]
+    junk_filter_str = ",".join(junk_filters)
 
     # ==========================================
     # 📦 ЗАПРОС 1: СКЛАД БОТОВ (Приоритет)
     # ==========================================
     bot_params = {
         "is_reserved": "eq.false",
-        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
+        # Ищем строго в ценовом диапазоне И отсекаем весь мусор
+        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p},{junk_filter_str})", 
         "select": "assetid, name_ru, market_hash_name, icon_url, price_rub, condition, rarity",
         "limit": "50" 
     }
@@ -26336,11 +26358,10 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
 
     if isinstance(bot_data, list):
         for item in bot_data:
-            # Фильтруем предметы, чтобы они не повторялись
             name = item.get('market_hash_name') or item.get('name_ru')
             if name and name not in unique_items:
                 unique_items[name] = {
-                    "assetid": str(item["assetid"]), # Обычный assetid для склада
+                    "assetid": str(item["assetid"]),
                     "type": "bot",
                     "market_hash_name": item.get("market_hash_name", name),
                     "name_ru": item.get("name_ru", name),
@@ -26355,7 +26376,8 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     # ==========================================
     market_params = {
         "is_available": "eq.true",
-        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p})", 
+        # Применяем тот же бронебойный фильтр к маркету
+        "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p},{junk_filter_str})", 
         "select": "market_hash_name, price_rub",
         "limit": "50" 
     }
@@ -26364,7 +26386,6 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     market_data = market_resp.json() if market_resp.status_code == 200 else []
 
     if isinstance(market_data, list) and market_data:
-        # 1. Отбираем имена скинов, которых еще нет в уникальном списке (со склада)
         market_names_to_fetch = [
             item.get('market_hash_name') for item in market_data 
             if item.get('market_hash_name') and item.get('market_hash_name') not in unique_items
@@ -26372,7 +26393,6 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
         
         images_dict = {}
         
-        # 2. Мгновенно достаем картинки из словаря одним запросом
         if market_names_to_fetch:
             names_for_query = ",".join([f'"{name}"' for name in market_names_to_fetch])
             img_resp = await supabase.get("/skin_images_dict", params={"market_hash_name": f"in.({names_for_query})"})
@@ -26380,41 +26400,33 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
             if img_resp.status_code == 200:
                 images_dict = {img['market_hash_name']: img['icon_url'] for img in img_resp.json()}
 
-        # 3. Собираем финальные объекты для фронтенда
         for item in market_data:
             name = item.get('market_hash_name')
             if name and name in market_names_to_fetch:
-                
-                # Достаем хэш из нашего словаря
                 img_hash = images_dict.get(name)
                 
-                # Собираем идеальную ссылку Steam. Защита: если API дало сразу полную ссылку, не дублируем домен.
                 if img_hash:
                     if img_hash.startswith("http"):
                         final_icon_url = img_hash
                     else:
                         final_icon_url = f"https://community.cloudflare.steamstatic.com/economy/image/{img_hash}/300fx300f"
                 else:
-                    final_icon_url = "" # Заглушка, если картинки почему-то нет
+                    final_icon_url = "" 
 
                 unique_items[name] = {
-                    "assetid": f"MARKET_{name}", # 🔥 СПЕЦИАЛЬНЫЙ МАРКЕР ДЛЯ ФРОНТА И БЭКА 🔥
+                    "assetid": f"MARKET_{name}", 
                     "type": "market",
                     "market_hash_name": name,
-                    "name_ru": name, # С маркета тянем англ. название
+                    "name_ru": name, 
                     "price_rub": item["price_rub"],
-                    "icon_url": final_icon_url, # 🔥 ТЕПЕРЬ ТУТ 100% ОРИГИНАЛЬНАЯ КАРТИНКА STEAM 🔥
+                    "icon_url": final_icon_url, 
                     "condition": "-", 
                     "rarity": "common"
                 }
 
-    # Собираем все уникальные предметы (боты + маркет) в один список
     final_pool = list(unique_items.values())
-    
-    # Перемешиваем и отдаем запрошенный лимит (по умолчанию 4 РАЗНЫХ предмета)
     random.shuffle(final_pool)
     return final_pool[:limit]
-
 
 # 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД + ЗАМЕНЫ)
 @app.post("/api/v1/user/inventory/withdraw")
