@@ -550,7 +550,7 @@ async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub
     # ==========================================
     # 🛒 ЛАВКА: ТОЛЬКО МАРКЕТ
     # ==========================================
-    if source in ["shop", "raffle", "auction"]:
+    if source in ["shop", "raffle", "auction", "checkpoint"]:
         if market_search_name != "SKIP_MARKET_NOT_FOUND" and not bool(re.search('[а-яА-Я]', market_search_name)):
             TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
             market = MarketCSGO(api_key=TM_API_KEY)
