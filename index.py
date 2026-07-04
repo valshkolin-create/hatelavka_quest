@@ -502,10 +502,15 @@ async def get_roulette_strip(winner_item, count=30):
         return [winner_item] * count
 
 async def fulfill_item_delivery(user_id: int, target_name: str, target_price_rub: float, trade_url: str, supabase, history_id: int, target_condition: str = None, target_market_name: str = None, source: str = "shop", custom_id: str = None):
-    # 1. Проверка адреса доставки
+    # 1. Проверка и очистка адреса доставки
     trade_pattern = r"partner=(\d+)&token=([a-zA-Z0-9_-]+)"
-    if not re.search(trade_pattern, trade_url):
+    match = re.search(trade_pattern, trade_url)
+    if not match:
         return {"success": False, "error": "invalid_url", "message": "Неверная ссылка на обмен"}
+
+    # 🔥 ЖЕЛЕЗОБЕТОННАЯ ОЧИСТКА: собираем идеальную ссылку без \n, пробелов и мусора
+    partner_id, token = match.groups()
+    trade_url = f"https://steamcommunity.com/tradeoffer/new/?partner={partner_id}&token={token}"
 
     cond_text = f" (Качество: {target_condition})" if target_condition else ""
     logging.info(f"[STOREKEEPER] Заказ: {target_name}{cond_text} (Бюджет: {target_price_rub} | Источник: {source})")
@@ -2204,12 +2209,33 @@ class MarketCSGO:
     @staticmethod
     def parse_trade_link(trade_link: str):
         import urllib.parse
+        import re
         try:
+            # 🔥 1. Превентивно убираем пробелы и переносы строк по краям
+            trade_link = trade_link.strip()
+            
             parsed_url = urllib.parse.urlparse(trade_link)
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            partner = query_params.get('partner', [None])[0]
-            token = query_params.get('token', [None])[0]
-            return partner, token
+            
+            raw_partner = query_params.get('partner', [None])[0]
+            raw_token = query_params.get('token', [None])[0]
+            
+            partner = None
+            token = None
+            
+            # 🔥 2. ЖЕСТКАЯ ОЧИСТКА МУСОРА
+            # В partner оставляем ТОЛЬКО цифры (выжигаем \n, пробелы, буквы)
+            if raw_partner:
+                partner = re.sub(r'\D', '', str(raw_partner))
+                
+            # В token оставляем ТОЛЬКО английские буквы, цифры, дефис и подчеркивание
+            if raw_token:
+                token = re.sub(r'[^a-zA-Z0-9_-]', '', str(raw_token))
+                
+            if partner and token:
+                return partner, token
+                
+            return None, None
         except Exception:
             return None, None
 
