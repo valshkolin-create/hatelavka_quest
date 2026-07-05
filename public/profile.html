@@ -1092,14 +1092,21 @@
 
             <!-- ВСТАВЛЯЕМ ПАНЕЛЬ СОРТИРОВКИ СЮДА -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
-    <div style="font-size: 11px; font-weight: 800; color: #888; text-transform: uppercase;">Сортировка:</div>
-    <select id="inventory-sort-select" onchange="applyInventorySort()" style="background: rgba(255,255,255,0.08); color: var(--text-color); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 700; outline: none; cursor: pointer;">
-        <option value="date_desc" style="color: #000; background: #fff;">Сначала новые</option>
-        <option value="date_asc" style="color: #000; background: #fff;">Сначала старые</option>
-        <option value="price_desc" style="color: #000; background: #fff;">Сначала дорогие</option>
-        <option value="price_asc" style="color: #000; background: #fff;">Сначала дешевые</option>
-        <option value="status" style="color: #000; background: #fff;">По статусу</option>
-    </select>
+    
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="font-size: 11px; font-weight: 800; color: #888; text-transform: uppercase;">Сортировка:</div>
+        <select id="inventory-sort-select" onchange="applyInventorySort()" style="background: rgba(255,255,255,0.08); color: var(--text-color); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 700; outline: none; cursor: pointer;">
+            <option value="date_desc" style="color: #000; background: #fff;">Сначала новые</option>
+            <option value="date_asc" style="color: #000; background: #fff;">Сначала старые</option>
+            <option value="price_desc" style="color: #000; background: #fff;">Сначала дорогие</option>
+            <option value="price_asc" style="color: #000; background: #fff;">Сначала дешевые</option>
+            <option value="status" style="color: #000; background: #fff;">По статусу</option>
+        </select>
+    </div>
+
+    <button id="sell-all-btn" onclick="sellAllItems()" style="background: rgba(255, 215, 0, 0.1); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: none; transition: 0.2s ease;">
+        <i class="fa-solid fa-tags"></i> Продать всё
+    </button>
 </div>
             <!-- КОНЕЦ ВСТАВКИ -->
 
@@ -2108,6 +2115,10 @@ function renderInventory(items, isSorting = false) {
     container.innerHTML = '';
     container.className = 'inventory-grid';
 
+    // ДОБАВИТЬ ЭТИ ДВЕ СТРОКИ
+    let availableSellCount = 0;
+    let totalSellTickets = 0.0;
+
     if (infoBadge) infoBadge.textContent = itemsToRender.length > 0 ? `${itemsToRender.length} шт.` : 'Пусто';
 
     if (itemsToRender.length === 0) {
@@ -2173,6 +2184,19 @@ function renderInventory(items, isSorting = false) {
         if (['available', 'pending', 'failed', 'canceled', 'received'].includes(status)) {
             localStorage.removeItem(`claim_lock_${historyId}`);
         }
+
+        // Обновление кнопки "Продать всё"
+    const sellAllBtn = document.getElementById('sell-all-btn');
+    if (sellAllBtn) {
+        if (availableSellCount > 0) {
+            sellAllBtn.style.display = 'block';
+            sellAllBtn.innerHTML = `<i class="fa-solid fa-tags"></i> Продать (${totalSellTickets.toFixed(2)} 🎟️)`;
+            sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
+            sellAllBtn.dataset.count = availableSellCount;
+        } else {
+            sellAllBtn.style.display = 'none';
+        }
+    }
         
         const rData = getRarityData(item.rarity); 
         const isSwapped = item.is_swapped === true;
@@ -2187,6 +2211,12 @@ let parsedReplPrice = parseFloat(strReplaced) || 0;
 
 const rawPrice = (isReplaced || isSwapped) && parsedReplPrice > 0 ? parsedReplPrice : parsedBasePrice;
 const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
+
+// 🔥 ДОБАВИТЬ ЭТОТ БЛОК (Суммируем билеты)
+        if (['available', 'pending', 'failed', 'canceled'].includes(status)) {
+            availableSellCount++;
+            totalSellTickets += ticketVal;
+        }
 
         const imageContentHtml = isReplaced 
             ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
@@ -2379,6 +2409,31 @@ window.withdrawItem = function(historyId, itemName) {
             isUpdating = false;
         }
     }, "ВЫВЕСТИ", "#34c759");
+}
+
+// --- ФУНКЦИЯ "ПРОДАТЬ ВСЁ" ---
+window.sellAllItems = function() {
+    const btn = document.getElementById('sell-all-btn');
+    const amount = btn.dataset.amount;
+    const count = btn.dataset.count;
+    
+    showCustomConfirmHTML(`Продать ВСЕ доступные скины (${count} шт.) за ${amount} 🎟️?`, async (close) => {
+        showLoader();
+        try {
+            const res = await makeApiRequest('/api/v1/user/inventory/sell_all', {});
+            
+            const msg = res && res.message ? res.message : `Успешно! +${amount} билетов.`;
+            tg.showAlert(msg);
+            
+            await loadData(true); // Мгновенное обновление инвентаря
+            close();
+        } catch (e) {
+            tg.showAlert(e.message || "Ошибка при массовой продаже");
+            close();
+        } finally {
+            hideLoader();
+        }
+    }, "ПРОДАТЬ ВСЁ", "#ffd700"); // Кнопка подтверждения будет золотой
 }
     
 // --- ФУНКЦИЯ ОБМЕНА (С авто-обновлением) ---
