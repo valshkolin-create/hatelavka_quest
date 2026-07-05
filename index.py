@@ -16122,10 +16122,28 @@ async def get_checkpoint_status(
                 bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
                 start_str = bp_start_date.strftime('%Y-%m-%d')
                 
-                # 1. Считаем глобальные реакции ТГ
-                reactions_resp = await supabase.get("/tg_total_reactions", params={"target_date": f"gte.{start_str}", "select": "daily_reactions"})
-                if reactions_resp.is_success and reactions_resp.json():
-                    total_reactions = sum(r.get("daily_reactions", 0) for r in reactions_resp.json())
+                # --- НОВОЕ: ВЫЧИСЛЯЕМ ПРОГРЕСС ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
+        global_quests = base_config.get("global_quests", [])
+        if global_quests:
+            bp_start_date_str = base_config.get("start_date")
+            total_reactions = 0
+            total_twitch_msgs = 0
+            
+            # ДОСТАЕМ НАШ ЛИМИТ ИЗ БАЗЫ (по умолчанию 0, если не задан)
+            min_msg_id = base_config.get("min_reaction_message_id", 0)
+            
+            if bp_start_date_str:
+                bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
+                start_str = bp_start_date.strftime('%Y-%m-%d')
+                
+                # 1. 🔥 ИДЕМ В ТАБЛИЦУ ПОСТОВ, А НЕ ДНЕЙ 🔥
+                reactions_resp = await supabase.get(
+                    "/tg_message_reactions", 
+                    params={
+                        "message_id": f"gte.{min_msg_id}", 
+                        "select": "reaction_count"
+                    }
+                )
                     
                 # 2. 🔥 Считаем глобальные сообщения Twitch через нашу новую SQL-функцию 🔥
                 twitch_rpc_res = await supabase.post("/rpc/get_global_twitch_messages", json={"start_date": start_str})
@@ -21920,30 +21938,45 @@ async def check_telegram_profile(
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-
 @app.get("/api/v1/telegram/global_bp_status")
 async def get_global_bp_status(
     supabase_client: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Отдает общую сумму ВСЕХ реакций за сезон/за все дни.
-    Фронтенд может использовать это для отрисовки шкалы Баттл Пасса!
+    Отдает общую сумму реакций за сезон (начиная со стартового поста).
+    Фронтенд использует это для отрисовки шкалы Баттл Пасса.
     """
     try:
-        # Получаем все дневные записи
-        res = await supabase_client.get(
-            "/tg_total_reactions",
-            params={"select": "daily_reactions"}
+        # 1. Получаем базовый конфиг Чекпоинта, чтобы узнать min_reaction_message_id
+        content_resp = await supabase_client.get(
+            "/pages_content", 
+            params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"}
+        )
+        
+        min_msg_id = 0
+        if content_resp.status_code == 200 and content_resp.json():
+            config_content = content_resp.json()[0].get("content", {})
+            # Достаем ID первого поста сезона (или 0, если не задан)
+            min_msg_id = config_content.get("min_reaction_message_id", 0)
+
+        # 2. Идем в таблицу конкретных постов и считаем только подходящие
+        reactions_resp = await supabase_client.get(
+            "/tg_message_reactions",
+            params={
+                "message_id": f"gte.{min_msg_id}",
+                "select": "reaction_count"
+            }
         )
         
         total_community_reactions = 0
-        if res.status_code == 200 and res.json():
-            total_community_reactions = sum(item.get("daily_reactions", 0) for item in res.json())
+        if reactions_resp.status_code == 200 and reactions_resp.json():
+            total_community_reactions = sum(item.get("reaction_count", 0) for item in reactions_resp.json())
 
         return JSONResponse({
             "community_reactions": total_community_reactions,
-            "community_target": 1000000 # Ставь свою глобальную цель
+            "community_target": 1000000 # Ставь свою глобальную цель (в идеале тоже вынести в БД)
         })
+        
     except Exception as e:
         logger.error(f"Global BP Error: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
