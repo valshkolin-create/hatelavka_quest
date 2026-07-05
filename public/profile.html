@@ -2122,18 +2122,33 @@ function renderInventory(items, isSorting = false) {
        if (status === 'auto_queued') {
             rightContentHtml = `<div style="color: #00c0e3; font-size: 8px; font-weight: 700; padding: 4px 0;">ПОИСК...</div>`;
         }
-        else if (status === 'market_pending' || status === 'sent' || status === 'offer_sent') {
-            const actionText = status === 'market_pending' ? 'ОТПРАВЛЯЮТ' : 'ОФФЕР';
-            const accentColor = status === 'market_pending' ? '#a200ff' : '#ffcc00';
-
+        // 🚨 СПЕЦИАЛЬНЫЙ ДИЗАЙН ДЛЯ ЗАДЕРЖКИ МАРКЕТА (КРАСНЫЙ АЛЕРТ С КНОПКОЙ)
+        if (status === 'market_pending') {
             rightContentHtml = `
-                <div style="color:${accentColor}; font-size:8px; font-weight:800; line-height:1.1; margin-bottom:2px;">
-                    ${actionText}
+                <div style="color:#ff3b30; font-size:8px; font-weight:800; line-height:1.1; margin-bottom:2px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> СБОЙ МАРКЕТА
+                </div>
+                <div id="${timerElementId}" style="background: rgba(255, 59, 48, 0.1); color: #ffcccb; padding: 4px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom:2px; border: 1px solid rgba(255, 59, 48, 0.2);">
+                    --:--
+                </div>
+                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255, 59, 48, 0.15); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.4); font-size: 7.5px;">
+                    <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> ПРОВЕРИТЬ</span>
+                </button>`;
+            
+            setTimeout(() => {
+                if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at);
+            }, 50);
+        }
+        // 🟢 ОБЫЧНЫЙ ДИЗАЙН ДЛЯ ОТПРАВЛЕННЫХ ТРЕЙДОВ
+        else if (status === 'sent' || status === 'offer_sent') {
+            rightContentHtml = `
+                <div style="color:#ffcc00; font-size:8px; font-weight:800; line-height:1.1; margin-bottom:2px;">
+                    ОФФЕР В STEAM
                 </div>
                 <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; padding: 4px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom:2px;">
                     --:--
                 </div>
-                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255,255,255,0.1); color: #ccc;">
+                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255, 204, 0, 0.15); color: #ffcc00; border: 1px solid rgba(255, 204, 0, 0.3); font-size: 8px;">
                     <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i></span>
                 </button>`;
             
@@ -2156,17 +2171,17 @@ function renderInventory(items, isSorting = false) {
             cardOpacity = '0.5';
             rightContentHtml = `<div style="color: #888; font-size: 9px; font-weight: 700;">СВАП</div>`;
         }
-        // 👇 ДОБАВЛЯЕМ ОБРАБОТКУ ЗАМОРОЗКИ 👇
+        // 👇 ОБРАБОТКА ФАТАЛЬНОЙ ЗАМОРОЗКИ 👇
         else if (status === 'failed') {
             cardOpacity = '0.8';
             rightContentHtml = `
                 <div style="color: #ff3b30; font-size: 9px; font-weight: 800; margin-bottom: 4px;">
-                    <i class="fa-solid fa-triangle-exclamation"></i> ОШИБКА МАРКЕТА
+                    <i class="fa-solid fa-triangle-exclamation"></i> ФАТАЛЬНАЯ ОШИБКА
                 </div>
                 <div style="font-size: 8px; color: #aaa; line-height: 1.2;">Скин заморожен.<br>Сообщите администратору.</div>
             `;
         }
-        // 👆 КОНЕЦ НОВОГО БЛОКА 👆
+        // 👆 КОНЕЦ БЛОКА ЗАМОРОЗКИ 👆
         else {
             // Это статусы available, pending, canceled
             rightContentHtml = `
@@ -2187,8 +2202,6 @@ function renderInventory(items, isSorting = false) {
         // Получаем качество (если это не замененный скин)
         const conditionText = (item.condition && !isReplaced && !isSwapped) ? item.condition : '';
         
-        
-
         el.innerHTML = `
             <div class="inv-card-top">
                 <span>#${historyId}</span>
