@@ -16118,19 +16118,12 @@ async def get_checkpoint_status(
             total_reactions = 0
             total_twitch_msgs = 0
             
-            if bp_start_date_str:
-                bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
-                start_str = bp_start_date.strftime('%Y-%m-%d')
-                
-                # --- НОВОЕ: ВЫЧИСЛЯЕМ ПРОГРЕСС ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
-        global_quests = base_config.get("global_quests", [])
-        if global_quests:
-            bp_start_date_str = base_config.get("start_date")
-            total_reactions = 0
-            total_twitch_msgs = 0
-            
-            # ДОСТАЕМ НАШ ЛИМИТ ИЗ БАЗЫ (по умолчанию 0, если не задан)
-            min_msg_id = base_config.get("min_reaction_message_id", 0)
+            # ДОСТАЕМ НАШ ЛИМИТ ИЗ БАЗЫ И ДЕЛАЕМ ЕГО ЧИСЛОМ
+            raw_id = base_config.get("min_reaction_message_id")
+            try:
+                min_msg_id = int(raw_id) if raw_id else 0
+            except (ValueError, TypeError):
+                min_msg_id = 0
             
             if bp_start_date_str:
                 bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
@@ -16144,6 +16137,9 @@ async def get_checkpoint_status(
                         "select": "reaction_count"
                     }
                 )
+                if reactions_resp.is_success and reactions_resp.json():
+                    # Суммируем реакции только с нужных постов
+                    total_reactions = sum(r.get("reaction_count", 0) for r in reactions_resp.json())
                     
                 # 2. 🔥 Считаем глобальные сообщения Twitch через нашу новую SQL-функцию 🔥
                 twitch_rpc_res = await supabase.post("/rpc/get_global_twitch_messages", json={"start_date": start_str})
@@ -16246,42 +16242,6 @@ async def get_checkpoint_status(
                             case_images[name] = c.get("image_url")
             except Exception as e:
                 logging.warning(f"Сбой при загрузке картинок кейсов: {e}")
-        # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
-
-        # 3. Собираем массив уровней в том виде, который ждет фронтенд
-        formatted_tiers = []
-        for t in tiers_data:
-            
-            def get_image_for_reward(r_type, r_value):
-                if r_type == "cs2_skin":
-                    return skin_images.get(r_value, "")
-                elif r_type in ["case", "case_coupon"]:
-                    return case_images.get(r_value, "")
-                return ""
-
-            formatted_tiers.append({
-                "level": t["level"],
-                "required_stars": t["required_stars"],
-                "free_reward": {
-                    "type": t["free_reward_type"], 
-                    "value": t["free_reward_value"],
-                    "exchange": t.get("free_exchange_stars", 0),
-                    "image_url": get_image_for_reward(t["free_reward_type"], t["free_reward_value"])
-                },
-                "premium_reward": {
-                    "type": t["premium_reward_type"], 
-                    "value": t["premium_reward_value"],
-                    "exchange": t.get("premium_exchange_stars", 0),
-                    "image_url": get_image_for_reward(t["premium_reward_type"], t["premium_reward_value"])
-                }
-            })
-        
-        base_config["tiers"] = formatted_tiers
-        return base_config
-
-    except Exception as e:
-        logging.error(f"Ошибка получения статуса Чекпоинта: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
         # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
 
         # 3. Собираем массив уровней в том виде, который ждет фронтенд
