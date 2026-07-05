@@ -24435,6 +24435,7 @@ async def check_trade_status_endpoint(
     import os
     from datetime import datetime, timezone
     from dateutil import parser
+    from fastapi.responses import JSONResponse
     
     body = await request.json()
     history_id = body.get("history_id")
@@ -24578,7 +24579,6 @@ async def check_trade_status_endpoint(
             if stage == "2" or is_settled:
                 update_payload = {"status": "received", "updated_at": now_iso}
                 
-
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json=update_payload,
@@ -24626,22 +24626,38 @@ async def check_trade_status_endpoint(
                     "new_status": "available"
                 }
                 
-            # 3. НАСТОЯЩЕЕ ОЖИДАНИЕ (Stage 1 и предмет еще не забран)
+            # 3. НАСТОЯЩЕЕ ОЖИДАНИЕ (Умное разделение на Сборку и отправленный Оффер)
             elif stage == "1":
                 time_left = max(1, int((1800 - seconds_passed) / 60))
                 
-                # Обновляем локальный статус в БД на offer_sent, если он еще не там
-                if current_status != "offer_sent":
-                    await supabase.patch("/cs_history", 
-                        params={"id": f"eq.{history_id}"}, 
-                        json={"status": "offer_sent", "updated_at": now_iso}
-                    )
+                # Считываем актуальный trade_id из ответа Маркета
+                trade_id_val = str(trade_info.get("trade_id", "0"))
                 
-                return {
-                    "success": False, 
-                    "message": f"Оффер отправлен! У вас есть около {time_left} мин., чтобы принять его в Steam.",
-                    "new_status": "offer_sent"
-                }
+                # ЭТАП 2: ОФФЕР ОТПРАВЛЕН В STEAM (trade_id существует и не равен 0)
+                if trade_id_val != "0" and trade_id_val != "None":
+                    if current_status != "offer_sent":
+                        await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{history_id}"}, 
+                            json={"status": "offer_sent", "updated_at": now_iso}
+                        )
+                    return {
+                        "success": False, 
+                        "message": f"Оффер отправлен! У вас есть около {time_left} мин., чтобы принять его в Steam.",
+                        "new_status": "offer_sent"
+                    }
+                
+                # ЭТАП 1: СБОРКА И ЗАКУПКА (trade_id еще равен 0, идет подготовка на Маркете)
+                else:
+                    if current_status != "market_pending":
+                        await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{history_id}"}, 
+                            json={"status": "market_pending", "updated_at": now_iso}
+                        )
+                    return {
+                        "success": False,
+                        "message": "Маркет закупает предмет и готовит отправку. Подождите пару минут.",
+                        "new_status": "market_pending"
+                    }
             
             # 4. ПРОЧИЕ СТАТУСЫ
             else:
