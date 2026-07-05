@@ -24532,20 +24532,21 @@ async def check_trade_status_endpoint(
                 }
             
             # =========================================================
-            # ДАЛЬШЕ ТВОЙ ОРИГИНАЛЬНЫЙ КОД
+            # ИСПРАВЛЕННЫЙ КОД (БЕЗ settlement)
             # =========================================================
             trade_info = tm_data.get("data", {})
             stage = str(trade_info.get("stage"))
-            settlement = int(trade_info.get("settlement") or 0)
             
             tm_buy_time = int(trade_info.get("time") or 0)
             now_ts = int(now_utc.timestamp())
             seconds_passed = now_ts - tm_buy_time
             
-            # ЛОГИКА УСПЕХА
-            if settlement > 0 or stage == "2":
+            # ЛОГИКА УСПЕХА (Строго Stage 2)
+            if stage == "2":
                 update_payload = {"status": "received", "updated_at": now_iso}
                 
+                if not item.get("image_url") and trade_info.get("classid"):
+                    update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
 
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
@@ -24566,8 +24567,8 @@ async def check_trade_status_endpoint(
                     "new_status": "received"
                 }
                 
-            # ЛОГИКА ОТМЕНЫ (Ошибка или истекло время 35 мин)
-            elif stage in ["4", "5"] or (seconds_passed > 2100 and settlement == 0):
+            # ЛОГИКА ОТМЕНЫ (Stage 4, 5 или таймаут)
+            elif stage in ["4", "5"] or (seconds_passed > 2100 and stage == "1"):
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json={"status": "available", "updated_at": now_iso},
@@ -24587,7 +24588,7 @@ async def check_trade_status_endpoint(
                         json={"is_reserved": False}
                     )
                 
-                msg = "Трейд был отменен продавцом Маркета. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло. Маркет не смог выдать предмет, попробуйте еще раз."
+                msg = "Трейд был отменен. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло."
                 return {
                     "success": False, 
                     "message": msg, 
@@ -26422,21 +26423,28 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     continue
 
                 stage = str(trade_info.get("stage"))
-                settlement = int(trade_info.get("settlement") or 0)
 
-                # ЛОГИКА СИНХРОНИЗАЦИИ
-                if settlement > 0 or stage == "2":
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received"})
-                    results_log.append(f"#{trade_id}: Success -> received")
+                    if stage == "2":
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "received", "updated_at": now_iso},
+                            headers={"Prefer": "return=representation"}
+                        )
+                        if patch_res.status_code >= 400:
+                            msg = f"#{trade_id}: DB ERROR ON SUCCESS -> {patch_res.text}"
+                        else:
+                            msg = f"#{trade_id}: Success -> received"
 
-                elif stage in ["4", "5"]:
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                    results_log.append(f"#{trade_id}: TM Canceled -> available")
-
-                elif stage == "1":
-                    if minutes_passed >= 10:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: 10m Timeout -> available")
+                    elif stage in ["4", "5"]:
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "available", "updated_at": now_iso},
+                            headers={"Prefer": "return=representation"}
+                        )
+                        if patch_res.status_code >= 400:
+                            msg = f"#{trade_id}: DB ERROR ON TM CANCEL -> {patch_res.text}"
+                        else:
+                            msg = f"#{trade_id}: TM Canceled -> available"
                 
             except Exception as e:
                 results_log.append(f"#{trade_id}: Error -> {str(e)}")
