@@ -21943,21 +21943,28 @@ async def get_global_bp_status(
     supabase_client: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Отдает общую сумму реакций за сезон (начиная со стартового поста).
-    Фронтенд использует это для отрисовки шкалы Баттл Пасса.
+    Отдает общую сумму ВСЕХ реакций за сезон (начиная со стартового поста).
+    Фронтенд использует это для отрисовки шкалы Баттл Пасса!
     """
     try:
-        # 1. Получаем базовый конфиг Чекпоинта, чтобы узнать min_reaction_message_id
+        # 1. Получаем базовый конфиг Чекпоинта
         content_resp = await supabase_client.get(
             "/pages_content", 
             params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"}
         )
         
         min_msg_id = 0
-        if content_resp.status_code == 200 and content_resp.json():
+        if content_resp.is_success and content_resp.json():
             config_content = content_resp.json()[0].get("content", {})
-            # Достаем ID первого поста сезона (или 0, если не задан)
-            min_msg_id = config_content.get("min_reaction_message_id", 0)
+            
+            # 🔥 ЖЕЛЕЗНО ПРЕВРАЩАЕМ В ЧИСЛО. Если там пустота, текст или None - будет 0
+            raw_id = config_content.get("min_reaction_message_id")
+            try:
+                min_msg_id = int(raw_id) if raw_id else 0
+            except (ValueError, TypeError):
+                min_msg_id = 0
+
+        logger.info(f"[BP GLOBAL] Считаем реакции начиная с поста ID: {min_msg_id}")
 
         # 2. Идем в таблицу конкретных постов и считаем только подходящие
         reactions_resp = await supabase_client.get(
@@ -21968,17 +21975,25 @@ async def get_global_bp_status(
             }
         )
         
+        # 🔥 Логируем ошибку, если база ругается на запрос
+        if not reactions_resp.is_success:
+            logger.error(f"[BP GLOBAL] Ошибка БД при запросе реакций: {reactions_resp.text}")
+        
         total_community_reactions = 0
-        if reactions_resp.status_code == 200 and reactions_resp.json():
-            total_community_reactions = sum(item.get("reaction_count", 0) for item in reactions_resp.json())
+        if reactions_resp.is_success and reactions_resp.json():
+            reactions_data = reactions_resp.json()
+            logger.info(f"[BP GLOBAL] Найдено постов с реакциями (>= {min_msg_id}): {len(reactions_data)}")
+            
+            total_community_reactions = sum(item.get("reaction_count", 0) for item in reactions_data)
+            logger.info(f"[BP GLOBAL] Итоговая сумма реакций: {total_community_reactions}")
 
         return JSONResponse({
             "community_reactions": total_community_reactions,
-            "community_target": 1000000 # Ставь свою глобальную цель (в идеале тоже вынести в БД)
+            "community_target": 1000000 # Твоя глобальная цель
         })
         
     except Exception as e:
-        logger.error(f"Global BP Error: {e}")
+        logger.error(f"[BP GLOBAL] Критическая ошибка: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 # --- МАСТЕР ПЕРЕЕЗДА (АВТОМАТИКА) ---
