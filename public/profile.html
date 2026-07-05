@@ -939,6 +939,35 @@
 }
 .inv-btn-claim { background: #34c759; color: #000; }
 .inv-btn-sell { background: rgba(255,255,255,0.05); color: #ccc; border: 1px solid rgba(255,255,255,0.15); }
+        /* --- СТИЛИ ДЛЯ ПОЭТАПНОСТИ ТРЕЙДА --- */
+.trade-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
+    margin-bottom: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+.trade-step {
+    font-size: 8px;
+    font-weight: 800;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+}
+.trade-step.done { color: #34c759; }
+.trade-step.active { color: #ffcc00; animation: pulse-opacity 1.5s infinite; }
+@keyframes pulse-opacity {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
         
     </style>
 </head>
@@ -2064,8 +2093,8 @@ function renderInventory(items, isSorting = false) {
         const priceA = parseFloat(a.price_rub || a.price || 0);
         const priceB = parseFloat(b.price_rub || b.price || 0);
 
-        const statA = (a.status || 'available').toLowerCase();
-        const statB = (b.status || 'available').toLowerCase();
+       const statA = (a.status || 'available').toLowerCase();
+       const statB = (b.status || 'available').toLowerCase();
         
         const weightA = statusWeight[statA] || 99;
         const weightB = statusWeight[statB] || 99;
@@ -2110,7 +2139,7 @@ function renderInventory(items, isSorting = false) {
             ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
             : `<img src="${item.image_url}" loading="lazy" decoding="async">`;
 
-        // КРАСИВЫЙ ВЫВОД ДАТЫ (Теперь всегда будет работать)
+        // КРАСИВЫЙ ВЫВОД ДАТЫ
         const timestamp = parseSafeDate(item.created_at || item.updated_at || item.date);
         const dateObj = new Date(timestamp);
         const dateStr = timestamp > 0 ? dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '??.??';
@@ -2119,31 +2148,35 @@ function renderInventory(items, isSorting = false) {
         let rightContentHtml = '';
         let cardOpacity = '1';
 
-       if (status === 'auto_queued') {
-            rightContentHtml = `<div style="color: #00c0e3; font-size: 8px; font-weight: 700; padding: 4px 0;">ПОИСК...</div>`;
-        }
-        else if (status === 'market_pending' || status === 'sent' || status === 'offer_sent') {
-            const actionText = status === 'market_pending' ? 'ОТПРАВЛЯЮТ' : 'ОФФЕР';
-            const accentColor = status === 'market_pending' ? '#a200ff' : '#ffcc00';
+        // 👇 НОВЫЙ БЛОК: ПОЭТАПНОСТЬ ДЛЯ ВСЕХ АКТИВНЫХ СТАТУСОВ ТРЕЙДА 👇
+        if (['auto_queued', 'processing', 'market_pending', 'sent', 'offer_sent'].includes(status)) {
+            const isProcessing = ['auto_queued', 'processing', 'market_pending'].includes(status);
+            const isOffer = ['offer_sent', 'sent'].includes(status);
 
             rightContentHtml = `
-                <div style="color:${accentColor}; font-size:8px; font-weight:800; line-height:1.1; margin-bottom:2px;">
-                    ${actionText}
+                <div class="trade-steps">
+                    <div class="trade-step done">
+                        <i class="fa-solid fa-check"></i> Создан
+                    </div>
+                    <div class="trade-step ${isProcessing ? 'active' : 'done'}">
+                        ${isProcessing ? '<i class="fa-solid fa-spinner fa-spin"></i> Сборка' : '<i class="fa-solid fa-check"></i> Сборка'}
+                    </div>
+                    <div class="trade-step ${isOffer ? 'active' : ''}">
+                        ${isOffer ? '<i class="fa-solid fa-arrow-right"></i> Оффер' : '<i class="fa-solid fa-clock"></i> Оффер'}
+                    </div>
                 </div>
-                <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; padding: 4px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom:2px;">
+                <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; padding: 4px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom: 2px;">
                     --:--
                 </div>
                 <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255,255,255,0.1); color: #ccc;">
-                    <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i></span>
+                    <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Статус</span>
                 </button>`;
             
             setTimeout(() => {
                 if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at);
             }, 50);
         }
-        else if (status === 'processing') {
-            rightContentHtml = `<div style="color: #FFD700; font-size: 8px; font-weight: 700; padding: 4px 0;">ОБРАБОТКА</div>`;
-        } 
+        // 👆 КОНЕЦ НОВОГО БЛОКА ПОЭТАПНОСТИ 👆
         else if (status === 'received') {
             cardOpacity = '0.5';
             rightContentHtml = `<div style="color: #34c759; font-size: 9px; font-weight: 800;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
@@ -2156,7 +2189,6 @@ function renderInventory(items, isSorting = false) {
             cardOpacity = '0.5';
             rightContentHtml = `<div style="color: #888; font-size: 9px; font-weight: 700;">СВАП</div>`;
         }
-        // 👇 ОБРАБОТКА ФАТАЛЬНОЙ ЗАМОРОЗКИ 👇
         else if (status === 'failed') {
             cardOpacity = '0.8';
             rightContentHtml = `
@@ -2166,7 +2198,6 @@ function renderInventory(items, isSorting = false) {
                 <div style="font-size: 8px; color: #aaa; line-height: 1.2;">Скин заморожен.<br>Сообщите администратору.</div>
             `;
         }
-        // 👆 КОНЕЦ БЛОКА ЗАМОРОЗКИ 👆
         else {
             // Это статусы available, pending, canceled
             rightContentHtml = `
