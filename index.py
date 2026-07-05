@@ -24554,20 +24554,23 @@ async def check_trade_status_endpoint(
                     "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
                 }
             
-            # =========================================================
-            # ИСПРАВЛЕННЫЙ КОД (С УЧЕТОМ SETTLEMENT И БЕЗ АВТО-ОТМЕНЫ)
+           # =========================================================
+            # ИСПРАВЛЕННЫЙ КОД (БЕЗ settlement И С ОБНОВЛЕНИЕМ СТАДИИ 1)
             # =========================================================
             trade_info = tm_data.get("data", {})
             stage = str(trade_info.get("stage"))
-            settlement = int(trade_info.get("settlement") or 0)
             
             tm_buy_time = int(trade_info.get("time") or 0)
             now_ts = int(now_utc.timestamp())
             seconds_passed = now_ts - tm_buy_time
             
-            # ЛОГИКА УСПЕХА: Либо Stage 2, либо Маркет зафиксировал передачу (settlement > 0)
-            if stage == "2" or settlement > 0:
+            # 1. УСПЕХ (Stage 2)
+            if stage == "2":
+                update_payload = {"status": "received", "updated_at": now_iso}
                 
+                if not item.get("image_url") and trade_info.get("classid"):
+                    update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
+
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json=update_payload,
@@ -24587,8 +24590,8 @@ async def check_trade_status_endpoint(
                     "new_status": "received"
                 }
                 
-            # ЛОГИКА ОТМЕНЫ (Строго Stage 4 или 5. Больше никаких отмен по времени!)
-            elif stage in ["4", "5"]:
+            # 2. ОТМЕНА (Stage 4, 5 или таймаут)
+            elif stage in ["4", "5"] or (seconds_passed > 2100 and stage == "1"):
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json={"status": "available", "updated_at": now_iso},
@@ -24608,19 +24611,36 @@ async def check_trade_status_endpoint(
                         json={"is_reserved": False}
                     )
                 
+                msg = "Трейд был отменен. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло."
                 return {
                     "success": False, 
-                    "message": "Трейд был отменен Маркетом. Предмет снова доступен.", 
+                    "message": msg, 
                     "new_status": "available"
                 }
                 
-            # БЕЗОПАСНОЕ ОЖИДАНИЕ
+            # 3. ОЖИДАНИЕ (Stage 1) - ТЕПЕРЬ ОБНОВЛЯЕТ БАЗУ!
             elif stage == "1":
+                time_left = max(1, int((1800 - seconds_passed) / 60))
+                
+                # Создаем payload специально для стадии ожидания
+                update_payload = {"status": "offer_sent", "updated_at": now_iso}
+                
+                patch_res = await supabase.patch("/cs_history", 
+                    params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
+                    json=update_payload,
+                    headers={"Prefer": "return=representation"}
+                )
+                
+                if patch_res.status_code >= 400:
+                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                
                 return {
                     "success": False, 
-                    "message": "Оффер отправлен! Проверьте Steam. Если вы уже приняли, ожидайте синхронизации серверов."
+                    "message": f"Оффер отправлен! У вас есть около {time_left} мин., чтобы принять его в Steam.",
+                    "new_status": "offer_sent"
                 }
             
+            # 4. ЛЮБОЙ ДРУГОЙ СТАТУС
             else:
                 return {
                     "success": False, 
