@@ -26326,13 +26326,14 @@ async def sell_all_inventory_items(
     user_id = user_data['id']
     await verify_user_not_banned(user_id, supabase)
 
-    # 1. Получаем все предметы пользователя, доступные для продажи
+    # 1. Получаем ТОЛЬКО ID предметов пользователя, доступных для продажи
+    # Не считаем здесь билеты, так как это данные "до выстрела"
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
             "status": "in.(pending,failed,available,canceled)",
-            "select": "id, status, replaced_price, item:cs_items(price, price_rub)"
+            "select": "id" 
         }
     )
     
@@ -26340,11 +26341,33 @@ async def sell_all_inventory_items(
     if not rows or not isinstance(rows, list):
         raise HTTPException(status_code=400, detail="Нет предметов для обмена")
 
-    total_tickets = 0.0
-    ids_to_update = []
+    ids_to_update = [str(row['id']) for row in rows]
+    ids_csv = ",".join(ids_to_update)
 
-    # 2. Считаем общую сумму билетов (с защитой от запятых)
-    for row in rows:
+    # 2. АТОМАРНЫЙ МАССОВЫЙ ПАТЧ
+    # 🔥 Главная фишка: просим Supabase вернуть цены (replaced_price, item) 
+    # ТОЛЬКО для тех предметов, которые реально удалось обновить.
+    patch_res = await supabase.patch(
+        "/cs_history", 
+        params={
+            "id": f"in.({ids_csv})",
+            "status": "in.(pending,failed,available,canceled)", # Щит от дюпов
+            "select": "id, replaced_price, item:cs_items(price, price_rub)" # Тянем данные прямо из патча!
+        }, 
+        json={"status": "exchanged"},
+        headers={"Prefer": "return=representation"}
+    )
+    
+    updated_rows = patch_res.json()
+    
+    # Если другой запрос успел перехватить предметы, updated_rows будет пустым
+    if not updated_rows or len(updated_rows) == 0:
+        raise HTTPException(status_code=400, detail="Предметы уже в обработке!")
+
+    # 3. Считаем билеты НА ОСНОВЕ ФАКТИЧЕСКИ ОБНОВЛЕННЫХ ДАННЫХ
+    total_tickets = 0.0
+    
+    for row in updated_rows:
         try:
             replaced_price = row.get('replaced_price')
             if replaced_price is not None and float(str(replaced_price).replace(',', '.')) > 0:
@@ -26359,39 +26382,24 @@ async def sell_all_inventory_items(
                 t_val = 0.01
                 
             total_tickets += t_val
-            ids_to_update.append(str(row['id']))
         except Exception as e:
             print(f"[SELL_ALL] Ошибка парсинга цены предмета {row.get('id')}: {e}")
             continue
 
     total_tickets = round(total_tickets, 2)
 
-    if not ids_to_update or total_tickets <= 0:
+    if total_tickets <= 0:
         raise HTTPException(status_code=400, detail="Не удалось рассчитать стоимость предметов")
 
-    # 3. АТОМАРНЫЙ МАССОВЫЙ ПАТЧ
-    ids_csv = ",".join(ids_to_update)
-    patch_res = await supabase.patch(
-        "/cs_history", 
-        params={
-            "id": f"in.({ids_csv})",
-            "status": "in.(pending,failed,available,canceled)" # Щит от дюпов
-        }, 
-        json={"status": "exchanged"},
-        headers={"Prefer": "return=representation"}
-    )
-    
-    updated_rows = patch_res.json()
-    if not updated_rows or len(updated_rows) == 0:
-        raise HTTPException(status_code=400, detail="Предметы уже в обработке!")
-
-    # 4. Начисляем билеты юзеру (нашим надежным RPC)
+    # 4. Начисляем билеты юзеру
     try:
         rpc_resp = await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": total_tickets})
         if hasattr(rpc_resp, 'status_code') and rpc_resp.status_code >= 400:
             raise Exception("RPC_FAILED")
     except Exception as e:
-        # Резервное начисление
+        print(f"[SELL_ALL] ОШИБКА RPC: {e}. Переход на резервный метод.")
+        # Резервное начисление (лучше мониторить ошибки RPC, так как этот кусок 
+        # все еще уязвим к потере билетов при гонке запросов к БД)
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
         if hasattr(u_res, 'status_code') and u_res.status_code == 200 and u_res.json():
             curr = u_res.json()[0].get('tickets', 0)
@@ -26399,7 +26407,6 @@ async def sell_all_inventory_items(
             new_balance = round(safe_curr + total_tickets, 2)
             await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
 
-    # Считаем, сколько предметов реально удалось продать (защита от гонки)
     sold_count = len(updated_rows)
     return {"success": True, "message": f"Продано {sold_count} шт. за {total_tickets} 🎟️!"}
 
