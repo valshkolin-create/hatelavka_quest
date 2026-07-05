@@ -15952,14 +15952,16 @@ async def claim_bp_quest(
             if total_progress < target_amount:
                 raise HTTPException(status_code=400, detail="Общая цель еще не достигнута сервером!")
 
-            # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: ИДЕАЛЬНО ЧИСТЫЙ PAYLOAD 🔥
-            post_res = await supabase.post("/user_quest_progress", json={
+            # 🔥 ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА: ПИШЕМ В ПРАВИЛЬНУЮ ТАБЛИЦУ (user_bp_quests) 🔥
+            post_res = await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id,
                 "quest_id": req.quest_id,
-                "week": "global",
-                "current_progress": total_progress,
-                "target_value": target_amount,
-                "claimed_at": datetime.now(timezone.utc).isoformat()
+                "week": 0, # <-- Маркер глобального квеста
+                "current_amount": total_progress,
+                "target_amount": target_amount,
+                "is_completed": True,
+                "is_claimed": True,
+                "completed_at": datetime.now(timezone.utc).isoformat()
             })
 
             # Различаем ошибки 409 от Supabase
@@ -16098,6 +16100,7 @@ async def claim_bp_quest(
         logging.error(f"Ошибка получения награды за квест: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
+
 @app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
 async def get_checkpoint_status(
@@ -16145,12 +16148,14 @@ async def get_checkpoint_status(
             gq_ids_str = ",".join([str(q["quest_id"]) for q in global_quests])
             
             if tg_id and gq_ids_str:
+                # 🔥 ИДЕМ В ПРАВИЛЬНУЮ ТАБЛИЦУ ЗА СТАТУСОМ 🔥
                 prog_resp = await supabase.get(
-                    "/user_quest_progress", 
+                    "/user_bp_quests", 
                     params={
                         "user_id": f"eq.{tg_id}", 
                         "quest_id": f"in.({gq_ids_str})", 
-                        "claimed_at": "not.is.null"
+                        "week": "eq.0", # <-- Ищем строго маркер 0
+                        "is_claimed": "is.true"
                     }
                 )
                 if prog_resp.is_success and prog_resp.json():
@@ -16235,6 +16240,42 @@ async def get_checkpoint_status(
                             case_images[name] = c.get("image_url")
             except Exception as e:
                 logging.warning(f"Сбой при загрузке картинок кейсов: {e}")
+        # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
+
+        # 3. Собираем массив уровней в том виде, который ждет фронтенд
+        formatted_tiers = []
+        for t in tiers_data:
+            
+            def get_image_for_reward(r_type, r_value):
+                if r_type == "cs2_skin":
+                    return skin_images.get(r_value, "")
+                elif r_type in ["case", "case_coupon"]:
+                    return case_images.get(r_value, "")
+                return ""
+
+            formatted_tiers.append({
+                "level": t["level"],
+                "required_stars": t["required_stars"],
+                "free_reward": {
+                    "type": t["free_reward_type"], 
+                    "value": t["free_reward_value"],
+                    "exchange": t.get("free_exchange_stars", 0),
+                    "image_url": get_image_for_reward(t["free_reward_type"], t["free_reward_value"])
+                },
+                "premium_reward": {
+                    "type": t["premium_reward_type"], 
+                    "value": t["premium_reward_value"],
+                    "exchange": t.get("premium_exchange_stars", 0),
+                    "image_url": get_image_for_reward(t["premium_reward_type"], t["premium_reward_value"])
+                }
+            })
+        
+        base_config["tiers"] = formatted_tiers
+        return base_config
+
+    except Exception as e:
+        logging.error(f"Ошибка получения статуса Чекпоинта: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
         # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
 
         # 3. Собираем массив уровней в том виде, который ждет фронтенд
