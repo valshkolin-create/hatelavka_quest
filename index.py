@@ -24554,8 +24554,8 @@ async def check_trade_status_endpoint(
                     "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
                 }
             
-           # =========================================================
-            # ИСПРАВЛЕННЫЙ КОД (С УЧЕТОМ SETTLEMENT)
+            # =========================================================
+            # ИСПРАВЛЕННЫЙ КОД (С УЧЕТОМ SETTLEMENT И БЕЗ АВТО-ОТМЕНЫ)
             # =========================================================
             trade_info = tm_data.get("data", {})
             stage = str(trade_info.get("stage"))
@@ -24578,8 +24578,21 @@ async def check_trade_status_endpoint(
                     headers={"Prefer": "return=representation"}
                 )
                 
-            # ЛОГИКА ОТМЕНЫ (Stage 4, 5 или таймаут)
-            elif stage in ["4", "5"] or (seconds_passed > 2100 and stage == "1"):
+                if patch_res.status_code >= 400:
+                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                    
+                updated_rows = patch_res.json()
+                if not updated_rows or len(updated_rows) == 0:
+                    return {"success": False, "message": "Статус уже обновлен кроном."}
+                    
+                return {
+                    "success": True, 
+                    "message": "✅ Скин успешно выдан! Приятной игры.", 
+                    "new_status": "received"
+                }
+                
+            # ЛОГИКА ОТМЕНЫ (Строго Stage 4 или 5. Больше никаких отмен по времени!)
+            elif stage in ["4", "5"]:
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json={"status": "available", "updated_at": now_iso},
@@ -24599,19 +24612,17 @@ async def check_trade_status_endpoint(
                         json={"is_reserved": False}
                     )
                 
-                msg = "Трейд был отменен. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло."
                 return {
                     "success": False, 
-                    "message": msg, 
+                    "message": "Трейд был отменен Маркетом. Предмет снова доступен.", 
                     "new_status": "available"
                 }
                 
-            # ОЖИДАНИЕ
+            # БЕЗОПАСНОЕ ОЖИДАНИЕ
             elif stage == "1":
-                time_left = max(1, int((1800 - seconds_passed) / 60))
                 return {
                     "success": False, 
-                    "message": f"Оффер отправлен! У вас есть около {time_left} мин., чтобы принять его в Steam."
+                    "message": "Оффер отправлен! Проверьте Steam. Если вы уже приняли, ожидайте синхронизации серверов."
                 }
             
             else:
@@ -26906,33 +26917,26 @@ async def withdraw_inventory_item(
 
     history_record = rows[0]
     current_status = history_record.get('status')
-    updated_at_str = history_record.get('updated_at')
     
     # ==========================================
-    # 🕒 БЛОК ПРОВЕРКИ ТАЙМЕРА (30 МИНУТ)
+    # 🕒 ЖЕСТКАЯ БЛОКИРОВКА ПОВТОРНЫХ ВЫВОДОВ
     # ==========================================
-    processing_statuses = {"market_pending", "auto_queued", "sent", "offer_sent"}
+    processing_statuses = {"market_pending", "auto_queued", "sent", "offer_sent", "processing"}
     valid_for_withdraw = {"pending", "failed", "available"}
     
-    if current_status in processing_statuses and updated_at_str:
-        time_str = updated_at_str.replace("Z", "+00:00")
-        if "+" not in time_str and not re.search(r"-\d{2}:\d{2}$", time_str):
-            time_str += "+00:00"
-            
-        try:
-            updated_dt = datetime.fromisoformat(time_str)
-            if datetime.now(timezone.utc) - updated_dt < timedelta(minutes=30):
-                raise HTTPException(
-                    status_code=400, 
-                    detail="⏳ Трейд уже находится в очереди отправки. Пожалуйста, подождите 30 минут."
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logging.error(f"Time parse error: {e}")
-                
-    if current_status not in valid_for_withdraw and current_status not in processing_statuses:
-        raise HTTPException(status_code=400, detail="Этот предмет нельзя вывести (уже продан или получен).")
+    # 1. Если статус уже в обработке — жестко блокируем любой повторный вывод!
+    if current_status in processing_statuses:
+        raise HTTPException(
+            status_code=400, 
+            detail="⏳ Трейд уже обрабатывается или отправлен. Дождитесь завершения или проверьте статус через кнопку «ПРОВЕРИТЬ»."
+        )
+        
+    # 2. Если статус не валиден для вывода — тоже блокируем
+    if current_status not in valid_for_withdraw:
+        raise HTTPException(
+            status_code=400, 
+            detail="Этот предмет нельзя вывести (уже продан или получен)."
+        )
 
     # ==========================================
     # 🔥 АТОМАРНАЯ ПЛОМБА В БД ДО ВЫСТРЕЛА 🔥
@@ -27130,7 +27134,7 @@ async def withdraw_inventory_item(
             })
             return {"success": True, "message": "Маркет сильно загружен, ваш заказ обрабатывается. Обновите статус через пару минут."}
 
-# ==========================================
+    # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН (ИСПРАВЛЕНО: ЗАЩИТА ОТ ДЮПА)
     # ==========================================
     err_msg = str(delivery_res.get("error", "")).lower()
@@ -27153,12 +27157,14 @@ async def withdraw_inventory_item(
             }
     else:
         # 🚨 МАРКЕТ ВЕРНУЛ НЕИЗВЕСТНУЮ ОШИБКУ!
-        # Скин замораживается (failed), чтобы юзер не смог его продать за билеты, пока cron не проверит статус!
-        logging.error(f"[FATAL MARKET] Ошибка: {err_msg}. Код: {err_code}. Скин заморожен (failed).")
+        # Замораживаем скин в status="processing" с пометкой, чтобы админ разобрался руками.
+        logging.error(f"[FATAL MARKET] Ошибка: {err_msg}. Код: {err_code}. Скин заморожен (processing).")
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-            "status": "failed", "updated_at": now_iso 
+            "status": "processing", 
+            "details": f"FATAL_ERROR: {err_msg}",
+            "updated_at": now_iso 
         })
-        raise HTTPException(status_code=400, detail="Произошла системная ошибка при заказе предмета. Вывод проверяется.")
+        raise HTTPException(status_code=400, detail="Произошла системная ошибка при заказе предмета. Заявка передана администратору.")
 
     # ==========================================
     # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
