@@ -11124,7 +11124,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # =========================================================
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
-        rres = await supabase.get(
+        res = await supabase.get(
         "/cs_history", 
         params={
             "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
