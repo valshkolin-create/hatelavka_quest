@@ -2148,35 +2148,45 @@ function renderInventory(items, isSorting = false) {
         let rightContentHtml = '';
         let cardOpacity = '1';
 
-        // 👇 НОВЫЙ БЛОК: ПОЭТАПНОСТЬ ДЛЯ ВСЕХ АКТИВНЫХ СТАТУСОВ ТРЕЙДА 👇
-        if (['auto_queued', 'processing', 'market_pending', 'sent', 'offer_sent'].includes(status)) {
-            const isProcessing = ['auto_queued', 'processing', 'market_pending'].includes(status);
-            const isOffer = ['offer_sent', 'sent'].includes(status);
-
+        if (status === 'auto_queued') {
+            rightContentHtml = `<div style="color: #00c0e3; font-size: 8px; font-weight: 700; padding: 4px 0;">ПОИСК...</div>`;
+        }
+        else if (status === 'processing') {
+            rightContentHtml = `<div style="color: #FFD700; font-size: 8px; font-weight: 700; padding: 4px 0;">ОБРАБОТКА</div>`;
+        }
+        # =========================================================
+        # 🔥 ДИНАМИЧЕСКАЯ ПОДМЕНА ВНУТРИ КАРТОЧКИ (БЕЗ РАСТЯГИВАНИЯ)
+        # =========================================================
+        else if (status === 'market_pending') {
+            // ЭТАП 1: Трейда еще нет в СТИМЕ (trade_id == 0). Показываем сборку ботом.
             rightContentHtml = `
-                <div class="trade-steps">
-                    <div class="trade-step done">
-                        <i class="fa-solid fa-check"></i> Создан
-                    </div>
-                    <div class="trade-step ${isProcessing ? 'active' : 'done'}">
-                        ${isProcessing ? '<i class="fa-solid fa-spinner fa-spin"></i> Сборка' : '<i class="fa-solid fa-check"></i> Сборка'}
-                    </div>
-                    <div class="trade-step ${isOffer ? 'active' : ''}">
-                        ${isOffer ? '<i class="fa-solid fa-arrow-right"></i> Оффер' : '<i class="fa-solid fa-clock"></i> Оффер'}
-                    </div>
+                <div style="color: #a200ff; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 2px;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> СБОРКА БОТОМ
                 </div>
-                <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; padding: 4px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom: 2px;">
+                <div style="font-size: 8px; color: #888; margin-bottom: 4px; height: 11px; line-height: 1.1;">
+                    Ждем отправку...
+                </div>
+                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255,255,255,0.05); color: #aaa; padding: 5px 0;">
+                    <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Обновить</span>
+                </button>`;
+        }
+        else if (status === 'offer_sent' || status === 'sent') {
+            // ЭТАП 2: Трейд успешно отправлен (trade_id != 0). Появляется таймер и яркая кнопка.
+            rightContentHtml = `
+                <div style="color: #ffcc00; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 2px; animation: pulse-opacity 1.5s infinite;">
+                    ПРИМИТЕ ОФФЕР
+                </div>
+                <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; padding: 3px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom: 4px;">
                     --:--
                 </div>
-                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255,255,255,0.1); color: #ccc;">
-                    <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Статус</span>
+                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: #ffcc00; color: #000; font-weight: 800; padding: 5px 0;">
+                    <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Проверить</span>
                 </button>`;
             
             setTimeout(() => {
                 if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at);
             }, 50);
         }
-        // 👆 КОНЕЦ НОВОГО БЛОКА ПОЭТАПНОСТИ 👆
         else if (status === 'received') {
             cardOpacity = '0.5';
             rightContentHtml = `<div style="color: #34c759; font-size: 9px; font-weight: 800;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
