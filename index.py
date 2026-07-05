@@ -24375,6 +24375,7 @@ async def check_trade_status_endpoint(
 ):
     import os
     from datetime import datetime, timezone
+    from dateutil import parser
     
     body = await request.json()
     history_id = body.get("history_id")
@@ -24391,10 +24392,11 @@ async def check_trade_status_endpoint(
     })
     
     db_items = res.json() 
-    if not db_items or len(db_items) == 0:
+    if res.status_code != 200 or not db_items or len(db_items) == 0:
         return JSONResponse({"success": False, "message": "Предмет не найден в вашей истории"})
         
     item = db_items[0] 
+    current_status = item.get("status")
     
     # Берем уникальный ID (с временем), который мы сохраняли в базу
     custom_id = str(item.get("tradeofferid")) if item.get("tradeofferid") else str(item.get("id"))
@@ -24410,10 +24412,12 @@ async def check_trade_status_endpoint(
     db_seconds_passed = 0
     if db_updated_at_str:
         try:
-            db_dt = datetime.fromisoformat(db_updated_at_str.replace("Z", "+00:00"))
+            db_dt = parser.parse(db_updated_at_str)
+            if db_dt.tzinfo is None:
+                db_dt = db_dt.replace(tzinfo=timezone.utc)
             db_seconds_passed = (now_utc - db_dt).total_seconds()
-        except:
-            pass
+        except Exception as e:
+            print(f"Time parse error in check_trade: {e}")
 
     try:
         # Увеличиваем таймаут, так как Маркет может долго «думать»
@@ -24437,12 +24441,16 @@ async def check_trade_status_endpoint(
                     # 🔥 ГЛАВНЫЙ ФИКС: Если прошло больше 15 минут (900 сек), а Маркет 
                     # всё ещё не знает про ID — значит наша покупка сорвалась. Отменяем!
                     if db_seconds_passed > 900:
-                        await supabase.patch("/cs_history", 
-                            params={"id": f"eq.{history_id}"}, 
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                             json={"status": "available", "details": "Сделка не была создана Маркетом", "updated_at": now_iso}
                         )
+                        
+                        if patch_res.status_code >= 400:
+                            return {"success": False, "message": "Статус уже был изменен другим процессом."}
+                            
                         return {
-                            "success": True, # Возвращаем True, чтобы фронт обновил статус!
+                            "success": False, # 🔥 Исправлено на False
                             "message": "❌ Маркет отменил/потерял заявку. Предмет снова доступен, попробуйте еще раз.",
                             "new_status": "available"
                         }
@@ -24476,10 +24484,14 @@ async def check_trade_status_endpoint(
                 if not item.get("image_url") and trade_info.get("classid"):
                     update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
 
-                await supabase.patch("/cs_history", 
-                    params={"id": f"eq.{history_id}"}, 
+                patch_res = await supabase.patch("/cs_history", 
+                    params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json=update_payload
                 )
+                
+                if patch_res.status_code >= 400:
+                    return {"success": False, "message": "Скин выдан, но статус уже обновлен в БД."}
+                    
                 return {
                     "success": True, 
                     "message": "✅ Скин успешно выдан! Приятной игры.", 
@@ -24488,10 +24500,13 @@ async def check_trade_status_endpoint(
                 
             # ЛОГИКА ОТМЕНЫ (Ошибка или истекло время 35 мин)
             elif stage in ["4", "5"] or (seconds_passed > 2100 and settlement == 0):
-                await supabase.patch("/cs_history", 
-                    params={"id": f"eq.{history_id}"}, 
+                patch_res = await supabase.patch("/cs_history", 
+                    params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json={"status": "available", "updated_at": now_iso} 
                 )
+                
+                if patch_res.status_code >= 400:
+                    return {"success": False, "message": "Ошибка БД или статус уже изменен."}
                 
                 if item.get("assetid"):
                     await supabase.patch("/steam_inventory_cache", 
@@ -24501,7 +24516,7 @@ async def check_trade_status_endpoint(
                 
                 msg = "Трейд был отменен продавцом Маркета. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло. Маркет не смог выдать предмет, попробуйте еще раз."
                 return {
-                    "success": True, 
+                    "success": False, # 🔥 Исправлено на False
                     "message": msg, 
                     "new_status": "available"
                 }
