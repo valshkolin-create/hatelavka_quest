@@ -16057,9 +16057,9 @@ async def claim_bp_quest(
         if is_claimed:
             raise HTTPException(status_code=400, detail="Награда уже получена")
 
-        # 4. СОХРАНЯЕМ СТАТУС (🔥 УМНОЕ ОБНОВЛЕНИЕ)
+        # 4. СОХРАНЯЕМ СТАТУС (🔥 УМНОЕ ОБНОВЛЕНИЕ - ЗАЩИТА ОТ ДЮПОВ)
         if is_retroactive:
-            await supabase.post("/user_bp_quests", json={
+            post_res = await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id, 
                 "quest_id": req.quest_id, 
                 "week": req.week if is_repeatable else None, # <--- Разовым ставим null
@@ -16068,15 +16068,27 @@ async def claim_bp_quest(
                 "is_completed": True, 
                 "is_claimed": True
             })
+            if post_res.status_code == 409:
+                raise HTTPException(status_code=400, detail="Награда уже получена!")
         else:
             patch_params = {
                 "user_id": f"eq.{tg_id}", 
-                "quest_id": f"eq.{req.quest_id}"
+                "quest_id": f"eq.{req.quest_id}",
+                "is_claimed": "is.false" # 🔥 МАГИЯ ЗДЕСЬ: обновит только если сейчас False
             }
             if is_repeatable:
                 patch_params["week"] = f"eq.{req.week}"
 
-            await supabase.patch("/user_bp_quests", params=patch_params, json={"is_claimed": True})
+            patch_res = await supabase.patch(
+                "/user_bp_quests", 
+                params=patch_params, 
+                json={"is_claimed": True},
+                headers={"Prefer": "return=representation"} # Просим вернуть результат
+            )
+            
+            # 🔥 Если результат пустой - значит другой процесс уже успел забрать награду в эту миллисекунду
+            if not patch_res.json():
+                 raise HTTPException(status_code=400, detail="Награда уже получена или обрабатывается!")
 
 
         # 🔥 5. ВЫДАЕМ EXP 🔥
@@ -16392,14 +16404,27 @@ async def claim_checkpoint_reward(
         if reward_type == 'none':
             raise HTTPException(status_code=400, detail="На этом уровне нет награды.")
 
-        # 3. Проверяем, не забирал ли он уже эту награду
-        claim_check = await supabase.get("/user_checkpoint_claims", params={
-            "user_id": f"eq.{telegram_id}",  
-            "level": f"eq.{level_to_claim}",
-            "reward_track": f"eq.{track_type}"
+        # 3. БРОНИРУЕМ ВЫДАЧУ СРАЗУ (🔥 Защита от дублей уровня)
+        # Мы пытаемся записать клейм до того, как сгенерируем скин/купон. 
+        # Если прилетят 10 запросов одновременно, БД примет только первый, а остальных откинет по 409 ошибке
+        claim_res = await supabase.post("/user_checkpoint_claims", json={
+            "user_id": telegram_id, 
+            "level": level_to_claim,
+            "reward_track": track_type
         })
-        if claim_check.json():
-            raise HTTPException(status_code=400, detail="Награда уже получена.")
+        
+        if claim_res.status_code == 409:
+            raise HTTPException(status_code=400, detail="Награда уже получена или в процессе выдачи.")
+        elif claim_res.status_code not in (200, 201):
+            # Профилактическая проверка на случай других ошибок
+            claim_check = await supabase.get("/user_checkpoint_claims", params={
+                "user_id": f"eq.{telegram_id}",  
+                "level": f"eq.{level_to_claim}",
+                "reward_track": f"eq.{track_type}"
+            })
+            if claim_check.json():
+                raise HTTPException(status_code=400, detail="Награда уже получена.")
+            raise HTTPException(status_code=500, detail="Ошибка резервирования награды.")
 
         # ==========================================
         # 4. ВЫДАЧА НАГРАДЫ ИЛИ ОБМЕН
@@ -16619,12 +16644,7 @@ async def claim_checkpoint_reward(
                     "submitted_data": f"Награда БП: {reward_names.get(reward_type, reward_type)} (Ур. {level_to_claim}, {track_type.upper()})"
                 })
 
-        # 5. Только если ВСЕ этапы пройдены успешно, записываем, что награда получена
-        await supabase.post("/user_checkpoint_claims", json={
-            "user_id": telegram_id, 
-            "level": level_to_claim,
-            "reward_track": track_type
-        })
+        # Шаг 5 (запись claim'а) убран, так как он теперь делается на Шаге 3 в качестве брони
 
         # 6. Формируем ответ (отдаем коды фронту)
         response_data = {"message": "Награда успешно получена!"}
