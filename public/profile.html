@@ -2180,9 +2180,14 @@ function renderInventory(items, isSorting = false) {
                 <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; padding: 3px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom: 4px;">
                     --:--
                 </div>
-                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: #ffcc00; color: #000; font-weight: 800; padding: 5px 0;">
-                    <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Проверить</span>
-                </button>`;
+                <div style="display: flex; gap: 4px; margin-top: 4px;">
+                    <button class="inv-btn" onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank')" style="background: #2a475e; color: #c7d5e0; font-weight: 800; padding: 5px 0; flex: 1;">
+                        <i class="fa-brands fa-steam"></i> В Steam
+                    </button>
+                    <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: #ffcc00; color: #000; font-weight: 800; padding: 5px 0; flex: 1;">
+                        <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Чек</span>
+                    </button>
+                </div>`;
             
             setTimeout(() => {
                 if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at);
