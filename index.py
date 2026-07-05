@@ -11084,12 +11084,7 @@ async def cron_check_steam_bots(
     
 @app.get("/api/v1/cron/check_tm_trades")
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    import traceback
-    import os
-    import logging
-    from datetime import datetime, timezone
-    from dateutil import parser
-    
+
     # Этот принт 100% появится в логах Vercel при запуске крона
     print(f"[{datetime.now(timezone.utc).isoformat()}] CRON STARTED: check_tm_trades")
 
