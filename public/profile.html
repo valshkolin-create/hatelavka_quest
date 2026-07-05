@@ -2119,7 +2119,7 @@ function renderInventory(items, isSorting = false) {
         let rightContentHtml = '';
         let cardOpacity = '1';
 
-        if (status === 'auto_queued') {
+       if (status === 'auto_queued') {
             rightContentHtml = `<div style="color: #00c0e3; font-size: 8px; font-weight: 700; padding: 4px 0;">ПОИСК...</div>`;
         }
         else if (status === 'market_pending' || status === 'sent' || status === 'offer_sent') {
@@ -2133,7 +2133,7 @@ function renderInventory(items, isSorting = false) {
                 <div id="${timerElementId}" style="background: rgba(255,255,255,0.05); color: #fff; padding: 4px 2px; border-radius: 4px; font-size: 9px; font-family: monospace; margin-bottom:2px;">
                     --:--
                 </div>
-                <button class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255,255,255,0.1); color: #ccc;">
+                <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255,255,255,0.1); color: #ccc;">
                     <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i></span>
                 </button>`;
             
@@ -2156,7 +2156,19 @@ function renderInventory(items, isSorting = false) {
             cardOpacity = '0.5';
             rightContentHtml = `<div style="color: #888; font-size: 9px; font-weight: 700;">СВАП</div>`;
         }
+        // 👇 ДОБАВЛЯЕМ ОБРАБОТКУ ЗАМОРОЗКИ 👇
+        else if (status === 'failed') {
+            cardOpacity = '0.8';
+            rightContentHtml = `
+                <div style="color: #ff3b30; font-size: 9px; font-weight: 800; margin-bottom: 4px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> ОШИБКА МАРКЕТА
+                </div>
+                <div style="font-size: 8px; color: #aaa; line-height: 1.2;">Скин заморожен.<br>Сообщите администратору.</div>
+            `;
+        }
+        // 👆 КОНЕЦ НОВОГО БЛОКА 👆
         else {
+            // Это статусы available, pending, canceled
             rightContentHtml = `
                 <button id="withdraw-btn-${historyId}" class="inv-btn inv-btn-claim" onclick="withdrawItem(${historyId}, '${displayName.replace(/'/g, "\\'")}')">
                     ЗАБРАТЬ
