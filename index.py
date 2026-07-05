@@ -16369,13 +16369,20 @@ async def claim_checkpoint_reward(
         unique_coupon_code = ""
         clean_fake_amount = "0"
         
-        if action_type == "exchange":
+       if action_type == "exchange":
             exchange_stars = int(tier_data.get(f"{track_type}_exchange_stars", 0))
             if exchange_stars <= 0:
                 raise HTTPException(status_code=400, detail="Обмен недоступен для этой награды.")
             
-            # Выдаем звезды обмена
-            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"checkpoint_stars": user_stars + exchange_stars})
+            # Формируем данные для обновления
+            patch_data = {"checkpoint_stars": user_stars + exchange_stars}
+            
+            # 🔥 ФИКС: Если распыляем TopSkin, принудительно ставим макс. кол-во просмотров
+            if reward_type == 'topskin_discount':
+                patch_data["topskin_views"] = 2
+            
+            # Выдаем звезды обмена и обновляем лимиты
+            await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=patch_data)
             
         else:
             if reward_type == 'coins':
