@@ -2133,7 +2133,8 @@ function renderInventory(items, isSorting = false) {
         const isSwapped = item.is_swapped === true;
         const isReplaced = !!item.replaced_name && !isSwapped; 
         const displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
-        const ticketVal = (isReplaced || isSwapped) && item.replaced_price ? item.replaced_price : (item.price || 0);
+        const rawPrice = (isReplaced || isSwapped) && item.replaced_price ? parseFloat(item.replaced_price) : parseFloat(item.price || 0);
+        const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
 
         const imageContentHtml = isReplaced 
             ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
@@ -2348,13 +2349,15 @@ window.confirmReceived = function(historyId) {
 const checkCooldowns = {};
 
 // --- ФУНКЦИЯ ПРОВЕРКИ СТАТУСА НА МАРКЕТЕ (ТМ) ---
+// --- ФУНКЦИЯ ПРОВЕРКИ СТАТУСА НА МАРКЕТЕ (ТМ) ---
 window.checkTradeStatus = async function(historyId, isAuto = false) {
-    if (isUpdating) return; 
+    const btn = document.getElementById(`check-btn-${historyId}`);
+    // Локальная блокировка кнопки (вместо глобальной isUpdating, чтобы чекать несколько предметов параллельно)
+    if (btn && btn.classList.contains('btn-loading')) return; 
 
-    // 🛡️ АНТИ-СПАМ
+    // 🛡️ АНТИ-СПАМ: Снизили до 55 секунд, так как таймеры JS могут спешить на пару мс и блочить интервал
     const now = Date.now();
-    if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 60000)) { 
-        // Если проверка автоматическая, не спамим юзеру предупреждениями про кулдаун
+    if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 55000)) { 
         if (!isAuto) {
             showNotification("⏳ Проверять статус можно раз в минуту. Подождите немного.", "info");
         }
@@ -2362,11 +2365,8 @@ window.checkTradeStatus = async function(historyId, isAuto = false) {
     }
     
     checkCooldowns[historyId] = now;
-
-    const btn = document.getElementById(`check-btn-${historyId}`);
     const iconContainer = document.getElementById(`check-icon-${historyId}`);
     
-    isUpdating = true;
     if (btn) btn.classList.add('btn-loading');
     if (iconContainer) {
         iconContainer.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin-fast"></i>';
@@ -2376,12 +2376,16 @@ window.checkTradeStatus = async function(historyId, isAuto = false) {
         const res = await makeApiRequest('/api/v1/user/inventory/check_trade', { history_id: historyId }, 'POST', true);
         
         if (res && res.success) {
-            showNotification(res.message, "success");
+            if (!isAuto) showNotification(res.message, "success");
             await loadData(true); 
         } else {
-            // Если проверка автоматическая, не выводим промежуточные сообщения "Оффер еще не принят"
             if (!isAuto) {
                 showNotification(res.message || "Оффер еще не принят. Посмотрите в своем стиме", "info");
+            }
+            // 🔥 ГЛАВНЫЙ ФИКС: Если бэкенд сменил статус на offer_sent, success будет false,
+            // но мы ВСЁ РАВНО должны обновить интерфейс, чтобы карточка переключилась!
+            if (res && res.new_status) {
+                await loadData(true);
             }
         }
     } catch (e) {
@@ -2391,7 +2395,6 @@ window.checkTradeStatus = async function(historyId, isAuto = false) {
             iconContainer.innerHTML = '<i class="fa-solid fa-rotate"></i> Статус';
         }
         if (btn) btn.classList.remove('btn-loading');
-        isUpdating = false;
     }
 }
     
