@@ -2348,20 +2348,21 @@ window.confirmReceived = function(historyId) {
 const checkCooldowns = {};
 
 // --- ФУНКЦИЯ ПРОВЕРКИ СТАТУСА НА МАРКЕТЕ (ТМ) ---
-window.checkTradeStatus = async function(historyId) {
-    if (isUpdating) return; // Защита от двойного клика
+window.checkTradeStatus = async function(historyId, isAuto = false) {
+    if (isUpdating) return; 
 
-    // 🛡️ АНТИ-СПАМ: проверяем, прошло ли 60 секунд с прошлого нажатия
+    // 🛡️ АНТИ-СПАМ
     const now = Date.now();
-    if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 60000)) { // 60000 мс = 1 минута
-        showNotification("⏳ Проверять статус можно раз в минуту. Подождите немного.", "info");
+    if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 60000)) { 
+        // Если проверка автоматическая, не спамим юзеру предупреждениями про кулдаун
+        if (!isAuto) {
+            showNotification("⏳ Проверять статус можно раз в минуту. Подождите немного.", "info");
+        }
         return;
     }
     
-    // Записываем время текущего нажатия
     checkCooldowns[historyId] = now;
 
-    // Находим кнопку и иконку внутри неё
     const btn = document.getElementById(`check-btn-${historyId}`);
     const iconContainer = document.getElementById(`check-icon-${historyId}`);
     
@@ -2376,16 +2377,18 @@ window.checkTradeStatus = async function(historyId) {
         
         if (res && res.success) {
             showNotification(res.message, "success");
-            await loadData(true); // Мгновенно обновляем инвентарь
+            await loadData(true); 
         } else {
-            showNotification(res.message || "Оффер еще не принят. Посмотрите в своем стиме", "info");
+            // Если проверка автоматическая, не выводим промежуточные сообщения "Оффер еще не принят"
+            if (!isAuto) {
+                showNotification(res.message || "Оффер еще не принят. Посмотрите в своем стиме", "info");
+            }
         }
     } catch (e) {
-        showNotification("Ошибка: " + e.message, "error");
+        if (!isAuto) showNotification("Ошибка: " + e.message, "error");
     } finally {
-        // Возвращаем кнопку в исходное состояние
         if (iconContainer) {
-            iconContainer.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+            iconContainer.innerHTML = '<i class="fa-solid fa-rotate"></i> Статус';
         }
         if (btn) btn.classList.remove('btn-loading');
         isUpdating = false;
@@ -2815,16 +2818,25 @@ window.checkTradeStatus = async function(historyId) {
         dom.btnOpenInventory.onclick = () => {
             dom.modalInventory.classList.add('visible');
 
-            // 🔥 ЗАПУСКАЕМ АВТО-ОБНОВЛЕНИЕ (раз в 30 секунд)
+            // 🔥 ЗАПУСКАЕМ АВТО-ОБНОВЛЕНИЕ (раз в 60 секунд для обхода лимитов)
             if (!inventoryRefreshInterval) {
-                inventoryRefreshInterval = setInterval(() => {
+                inventoryRefreshInterval = setInterval(async () => {
                     if (typeof loadData === 'function') {
-                        loadData(true); // Обновляем без лоадера
+                        // Сначала обновляем сетку из нашей БД
+                        await loadData(true); 
+                        
+                        // 🔥 АВТО-ПРОВЕРКА: Находим на экране все кнопки активных трейдов
+                        const activeButtons = document.querySelectorAll('[id^="check-btn-"]');
+                        activeButtons.forEach(btn => {
+                            const historyId = btn.id.replace('check-btn-', '');
+                            if (typeof checkTradeStatus === 'function') {
+                                // Вызываем проверку с флагом true (автоматический режим)
+                                checkTradeStatus(historyId, true); 
+                            }
+                        });
                     }
-                }, 30000); 
+                }, 60000); 
             }
-            
-            // ВАЖНО: Никаких вызовов tg.BackButton здесь больше нет!
         };
     }
 
