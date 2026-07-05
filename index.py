@@ -26334,7 +26334,7 @@ async def sell_inventory_item(
             "id": f"eq.{req.history_id}", 
             "user_id": f"eq.{user_id}", 
             "status": "in.(pending,failed,available,canceled)", 
-            "select": "id, status, replaced_price, item:cs_items(price)"
+            "select": "id, status, replaced_price, item:cs_items(price, price_rub)"
         }
     )
     
@@ -26361,22 +26361,24 @@ async def sell_inventory_item(
         print(f"[SELL] ПОПЫТКА ДЮПА: Предмет {req.history_id} уже обрабатывается!")
         raise HTTPException(status_code=400, detail="Предмет уже в обработке или продан!")
 
-    # 3. Считаем билеты
+    # 3. Считаем билеты (Бронебойный float для копеек)
     try:
         replaced_price = row.get('replaced_price')
-        if replaced_price and float(replaced_price) > 0:
+        if replaced_price is not None and float(replaced_price) > 0:
             raw_price = float(replaced_price)
         else:
             item_data = row.get('item') or {}
-            raw_price = item_data.get('price', 0)
+            # Пробуем взять price_rub, если нет - берем обычный price
+            raw_price = float(item_data.get('price_rub') or item_data.get('price') or 0.0)
             
-        tickets_amount = round(float(raw_price) / 2.0, 2)
+        # Умножаем на 0.5 (чтобы 1 рубль = 0.5 билета)
+        tickets_amount = round(raw_price * 0.5, 2)
         if tickets_amount <= 0:
             tickets_amount = 0.01
             
     except Exception as e:
         print(f"[SELL] Ошибка парсинга цены: {e}")
-        tickets_amount = 0
+        tickets_amount = 0.01
 
     print(f"[SELL] Начисляем {tickets_amount} билетов")
 
@@ -27204,10 +27206,10 @@ async def withdraw_inventory_item(
             }
     else:
         # 🚨 МАРКЕТ ВЕРНУЛ НЕИЗВЕСТНУЮ ОШИБКУ!
-        # Замораживаем скин в status="processing" с пометкой, чтобы админ разобрался руками.
-        logging.error(f"[FATAL MARKET] Ошибка: {err_msg}. Код: {err_code}. Скин заморожен (processing).")
+        # 🔥 ИСПРАВЛЕНО: Меняем статус на "failed", чтобы фронтенд красиво показал фатальную ошибку
+        logging.error(f"[FATAL MARKET] Ошибка: {err_msg}. Код: {err_code}. Скин заморожен (failed).")
         await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-            "status": "processing", 
+            "status": "failed", 
             "details": f"FATAL_ERROR: {err_msg}",
             "updated_at": now_iso 
         })
@@ -27216,13 +27218,14 @@ async def withdraw_inventory_item(
     # ==========================================
     # 🛠 ЭТАП 4: РУЧНОЙ РЕЖИМ (ФИНАЛ)
     # ==========================================
+    # 🔥 ИСПРАВЛЕНО: Меняем статус на "failed", чтобы юзер не видел вечную "Обработку"
     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
-        "status": "processing",
+        "status": "failed",
         "updated_at": now_iso 
     })
     
     return {"success": True, "message": "Автовыдача временно недоступна. Заявка передана администратору."}
-
+    
 # 4. Подтверждение выбора замены пользователем
 @app.post("/api/v1/user/inventory/confirm_replacement")
 async def confirm_replacement(
