@@ -968,6 +968,51 @@
     50% { opacity: 1; }
     100% { opacity: 0.6; }
 }
+/* --- СТИЛИ ДЛЯ БЛЮР-ПЛАШКИ ОТМЕНЫ --- */
+.inv-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+    text-align: center;
+}
+.inv-overlay-title {
+    color: #ff3b30;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+.inv-overlay-sub {
+    color: #ccc;
+    font-size: 8px;
+    margin-bottom: 10px;
+    line-height: 1.1;
+}
+.inv-overlay-btn {
+    background: #34c759;
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+.inv-overlay-btn:active {
+    transform: scale(0.95);
+}
         
     </style>
 </head>
@@ -2148,6 +2193,19 @@ function renderInventory(items, isSorting = false) {
         const timerElementId = `timer-${historyId}`;
         let rightContentHtml = '';
         let cardOpacity = '1';
+        let overlayHtml = ''; // Переменная для блюр-эффекта
+
+        // Проверяем, отменен ли трейд и нажимал ли юзер "Хорошо!"
+        const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
+        if (status === 'canceled' && !isCancelAcked) {
+            overlayHtml = `
+                <div class="inv-overlay" id="blur-overlay-${historyId}">
+                    <div class="inv-overlay-title">Вы не приняли<br>трейд!</div>
+                    <div class="inv-overlay-sub">старайтесь их принимать</div>
+                    <button class="inv-overlay-btn" onclick="acknowledgeCancel(${historyId})">Хорошо!</button>
+                </div>
+            `;
+        }
 
         if (status === 'auto_queued') {
             rightContentHtml = `<div style="color: #00c0e3; font-size: 8px; font-weight: 700; padding: 4px 0;">ПОИСК...</div>`;
@@ -2235,6 +2293,7 @@ function renderInventory(items, isSorting = false) {
         const conditionText = (item.condition && !isReplaced && !isSwapped) ? item.condition : '';
         
         el.innerHTML = `
+            ${overlayHtml}
             <div class="inv-card-top">
                 <span>#${historyId}</span>
                 <span style="color: #b0b0b0;">${conditionText}</span>
@@ -2252,6 +2311,14 @@ function renderInventory(items, isSorting = false) {
         container.appendChild(el);
     });
 }
+
+window.acknowledgeCancel = function(historyId) {
+    // Запоминаем, что юзер увидел предупреждение
+    localStorage.setItem(`ack_cancel_${historyId}`, 'true');
+    // Скрываем блюр
+    const overlay = document.getElementById(`blur-overlay-${historyId}`);
+    if (overlay) overlay.style.display = 'none';
+};
     
 // --- ФУНКЦИЯ "ЗАБРАТЬ" (С авто-обновлением) ---
 window.withdrawItem = function(historyId, itemName) {
