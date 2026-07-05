@@ -2233,16 +2233,27 @@ const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
         let overlayHtml = ''; // Переменная для блюр-эффекта
 
         // Проверяем, отменен ли трейд и нажимал ли юзер "Хорошо!"
-        const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
-        if (status === 'canceled' && !isCancelAcked) {
-            overlayHtml = `
-                <div class="inv-overlay" id="blur-overlay-${historyId}">
-                    <div class="inv-overlay-title">Вы не приняли<br>трейд!</div>
-                    <div class="inv-overlay-sub">старайтесь их принимать</div>
-                    <button class="inv-overlay-btn" onclick="acknowledgeCancel(${historyId})">Хорошо!</button>
-                </div>
-            `;
-        }
+        // Проверяем, отменен ли трейд и нажимал ли юзер "Хорошо!"
+const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
+if (status === 'canceled' && !isCancelAcked) {
+    let titleText = "Трейд<br>отменен!";
+    let subText = "попробуйте вывести еще раз";
+
+    // Если бэкенд прислал точную причину через ||
+    if (item.details && item.details.includes('||')) {
+        const parts = item.details.split('||');
+        titleText = parts[0];
+        subText = parts[1];
+    }
+
+    overlayHtml = `
+        <div class="inv-overlay" id="blur-overlay-${historyId}">
+            <div class="inv-overlay-title" style="font-size: 11px;">${titleText}</div>
+            <div class="inv-overlay-sub">${subText}</div>
+            <button class="inv-overlay-btn" onclick="acknowledgeCancel(${historyId})">Хорошо!</button>
+        </div>
+    `;
+}
 
         if (status === 'auto_queued') {
             rightContentHtml = `<div style="color: #00c0e3; font-size: 8px; font-weight: 700; padding: 4px 0;">ПОИСК...</div>`;
