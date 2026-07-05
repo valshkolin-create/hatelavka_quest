@@ -11121,12 +11121,11 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     # =========================================================
     # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
     # =========================================================
-    # 🔥 ИСПРАВЛЕНИЕ №3: Убрали exchanged и pending, ищем только то, что реально ушло на маркет!
     res = await supabase.get(
         "/cs_history", 
         params={
-            "status": "in.(waiting,processing,market_pending,sent)", 
-            "select": "id, updated_at, status, tradeofferid", # 🔥 Добавили tradeofferid
+            "status": "in.(waiting,processing,market_pending,sent,auto_queued)", # Добавил auto_queued на всякий случай
+            "select": "id, updated_at, status, tradeofferid",
             "order": "updated_at.asc",
             "limit": "25" 
         }
@@ -11137,6 +11136,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         return {"status": "ok", "message": "Ничего не найдено для обработки"}
 
     now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         for trade in active_trades:
@@ -11144,35 +11144,39 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
             updated_at_str = trade.get("updated_at")
             current_status = trade.get("status")
             
-            # 🔥 ИСПРАВЛЕНИЕ №1: Берем правильный ID маркета (wd_123_timestamp)
-            market_custom_id = trade.get("tradeofferid")
+            # 🔥 ИСПРАВЛЕНИЕ: Берем ID безопасно и разрешаем замены (repl_)
+            market_custom_id = str(trade.get("tradeofferid") or "")
             
-            # Если tradeofferid пустой, значит это ручная выдача или баг. Пропускаем, чтобы не сломать.
-            if not market_custom_id or not str(market_custom_id).startswith("wd_"):
+            # Если это ручная выдача (null) или старый баг — пропускаем
+            if not market_custom_id.startswith(("wd_", "repl_")):
                 continue
             
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
+            if trade_time.tzinfo is None:
+                trade_time = trade_time.replace(tzinfo=timezone.utc)
+                
             minutes_passed = (now - trade_time).total_seconds() / 60
 
             try:
-                # 🔥 ИСПРАВЛЕНИЕ №1: Передаем правильный market_custom_id
                 tm_res = await client.get(
                     f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={market_custom_id}"
                 )
                 
                 if tm_res.status_code != 200:
-                    # Если маркет лежит (500, 502), мы НЕ ОТКАТЫВАЕМ в available! Мы просто ждем.
                     results_log.append(f"#{trade_id}: TM API Error {tm_res.status_code} -> waiting")
                     continue
 
                 tm_data = tm_res.json()
                 trade_info = tm_data.get("data", {})
                 
-                # 🔥 ИСПРАВЛЕНИЕ №2: Если маркет говорит "не найдено", убеждаемся что прошло минимум 15 минут
-                # чтобы случайно не отменить свежий заказ, который маркет еще не успел создать в своей базе
+                # Если маркет не знает такой заказ
                 if not tm_data.get("success") or not trade_info:
                     if minutes_passed > 15:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
+                        # 🔥 ЗАЩИТА: Меняем только если статус не изменился
+                        await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "available", "updated_at": now_iso}
+                        )
                         results_log.append(f"#{trade_id}: Not found on TM 15m -> available")
                     continue
 
@@ -11181,20 +11185,27 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
                 # ЛОГИКА СИНХРОНИЗАЦИИ (Если трейд реально ушел)
                 if settlement > 0 or stage == "2":
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "received"})
+                    await supabase.patch("/cs_history", 
+                        params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                        json={"status": "received", "updated_at": now_iso}
+                    )
                     results_log.append(f"#{trade_id}: Success -> received")
 
                 elif stage in ["4", "5"]:
-                    # Маркет официально подтвердил отмену (продавец не принял, нет денег и тд)
-                    await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
+                    # Отмена маркета
+                    await supabase.patch("/cs_history", 
+                        params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                        json={"status": "available", "updated_at": now_iso}
+                    )
                     results_log.append(f"#{trade_id}: TM Canceled -> available")
 
                 elif stage == "1":
-                    # Заказ висит в поиске/отправке слишком долго
+                    # Заказ висит в поиске/отправке слишком долго (больше 25 мин)
                     if minutes_passed >= 25:
-                        # 25 минут — это безопасный лимит. Если за 25 минут трейд не ушел, 
-                        # маркет скорее всего его отменит сам. Но на всякий случай ставим available
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
+                        await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "available", "updated_at": now_iso}
+                        )
                         results_log.append(f"#{trade_id}: 25m Timeout -> available")
                 
             except Exception as e:
@@ -24477,6 +24488,120 @@ async def check_trade_status_endpoint(
             now_ts = int(now_utc.timestamp())
             seconds_passed = now_ts - tm_buy_time
             
+           @app.post("/api/v1/user/inventory/check_trade")
+async def check_trade_status_endpoint(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    import os
+    from datetime import datetime, timezone
+    from dateutil import parser
+    
+    body = await request.json()
+    history_id = body.get("history_id")
+    
+    # Проверка авторизации
+    user_data = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
+    if not user_data:
+        return JSONResponse({"success": False, "message": "Auth failed"}, status_code=401)
+
+    # 1. Достаем запись из истории
+    res = await supabase.get("/cs_history", params={
+        "id": f"eq.{history_id}", 
+        "user_id": f"eq.{user_data['id']}"
+    })
+    
+    db_items = res.json() 
+    if res.status_code != 200 or not db_items or len(db_items) == 0:
+        return JSONResponse({"success": False, "message": "Предмет не найден в вашей истории"})
+        
+    item = db_items[0] 
+    current_status = item.get("status")
+    
+    # Берем уникальный ID (с временем), который мы сохраняли в базу
+    custom_id = str(item.get("tradeofferid")) if item.get("tradeofferid") else str(item.get("id"))
+
+    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
+    
+    # Для обновления таймера и расчета времени БД
+    now_utc = datetime.now(timezone.utc)
+    now_iso = now_utc.isoformat()
+    
+    # Высчитываем, сколько секунд прошло с момента создания заявки у НАС в базе
+    db_updated_at_str = item.get("updated_at")
+    db_seconds_passed = 0
+    if db_updated_at_str:
+        try:
+            db_dt = parser.parse(db_updated_at_str)
+            if db_dt.tzinfo is None:
+                db_dt = db_dt.replace(tzinfo=timezone.utc)
+            db_seconds_passed = (now_utc - db_dt).total_seconds()
+        except Exception as e:
+            print(f"Time parse error in check_trade: {e}")
+
+    try:
+        # Увеличиваем таймаут, так как Маркет может долго «думать»
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            tm_res = await client.get(
+                "https://cs2.market/api/v2/get-buy-info-by-custom-id",
+                params={
+                    "key": TM_API_KEY,
+                    "custom_id": custom_id
+                }
+            )
+            tm_data = tm_res.json()
+            
+            print(f"DEBUG TM FOR ITEM {custom_id}: {tm_data}")
+
+            # =========================================================
+            # ОБРАБОТКА ОШИБОК И ЗАДЕРЖКИ ИНДЕКСАЦИИ
+            # =========================================================
+            if not tm_data.get("success"):
+                if tm_data.get("error") == "not found":
+                    # 🔥 Если прошло больше 15 минут (900 сек), а Маркет 
+                    # всё ещё не знает про ID — значит наша покупка сорвалась. Отменяем!
+                    if db_seconds_passed > 900:
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "available", "details": "Сделка не была создана Маркетом", "updated_at": now_iso},
+                            headers={"Prefer": "return=representation"}
+                        )
+                        
+                        if patch_res.status_code >= 400:
+                            return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                            
+                        updated_rows = patch_res.json()
+                        if not updated_rows or len(updated_rows) == 0:
+                            return {"success": False, "message": "Статус уже обновлен другим процессом (Cron)."}
+                            
+                        return {
+                            "success": False,
+                            "message": "❌ Маркет отменил/потерял заявку. Предмет снова доступен, попробуйте еще раз.",
+                            "new_status": "available"
+                        }
+                    
+                    # Иначе просто ждем (индексация обычно занимает до 2 минут)
+                    return {
+                        "success": False, 
+                        "message": "⌛ Маркет обрабатывает сделку. Информация появится через пару минут..."
+                    }
+                
+                return {
+                    "success": False, 
+                    "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
+                }
+            
+            # =========================================================
+            # ДАЛЬШЕ ТВОЙ ОРИГИНАЛЬНЫЙ КОД
+            # =========================================================
+            trade_info = tm_data.get("data", {})
+            stage = str(trade_info.get("stage"))
+            settlement = int(trade_info.get("settlement") or 0)
+            
+            tm_buy_time = int(trade_info.get("time") or 0)
+            now_ts = int(now_utc.timestamp())
+            seconds_passed = now_ts - tm_buy_time
+            
             # ЛОГИКА УСПЕХА
             if settlement > 0 or stage == "2":
                 update_payload = {"status": "received", "updated_at": now_iso}
@@ -24486,11 +24611,16 @@ async def check_trade_status_endpoint(
 
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
-                    json=update_payload
+                    json=update_payload,
+                    headers={"Prefer": "return=representation"}
                 )
                 
                 if patch_res.status_code >= 400:
-                    return {"success": False, "message": "Скин выдан, но статус уже обновлен в БД."}
+                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                    
+                updated_rows = patch_res.json()
+                if not updated_rows or len(updated_rows) == 0:
+                    return {"success": False, "message": "Статус уже обновлен кроном."}
                     
                 return {
                     "success": True, 
@@ -24502,11 +24632,16 @@ async def check_trade_status_endpoint(
             elif stage in ["4", "5"] or (seconds_passed > 2100 and settlement == 0):
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
-                    json={"status": "available", "updated_at": now_iso} 
+                    json={"status": "available", "updated_at": now_iso},
+                    headers={"Prefer": "return=representation"}
                 )
                 
                 if patch_res.status_code >= 400:
-                    return {"success": False, "message": "Ошибка БД или статус уже изменен."}
+                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                    
+                updated_rows = patch_res.json()
+                if not updated_rows or len(updated_rows) == 0:
+                    return {"success": False, "message": "Статус уже обновлен кроном."}
                 
                 if item.get("assetid"):
                     await supabase.patch("/steam_inventory_cache", 
@@ -24516,7 +24651,7 @@ async def check_trade_status_endpoint(
                 
                 msg = "Трейд был отменен продавцом Маркета. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло. Маркет не смог выдать предмет, попробуйте еще раз."
                 return {
-                    "success": False, # 🔥 Исправлено на False
+                    "success": False, 
                     "message": msg, 
                     "new_status": "available"
                 }
@@ -24538,7 +24673,6 @@ async def check_trade_status_endpoint(
     except Exception as e:
         print(f"TM API ERROR: {e}")
         return JSONResponse({"success": False, "message": "Временная ошибка связи с Маркетом. Попробуйте позже."})
-
 # 2. Обменять скин на билеты (FIX 400 ERROR)
 
 class SwapRequest(BaseModel):
