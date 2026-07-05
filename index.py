@@ -11193,7 +11193,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         if minutes_passed > 15:
                             patch_res = await supabase.patch("/cs_history", 
                                 params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                                json={"status": "available", "updated_at": now_iso},
+                                json={"status": "canceled", "updated_at": now_iso},
                                 headers={"Prefer": "return=representation"}
                             )
                             if patch_res.status_code >= 400:
@@ -11220,15 +11220,26 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                             msg = f"#{trade_id}: Success -> received"
 
                     elif stage in ["4", "5"]:
+                        if stage == "5":
+                            c_title = "Вы не приняли<br>трейд!"
+                            c_sub = "старайтесь их принимать"
+                        else:
+                            c_title = "Трейд отменен<br>продавцом!"
+                            c_sub = "вы можете вывести скин снова"
+
                         patch_res = await supabase.patch("/cs_history", 
                             params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                            json={"status": "available", "updated_at": now_iso},
+                            json={
+                                "status": "canceled", 
+                                "details": f"{c_title}||{c_sub}",
+                                "updated_at": now_iso
+                            },
                             headers={"Prefer": "return=representation"}
                         )
                         if patch_res.status_code >= 400:
                             msg = f"#{trade_id}: DB ERROR ON TM CANCEL -> {patch_res.text}"
                         else:
-                            msg = f"#{trade_id}: TM Canceled -> available"
+                            msg = f"#{trade_id}: TM Canceled -> canceled"
 
                     # =========================================================
                     # БЕЗОПАСНАЯ ЛОГИКА ОЖИДАНИЯ (БЕЗ АВТО-ОТМЕНЫ)
@@ -27083,7 +27094,7 @@ async def withdraw_inventory_item(
     # 🕒 ЖЕСТКАЯ БЛОКИРОВКА ПОВТОРНЫХ ВЫВОДОВ
     # ==========================================
     processing_statuses = {"market_pending", "auto_queued", "sent", "offer_sent", "processing"}
-    valid_for_withdraw = {"pending", "failed", "available"}
+    valid_for_withdraw = {"pending", "failed", "available", "canceled"}
     
     # 1. Если статус уже в обработке — жестко блокируем любой повторный вывод!
     if current_status in processing_statuses:
@@ -27383,7 +27394,7 @@ async def confirm_replacement(
     current_status = history_rows[0].get("status")
     
     # Если статус НЕ 'pending', НЕ 'failed' и НЕ 'offer_replacement' - шлем лесом!
-    allowed_statuses = ["pending", "failed", "offer_replacement", "available"]
+    allowed_statuses = ["pending", "failed", "offer_replacement", "available", "canceled"]
     
     if current_status not in allowed_statuses:
         logging.warning(f"[SCAM ALERT] Юзер {user_id} пытается зафармить замену! Статус заявки: {current_status}")
