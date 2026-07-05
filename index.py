@@ -16410,7 +16410,7 @@ async def claim_checkpoint_reward(
         unique_coupon_code = ""
         clean_fake_amount = "0"
         
-       if action_type == "exchange":
+        if action_type == "exchange":
             exchange_stars = int(tier_data.get(f"{track_type}_exchange_stars", 0))
             if exchange_stars <= 0:
                 raise HTTPException(status_code=400, detail="Обмен недоступен для этой награды.")
