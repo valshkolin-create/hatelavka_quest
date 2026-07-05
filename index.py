@@ -11125,14 +11125,14 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
         res = await supabase.get(
-        "/cs_history", 
-        params={
-            "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
-            "select": "id, updated_at, status, tradeofferid", # 🔥 ДОБАВИЛИ tradeofferid
-            "order": "updated_at.asc",
-            "limit": "25" 
-        }
-    )
+            "/cs_history", 
+            params={
+                "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
+                "select": "id, updated_at, status, tradeofferid", # 🔥 ДОБАВИЛИ tradeofferid
+                "order": "updated_at.asc",
+                "limit": "25" 
+            }
+        )
         
         if res.status_code >= 400:
             err_msg = f"CRON FATAL: Ошибка при запросе списка трейдов из БД: {res.text}"
@@ -11168,12 +11168,12 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 minutes_passed = (now - trade_time).total_seconds() / 60
 
                 # 🔥 Достаем реальный custom_id маркета (с префиксом wd_), иначе маркет ничего не найдет!
-            custom_market_id = trade.get("tradeofferid") or str(trade_id)
+                custom_market_id = trade.get("tradeofferid") or str(trade_id)
 
-            try:
-                tm_res = await client.get(
-                    f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_market_id}"
-                )
+                try:
+                    tm_res = await client.get(
+                        f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_market_id}"
+                    )
                     
                     if tm_res.status_code != 200:
                         msg = f"#{trade_id}: TM API Error {tm_res.status_code} -> waiting"
@@ -24457,13 +24457,29 @@ async def check_trade_status_endpoint(
     current_status = item.get("status")
     
     # Берем уникальный ID (с временем), который мы сохраняли в базу
-    custom_id = str(item.get("tradeofferid")) if item.get("tradeofferid") else str(item.get("id"))
+    custom_id = str(item.get("tradeofferid") or item.get("id") or "")
 
-    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
-    
-    # Для обновления таймера и расчета времени БД
     now_utc = datetime.now(timezone.utc)
     now_iso = now_utc.isoformat()
+
+    # =========================================================
+    # 🔥 ФИКС: ЗАЩИТА ПРЯМЫХ ТРЕЙДОВ ОТ БОТА (СКЛАД)
+    # =========================================================
+    # Если статус sent/offer_sent и ID состоит из цифр — это Steam Trade Offer, а не Маркет!
+    if current_status in ["sent", "offer_sent"] and custom_id.isdigit():
+        return {
+            "success": True, 
+            "message": "Оффер отправлен напрямую от нашего бота! Пожалуйста, проверьте входящие обмены в Steam."
+        }
+        
+    # Защита от фантомных запросов: если ID не содержит префикс Маркета (wd_ или repl_)
+    if not custom_id.startswith(("wd_", "repl_")):
+        return {
+            "success": False,
+            "message": "Заказ формируется. Пожалуйста, подождите еще немного..."
+        }
+
+    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     
     # Высчитываем, сколько секунд прошло с момента создания заявки у НАС в базе
     db_updated_at_str = item.get("updated_at")
@@ -24618,7 +24634,7 @@ async def check_trade_status_endpoint(
     except Exception as e:
         print(f"TM API ERROR: {e}")
         return JSONResponse({"success": False, "message": "Временная ошибка связи с Маркетом. Попробуйте позже."})
-
+        
 # 2. Обменять скин на билеты (FIX 400 ERROR)
 
 class SwapRequest(BaseModel):
@@ -26343,133 +26359,399 @@ async def sell_inventory_item(
 
     return {"success": True, "message": f"Обменяно на {tickets_amount} 🎟️!"}
     
+@app.post("/api/v1/user/inventory/check_trade")
+async def check_trade_status_endpoint(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    import os
+    from datetime import datetime, timezone
+    from dateutil import parser
+    from fastapi.responses import JSONResponse
+    
+    body = await request.json()
+    history_id = body.get("history_id")
+    
+    # Проверка авторизации
+    user_data = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
+    if not user_data:
+        return JSONResponse({"success": False, "message": "Auth failed"}, status_code=401)
+
+    # 1. Достаем запись из истории
+    res = await supabase.get("/cs_history", params={
+        "id": f"eq.{history_id}", 
+        "user_id": f"eq.{user_data['id']}"
+    })
+    
+    db_items = res.json() 
+    if res.status_code != 200 or not db_items or len(db_items) == 0:
+        return JSONResponse({"success": False, "message": "Предмет не найден в вашей истории"})
+        
+    item = db_items[0] 
+    current_status = item.get("status")
+    
+    # Берем уникальный ID (с временем), который мы сохраняли в базу
+    custom_id = str(item.get("tradeofferid") or item.get("id") or "")
+
+    now_utc = datetime.now(timezone.utc)
+    now_iso = now_utc.isoformat()
+
+    # =========================================================
+    # 🔥 ФИКС: ЗАЩИТА ПРЯМЫХ ТРЕЙДОВ ОТ БОТА (СКЛАД)
+    # =========================================================
+    if current_status in ["sent", "offer_sent"] and custom_id.isdigit():
+        return {
+            "success": True, 
+            "message": "Оффер отправлен напрямую от нашего бота! Пожалуйста, проверьте входящие обмены в Steam."
+        }
+        
+    if not custom_id.startswith(("wd_", "repl_")):
+        return {
+            "success": False,
+            "message": "Заказ формируется. Пожалуйста, подождите еще немного..."
+        }
+
+    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
+    
+    # Высчитываем время
+    db_updated_at_str = item.get("updated_at")
+    db_seconds_passed = 0
+    if db_updated_at_str:
+        try:
+            db_dt = parser.parse(db_updated_at_str)
+            if db_dt.tzinfo is None:
+                db_dt = db_dt.replace(tzinfo=timezone.utc)
+            db_seconds_passed = (now_utc - db_dt).total_seconds()
+        except Exception as e:
+            print(f"Time parse error in check_trade: {e}")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            tm_res = await client.get(
+                "https://cs2.market/api/v2/get-buy-info-by-custom-id",
+                params={
+                    "key": TM_API_KEY,
+                    "custom_id": custom_id
+                }
+            )
+            
+            # Защита от падения маркета
+            if tm_res.status_code != 200:
+                return {
+                    "success": False, 
+                    "message": f"Маркет временно недоступен (Код: {tm_res.status_code}). Попробуйте позже."
+                }
+
+            tm_data = tm_res.json()
+            print(f"DEBUG TM FOR ITEM {custom_id}: {tm_data}")
+
+            # =========================================================
+            # ОБРАБОТКА ОШИБОК И ЗАДЕРЖКИ ИНДЕКСАЦИИ
+            # =========================================================
+            if not tm_data.get("success"):
+                if tm_data.get("error") == "not found":
+                    if db_seconds_passed > 900:
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "available", "details": "Сделка не была создана Маркетом", "updated_at": now_iso},
+                            headers={"Prefer": "return=representation"}
+                        )
+                        
+                        if patch_res.status_code >= 400:
+                            return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                            
+                        updated_rows = patch_res.json()
+                        if not updated_rows or len(updated_rows) == 0:
+                            return {"success": False, "message": "Статус уже обновлен другим процессом (Cron)."}
+                            
+                        return {
+                            "success": False,
+                            "message": "❌ Маркет отменил/потерял заявку. Предмет снова доступен, попробуйте еще раз.",
+                            "new_status": "available"
+                        }
+                    
+                    return {
+                        "success": False, 
+                        "message": "⌛ Маркет обрабатывает сделку. Информация появится через пару минут..."
+                    }
+                
+                return {
+                    "success": False, 
+                    "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
+                }
+            
+            # =========================================================
+            # ИСПРАВЛЕННЫЙ КОД (БЕЗ settlement)
+            # =========================================================
+            trade_info = tm_data.get("data", {})
+            stage = str(trade_info.get("stage"))
+            
+            tm_buy_time = int(trade_info.get("time") or 0)
+            now_ts = int(now_utc.timestamp())
+            seconds_passed = now_ts - tm_buy_time
+            
+            # УСПЕХ (Stage 2)
+            if stage == "2":
+                update_payload = {"status": "received", "updated_at": now_iso}
+                
+                if not item.get("image_url") and trade_info.get("classid"):
+                    update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
+
+                patch_res = await supabase.patch("/cs_history", 
+                    params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
+                    json=update_payload,
+                    headers={"Prefer": "return=representation"}
+                )
+                
+                if patch_res.status_code >= 400:
+                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                    
+                updated_rows = patch_res.json()
+                if not updated_rows or len(updated_rows) == 0:
+                    return {"success": False, "message": "Статус уже обновлен кроном."}
+                    
+                return {
+                    "success": True, 
+                    "message": "✅ Скин успешно выдан! Приятной игры.", 
+                    "new_status": "received"
+                }
+                
+            # ОТМЕНА (Stage 4, 5 или таймаут)
+            elif stage in ["4", "5"] or (seconds_passed > 2100 and stage == "1"):
+                patch_res = await supabase.patch("/cs_history", 
+                    params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
+                    json={"status": "available", "updated_at": now_iso},
+                    headers={"Prefer": "return=representation"}
+                )
+                
+                if patch_res.status_code >= 400:
+                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                    
+                updated_rows = patch_res.json()
+                if not updated_rows or len(updated_rows) == 0:
+                    return {"success": False, "message": "Статус уже обновлен кроном."}
+                
+                if item.get("assetid"):
+                    await supabase.patch("/steam_inventory_cache", 
+                        params={"assetid": f"eq.{item['assetid']}"}, 
+                        json={"is_reserved": False}
+                    )
+                
+                msg = "Трейд был отменен. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло."
+                return {
+                    "success": False, 
+                    "message": msg, 
+                    "new_status": "available"
+                }
+                
+            # ОЖИДАНИЕ
+            elif stage == "1":
+                time_left = max(1, int((1800 - seconds_passed) / 60))
+                return {
+                    "success": False, 
+                    "message": f"Оффер отправлен! У вас есть около {time_left} мин., чтобы принять его в Steam."
+                }
+            
+            else:
+                return {
+                    "success": False, 
+                    "message": f"Статус: обрабатывается (Код {stage})."
+                }
+                
+    except Exception as e:
+        print(f"TM API ERROR: {e}")
+        return JSONResponse({"success": False, "message": "Временная ошибка связи с Маркетом. Попробуйте позже."})
+
+
 @app.get("/api/v1/cron/check_tm_trades")
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    """
-    АВТОМАТИКА: 
-    1. Чистит битые предметы (которых нет в cs_items).
-    2. Синхронизирует статусы с Маркетом (10 мин лимит).
-    """
-    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
-    if not TM_API_KEY:
-        return {"status": "error", "message": "Отсутствует API ключ TM"}
+    import os
+    import traceback
+    import logging
+    from datetime import datetime, timezone
+    from dateutil import parser
+    
+    print(f"[{datetime.now(timezone.utc).isoformat()}] CRON STARTED: check_tm_trades")
 
-    results_log = []
-
-    # =========================================================
-    # ФАЗА 0: ЧИСТКА ФАНТОМНЫХ ПРЕДМЕТОВ (FIX SELL ERROR)
-    # =========================================================
     try:
-        # Ищем pending предметы и пытаемся подтянуть их данные из магазина
-        clean_res = await supabase.get(
+        TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
+        if not TM_API_KEY:
+            print("CRON ERROR: No TM API key found in environment variables!")
+            return {"status": "error", "message": "No TM API key"}
+
+        results_log = []
+
+        # =========================================================
+        # ФАЗА 0: ЧИСТКА ФАНТОМНЫХ ПРЕДМЕТОВ
+        # =========================================================
+        try:
+            clean_res = await supabase.get(
+                "/cs_history", 
+                params={
+                    "status": "eq.pending",
+                    "select": "id, item:cs_items(id)"
+                }
+            )
+            
+            if clean_res.status_code == 200:
+                potential_phantoms = clean_res.json()
+                for rec in potential_phantoms:
+                    if not rec.get("item"):
+                        p_id = rec.get("id")
+                        await supabase.delete("/cs_history", params={"id": f"eq.{p_id}"})
+                        msg = f"CLEANUP: Deleted phantom item #{p_id}"
+                        print(msg)
+                        results_log.append(msg)
+        except Exception as e:
+            print(f"CRON CLEANUP ERROR: {e}")
+            logging.error(f"Cleanup error: {e}")
+
+        # =========================================================
+        # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
+        # =========================================================
+        res = await supabase.get(
             "/cs_history", 
             params={
-                "status": "eq.pending",
-                "select": "id, item:cs_items(id)" # Пытаемся взять ID из связанной таблицы
+                "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
+                "select": "id, updated_at, status, tradeofferid",
+                "order": "updated_at.asc",
+                "limit": "25" 
             }
         )
         
-        if clean_res.status_code == 200:
-            potential_phantoms = clean_res.json()
-            for rec in potential_phantoms:
-                # Если поле 'item' пустое, значит в cs_items этого предмета больше нет
-                if not rec.get("item"):
-                    p_id = rec.get("id")
-                    # Удаляем фантома, чтобы он не выдавал ошибку при продаже
-                    await supabase.delete("/cs_history", params={"id": f"eq.{p_id}"})
-                    results_log.append(f"ОЧИСТКА: Удален фантомный предмет #{p_id}")
-    except Exception as e:
-        logging.error(f"Ошибка очистки: {e}")
+        if res.status_code >= 400:
+            err_msg = f"CRON FATAL: Ошибка при запросе списка трейдов из БД: {res.text}"
+            print(err_msg)
+            return {"status": "error", "message": err_msg}
+            
+        active_trades = res.json()
 
-    # =========================================================
-    # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
-    # =========================================================
-    res = await supabase.get(
-        "/cs_history", 
-        params={
-            "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
-            "select": "id, updated_at, status",
-            "order": "updated_at.asc",
-            "limit": "25" 
+        if not active_trades and not results_log:
+            print("CRON FINISHED: No active trades found.")
+            return {"status": "ok", "message": "Ничего не найдено для обработки"}
+
+        print(f"CRON: Found {len(active_trades)} trades to check.")
+
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for trade in active_trades:
+                trade_id = trade["id"]
+                updated_at_str = trade.get("updated_at")
+                current_status = trade.get("status")
+                
+                market_custom_id = str(trade.get("tradeofferid") or "")
+                
+                if not market_custom_id.startswith(("wd_", "repl_")):
+                    continue
+                
+                trade_time = parser.parse(updated_at_str) if updated_at_str else now
+                if trade_time.tzinfo is None:
+                    trade_time = trade_time.replace(tzinfo=timezone.utc)
+                    
+                minutes_passed = (now - trade_time).total_seconds() / 60
+
+                custom_market_id = trade.get("tradeofferid") or str(trade_id)
+
+                try:
+                    tm_res = await client.get(
+                        f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_market_id}"
+                    )
+                    
+                    if tm_res.status_code != 200:
+                        msg = f"#{trade_id}: TM API Error {tm_res.status_code} -> waiting"
+                        print(f"CRON LOG: {msg}")
+                        results_log.append(msg)
+                        continue
+
+                    tm_data = tm_res.json()
+                    trade_info = tm_data.get("data", {})
+                    
+                    if not tm_data.get("success") or not trade_info:
+                        if minutes_passed > 15:
+                            patch_res = await supabase.patch("/cs_history", 
+                                params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                                json={"status": "available", "updated_at": now_iso},
+                                headers={"Prefer": "return=representation"}
+                            )
+                            if patch_res.status_code >= 400:
+                                msg = f"#{trade_id}: DB ERROR ON CANCEL -> {patch_res.text}"
+                            else:
+                                msg = f"#{trade_id}: Not found on TM 15m -> available"
+                                
+                            print(f"CRON LOG: {msg}")
+                            results_log.append(msg)
+                        continue
+
+                    stage = str(trade_info.get("stage"))
+                    settlement = int(trade_info.get("settlement") or 0)
+
+                    if settlement > 0 or stage == "2":
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "received", "updated_at": now_iso},
+                            headers={"Prefer": "return=representation"}
+                        )
+                        if patch_res.status_code >= 400:
+                            msg = f"#{trade_id}: DB ERROR ON SUCCESS -> {patch_res.text}"
+                        else:
+                            msg = f"#{trade_id}: Success -> received"
+
+                    elif stage in ["4", "5"]:
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                            json={"status": "available", "updated_at": now_iso},
+                            headers={"Prefer": "return=representation"}
+                        )
+                        if patch_res.status_code >= 400:
+                            msg = f"#{trade_id}: DB ERROR ON TM CANCEL -> {patch_res.text}"
+                        else:
+                            msg = f"#{trade_id}: TM Canceled -> available"
+
+                    elif stage == "1":
+                        if minutes_passed >= 25:
+                            patch_res = await supabase.patch("/cs_history", 
+                                params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                                json={"status": "available", "updated_at": now_iso},
+                                headers={"Prefer": "return=representation"}
+                            )
+                            if patch_res.status_code >= 400:
+                                msg = f"#{trade_id}: DB ERROR ON TIMEOUT -> {patch_res.text}"
+                            else:
+                                msg = f"#{trade_id}: 25m Timeout -> available"
+                        else:
+                            msg = f"#{trade_id}: Stage 1 (Waiting) -> passed {int(minutes_passed)}m"
+
+                    print(f"CRON LOG: {msg}")
+                    results_log.append(msg)
+                    
+                except Exception as e:
+                    error_msg = f"#{trade_id}: LOOP EXCEPTION -> {str(e)}\n{traceback.format_exc()}"
+                    print(error_msg)
+                    results_log.append(f"#{trade_id}: Error -> {str(e)}")
+                    continue
+
+        print("CRON FINISHED SUCCESSFULLY")
+        return {
+            "status": "ok", 
+            "logs": results_log
         }
-    )
-    active_trades = res.json() if res.status_code == 200 else []
 
-    if not active_trades and not results_log:
-        return {"status": "ok", "message": "Ничего не найдено для обработки"}
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(f"CRON FATAL EXCEPTION:\n{error_trace}")
+        return {
+            "status": "fatal_error", 
+            "message": str(e), 
+            "traceback": error_trace
+        }
 
-    now = datetime.now(timezone.utc)
-
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        for trade in active_trades:
-            trade_id = trade["id"]
-            updated_at_str = trade.get("updated_at")
-            
-            # Добавлено для работы patch-запросов (чтобы избежать NameError)
-            current_status = trade.get("status")
-            now_iso = now.isoformat()
-            
-            trade_time = parser.parse(updated_at_str) if updated_at_str else now
-            minutes_passed = (now - trade_time).total_seconds() / 60
-
-            try:
-                tm_res = await client.get(
-                    f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={trade_id}"
-                )
-                
-                if tm_res.status_code != 200:
-                    if minutes_passed > 15: 
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: TM API не отвечает -> доступен (available)")
-                    continue
-
-                tm_data = tm_res.json()
-                trade_info = tm_data.get("data", {})
-                
-                if not tm_data.get("success") or not trade_info:
-                    if minutes_passed > 10:
-                        await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: Не найден на TM спустя 10 мин -> доступен (available)")
-                    continue
-
-                stage = str(trade_info.get("stage"))
-
-                if stage == "2":
-                    patch_res = await supabase.patch("/cs_history", 
-                        params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                        json={"status": "received", "updated_at": now_iso},
-                        headers={"Prefer": "return=representation"}
-                    )
-                    if patch_res.status_code >= 400:
-                        results_log.append(f"#{trade_id}: ОШИБКА БД ПРИ УСПЕХЕ -> {patch_res.text}")
-                    else:
-                        results_log.append(f"#{trade_id}: Успех -> получен (received)")
-
-                elif stage in ["4", "5"]:
-                    patch_res = await supabase.patch("/cs_history", 
-                        params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                        json={"status": "available", "updated_at": now_iso},
-                        headers={"Prefer": "return=representation"}
-                    )
-                    if patch_res.status_code >= 400:
-                        results_log.append(f"#{trade_id}: ОШИБКА БД ПРИ ОТМЕНЕ TM -> {patch_res.text}")
-                    else:
-                        results_log.append(f"#{trade_id}: Отменено TM -> доступен (available)")
-            
-            except Exception as e:
-                results_log.append(f"#{trade_id}: Ошибка -> {str(e)}")
-                continue
-
-    return {
-        "status": "ok", 
-        "logs": results_log
-    }
 
 # --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ЗАМЕН ---
 async def get_replacement_options(target_price_rub: float, target_price_base: float, supabase: httpx.AsyncClient, limit: int = 4):
     """Ищет РАЗНЫЕ предметы на складе ботов И на Маркете. Строгий контроль цены и отсев мусора."""
     import random
-    import urllib.parse
     
     # --- 🛡️ ЗАЩИТА ОТ ДЕШЕВОГО МУСОРА ---
     if target_price_rub <= 0:
@@ -26481,8 +26763,6 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     # ==========================================
     # 💰 ЖЕСТКИЙ ЦЕНОВОЙ КОРИДОР
     # ==========================================
-    # Разрешаем брать скины на 15% дешевле, но максимум равен цене оригинала (1.00). 
-    # Никакой доплаты со стороны сервиса!
     min_p = target_price_rub * 0.85
     max_p = target_price_rub * 1.00 
     
@@ -26492,17 +26772,17 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     # 🗑️ ХИРУРГИЧЕСКИЙ ФИЛЬТР МУСОРА
     # ==========================================
     junk_filters = [
-        "market_hash_name.not.ilike.*Sticker | *",         # Отсекает все наклейки
-        "market_hash_name.not.ilike.*Patch | *",           # Отсекает все нашивки
-        "market_hash_name.not.ilike.*Sealed Graffiti | *", # Отсекает распакованные граффити
-        "market_hash_name.not.ilike.*Graffiti Box*",       # Отсекает коробки с граффити
-        "market_hash_name.not.ilike.* Pin",                # Отсекает значки (строго с пробелом перед Pin)
-        "market_hash_name.not.ilike.*Music Kit*",          # Отсекает музыку и коробки с музыкой
-        "market_hash_name.not.ilike.* Pack",               # Отсекает паки (Patch Pack)
-        "market_hash_name.not.ilike.* Case",               # Отсекает оружейные кейсы
-        "market_hash_name.not.ilike.* Capsule",            # Отсекает капсулы с наклейками
-        "market_hash_name.not.ilike.* Package",            # Отсекает сувенирные наборы
-        "market_hash_name.not.ilike.Souvenir *"            # Отсекает сувенирные скины
+        "market_hash_name.not.ilike.*Sticker | *",
+        "market_hash_name.not.ilike.*Patch | *",
+        "market_hash_name.not.ilike.*Sealed Graffiti | *",
+        "market_hash_name.not.ilike.*Graffiti Box*",
+        "market_hash_name.not.ilike.* Pin",
+        "market_hash_name.not.ilike.*Music Kit*",
+        "market_hash_name.not.ilike.* Pack",
+        "market_hash_name.not.ilike.* Case",
+        "market_hash_name.not.ilike.* Capsule",
+        "market_hash_name.not.ilike.* Package",
+        "market_hash_name.not.ilike.Souvenir *"
     ]
     junk_filter_str = ",".join(junk_filters)
 
@@ -26511,7 +26791,6 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     # ==========================================
     bot_params = {
         "is_reserved": "eq.false",
-        # Ищем строго в ценовом диапазоне И отсекаем весь мусор
         "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p},{junk_filter_str})", 
         "select": "assetid, name_ru, market_hash_name, icon_url, price_rub, condition, rarity",
         "limit": "50" 
@@ -26540,7 +26819,6 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     # ==========================================
     market_params = {
         "is_available": "eq.true",
-        # Применяем тот же бронебойный фильтр к маркету
         "and": f"(price_rub.gte.{min_p},price_rub.lte.{max_p},{junk_filter_str})", 
         "select": "market_hash_name, price_rub",
         "limit": "50" 
