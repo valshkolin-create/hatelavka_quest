@@ -1091,11 +1091,11 @@
             </div>
 
             <!-- ВСТАВЛЯЕМ ПАНЕЛЬ СОРТИРОВКИ СЮДА -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 5px;">
     
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="font-size: 11px; font-weight: 800; color: #888; text-transform: uppercase;">Сортировка:</div>
-        <select id="inventory-sort-select" onchange="applyInventorySort()" style="background: rgba(255,255,255,0.08); color: var(--text-color); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 700; outline: none; cursor: pointer;">
+    <div style="display: flex; align-items: center; gap: 6px;">
+        <div style="font-size: 9px; font-weight: 800; color: #888; text-transform: uppercase;">Сортировка:</div>
+        <select id="inventory-sort-select" onchange="applyInventorySort()" style="background: rgba(255,255,255,0.08); color: var(--text-color); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: 700; outline: none; cursor: pointer;">
             <option value="date_desc" style="color: #000; background: #fff;">Сначала новые</option>
             <option value="date_asc" style="color: #000; background: #fff;">Сначала старые</option>
             <option value="price_desc" style="color: #000; background: #fff;">Сначала дорогие</option>
@@ -1104,7 +1104,7 @@
         </select>
     </div>
 
-    <button id="sell-all-btn" onclick="sellAllItems()" style="background: rgba(255, 215, 0, 0.1); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: none; transition: 0.2s ease;">
+    <button id="sell-all-btn" onclick="sellAllItems()" style="background: rgba(255, 215, 0, 0.1); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 6px; padding: 4px 8px; font-size: 9px; font-weight: 800; cursor: pointer; display: none; transition: 0.2s ease;">
         <i class="fa-solid fa-tags"></i> Продать всё
     </button>
 </div>
