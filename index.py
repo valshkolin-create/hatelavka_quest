@@ -24554,7 +24554,7 @@ async def check_trade_status_endpoint(
                     "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
                 }
             
-# =========================================================
+            # =========================================================
             # ИСПРАВЛЕННЫЙ КОД (ПРАВИЛЬНЫЙ УЧЕТ СТАТУСОВ И SETTLEMENT)
             # =========================================================
             trade_info = tm_data.get("data", {})
@@ -24578,8 +24578,6 @@ async def check_trade_status_endpoint(
             if stage == "2" or is_settled:
                 update_payload = {"status": "received", "updated_at": now_iso}
                 
-                if not item.get("image_url") and trade_info.get("classid"):
-                    update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
 
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
