@@ -26364,12 +26364,12 @@ async def sell_inventory_item(
     # 3. Считаем билеты (Бронебойный float для копеек)
     try:
         replaced_price = row.get('replaced_price')
-        if replaced_price is not None and float(replaced_price) > 0:
-            raw_price = float(replaced_price)
+        if replaced_price is not None and float(str(replaced_price).replace(',', '.')) > 0:
+            raw_price = float(str(replaced_price).replace(',', '.'))
         else:
             item_data = row.get('item') or {}
-            # Пробуем взять price_rub, если нет - берем обычный price
-            raw_price = float(item_data.get('price_rub') or item_data.get('price') or 0.0)
+            raw_price_str = str(item_data.get('price_rub') or item_data.get('price') or 0.0)
+            raw_price = float(raw_price_str.replace(',', '.'))
             
         # Умножаем на 0.5 (чтобы 1 рубль = 0.5 билета)
         tickets_amount = round(raw_price * 0.5, 2)
@@ -26377,22 +26377,35 @@ async def sell_inventory_item(
             tickets_amount = 0.01
             
     except Exception as e:
-        print(f"[SELL] Ошибка парсинга цены: {e}")
+        print(f"[SELL] Ошибка парсинга цены для {req.history_id}: {e}")
         tickets_amount = 0.01
 
-    print(f"[SELL] Начисляем {tickets_amount} билетов")
+    print(f"[SELL] Начисляем {tickets_amount} билетов юзеру {user_id}")
 
-    # 4. Начисляем билеты юзеру
+    # 4. Начисляем билеты юзеру (С ЗАЩИТОЙ ОТ ТИХИХ ОШИБОК)
     try:
-        await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": tickets_amount})
+        rpc_resp = await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": tickets_amount})
+        
+        # Если база вернула HTTP-ошибку (например, 400 из-за кэша типов), жестко кидаем Exception
+        if hasattr(rpc_resp, 'status_code') and rpc_resp.status_code >= 400:
+            print(f"[SELL] ОШИБКА RPC: {rpc_resp.status_code} - {rpc_resp.text}")
+            raise Exception("RPC_FAILED")
+            
     except Exception as e:
-        print(f"[SELL] Ошибка RPC, пробуем патч. {e}")
+        print(f"[SELL] RPC не сработал ({e}), пробуем запасной патч...")
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-        if u_res.json():
+        
+        if hasattr(u_res, 'status_code') and u_res.status_code == 200 and u_res.json():
             curr = u_res.json()[0].get('tickets', 0)
-            safe_curr = float(curr) if curr else 0.0
+            safe_curr = float(str(curr).replace(',', '.')) if curr else 0.0
             new_balance = round(safe_curr + tickets_amount, 2)
-            await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
+            
+            patch_resp = await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
+            if hasattr(patch_resp, 'status_code') and patch_resp.status_code >= 400:
+                print(f"[SELL] ФАТАЛЬНАЯ ОШИБКА ПАТЧА: {patch_resp.text}")
+                raise HTTPException(status_code=500, detail="Не удалось обновить баланс. Попробуйте позже.")
+        else:
+            raise HTTPException(status_code=500, detail="Не удалось получить профиль пользователя.")
 
     return {"success": True, "message": f"Обменяно на {tickets_amount} 🎟️!"}
     
