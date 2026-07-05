@@ -2366,6 +2366,9 @@ window.acknowledgeCancel = function(historyId) {
     // Скрываем блюр
     const overlay = document.getElementById(`blur-overlay-${historyId}`);
     if (overlay) overlay.style.display = 'none';
+
+    // Добавь это, чтобы сразу обновить состояние кнопок
+    if (typeof loadData === 'function') loadData(true);
 };
     
 // --- ФУНКЦИЯ "ЗАБРАТЬ" (С авто-обновлением) ---
