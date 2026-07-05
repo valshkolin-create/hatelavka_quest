@@ -11084,7 +11084,12 @@ async def cron_check_steam_bots(
     
 @app.get("/api/v1/cron/check_tm_trades")
 async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-
+    import os
+    import traceback
+    import logging
+    from datetime import datetime, timezone
+    from dateutil import parser
+    
     # Этот принт 100% появится в логах Vercel при запуске крона
     print(f"[{datetime.now(timezone.utc).isoformat()}] CRON STARTED: check_tm_trades")
 
@@ -11128,7 +11133,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
             "/cs_history", 
             params={
                 "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
-                "select": "id, updated_at, status, tradeofferid", # 🔥 ДОБАВИЛИ tradeofferid
+                "select": "id, updated_at, status, tradeofferid",
                 "order": "updated_at.asc",
                 "limit": "25" 
             }
@@ -11225,19 +11230,15 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         else:
                             msg = f"#{trade_id}: TM Canceled -> available"
 
+                    # =========================================================
+                    # БЕЗОПАСНАЯ ЛОГИКА ОЖИДАНИЯ (БЕЗ АВТО-ОТМЕНЫ)
+                    # =========================================================
                     elif stage == "1":
-                        if minutes_passed >= 25:
-                            patch_res = await supabase.patch("/cs_history", 
-                                params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                                json={"status": "available", "updated_at": now_iso},
-                                headers={"Prefer": "return=representation"}
-                            )
-                            if patch_res.status_code >= 400:
-                                msg = f"#{trade_id}: DB ERROR ON TIMEOUT -> {patch_res.text}"
-                            else:
-                                msg = f"#{trade_id}: 25m Timeout -> available"
-                        else:
-                            msg = f"#{trade_id}: Stage 1 (Waiting) -> passed {int(minutes_passed)}m"
+                        # Просто логируем ожидание, НИЧЕГО НЕ МЕНЯЕМ В БАЗЕ
+                        msg = f"#{trade_id}: Stage 1 (Waiting) -> passed {int(minutes_passed)}m"
+
+                    else:
+                        msg = f"#{trade_id}: Stage {stage} (Unknown) -> passed {int(minutes_passed)}m"
 
                     print(f"CRON LOG: {msg}")
                     results_log.append(msg)
@@ -24553,18 +24554,19 @@ async def check_trade_status_endpoint(
                     "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
                 }
             
-            # =========================================================
-            # ИСПРАВЛЕННЫЙ КОД (БЕЗ settlement)
+           # =========================================================
+            # ИСПРАВЛЕННЫЙ КОД (С УЧЕТОМ SETTLEMENT)
             # =========================================================
             trade_info = tm_data.get("data", {})
             stage = str(trade_info.get("stage"))
+            settlement = int(trade_info.get("settlement") or 0)
             
             tm_buy_time = int(trade_info.get("time") or 0)
             now_ts = int(now_utc.timestamp())
             seconds_passed = now_ts - tm_buy_time
             
-            # ЛОГИКА УСПЕХА (Строго Stage 2)
-            if stage == "2":
+            # ЛОГИКА УСПЕХА: Либо Stage 2, либо Маркет зафиксировал передачу (settlement > 0)
+            if stage == "2" or settlement > 0:
                 update_payload = {"status": "received", "updated_at": now_iso}
                 
                 if not item.get("image_url") and trade_info.get("classid"):
@@ -24575,19 +24577,6 @@ async def check_trade_status_endpoint(
                     json=update_payload,
                     headers={"Prefer": "return=representation"}
                 )
-                
-                if patch_res.status_code >= 400:
-                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
-                    
-                updated_rows = patch_res.json()
-                if not updated_rows or len(updated_rows) == 0:
-                    return {"success": False, "message": "Статус уже обновлен кроном."}
-                    
-                return {
-                    "success": True, 
-                    "message": "✅ Скин успешно выдан! Приятной игры.", 
-                    "new_status": "received"
-                }
                 
             # ЛОГИКА ОТМЕНЫ (Stage 4, 5 или таймаут)
             elif stage in ["4", "5"] or (seconds_passed > 2100 and stage == "1"):
