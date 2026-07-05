@@ -24478,7 +24478,6 @@ async def check_trade_status_endpoint(
             print(f"Time parse error in check_trade: {e}")
 
     try:
-        try:
         # Увеличиваем таймаут, так как Маркет может долго «думать»
         async with httpx.AsyncClient(timeout=15.0) as client:
             tm_res = await client.get(
