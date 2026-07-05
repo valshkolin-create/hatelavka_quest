@@ -2178,8 +2178,15 @@ function renderInventory(items, isSorting = false) {
         const isSwapped = item.is_swapped === true;
         const isReplaced = !!item.replaced_name && !isSwapped; 
         const displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
-        const rawPrice = (isReplaced || isSwapped) && item.replaced_price ? parseFloat(item.replaced_price) : parseFloat(item.price || 0);
-        const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
+        // Меняем запятые на точки и берем price_rub, если обычный price пуст
+let strPrice = String(item.price_rub || item.price || "0").replace(',', '.');
+let strReplaced = String(item.replaced_price || "0").replace(',', '.');
+
+let parsedBasePrice = parseFloat(strPrice) || 0;
+let parsedReplPrice = parseFloat(strReplaced) || 0;
+
+const rawPrice = (isReplaced || isSwapped) && parsedReplPrice > 0 ? parsedReplPrice : parsedBasePrice;
+const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
 
         const imageContentHtml = isReplaced 
             ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
@@ -2379,9 +2386,15 @@ window.exchangeItem = function(historyId, amount) {
     showCustomConfirmHTML(`Продать скин за ${amount} 🎟️?`, async (close) => {
         showLoader();
         try {
-            await makeApiRequest('/api/v1/user/inventory/sell', { history_id: historyId });
-            tg.showAlert(`Успешно! +${amount} билетов начислено.`);
-            await loadData(true); // Мгновенное обновление
+            // Сохраняем ответ от сервера в переменную res
+            const res = await makeApiRequest('/api/v1/user/inventory/sell', { history_id: historyId });
+            
+            // Если сервер прислал message с точной суммой - показываем его. 
+            // Иначе показываем дефолтный текст.
+            const msg = res && res.message ? res.message : `Успешно! +${amount} билетов.`;
+            tg.showAlert(msg);
+            
+            await loadData(true); 
             close();
         } catch (e) {
             tg.showAlert(e.message || "Ошибка обмена");
