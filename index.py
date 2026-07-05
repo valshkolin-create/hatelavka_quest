@@ -24547,7 +24547,7 @@ async def check_trade_status_endpoint(
                     # Иначе просто ждем (индексация обычно занимает до 2 минут)
                     return {
                         "success": False, 
-                        "message": "⌛ Маркет обрабатывает сделку. Информация появится через пару минут..."
+                        "message": "⌛ Маркет обрабатывает сделку. Информация появится в течении 30 минут..."
                     }
                 
                 return {
@@ -24655,7 +24655,7 @@ async def check_trade_status_endpoint(
                         )
                     return {
                         "success": False,
-                        "message": "Маркет закупает предмет и готовит отправку. Подождите пару минут.",
+                        "message": "Маркет закупает предмет и готовит отправку. Подождите немного.",
                         "new_status": "market_pending"
                     }
             
@@ -26310,7 +26310,99 @@ async def finish_guess_game(req: GuessAdminBaseRequest, supabase: httpx.AsyncCli
     await supabase.delete("/guess_leaderboard", params={"score": "gte.0"})
 
     return {"status": "success", "log": results_log}
+
+class BaseAuthRequest(BaseModel):
+    initData: str
+
+@app.post("/api/v1/user/inventory/sell_all")
+async def sell_all_inventory_items(
+    req: BaseAuthRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Auth failed")
+
+    user_id = user_data['id']
+    await verify_user_not_banned(user_id, supabase)
+
+    # 1. Получаем все предметы пользователя, доступные для продажи
+    check_resp = await supabase.get(
+        "/cs_history",
+        params={
+            "user_id": f"eq.{user_id}",
+            "status": "in.(pending,failed,available,canceled)",
+            "select": "id, status, replaced_price, item:cs_items(price, price_rub)"
+        }
+    )
     
+    rows = check_resp.json()
+    if not rows or not isinstance(rows, list):
+        raise HTTPException(status_code=400, detail="Нет предметов для обмена")
+
+    total_tickets = 0.0
+    ids_to_update = []
+
+    # 2. Считаем общую сумму билетов (с защитой от запятых)
+    for row in rows:
+        try:
+            replaced_price = row.get('replaced_price')
+            if replaced_price is not None and float(str(replaced_price).replace(',', '.')) > 0:
+                raw_price = float(str(replaced_price).replace(',', '.'))
+            else:
+                item_data = row.get('item') or {}
+                raw_price_str = str(item_data.get('price_rub') or item_data.get('price') or 0.0)
+                raw_price = float(raw_price_str.replace(',', '.'))
+                
+            t_val = round(raw_price * 0.5, 2)
+            if t_val <= 0: 
+                t_val = 0.01
+                
+            total_tickets += t_val
+            ids_to_update.append(str(row['id']))
+        except Exception as e:
+            print(f"[SELL_ALL] Ошибка парсинга цены предмета {row.get('id')}: {e}")
+            continue
+
+    total_tickets = round(total_tickets, 2)
+
+    if not ids_to_update or total_tickets <= 0:
+        raise HTTPException(status_code=400, detail="Не удалось рассчитать стоимость предметов")
+
+    # 3. АТОМАРНЫЙ МАССОВЫЙ ПАТЧ
+    ids_csv = ",".join(ids_to_update)
+    patch_res = await supabase.patch(
+        "/cs_history", 
+        params={
+            "id": f"in.({ids_csv})",
+            "status": "in.(pending,failed,available,canceled)" # Щит от дюпов
+        }, 
+        json={"status": "exchanged"},
+        headers={"Prefer": "return=representation"}
+    )
+    
+    updated_rows = patch_res.json()
+    if not updated_rows or len(updated_rows) == 0:
+        raise HTTPException(status_code=400, detail="Предметы уже в обработке!")
+
+    # 4. Начисляем билеты юзеру (нашим надежным RPC)
+    try:
+        rpc_resp = await supabase.post("/rpc/increment_tickets", json={"p_user_id": user_id, "p_amount": total_tickets})
+        if hasattr(rpc_resp, 'status_code') and rpc_resp.status_code >= 400:
+            raise Exception("RPC_FAILED")
+    except Exception as e:
+        # Резервное начисление
+        u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
+        if hasattr(u_res, 'status_code') and u_res.status_code == 200 and u_res.json():
+            curr = u_res.json()[0].get('tickets', 0)
+            safe_curr = float(str(curr).replace(',', '.')) if curr else 0.0
+            new_balance = round(safe_curr + total_tickets, 2)
+            await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
+
+    # Считаем, сколько предметов реально удалось продать (защита от гонки)
+    sold_count = len(updated_rows)
+    return {"success": True, "message": f"Продано {sold_count} шт. за {total_tickets} 🎟️!"}
+
 @app.post("/api/v1/user/inventory/sell")
 async def sell_inventory_item(
     req: InventorySellRequest,
@@ -26522,7 +26614,7 @@ async def check_trade_status_endpoint(
                     
                     return {
                         "success": False, 
-                        "message": "⌛ Маркет обрабатывает сделку. Информация появится через пару минут..."
+                        "message": "⌛ Маркет обрабатывает сделку. Информация появится в течении 30 минут..."
                     }
                 
                 return {
@@ -27129,7 +27221,7 @@ async def withdraw_inventory_item(
                     await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                         "status": "processing", "updated_at": now_iso
                     })
-                    return {"success": True, "message": "Steam долго обрабатывает трейд. Пожалуйста, подождите пару минут."}
+                    return {"success": True, "message": "Steam долго обрабатывает трейд. Пожалуйста, подождите немного."}
 
                 err_msg = trade_res.get('error', 'Steam Error')
                 logging.error(f"[COURIER] Сбой при выдаче оригинала: {err_msg}. Снимаем резерв.")
